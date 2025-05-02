@@ -107,14 +107,16 @@ def parse_card_data(html_content):
     
     return cards
 
-def main():
+def htmlScraper(setName):
     with open("page_content.html", "r", encoding="utf-8") as f:
         html_content = f.read()
 
     cards = parse_card_data(html_content)
 
     # Excel integration
-    excel_path = r'D:\Python Code\Expected Value and Cost Ratio Calculator Pokemon\excelDocs\scarletAndViolet151\pokemon_data.xlsx'
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    excel_path = os.path.join(base_dir, 'excelDocs', setName, 'pokemon_data.xlsx')
+
 
     if not os.path.exists(excel_path):
         raise FileNotFoundError(f"Excel file not found at {excel_path}")
@@ -170,4 +172,4 @@ def main():
     print(f"Successfully updated {len(cards)} cards with pull rates and rarities")  # Updated log message
 
 if __name__ == "__main__":
-    main()
+    htmlScraper()
