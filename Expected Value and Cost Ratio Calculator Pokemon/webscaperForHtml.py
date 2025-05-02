@@ -27,8 +27,8 @@ def human_like_scroll(page):
         """)
         human_like_delay()
 
-def scrape_tcgplayer():
-    url = 'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/price-guides/sv-scarlet-and-violet-151'
+def scrape_tcgplayer(setURL):
+    url = setURL
     html_output = "page_content.html"
     
     with sync_playwright() as p:
@@ -91,5 +91,3 @@ def scrape_tcgplayer():
             browser.close()
             print("Browser closed")
 
-if __name__ == "__main__":
-    scrape_tcgplayer()
