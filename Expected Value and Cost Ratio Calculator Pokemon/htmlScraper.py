@@ -3,33 +3,31 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 import os
 
-# Rarity to pull rate mapping (1/X)
-RARITY_MAPPING = {
-    'common' : 46, # 5.5/46 (there are 5-6 commons in each pack with 46 total commons in the set)
-    'uncommon': 33, # 1.5/33 (there are 1-2 uncommons in each pack with 33 total uncommons in the set)
-    'rare': 21, # 1.5/21 (there are 1-2 rares in each pack with 21 total rares in the set)
-    'double rare': 106,
-    'ultra rare': 161,
-    'special illustration rare': 1440,
-    'hyper rare': 900,
-    # Special cases (checked first)
-    'poke ball pattern': 302,
-    'master ball pattern': 1362,
-    'ace spec': 128
-}
+def load_rarity_config(wb):
+    """Load rarity configuration from '_RarityConfig' sheet in the workbook"""
+    try:
+        config_sheet = wb['_RarityConfig']
+        config = {}
+        for row in config_sheet.iter_rows(min_row=2, values_only=True):
+            if row[0] and row[1]:  # If we have both rarity name and pull rate
+                config[str(row[0]).strip().lower()] = float(row[1])
+        return config
+    except KeyError:
+        # Fallback to default values if config sheet doesn't exist
+        return {}
 
-def determine_pull_rate(card_name, rarity_text):
+def determine_pull_rate(card_name, rarity_text, rarity_mapping):
     """Determine pull rate based on card name and rarity text (optimized)."""
     card_name_lower = card_name.lower()
     rarity_lower = rarity_text.lower()
 
     # Check special cases first (exact name matches)
     if 'poke ball pattern' in card_name_lower:
-        return 302
+        return rarity_mapping.get('poke ball pattern', 302)
     if 'master ball pattern' in card_name_lower:
-        return 1362
+        return rarity_mapping.get('master ball pattern', 1362)
     if 'ace spec' in rarity_lower:  # Moved here since it's a special case
-        return 128
+        return rarity_mapping.get('ace spec', 128)
 
     # Define priority checks (order matters for overlapping terms)
     rarity_checks = [
@@ -46,11 +44,11 @@ def determine_pull_rate(card_name, rarity_text):
 
     for (rarity_key, match_term) in rarity_checks:
         if match_term in f' {rarity_lower} ':  # Add spaces to avoid partial matches
-            return RARITY_MAPPING[rarity_key]
+            return rarity_mapping.get(rarity_key)
 
     return None  # No match found
 
-def parse_card_data(html_content):
+def parse_card_data(html_content, rarity_mapping):
     soup = BeautifulSoup(html_content, 'html.parser')
     cards = []
     
@@ -88,9 +86,9 @@ def parse_card_data(html_content):
             
             # 4. SPECIAL CASE FOR ACE SPEC (not in name but in rarity)
             if 'ACE SPEC' in rarity:
-                pull_rate = 128
+                pull_rate = rarity_mapping.get('ace spec', 128)
             else:
-                pull_rate = determine_pull_rate(name, rarity)
+                pull_rate = determine_pull_rate(name, rarity, rarity_mapping)
             
             cards.append({
                 'Card Name': name,
@@ -99,29 +97,26 @@ def parse_card_data(html_content):
                 'Pull Rate (1/X)': pull_rate
             })
             
-
-            
         except Exception as e:
             print(f"Error processing row: {e}")
             continue
     
     return cards
 
-def htmlScraper(setName):
+def htmlScraper(excel_path):
     with open("page_content.html", "r", encoding="utf-8") as f:
         html_content = f.read()
-
-    cards = parse_card_data(html_content)
-
-    # Excel integration
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    excel_path = os.path.join(base_dir, 'excelDocs', setName, 'pokemon_data.xlsx')
-
 
     if not os.path.exists(excel_path):
         raise FileNotFoundError(f"Excel file not found at {excel_path}")
 
+    # Load workbook and rarity config first
     wb = load_workbook(excel_path)
+    rarity_mapping = load_rarity_config(wb)
+    
+    # Parse card data with the loaded rarity mapping
+    cards = parse_card_data(html_content, rarity_mapping)
+
     sheet = wb.active
 
     # Find or create columns (now includes 'Rarity')
@@ -153,7 +148,7 @@ def htmlScraper(setName):
             price_value = price_str
         
         sheet.cell(row=i, column=column_indices['Price ($)'], value=price_value)
-        sheet.cell(row=i, column=column_indices['Rarity'], value=card['Rarity'])  # NEW: Write Rarity
+        sheet.cell(row=i, column=column_indices['Rarity'], value=card['Rarity'])
         sheet.cell(row=i, column=column_indices['Pull Rate (1/X)'], value=card['Pull Rate (1/X)'])
         
         # Apply formatting
@@ -169,7 +164,7 @@ def htmlScraper(setName):
         sheet.column_dimensions[col_letter].width = max(15, max_length) * 1.2
 
     wb.save(excel_path)
-    print(f"Successfully updated {len(cards)} cards with pull rates and rarities")  # Updated log message
+    print(f"Successfully updated {len(cards)} cards with pull rates and rarities")
 
 if __name__ == "__main__":
     htmlScraper()
