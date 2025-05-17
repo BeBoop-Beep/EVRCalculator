@@ -3,215 +3,173 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 import os
 
-def load_rarity_config(wb):
-    """Load rarity configuration from '_RarityConfig' sheet"""
+def calculate_pack_ev(file_path, RARITY_MAPPING):
+    # ----- Load and Prepare Data -----
     try:
-        config_sheet = wb['_RarityConfig']
-        config = {}
-        for row in config_sheet.iter_rows(min_row=2, values_only=True):
-            if row[0] and row[1]:  # If both columns have values
-                config[str(row[0]).strip().lower()] = float(row[1])
-        return config
-    except KeyError:
-        print("No '_RarityConfig' sheet found - using default values")
-        return {}
+        df = pd.read_excel(file_path)
+        print(file_path)
+    except FileNotFoundError:
+        df = pd.read_csv(file_path)
 
-def calculate_pack_ev(file_path):
-    """
-    Calculate pack expected value (EV) and related metrics from a Pokémon card spreadsheet.
-    """
-    # Load workbook first to get rarity config
-    wb = load_workbook(file_path)
-    rarity_config = load_rarity_config(wb)
-    
-    # Now load data with pandas
-    df = pd.read_excel(file_path, engine='openpyxl')
-
-    # Ensure minimum required columns exist
-    required_columns = ["Card Name", "Pull Rate (1/X)", "Price ($)", "Hit Rate Adjustment (1+HR)"]
-    for col in required_columns:
+    # Ensure required columns exist
+    required_cols = ['Rarity', 'Price ($)', 'Pull Rate (1/X)', 'Current Market Pack Price']
+    for col in required_cols:
         if col not in df.columns:
-            raise KeyError(f"Missing required column: '{col}' in the spreadsheet.")
+            raise ValueError(f"Input data must contain a '{col}' column.")
 
-    # Market price per pack
-    pack_price = df["Current Market Pack Price"].iloc[0]
+    # Clean Pull Rate column first (remove $ and commas)
+    df['Pull Rate (1/X)'] = (
+        df['Pull Rate (1/X)']
+        .astype(str)
+        .str.replace('[$,]', '', regex=True)
+        .replace('', pd.NA)
+    )
 
-    # Dynamic hit rarities based on config
-    HIT_RARITIES = [
-        "master ball pattern",
-        "special illustration rare",
-        "illustration rare",
-        "ace spec",
-        "hyper rare",
-        "ultra rare"
-    ] if rarity_config is None else [
-        k for k in rarity_config.keys() 
-        if any(x in k for x in ['rare', 'spec', 'hyper', 'ultra', 'illustration'])
+    # Process other columns
+    df['rarity_raw'] = df['Rarity'].astype(str).str.lower().str.strip()
+    df['rarity_group'] = df['rarity_raw'].map(RARITY_MAPPING).fillna('other')
+    PACK_PRICE = pd.to_numeric(df["Current Market Pack Price"].iloc[0], errors='coerce')
+
+    # Convert to numeric after cleaning
+    df['Price ($)'] = pd.to_numeric(df['Price ($)'], errors='coerce')
+    df['Pull Rate (1/X)'] = pd.to_numeric(df['Pull Rate (1/X)'], errors='coerce')
+    df = df.dropna(subset=['Price ($)', 'Pull Rate (1/X)'])
+
+    if (df['Pull Rate (1/X)'] == 0).any():
+        df = df[df['Pull Rate (1/X)'] != 0]
+        print("Warning: Removed cards with zero pull rate.")
+
+    # ----- EV Calculations -----
+    # Per Card EV Contribution
+    df['EV'] = df['Price ($)'] / df['Pull Rate (1/X)']
+
+    # ----- EV for Reverse Holos -----
+    if 'Reverse Variant Price ($)' in df.columns:
+        df['Reverse Variant Price ($)'] = pd.to_numeric(df['Reverse Variant Price ($)'], errors='coerce')
+
+        # Exclude IR and SIR since they are treated separately
+        is_standard_reverse = ~df['Rarity'].isin(['Illustration Rare', 'Special Illustration Rare'])
+
+        # Calculate EV for standard reverse holos only
+        df['EV_Reverse'] = 0
+        df.loc[is_standard_reverse, 'EV_Reverse'] = df.loc[is_standard_reverse, 'Reverse Variant Price ($)'].fillna(0) / df.loc[is_standard_reverse, 'Pull Rate (1/X)']
+
+        ev_reverse_total = df.loc[is_standard_reverse, 'EV_Reverse'].sum()
+    else:
+        ev_reverse_total = 0
+
+
+
+    # Identify reverse cards that are also marked as hits
+    reverse_hits_overlap = df[
+        (df['rarity_group'] == 'hits') &
+        (df['Reverse Variant Price ($)'].notna()) &
+        (df['Reverse Variant Price ($)'] > 0)
     ]
 
-    # Function to identify hits
-    def is_hit(row):
-        card_name = str(row["Card Name"]).lower()
-        rarity = str(row["Rarity"]).lower() if "Rarity" in df.columns else ""
-        if "master ball pattern" in card_name:
-            return True
-        return any(hit_rarity in rarity for hit_rarity in HIT_RARITIES)
+    if not reverse_hits_overlap.empty:
+        print("\n⚠️ Warning: The following 'hit' cards also have Reverse Variant Prices and may be double-counted:")
+        print(reverse_hits_overlap[['Name', 'Rarity', 'Price ($)', 'Reverse Variant Price ($)', 'Pull Rate (1/X)']])
+        print("Consider excluding these from reverse EV if they are pulled only in hit slots.")
+    else:
+        print("\n✅ No overlapping hit cards found in reverse variants — no double-counting risk.")
 
-    # Calculate hit rate adjustment
-    total_cards = len(df)
-    total_hits = sum(df.apply(is_hit, axis=1))
-    hit_rate_adjustment = 1 + (total_hits / total_cards)
-    df.loc[df.index[0], "Hit Rate Adjustment (1+HR)"] = hit_rate_adjustment
 
-    # Define rarity groups and multipliers (can be moved to config if needed)
-    RARITY_GROUPS = {
-        "common": 5.5,
-        "uncommon": 1.5,
-        "rare": 1.5
-    }
+    ir_sir_df = df[df['Rarity'].isin(['Illustration Rare', 'Special Illustration Rare'])]
+    prob_ir_sir = (1 / ir_sir_df['Pull Rate (1/X)']).sum()
+    prob_ir_sir = min(prob_ir_sir, 1.0)
+    reverse_multiplier = 1 + (1 - prob_ir_sir)
 
-    def classify_card(row, rarity_config):
-        if rarity_config is None:
-                rarity_config = {}
-        """Classify cards with 0 as default for unconfigured rarities"""
-        card_name = str(row["Card Name"]).lower()
-        rarity = str(row["Rarity"]).lower() if "Rarity" in row.index else ""
-        
-        # 1. Check config first (returns 0 if rarity not found)
-        for config_rarity in sorted(rarity_config.keys(), key=len, reverse=True):
-            if config_rarity in rarity or config_rarity in card_name:
-                return (
-                    rarity_config.get(config_rarity, 0),  # Default 0 if key exists but rate is missing
-                    "common" if "common" in config_rarity else
-                    "uncommon" if "uncommon" in config_rarity else
-                    "rare" if "rare" in config_rarity else "other"
-                )
-        
-        # 2. Hardcoded fallbacks with 0 defaults
-        if "poke ball pattern" in card_name:
-            return (rarity_config.get('poke ball pattern', 0), "other")
-        if "master ball pattern" in card_name:
-            return (rarity_config.get('master ball pattern', 0), "other")
-        if "ace spec" in rarity:
-            return (rarity_config.get('ace spec', 0), "other")
-        
-        # 3. Base rarities
-        if rarity == "common":
-            return (rarity_config.get('common', 0), "common")
-        if rarity == "uncommon":
-            return (rarity_config.get('uncommon', 0), "uncommon")
-        if rarity in ["rare", "holo rare"]:
-            return (rarity_config.get('rare', 0), "rare")
-        
-        # 4. Everything else gets 0
-        return (0, "other")
+    ir_rare_slot_secret_rare_df = df[df['Rarity'].isin(['Ultra Rare', 'Hyper Rare', 'Double Rare'])]
+    prob_secret_rare_in_rare = (1 / ir_rare_slot_secret_rare_df['Pull Rate (1/X)']).sum()
+    prob_secret_rare_in_rare = min(prob_secret_rare_in_rare, 1.0)
+    rare_multiplier = 1 + (1 - prob_secret_rare_in_rare)
 
-    # Classify all cards
-    df[["Pull Rate", "Rarity Group"]] = df.apply(
-    lambda row: pd.Series(classify_card(row, rarity_config=rarity_config)), axis=1)
-    
-    # [Rest of your original calculate_pack_ev function...]
-    # ... including EV calculations, saving, and results preparation
+    # ----- EV by Rarity Group (already includes pack copies) -----
+    ev_common_total   = df.loc[df['Rarity'] == 'Common',   'EV'].sum()
+    ev_uncommon_total = df.loc[df['Rarity'] == 'Uncommon', 'EV'].sum()
+    ev_rare_total     = df.loc[df['Rarity'] == 'Rare',     'EV'].sum()
+    ev_double_rare_total     = df.loc[df['Rarity'] == 'Double Rare',     'EV'].sum()
+    ev_hyper_rare_total   = df.loc[df['Rarity'] == 'Hyper Rare',   'EV'].sum()
+    ev_ultra_rare_total = df.loc[df['Rarity'] == 'Ultra Rare', 'EV'].sum()
+    ev_SIR_total     = df.loc[df['Rarity'] == 'Special Illustration Rare',     'EV'].sum()
+    ev_IR_total     = df.loc[df['Rarity'] == 'Illustration Rare',     'EV'].sum()
+    ev_hits_total     = df.loc[df['rarity_group'] == 'hits',     'EV'].sum()
+    ev_other_total    = df.loc[df['rarity_group'] == 'other',    'EV'].sum()
 
-  
-    # Calculate EV components for each group
-    ev_components = {
-        "common": df[df["Rarity Group"] == "common"]["Price ($)"].div(
-                  df[df["Rarity Group"] == "common"]["Pull Rate"]).sum(),
-        "uncommon": df[df["Rarity Group"] == "uncommon"]["Price ($)"].div(
-                    df[df["Rarity Group"] == "uncommon"]["Pull Rate"]).sum(),
-        "rare": df[df["Rarity Group"] == "rare"]["Price ($)"].div(
-                df[df["Rarity Group"] == "rare"]["Pull Rate"]).sum(),
-        "other": df[df["Rarity Group"] == "other"]["Price ($)"].div(
-                 df[df["Rarity Group"] == "other"]["Pull Rate"]).sum()
-    }
+    print("ev_common_total: ",ev_common_total*4)
+    print("ev_uncommon_total: ",ev_uncommon_total*3)
+    print("ev_rare_total: ",ev_rare_total*rare_multiplier)
+    print("ev_double_rare_total: ",ev_double_rare_total)
+    print("ev_hyper_rare_total: ",ev_hyper_rare_total)
+    print("ev_ultra_rare_total: ",ev_ultra_rare_total)
+    print("ev_SIR_total: ",ev_SIR_total)
+    print("ev_IR_total: ",ev_IR_total)
+    print("ev_reverse_total: ", ev_reverse_total*reverse_multiplier)
+    print("reverse_multiplier: ", reverse_multiplier)
+    print("rare_multiplier: ", rare_multiplier)
+    ev_total_for_hits = ev_hyper_rare_total + ev_ultra_rare_total + ev_SIR_total + ev_IR_total
+    print("Comparing: ev_total_for_hits: ", ev_total_for_hits, "  &  ev_hits_total: ", ev_hits_total)
 
-    # Apply multipliers and calculate totals
-    common_ev = ev_components["common"] * RARITY_GROUPS["common"]
-    uncommon_ev = ev_components["uncommon"] * RARITY_GROUPS["uncommon"]
-    rare_ev = ev_components["rare"] * RARITY_GROUPS["rare"]
-    other_ev = ev_components["other"] * 1  # multiplier of 1
+    # ----- Totals -----
+    total_ev = (
+        ev_common_total*4 + 
+        ev_uncommon_total*3 + 
+        ev_rare_total*rare_multiplier + 
+        ev_double_rare_total + 
+        ev_hyper_rare_total +
+        ev_ultra_rare_total +
+        ev_SIR_total +
+        ev_IR_total +
+        ev_other_total + 
+        ev_reverse_total*reverse_multiplier
+    )
+    print("total_ev: ", total_ev)
+    net_value = total_ev - PACK_PRICE
+    roi = total_ev / PACK_PRICE
+    roi_percent = (roi - 1) * 100
 
-    # Calculate base EV before hit rate adjustment
-    EV_base = common_ev + uncommon_ev + rare_ev + other_ev
-    EV = EV_base * hit_rate_adjustment
-    net_value = EV - pack_price
-    roi_per_pack = EV / pack_price
 
-    # Add all calculations to the DataFrame for inspection
-    df["EV Component"] = df["Price ($)"] / df["Pull Rate"]
-    df.loc[0, "Total Cards"] = total_cards
-    df.loc[0, "Total Hits"] = total_hits
-    df.loc[0, "Hit Rate Adjustment"] = hit_rate_adjustment
-    df.loc[0, "Common EV Sum"] = ev_components["common"]
-    df.loc[0, "Uncommon EV Sum"] = ev_components["uncommon"]
-    df.loc[0, "Rare EV Sum"] = ev_components["rare"]
-    df.loc[0, "Other EV Sum"] = ev_components["other"]
-    df.loc[0, "Common EV (x5.5)"] = common_ev
-    df.loc[0, "Uncommon EV (x1.5)"] = uncommon_ev
-    df.loc[0, "Rare EV (x1.5)"] = rare_ev
-    df.loc[0, "Other EV"] = other_ev
-    df.loc[0, "Total EV Base"] = EV_base
-    df.loc[0, "Total EV"] = EV
-    df.loc[0, "net value per pack"] = net_value
-    df.loc[0, "roi per pack"] = roi_per_pack
+    # ----- Probability of Pulling ≥1 "hit" Card -----
+    hit_df = df[df['rarity_group'] == 'hits']
+    hit_probs = 1 / hit_df['Pull Rate (1/X)']
+    prob_no_hits = (1 - hit_probs).prod()
+    hit_prob_pct = (1 - prob_no_hits) * 100
 
-    # Save to new file
-    base_filename = os.path.splitext(file_path)[0]
-    output_file = base_filename + "_final.xlsx"
-
-    # Preserve formatting
-    with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name="Data")
-        workbook = writer.book
-        worksheet = workbook.active
-        
-        # Copy column widths from original
-        original_workbook = load_workbook(file_path)
-        original_worksheet = original_workbook.active
-        for i, col in enumerate(original_worksheet.columns):
-            max_length = max(len(str(cell.value)) for cell in col) if any(cell.value for cell in col) else 0
-            adjusted_width = (max_length + 2)
-            worksheet.column_dimensions[get_column_letter(i + 1)].width = adjusted_width
-
-    # Prepare results dictionary
     results = {
-        "total_cards": total_cards,
-        "total_hits": total_hits,
-        "hit_rate_adjustment": hit_rate_adjustment,
-        "ev_components": ev_components,
-        "common_ev": common_ev,
-        "uncommon_ev": uncommon_ev,
-        "rare_ev": rare_ev,
-        "other_ev": other_ev,
-        "EV_base": EV_base,
-        "EV": EV,
+        "total_ev": total_ev,
         "net_value": net_value,
-        "roi_per_pack": roi_per_pack,
-        "output_file": output_file,
-        "use_rarity_adjustment": use_rarity_adjustment
+        "roi": roi,
+        "hit_prob_pct": hit_prob_pct
     }
 
-    return results, output_file
+    # Debug prints
+    # print("\nUnique Rarity Values in Excel (raw):")
+    # print(df['Rarity'].unique())
+    # print("\nUnique Rarity Values (cleaned):")
+    # print(df['rarity_raw'].unique())
+    # print("\nRarity Group Counts:")
+    # print(df['rarity_group'].value_counts())
+    summary_data = {
+        "ev_common_total": ev_common_total,
+        "ev_uncommon_total": ev_uncommon_total,
+        "ev_rare_total": ev_rare_total,
+        "ev_double_rare_total": ev_double_rare_total,
+        "ev_hyper_rare_total": ev_hyper_rare_total,
+        "ev_ultra_rare_total": ev_ultra_rare_total,
+        "ev_SIR_total": ev_SIR_total,
+        "ev_IR_total": ev_IR_total,
+        "ev_reverse_total": ev_reverse_total,
+        "reverse_multiplier": reverse_multiplier,
+        "rare_multiplier": rare_multiplier,
+        "ev_total_for_hits": ev_hyper_rare_total + ev_ultra_rare_total + ev_SIR_total + ev_IR_total,
+        "ev_hits_total": ev_hits_total,
+        "total_ev": total_ev,
+        "net_value": net_value,
+        "roi": roi,
+        "roi_percent": roi_percent,
+        "hit_prob_pct": hit_prob_pct,
+    }
+    
+    return results, summary_data
 
-def print_results(results):
-    """Print the calculation results in a readable format"""
-    print("\nHit Rate Calculation:")
-    print(f"Total Cards: {results['total_cards']}")
-    print(f"Total Hits: {results['total_hits']}")
-    print(f"Hit Rate Adjustment: 1 + ({results['total_hits']}/{results['total_cards']}) = {results['hit_rate_adjustment']:.4f}")
-
-    print("\nDetailed EV Calculation Breakdown:")
-    print(f"Sum of (Price/PullRate) for Commons: {results['ev_components']['common']:.6f} x5.5 = {results['common_ev']:.6f}")
-    print(f"Sum of (Price/PullRate) for Uncommons: {results['ev_components']['uncommon']:.6f} x1.5 = {results['uncommon_ev']:.6f}")
-    print(f"Sum of (Price/PullRate) for Rares: {results['ev_components']['rare']:.6f} x1.5 = {results['rare_ev']:.6f}")
-    print(f"Sum of (Price/PullRate) for Others: {results['ev_components']['other']:.6f} x1 = {results['other_ev']:.6f}")
-    print(f"\nBase EV (before hit rate): {results['EV_base']:.6f}")
-    print(f"Final EV per pack: ${results['EV']:.2f}")
-    print(f"net_value: {results['net_value']:.4f}")
-    print(f"roi_per_pack: {results['roi_per_pack']:.4f}")
-
-    print(f"\nUpdated spreadsheet saved as {results['output_file']}!")
-
-    if not results['use_rarity_adjustment']:
-        print("Note: 'Rarity' column not found. Used default 1/X pull rates.")
