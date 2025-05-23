@@ -117,7 +117,6 @@ def save_to_excel(cards, excel_path):
 
 # Main function
 def scrape_tcgplayer_xhr(excel_path="ev_output.xlsx", price_guide_url=None, PULL_RATE_MAPPING={}):
-    price_guide_url = 'https://infinite-api.tcgplayer.com/priceguide/set/23237/cards/?rows=5000&productTypeID=1'
     cards = fetch_price_data(price_guide_url, PULL_RATE_MAPPING)
     save_to_excel(cards, excel_path)
 
