@@ -69,7 +69,7 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
 
     if not reverse_hits_overlap.empty:
         print("\n⚠️ Warning: The following 'hit' cards also have Reverse Variant Prices and may be double-counted:")
-        print(reverse_hits_overlap[['Name', 'Rarity', 'Price ($)', 'Reverse Variant Price ($)', 'Pull Rate (1/X)']])
+        print(reverse_hits_overlap[['Card Name', 'Rarity', 'Price ($)', 'Reverse Variant Price ($)', 'Pull Rate (1/X)']])
         print("Consider excluding these from reverse EV if they are pulled only in hit slots.")
     else:
         print("\n✅ No overlapping hit cards found in reverse variants — no double-counting risk.")
@@ -86,10 +86,12 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
     rare_multiplier = 1 + (1 - prob_secret_rare_in_rare)
 
     # ----- EV by Rarity Group (already includes pack copies) -----
-    ev_common_total   = df.loc[df['Rarity'] == 'Common',   'EV'].sum()
-    ev_uncommon_total = df.loc[df['Rarity'] == 'Uncommon', 'EV'].sum()
-    ev_rare_total     = df.loc[df['Rarity'] == 'Rare',     'EV'].sum()
+    pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
+    ev_common_total = df[(df['Rarity'] == 'Common') & ~pattern_mask]['EV'].sum()
+    ev_uncommon_total = df[(df['Rarity'] == 'Uncommon') & ~pattern_mask]['EV'].sum()
+    ev_rare_total     = df[(df['Rarity'] == 'Rare') & ~pattern_mask]['EV'].sum()
     ev_double_rare_total     = df.loc[df['Rarity'] == 'Double Rare',     'EV'].sum()
+    ev_ace_spec_rare_total     = df.loc[df['Rarity'] == 'ACE SPEC Rare',     'EV'].sum()
     ev_hyper_rare_total   = df.loc[df['Rarity'] == 'Hyper Rare',   'EV'].sum()
     ev_ultra_rare_total = df.loc[df['Rarity'] == 'Ultra Rare', 'EV'].sum()
     ev_SIR_total     = df.loc[df['Rarity'] == 'Special Illustration Rare',     'EV'].sum()
@@ -97,15 +99,25 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
     ev_hits_total     = df.loc[df['rarity_group'] == 'hits',     'EV'].sum()
     ev_other_total    = df.loc[df['rarity_group'] == 'other',    'EV'].sum()
 
+    master_ball_cards = df[df['Card Name'].str.contains('Master Ball', case=False, na=False)]
+    pokeball_cards = df[df['Card Name'].str.contains('Poke Ball', case=False, na=False)]
+
+    ev_master_ball_total = master_ball_cards['EV'].sum()
+    ev_pokeball_total = pokeball_cards['EV'].sum()
+
+
     print("ev_common_total: ",ev_common_total*4)
     print("ev_uncommon_total: ",ev_uncommon_total*3)
     print("ev_rare_total: ",ev_rare_total*rare_multiplier)
     print("ev_double_rare_total: ",ev_double_rare_total)
+    print("ev_ace_spec_rare_total : ",ev_ace_spec_rare_total )
+    print("ev_master_ball_total: ", ev_master_ball_total)
+    print("ev_pokeball_total: ", ev_pokeball_total)
     print("ev_hyper_rare_total: ",ev_hyper_rare_total)
     print("ev_ultra_rare_total: ",ev_ultra_rare_total)
     print("ev_SIR_total: ",ev_SIR_total)
     print("ev_IR_total: ",ev_IR_total)
-    print("ev_reverse_total: ", ev_reverse_total*reverse_multiplier)
+    print("ev_reverse_total: ", ev_reverse_total*1.47)
     print("reverse_multiplier: ", reverse_multiplier)
     print("rare_multiplier: ", rare_multiplier)
     ev_total_for_hits = ev_hyper_rare_total + ev_ultra_rare_total + ev_SIR_total + ev_IR_total
@@ -117,30 +129,40 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
         ev_uncommon_total*3 + 
         ev_rare_total*rare_multiplier + 
         ev_double_rare_total + 
+        ev_ace_spec_rare_total +
+        ev_pokeball_total +
+        ev_master_ball_total +
         ev_hyper_rare_total +
         ev_ultra_rare_total +
         ev_SIR_total +
         ev_IR_total +
         ev_other_total + 
-        ev_reverse_total*reverse_multiplier
+        ev_reverse_total*1.47
     )
     print("total_ev: ", total_ev)
     net_value = total_ev - PACK_PRICE
     roi = total_ev / PACK_PRICE
-    roi_percent = (roi - 1) * 100
+    roi_percent = (roi -1) * 100
+    print("net_value", net_value)
+    print("roi", roi)
+    print("roi_percent", roi_percent)
 
 
     # ----- Probability of Pulling ≥1 "hit" Card -----
     hit_df = df[df['rarity_group'] == 'hits']
     hit_probs = 1 / hit_df['Pull Rate (1/X)']
     prob_no_hits = (1 - hit_probs).prod()
-    hit_prob_pct = (1 - prob_no_hits) * 100
+    no_hit_probability_percentage = prob_no_hits * 100
+    hit_probability_percentage = (1 - prob_no_hits) * 100
+
+    print("no_hit_probability_percentage", no_hit_probability_percentage)
+    print("hit_probability_percentage", hit_probability_percentage)
 
     results = {
         "total_ev": total_ev,
         "net_value": net_value,
         "roi": roi,
-        "hit_prob_pct": hit_prob_pct
+        "hit_probability_percentage": hit_probability_percentage
     }
 
     # Debug prints
@@ -155,6 +177,8 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
         "ev_uncommon_total": ev_uncommon_total,
         "ev_rare_total": ev_rare_total,
         "ev_double_rare_total": ev_double_rare_total,
+        "ev_pokeball_total": ev_pokeball_total,
+        "ev_master_ball_total": ev_master_ball_total,
         "ev_hyper_rare_total": ev_hyper_rare_total,
         "ev_ultra_rare_total": ev_ultra_rare_total,
         "ev_SIR_total": ev_SIR_total,
@@ -168,7 +192,8 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
         "net_value": net_value,
         "roi": roi,
         "roi_percent": roi_percent,
-        "hit_prob_pct": hit_prob_pct,
+        "no_hit_probability_percentage": no_hit_probability_percentage,
+        "hit_probability_percentage": hit_probability_percentage,
     }
     
     return results, summary_data
