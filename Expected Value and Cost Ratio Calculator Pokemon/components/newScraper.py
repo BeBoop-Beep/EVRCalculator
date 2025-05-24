@@ -7,24 +7,25 @@ def determine_pull_rate(card_name, rarity_text, PULL_RATE_MAPPING):
     rarity_lower = rarity_text.lower().strip()
 
     # Check special cases first
-    if 'poke ball pattern' in card_name_lower:
-        return 302
     if 'master ball pattern' in card_name_lower:
-        return 1362
-    if 'ace spec' in rarity_lower:
-        return 128
+        return 1362, 'master ball pattern'
+    if 'poke ball pattern' in card_name_lower:
+        return 302, 'poke ball pattern'
+    if 'ace spec rare' in rarity_lower:
+        return 128, 'ace spec rare'
 
     # Use exact matching first
     for rarity_key in PULL_RATE_MAPPING:
         if rarity_lower == rarity_key:
-            return PULL_RATE_MAPPING[rarity_key]
+            return PULL_RATE_MAPPING[rarity_key], rarity_key
 
     # Fallback fuzzy match in case of formatting issues
     for rarity_key in PULL_RATE_MAPPING:
         if rarity_key in rarity_lower:
-            return PULL_RATE_MAPPING[rarity_key]
+            return PULL_RATE_MAPPING[rarity_key], rarity_key
 
-    return None
+    return None, rarity_text  # fallback to original rarity
+
 
 
 # Function to fetch and parse card data
@@ -56,13 +57,13 @@ def fetch_price_data(price_guide_url, PULL_RATE_MAPPING):
         is_reverse = 'Reverse' in printing or 'Reverse Holofoil' in printing
 
         if product_name not in card_data:
-            pull_rate = determine_pull_rate(product_name, rarity, PULL_RATE_MAPPING)
+            pull_rate, normalized_rarity = determine_pull_rate(product_name, rarity, PULL_RATE_MAPPING)
 
             card_data[product_name] = {
                 'productName': product_name,
                 'Price ($)': '',
                 'Reverse Variant Price ($)': '',
-                'rarity': rarity,
+                'rarity': normalized_rarity,
                 'Pull Rate (1/X)': pull_rate
             }
 

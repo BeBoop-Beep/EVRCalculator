@@ -35,17 +35,14 @@ def main():
         base_dir = os.path.dirname(os.path.abspath(__file__))
         excel_path = os.path.join(base_dir, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
         price_guide_url = config.SCRAPE_URL
-        print("price_guide_url: ", config.SCRAPE_URL)
-        #Test URL:'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/price-guides/sv-scarlet-and-violet-151'
-        # setURL = input("What url are we scraping: \n")
+
         print("Scraping Info from TCGPlayer...")
-        # scrape_tcgplayer(setURL)  # This creates page_content.html
         scrape_tcgplayer_xhr(excel_path, price_guide_url, config.PULL_RATE_MAPPING)
 
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
         file_path = excel_path
-        results, summary_data = calculate_pack_ev(file_path, config.RARITY_MAPPING)
+        results, summary_data = calculate_pack_ev(file_path, config)
         append_summary_to_existing_excel(file_path, summary_data, results)
 
         # # Step 3: Calculate EVR For ETBscarletAndViolet151  # #

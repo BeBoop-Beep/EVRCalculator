@@ -3,7 +3,18 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 import os
 
-def calculate_pack_ev(file_path, RARITY_MAPPING):
+def calculate_pack_ev(file_path, config):
+    pack_multipliers = config.get_rarity_pack_multiplier()
+    common_multiplier = pack_multipliers.get('common', 1)
+    uncommon_multiplier = pack_multipliers.get('uncommon', 1)
+    rare_multiplier = config.RARE_SLOT_PROBABILITY['rare']
+
+    slot1_rr = config.REVERSE_SLOT_PROBABILITIES["slot_1"]["regular_reverse"]
+    slot2_rr = config.REVERSE_SLOT_PROBABILITIES["slot_2"]["regular_reverse"]
+    reverse_multiplier = slot1_rr + slot2_rr
+
+    print("multipliers: ", common_multiplier, uncommon_multiplier, rare_multiplier, reverse_multiplier)
+
     # ----- Load and Prepare Data -----
     try:
         df = pd.read_excel(file_path)
@@ -27,7 +38,7 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
 
     # Process other columns
     df['rarity_raw'] = df['Rarity'].astype(str).str.lower().str.strip()
-    df['rarity_group'] = df['rarity_raw'].map(RARITY_MAPPING).fillna('other')
+    df['rarity_group'] = df['rarity_raw'].map(config.RARITY_MAPPING).fillna('other')
     PACK_PRICE = pd.to_numeric(df["Current Market Pack Price"].iloc[0], errors='coerce')
 
     # Convert to numeric after cleaning
@@ -74,59 +85,48 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
     else:
         print("\n✅ No overlapping hit cards found in reverse variants — no double-counting risk.")
 
-
-    ir_sir_df = df[df['Rarity'].isin(['Illustration Rare', 'Special Illustration Rare'])]
-    prob_ir_sir = (1 / ir_sir_df['Pull Rate (1/X)']).sum()
-    prob_ir_sir = min(prob_ir_sir, 1.0)
-    reverse_multiplier = 1 + (1 - prob_ir_sir)
-
-    ir_rare_slot_secret_rare_df = df[df['Rarity'].isin(['Ultra Rare', 'Hyper Rare', 'Double Rare'])]
-    prob_secret_rare_in_rare = (1 / ir_rare_slot_secret_rare_df['Pull Rate (1/X)']).sum()
-    prob_secret_rare_in_rare = min(prob_secret_rare_in_rare, 1.0)
-    rare_multiplier = 1 + (1 - prob_secret_rare_in_rare)
-
     # ----- EV by Rarity Group (already includes pack copies) -----
-    pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
-    ev_common_total = df[(df['Rarity'] == 'Common') & ~pattern_mask]['EV'].sum()
-    ev_uncommon_total = df[(df['Rarity'] == 'Uncommon') & ~pattern_mask]['EV'].sum()
-    ev_rare_total     = df[(df['Rarity'] == 'Rare') & ~pattern_mask]['EV'].sum()
-    ev_double_rare_total     = df.loc[df['Rarity'] == 'Double Rare',     'EV'].sum()
-    ev_ace_spec_rare_total     = df.loc[df['Rarity'] == 'ACE SPEC Rare',     'EV'].sum()
-    ev_hyper_rare_total   = df.loc[df['Rarity'] == 'Hyper Rare',   'EV'].sum()
-    ev_ultra_rare_total = df.loc[df['Rarity'] == 'Ultra Rare', 'EV'].sum()
-    ev_SIR_total     = df.loc[df['Rarity'] == 'Special Illustration Rare',     'EV'].sum()
-    ev_IR_total     = df.loc[df['Rarity'] == 'Illustration Rare',     'EV'].sum()
-    ev_hits_total     = df.loc[df['rarity_group'] == 'hits',     'EV'].sum()
-    ev_other_total    = df.loc[df['rarity_group'] == 'other',    'EV'].sum()
-
     master_ball_cards = df[df['Card Name'].str.contains('Master Ball', case=False, na=False)]
     pokeball_cards = df[df['Card Name'].str.contains('Poke Ball', case=False, na=False)]
 
+    pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
+    ev_common_total = df[(df['Rarity'] == 'common') & ~pattern_mask]['EV'].sum()
+    ev_uncommon_total = df[(df['Rarity'] == 'uncommon') & ~pattern_mask]['EV'].sum()
+    ev_rare_total     = df[(df['Rarity'] == 'rare') & ~pattern_mask]['EV'].sum()
+    ev_double_rare_total     = df.loc[df['Rarity'] == 'double rare',     'EV'].sum()
+    ev_ace_spec_rare_total     = df.loc[df['Rarity'] == 'ace spec rare',     'EV'].sum()
+    ev_hyper_rare_total   = df.loc[df['Rarity'] == 'hyper rare',   'EV'].sum()
+    ev_ultra_rare_total = df.loc[df['Rarity'] == 'ultra rare', 'EV'].sum()
+    ev_SIR_total     = df.loc[df['Rarity'] == 'special illustration rare',     'EV'].sum()
+    ev_IR_total     = df.loc[df['Rarity'] == 'illustration rare',     'EV'].sum()
+    ev_hits_total     = df.loc[df['rarity_group'] == 'hits',     'EV'].sum()
+    ev_other_total    = df.loc[df['rarity_group'] == 'other',    'EV'].sum()
     ev_master_ball_total = master_ball_cards['EV'].sum()
     ev_pokeball_total = pokeball_cards['EV'].sum()
 
 
-    print("ev_common_total: ",ev_common_total*4)
-    print("ev_uncommon_total: ",ev_uncommon_total*3)
+    print("ev_common_total: ",ev_common_total*common_multiplier)
+    print("ev_uncommon_total: ",ev_uncommon_total*uncommon_multiplier)
     print("ev_rare_total: ",ev_rare_total*rare_multiplier)
-    print("ev_double_rare_total: ",ev_double_rare_total)
+    print("ev_reverse_total: ", ev_reverse_total*reverse_multiplier)
     print("ev_ace_spec_rare_total : ",ev_ace_spec_rare_total )
-    print("ev_master_ball_total: ", ev_master_ball_total)
     print("ev_pokeball_total: ", ev_pokeball_total)
+    print("ev_master_ball_total: ", ev_master_ball_total)
+    print("ev_IR_total: ",ev_IR_total)
+    print("ev_SIR_total: ",ev_SIR_total)
+    print("ev_double_rare_total: ",ev_double_rare_total)
     print("ev_hyper_rare_total: ",ev_hyper_rare_total)
     print("ev_ultra_rare_total: ",ev_ultra_rare_total)
-    print("ev_SIR_total: ",ev_SIR_total)
-    print("ev_IR_total: ",ev_IR_total)
-    print("ev_reverse_total: ", ev_reverse_total*1.47)
-    print("reverse_multiplier: ", reverse_multiplier)
     print("rare_multiplier: ", rare_multiplier)
+    print("reverse_multiplier: ", reverse_multiplier)
+    print("ev_other_total: " , ev_other_total)
     ev_total_for_hits = ev_hyper_rare_total + ev_ultra_rare_total + ev_SIR_total + ev_IR_total
     print("Comparing: ev_total_for_hits: ", ev_total_for_hits, "  &  ev_hits_total: ", ev_hits_total)
 
     # ----- Totals -----
     total_ev = (
-        ev_common_total*4 + 
-        ev_uncommon_total*3 + 
+        ev_common_total*common_multiplier + 
+        ev_uncommon_total*uncommon_multiplier + 
         ev_rare_total*rare_multiplier + 
         ev_double_rare_total + 
         ev_ace_spec_rare_total +
@@ -137,7 +137,7 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
         ev_SIR_total +
         ev_IR_total +
         ev_other_total + 
-        ev_reverse_total*1.47
+        ev_reverse_total*reverse_multiplier
     )
     print("total_ev: ", total_ev)
     net_value = total_ev - PACK_PRICE
@@ -165,28 +165,21 @@ def calculate_pack_ev(file_path, RARITY_MAPPING):
         "hit_probability_percentage": hit_probability_percentage
     }
 
-    # Debug prints
-    # print("\nUnique Rarity Values in Excel (raw):")
-    # print(df['Rarity'].unique())
-    # print("\nUnique Rarity Values (cleaned):")
-    # print(df['rarity_raw'].unique())
-    # print("\nRarity Group Counts:")
-    # print(df['rarity_group'].value_counts())
     summary_data = {
-        "ev_common_total": ev_common_total,
-        "ev_uncommon_total": ev_uncommon_total,
-        "ev_rare_total": ev_rare_total,
-        "ev_double_rare_total": ev_double_rare_total,
+        "ev_common_total": ev_common_total*common_multiplier,
+        "ev_uncommon_total": ev_uncommon_total*uncommon_multiplier,
+        "ev_rare_total": ev_rare_total*rare_multiplier,
+        "ev_reverse_total": ev_reverse_total*reverse_multiplier,
+        "ev_ace_spec_total": ev_ace_spec_rare_total,
         "ev_pokeball_total": ev_pokeball_total,
         "ev_master_ball_total": ev_master_ball_total,
+        "ev_IR_total": ev_IR_total,
+        "ev_SIR_total": ev_SIR_total,
+        "ev_double_rare_total": ev_double_rare_total,
         "ev_hyper_rare_total": ev_hyper_rare_total,
         "ev_ultra_rare_total": ev_ultra_rare_total,
-        "ev_SIR_total": ev_SIR_total,
-        "ev_IR_total": ev_IR_total,
-        "ev_reverse_total": ev_reverse_total,
         "reverse_multiplier": reverse_multiplier,
         "rare_multiplier": rare_multiplier,
-        "ev_total_for_hits": ev_hyper_rare_total + ev_ultra_rare_total + ev_SIR_total + ev_IR_total,
         "ev_hits_total": ev_hits_total,
         "total_ev": total_ev,
         "net_value": net_value,
