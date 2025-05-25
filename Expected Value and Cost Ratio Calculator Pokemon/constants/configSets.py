@@ -39,12 +39,15 @@ class BaseSetConfig:
 
 class Set151Config(BaseSetConfig):
     SET_NAME = "scarletAndViolet151"
-    SCRAPE_PACK_PRICE = "https://infinite-api.tcgplayer.com/price/history/504467/detailed?range=quarter"
-    SCRAPE_ETB_PRICE = "https://infinite-api.tcgplayer.com/price/history/503313/detailed?range=quarter"
-    SCRAPE_BOOSTER_BOX_PRICE = ""  # No booster box
-    SCRAPE_SPC_PRICE = "https://infinite-api.tcgplayer.com/price/history/502005/detailed?range=quarter"
     SCRAPE_URL = "https://infinite-api.tcgplayer.com/priceguide/set/23237/cards/?rows=5000&productTypeID=1"
 
+    PRICE_ENDPOINTS = {
+        "Pack Price": "https://infinite-api.tcgplayer.com/price/history/504467/detailed?range=quarter",
+        "ETB Price": "https://infinite-api.tcgplayer.com/price/history/503313/detailed?range=quarter",
+        "Booster Box Price": None,  # Optional or future use
+        "Special Collection Price": "https://infinite-api.tcgplayer.com/price/history/502005/detailed?range=quarter"
+    }
+    
     PULL_RATE_MAPPING = {
         'common': 46,
         'uncommon': 33,

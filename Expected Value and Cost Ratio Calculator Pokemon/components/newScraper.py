@@ -27,7 +27,6 @@ def determine_pull_rate(card_name, rarity_text, PULL_RATE_MAPPING):
     return None, rarity_text  # fallback to original rarity
 
 
-
 # Function to fetch and parse card data
 def fetch_price_data(price_guide_url, PULL_RATE_MAPPING):
     response = requests.get(price_guide_url)
@@ -75,8 +74,49 @@ def fetch_price_data(price_guide_url, PULL_RATE_MAPPING):
     # Convert dict to list for Excel saving
     return list(card_data.values())
 
+def fetch_product_market_price(price_url):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/113.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Referer": "https://www.tcgplayer.com/"
+    }
+     
+    response = requests.get(price_url, headers=headers)
+    if response.status_code != 200:
+        print(f"Failed to fetch data from {price_url}: {response.status_code}")
+        return None
+
+    try:
+        data = response.json()
+        first_market_price = data.get("result", [])[0].get("buckets", [])[0].get("marketPrice", None)
+        return first_market_price
+    except (IndexError, AttributeError, ValueError) as e:
+        print(f"Error parsing data from {price_url}: {e}")
+        return None
+
+# Loop through all endpoints and print prices
+def get_all_first_market_prices(endpoints):
+    price_results = {}
+
+    for label, url in endpoints.items():
+        if not url:
+            print(f"{label}: $Unavailable (No URL)")
+            continue
+
+        price = fetch_product_market_price(url)
+        if price is not None:
+            print(f"{label}: ${price}")
+            price_results[label] = price
+        else:
+            print(f"{label}: $Unavailable")
+
+    return price_results
+
+
 # Function to save data to Excel
-def save_to_excel(cards, excel_path):
+def save_to_excel(cards, prices, excel_path):
     wb = load_workbook(excel_path)
     sheet = wb.active
 
@@ -117,9 +157,12 @@ def save_to_excel(cards, excel_path):
     print(f"Successfully updated {len(cards)} cards.")
 
 # Main function
-def scrape_tcgplayer_xhr(excel_path="ev_output.xlsx", price_guide_url=None, PULL_RATE_MAPPING={}):
-    cards = fetch_price_data(price_guide_url, PULL_RATE_MAPPING)
-    save_to_excel(cards, excel_path)
+def scrape_tcgplayer_xhr(excel_path="ev_output.xlsx", config={}):
+    cards = fetch_price_data(config.SCRAPE_URL, config.PULL_RATE_MAPPING)
+
+    prices = get_all_first_market_prices(config.PRICE_ENDPOINTS)
+
+    save_to_excel(cards, prices, excel_path)
 
 if __name__ == "__main__":
     scrape_tcgplayer_xhr()
