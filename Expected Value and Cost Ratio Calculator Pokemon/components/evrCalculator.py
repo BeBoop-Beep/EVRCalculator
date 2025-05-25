@@ -23,7 +23,7 @@ def calculate_pack_ev(file_path, config):
         df = pd.read_csv(file_path)
 
     # Ensure required columns exist
-    required_cols = ['Rarity', 'Price ($)', 'Pull Rate (1/X)', 'Current Market Pack Price']
+    required_cols = ['Rarity', 'Price ($)', 'Pull Rate (1/X)', 'Pack Price']
     for col in required_cols:
         if col not in df.columns:
             raise ValueError(f"Input data must contain a '{col}' column.")
@@ -39,7 +39,7 @@ def calculate_pack_ev(file_path, config):
     # Process other columns
     df['rarity_raw'] = df['Rarity'].astype(str).str.lower().str.strip()
     df['rarity_group'] = df['rarity_raw'].map(config.RARITY_MAPPING).fillna('other')
-    PACK_PRICE = pd.to_numeric(df["Current Market Pack Price"].iloc[0], errors='coerce')
+    PACK_PRICE = pd.to_numeric(df["Pack Price"].iloc[0], errors='coerce')
 
     # Convert to numeric after cleaning
     df['Price ($)'] = pd.to_numeric(df['Price ($)'], errors='coerce')

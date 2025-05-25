@@ -34,10 +34,9 @@ def main():
         print(config.SET_NAME, ", ", config.SCRAPE_URL)
         base_dir = os.path.dirname(os.path.abspath(__file__))
         excel_path = os.path.join(base_dir, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
-        price_guide_url = config.SCRAPE_URL
 
         print("Scraping Info from TCGPlayer...")
-        scrape_tcgplayer_xhr(excel_path, price_guide_url, config.PULL_RATE_MAPPING)
+        scrape_tcgplayer_xhr(excel_path, config)
 
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
