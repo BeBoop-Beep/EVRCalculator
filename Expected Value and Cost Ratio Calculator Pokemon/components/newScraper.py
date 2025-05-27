@@ -74,6 +74,26 @@ def fetch_price_data(price_guide_url, PULL_RATE_MAPPING):
     # Convert dict to list for Excel saving
     return list(card_data.values())
 
+def clean_price_value(price_str):
+    if not price_str:
+        return None
+    if isinstance(price_str, (int, float)):
+        return price_str
+    price_str = price_str.strip()
+    if price_str.lower().startswith("$"):
+        try:
+            return float(price_str[1:])
+        except ValueError:
+            return None
+    if price_str.lower() in ["unavailable", "n/a", "no url"]:
+        return None
+    try:
+        # Try converting directly to float if no $
+        return float(price_str)
+    except ValueError:
+        return None
+
+
 def fetch_product_market_price(price_url):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -120,25 +140,38 @@ def save_to_excel(cards, prices, excel_path):
     wb = load_workbook(excel_path)
     sheet = wb.active
 
-    # Find or create columns
-    headers = [cell.value for cell in sheet[1]]
-    column_indices = {
-        'Card Name': headers.index('Card Name') + 1 if 'Card Name' in headers else len(headers) + 1,
-        'Price ($)': headers.index('Price ($)') + 1 if 'Price ($)' in headers else len(headers) + 2,
-        'Reverse Variant Price ($)': headers.index('Reverse Variant Price ($)') + 1 if 'Reverse Variant Price ($)' in headers else len(headers) + 3,
-        'Rarity': headers.index('Rarity') + 1 if 'Rarity' in headers else len(headers) + 4,
-        'Pull Rate (1/X)': headers.index('Pull Rate (1/X)') + 1 if 'Pull Rate (1/X)' in headers else len(headers) + 5,
-    }
+    # Read current headers (row 1)
+    headers = [cell.value.strip() if cell.value else "" for cell in sheet[1]]
+    existing_cols = {name: idx + 1 for idx, name in enumerate(headers)}
 
+    # Desired columns in logical order
+    desired_columns = [
+        'Card Name',
+        'Price ($)',
+        'Reverse Variant Price ($)',
+        'Rarity',
+        'Pull Rate (1/X)',
+        'Pack Price',
+        'ETB Price',
+        'ETB Promo Card Price',
+        'Booster Box Price',
+        'Special Collection Price'
+    ]
 
-    # Update headers if needed
-    for col_name, col_idx in column_indices.items():
-        if sheet.cell(row=1, column=col_idx).value != col_name:
-            sheet.cell(row=1, column=col_idx, value=col_name)
+    # Build safe column indices: append missing ones to the end
+    column_indices = {}
+    next_col = len(headers) + 1
+    for col in desired_columns:
+        if col in existing_cols:
+            column_indices[col] = existing_cols[col]
+        else:
+            column_indices[col] = next_col
+            sheet.cell(row=1, column=next_col, value=col)
+            next_col += 1
 
-    # Write data
+    # Write card data
     for i, card in enumerate(cards, 2):
-        sheet.cell(row=i, column=column_indices['Card Name'], value=card['productName'])
+        sheet.cell(row=i, column=column_indices['Card Name'], value=card.get('productName', ''))
         sheet.cell(row=i, column=column_indices['Price ($)'], value=card.get('Price ($)', ''))
         sheet.cell(row=i, column=column_indices['Reverse Variant Price ($)'], value=card.get('Reverse Variant Price ($)', ''))
         sheet.cell(row=i, column=column_indices['Rarity'], value=card.get('rarity', ''))
@@ -148,20 +181,54 @@ def save_to_excel(cards, prices, excel_path):
         for col_idx in column_indices.values():
             sheet.cell(row=i, column=col_idx).alignment = Alignment(horizontal='left', vertical='center')
 
-    # Adjust column widths
-    for col_letter in ['A', 'B', 'C', 'D', 'E']:
-        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in sheet[col_letter])
-        sheet.column_dimensions[col_letter].width = max(15, max_length) * 1.2
 
+    # Mapping for matching price keys to column names
+    price_mapping = {
+        'Pack Price': 'Pack Price',
+        'ETB Price': 'ETB Price',
+        'ETB Promo Price': 'ETB Promo Card Price',
+        'Booster Box Price': 'Booster Box Price',
+        'Special Collection Price': 'Special Collection Price'
+    }
+
+    sealed_row = 2  # fixed row for sealed prices
+
+    for price_type, price_value in prices.items():
+        # find matching column and write price on row 2
+        for key, col_name in price_mapping.items():
+            if key.lower() in price_type.lower():
+                col_idx = column_indices.get(col_name)
+                if col_idx:
+                    cleaned_price = clean_price_value(price_value)
+                    if cleaned_price is not None:
+                        sheet.cell(row=sealed_row, column=col_idx, value=cleaned_price)
+                    else:
+                        sheet.cell(row=sealed_row, column=col_idx, value="N/A")
+                break
+
+    print(f"DEBUG: Cards to save: {len(cards)}")
+
+    # Optional: adjust column widths
+    for col_idx in column_indices.values():
+        col_letter = sheet.cell(row=1, column=col_idx).column_letter
+        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in sheet[col_letter])
+        sheet.column_dimensions[col_letter].width = max(15, max_length * 1.2)
+    
     wb.save(excel_path)
-    print(f"Successfully updated {len(cards)} cards.")
+    print(f"Successfully updated {len(cards)} cards and {len(prices)} sealed product prices.")
+    # print(f"DEBUG: Current headers: {headers}")
+    # print(f"DEBUG: Column indices: {column_indices}")
+    # print(f"DEBUG: Sealed prices: {prices}")
+    # print(f"DEBUG: Sealed prices row: {sealed_row}")
+
+
 
 # Main function
 def scrape_tcgplayer_xhr(excel_path="ev_output.xlsx", config={}):
     cards = fetch_price_data(config.SCRAPE_URL, config.PULL_RATE_MAPPING)
 
     prices = get_all_first_market_prices(config.PRICE_ENDPOINTS)
-
+    
     save_to_excel(cards, prices, excel_path)
 
 if __name__ == "__main__":
