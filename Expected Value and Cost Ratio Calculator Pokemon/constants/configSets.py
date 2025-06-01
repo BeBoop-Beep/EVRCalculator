@@ -43,8 +43,11 @@ class Set151Config(BaseSetConfig):
 
     PRICE_ENDPOINTS = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/504467/detailed?range=quarter",
+        "Mini Tin Price": None,
+        "Booster Bundle Price": "https://infinite-api.tcgplayer.com/price/history/502000/detailed?range=quarter",
         "ETB Price": "https://infinite-api.tcgplayer.com/price/history/503313/detailed?range=quarter",
-        "Booster Box Price": None,  # Optional or future use
+        "ETB Promo Price": "https://infinite-api.tcgplayer.com/price/history/517175/detailed?range=quarter" ,
+        "Booster Box Price": None,  # Specialty set, does not have one. 
         "Special Collection Price": "https://infinite-api.tcgplayer.com/price/history/502005/detailed?range=quarter"
     }
     
@@ -82,11 +85,18 @@ class Set151Config(BaseSetConfig):
 
 class SetPrismaticEvolutionConfig(BaseSetConfig):
     SET_NAME = "prismaticEvolution"
-    SCRAPE_CARD_PRICE = ""
-    SCRAPE_ETB_PRICE = ""
-    SCRAPE_BOOSTER_BOX_PRICE = ""
-    SCRAPE_SPC_PRICE = ""
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=1" 
+
+    PRICE_ENDPOINTS = {
+        "Pack Price": "https://infinite-api.tcgplayer.com/price/history/593294/detailed?range=quarter",
+        "Mini Tin Price": None,
+        "Booster Bundle Price": "https://infinite-api.tcgplayer.com/price/history/600518/detailed?range=quarter",
+        "ETB Price": "https://infinite-api.tcgplayer.com/price/history/593355/detailed?range=quarter",
+        "ETB Promo Price": "https://infinite-api.tcgplayer.com/price/history/610758/detailed?range=quarter" ,
+        "Booster Box Price": None,  # Specialty set, does not have one. 
+        "Special Collection Price": "https://infinite-api.tcgplayer.com/price/history/622770/detailed?range=quarter"
+    }
+    
     PULL_RATE_MAPPING = {
         'common' : 46, # 4/46 (there are 4 commons in each pack with 46 total commons is in the set)
         'uncommon': 33, # 3/33 (there are 3 uncommons in each pack with 33 total uncommons in the set)
