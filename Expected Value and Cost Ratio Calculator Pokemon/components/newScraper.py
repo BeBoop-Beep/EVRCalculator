@@ -147,11 +147,13 @@ def save_to_excel(cards, prices, excel_path):
     # Desired columns in logical order
     desired_columns = [
         'Card Name',
-        'Price ($)',
-        'Reverse Variant Price ($)',
         'Rarity',
         'Pull Rate (1/X)',
+        'Price ($)',
+        'Reverse Variant Price ($)',
         'Pack Price',
+        'Mini Tin Price',
+        'Booster Bundle Price',
         'ETB Price',
         'ETB Promo Card Price',
         'Booster Box Price',
@@ -185,6 +187,8 @@ def save_to_excel(cards, prices, excel_path):
     # Mapping for matching price keys to column names
     price_mapping = {
         'Pack Price': 'Pack Price',
+        'Mini Tin Price': 'Mini Tin Price',
+        'Booster Bundle Price': 'Booster Bundle Price',
         'ETB Price': 'ETB Price',
         'ETB Promo Price': 'ETB Promo Card Price',
         'Booster Box Price': 'Booster Box Price',
