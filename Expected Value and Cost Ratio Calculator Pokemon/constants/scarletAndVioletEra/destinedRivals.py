@@ -2,15 +2,15 @@ from .baseConfig import BaseSetConfig
 
 class SetDestinedRivalsConfig(BaseSetConfig):
     SET_NAME = "destinedRivals"
-    SCRAPE_URL= "" 
+    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24269/cards/?rows=5000&productTypeID=1"
 
     PRICE_ENDPOINTS = {
-        "Pack Price": "",
+        "Pack Price": "https://infinite-api.tcgplayer.com/price/history/624683/detailed?range=quarter",
         "Mini Tin Price": None,
-        "Booster Bundle Price": "",
-        "ETB Price": "",
-        "ETB Promo Price": "" ,
-        "Booster Box Price": None,  # Specialty set, does not have one. 
+        "Booster Bundle Price": "https://infinite-api.tcgplayer.com/price/history/625670/detailed?range=quarter",
+        "ETB Price": "https://infinite-api.tcgplayer.com/price/history/624676/detailed?range=quarter",
+        "ETB Promo Price": "https://infinite-api.tcgplayer.com/price/history/635467/detailed?range=quarter" ,
+        "Booster Box Price": "https://infinite-api.tcgplayer.com/price/history/624679/detailed?range=quarter",  # Specialty set, does not have one. 
         "Special Collection Price": ""
     }
     
