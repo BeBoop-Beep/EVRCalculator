@@ -1,21 +1,54 @@
-from webscaperForHtml import scrape_tcgplayer
-from htmlScraper import htmlScraper
-from evrCalculator import is_hit
-# Remove the incomplete evrEtb import if not needed
+import difflib
+import os
+
+from components.newScraper import scrape_tcgplayer_xhr
+from components.calculators.evrCalculator import calculate_pack_ev
+from components.printEvCalculations import append_summary_to_existing_excel
+from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
+
 
 def main():
-    #Test URL:'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/price-guides/sv-scarlet-and-violet-151'
-    # setURL = input("What url are we scraping: \n")
+    # Rating to pull rate mapping (1/X)
+    def get_config_for_set(user_input):
+        key = user_input.lower().strip()
+
+        # Try alias map first
+        if key in SET_ALIAS_MAP:
+            mapped_key = SET_ALIAS_MAP[key]
+            return SET_CONFIG_MAP[mapped_key]
+
+        # Try exact key in config map
+        if key in SET_CONFIG_MAP:
+            return SET_CONFIG_MAP[key]
+
+        # Try fuzzy matching against aliases and set names
+        possible_inputs = list(SET_ALIAS_MAP.keys()) + list(SET_CONFIG_MAP.keys())
+        matches = difflib.get_close_matches(key, possible_inputs, n=1, cutoff=0.6)
+        print("We think you mean :", matches[0])
+        return SET_CONFIG_MAP[matches[0]]
     
-    # print("Scraping Info from TCGPlayer...")
-    # scrape_tcgplayer(setURL)  # This creates page_content.html
+    # # Step 1: Scrape and gather HTML Doc  # #
+    setName = input("What set are we working on: \n")
+    try:
+        config = get_config_for_set(setName)
+        print(config.SET_NAME, ", ", config.SCRAPE_URL)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        excel_path = os.path.join(base_dir, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
 
-    # setName = input("What set are we working on: \n")
-    # print("\nProcessing HTML data...")
-    # htmlScraper(setName)  # This processes page_content.html into Excel
+        print("Scraping Info from TCGPlayer...")
+        scrape_tcgplayer_xhr(excel_path, config)
 
-    
-    # print("\nOperation completed successfully!")
+        # # Step 2: Calculate EVR Per Pack # #
+        print("\n Calculating EVR..")
+        file_path = excel_path
+        results, summary_data = calculate_pack_ev(file_path, config)
+        append_summary_to_existing_excel(file_path, summary_data, results)
 
+        # # Step 3: Calculate EVR For ETBscarletAndViolet151  # #
+
+    except ValueError as e:
+        print(e)
+
+    print("\nOperation completed successfully!")
 if __name__ == "__main__":
     main()
