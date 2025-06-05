@@ -2,7 +2,7 @@ import difflib
 import os
 
 from components.newScraper import scrape_tcgplayer_xhr
-from components.evrCalculator import calculate_pack_ev
+from components.calculators.evrCalculator import calculate_pack_ev
 from components.printEvCalculations import append_summary_to_existing_excel
 from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
