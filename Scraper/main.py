@@ -1,8 +1,7 @@
 import difflib
 import os
 
-from src.calculators.evrCalculator import calculate_pack_ev
-from src.printEvCalculations import append_summary_to_existing_excel
+from src.scrapers.newScraper import scrape_tcgplayer_xhr
 from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 
@@ -34,16 +33,8 @@ def main():
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         excel_path = os.path.join(project_root, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
 
-        # print("Scraping Info from TCGPlayer...")
-        # scrape_tcgplayer_xhr(excel_path, config)
-
-        # # Step 2: Calculate EVR Per Pack # #
-        print("\n Calculating EVR..")
-        file_path = excel_path
-        results, summary_data = calculate_pack_ev(file_path, config)
-        append_summary_to_existing_excel(file_path, summary_data, results)
-
-        # # Step 3: Calculate EVR For ETBscarletAndViolet151  # #
+        print("Scraping Info from TCGPlayer...")
+        scrape_tcgplayer_xhr(excel_path, config)
 
     except ValueError as e:
         print(e)
