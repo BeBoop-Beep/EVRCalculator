@@ -1,5 +1,7 @@
+import sys
 import difflib
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.scrapers.newScraper import scrape_tcgplayer_xhr
 from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP

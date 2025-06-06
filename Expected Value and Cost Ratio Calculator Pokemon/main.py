@@ -1,5 +1,7 @@
+import sys
 import difflib
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.calculators.evrCalculator import calculate_pack_ev
 from src.printEvCalculations import append_summary_to_existing_excel
