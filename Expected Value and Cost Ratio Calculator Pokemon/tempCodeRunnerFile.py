@@ -5,7 +5,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.calculators.evrCalculator import calculate_pack_ev
 from src.printEvCalculations import append_summary_to_existing_excel
-from src.calculators.evrEtb import calculate_etb_metrics
 from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 
@@ -44,17 +43,10 @@ def main():
         print("\n Calculating EVR..")
         file_path = excel_path
         results, summary_data = calculate_pack_ev(file_path, config)
-       
-
-        # # Step 3: Calculate ETB EV # #
-        print("\n Calculating ETB EV..")
-        etb_metrics = calculate_etb_metrics(file_path, 9, total_ev)
-
-        # # Step 3: Calculate Booster Box EV  # #
-        print("\n Calculating Booster Box EV..")
-        etb_metrics = calculate_etb_metrics(file_path, 9, total_ev)
-
         append_summary_to_existing_excel(file_path, summary_data, results)
+
+        # # Step 3: Calculate EVR For ETBscarletAndViolet151  # #
+
     except ValueError as e:
         print(e)
 
