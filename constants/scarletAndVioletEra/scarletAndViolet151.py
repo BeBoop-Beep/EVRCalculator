@@ -32,7 +32,7 @@ class Set151Config(BaseSetConfig):
         "slot_2": {
             "illustration_rare": 1/12,
             "special_illustration_rare": 1 / 32,
-            "regular_reverse": 1 - (1 / 12) - (1 / 32)  # ≈ 0.9278
+            "regular_reverse": 1 - (1 / 12) - (1 / 32)  # ≈ 0.885417
         }
     }
 
