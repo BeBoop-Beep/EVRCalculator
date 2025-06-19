@@ -3,7 +3,7 @@ import difflib
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.calculators.packCalculations.evrCalculator import calculate_pack_ev
+from src.calculators.packCalculations import calculate_pack_stats
 from src.printEvCalculations import append_summary_to_existing_excel
 from src.calculators.evrEtb import calculate_etb_metrics
 from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
@@ -43,7 +43,7 @@ def main():
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
         file_path = excel_path
-        results, summary_data, total_ev = calculate_pack_ev(file_path, config)
+        results, summary_data, total_ev = calculate_pack_stats(file_path, config)
        
 
         # # Step 3: Calculate ETB EV # #
