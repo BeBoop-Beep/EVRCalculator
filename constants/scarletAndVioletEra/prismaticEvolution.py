@@ -26,7 +26,9 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
         # Special cases (checked first)
         'poke ball pattern': 302,
         'master ball pattern': 1362,
-        'ace spec': 128
+        'ace spec': 128,
+        'god pack': 2000,
+        'demi god pack': (1/3) * 2000
     }
 
     REVERSE_SLOT_PROBABILITIES = {
