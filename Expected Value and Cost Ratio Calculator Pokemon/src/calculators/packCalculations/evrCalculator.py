@@ -77,9 +77,9 @@ class PackEVCalculator(PackEVInitializer):
             high_value_cards = df[df['Price ($)'] > df['Price ($)'].quantile(0.9)]
             if not high_value_cards.empty:
                 avg_high_value = high_value_cards['Price ($)'].mean()
-                demi_god_pack_value = 4 * avg_high_value
+                demi_god_pack_value = 3 * avg_high_value
                 ev_demi_god_pack = P_demi_god_pack * demi_god_pack_value
-                print(f"Demi-god pack estimated value: 4 × ${avg_high_value:.2f} = ${demi_god_pack_value:.2f}")
+                print(f"Demi-god pack estimated value: 3 × ${avg_high_value:.2f} = ${demi_god_pack_value:.2f}")
                 print(f"Demi-god pack EV contribution: {P_demi_god_pack:.8f} × ${demi_god_pack_value:.2f} = ${ev_demi_god_pack:.6f}")
             else:
                 ev_demi_god_pack = 0
@@ -105,74 +105,101 @@ class PackEVCalculator(PackEVInitializer):
     
     def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, card_name=None):
         """
-        Calculate the true effective pull rate for each card type following the model's methodology
+        Calculate the true effective pull rate for each card type following the model's methodology.
+        Dynamically determines calculation method based on configuration data.
         """
-        print(f"\n--- Calculating effective pull rate for {rarity_group} ---")
-        print(f"Base pull rate: {base_pull_rate}")
         
-        # Cards with exact pull rates (use as-is) - One-Step Calculation
-        exact_rate_rarities = [
-            'double_rare', 'ultra_rare', 'hyper_rare', 'special_illustration_rare',
-            'illustration_rare', 'ace_spec_rare'
-        ]
-        
-        # Special pattern cards (also exact rates)
+        # Special pattern cards (always use exact rates)
         if card_name and ('master ball' in card_name.lower() or 'poke ball' in card_name.lower()):
             print(f"Special pattern card - using exact rate: {base_pull_rate}")
             return base_pull_rate
         
-        if rarity_group in exact_rate_rarities:
-            print(f"Exact rate rarity - using base rate: {base_pull_rate}")
-            return base_pull_rate
+        # Determine calculation type and execute appropriate method
+        calculation_type = self._determine_calculation_type(rarity_group)
         
-        # Guaranteed slot cards - Two-Step Calculation
-        elif rarity_group == 'common':
-            # P_common_card = (1 / total_commons_in_set) × number_of_common_slots
-            individual_rate = base_pull_rate  # This is already 1/total_commons
-            slot_multiplier = self.common_multiplier  # Number of common slots
+        # Strategy pattern using dictionary dispatch
+        calculation_strategies = {
+            'exact': self._calculate_exact_rate,
+            'guaranteed_slot': self._calculate_guaranteed_slot_rate,
+            'probability_based': self._calculate_probability_based_rate
+        }
+        
+        # Execute strategy or fallback to default
+        strategy = calculation_strategies.get(calculation_type, self._calculate_default_rate)
+        return strategy(rarity_group, base_pull_rate)
+
+    def _determine_calculation_type(self, rarity_group):
+        """
+        Dynamically determine the calculation type based on configuration data.
+        
+        Returns:
+            'exact': Use pull rate as-is (default for most cards)
+            'guaranteed_slot': Cards with guaranteed slots (common/uncommon)
+            'probability_based': Only for 'rare' rarity group cards
+        """
+        # Check if it's a guaranteed slot type
+        if rarity_group in ['common', 'uncommon']:
+            return 'guaranteed_slot'
+        
+        # Only 'rare' rarity group uses probability-based calculation
+        if rarity_group == 'rare':
+            return 'probability_based'
+        
+        # Everything else uses exact calculation 
+        return 'exact'
+
+    def _calculate_exact_rate(self, rarity_group, base_pull_rate):
+        """Calculate exact rate (no modification needed)"""
+        print(f"Exact rate rarity - using base rate: {base_pull_rate}")
+        return base_pull_rate
+
+    def _calculate_guaranteed_slot_rate(self, rarity_group, base_pull_rate):
+        """Calculate effective rate for cards with guaranteed slots (common/uncommon)"""
+        if rarity_group == 'common':
+            individual_rate = base_pull_rate  # Already 1/total_commons
+            slot_multiplier = getattr(self, 'common_multiplier', 4)  # Default 4 common slots
             effective_rate = individual_rate / slot_multiplier
             print(f"Common card: individual_rate={individual_rate}, slot_multiplier={slot_multiplier}")
             print(f"Effective rate: {individual_rate} / {slot_multiplier} = {effective_rate}")
             return effective_rate
         
         elif rarity_group == 'uncommon':
-            # P_uncommon_card = (1 / total_uncommons_in_set) × number_of_uncommon_slots
-            individual_rate = base_pull_rate  # This is already 1/total_uncommons
-            slot_multiplier = self.uncommon_multiplier  # Number of uncommon slots
+            individual_rate = base_pull_rate  # Already 1/total_uncommons
+            slot_multiplier = getattr(self, 'uncommon_multiplier', 3)  # Default 3 uncommon slots
             effective_rate = individual_rate / slot_multiplier
             print(f"Uncommon card: individual_rate={individual_rate}, slot_multiplier={slot_multiplier}")
             print(f"Effective rate: {individual_rate} / {slot_multiplier} = {effective_rate}")
             return effective_rate
         
-        # Regular rares (rare slot only) - Two-Step Calculation
-        elif rarity_group == 'rare':
-            # P_specific_regular_rare = P_regular_rare_type × (1/number_of_rare_cards)
-            type_probability = self.rare_multiplier  # P_regular_rare_type (already calculated)
-            individual_probability = 1 / base_pull_rate  # 1/number_of_rare_cards
+        # Shouldn't reach here given our logic, but safety fallback
+        print(f"Unexpected rarity '{rarity_group}' in guaranteed slot calculation - using base rate")
+        return base_pull_rate
+
+    def _calculate_default_rate(self, rarity_group, base_pull_rate):
+        """Default fallback calculation"""
+        print(f"Unknown rarity group '{rarity_group}' - using base rate: {base_pull_rate}")
+        return base_pull_rate
+
+    def _calculate_probability_based_rate(self, rarity_group, base_pull_rate):
+        """Calculate effective rate for cards that appear in probability-based slots"""
+        
+        # Check rare slot first
+        rare_slot_prob = getattr(self.config, 'RARE_SLOT_PROBABILITY', {}).get(rarity_group)
+        print("Hello rare_slot_prob: ", rare_slot_prob)
+        if rare_slot_prob:
+            # Regular rare slot calculation
+            type_probability = rare_slot_prob
+            individual_probability = 1 / base_pull_rate
             effective_probability = type_probability * individual_probability
             effective_rate = 1 / effective_probability
-            print(f"Regular rare: type_prob={type_probability}, individual_prob={individual_probability}")
+            print(f"Rare slot - type_prob={type_probability}, individual_prob={individual_probability}")
             print(f"Effective probability: {type_probability} × {individual_probability} = {effective_probability}")
             print(f"Effective rate: 1 / {effective_probability} = {effective_rate}")
             return effective_rate
         
-        # Regular reverses (both reverse slots) - Two-Step Calculation
-        elif rarity_group == 'regular_reverse':
-            # P_specific_card_total = Σ(P_type_per_slot_i × (1/number_of_cards_in_type))
-            total_type_probability = self.reverse_multiplier  # Sum of both slot probabilities
-            individual_probability = 1 / base_pull_rate  # 1/number_of_reverse_cards
-            effective_probability = total_type_probability * individual_probability
-            effective_rate = 1 / effective_probability
-            print(f"Regular reverse: total_type_prob={total_type_probability}, individual_prob={individual_probability}")
-            print(f"Effective probability: {total_type_probability} × {individual_probability} = {effective_probability}")
-            print(f"Effective rate: 1 / {effective_probability} = {effective_rate}")
-            return effective_rate
-        
-        # Fallback for other rarities
-        else:
-            print(f"Unknown rarity group '{rarity_group}' - using base rate: {base_pull_rate}")
-            return base_pull_rate
-    
+        print(f"No probability configuration found for {rarity_group} - using exact rate: {base_pull_rate}")
+        return base_pull_rate
+
     def calculate_base_ev(self, df):
         """Calculate EV using corrected pull rates following the model's methodology"""
         print("\n=== CALCULATING BASE EV WITH EFFECTIVE PULL RATES ===")
