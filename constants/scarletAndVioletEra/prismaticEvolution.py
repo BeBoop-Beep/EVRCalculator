@@ -32,6 +32,7 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
     }
 
     REVERSE_SLOT_PROBABILITIES = {
+        # Total: ≈ 1.517547
         "slot_1": {
             "ace_spec": 1/13,
             "pokeball_pattern": 1/3,
@@ -51,3 +52,34 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
         'rare': 1 - (1 / 6) - (1 / 13) - (1 / 180),
     }
  
+    GOD_PACK_CONFIG = {
+        "enabled": True,
+        "pull_rate": 1 / 2000,
+        "strategy": {
+            "type": "fixed",
+            "cards": [
+                "Eevee (Master Ball Pattern)",
+                "Eevee ex - 167/131",
+                "Vaporeon ex - 149/131",
+                "Jolteon ex - 153/131",
+                "Flareon ex - 146/131",
+                "Espeon ex - 155/131",
+                "Umbreon ex - 161/131",
+                "Glaceon ex - 150/131",
+                "Leafeon ex - 144/131",
+                "Sylveon ex - 156/131"
+            ]
+        }
+    }
+
+    DEMI_GOD_PACK_CONFIG = {
+        "enabled": True,
+        "pull_rate": 3 * (1/2000),
+        "strategy": {
+            "type": "random",
+            "rules": {
+                "count": 3,
+                "rarities": ["special illustration rare"]
+            }
+        }
+    }
