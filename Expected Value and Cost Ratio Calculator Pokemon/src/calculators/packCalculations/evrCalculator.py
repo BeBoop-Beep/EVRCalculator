@@ -12,96 +12,54 @@ class PackEVCalculator(PackEVInitializer):
     def __init__(self, config):
         super().__init__(config)
 
-    def calculate_god_pack_ev(self, df):
-        """Calculate EV contribution from God Packs - FIXED FOR CONFIG MAPPING"""
-        print("\n=== CALCULATING GOD PACK EV ADJUSTMENTS ===")
-        
-        # God pack configuration - pull from PULL_RATE_MAPPING
-        god_pack_rate = self.config.PULL_RATE_MAPPING.get('god pack')
-        demi_god_pack_rate = self.config.PULL_RATE_MAPPING.get('demi god pack')
-        
-        # Only calculate if god pack and demi god pack rates exist in config
-        if god_pack_rate is None and demi_god_pack_rate is None:
-            print("No god pack or demi god pack rates found in config - skipping calculation")
-            return {
-                'god_pack_ev': 0,
-                'demi_god_pack_ev': 0,
-                'total_special_pack_ev': 0,
-                'god_pack_probability': 0,
-                'demi_god_pack_probability': 0,
-                'god_pack_value': 0,
-                'demi_god_pack_value': 0
-            }
-        
-        P_god_pack = 1 / god_pack_rate if god_pack_rate else 0
-        P_demi_god_pack = 1 / demi_god_pack_rate if demi_god_pack_rate else 0
-        
-        if god_pack_rate:
-            print(f"God pack probability: 1/{god_pack_rate}")
-        if demi_god_pack_rate:
-            print(f"Demi-god pack probability: 1/{demi_god_pack_rate:.2f}")
-        
-        # Find SIR cards using the cleaned rarity_raw column
-        sir_cards = df[df['rarity_raw'] == 'special illustration rare']
-        if not sir_cards.empty:
-            average_sir_value = sir_cards['Price ($)'].mean()
-            print(f"Found {len(sir_cards)} SIR cards")
-            print(f"Average SIR value: ${average_sir_value:.2f}")
-        else:
-            average_sir_value = 0
-            print("No SIR cards found for god pack calculation")
-            print(f"Available rarity_raw values: {df['rarity_raw'].unique()}")
-        
-        # Calculate average reverse value
-        reverse_eligible = df[~df['Rarity'].isin(['Illustration Rare', 'Special Illustration Rare'])]
-        if 'Reverse Variant Price ($)' in df.columns:
-            avg_reverse_value = reverse_eligible['Reverse Variant Price ($)'].fillna(0).mean()
-            print(f"Average reverse value: ${avg_reverse_value:.2f}")
-        else:
-            avg_reverse_value = 0
-            print("No reverse variant prices found")
-        
-        # God pack EV calculation
-        if god_pack_rate:
-            god_pack_value = (9 * average_sir_value) + avg_reverse_value
-            ev_god_pack = P_god_pack * god_pack_value
-            print(f"God pack value: 9 × ${average_sir_value:.2f} + ${avg_reverse_value:.2f} = ${god_pack_value:.2f}")
-            print(f"God pack EV contribution: {P_god_pack:.8f} × ${god_pack_value:.2f} = ${ev_god_pack:.6f}")
-        else:
-            god_pack_value = 0
-            ev_god_pack = 0
-            print("God pack rate not configured - skipping god pack calculation")
-        
-        # Demi-god pack EV calculation
-        if demi_god_pack_rate:
-            high_value_cards = df[df['Price ($)'] > df['Price ($)'].quantile(0.9)]
-            if not high_value_cards.empty:
-                avg_high_value = high_value_cards['Price ($)'].mean()
-                demi_god_pack_value = 3 * avg_high_value
-                ev_demi_god_pack = P_demi_god_pack * demi_god_pack_value
-                print(f"Demi-god pack estimated value: 3 × ${avg_high_value:.2f} = ${demi_god_pack_value:.2f}")
-                print(f"Demi-god pack EV contribution: {P_demi_god_pack:.8f} × ${demi_god_pack_value:.2f} = ${ev_demi_god_pack:.6f}")
-            else:
-                ev_demi_god_pack = 0
-                demi_god_pack_value = 0
-                print("No high-value cards found for demi-god pack calculation")
-        else:
-            ev_demi_god_pack = 0
-            demi_god_pack_value = 0
-            print("Demi-god pack rate not configured - skipping demi-god pack calculation")
-        
-        total_special_pack_ev = ev_god_pack + ev_demi_god_pack
-        print(f"Total special pack EV: ${total_special_pack_ev:.6f}")
-        
+    def calculate_god_packs_ev_contributions(self, df):
         return {
-            'god_pack_ev': ev_god_pack,
-            'demi_god_pack_ev': ev_demi_god_pack,
-            'total_special_pack_ev': total_special_pack_ev,
-            'god_pack_probability': P_god_pack,
-            'demi_god_pack_probability': P_demi_god_pack,
-            'god_pack_value': god_pack_value,
-            'demi_god_pack_value': demi_god_pack_value
-    }
+            "god_pack_ev": PackEVCalculator._calculate_god_packs_ev_contributions(self.config.GOD_PACK_CONFIG, df, self.config),
+            "demi_god_pack_ev": PackEVCalculator._calculate_god_packs_ev_contributions(self.config.DEMI_GOD_PACK_CONFIG, df, self.config),
+        }
+
+    @staticmethod
+    def _calculate_god_packs_ev_contributions(strategy_config, df, config):
+        if not strategy_config.get("enabled", False):
+            return 0.0
+
+        pull_rate = strategy_config.get("pull_rate", 0)
+        strategy = strategy_config.get("strategy", {})
+        strategy_type = strategy.get("type")
+
+        if strategy_type == "fixed":
+            cards = strategy.get("cards", [])
+            total = df[df["Card Name"].isin(cards)]["Price ($)"].sum()
+            return pull_rate * total
+
+        elif strategy_type == "random":
+            rules = strategy.get("rules", {})
+            count = rules.get("count", 1)
+            rarities = rules.get("rarities", [])
+
+            # Grab rarity-to-slot counts from the config
+            rarity_multipliers = config.get_rarity_pack_multiplier()
+            common_count = rarity_multipliers.get('common', 0)
+            uncommon_count = rarity_multipliers.get('uncommon', 0)
+
+            # Compute averages
+            avg_common = df[df["Rarity"] == "common"]["Price ($)"].mean()
+            avg_uncommon = df[df["Rarity"] == "uncommon"]["Price ($)"].mean()
+            avg_high_rarity = df[df["Rarity"].isin(rarities)]["Price ($)"].mean()
+
+            # Expected value of this specific configuration of a demi-god pack
+            pack_value = (common_count * avg_common) + (uncommon_count * avg_uncommon) + (count * avg_high_rarity)
+            adjusted_ev = pull_rate * pack_value
+
+            print("=== DEMI-GOD PACK LOGIC ===")
+            print(f"Common avg: {avg_common:.4f}, Uncommon avg: {avg_uncommon:.4f}, High rarity avg: {avg_high_rarity:.4f}")
+            print(f"Pack layout: common({common_count}), uncommon({uncommon_count}), high rarity({count})")
+            print(f"Pack value before scaling: {pack_value:.4f}")
+            print(f"Pull rate: {pull_rate}, Final EV: {adjusted_ev:.4f}")
+
+            return adjusted_ev
+
+        return 0.0
     
     def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, card_name=None):
         """
@@ -111,7 +69,6 @@ class PackEVCalculator(PackEVInitializer):
         
         # Special pattern cards (always use exact rates)
         if card_name and ('master ball' in card_name.lower() or 'poke ball' in card_name.lower()):
-            print(f"Special pattern card - using exact rate: {base_pull_rate}")
             return base_pull_rate
         
         # Determine calculation type and execute appropriate method
@@ -150,7 +107,6 @@ class PackEVCalculator(PackEVInitializer):
 
     def _calculate_exact_rate(self, rarity_group, base_pull_rate):
         """Calculate exact rate (no modification needed)"""
-        print(f"Exact rate rarity - using base rate: {base_pull_rate}")
         return base_pull_rate
 
     def _calculate_guaranteed_slot_rate(self, rarity_group, base_pull_rate):
@@ -159,16 +115,12 @@ class PackEVCalculator(PackEVInitializer):
             individual_rate = base_pull_rate  # Already 1/total_commons
             slot_multiplier = getattr(self, 'common_multiplier', 4)  # Default 4 common slots
             effective_rate = individual_rate / slot_multiplier
-            print(f"Common card: individual_rate={individual_rate}, slot_multiplier={slot_multiplier}")
-            print(f"Effective rate: {individual_rate} / {slot_multiplier} = {effective_rate}")
             return effective_rate
         
         elif rarity_group == 'uncommon':
             individual_rate = base_pull_rate  # Already 1/total_uncommons
             slot_multiplier = getattr(self, 'uncommon_multiplier', 3)  # Default 3 uncommon slots
             effective_rate = individual_rate / slot_multiplier
-            print(f"Uncommon card: individual_rate={individual_rate}, slot_multiplier={slot_multiplier}")
-            print(f"Effective rate: {individual_rate} / {slot_multiplier} = {effective_rate}")
             return effective_rate
         
         # Shouldn't reach here given our logic, but safety fallback
@@ -185,19 +137,14 @@ class PackEVCalculator(PackEVInitializer):
         
         # Check rare slot first
         rare_slot_prob = getattr(self.config, 'RARE_SLOT_PROBABILITY', {}).get(rarity_group)
-        print("Hello rare_slot_prob: ", rare_slot_prob)
         if rare_slot_prob:
             # Regular rare slot calculation
             type_probability = rare_slot_prob
             individual_probability = 1 / base_pull_rate
             effective_probability = type_probability * individual_probability
             effective_rate = 1 / effective_probability
-            print(f"Rare slot - type_prob={type_probability}, individual_prob={individual_probability}")
-            print(f"Effective probability: {type_probability} × {individual_probability} = {effective_probability}")
-            print(f"Effective rate: 1 / {effective_probability} = {effective_rate}")
             return effective_rate
-        
-        print(f"No probability configuration found for {rarity_group} - using exact rate: {base_pull_rate}")
+    
         return base_pull_rate
 
     def calculate_base_ev(self, df):
@@ -216,11 +163,8 @@ class PackEVCalculator(PackEVInitializer):
         
         # Calculate EV using effective pull rates
         df['EV'] = df['Price ($)'] / df['Effective_Pull_Rate']
-        
-        print(f"\n=== BASE EV CALCULATION COMPLETE ===")
         print(f"Total cards processed: {len(df)}")
-        print(f"Total base EV: {df['EV'].sum():.4f}")
-        
+                
         return df
     
     def calculate_reverse_ev_for_slot(self, df, slot_name):
@@ -315,56 +259,20 @@ class PackEVCalculator(PackEVInitializer):
         return ev_totals
     
    
-    
-    
-    def adjust_regular_pack_probabilities(self, regular_pack_ev, special_pack_metrics):
-        """Adjust regular pack EV based on special pack probabilities"""
-        print("\n=== ADJUSTING REGULAR PACK PROBABILITIES ===")
-        
-        # Calculate probability of getting a regular pack
-        P_god_pack = special_pack_metrics['god_pack_probability']
-        P_demi_god_pack = special_pack_metrics['demi_god_pack_probability']
-        P_regular_pack = 1 - P_god_pack - P_demi_god_pack
-        
-        print(f"Regular pack probability: 1 - {P_god_pack:.8f} - {P_demi_god_pack:.8f} = {P_regular_pack:.8f}")
-        
-        # Adjust regular pack EV
-        adjusted_regular_ev = P_regular_pack * regular_pack_ev
-        print(f"Adjusted regular pack EV: {P_regular_pack:.8f} × ${regular_pack_ev:.4f} = ${adjusted_regular_ev:.6f}")
-        
-        return {
-            'regular_pack_probability': P_regular_pack,
-            'adjusted_regular_ev': adjusted_regular_ev,
-            'original_regular_ev': regular_pack_ev
-        }
-    
     def calculate_total_ev(self, ev_totals, df):
-        """Calculate total EV from all sources including special pack adjustments"""
-        print(f"\n=== TOTAL EV CALCULATION WITH SPECIAL PACKS ===")
-        
-        # Calculate base regular pack EV
         regular_pack_ev = sum(ev_totals.values())
-        print(f"Regular pack EV (before adjustments): ${regular_pack_ev:.4f}")
-        
-        # Calculate special pack contributions
-        special_pack_metrics = self.calculate_god_pack_ev(df)
-        
-        # Adjust regular pack probabilities
-        regular_pack_adjustments = self.adjust_regular_pack_probabilities(
-            regular_pack_ev, special_pack_metrics
-        )
-        
-        # Calculate final total EV
-        total_ev = (
-            regular_pack_adjustments['adjusted_regular_ev'] + 
-            special_pack_metrics['total_special_pack_ev']
-        )
-        
+
+        special_pack_metrics = self.calculate_god_packs_ev_contributions(df)
+        god_pack_ev, demi_god_pack_ev = special_pack_metrics.values()
+
+        total_ev = regular_pack_ev + god_pack_ev + demi_god_pack_ev
+
         print(f"\nFINAL EV BREAKDOWN:")
-        print(f"  Adjusted regular pack EV: ${regular_pack_adjustments['adjusted_regular_ev']:.6f}")
-        print(f"  God pack EV contribution: ${special_pack_metrics['god_pack_ev']:.6f}")
-        print(f"  Demi-god pack EV contribution: ${special_pack_metrics['demi_god_pack_ev']:.6f}")
-        print(f"  TOTAL EV: ${total_ev:.4f}")
-        
-        return total_ev, special_pack_metrics, regular_pack_adjustments
+        print(f"  Regular pack EV contribution: ${regular_pack_ev:.6f}")
+        print(f"  God pack EV contribution: ${god_pack_ev:.6f}")
+        print(f"  Demi-god pack EV contribution: ${demi_god_pack_ev:.6f}")
+        print(f"  TOTAL EV: ${total_ev:.2f}\n")
+
+        return total_ev, regular_pack_ev, god_pack_ev, demi_god_pack_ev
+
     

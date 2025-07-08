@@ -25,6 +25,18 @@ class BaseSetConfig:
         "Special Collection Price": None
     }
 
+    GOD_PACK_CONFIG = {
+        "enabled": False,
+        "pull_rate": 0,
+        "strategy": {}
+    }
+
+    DEMI_GOD_PACK_CONFIG = {
+        "enabled": False,
+        "pull_rate": 0,
+        "strategy": {}
+    }
+
     @classmethod
     def get_rarity_pack_multiplier(cls):
         base_multipliers = {}
