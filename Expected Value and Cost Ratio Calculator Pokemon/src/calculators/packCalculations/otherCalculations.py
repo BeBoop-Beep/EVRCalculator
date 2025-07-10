@@ -14,11 +14,14 @@ class PackCalculations(PackEVCalculator):
         net_value = total_ev - pack_price
         roi = total_ev / pack_price
         roi_percent = (roi - 1) * 100
-        
+
+        print("Net Value Upon Opening: ", net_value)
+        print("ROI Upon Opening: ", roi)
+        print(f"ROI Percent Upon Opening: {roi_percent:.2f}\n")
         return {
             'net_value': net_value,
-            'roi': roi,
-            'roi_percent': roi_percent
+            'opening_pack_roi': roi,
+            'opening_pack_roi_percent': roi_percent
         }
 
 
@@ -58,8 +61,9 @@ class PackCalculations(PackEVCalculator):
         rare_cards = df[(df['Rarity'] == 'rare') & ~pattern_mask]
         
         # Get hit cards and special cards
+        df["rarity_group"] = df["Rarity"].str.lower().map(self.config.RARITY_MAPPING)
         hit_cards = df[df['rarity_group'] == 'hits']
-        
+    
         def calculate_guaranteed_slot_variance(cards_df, num_slots, total_cards_in_rarity):
             """
             Calculate variance for guaranteed slots (commons/uncommons) with proper count distribution.
@@ -95,6 +99,7 @@ class PackCalculations(PackEVCalculator):
             Calculate variance for the rare slot considering hit replacements.
             This models a single multinomial draw from all possible outcomes.
             """
+        
             if rare_cards.empty:
                 return 0.0
             
@@ -120,7 +125,9 @@ class PackCalculations(PackEVCalculator):
                 if rarity == 'rare':
                     continue
                     
-                hit_subset = hit_cards[hit_cards['Rarity'] == rarity]
+                rarity = rarity.lower().strip()
+                hit_subset = hit_cards[hit_cards['Rarity'].str.lower().str.strip() == rarity]
+
                 if not hit_subset.empty:
                     num_hits = len(hit_subset)
                     for _, card in hit_subset.iterrows():
@@ -215,18 +222,21 @@ class PackCalculations(PackEVCalculator):
             self.PULL_RATE_MAPPING.get('uncommon', 33)  # Use config value, default 33
         )
         
+        print(f"Rare cards count: {len(rare_cards)}")
         # 2. Rare slot with hit replacements - ALREADY CORRECT
         rare_variance = calculate_rare_slot_variance(
             rare_cards, 
             hit_cards, 
-            getattr(self, 'RARE_SLOT_PROBABILITY', {})
+            getattr(self.config, 'RARE_SLOT_PROBABILITY', {})
         )
-        
+        print(f"Reverse cards count: {len(df[df['EV_Reverse'] > 0])}")
+
         # 3. Reverse slots with special replacements - ALREADY CORRECT
         reverse_variance = calculate_reverse_slot_variance(
             df, 
-            getattr(self, 'REVERSE_SLOT_PROBABILITIES', {})
+            getattr(self.config, 'REVERSE_SLOT_PROBABILITIES', {})
         )
+        print(f"Hit cards count: {len(hit_cards)}")
         
         # 4. No independent hit cards - all hits are handled by rare/reverse slots
         hit_variance = 0.0
