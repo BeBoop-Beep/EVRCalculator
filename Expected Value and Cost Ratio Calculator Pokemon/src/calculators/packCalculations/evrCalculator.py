@@ -254,7 +254,7 @@ class PackEVCalculator(PackEVInitializer):
         for rarity, total in ev_totals.items():
             if total > 0:
                 print(f"  {rarity}: {total:.4f}")
-        print(f"Sum of all EV totals: {sum(ev_totals.values()):.4f}")
+        print(f"\nSum of all EV totals: {sum(ev_totals.values()):.4f}\n")
         
         return ev_totals
     
