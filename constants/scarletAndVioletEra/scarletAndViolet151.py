@@ -27,12 +27,12 @@ class Set151Config(BaseSetConfig):
 
     REVERSE_SLOT_PROBABILITIES = {
         "slot_1": {
-            "regular_reverse": 1
+            "regular reverse": 1
         },
         "slot_2": {
-            "illustration_rare": 1/12,
-            "special_illustration_rare": 1 / 32,
-            "regular_reverse": 1 - (1 / 12) - (1 / 32)  # ≈ 0.885417
+            "illustration rare": 1/12,
+            "special illustration rare": 1 / 32,
+            "regular reverse": 1 - (1 / 12) - (1 / 32)  # ≈ 0.885417
         }
     }
 
