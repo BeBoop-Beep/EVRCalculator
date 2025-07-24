@@ -179,7 +179,7 @@ class PackEVCalculator(PackEVInitializer):
             return ev_slot_total
         
         slot_config = self.config.REVERSE_SLOT_PROBABILITIES[slot_name]
-        regular_reverse_prob = slot_config.get("regular_reverse", 0)
+        regular_reverse_prob = slot_config.get("regular reverse", 0)
         
         if regular_reverse_prob == 0:
             return ev_slot_total

@@ -37,6 +37,13 @@ class BaseSetConfig:
         "strategy": {}
     }
 
+    SLOTS_PER_RARITY = {
+        "common": 4,
+        "uncommon": 3,
+        "reverse": 2,
+        "rare": 1,
+    }
+
     @classmethod
     def get_rarity_pack_multiplier(cls):
         base_multipliers = {}
@@ -60,3 +67,15 @@ class BaseSetConfig:
         for attr in required_attrs:
             if not hasattr(cls, attr):
                 raise ValueError(f"{cls.__name__} missing required attribute: {attr}")
+            
+    @classmethod
+    def get_reverse_eligible_rarities(cls):
+        """
+        Returns the list of raw rarities (from data) that are eligible for reverse foiling.
+        These are the raw keys that map to 'common', 'uncommon', or 'rare' in RARITY_MAPPING.
+        """
+        return [
+            raw_rarity
+            for raw_rarity, group in cls.RARITY_MAPPING.items()
+            if group in {'common', 'uncommon', 'rare'}
+        ]
