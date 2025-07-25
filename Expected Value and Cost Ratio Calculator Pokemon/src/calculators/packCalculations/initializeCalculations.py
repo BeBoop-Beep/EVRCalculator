@@ -56,5 +56,15 @@ class PackEVInitializer:
         
         # Get pack price
         pack_price = pd.to_numeric(df["Pack Price"].iloc[0], errors='coerce')
+
+        # Ensure EV_Reverse column is set
+        if "EV_Reverse" not in df.columns:
+            if "Reverse Variant Price ($)" in df.columns:
+                df["EV_Reverse"] = df["Reverse Variant Price ($)"]
+            elif "Price ($)" in df.columns:
+                df["EV_Reverse"] = df["Price ($)"]  # fallback if reverse-specific price not available
+            else:
+                df["EV_Reverse"] = 0.0  # safest fallback to prevent errors
+
         
         return df, pack_price
