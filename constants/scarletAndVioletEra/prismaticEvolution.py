@@ -34,14 +34,14 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
     REVERSE_SLOT_PROBABILITIES = {
         # Total: ≈ 1.517547
         "slot_1": {
-            "ace_spec": 1/13,
-            "pokeball_pattern": 1/3,
-            "regular_reverse": 1 - (1/13) - (1/3) # ≈ 0.589747
+            "ace spec rare": 1/13,
+            "poke ball pattern": 1/3,
+            "regular reverse": 1 - (1/13) - (1/3) # ≈ 0.589747
         },
         "slot_2": {
-            "masterball_pattern": 1/20,
-            "special_illustration_rare": 1 / 45,
-            "regular_reverse": 1 - (1 / 20) - (1 / 45)  # ≈ 0.9278
+            "master ball pattern": 1/20,
+            "special illustration rare": 1 / 45,
+            "regular reverse": 1 - (1 / 20) - (1 / 45)  # ≈ 0.9278
         }
     }
 
