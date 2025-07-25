@@ -13,8 +13,8 @@ class PackEVInitializer:
         self.uncommon_multiplier = self.pack_multipliers.get('uncommon', 1)
         self.rare_multiplier = config.RARE_SLOT_PROBABILITY['rare']
         
-        slot1_rr = config.REVERSE_SLOT_PROBABILITIES["slot_1"]["regular_reverse"]
-        slot2_rr = config.REVERSE_SLOT_PROBABILITIES["slot_2"]["regular_reverse"]
+        slot1_rr = config.REVERSE_SLOT_PROBABILITIES["slot_1"]["regular reverse"]
+        slot2_rr = config.REVERSE_SLOT_PROBABILITIES["slot_2"]["regular reverse"]
         self.reverse_multiplier = slot1_rr + slot2_rr
     
     def load_and_prepare_data(self, file_path):
