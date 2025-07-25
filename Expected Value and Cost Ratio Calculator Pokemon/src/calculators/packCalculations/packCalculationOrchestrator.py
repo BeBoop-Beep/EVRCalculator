@@ -53,7 +53,7 @@ class PackCalculationOrchestrator(PackCalculations):
             slots_per_rarity=self.config.SLOTS_PER_RARITY
         )
 
-        sim_results = run_simulation(simulate_one_pack, n=10000)
+        sim_results = run_simulation(simulate_one_pack, n=100000)
 
         print_simulation_summary(sim_results)
         
