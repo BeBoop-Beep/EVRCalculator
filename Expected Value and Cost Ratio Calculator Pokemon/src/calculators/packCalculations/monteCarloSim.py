@@ -2,11 +2,11 @@ import numpy as np
 import pandas as pd
 from typing import Callable, List, Dict
 
-def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 10000) -> List[float]:
+def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 100000) -> List[float]:
     """Simulates opening n packs using the provided simulation function."""
     return [open_pack_fn() for _ in range(n)]
 
-def run_simulation(open_pack_fn: Callable[[], float], n: int = 10000) -> Dict[str, object]:
+def run_simulation(open_pack_fn: Callable[[], float], n: int = 100000) -> Dict[str, object]:
     """Runs a Monte Carlo simulation and returns statistical summaries."""
     results = simulate_pack_distribution(open_pack_fn, n)
     results_array = np.array(results)
@@ -86,7 +86,7 @@ def make_simulate_pack_fn(
     return simulate_one_pack
 
 
-def print_simulation_summary(sim_results, n_simulations=10000):
+def print_simulation_summary(sim_results, n_simulations=100000):
     print(f"Monte Carlo Simulation Results ({n_simulations} simulations):")
     print("-" * 50)
     print(f"Mean Value:          ${sim_results['mean']:.2f}")
