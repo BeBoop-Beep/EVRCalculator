@@ -50,7 +50,9 @@ class PackCalculationOrchestrator(PackCalculations):
             reverse_pool=card_groups["reverse"],
             rare_slot_config=self.config.RARE_SLOT_PROBABILITY,
             reverse_slot_config=self.config.REVERSE_SLOT_PROBABILITIES,
-            slots_per_rarity=self.config.SLOTS_PER_RARITY
+            slots_per_rarity=self.config.SLOTS_PER_RARITY,
+            config = self.config,
+            df = df
         )
 
         sim_results = run_simulation(simulate_one_pack, n=100000)
