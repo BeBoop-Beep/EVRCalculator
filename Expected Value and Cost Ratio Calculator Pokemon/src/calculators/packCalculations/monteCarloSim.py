@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from typing import Callable, List, Dict
+from src.utils.monteCarloSimUtils.specialPackLogic import sample_god_pack, sample_demi_god_pack
 
 def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 100000) -> List[float]:
     """Simulates opening n packs using the provided simulation function."""
@@ -35,10 +36,27 @@ def make_simulate_pack_fn(
     rare_slot_config,
     reverse_slot_config,
     slots_per_rarity,
+    config, 
+    df
 ):
     def simulate_one_pack():
         total_value = 0.0
 
+        # Step 1: God Pack Roll
+        god_cfg = getattr(config, "GOD_PACK_CONFIG", {})
+        if god_cfg.get("enabled", False):
+            pull_rate = god_cfg.get("pull_rate", 0)
+            if np.random.rand() < pull_rate:
+                return sample_god_pack(god_cfg, df)
+
+        # Step 2: Demi-God Pack Roll
+        demi_cfg = getattr(config, "DEMI_GOD_PACK_CONFIG", {})
+        if demi_cfg.get("enabled", False):
+            pull_rate = demi_cfg.get("pull_rate", 0)
+            if np.random.rand() < pull_rate:
+                return sample_demi_god_pack(demi_cfg, df, common_cards, uncommon_cards)
+
+        # Step 3: Normal Sampling Logic 
         # Sample commons
         total_value += common_cards['Price ($)'].sample(slots_per_rarity['common'], replace=True).sum()
 
