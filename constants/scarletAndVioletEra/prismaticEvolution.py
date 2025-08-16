@@ -78,8 +78,11 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
         "strategy": {
             "type": "random",
             "rules": {
-                "count": 3,
-                "rarities": ["special illustration rare"]
+                "rarities": {
+                    "common": 4,
+                    "uncommon": 3,
+                    "special illustration rare": 3
+                }
             }
         }
     }
