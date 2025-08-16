@@ -37,9 +37,6 @@ def main():
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         excel_path = os.path.join(project_root, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
 
-        # print("Scraping Info from TCGPlayer...")
-        # scrape_tcgplayer_xhr(excel_path, config)
-
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
         file_path = excel_path
