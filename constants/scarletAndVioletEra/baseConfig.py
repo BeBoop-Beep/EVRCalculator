@@ -12,7 +12,8 @@ class BaseSetConfig:
         'ultra rare': 'hits',
         'hyper rare': 'hits',
         'illustration rare': 'hits',             
-        'special illustration rare': 'hits'       
+        'special illustration rare': 'hits', 
+        'black white rare': 'hits',      
     }) 
 
     DEFAULT_PRICE_ENDPOINTS = {
