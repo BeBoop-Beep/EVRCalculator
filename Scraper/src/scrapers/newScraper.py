@@ -8,11 +8,11 @@ def determine_pull_rate(card_name, rarity_text, PULL_RATE_MAPPING):
 
     # Check special cases first
     if 'master ball pattern' in card_name_lower:
-        return 1362, 'master ball pattern'
+        return PULL_RATE_MAPPING.get('master ball pattern'), 'master ball pattern'
     if 'poke ball pattern' in card_name_lower:
-        return 302, 'poke ball pattern'
+        return PULL_RATE_MAPPING.get('poke ball pattern'), 'poke ball pattern'
     if 'ace spec rare' in rarity_lower:
-        return 128, 'ace spec rare'
+        return PULL_RATE_MAPPING.get('ace spec rare'), 'ace spec rare'
 
     # Use exact matching first
     for rarity_key in PULL_RATE_MAPPING:
@@ -29,13 +29,21 @@ def determine_pull_rate(card_name, rarity_text, PULL_RATE_MAPPING):
 
 # Function to fetch and parse card data
 def fetch_price_data(price_guide_url, PULL_RATE_MAPPING):
-    response = requests.get(price_guide_url)
     
+    response = requests.get(price_guide_url)
+
     if response.status_code != 200:
         print(f"Error fetching data: {response.status_code}")
+        print(response.text[:300])  # Show first part of the HTML/error for debugging
         return []
 
-    json_data = response.json()
+    try:
+        json_data = response.json()
+    except ValueError as e:
+        print(f"Failed to parse JSON: {e}")
+        print("Response content:", response.text[:300])  # Preview the bad content
+        return []
+    
     cards = json_data.get("result", [])
 
     card_data = {}
