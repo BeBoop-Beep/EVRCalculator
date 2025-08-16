@@ -19,6 +19,12 @@ def validate_and_debug_slot(
         "reverse_2": reverse_slot_config["slot_2"]
     }
 
+    # Config sanity check: probabilities must sum to 1
+    for slot_name, slot_config in slots_to_test.items():
+        prob_sum = sum(slot_config.values())
+        assert abs(prob_sum - 1) < 1e-8, f"{slot_name} probabilities sum to {prob_sum:.8f}, not 1. Check your config!"
+    
+
     # Loop over each slot
     for slot_name, slot_config in slots_to_test.items():
         rarity_pull_counts = {k: 0 for k in slot_config.keys()}
@@ -93,4 +99,8 @@ def validate_full_pack_logic(
                   f"Simulated={observed_prob:.5f} Error={err:.2f}%")
         chi2, pval = chisquare(obs, exp)
         print(f"Chi-square p-value: {pval:.6f}")
+        if pval < 0.05:
+            print("  ❌ Statistically significant difference")
+        else:
+            print("  ✅ No statistically significant difference")
     print("\nIf these results match your expected probabilities, your simulation logic is correct.")
