@@ -42,3 +42,37 @@ class Set151Config(BaseSetConfig):
         'hyper rare': 1 / 51,
         'rare': 1 - (1 / 8) - (1 / 16) - (1 / 51),
     }
+
+    GOD_PACK_CONFIG = {
+        "enabled": True,
+        "pull_rate": 1 / 2000,  # or whatever the real rate is
+        "strategy": {
+            "type": "fixed",
+            "packs": [
+                {
+                    "name": "Charmander Line",
+                    "cards": [
+                        "Charmander - 168/165",
+                        "Charmeleon - 169/165",
+                        "Charizard ex - 199/165"
+                    ]
+                },
+                {
+                    "name": "Squirtle Line",
+                    "cards": [
+                        "Squirtle - 170/165",
+                        "Wartortle - 171/165",
+                        "Blastoise ex - 200/165"
+                    ]
+                },
+                {
+                    "name": "Bulbasaur Line",
+                    "cards": [
+                        "Bulbasaur - 166/165",
+                        "Ivysaur - 167/165",
+                        "Venusaur ex - 198/165"
+                    ]
+                }
+            ]
+        }
+    }
