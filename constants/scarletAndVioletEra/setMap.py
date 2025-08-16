@@ -12,6 +12,7 @@ from .stellarCrown import SetStellarCrownConfig
 from .surgingSparks import SetSurgingSparksConfig
 from .temporalForces import SetTemporalForcesConfig
 from .twilightMasquerade import SetTwilightMasqueradeConfig
+from .whiteFlare import SetWhiteFlareConfig
 
 
 SET_CONFIG_MAP = {
@@ -29,6 +30,7 @@ SET_CONFIG_MAP = {
     'surgingSparks' : SetSurgingSparksConfig,
     'temporalForces' : SetTemporalForcesConfig,
     'twilightMasquerade' : SetTwilightMasqueradeConfig,
+    'whiteFlare' : SetWhiteFlareConfig,
 }
 
 SET_ALIAS_MAP = {
@@ -43,4 +45,8 @@ SET_ALIAS_MAP = {
     "prismatic evo": "prismaticEvolution",
     "prism evo": "prismaticEvolution",
     "pris evo": "prismaticEvolution",
+
+    "white": "whiteFlare",
+    "white flar": "whiteFlare",
+    "wf": "whiteFlare",
 }
