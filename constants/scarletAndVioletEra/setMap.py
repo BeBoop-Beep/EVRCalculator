@@ -1,3 +1,4 @@
+from .blackBolt import SetBlackBoltConfig
 from .destinedRivals import SetDestinedRivalsConfig
 from .journeyTogether import SetJourneyTogetherConfig
 from .obsidianFlames import SetObsidianFlamesConfig
@@ -16,6 +17,7 @@ from .whiteFlare import SetWhiteFlareConfig
 
 
 SET_CONFIG_MAP = {
+    'blackBolt' : SetBlackBoltConfig,
     'destinedRivals' : SetDestinedRivalsConfig,
     'journeyTogether' : SetJourneyTogetherConfig,
     'obsidianFlames' : SetObsidianFlamesConfig,
@@ -39,6 +41,10 @@ SET_ALIAS_MAP = {
     "scarlet and violet 151": "scarletAndViolet151",
     "scarlet & violet 151": "scarletAndViolet151",
     "sv 151": "scarletAndViolet151",
+
+    "black": "whiteFlare",
+    "blackbolt": "whiteFlare",
+    "bb": "whiteFlare",
     
     "pris": "prismaticEvolution",
     "prismatic": "prismaticEvolution",
@@ -49,4 +55,5 @@ SET_ALIAS_MAP = {
     "white": "whiteFlare",
     "white flar": "whiteFlare",
     "wf": "whiteFlare",
+    "whiteflare": "whiteFlare",
 }
