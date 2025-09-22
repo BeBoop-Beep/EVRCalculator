@@ -6,14 +6,18 @@ class BaseSetConfig:
         'uncommon': 'uncommon',
         'rare': 'rare',
         'double rare': 'hits', 
-        'ace spec rare': 'hits',
-        'poke ball pattern': 'hits',
-        'master ball pattern': 'hits',
         'ultra rare': 'hits',
         'hyper rare': 'hits',
         'illustration rare': 'hits',             
         'special illustration rare': 'hits', 
+        'secret rare': 'hits',
+        #special cases for specific sets
+        'ace spec rare': 'hits',
         'black white rare': 'hits',      
+        "shiny rare": 'hits', 
+        "shiny ultra rare": 'hits',
+        'poke ball pattern': 'hits',
+        'master ball pattern': 'hits',
     }) 
 
     DEFAULT_PRICE_ENDPOINTS = {

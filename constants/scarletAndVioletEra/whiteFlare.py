@@ -23,9 +23,9 @@ class SetWhiteFlareConfig(BaseSetConfig):
         'double rare': 57,
         'illustration rare': 848,
         'special illustration rare': 1120,
-        'black white rare': 1400,
         'ultra rare': 274,
         # Special cases (checked first)
+        'black white rare': 1400,
         'poke ball pattern': 488,
         'master ball pattern': 2802,
         'god pack': 2000,

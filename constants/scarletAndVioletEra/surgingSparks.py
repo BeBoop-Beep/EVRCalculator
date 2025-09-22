@@ -16,9 +16,9 @@ class SetSurgingSparksConfig(BaseSetConfig):
     
     PULL_RATE_MAPPING = {
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Surging-Sparks-Pull-Rates/6ccfb6ab-f26a-4ce8-bab5-5f91c85ec70e/
-        'common' : 0, # 4/46 (there are 4 commons in each pack with 46 total commons is in the set)
-        'uncommon': 0, # 3/33 (there are 3 uncommons in each pack with 33 total uncommons in the set)
-        'rare': 0, 
+        'common' : 88, # 4/88 (there are 4 commons in each pack with 46 total commons is in the set)
+        'uncommon': 61, # 3/61 (there are 3 uncommons in each pack with 33 total uncommons in the set)
+        'rare': 16, 
         'double rare': 106,
         'illustration rare': 300,
         'special illustration rare': 960,

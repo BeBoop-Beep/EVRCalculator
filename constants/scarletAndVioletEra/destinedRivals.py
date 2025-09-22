@@ -16,9 +16,9 @@ class SetDestinedRivalsConfig(BaseSetConfig):
     
     PULL_RATE_MAPPING = {
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Destined-Rivals-Pull-Rates/43ba832e-44c9-45a4-ae2e-594df2defdda/?srsltid=AfmBOor73ocuBTR49q2CsdlJV29wPtO2z4mu_MvTJq74mnHTu0G-iILg
-        'common' : 0, # 4/46 (there are 4 commons in each pack with 46 total commons is in the set)
-        'uncommon': 0, # 3/33 (there are 3 uncommons in each pack with 33 total uncommons in the set)
-        'rare': 0, # 3/21 (there are 1.21 rares in each pack with 21 total rares in the set)
+        'common' : 85, # 4/85 (there are 4 commons in each pack with 46 total commons is in the set)
+        'uncommon': 62, # 3/62 (there are 3 uncommons in each pack with 33 total uncommons in the set)
+        'rare': 18, 
         'double rare': 86,
         'illustration rare': 278,
         'special illustration rare': 1033,

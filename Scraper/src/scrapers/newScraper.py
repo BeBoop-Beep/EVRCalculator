@@ -3,8 +3,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 
 def determine_pull_rate(card_name, rarity_text, PULL_RATE_MAPPING):
-    card_name_lower = card_name.lower()
-    rarity_lower = rarity_text.lower().strip()
+    card_name_lower = card_name.lower() if card_name else ""
+    rarity_lower = rarity_text.lower().strip() if rarity_text else ""
 
     # Check special cases first
     if 'master ball pattern' in card_name_lower:
@@ -14,18 +14,17 @@ def determine_pull_rate(card_name, rarity_text, PULL_RATE_MAPPING):
     if 'ace spec rare' in rarity_lower:
         return PULL_RATE_MAPPING.get('ace spec rare'), 'ace spec rare'
 
-    # Use exact matching first
+    # Exact matching first
     for rarity_key in PULL_RATE_MAPPING:
         if rarity_lower == rarity_key:
             return PULL_RATE_MAPPING[rarity_key], rarity_key
 
-    # Fallback fuzzy match in case of formatting issues
-    for rarity_key in PULL_RATE_MAPPING:
+    # Fuzzy match (check longer keys first to avoid "rare" overriding "double rare")
+    for rarity_key in sorted(PULL_RATE_MAPPING, key=len, reverse=True):
         if rarity_key in rarity_lower:
             return PULL_RATE_MAPPING[rarity_key], rarity_key
 
     return None, rarity_text  # fallback to original rarity
-
 
 # Function to fetch and parse card data
 def fetch_price_data(price_guide_url, PULL_RATE_MAPPING):

@@ -32,13 +32,13 @@ class SetTwilightMasqueradeConfig(BaseSetConfig):
         # Total: ≈ 1.517547
         "slot_1": {
             "ace spec rare": 1 / 20,
-            "regular reverse": 1 # ≈ 0.95
+            "regular reverse": 1 - (1 / 20) # ≈ 0.95
         },
         "slot_2": {
             "illustration rare": 1 / 13,
             "special illustration rare": 1 / 86,
             'hyper rare': 1 / 146,
-            "regular reverse": 1 - (1 / 20) - (1 / 45) - (1 / 146)  # ≈ 0.9278
+            "regular reverse": 1 - (1 / 13) - (1 / 86) - (1 / 146)  # ≈ 0.9278
         }
     }
 

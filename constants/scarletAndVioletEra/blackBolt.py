@@ -17,15 +17,15 @@ class SetBlackBoltConfig(BaseSetConfig):
     PULL_RATE_MAPPING = {
         # https://www.facebook.com/HKF3LIX/posts/pfbid02b9vQUSmnXbZECw8YsucAxEWLNJtZWQPRLvNjNi5WGKWkhtfGEm9jdkzqSt5mjj7cl/
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Black-Bolt-and-White-Flare-Pull-Rates/bac92199-a2a7-4668-b4a4-2647a111776f/
-        'common' : 38, # 4/38 (there are 4 commons in each pack with 38 total commons is in the set)
-        'uncommon': 32, # 3/32 (there are 3 uncommons in each pack with 32 total uncommons in the set)
-        'rare': 10, 
+        'common' : 40, # 4/40 (there are 4 commons in each pack with 38 total commons is in the set)
+        'uncommon': 30, # 3/30 (there are 3 uncommons in each pack with 32 total uncommons in the set)
+        'rare': 18, 
         'double rare': 57,
         'illustration rare': 848,
         'special illustration rare': 1120,
-        'black white rare': 1400,
-        'ultra rare': 274,
+        'secret rare': 274,
         # Special cases (checked first)
+        'black white rare': 1400,
         'poke ball pattern': 488,
         'master ball pattern': 2802,
         'god pack': 2000,
@@ -47,7 +47,7 @@ class SetBlackBoltConfig(BaseSetConfig):
 
     RARE_SLOT_PROBABILITY = {
         'double rare': 1 / 5,
-        'ultra rare': 1 / 17,
+        'secret rare': 1 / 17,
         'black white rare': 1 / 496,
         'rare': 1 - (1 / 5) - (1 / 17) - (1 / 496),
     }
