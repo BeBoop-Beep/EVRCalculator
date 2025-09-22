@@ -16,9 +16,9 @@ class SetStellarCrownConfig(BaseSetConfig):
     
     PULL_RATE_MAPPING = {
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Stellar-Crown-Pull-Rates/2c0743dd-dbd0-4504-9ff8-be5a72dd04d1/
-        'common' : 0, # 4/46 (there are 4 commons in each pack with 46 total commons is in the set)
-        'uncommon': 0, # 3/33 (there are 3 uncommons in each pack with 33 total uncommons in the set)
-        'rare': 0,
+        'common' : 71, # 4/46 (there are 4 commons in each pack with 46 total commons is in the set)
+        'uncommon': 39, # 3/33 (there are 3 uncommons in each pack with 33 total uncommons in the set)
+        'rare': 15,
         'double rare': 106,
         'illustration rare': 167,
         'special illustration rare': 540,

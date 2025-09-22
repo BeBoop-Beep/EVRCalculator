@@ -20,14 +20,13 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
         'uncommon': 33, # 3/33 (there are 3 uncommons in each pack with 33 total uncommons in the set)
         'rare': 21,
         'double rare': 106,
-        # 'illustration rare': 188,
         'special illustration rare': 1440,
         'ultra rare': 161,
         'hyper rare': 900,
         # Special cases (checked first)
         'poke ball pattern': 302,
         'master ball pattern': 1362,
-        'ace spec': 128,
+        'ace spec rare': 128,
         'god pack': 2000,
         'demi god pack': (1/3) * 2000
     }
@@ -35,9 +34,9 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
     REVERSE_SLOT_PROBABILITIES = {
         # Total: ≈ 1.517547
         "slot_1": {
-            "ace spec rare": 1/13,
-            "poke ball pattern": 1/3,
-            "regular reverse": 1 - (1/13) - (1/3) # ≈ 0.589747
+            "ace spec rare": 1 / 13,
+            "poke ball pattern": 1 / 3,
+            "regular reverse": 1 - (1 / 13) - (1 / 3) # ≈ 0.589747
         },
         "slot_2": {
             "master ball pattern": 1/20, #TODO: Research
