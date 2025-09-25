@@ -80,8 +80,9 @@ class PackCalculationOrchestrator(PackCalculations):
         # Calculate pack metrics
         pack_metrics = self.calculate_pack_metrics(sim_results, pack_price)
         
-        print(df.sort_values(by="Price ($)", ascending=False)[["Card Name", "Price ($)", "Effective_Pull_Rate"]].head(10))
-
+        # Assuming df is your DataFrame with card data
+        top_10_hits = df.sort_values(by="Price ($)", ascending=False)[["Card Name", "Price ($)", "Effective_Pull_Rate"]].head(10)
+        print(top_10_hits)
 
         # Compile results
         results = {
@@ -110,10 +111,10 @@ class PackCalculationOrchestrator(PackCalculations):
             "ev_ultra_rare_total": ev_totals['ultra_rare'],
             "reverse_multiplier": self.reverse_multiplier,
             "rare_multiplier": self.rare_multiplier,
-            "total_manual_ev": total_manual_ev,
             "regular_pack_ev_contribution": regular_pack_contribution,
             "god_pack_ev_contribution": god_pack_ev_contribution,
             "demi_god_pack_ev_contribution": demi_god_pack_ev_contribution,
+            "total_manual_ev": total_manual_ev,
             "net_value": pack_metrics['net_value'],
             "opening_pack_roi": pack_metrics['opening_pack_roi'],
             "opening_pack_roi_percent": pack_metrics['opening_pack_roi_percent'],
@@ -123,4 +124,4 @@ class PackCalculationOrchestrator(PackCalculations):
         
         print("=== PACK EV CALCULATION COMPLETE ===")
         print(f"Final Total EV: {pack_metrics['total_ev']:.4f}")
-        return results, summary_data, pack_metrics['total_ev']
+        return results, summary_data, pack_metrics['total_ev'], sim_results, top_10_hits
