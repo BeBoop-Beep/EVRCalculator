@@ -2,7 +2,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 import pandas as pd
 
-def append_summary_to_existing_excel(file_path, summary_data, results):
+def append_summary_to_existing_excel(file_path, summary_data, results, sim_results=None, top_10_hits=None):
     # Merge and prepare data
     combined_data = {**summary_data, **results}
 
@@ -18,12 +18,8 @@ def append_summary_to_existing_excel(file_path, summary_data, results):
 
     # Load workbook
     wb = load_workbook(file_path)
-
-    # Remove old Summary sheet if it exists
     if 'Summary' in wb.sheetnames:
         wb.remove(wb['Summary'])
-
-    # Create new Summary sheet
     ws = wb.create_sheet(title='Summary')
 
     # Define styles
@@ -75,5 +71,58 @@ def append_summary_to_existing_excel(file_path, summary_data, results):
     for col in ['A', 'B']:
         ws.column_dimensions[col].auto_size = True
 
-    # Save workbook
+    # Table 2: Simulation Stats & Percentiles
+    next_row = ws.max_row + 2
+    ws.cell(row=next_row, column=1, value='Simulation Metric')
+    ws.cell(row=next_row, column=2, value='Value')
+    for cell in ws[next_row]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                             top=Side(style='thin'), bottom=Side(style='thin'))
+        cell.fill = PatternFill(start_color="D9D9D9", fill_type="solid")
+
+    sim_stats = [
+        ('Mean Value', sim_results['mean']),
+        ('Standard Deviation', sim_results['std_dev']),
+        ('Minimum Value', sim_results['min']),
+        ('Maximum Value', sim_results['max']),
+    ]
+    for metric, value in sim_stats:
+        next_row += 1
+        ws.append([metric, value])
+
+    # Percentiles
+    for perc_label, perc_val in sim_results['percentiles'].items():
+        next_row += 1
+        ws.append([perc_label, perc_val])
+
+    # Table 3: Top 10 Most Expensive Hits
+    next_row = ws.max_row + 2
+    ws.cell(row=next_row, column=1, value='Top 10 Most Expensive Hits')
+    ws.cell(row=next_row, column=2, value='Value')
+    ws.cell(row=next_row, column=3, value='Effective Pull Rate')
+    for cell in ws[next_row]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                             top=Side(style='thin'), bottom=Side(style='thin'))
+        cell.fill = PatternFill(start_color="D9D9D9", fill_type="solid")
+
+    # If top_10_hits is a DataFrame
+    if top_10_hits is not None:
+        # If it's a DataFrame, convert to list of lists
+        if hasattr(top_10_hits, "values"):
+            top_10_hits_rows = top_10_hits.values.tolist()
+        else:
+            top_10_hits_rows = top_10_hits  # fallback for list of tuples
+
+        for row_data in top_10_hits_rows:
+            next_row += 1
+            ws.append(row_data[:3])  # Only take first 3 columns if more are present
+
+    # Auto-size columns
+    for col in ['A', 'B', 'C']:
+        ws.column_dimensions[col].auto_size = True
+
     wb.save(file_path)

@@ -40,7 +40,7 @@ def main():
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
         file_path = excel_path
-        results, summary_data, total_ev = calculate_pack_stats(file_path, config)
+        results, summary_data, total_ev, sim_results, top_10_hits = calculate_pack_stats(file_path, config)
        
 
         # # Step 3: Calculate ETB EV # #
@@ -51,7 +51,7 @@ def main():
         print("\n Calculating Booster Box EV..")
         # etb_metrics = calculate_etb_metrics(file_path, 9, total_ev)
 
-        append_summary_to_existing_excel(file_path, summary_data, results)
+        append_summary_to_existing_excel(file_path, summary_data, results, sim_results, top_10_hits)
     except ValueError as e:
         print(e)
 
