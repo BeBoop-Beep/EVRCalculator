@@ -87,16 +87,18 @@ class PackCalculationOrchestrator(PackCalculations):
         # Compile results
         results = {
             "total_manual_ev": total_manual_ev,
-            # "net_value": pack_metrics['net_value'],
-            # "opening_pack_roi": pack_metrics['opening_pack_roi'],
+            "acutal_simulated_ev": pack_metrics['total_ev'],
+            "pack_price": pack_price,
             "hit_probability_percentage": hit_probability_percentage,
+            "no_hit_probability_percentage": no_hit_probability_percentage,
+            "net_value": pack_metrics['net_value'],
+            "opening_pack_roi": pack_metrics['opening_pack_roi'],
+            "opening_pack_roi_percent": pack_metrics['opening_pack_roi_percent'],
             # Special pack metrics
-            "regular_pack_ev_contribution": regular_pack_contribution,
-            "god_pack_ev_contribution": god_pack_ev_contribution,
-            "demi_god_pack_ev_contribution": demi_god_pack_ev_contribution,
+        
         }
         
-        summary_data = {
+        summary_data_for_manual_calcs = {
             "ev_common_total": ev_totals['common'],
             "ev_uncommon_total": ev_totals['uncommon'],
             "ev_rare_total": ev_totals['rare'],
@@ -114,14 +116,12 @@ class PackCalculationOrchestrator(PackCalculations):
             "regular_pack_ev_contribution": regular_pack_contribution,
             "god_pack_ev_contribution": god_pack_ev_contribution,
             "demi_god_pack_ev_contribution": demi_god_pack_ev_contribution,
+            "regular_pack_ev_contribution": regular_pack_contribution,
+            "god_pack_ev_contribution": god_pack_ev_contribution,
+            "demi_god_pack_ev_contribution": demi_god_pack_ev_contribution,
             "total_manual_ev": total_manual_ev,
-            "net_value": pack_metrics['net_value'],
-            "opening_pack_roi": pack_metrics['opening_pack_roi'],
-            "opening_pack_roi_percent": pack_metrics['opening_pack_roi_percent'],
-            "no_hit_probability_percentage": no_hit_probability_percentage,
-            "hit_probability_percentage": hit_probability_percentage,
         }
         
         print("=== PACK EV CALCULATION COMPLETE ===")
         print(f"Final Total EV: {pack_metrics['total_ev']:.4f}")
-        return results, summary_data, pack_metrics['total_ev'], sim_results, top_10_hits
+        return results, summary_data_for_manual_calcs, pack_metrics['total_ev'], sim_results, top_10_hits
