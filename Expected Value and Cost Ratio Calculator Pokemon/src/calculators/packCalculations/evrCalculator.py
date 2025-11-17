@@ -18,6 +18,7 @@ class PackEVCalculator(PackEVInitializer):
             "demi_god_pack_ev": PackEVCalculator._calculate_god_packs_ev_contributions(self.config.DEMI_GOD_PACK_CONFIG, df, self.config),
         }
 
+  
     @staticmethod
     def _calculate_god_packs_ev_contributions(strategy_config, df, config):
         if not strategy_config.get("enabled", False):
@@ -28,39 +29,45 @@ class PackEVCalculator(PackEVInitializer):
         strategy_type = strategy.get("type")
 
         if strategy_type == "fixed":
-            cards = strategy.get("cards", [])
-            total = df[df["Card Name"].isin(cards)]["Price ($)"].sum()
-            return pull_rate * total
+            if "packs" in strategy:
+                # Handle fixed packs (e.g., 151)
+                pack_values = []
+                for pack in strategy["packs"]:
+                    trio_value = df[df["Card Name"].isin(pack["cards"])]["Price ($)"].sum()
+                    avg_common = df[df["Rarity"] == "common"]["Price ($)"].mean()
+                    avg_uncommon = df[df["Rarity"] == "uncommon"]["Price ($)"].mean()
+                    pack_value = trio_value + 4 * avg_common + 3 * avg_uncommon
+                    pack_values.append(pack_value)
+                avg_pack_value = np.mean(pack_values)
+                adjusted_ev = pull_rate * avg_pack_value
+                print(f"God Pack Fixed Value With Multiple Options: ${avg_pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
+                return adjusted_ev
+            elif "cards" in strategy:
+                # Handle fixed card list (original logic)
+                cards = strategy.get("cards", [])
+                total = df[df["Card Name"].isin(cards)]["Price ($)"].sum()
+                adjusted_ev = pull_rate * total
+                print(f"God Pack Fixed Value 1 Option: ${total:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
+                return adjusted_ev
 
         elif strategy_type == "random":
             rules = strategy.get("rules", {})
-            count = rules.get("count", 1)
-            rarities = rules.get("rarities", [])
-
-            # Grab rarity-to-slot counts from the config
-            rarity_multipliers = config.get_rarity_pack_multiplier()
-            common_count = rarity_multipliers.get('common', 0)
-            uncommon_count = rarity_multipliers.get('uncommon', 0)
-
-            # Compute averages
-            avg_common = df[df["Rarity"] == "common"]["Price ($)"].mean()
-            avg_uncommon = df[df["Rarity"] == "uncommon"]["Price ($)"].mean()
-            avg_high_rarity = df[df["Rarity"].isin(rarities)]["Price ($)"].mean()
-
-            # Expected value of this specific configuration of a demi-god pack
-            pack_value = (common_count * avg_common) + (uncommon_count * avg_uncommon) + (count * avg_high_rarity)
-            adjusted_ev = pull_rate * pack_value
-
-            print("=== DEMI-GOD PACK LOGIC ===")
-            print(f"Common avg: {avg_common:.4f}, Uncommon avg: {avg_uncommon:.4f}, High rarity avg: {avg_high_rarity:.4f}")
-            print(f"Pack layout: common({common_count}), uncommon({uncommon_count}), high rarity({count})")
-            print(f"Pack value before scaling: {pack_value:.4f}")
-            print(f"Pull rate: {pull_rate}, Final EV: {adjusted_ev:.4f}")
-
-            return adjusted_ev
+            if isinstance(rules.get("rarities"), dict):
+                rarities = rules.get("rarities", {})
+                pack_value = 0.0
+                print("=== GOD PACK (RANDOM by slot count) ===")
+                for rarity, count in rarities.items():
+                    rarity = rarity.strip().lower()
+                    avg_price = df[df["Rarity"].str.lower().str.strip() == rarity]["Price ($)"].mean()
+                    subtotal = count * avg_price
+                    pack_value += subtotal
+                    print(f"  {rarity} × {count} → avg ${avg_price:.2f} → subtotal ${subtotal:.2f}")
+                adjusted_ev = pull_rate * pack_value
+                print(f"God Pack Value: ${pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
+                return adjusted_ev
 
         return 0.0
-    
+
     def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, card_name=None):
         """
         Calculate the true effective pull rate for each card type following the model's methodology.
@@ -146,26 +153,6 @@ class PackEVCalculator(PackEVInitializer):
             return effective_rate
     
         return base_pull_rate
-
-    def calculate_base_ev(self, df):
-        """Calculate EV using corrected pull rates following the model's methodology"""
-        print("\n=== CALCULATING BASE EV WITH EFFECTIVE PULL RATES ===")
-        
-        # Calculate effective pull rates for each card
-        df['Effective_Pull_Rate'] = df.apply(
-            lambda row: self.calculate_effective_pull_rate(
-                row['rarity_group'], 
-                row['Pull Rate (1/X)'],
-                row.get('Card Name', '')
-            ), 
-            axis=1
-        )
-        
-        # Calculate EV using effective pull rates
-        df['EV'] = df['Price ($)'] / df['Effective_Pull_Rate']
-        print(f"Total cards processed: {len(df)}")
-                
-        return df
     
     def calculate_reverse_ev_for_slot(self, df, slot_name):
         """Calculate reverse EV contribution from a single reverse slot"""
@@ -244,6 +231,7 @@ class PackEVCalculator(PackEVInitializer):
             'ultra_rare': df[(df['Rarity'] == 'ultra rare') & ~pattern_mask]['EV'].sum(),
             'special_illustration_rare': df[(df['Rarity'] == 'special illustration rare') & ~pattern_mask]['EV'].sum(),
             'illustration_rare': df[(df['Rarity'] == 'illustration rare') & ~pattern_mask]['EV'].sum(),
+            'black white rare': df[(df['Rarity'] == 'black white rare') & ~pattern_mask]['EV'].sum(),
             'master_ball': master_ball_cards['EV'].sum(),
             'pokeball': pokeball_cards['EV'].sum(),
             'reverse': ev_reverse_total,
@@ -275,4 +263,3 @@ class PackEVCalculator(PackEVInitializer):
 
         return total_ev, regular_pack_ev, god_pack_ev, demi_god_pack_ev
 
-    

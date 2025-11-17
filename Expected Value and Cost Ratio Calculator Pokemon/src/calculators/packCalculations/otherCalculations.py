@@ -9,16 +9,20 @@ class PackCalculations(PackEVCalculator):
     def __init__(self, config):
         super().__init__(config)
 
-    def calculate_pack_metrics(self, total_ev, pack_price):
+    def calculate_pack_metrics(self, sim_results, pack_price):
         """Calculate pack-level metrics"""
+        total_ev = sim_results['mean']
         net_value = total_ev - pack_price
         roi = total_ev / pack_price
         roi_percent = (roi - 1) * 100
 
+        print('\nExpected Value Per Pack: ', total_ev)
+        print('Cost Per Pack: ', pack_price)
         print("Net Value Upon Opening: ", net_value)
         print("ROI Upon Opening: ", roi)
         print(f"ROI Percent Upon Opening: {roi_percent:.2f}\n")
         return {
+            'total_ev': total_ev,
             'net_value': net_value,
             'opening_pack_roi': roi,
             'opening_pack_roi_percent': roi_percent
