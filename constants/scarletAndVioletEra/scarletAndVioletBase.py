@@ -26,19 +26,22 @@ class SetScarletAndVioletBaseConfig(BaseSetConfig):
         # Special cases (checked first)
         'poke ball pattern': 302,
         'master ball pattern': 1362,
-        'ace spec': 128
+        'ace spec': 128,
+        'god pack': 2000,
+        'demi god pack': (1/3) * 2000
     }
 
     REVERSE_SLOT_PROBABILITIES = {
+        # Total: ≈ 1.517547
         "slot_1": {
-            "ace_spec": 1/13,
-            "pokeball_pattern": 1/3,
-            "regular_reverse": 1 - (1/13) - (1/3) # ≈ 0.589747
+            "ace spec rare": 1/13,
+            "poke ball pattern": 1/3,
+            "regular reverse": 1 - (1/13) - (1/3) # ≈ 0.589747
         },
         "slot_2": {
-            "masterball_pattern": 1/20,
-            "special_illustration_rare": 1 / 45,
-            "regular_reverse": 1 - (1 / 20) - (1 / 45)  # ≈ 0.9278
+            "master ball pattern": 1/20,
+            "special illustration rare": 1 / 45,
+            "regular reverse": 1 - (1 / 20) - (1 / 45)  # ≈ 0.9278
         }
     }
 
@@ -47,4 +50,36 @@ class SetScarletAndVioletBaseConfig(BaseSetConfig):
         'ultra rare': 1 / 13,
         'hyper rare': 1 / 180,
         'rare': 1 - (1 / 6) - (1 / 13) - (1 / 180),
+    }
+ 
+    GOD_PACK_CONFIG = {
+        "enabled": True,
+        "pull_rate": 1 / 2000,
+        "strategy": {
+            "type": "fixed",
+            "cards": [
+                "Eevee (Master Ball Pattern)",
+                "Eevee ex - 167/131",
+                "Vaporeon ex - 149/131",
+                "Jolteon ex - 153/131",
+                "Flareon ex - 146/131",
+                "Espeon ex - 155/131",
+                "Umbreon ex - 161/131",
+                "Glaceon ex - 150/131",
+                "Leafeon ex - 144/131",
+                "Sylveon ex - 156/131"
+            ]
+        }
+    }
+
+    DEMI_GOD_PACK_CONFIG = {
+        "enabled": True,
+        "pull_rate": 3 * (1/2000),
+        "strategy": {
+            "type": "random",
+            "rules": {
+                "count": 3,
+                "rarities": ["special illustration rare"]
+            }
+        }
     }

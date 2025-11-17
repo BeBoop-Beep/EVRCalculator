@@ -1,5 +1,8 @@
 import os
+
+from .monteCarloSim import make_simulate_pack_fn, print_simulation_summary, run_simulation
 from .otherCalculations import PackCalculations
+from src.utils.extractScarletAndVioletCardGroups import extract_scarletandviolet_card_groups
 
 class PackCalculationOrchestrator(PackCalculations):
     def __init__(self, config):
@@ -36,6 +39,23 @@ class PackCalculationOrchestrator(PackCalculations):
         
         # Calculate variance and stddev
         card_metrics = self.calculate_variance_and_stddev(df)
+
+        card_groups = extract_scarletandviolet_card_groups(self.config, df)
+
+        simulate_one_pack = make_simulate_pack_fn(
+            common_cards=card_groups["common"],
+            uncommon_cards=card_groups["uncommon"],
+            rare_cards=card_groups["rare"],
+            hit_cards=card_groups["hit"],
+            reverse_pool=card_groups["reverse"],
+            rare_slot_config=self.config.RARE_SLOT_PROBABILITY,
+            reverse_slot_config=self.config.REVERSE_SLOT_PROBABILITIES,
+            slots_per_rarity=self.config.SLOTS_PER_RARITY
+        )
+
+        sim_results = run_simulation(simulate_one_pack, n=100000)
+
+        print_simulation_summary(sim_results)
         
         # Compile results
         results = {
