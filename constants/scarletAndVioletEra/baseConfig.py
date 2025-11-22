@@ -6,13 +6,18 @@ class BaseSetConfig:
         'uncommon': 'uncommon',
         'rare': 'rare',
         'double rare': 'hits', 
-        'ace spec rare': 'hits',
-        'poke ball pattern': 'hits',
-        'master ball pattern': 'hits',
         'ultra rare': 'hits',
         'hyper rare': 'hits',
         'illustration rare': 'hits',             
-        'special illustration rare': 'hits'       
+        'special illustration rare': 'hits', 
+        'secret rare': 'hits',
+        #special cases for specific sets
+        'ace spec rare': 'hits',
+        'black white rare': 'hits',      
+        "shiny rare": 'hits', 
+        "shiny ultra rare": 'hits',
+        'poke ball pattern': 'hits',
+        'master ball pattern': 'hits',
     }) 
 
     DEFAULT_PRICE_ENDPOINTS = {
@@ -35,6 +40,13 @@ class BaseSetConfig:
         "enabled": False,
         "pull_rate": 0,
         "strategy": {}
+    }
+
+    SLOTS_PER_RARITY = {
+        "common": 4,
+        "uncommon": 3,
+        "reverse": 2,
+        "rare": 1,
     }
 
     @classmethod
@@ -60,3 +72,15 @@ class BaseSetConfig:
         for attr in required_attrs:
             if not hasattr(cls, attr):
                 raise ValueError(f"{cls.__name__} missing required attribute: {attr}")
+            
+    @classmethod
+    def get_reverse_eligible_rarities(cls):
+        """
+        Returns the list of raw rarities (from data) that are eligible for reverse foiling.
+        These are the raw keys that map to 'common', 'uncommon', or 'rare' in RARITY_MAPPING.
+        """
+        return [
+            raw_rarity
+            for raw_rarity, group in cls.RARITY_MAPPING.items()
+            if group in {'common', 'uncommon', 'rare'}
+        ]

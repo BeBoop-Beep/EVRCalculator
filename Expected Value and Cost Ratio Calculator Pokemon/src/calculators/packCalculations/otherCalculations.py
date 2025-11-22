@@ -9,16 +9,20 @@ class PackCalculations(PackEVCalculator):
     def __init__(self, config):
         super().__init__(config)
 
-    def calculate_pack_metrics(self, total_ev, pack_price):
+    def calculate_pack_metrics(self, sim_results, pack_price):
         """Calculate pack-level metrics"""
+        total_ev = sim_results['mean']
         net_value = total_ev - pack_price
         roi = total_ev / pack_price
         roi_percent = (roi - 1) * 100
 
+        print('\nExpected Value Per Pack: ', total_ev)
+        print('Cost Per Pack: ', pack_price)
         print("Net Value Upon Opening: ", net_value)
         print("ROI Upon Opening: ", roi)
         print(f"ROI Percent Upon Opening: {roi_percent:.2f}\n")
         return {
+            'total_ev': total_ev,
             'net_value': net_value,
             'opening_pack_roi': roi,
             'opening_pack_roi_percent': roi_percent
@@ -166,7 +170,7 @@ class PackCalculations(PackEVCalculator):
                 slot_outcomes_list = []
                 
                 for outcome_type, probability in slot_outcomes.items():
-                    if outcome_type == "regular_reverse":
+                    if outcome_type == "regular reverse":
                         # Regular reverse cards
                         reverse_cards = df[df['EV_Reverse'] > 0]
                         if not reverse_cards.empty:
@@ -176,7 +180,7 @@ class PackCalculations(PackEVCalculator):
                                 reverse_price = card['Reverse Variant Price ($)'] if 'Reverse Variant Price ($)' in card else card['Price ($)']
                                 slot_outcomes_list.append((card_prob, reverse_price))
                     
-                    elif outcome_type in ["illustration_rare", "special_illustration_rare", "ace_spec", "pokeball_pattern", "masterball_pattern"]:
+                    elif outcome_type in ["illustration rare", "special illustration rare", "ace spec", "poke ball pattern", "master ball pattern"]:
                         # Special cards that can appear in reverse slot
                         # Map outcome types to actual rarity names in your data
                         rarity_mapping = {

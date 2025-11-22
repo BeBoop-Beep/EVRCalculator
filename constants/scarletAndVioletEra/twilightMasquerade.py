@@ -2,42 +2,49 @@ from .baseConfig import BaseSetConfig
 
 class SetTwilightMasqueradeConfig(BaseSetConfig):
     SET_NAME = "twilightMasquerade"
+    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=1"
 
     PRICE_ENDPOINTS = {
-        **BaseSetConfig.DEFAULT_PRICE_ENDPOINTS,
-        "Pack Price": "https://example.com/pack",
-        "Booster Bundle Price": "https://example.com/bundle",
+        "Pack Price": "https://infinite-api.tcgplayer.com/price/history/543843/detailed?range=quarter",
+        "Mini Tin Price": None, #TODO
+        "Booster Bundle Price": "", #TODO
+        "ETB Price": "https://infinite-api.tcgplayer.com/price/history/543845/detailed?range=quarter",
+        "ETB Promo Price": "https://infinite-api.tcgplayer.com/price/history/552785/detailed?range=quarter" ,
+        "Booster Box Price": None,  # TODO
+        "Special Collection Price": "" #TODO
     }
-
+    
     PULL_RATE_MAPPING = {
-        'common': 46,
-        'uncommon': 33,
-        'rare': 21,
-        'double rare': 106,
-        'special illustration rare': 1440,
-        'ultra rare': 161,
-        'hyper rare': 900,
-        'poke ball pattern': 302,
-        'master ball pattern': 1362,
-        'ace spec': 128
+        # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Twilight-Masquerade-Pull-Rates/f3eea967-e5fb-4108-8655-bb1c89587628/
+        'common' : 76, # 4/76 (there are 4 commons in each pack with 46 total commons is in the set)
+        'uncommon': 55, # 3/55 (there are 3 uncommons in each pack with 33 total uncommons in the set)
+        'rare': 16,
+        'double rare': 83,
+        'illustration rare': 272,
+        'special illustration rare': 941,
+        'ultra rare': 318,
+        'hyper rare': 879,
+        # Special cases (checked first)
+        'ace spec': 119,
     }
 
     REVERSE_SLOT_PROBABILITIES = {
+        # Total: ≈ 1.517547
         "slot_1": {
-            "ace_spec": 1/13,
-            "pokeball_pattern": 1/3,
-            "regular_reverse": 1 - (1/13) - (1/3)
+            "ace spec rare": 1 / 20,
+            "regular reverse": 1 - (1 / 20) # ≈ 0.95
         },
         "slot_2": {
-            "masterball_pattern": 1/20,
-            "special_illustration_rare": 1 / 45,
-            "regular_reverse": 1 - (1 / 20) - (1 / 45)
+            "illustration rare": 1 / 13,
+            "special illustration rare": 1 / 86,
+            'hyper rare': 1 / 146,
+            "regular reverse": 1 - (1 / 13) - (1 / 86) - (1 / 146)  # ≈ 0.9278
         }
     }
 
     RARE_SLOT_PROBABILITY = {
         'double rare': 1 / 6,
-        'ultra rare': 1 / 13,
-        'hyper rare': 1 / 180,
-        'rare': 1 - (1 / 6) - (1 / 13) - (1 / 180),
+        'ultra rare': 1 / 15,
+        'rare': 1 - (1 / 6) - (1 / 15),
     }
+ 
