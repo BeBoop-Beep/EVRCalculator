@@ -2,50 +2,47 @@ from .baseConfig import BaseSetConfig
 
 class SetParadoxRiftConfig(BaseSetConfig):
     SET_NAME = "paradoxRift"
-    SCRAPE_URL= "" 
+    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23286/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {
-        "Pack Price": "",
-        "Mini Tin Price": None,
-        "Booster Bundle Price": "",
-        "ETB Price": "",
-        "ETB Promo Price": "" ,
-        "Booster Box Price": None,  # Specialty set, does not have one. 
-        "Special Collection Price": ""
+        "Pack Price": "https://infinite-api.tcgplayer.com/price/history/512822/detailed?range=quarter",
+        "Mini Tin Price": None, #TODO
+        "Booster Bundle Price": "", #TODO
+        "ETB Price": "https://infinite-api.tcgplayer.com/price/history/512813/detailed?range=quarter", #TODO: Has two need to average the prices between them or separate them. This is roaring moon
+        "ETB Promo Price": "https://infinite-api.tcgplayer.com/price/history/526656/detailed?range=quarter", #TODO: Has two need to average the prices between them or separate them. This is iron valiant 
+        "Booster Box Price": None,  #TODO: RESEARCH
+        "Special Collection Price": "" #TODO: RESEARCH
     }
     
     PULL_RATE_MAPPING = {
-        'common' : 46, # 4/46 (there are 4 commons in each pack with 46 total commons is in the set)
-        'uncommon': 33, # 3/33 (there are 3 uncommons in each pack with 33 total uncommons in the set)
-        'rare': 21, # 3/21 (there are 1.21 rares in each pack with 21 total rares in the set)
-        'double rare': 106,
-        # 'illustration rare': 188,
-        'special illustration rare': 1440,
-        'ultra rare': 161,
-        'hyper rare': 900,
+        # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Paradox-Rift-Pull-Rates/0b5fb648-38fc-4f61-a6af-57c2737b4a48/?srsltid=AfmBOooIZs-aYbeAuox63FWiJszuCo1ApHuG-4hpgLasna_YUZAXBWm1
+        'common' : 77, # 4/77 (there are 4 commons in each pack with 46 total commons is in the set)
+        'uncommon': 58, # 3/58 (there are 3 uncommons in each pack with 33 total uncommons in the set)
+        'rare': 27, 
+        'double rare': 128,
+        'illustration rare': 442,
+        'special illustration rare': 712,
+        'ultra rare': 421,
+        'hyper rare': 576,
         # Special cases (checked first)
-        'poke ball pattern': 302,
-        'master ball pattern': 1362,
-        'ace spec': 128
     }
 
     REVERSE_SLOT_PROBABILITIES = {
+        # Total: ≈ 1.9018
         "slot_1": {
-            "ace_spec": 1/13,
-            "pokeball_pattern": 1/3,
-            "regular_reverse": 1 - (1/13) - (1/3) # ≈ 0.589747
+            "regular reverse": 1
         },
         "slot_2": {
-            "masterball_pattern": 1/20,
-            "special_illustration_rare": 1 / 45,
-            "regular_reverse": 1 - (1 / 20) - (1 / 45)  # ≈ 0.9278
+            "illustration rare": 1 / 13,
+            "special illustration rare": 1 / 47,
+            'hyper rare': 1 / 82,
+            "regular reverse": 1 - (1 / 13) - (1 / 47) - (1 / 82), # ≈ 0.9018
         }
     }
 
     RARE_SLOT_PROBABILITY = {
         'double rare': 1 / 6,
-        'ultra rare': 1 / 13,
-        'hyper rare': 1 / 180,
-        'rare': 1 - (1 / 6) - (1 / 13) - (1 / 180),
+        'ultra rare': 1 / 15,
+        'rare': 1 - (1 / 6) - (1 / 15),
     }
-
+ 
