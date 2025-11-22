@@ -1,32 +1,12 @@
 import sys
-import difflib
 import os
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.scrapers.newScraper import scrape_tcgplayer_xhr
-from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
-
+from Scraper.scrapers.tcg_scraper import TCGScraper  # Import the class, not the module
+from Scraper.config.get_set_config import get_config_for_set
 
 def main():
-    # Rating to pull rate mapping (1/X)
-    def get_config_for_set(user_input):
-        key = user_input.lower().strip()
-
-        # Try alias map first
-        if key in SET_ALIAS_MAP:
-            mapped_key = SET_ALIAS_MAP[key]
-            return SET_CONFIG_MAP[mapped_key]
-
-        # Try exact key in config map
-        if key in SET_CONFIG_MAP:
-            return SET_CONFIG_MAP[key]
-
-        # Try fuzzy matching against aliases and set names
-        possible_inputs = list(SET_ALIAS_MAP.keys()) + list(SET_CONFIG_MAP.keys())
-        matches = difflib.get_close_matches(key, possible_inputs, n=1, cutoff=0.6)
-        print("We think you mean :", matches[0])
-        return SET_CONFIG_MAP[matches[0]]
-    
     # # Step 1: Scrape and gather HTML Doc  # #
     setName = input("What set are we working on: \n")
     try:
@@ -36,11 +16,13 @@ def main():
         excel_path = os.path.join(project_root, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
 
         print("Scraping Info from TCGPlayer...")
-        scrape_tcgplayer_xhr(excel_path, config)
+        scraper = TCGScraper()  # Instantiate the class
+        scraper.scrape(config, excel_path)  # Call the scrape method
 
     except ValueError as e:
         print(e)
 
     print("\nOperation completed successfully!")
+
 if __name__ == "__main__":
     main()
