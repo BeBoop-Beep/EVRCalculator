@@ -1,4 +1,4 @@
-from .supabase_client import supabase
+from ..clients.supabase_client import supabase
 from typing import Optional, Dict, Any
 
 def insert_card(card_row: Dict[str, Any]) -> int:

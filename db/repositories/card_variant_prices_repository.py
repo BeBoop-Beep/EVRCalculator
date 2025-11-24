@@ -1,4 +1,4 @@
-from .supabase_client import supabase
+from ..clients.supabase_client import supabase
 from typing import Dict, Any
 
 def insert_price(price_row: Dict[str, Any]) -> Dict[str, Any]:
