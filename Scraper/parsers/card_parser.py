@@ -11,8 +11,12 @@ def parse_card_data(raw_cards, pull_rate_mapping):
         market_price = card.get('marketPrice')
         rarity = card.get('rarity')
 
-        if not (product_name and condition and market_price and "Near Mint" in condition):
-            continue
+        #TODO: Use this condition later for filtering before simulations
+        # if not (product_name and condition and market_price and "Near Mint" in condition):
+        #     continue
+
+        if not (product_name and condition and market_price):
+                    continue
  
         if "code card" in product_name.lower():
             continue
