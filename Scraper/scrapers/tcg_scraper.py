@@ -1,6 +1,6 @@
 from ..clients.tcgplayer_client import TCGPlayerClient
-from ..parsers.card_parser import parse_card_data
-from ..parsers.sealed_price_parser import parse_sealed_prices
+from ..helpers.card_helper import parse_card_data
+from ..helpers.sealed_price_helper import parse_sealed_prices
 from ..exporters.excel_writer import save_to_excel
 
 class TCGScraper:
@@ -15,6 +15,10 @@ class TCGScraper:
         
         # Fetch sealed prices
         prices = parse_sealed_prices(config.PRICE_ENDPOINTS, self.client)
+
+        # Save to Database
+        
         
         # Save to Excel
         save_to_excel(cards, prices, excel_path)
+    

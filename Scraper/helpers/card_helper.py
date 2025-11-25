@@ -1,4 +1,4 @@
-from .pull_rate_parser import determine_pull_rate
+from .pull_rate_helper import determine_pull_rate
 
 def parse_card_data(raw_cards, pull_rate_mapping):
     """Parse raw card data from TCGPlayer into structured format"""
