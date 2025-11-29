@@ -16,7 +16,7 @@ class TCGScraper:
         # Fetch sealed prices
         prices = parse_sealed_prices(config.PRICE_ENDPOINTS, self.client)
 
-        # Save to Database
+        # Call to Database
         
         
         # Save to Excel
