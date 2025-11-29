@@ -1,24 +1,37 @@
 from ..clients.tcgplayer_client import TCGPlayerClient
-from ..helpers.card_helper import parse_card_data
-from ..helpers.sealed_price_helper import parse_sealed_prices
+from ..parsers.tcgplayer_parser import TCGPlayerParser
 from ..exporters.excel_writer import save_to_excel
+from ..dtos.ingest_dto import (
+    TCGPlayerIngestDTO,
+    CardDTO,
+    SealedProductDTO
+)
 
 class TCGScraper:
     def __init__(self):
         self.client = TCGPlayerClient()
-    
-    def scrape(self, config, excel_path):
-        """Main scraping workflow"""
-        # Fetch and parse cards
-        raw_data = self.client.fetch_card_data(config.SCRAPE_URL)
-        cards = parse_card_data(raw_data.get("result", []), config.PULL_RATE_MAPPING)
-        
-        # Fetch sealed prices
-        prices = parse_sealed_prices(config.PRICE_ENDPOINTS, self.client)
 
-        # Call to Database
-        
-        
-        # Save to Excel
-        save_to_excel(cards, prices, excel_path)
-    
+    def scrape(self, config, excel_path):
+
+        raw_data = self.client.fetch_card_data(config.SCRAPE_URL)
+
+        parser = TCGPlayerParser(config.PULL_RATE_MAPPING)
+        card_dicts = parser.parse_cards(raw_data)
+        sealed_dicts = parser.parse_sealed_products(config.PRICE_ENDPOINTS, self.client)
+
+        # Build DTO objects
+        dto = TCGPlayerIngestDTO(
+            cards=[CardDTO(**c) for c in card_dicts],
+            sealed_products=[SealedProductDTO(**s) for s in sealed_dicts],
+            source="TCGPLAYER"
+        )
+
+        # Now send dto.json() to your ingest endpoint
+        payload = dto.model_dump()
+
+        # Excel writing stays as-is for now
+        save_to_excel(card_dicts, sealed_dicts, excel_path)
+
+        return payload
+
+            

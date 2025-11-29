@@ -31,7 +31,7 @@ def parse_card_data(raw_cards, pull_rate_mapping):
                 'Price ($)': '',
                 'Reverse Variant Price ($)': '',
                 'rarity': normalized_rarity,
-                'Pull Rate (1/X)': pull_rate
+                'Pull Rate (1/X)': pull_rate,
             }
 
         if is_reverse:

@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from Scraper.scrapers.tcg_scraper import TCGScraper  # Import the class, not the module
+from Scraper.services.tcg_player_orchestrator import TCGScraper  # Import the class, not the module
 from Scraper.config.get_set_config import get_config_for_set
 
 def main():
@@ -17,7 +17,11 @@ def main():
 
         print("Scraping Info from TCGPlayer...")
         scraper = TCGScraper()  # Instantiate the class
-        scraper.scrape(config, excel_path)  # Call the scrape method
+        payload = scraper.scrape(config, excel_path)  # Call the scrape method
+        
+        #TODO: WE are failing before we make it to this print. Find out where and why. 
+        print("\nDTO Payload")
+        print("printing DTO: ", payload)
 
     except ValueError as e:
         print(e)
