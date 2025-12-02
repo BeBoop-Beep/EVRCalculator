@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetPaldeaEvolvedConfig(BaseSetConfig):
     SET_NAME = "paldeaEvolved"
+    SET_ABBREVIATION = "PAL"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23120/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {

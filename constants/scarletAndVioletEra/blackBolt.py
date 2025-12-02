@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetBlackBoltConfig(BaseSetConfig):
     SET_NAME = "blackBolt"
+    SET_ABBREVIATION = "BLK"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24325/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {

@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetPrismaticEvolutionConfig(BaseSetConfig):
     SET_NAME = "prismaticEvolution"
+    SET_ABBREVIATION = "PRE"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {

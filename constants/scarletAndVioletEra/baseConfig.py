@@ -1,6 +1,8 @@
 from types import MappingProxyType
 
 class BaseSetConfig:
+    TCG = "Pokemon"
+    
     RARITY_MAPPING = MappingProxyType({
         'common': 'common',
         'uncommon': 'uncommon',

@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetParadoxRiftConfig(BaseSetConfig):
     SET_NAME = "paradoxRift"
+    SET_ABBREVIATION = "PAR"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23286/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {

@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetTwilightMasqueradeConfig(BaseSetConfig):
     SET_NAME = "twilightMasquerade"
+    SET_ABBREVIATION = "TWM"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=1"
 
     PRICE_ENDPOINTS = {
