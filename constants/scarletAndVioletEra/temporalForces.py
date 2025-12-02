@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetTemporalForcesConfig(BaseSetConfig):
     SET_NAME = "temporalForces"
+    SET_ABBREVIATION = "TEF"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23381/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {

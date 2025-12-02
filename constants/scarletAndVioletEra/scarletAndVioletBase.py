@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetScarletAndVioletBaseConfig(BaseSetConfig):
     SET_NAME = "scarletAndVioletBase"
+    SET_ABBREVIATION = "SVI"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/22873/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {

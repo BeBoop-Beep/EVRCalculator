@@ -2,6 +2,7 @@ from .baseConfig import BaseSetConfig
 
 class SetObsidianFlamesConfig(BaseSetConfig):
     SET_NAME = "obsidianFlames"
+    SET_ABBREVIATION = "OBF"
     SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23228/cards/?rows=5000&productTypeID=1" 
 
     PRICE_ENDPOINTS = {
