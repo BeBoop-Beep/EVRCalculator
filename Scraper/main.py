@@ -11,7 +11,7 @@ def main():
     setName = input("What set are we working on: \n")
     try:
         config = get_config_for_set(setName)
-        print(config.SET_NAME, ", ", config.SCRAPE_URL)
+        print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         excel_path = os.path.join(project_root, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
 

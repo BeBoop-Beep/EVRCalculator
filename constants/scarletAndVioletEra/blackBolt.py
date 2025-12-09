@@ -3,9 +3,10 @@ from .baseConfig import BaseSetConfig
 class SetBlackBoltConfig(BaseSetConfig):
     SET_NAME = "blackBolt"
     SET_ABBREVIATION = "BLK"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24325/cards/?rows=5000&productTypeID=1" 
 
-    PRICE_ENDPOINTS = {
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24325/cards/?rows=5000&productTypeID=1" 
+    SEALED_DETAILS_URL = "https://infinite-api.tcgplayer.com/priceguide/set/24325/cards/?rows=5000&productTypeID=25"
+    SEALED_SPECIFIC_URL = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/630434/detailed?range=quarter",
         "Mini Tin Price": "https://infinite-api.tcgplayer.com/price/history/630438/detailed?range=quarter", #TODO average out all mini tins
         "Booster Bundle Price": "https://infinite-api.tcgplayer.com/price/history/630431/detailed?range=quarter", 

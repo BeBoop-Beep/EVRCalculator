@@ -3,8 +3,9 @@ from .baseConfig import BaseSetConfig
 class SetShroudedFableConfig(BaseSetConfig):
     SET_NAME = "shroudedFable"
     SET_ABBREVIATION = "SFA"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23529/cards/?rows=5000&productTypeID=1" 
 
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23529/cards/?rows=5000&productTypeID=1" 
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23529/cards/?rows=5000&productTypeID=25"
     PRICE_ENDPOINTS = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/552997/detailed?range=quarter",
         "Mini Tin Price": None, #TODO

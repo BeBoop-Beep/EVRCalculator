@@ -3,9 +3,10 @@ from .baseConfig import BaseSetConfig
 class SetTemporalForcesConfig(BaseSetConfig):
     SET_NAME = "temporalForces"
     SET_ABBREVIATION = "TEF"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23381/cards/?rows=5000&productTypeID=1" 
 
-    PRICE_ENDPOINTS = {
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23381/cards/?rows=5000&productTypeID=1" 
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23381/cards/?rows=5000&productTypeID=25"
+    SEALED_SPECIFIC_URL = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/532841/detailed?range=quarter",
         "Mini Tin Price": None, #TODO
         "Booster Bundle Price": "", #TODO

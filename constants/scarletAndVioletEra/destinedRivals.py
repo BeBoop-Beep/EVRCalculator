@@ -3,8 +3,9 @@ from .baseConfig import BaseSetConfig
 class SetDestinedRivalsConfig(BaseSetConfig):
     SET_NAME = "destinedRivals"
     SET_ABBREVIATION = "DRI"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24269/cards/?rows=5000&productTypeID=1"
 
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24269/cards/?rows=5000&productTypeID=1"
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/24269/cards/?rows=5000&productTypeID=25"
     PRICE_ENDPOINTS = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/624683/detailed?range=quarter",
         "Mini Tin Price": None, #None exist atm

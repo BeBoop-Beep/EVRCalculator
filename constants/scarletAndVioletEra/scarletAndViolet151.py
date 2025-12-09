@@ -3,8 +3,9 @@ from .baseConfig import BaseSetConfig
 class Set151Config(BaseSetConfig):
     SET_NAME = "scarletAndViolet151"
     SET_ABBREVIATION = "MEW"
-    SCRAPE_URL = "https://infinite-api.tcgplayer.com/priceguide/set/23237/cards/?rows=5000&productTypeID=1"
 
+    CARD_DETAILS_URL = "https://infinite-api.tcgplayer.com/priceguide/set/23237/cards/?rows=5000&productTypeID=1"
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23237/cards/?rows=5000&productTypeID=25"   
     PRICE_ENDPOINTS = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/504467/detailed?range=quarter",
         "Mini Tin Price": None,
