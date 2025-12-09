@@ -3,9 +3,10 @@ from .baseConfig import BaseSetConfig
 class SetWhiteFlareConfig(BaseSetConfig):
     SET_NAME = "whiteFlare"
     SET_ABBREVIATION = "WHT"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24326/cards/?rows=5000&productTypeID=1" 
-
-    PRICE_ENDPOINTS = {
+    
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24326/cards/?rows=5000&productTypeID=1" 
+    SEALED_DETAILS_URL = "https://infinite-api.tcgplayer.com/priceguide/set/24326/cards/?rows=5000&productTypeID=25"
+    SEALED_SPECIFIC_URL = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/630699/detailed?range=quarter",
         "Mini Tin Price": None,
         "Booster Bundle Price": "",

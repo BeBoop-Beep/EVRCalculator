@@ -22,7 +22,7 @@ class BaseSetConfig:
         'master ball pattern': 'hits',
     }) 
 
-    DEFAULT_PRICE_ENDPOINTS = {
+    DEFAULT_SEALED_DETAILS_URL = {
         "Pack Price": None,
         "Mini Tin Price": None,
         "Booster Bundle Price": None,
@@ -70,7 +70,7 @@ class BaseSetConfig:
 
     @classmethod
     def validate(cls):
-        required_attrs = ['SET_NAME', 'PULL_RATE_MAPPING', 'PRICE_ENDPOINTS']
+        required_attrs = ['SET_NAME', 'PULL_RATE_MAPPING', 'SEALED_DETAILS_URL']
         for attr in required_attrs:
             if not hasattr(cls, attr):
                 raise ValueError(f"{cls.__name__} missing required attribute: {attr}")

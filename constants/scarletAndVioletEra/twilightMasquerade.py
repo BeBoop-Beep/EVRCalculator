@@ -3,9 +3,10 @@ from .baseConfig import BaseSetConfig
 class SetTwilightMasqueradeConfig(BaseSetConfig):
     SET_NAME = "twilightMasquerade"
     SET_ABBREVIATION = "TWM"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=1"
 
-    PRICE_ENDPOINTS = {
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=1"
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=25"
+    SEALED_SPECIFIC_URL = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/543843/detailed?range=quarter",
         "Mini Tin Price": None, #TODO
         "Booster Bundle Price": "", #TODO

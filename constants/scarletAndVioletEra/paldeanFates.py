@@ -3,8 +3,9 @@ from .baseConfig import BaseSetConfig
 class SetPaldeanFatesConfig(BaseSetConfig):
     SET_NAME = "paldeanFates"
     SET_ABBREVIATION = "PAF"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23353/cards/?rows=5000&productTypeID=1" 
 
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23353/cards/?rows=5000&productTypeID=1" 
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23353/cards/?rows=5000&productTypeID=25"
     PRICE_ENDPOINTS = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/528038/detailed?range=quarter",
         "Mini Tin Price": None, #TODO

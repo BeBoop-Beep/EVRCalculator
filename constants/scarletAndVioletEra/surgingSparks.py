@@ -3,9 +3,10 @@ from .baseConfig import BaseSetConfig
 class SetSurgingSparksConfig(BaseSetConfig):
     SET_NAME = "surgingSparks"
     SET_ABBREVIATION = "SSP"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23651/cards/?rows=5000&productTypeID=1" 
 
-    PRICE_ENDPOINTS = {
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23651/cards/?rows=5000&productTypeID=1" 
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23651/cards/?rows=5000&productTypeID=25"
+    SEALED_SPECIFIC_URL = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/565604/detailed?range=quarter",
         "Mini Tin Price": None, #TODO
         "Booster Bundle Price": "", #TODO

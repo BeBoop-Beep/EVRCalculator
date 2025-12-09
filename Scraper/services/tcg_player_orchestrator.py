@@ -14,11 +14,11 @@ class TCGScraper:
 
     def scrape(self, config, excel_path, set_name):
 
-        raw_data = self.client.fetch_card_data(config.SCRAPE_URL)
+        raw_data = self.client.fetch_card_data(config.CARD_DETAILS_URL)
 
         parser = TCGPlayerParser(config.PULL_RATE_MAPPING)
         card_dicts = parser.parse_cards(raw_data)
-        sealed_dicts = parser.parse_sealed_products(config.PRICE_ENDPOINTS, self.client, set_name)
+        sealed_dicts = parser.parse_sealed_products(config.SEALED_DETAILS_URL, self.client, set_name)
 
         # Build DTO objects
         dto = TCGPlayerIngestDTO(

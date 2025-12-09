@@ -1,6 +1,7 @@
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
-from ..helpers.price_cleaner_helper import clean_price_value  
+
+from helpers.card_helper import clean_price_value
 
 def save_to_excel(cards, prices, excel_path):
     """Save card and price data to Excel"""

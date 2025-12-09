@@ -3,8 +3,9 @@ from .baseConfig import BaseSetConfig
 class SetJourneyTogetherConfig(BaseSetConfig):
     SET_NAME = "journeyTogether"
     SET_ABBREVIATION = "JTG"
-    SCRAPE_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24073/cards/?rows=5000&productTypeID=1" 
 
+    CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24073/cards/?rows=5000&productTypeID=1" 
+    SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/24073/cards/?rows=5000&productTypeID=25"
     PRICE_ENDPOINTS = {
         "Pack Price": "https://infinite-api.tcgplayer.com/price/history/610935/detailed?range=quarter",
         "Sleeved Booster Pack Price": None,

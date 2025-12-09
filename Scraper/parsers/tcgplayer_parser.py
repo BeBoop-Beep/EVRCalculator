@@ -57,19 +57,19 @@ class TCGPlayerParser:
         
         return self._clean_card_data(cards)
     
-    def parse_sealed_products(self, price_endpoints, client, set_name):
+    def parse_sealed_products(self, SEALED_DETAILS_URL, client, set_name):
         """
         Parse sealed product prices
         
         Args:
-            price_endpoints: Dictionary of product type -> URL
+            SEALED_DETAILS_URL: Dictionary of product type -> URL
             client: TCGPlayerClient instance
             set_name: Name of the set for product naming
             
         Returns:
             List of cleaned sealed product dictionaries
         """
-        prices = parse_sealed_prices(price_endpoints, client)
+        prices = parse_sealed_prices(SEALED_DETAILS_URL, client)
         return self._clean_sealed_prices(prices, set_name)
     
     def _clean_card_data(self, cards):
