@@ -24,7 +24,6 @@ class TCGPlayerParser:
         raw_cards = raw_data.get("result", [])
         card_data = {}
         
-        print("raw cards length: ", len(raw_cards))
         for card in raw_cards:
             
             product_name, card_dict = process_card(card, self.pull_rate_mapping)
@@ -99,12 +98,6 @@ class TCGPlayerParser:
         with open('cleaned_cards_debug.json', 'w', encoding='utf-8') as f:
             json.dump(cleaned, f, indent=2)
         print(f'counted cards: {len(cleaned)} (full list written to cleaned_cards_debug.json)')
-        
-        # Quick check for Max Rod
-        max_rod_cards = [c for c in cleaned if 'Max Rod' in c['name']]
-        print(f"Max Rod variants found: {len(max_rod_cards)}")
-        if max_rod_cards:
-            print("Max Rod entries:", json.dumps(max_rod_cards, indent=2))
         
         return cleaned
     
