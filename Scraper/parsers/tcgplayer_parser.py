@@ -56,20 +56,50 @@ class TCGPlayerParser:
         
         return self._clean_card_data(cards)
     
-    def parse_sealed_products(self, SEALED_DETAILS_URL, client, set_name):
+    def parse_sealed_products(self, config, client, set_name):
         """
-        Parse sealed product prices
-        
+        Parse sealed product data from a single URL.
+
         Args:
-            SEALED_DETAILS_URL: Dictionary of product type -> URL
+            config: Configuration object containing SEALED_DETAILS_URL
             client: TCGPlayerClient instance
-            set_name: Name of the set for product naming
-            
+            set_name: Name of the set for naming
+
         Returns:
             List of cleaned sealed product dictionaries
         """
-        prices = parse_sealed_prices(SEALED_DETAILS_URL, client)
-        return self._clean_sealed_prices(prices, set_name)
+
+        # Fetch data from the URL
+        sealed_raw = client.fetch_price_data(config.SEALED_DETAILS_URL)
+        raw_products = sealed_raw.get("result", [])
+
+        # Deduplicate strictly by productName
+        product_map = {}
+
+        for product in raw_products:
+            product_name = product.get("productName")
+            if not product_name:
+                continue
+
+            # Build sealed product dict WITHOUT their productID
+            product_dict = {
+                "name": product_name,
+                "marketPrice": product.get("marketPrice"),
+                "lowPrice": product.get("lowPrice"),
+                "set": product.get("set"),
+                "setAbbrv": product.get("setAbbrv"),
+                "type": product.get("type"),
+            }
+
+            # Use productName as the unique key
+            unique_key = product_name
+            product_map[unique_key] = product_dict
+
+        cleaned_products = list(product_map.values())
+
+        # Use your existing cleaner
+        return self._clean_sealed_data(cleaned_products, set_name)
+
     
     def _clean_card_data(self, cards):
         """Clean and validate card data before DTO conversion"""
@@ -112,6 +142,25 @@ class TCGPlayerParser:
                     'product_type': product_type,  # e.g., "Booster Box", "ETB"
                     'prices': {
                         'market': cleaned_price
+                    }
+                })
+        return cleaned
+    
+    def _clean_sealed_data(self, products, set_name):
+        """Clean and validate sealed product data"""
+        cleaned = []
+        for product in products:
+            market_price = clean_price_value(product.get('marketPrice'))
+            product_name = product.get('name', '').strip()
+            
+            if market_price is not None and product_name:
+                cleaned.append({
+                    'name': product_name,
+                    'product_type': product.get('type', 'Sealed Product'),
+                    'set_name': set_name,
+                    'prices': {
+                        'market': market_price,
+                        'low': clean_price_value(product.get('lowPrice'))
                     }
                 })
         return cleaned
