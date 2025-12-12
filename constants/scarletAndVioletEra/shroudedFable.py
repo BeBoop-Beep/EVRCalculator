@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetShroudedFableConfig(BaseSetConfig):
-    SET_NAME = "shroudedFable"
+    SET_NAME = "Shrouded Fable"
     SET_ABBREVIATION = "SFA"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23529/cards/?rows=5000&productTypeID=1" 

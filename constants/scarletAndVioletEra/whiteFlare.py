@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetWhiteFlareConfig(BaseSetConfig):
-    SET_NAME = "whiteFlare"
+    SET_NAME = "White Flare"
     SET_ABBREVIATION = "WHT"
     
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24326/cards/?rows=5000&productTypeID=1" 

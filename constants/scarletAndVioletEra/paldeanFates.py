@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetPaldeanFatesConfig(BaseSetConfig):
-    SET_NAME = "paldeanFates"
+    SET_NAME = "Paldean Fates"
     SET_ABBREVIATION = "PAF"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23353/cards/?rows=5000&productTypeID=1" 

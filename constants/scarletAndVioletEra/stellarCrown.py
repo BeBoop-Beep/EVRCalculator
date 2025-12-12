@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetStellarCrownConfig(BaseSetConfig):
-    SET_NAME = "stellarCrown"
+    SET_NAME = "Stellar Crown"
     SET_ABBREVIATION = "SCR"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23537/cards/?rows=5000&productTypeID=1" 

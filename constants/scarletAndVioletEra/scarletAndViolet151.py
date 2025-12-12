@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class Set151Config(BaseSetConfig):
-    SET_NAME = "scarletAndViolet151"
+    SET_NAME = "Scarlet and Violet 151"
     SET_ABBREVIATION = "MEW"
 
     CARD_DETAILS_URL = "https://infinite-api.tcgplayer.com/priceguide/set/23237/cards/?rows=5000&productTypeID=1"

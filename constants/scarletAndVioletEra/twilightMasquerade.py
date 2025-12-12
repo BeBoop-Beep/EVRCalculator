@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetTwilightMasqueradeConfig(BaseSetConfig):
-    SET_NAME = "twilightMasquerade"
+    SET_NAME = "Twilight Masquerade"
     SET_ABBREVIATION = "TWM"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=1"

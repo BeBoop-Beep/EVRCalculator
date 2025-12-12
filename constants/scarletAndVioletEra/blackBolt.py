@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetBlackBoltConfig(BaseSetConfig):
-    SET_NAME = "blackBolt"
+    SET_NAME = "Black Bolt"
     SET_ABBREVIATION = "BLK"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24325/cards/?rows=5000&productTypeID=1" 
