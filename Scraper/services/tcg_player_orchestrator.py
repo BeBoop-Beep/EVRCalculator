@@ -13,19 +13,19 @@ class TCGScraper:
     def __init__(self):
         self.client = TCGPlayerClient()
 
-    def scrape(self, config, excel_path, set_name):
+    def scrape(self, config, excel_path):
 
         raw_card_data = self.client.fetch_price_data(config.CARD_DETAILS_URL)
 
 
         parser = TCGPlayerParser(config.PULL_RATE_MAPPING)
         card_dicts = parser.parse_cards(raw_card_data)
-        sealed_dicts = parser.parse_sealed_products(config, self.client, set_name) 
+        sealed_dicts = parser.parse_sealed_products(config, self.client, config.SET_NAME) 
 
         # Build DTO objects
         try:
             set_dto = SetDTO(
-                name=set_name,
+                name=config.SET_NAME,
                 abbreviation=config.SET_ABBREVIATION,
                 tcg=getattr(config, 'TCG', 'Pokemon')  # Default to 'Pokemon' if not set
             )
@@ -42,7 +42,7 @@ class TCGScraper:
         except Exception as e:
             print(f"❌ Error creating DTO: {e}")
             print(f"Debug - config.TCG: {getattr(config, 'TCG', 'NOT SET')}")
-            print(f"Debug - set_name: {set_name}")
+            print(f"Debug - set_name: {config.SET_NAME}")
             print(f"Debug - config.SET_ABBREVIATION: {config.SET_ABBREVIATION}")
             raise
 

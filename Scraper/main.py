@@ -17,7 +17,7 @@ def main():
 
         print("Scraping Info from TCGPlayer...")
         scraper = TCGScraper()  # Instantiate the class
-        payload = scraper.scrape(config, excel_path, setName)  # Call the scrape method
+        payload = scraper.scrape(config, excel_path)  # Call the scrape method
         
         #TODO: WE are failing before we make it to this print. Find out where and why. 
         print("\nDTO Payload")
