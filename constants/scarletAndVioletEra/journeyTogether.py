@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetJourneyTogetherConfig(BaseSetConfig):
-    SET_NAME = "journeyTogether"
+    SET_NAME = "Journey Together"
     SET_ABBREVIATION = "JTG"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24073/cards/?rows=5000&productTypeID=1" 

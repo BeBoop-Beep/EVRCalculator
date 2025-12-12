@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetDestinedRivalsConfig(BaseSetConfig):
-    SET_NAME = "destinedRivals"
+    SET_NAME = "Destined Rivals"
     SET_ABBREVIATION = "DRI"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24269/cards/?rows=5000&productTypeID=1"

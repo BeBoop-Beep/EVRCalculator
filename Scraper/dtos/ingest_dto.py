@@ -21,6 +21,7 @@ class SealedProductDTO(BaseModel):
     prices: Dict[str, Optional[float]]
 
 class TCGPlayerIngestDTO(BaseModel):
+    set: SetDTO
     cards: List[CardDTO]
     sealed_products: List[SealedProductDTO]
     source: str

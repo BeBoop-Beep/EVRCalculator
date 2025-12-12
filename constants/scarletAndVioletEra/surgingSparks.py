@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetSurgingSparksConfig(BaseSetConfig):
-    SET_NAME = "surgingSparks"
+    SET_NAME = "Surging Sparks"
     SET_ABBREVIATION = "SSP"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23651/cards/?rows=5000&productTypeID=1" 

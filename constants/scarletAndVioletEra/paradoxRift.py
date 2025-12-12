@@ -1,7 +1,7 @@
 from .baseConfig import BaseSetConfig
 
 class SetParadoxRiftConfig(BaseSetConfig):
-    SET_NAME = "paradoxRift"
+    SET_NAME = "Paradox Rift"
     SET_ABBREVIATION = "PAR"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23286/cards/?rows=5000&productTypeID=1" 
