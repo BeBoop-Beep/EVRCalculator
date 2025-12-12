@@ -46,26 +46,26 @@ class TCGScraper:
             print(f"Debug - config.SET_ABBREVIATION: {config.SET_ABBREVIATION}")
             raise
 
-        #DEBUGGING PURPOSES
-        # Debug: Print summary
-        print(f"\n✅ Payload created:")
-        print(f"🔍 Payload keys: {list(payload.keys())}")  # See what keys actually exist
-        print(f"🔍 Full payload structure:\n{json.dumps(payload, indent=2)[:1000]}")  # First 1000 chars
+        # #DEBUGGING PURPOSES
+        # # Debug: Print summary
+        # print(f"\n✅ Payload created:")
+        # print(f"🔍 Payload keys: {list(payload.keys())}")  # See what keys actually exist
+        # print(f"🔍 Full payload structure:\n{json.dumps(payload, indent=2)[:1000]}")  # First 1000 chars
         
-        # Check if 'set' exists before accessing
-        if 'set' in payload:
-            print(f"  - Set: {payload['set']['name']} ({payload['set']['abbreviation']})")
-        else:
-            print(f"  ⚠️ 'set' key not found in payload!")
-            print(f"  Available keys: {list(payload.keys())}")
+        # # Check if 'set' exists before accessing
+        # if 'set' in payload:
+        #     print(f"  - Set: {payload['set']['name']} ({payload['set']['abbreviation']})")
+        # else:
+        #     print(f"  ⚠️ 'set' key not found in payload!")
+        #     print(f"  Available keys: {list(payload.keys())}")
         
-        print(f"  - Cards: {len(payload.get('cards', []))}")
-        print(f"  - Sealed Products: {len(payload.get('sealed_products', []))}")
-        print(f"  - Source: {payload.get('source', 'N/A')}")
+        # print(f"  - Cards: {len(payload.get('cards', []))}")
+        # print(f"  - Sealed Products: {len(payload.get('sealed_products', []))}")
+        # print(f"  - Source: {payload.get('source', 'N/A')}")
 
-        with open('payload_debug.json', 'w') as f:
-            json.dump(payload, f, indent=2)
-        print("  - Debug payload saved to payload_debug.json")
+        # with open('payload_debug.json', 'w') as f:
+        #     json.dump(payload, f, indent=2)
+        # print("  - Debug payload saved to payload_debug.json")
 
             # Excel writing stays as-is for now
             # save_to_excel(card_dicts, sealed_dicts, excel_path)
