@@ -56,18 +56,18 @@ class TCGPlayerParser:
         
         return self._clean_card_data(cards)
     
-    def parse_sealed_products(self, config, client, set_name):
+    def parse_sealed_products(self, config, client):
         """
         Parse sealed product data from a single URL.
 
         Args:
             config: Configuration object containing SEALED_DETAILS_URL
             client: TCGPlayerClient instance
-            set_name: Name of the set for naming
 
         Returns:
             List of cleaned sealed product dictionaries
         """
+        set_name = config.SET_NAME
 
         # Fetch data from the URL
         sealed_raw = client.fetch_price_data(config.SEALED_DETAILS_URL)
