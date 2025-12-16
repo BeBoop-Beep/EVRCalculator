@@ -18,10 +18,10 @@ class IngestController:
         Receive payload and delegate to ingestion service
         
         Args:
-            payload: Dictionary containing scraped data (set, cards, sealed_products)
+            payload: Dictionary containing type and data
             
         Returns:
-            Dictionary with ingestion results or None on failure
+            Dictionary with ingestion results
         """
         # Validate payload at controller level
         if not self._validate_request(payload):
@@ -30,9 +30,10 @@ class IngestController:
                 'error': 'Invalid payload structure'
             }
         
-        # Delegate to service
+        # Route to service
         try:
-            result = self.ingest_service.process_ingestion(payload)
+            data = payload.get('data', {})
+            result = self.ingest_service.ingest(data)
             return result
         except Exception as e:
             print(f"❌ Controller error: {e}")
