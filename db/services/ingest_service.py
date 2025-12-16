@@ -8,9 +8,10 @@ from db.controllers.sets_controller import SetsController
 from db.controllers.cards_controller import CardsController
 from db.controllers.prices_controller import PricesController
 from db.controllers.sealed_products_controller import SealedProductsController
+from constants.ingest.ingest_handlers import INGEST_HANDLERS
 
 class IngestService:
-    """Service layer for data ingestion - coordinates domain-specific business logic"""
+    """Generic service for ingesting any product type - routes based on available data"""
     
     def __init__(self):
         self.sets_controller = SetsController()
@@ -18,56 +19,72 @@ class IngestService:
         self.prices_controller = PricesController()
         self.sealed_products_controller = SealedProductsController()
     
-    def process_ingestion(self, payload):
+    def ingest(self, data):
         """
-        Orchestrate data ingestion by distributing to domain controllers
+        Generic ingest method that handles any product type
+        Routes based on available data sections and their handlers
         
         Args:
-            payload: Dictionary containing set, cards, and sealed_products
+            data: Dictionary containing optional sections (set, cards, prices, sealed_products, etc.)
             
         Returns:
             Dictionary with ingestion results
         """
         try:
-            print("\n🔄 Starting database ingestion...")
-            
-            # Step 1: Handle set data
-            set_data = payload.get('set', {})
-            set_id = self.sets_controller.get_or_create_set(set_data)
-            if not set_id:
-                raise Exception("Failed to get/create set")
-            
-            print(f"✅ Set ready: {set_data.get('name')} (ID: {set_id})")
-            
-            # Step 2: Handle cards
-            cards = payload.get('cards', [])
-            cards_result = self.cards_controller.ingest_cards(set_id, cards)
-            print(f"✅ Processed {cards_result['inserted']} cards")
-            
-            # Step 3: Handle card prices
-            prices_result = self.prices_controller.ingest_prices(set_id, cards)
-            print(f"✅ Processed {prices_result['inserted']} prices")
-            
-            # Step 4: Handle sealed products
-            sealed_products = payload.get('sealed_products', [])
-            sealed_result = {'inserted': 0, 'skipped': 0}
-            if sealed_products:
-                sealed_result = self.sealed_products_controller.ingest_sealed_products(set_id, sealed_products)
-                print(f"✅ Processed {sealed_result['inserted']} sealed products")
+            print("\n🔄 Starting data ingestion...")
             
             result = {
                 'success': True,
-                'set_id': set_id,
-                'cards': cards_result,
-                'prices': prices_result,
-                'sealed_products': sealed_result
+                'set_id': None,
             }
+            
+            set_id = None
+            
+            # Process each section that has data
+            for section_name, handler_config in INGEST_HANDLERS.items():
+                section_data = data.get(section_name)
+                
+                # Skip if no data for this section
+                if not section_data:
+                    continue
+                
+                # Check dependencies
+                if handler_config['requires_set_id'] and not set_id:
+                    print(f"⚠️  {section_name} requires set_id - skipping")
+                    continue
+                
+                # Get controller and method
+                controller = getattr(self, handler_config['controller'])
+                method = getattr(controller, handler_config['method'])
+                
+                # Call handler with appropriate args
+                try:
+                    if handler_config['requires_set_id']:
+                        handler_result = method(set_id, section_data)
+                    else:
+                        handler_result = method(section_data)
+                    
+                    # Store result
+                    result[section_name] = handler_result
+                    
+                    # Capture set_id if this handler returns it
+                    if handler_config['returns_set_id']:
+                        set_id = handler_result
+                        result['set_id'] = set_id
+                        print(f"✅ {section_name} ready (ID: {set_id})")
+                    else:
+                        inserted = handler_result.get('inserted', 0)
+                        print(f"✅ Processed {inserted} {section_name}")
+                        
+                except Exception as e:
+                    print(f"❌ Error processing {section_name}: {e}")
+                    raise
             
             print(f"\n✅ Ingestion complete!")
             return result
             
         except Exception as e:
-            print(f"❌ Ingestion service error: {e}")
+            print(f"❌ Ingestion error: {e}")
             import traceback
             traceback.print_exc()
             return {

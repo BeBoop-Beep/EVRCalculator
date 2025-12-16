@@ -3,44 +3,22 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.repositories.sets_repository import get_set_by_name, insert_set
+from db.services.sets_service import SetsService
 
 class SetsController:
-    """Handles set-specific business logic"""
+    """Controller for set operations - routes to service layer"""
+    
+    def __init__(self):
+        self.sets_service = SetsService()
     
     def get_or_create_set(self, set_data):
         """
-        Get existing set or create new one
+        Route to service to get or create set
         
         Args:
-            set_data: Dictionary with set information (name, abbreviation, tcg)
+            set_data: Dictionary with set information (name, abbreviation, tcg, release_date)
             
         Returns:
             str: Set ID (UUID) or None on failure
         """
-        set_name = set_data.get('name')
-        if not set_name:
-            print("❌ Set name is required")
-            return None
-        
-        # Try to get existing set
-        existing_set = get_set_by_name(set_name)
-        if existing_set:
-            print(f"📦 Found existing set: {set_name}")
-            return existing_set['id']
-        
-        # Create new set
-        print(f"📦 Creating new set: {set_name}")
-        new_set = {
-            'name': set_name,
-            'abbreviation': set_data.get('abbreviation'),
-            'tcg': set_data.get('tcg'),
-            'release_date': set_data.get('release_date'),
-        }
-        
-        result = insert_set(new_set)
-        if result and len(result) > 0:
-            return result[0]['id']
-        
-        print(f"❌ Failed to create set: {set_name}")
-        return None
+        return self.sets_service.get_or_create_set(set_data)
