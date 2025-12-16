@@ -3,25 +3,21 @@ INGEST_HANDLERS = {
     'set': {
         'controller': 'sets_controller',
         'method': 'get_or_create_set',
-        'requires_set_id': False,
         'returns_set_id': True,
     },
     'cards': {
         'controller': 'cards_controller',
         'method': 'ingest_cards',
         'requires_set_id': True,
-        'returns_set_id': False,
     },
     'prices': {
         'controller': 'prices_controller',
         'method': 'ingest_prices',
         'requires_set_id': True,
-        'returns_set_id': False,
     },
     'sealed_products': {
         'controller': 'sealed_products_controller',
         'method': 'ingest_sealed_products',
         'requires_set_id': True,
-        'returns_set_id': False,
     },
 }

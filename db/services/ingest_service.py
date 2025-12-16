@@ -48,8 +48,9 @@ class IngestService:
                 if not section_data:
                     continue
                 
-                # Check dependencies
-                if handler_config['requires_set_id'] and not set_id:
+                # Check dependencies (default to False if not specified)
+                requires_set_id = handler_config.get('requires_set_id', False)
+                if requires_set_id and not set_id:
                     print(f"⚠️  {section_name} requires set_id - skipping")
                     continue
                 
@@ -59,7 +60,7 @@ class IngestService:
                 
                 # Call handler with appropriate args
                 try:
-                    if handler_config['requires_set_id']:
+                    if requires_set_id:
                         handler_result = method(set_id, section_data)
                     else:
                         handler_result = method(section_data)
@@ -68,7 +69,8 @@ class IngestService:
                     result[section_name] = handler_result
                     
                     # Capture set_id if this handler returns it
-                    if handler_config['returns_set_id']:
+                    returns_set_id = handler_config.get('returns_set_id', False)
+                    if returns_set_id:
                         set_id = handler_result
                         result['set_id'] = set_id
                         print(f"✅ {section_name} ready (ID: {set_id})")
