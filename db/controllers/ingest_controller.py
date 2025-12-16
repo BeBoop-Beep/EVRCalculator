@@ -5,6 +5,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from db.services.ingest_service import IngestService
+from constants.products.product_schemas import TYPE_SCHEMAS
 
 class IngestController:
     """Controller for receiving and validating ingestion requests"""
@@ -42,14 +43,23 @@ class IngestController:
     
     def _validate_request(self, payload):
         """Basic validation at controller level"""
-        if not isinstance(payload, dict):
-            print("❌ Payload must be a dictionary")
+        product_type = payload.get('type')
+        if product_type not in TYPE_SCHEMAS:
             return False
         
-        required_keys = ['set', 'cards']
-        for key in required_keys:
-            if key not in payload:
-                print(f"❌ Payload missing required key: {key}")
+        # Validate based on type
+        schema = TYPE_SCHEMAS[product_type]
+        data = payload.get('data', {})
+        # Check required keys in data
+        for key in schema['required']:
+            if key not in data:
+                print(f"❌ Payload 'data' missing required key: {key}")
+                return False
+        
+        # Check optional keys in data (if present)
+        for key in schema['optional']:
+            if key in data and not isinstance(data[key], list):
+                print(f"❌ Payload 'data' key '{key}' must be a list if present")
                 return False
         
         return True
