@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.calculators.packCalculations import calculate_pack_stats
 from src.printEvCalculations import append_summary_to_existing_excel
 from src.calculators.evrEtb import calculate_etb_metrics
-from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
+from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 
 def main():

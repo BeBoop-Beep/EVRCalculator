@@ -1,5 +1,5 @@
 import difflib
-from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
+from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 # Rating to pull rate mapping (1/X)
 def get_config_for_set(user_input):
