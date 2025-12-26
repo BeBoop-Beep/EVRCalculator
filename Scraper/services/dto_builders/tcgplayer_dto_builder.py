@@ -1,7 +1,8 @@
 from typing import List, Dict
 from ...dtos.ingest_dto import (
+    CollectionDTO,
     TCGPlayerIngestDTO,
-    SetDTO,
+    GameContextDTO,
     CardDTO,
     SealedProductDTO
 )
@@ -25,11 +26,16 @@ class TCGPlayerDTOBuilder:
         """
         set_name = config.SET_NAME
 
-        # Build SetDTO
-        set_dto = SetDTO(
+        collection_dto = CollectionDTO(
+            name=getattr(config, 'COLLECTION', None)
+        )
+
+        # Build GameContextDTO
+        gamecontext_dto = GameContextDTO(
             name=set_name,
             abbreviation=getattr(config, 'SET_ABBREVIATION', None),
-            tcg=getattr(config, 'TCG', None)
+            tcg=getattr(config, 'TCG', None),
+            era=getattr(config, 'ERA', None),
         )
         
         # Build CardDTO list
@@ -40,7 +46,8 @@ class TCGPlayerDTOBuilder:
         
         # Build main DTO
         return TCGPlayerIngestDTO(
-            set=set_dto,
+            collection=collection_dto,
+            game_context=gamecontext_dto,
             cards=card_dtos,
             sealed_products=sealed_dtos,
             source="TCGPLAYER"

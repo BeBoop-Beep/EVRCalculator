@@ -1,92 +1,66 @@
 import sys
 import os
 
-# Add path to import controllers
+# Add path to import controllers and orchestrators
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.controllers.sets_controller import SetsController
-from db.controllers.cards_controller import CardsController
-from db.controllers.prices_controller import PricesController
-from db.controllers.sealed_products_controller import SealedProductsController
-from constants.ingest.ingest_handlers import INGEST_HANDLERS
+from db.services.orchestrators.tcg_orchestrator import TCGOrchestrator
 
 class IngestService:
-    """Generic service for ingesting any product type - routes based on available data"""
+    """
+    Top-level entry point for ingesting any product type.
+    Routes by collection type (TCG, Labubu, etc.) to collection-specific orchestrators.
+    
+    Routing Hierarchy:
+    1. Collection Type (TCG, Labubu, etc.)
+    2. Collection-Specific Orchestrator (TCGOrchestrator, LabubuOrchestrator, etc.)
+    3. Type-Specific Orchestrator (PokemonTCGOrchestrator, MagicTCGOrchestrator, etc.)
+    4. Database Operations (Set → Cards → Prices → Sealed Products)
+    """
     
     def __init__(self):
-        self.sets_controller = SetsController()
-        self.cards_controller = CardsController()
-        self.prices_controller = PricesController()
-        self.sealed_products_controller = SealedProductsController()
+        self.tcg_orchestrator = TCGOrchestrator()
+        # Future: self.labubu_orchestrator = LabubuOrchestrator()
     
     def ingest(self, data):
         """
-        Generic ingest method that handles any product type
-        Routes based on available data sections and their handlers
+        Route ingestion request by collection type to appropriate orchestrator.
         
         Args:
-            data: Dictionary containing optional sections (set, cards, prices, sealed_products, etc.)
+            data: Dictionary containing product data with a 'collection' field determining the type
             
         Returns:
             Dictionary with ingestion results
         """
         try:
-            print("\n🔄 Starting data ingestion...")
+            print("\n🔄 Starting ingestion routing...")
             
-            result = {
-                'success': True,
-                'set_id': None,
-            }
+            # Determine collection type from data
+            collection_data = data.get('collection')
+            if not collection_data:
+                raise ValueError("Data must contain 'collection' field to determine product type")
             
-            set_id = None
+            # Extract collection name (handle both dict and string)
+            if isinstance(collection_data, dict):
+                collection_name = collection_data.get('name', '').lower()
+            else:
+                collection_name = str(collection_data).lower()
             
-            # Process each section that has data
-            for section_name, handler_config in INGEST_HANDLERS.items():
-                section_data = data.get(section_name)
-                
-                # Skip if no data for this section
-                if not section_data:
-                    continue
-                
-                # Check dependencies (default to False if not specified)
-                requires_set_id = handler_config.get('requires_set_id', False)
-                if requires_set_id and not set_id:
-                    print(f"⚠️  {section_name} requires set_id - skipping")
-                    continue
-                
-                # Get controller and method
-                controller = getattr(self, handler_config['controller'])
-                method = getattr(controller, handler_config['method'])
-                
-                # Call handler with appropriate args
-                try:
-                    if requires_set_id:
-                        handler_result = method(set_id, section_data)
-                    else:
-                        handler_result = method(section_data)
-                    
-                    # Store result
-                    result[section_name] = handler_result
-                    
-                    # Capture set_id if this handler returns it
-                    returns_set_id = handler_config.get('returns_set_id', False)
-                    if returns_set_id:
-                        set_id = handler_result
-                        result['set_id'] = set_id
-                        print(f"✅ {section_name} ready (ID: {set_id})")
-                    else:
-                        inserted = handler_result.get('inserted', 0)
-                        print(f"✅ Processed {inserted} {section_name}")
-                        
-                except Exception as e:
-                    print(f"❌ Error processing {section_name}: {e}")
-                    raise
+            # Dynamically route to orchestrator based on collection name
+            orchestrator_attr = f"{collection_name}_orchestrator"
             
-            print(f"\n✅ Ingestion complete!")
-            return result
+            if not hasattr(self, orchestrator_attr):
+                raise ValueError(
+                    f"No orchestrator found for collection type: '{collection_name}'. "
+                    f"Expected attribute: '{orchestrator_attr}'"
+                )
+            
+            orchestrator = getattr(self, orchestrator_attr)
+            print(f"📦 Collection: {collection_name.upper()} - Routing to {collection_name} orchestrator...")
+            return orchestrator.ingest(data)
             
         except Exception as e:
-            print(f"❌ Ingestion error: {e}")
+            print(f"❌ Ingestion routing error: {e}")
             import traceback
             traceback.print_exc()
             return {
