@@ -13,12 +13,12 @@ class SetsService:
         Get existing set or create new one
         
         Args:
-            set_data: Dictionary with set information (name, abbreviation, tcg, release_date)
+            set_data: Dictionary with set information (set, abbreviation, tcg, release_date)
             
         Returns:
             str: Set ID (UUID) or None on failure
         """
-        set_name = set_data.get('name')
+        set_name = set_data.get('set')
         if not set_name:
             print("❌ Set name is required")
             return None
