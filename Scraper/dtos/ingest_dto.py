@@ -9,7 +9,7 @@ class CollectionDTO(BaseModel):
 
 class GameContextDTO(BaseModel):
     """Contains game context metadata (TCG type, era, etc) - works for any product type"""
-    name: str
+    set: str
     abbreviation: Optional[str]
     tcg: Optional[str]  # Pokemon, Magic, Yu-Gi-Oh, etc.
     era: Optional[str]  # Base, Neo, etc. (optional for non-TCG products)
@@ -29,7 +29,7 @@ class SealedProductDTO(BaseModel):
 
 class TCGPlayerIngestDTO(BaseModel):
     collection: CollectionDTO
-    set: GameContextDTO
+    gameContext: GameContextDTO
     cards: List[CardDTO]
     sealed_products: List[SealedProductDTO]
     source: str

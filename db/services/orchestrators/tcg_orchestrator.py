@@ -31,12 +31,12 @@ class TCGOrchestrator:
         try:
             print("\n🎴 TCG Orchestrator: Determining game type...")
             
-            # Get the TCG type from game_context data
-            gamecontext_data = data.get('game_context')
-            if not gamecontext_data:
-                raise ValueError("TCG data must contain 'game_context' section to determine game type")
+            # Get the TCG type from gameContext data
+            gameContext_id = data.get('gameContext')
+            if not gameContext_id:
+                raise ValueError("TCG data must contain 'gameContext' section to determine game type")
             
-            tcg_type = gamecontext_data.get('tcg', '').lower()
+            tcg_type = gameContext_id.get('tcg', '').lower()
             
             # Dynamically route to game-specific orchestrator
             orchestrator_attr = f"{tcg_type}_tcg_orchestrator"

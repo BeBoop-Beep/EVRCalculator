@@ -32,7 +32,7 @@ class TCGPlayerDTOBuilder:
 
         # Build GameContextDTO
         gamecontext_dto = GameContextDTO(
-            name=set_name,
+            set=set_name,
             abbreviation=getattr(config, 'SET_ABBREVIATION', None),
             tcg=getattr(config, 'TCG', None),
             era=getattr(config, 'ERA', None),
@@ -47,7 +47,7 @@ class TCGPlayerDTOBuilder:
         # Build main DTO
         return TCGPlayerIngestDTO(
             collection=collection_dto,
-            game_context=gamecontext_dto,
+            gameContext=gamecontext_dto,
             cards=card_dtos,
             sealed_products=sealed_dtos,
             source="TCGPLAYER"
