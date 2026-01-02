@@ -10,3 +10,8 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
