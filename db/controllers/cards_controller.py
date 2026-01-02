@@ -22,4 +22,4 @@ class CardsController:
         Returns:
             Dictionary with insertion results
         """
-        return self.cards_service.insert_cards(set_id, cards)
+        return self.cards_service.insert_cards_with_variants_and_prices(set_id, cards)

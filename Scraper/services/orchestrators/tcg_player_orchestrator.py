@@ -37,7 +37,7 @@ class TCGScraper:
         
         # Debug output
         print(f"\n✅ Payload created:")
-        print(f"  - Set: {payload.get('set', {}).get('name', 'N/A')}")
+        print(f"  - Set: {payload.get('gameContext', {}).get('set', 'N/A')}")
         print(f"  - Cards: {len(payload.get('cards', []))}")
         print(f"  - Sealed Products: {len(payload.get('sealed_products', []))}")
         
@@ -48,13 +48,20 @@ class TCGScraper:
         if self.enable_db_ingestion:
             print("\n📤 Sending data to database...")
             try:
+                # Payload already has the correct structure with type and data fields
                 result = self.ingest_controller.ingest(payload)
                 if result and result.get('success'):
                     print("✅ Database ingestion successful")
+                    print(f"\n📊 Ingestion Summary:")
+                    if 'summary' in result:
+                        for key, value in result['summary'].items():
+                            print(f"   {key}: {value}")
                 else:
                     print(f"⚠️ Database ingestion failed: {result.get('error', 'Unknown error')}")
             except Exception as e:
                 print(f"❌ Database ingestion failed: {e}")
+                import traceback
+                traceback.print_exc()
                 # Don't raise - continue with the rest of the workflow
         
         # Step 6: Optional - Save to Excel

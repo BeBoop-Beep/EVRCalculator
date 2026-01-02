@@ -44,8 +44,15 @@ class TCGPlayerDTOBuilder:
         # Build SealedProductDTO list
         sealed_dtos = [SealedProductDTO(**product) for product in sealed_dicts]
         
+        # Determine type from config TCG field (lowercase for consistency)
+        tcg_type = getattr(config, 'TCG', None)
+        if not tcg_type:
+            raise ValueError("Config must have a 'TCG' field to determine the product type")
+        tcg_type = tcg_type.lower()
+        
         # Build main DTO
         return TCGPlayerIngestDTO(
+            type=tcg_type,
             collection=collection_dto,
             gameContext=gamecontext_dto,
             cards=card_dtos,

@@ -114,6 +114,8 @@ class TCGPlayerParser:
                 'condition': card.get('condition', '').strip(),
                 'printing': card.get('printing', '').strip(),
                 'pull_rate': card.get('Pull Rate (1/X)'),
+                'currency': 'USD',
+                'source': 'TCGPlayer',
                 'prices': {
                     'market': clean_price_value(card.get('Price ($)')),
                 }
@@ -158,6 +160,8 @@ class TCGPlayerParser:
                     'name': product_name,
                     'product_type': product.get('type', 'Sealed Product'),
                     'set_name': set_name,
+                    'source': 'TCGPlayer',
+                    'currency': 'USD',
                     'prices': {
                         'market': market_price,
                         'low': clean_price_value(product.get('lowPrice'))

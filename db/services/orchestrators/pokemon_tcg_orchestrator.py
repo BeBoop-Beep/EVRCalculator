@@ -31,42 +31,42 @@ class PokemonTCGOrchestrator:
                   Must contain a 'gameContext' section to establish context for other sections
             
         Returns:
-            Dictionary with ingestion results including gameContext_id
+            Dictionary with ingestion results including set_id
         """
         try:
             print("\n🔄 Starting Pokemon TCG data ingestion...")
             
             result = {
                 'success': True,
-                'gameContext_id': None,
+                'set_id': None,
                 'details': {}
             }
             
-            gameContext_id = None
+            set_id = None
             
             # HIERARCHICAL ORDER: Collection → TCG → Era → Set → Cards/Sealed Products
             # Note: Collection, TCG, and Era are typically handled within the set creation process
             
             # Step 1: Process Set (this establishes the root context)
-            if 'gameContext' in data:
+            if 'set' in data:
                 try:
-                    gameContext_id = self.sets_controller.get_or_create_set(data['gameContext'])
-                    result['gameContext_id'] = gameContext_id
-                    result['details']['gameContext'] = {
+                    set_id = self.sets_controller.get_or_create_set(data['set'])
+                    result['set_id'] = set_id
+                    result['details']['set'] = {
                         'status': 'success',
-                        'gameContext_id': gameContext_id
+                        'set_id': set_id
                     }
-                    print(f"✅ GameContext ready (ID: {gameContext_id})")
+                    print(f"✅ Set ready (ID: {set_id})")
                 except Exception as e:
-                    print(f"❌ Error creating gameContext: {e}")
+                    print(f"❌ Error creating set: {e}")
                     raise
             else:
-                print("⚠️  No gameContext data provided - subsequent operations may fail")
+                print("⚠️  No set data provided - subsequent operations may fail")
             
-            # Step 2: Process Cards (depends on gameContext_id)
-            if 'cards' in data and gameContext_id:
+            # Step 2: Process Cards (depends on set_id)
+            if 'cards' in data and set_id:
                 try:
-                    cards_result = self.cards_controller.ingest_cards(gameContext_id, data['cards'])
+                    cards_result = self.cards_controller.ingest_cards(set_id, data['cards'])
                     result['details']['cards'] = cards_result
                     inserted = cards_result.get('inserted', 0)
                     print(f"✅ Processed {inserted} cards")
@@ -74,22 +74,11 @@ class PokemonTCGOrchestrator:
                     print(f"❌ Error processing cards: {e}")
                     raise
             
-            # Step 3: Process Prices (depends on gameContext_id and cards)
-            if 'prices' in data and gameContext_id:
-                try:
-                    prices_result = self.prices_controller.ingest_prices(gameContext_id, data['prices'])
-                    result['details']['prices'] = prices_result
-                    inserted = prices_result.get('inserted', 0)
-                    print(f"✅ Processed {inserted} prices")
-                except Exception as e:
-                    print(f"❌ Error processing prices: {e}")
-                    raise
-            
-            # Step 4: Process Sealed Products (depends on gameContext_id)
-            if 'sealed_products' in data and gameContext_id:
+            # Step 3: Process Sealed Products (depends on set_id)
+            if 'sealed_products' in data and set_id:
                 try:
                     sealed_result = self.sealed_products_controller.ingest_sealed_products(
-                        gameContext_id, 
+                        set_id, 
                         data['sealed_products']
                     )
                     result['details']['sealed_products'] = sealed_result
