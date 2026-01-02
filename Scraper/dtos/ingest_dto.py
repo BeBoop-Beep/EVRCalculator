@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict
 
 # This is currently for a Pokemon type DTO, 
@@ -19,6 +19,8 @@ class CardDTO(BaseModel):
     card_number: Optional[str]
     rarity: Optional[str]
     variant: Optional[str]
+    condition: Optional[str] = None  # Card condition (Near Mint, Lightly Played, etc.)
+    printing: Optional[str] = None  # Printing type or edition info
     pull_rate: Optional[float]
     prices: Dict[str, Optional[float]]  # market, low, reverse, etc.
     source: Optional[str] = None  # e.g., 'TCGPlayer'
