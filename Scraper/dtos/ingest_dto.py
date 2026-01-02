@@ -21,15 +21,34 @@ class CardDTO(BaseModel):
     variant: Optional[str]
     pull_rate: Optional[float]
     prices: Dict[str, Optional[float]]  # market, low, reverse, etc.
+    source: Optional[str] = None  # e.g., 'TCGPlayer'
+    currency: Optional[str] = None  # defaults to USD if not provided
 
 class SealedProductDTO(BaseModel):
     name: str
     product_type: str           # booster box, ETB, etc.
     prices: Dict[str, Optional[float]]
+    source: Optional[str] = None  # e.g., 'TCGPlayer'
+    currency: Optional[str] = None  # defaults to USD if not provided
 
 class TCGPlayerIngestDTO(BaseModel):
+    type: str  # e.g., 'pokemon', 'magic', 'yugioh' - determined by TCG type
     collection: CollectionDTO
     gameContext: GameContextDTO
     cards: List[CardDTO]
     sealed_products: List[SealedProductDTO]
     source: str
+
+    def model_dump(self, **kwargs):
+        """Override model_dump to return payload in format expected by IngestController"""
+        data_dict = super().model_dump(**kwargs)
+        return {
+            'type': data_dict['type'],
+            'data': {
+                'collection': data_dict['collection'],
+                'set': data_dict['gameContext'],  # Schema expects 'set', not 'gameContext'
+                'cards': data_dict['cards'],
+                'sealed_products': data_dict['sealed_products'],
+            },
+            'source': data_dict['source']
+        }
