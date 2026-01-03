@@ -29,7 +29,7 @@ class TCGOrchestrator:
             Dictionary with ingestion results
         """
         try:
-            print("\n🎴 TCG Orchestrator: Determining game type...")
+            print("\n[TCG] TCG Orchestrator: Determining game type...")
             
             # Get the TCG type from gameContext data
             gameContext_id = data.get('gameContext')
@@ -48,11 +48,11 @@ class TCGOrchestrator:
                 )
             
             orchestrator = getattr(self, orchestrator_attr)
-            print(f"⚡ Routing to {tcg_type.upper()} TCG orchestrator...")
+            print(f"[ROUTING] Routing to {tcg_type.upper()} TCG orchestrator...")
             return orchestrator.ingest(data)
             
         except Exception as e:
-            print(f"❌ TCG orchestrator error: {e}")
+            print(f"[ERROR] TCG orchestrator error: {e}")
             import traceback
             traceback.print_exc()
             return {

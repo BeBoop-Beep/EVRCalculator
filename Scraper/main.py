@@ -21,9 +21,10 @@ def main():
         scraper = TCGScraper(enable_db_ingestion=True)  # Change to False to skip DB
         payload = scraper.scrape(config, excel_path)  # Call the scrape method
         
-        print("\n✅ DTO Payload created successfully")
-        print(f"   Cards: {len(payload.get('cards', []))}")
-        print(f"   Sealed Products: {len(payload.get('sealed_products', []))}")
+        print("\n[OK] DTO Payload created successfully")
+        data = payload.get('data', {})
+        print(f"   Cards: {len(data.get('cards', []))}")
+        print(f"   Sealed Products: {len(data.get('sealed_products', []))}")
 
     except Exception as e:
         print(f"ERROR: {type(e).__name__}: {e}")
