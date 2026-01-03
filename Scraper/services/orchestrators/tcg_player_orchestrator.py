@@ -36,30 +36,31 @@ class TCGScraper:
         payload = dto.model_dump()
         
         # Debug output
-        print(f"\n✅ Payload created:")
-        print(f"  - Set: {payload.get('gameContext', {}).get('set', 'N/A')}")
-        print(f"  - Cards: {len(payload.get('cards', []))}")
-        print(f"  - Sealed Products: {len(payload.get('sealed_products', []))}")
+        print(f"\n[OK] Payload created:")
+        data = payload.get('data', {})
+        print(f"  - Set: {data.get('gameContext', {}).get('set', 'N/A')}")
+        print(f"  - Cards: {len(data.get('cards', []))}")
+        print(f"  - Sealed Products: {len(data.get('sealed_products', []))}")
         
         with open('payload_debug.json', 'w') as f:
             json.dump(payload, f, indent=2)
         
         # Step 5: Ingest to database (if enabled)
         if self.enable_db_ingestion:
-            print("\n📤 Sending data to database...")
+            print("\n[SEND] Sending data to database...")
             try:
                 # Payload already has the correct structure with type and data fields
                 result = self.ingest_controller.ingest(payload)
                 if result and result.get('success'):
-                    print("✅ Database ingestion successful")
-                    print(f"\n📊 Ingestion Summary:")
+                    print("[OK] Database ingestion successful")
+                    print(f"\n[SUMMARY] Ingestion Summary:")
                     if 'summary' in result:
                         for key, value in result['summary'].items():
                             print(f"   {key}: {value}")
                 else:
-                    print(f"⚠️ Database ingestion failed: {result.get('error', 'Unknown error')}")
+                    print(f"[WARN] Database ingestion failed: {result.get('error', 'Unknown error')}")
             except Exception as e:
-                print(f"❌ Database ingestion failed: {e}")
+                print(f"[ERROR] Database ingestion failed: {e}")
                 import traceback
                 traceback.print_exc()
                 # Don't raise - continue with the rest of the workflow

@@ -43,12 +43,16 @@ class TCGPlayerIngestDTO(BaseModel):
 
     def model_dump(self, **kwargs):
         """Override model_dump to return payload in format expected by IngestController"""
+        # Ensure mode='python' to properly serialize nested Pydantic models
+        if 'mode' not in kwargs:
+            kwargs['mode'] = 'python'
         data_dict = super().model_dump(**kwargs)
         return {
             'type': data_dict['type'],
             'data': {
                 'collection': data_dict['collection'],
-                'set': data_dict['gameContext'],  # Schema expects 'set', not 'gameContext'
+                'gameContext': data_dict['gameContext'],
+                'set': data_dict['gameContext'],  # Database schema expects 'set' key
                 'cards': data_dict['cards'],
                 'sealed_products': data_dict['sealed_products'],
             },

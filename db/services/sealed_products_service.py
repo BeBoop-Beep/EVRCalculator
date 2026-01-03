@@ -53,7 +53,7 @@ class SealedProductsService:
                 
                 if existing_product:
                     sealed_product_id = existing_product['id']
-                    print(f"ℹ️  Sealed product already exists: {product_name} (ID: {sealed_product_id})")
+                    print(f"[INFO]  Sealed product already exists: {product_name} (ID: {sealed_product_id})")
                 else:
                     # Insert new sealed product
                     product_data = {
@@ -64,7 +64,7 @@ class SealedProductsService:
                     
                     sealed_product_id = insert_sealed_product(product_data)
                     results['inserted_products'] += 1
-                    print(f"✅ Inserted sealed product: {product_name} (ID: {sealed_product_id})")
+                    print(f"[OK] Inserted sealed product: {product_name} (ID: {sealed_product_id})")
                 
                 # ALWAYS insert price data for this scrape
                 # Prices are historical and stored in a separate table
@@ -88,18 +88,18 @@ class SealedProductsService:
                         # Insert into sealed_product_prices for historical tracking
                         price_id = insert_sealed_product_price(price_data)
                         results['inserted_prices'] += 1
-                        print(f"  ✅ Inserted price: ${market_price} (Price ID: {price_id})")
+                        print(f"  [OK] Inserted price: ${market_price} (Price ID: {price_id})")
                     
                     except Exception as e:
                         error_msg = f"Failed to insert price for {product_name}: {e}"
-                        print(f"  ❌ {error_msg}")
+                        print(f"  [ERROR] {error_msg}")
                         results['errors'].append(error_msg)
                 else:
-                    print(f"  ⚠️  No market price found for {product_name}")
+                    print(f"  [WARN]  No market price found for {product_name}")
             
             except Exception as e:
                 error_msg = f"Failed to process sealed product {product.get('name')}: {e}"
-                print(f"❌ {error_msg}")
+                print(f"[ERROR] {error_msg}")
                 results['errors'].append(error_msg)
                 results['failed'] += 1
         
