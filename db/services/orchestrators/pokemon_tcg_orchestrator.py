@@ -34,7 +34,8 @@ class PokemonTCGOrchestrator:
             Dictionary with ingestion results including set_id
         """
         try:
-            print("\n🔄 Starting Pokemon TCG data ingestion...")
+            print("\n[ROUTING] Starting Pokemon TCG data ingestion...")
+            print(f"[DEBUG] Data keys received: {list(data.keys())}")
             
             result = {
                 'success': True,
@@ -56,12 +57,12 @@ class PokemonTCGOrchestrator:
                         'status': 'success',
                         'set_id': set_id
                     }
-                    print(f"✅ Set ready (ID: {set_id})")
+                    print(f"[OK] Set ready (ID: {set_id})")
                 except Exception as e:
-                    print(f"❌ Error creating set: {e}")
+                    print(f"[ERROR] Error creating set: {e}")
                     raise
             else:
-                print("⚠️  No set data provided - subsequent operations may fail")
+                print("[WARN]  No set data provided - subsequent operations may fail")
             
             # Step 2: Process Cards (depends on set_id)
             if 'cards' in data and set_id:
@@ -69,9 +70,9 @@ class PokemonTCGOrchestrator:
                     cards_result = self.cards_controller.ingest_cards(set_id, data['cards'])
                     result['details']['cards'] = cards_result
                     inserted = cards_result.get('inserted', 0)
-                    print(f"✅ Processed {inserted} cards")
+                    print(f"[OK] Processed {inserted} cards")
                 except Exception as e:
-                    print(f"❌ Error processing cards: {e}")
+                    print(f"[ERROR] Error processing cards: {e}")
                     raise
             
             # Step 3: Process Sealed Products (depends on set_id)
@@ -83,16 +84,16 @@ class PokemonTCGOrchestrator:
                     )
                     result['details']['sealed_products'] = sealed_result
                     inserted = sealed_result.get('inserted', 0)
-                    print(f"✅ Processed {inserted} sealed products")
+                    print(f"[OK] Processed {inserted} sealed products")
                 except Exception as e:
-                    print(f"❌ Error processing sealed products: {e}")
+                    print(f"[ERROR] Error processing sealed products: {e}")
                     raise
             
-            print(f"\n✅ Pokemon TCG ingestion complete!")
+            print(f"\n[OK] Pokemon TCG ingestion complete!")
             return result
             
         except Exception as e:
-            print(f"❌ Pokemon TCG ingestion error: {e}")
+            print(f"[ERROR] Pokemon TCG ingestion error: {e}")
             import traceback
             traceback.print_exc()
             return {

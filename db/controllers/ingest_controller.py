@@ -36,7 +36,7 @@ class IngestController:
             result = self.ingest_service.ingest(data)
             return result
         except Exception as e:
-            print(f"❌ Controller error: {e}")
+            print(f"[ERROR] Controller error: {e}")
             return {
                 'success': False,
                 'error': str(e)
@@ -54,13 +54,13 @@ class IngestController:
         # Check required keys in data
         for key in schema['required']:
             if key not in data:
-                print(f"❌ Payload 'data' missing required key: {key}")
+                print(f"[ERROR] Payload 'data' missing required key: {key}")
                 return False
         
         # Check optional keys in data (if present)
         for key in schema['optional']:
             if key in data and not isinstance(data[key], list):
-                print(f"❌ Payload 'data' key '{key}' must be a list if present")
+                print(f"[ERROR] Payload 'data' key '{key}' must be a list if present")
                 return False
         
         return True

@@ -134,7 +134,7 @@ class CardsService:
                 
                 if existing_card:
                     card_id = existing_card['id']
-                    print(f"ℹ️  Card already exists: {name} (ID: {card_id})")
+                    print(f"[INFO]  Card already exists: {name} (ID: {card_id})")
                 else:
                     # Insert new card
                     card_data = {
@@ -147,7 +147,7 @@ class CardsService:
                     
                     card_id = insert_card(card_data)
                     results['inserted_cards'] += 1
-                    print(f"✅ Inserted card: {name} (ID: {card_id})")
+                    print(f"[OK] Inserted card: {name} (ID: {card_id})")
                 
                 # Process each price entry (which may have different variants)
                 for card_entry in card_list:
@@ -163,7 +163,7 @@ class CardsService:
                         
                         if existing_variant:
                             card_variant_id = existing_variant['id']
-                            print(f"  ℹ️  Variant already exists: {printing_type}/{special_type} (ID: {card_variant_id})")
+                            print(f"  [INFO]  Variant already exists: {printing_type}/{special_type} (ID: {card_variant_id})")
                         else:
                             # Insert new card variant
                             variant_data = {
@@ -175,7 +175,7 @@ class CardsService:
                             
                             card_variant_id = insert_card_variant(variant_data)
                             results['inserted_variants'] += 1
-                            print(f"  ✅ Inserted variant: {printing_type}/{special_type} (ID: {card_variant_id})")
+                            print(f"  [OK] Inserted variant: {printing_type}/{special_type} (ID: {card_variant_id})")
                         
                         # ALWAYS insert price data for this scrape
                         # Prices are historical and can fluctuate over time
@@ -200,23 +200,23 @@ class CardsService:
                                 
                                 price_id = insert_card_variant_price(price_data)
                                 results['inserted_prices'] += 1
-                                print(f"    ✅ Inserted price: ${market_price} (Price ID: {price_id})")
+                                print(f"    [OK] Inserted price: ${market_price} (Price ID: {price_id})")
                             
                             except Exception as e:
                                 error_msg = f"Failed to insert price for {name}: {e}"
-                                print(f"    ❌ {error_msg}")
+                                print(f"    [ERROR] {error_msg}")
                                 results['errors'].append(error_msg)
                         else:
-                            print(f"    ⚠️  No market price found for {name}")
+                            print(f"    [WARN]  No market price found for {name}")
                     
                     except Exception as e:
                         error_msg = f"Failed to process variant for {name}: {e}"
-                        print(f"  ❌ {error_msg}")
+                        print(f"  [ERROR] {error_msg}")
                         results['errors'].append(error_msg)
             
             except Exception as e:
                 error_msg = f"Failed to process card {name}: {e}"
-                print(f"❌ {error_msg}")
+                print(f"[ERROR] {error_msg}")
                 results['errors'].append(error_msg)
                 results['failed'] += 1
         

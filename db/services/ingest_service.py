@@ -33,7 +33,7 @@ class IngestService:
             Dictionary with ingestion results
         """
         try:
-            print("\n🔄 Starting ingestion routing...")
+            print("\n[ROUTING] Starting ingestion routing...")
             
             # Determine collection type from data
             collection_data = data.get('collection')
@@ -56,11 +56,11 @@ class IngestService:
                 )
             
             orchestrator = getattr(self, orchestrator_attr)
-            print(f"📦 Collection: {collection_name.upper()} - Routing to {collection_name} orchestrator...")
+            print(f"[PKG] Collection: {collection_name.upper()} - Routing to {collection_name} orchestrator...")
             return orchestrator.ingest(data)
             
         except Exception as e:
-            print(f"❌ Ingestion routing error: {e}")
+            print(f"[ERROR] Ingestion routing error: {e}")
             import traceback
             traceback.print_exc()
             return {
