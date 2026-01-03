@@ -3,7 +3,7 @@ from types import MappingProxyType
 class BaseSetConfig:
     COLLECTION = "TCG"
     TCG = "Pokemon"
-    ERA = "Scarlet & Violet"
+    ERA = "Scarlet and Violet"
     
     RARITY_MAPPING = MappingProxyType({
         'common': 'common',
