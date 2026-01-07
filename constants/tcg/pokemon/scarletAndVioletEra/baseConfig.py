@@ -24,16 +24,6 @@ class BaseSetConfig:
         'master ball pattern': 'hits',
     }) 
 
-    DEFAULT_SEALED_DETAILS_URL = {
-        "Pack Price": None,
-        "Mini Tin Price": None,
-        "Booster Bundle Price": None,
-        "ETB Price": None,
-        "ETB Promo Price": None,
-        "Booster Box Price": None,
-        "Special Collection Price": None
-    }
-
     GOD_PACK_CONFIG = {
         "enabled": False,
         "pull_rate": 0,
