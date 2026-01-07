@@ -11,7 +11,7 @@ def get_all_conditions() -> List[Dict[str, Any]]:
         List of condition records with id, name, and abbreviation
     """
     res = supabase.table("conditions").select("*").execute()
-    return res.data if res.data else []
+    return res.data if res and res.data else []
 
 
 def get_condition_by_name(name: str) -> Optional[Dict[str, Any]]:
@@ -31,7 +31,7 @@ def get_condition_by_name(name: str) -> Optional[Dict[str, Any]]:
         .maybe_single()
         .execute()
     )
-    return res.data if res.data else None
+    return res.data if res and res.data else None
 
 
 def get_condition_by_id(condition_id: int) -> Optional[Dict[str, Any]]:
@@ -51,4 +51,4 @@ def get_condition_by_id(condition_id: int) -> Optional[Dict[str, Any]]:
         .maybe_single()
         .execute()
     )
-    return res.data if res.data else None
+    return res.data if res and res.data else None

@@ -1,5 +1,8 @@
-from ..clients.supabase_client import supabase
+from ..clients.supabase_client import supabase, SUPABASE_URL, SUPABASE_KEY
+from supabase import create_client
+from postgrest.exceptions import APIError
 from typing import Optional, Dict, Any, List
+import time
 
 
 def insert_card_variant(card_variant_row: Dict[str, Any]) -> int:
@@ -15,15 +18,41 @@ def insert_card_variant(card_variant_row: Dict[str, Any]) -> int:
     Raises:
         RuntimeError: If insertion fails
     """
-    res = supabase.table("card_variants").insert(card_variant_row).execute()
-    if res.error:
-        raise RuntimeError(f"Failed to insert card variant: {res.error}")
+    # Retry mechanism for schema cache issues
+    max_retries = 3
+    last_error = None
     
-    inserted = res.data
-    if not inserted:
-        raise RuntimeError("Insert returned no data")
-    
-    return inserted[0]["id"]
+    for attempt in range(max_retries):
+        try:
+            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            res = fresh_client.table("card_variants").insert(card_variant_row).execute()
+            if res is None:
+                raise RuntimeError("Insert card variant returned no response object")
+            
+            inserted = res.data
+            if not inserted:
+                raise RuntimeError("Insert returned no data")
+            
+            return inserted[0]["id"]
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            # Check if it's a schema cache error
+            if "schema cache" in error_msg.lower():
+                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+            else:
+                # Not a schema cache error, fail immediately
+                raise RuntimeError(f"Failed to insert card variant: {error_msg}")
+        except RuntimeError as e:
+            last_error = str(e)
+            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise
+    raise RuntimeError(f"Failed to insert card variant after {max_retries} retries: {last_error}")
 
 
 def get_card_variant_by_card_and_type(
@@ -57,7 +86,7 @@ def get_card_variant_by_card_and_type(
         query = query.eq("edition", edition)
     
     res = query.maybe_single().execute()
-    return res.data if res.data else None
+    return res.data if res and res.data else None
 
 
 def get_card_variants_by_card_id(card_id: int) -> List[Dict[str, Any]]:
@@ -71,4 +100,4 @@ def get_card_variants_by_card_id(card_id: int) -> List[Dict[str, Any]]:
         List of card variant records
     """
     res = supabase.table("card_variants").select("*").eq("card_id", card_id).execute()
-    return res.data if res.data else []
+    return res.data if res and res.data else []

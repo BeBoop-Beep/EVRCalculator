@@ -5,7 +5,7 @@ def get_set_by_name(name: str):
 
 def get_set_id_by_name(name: str):
     res = get_set_by_name(name)
-    return res.data["id"] if res.data else None
+    return res.data["id"] if res and res.data else None
 
 def insert_set(set_data: dict):
     """
@@ -18,4 +18,6 @@ def insert_set(set_data: dict):
         List with inserted set data or None on failure
     """
     result = supabase.table("sets").insert(set_data).execute()
-    return result.data if result else None
+    if result is None:
+        raise RuntimeError("Insert set returned no response object")
+    return result.data if result.data else None
