@@ -15,7 +15,7 @@ def get_era_id_by_name(era_name: str):
     
     try:
         result = supabase.table("eras").select("id").eq("name", era_name).single().execute()
-        return result.data['id'] if result.data else None
+        return result.data['id'] if result and result.data else None
     except Exception as e:
         print(f"[WARN]  Error looking up era {era_name}: {e}")
         return None

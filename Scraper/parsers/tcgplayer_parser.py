@@ -33,13 +33,15 @@ class TCGPlayerParser:
                 continue
             
             # Create unique key to differentiate card variants
-            # Include: product name, special type, printing, and condition
+            # Include: product name, card number, rarity, special type, printing, and condition
+            card_number = card_dict.get('number', '')
+            rarity = card_dict.get('rarity', '')
             special_type = card_dict.get('specialType', '')
             printing = card_dict.get('printing', '')
             condition = card_dict.get('condition', '')
             
-            # Build composite key
-            key_parts = [product_name]
+            # Build composite key - include card_number and rarity to distinguish different versions
+            key_parts = [product_name, card_number, rarity]
             if special_type:
                 key_parts.append(special_type)
             if printing:
