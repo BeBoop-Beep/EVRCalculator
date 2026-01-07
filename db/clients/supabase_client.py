@@ -14,8 +14,17 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 try:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    # Clear the schema cache to avoid stale schema issues
+    if hasattr(supabase, 'postgrest') and hasattr(supabase.postgrest, '_cache'):
+        supabase.postgrest._cache.clear()
 except Exception as e:
     # Workaround for new sb_publishable key format in older SDK versions
     # For now, continue without Supabase connection
     print("Warning: Supabase client initialization failed (API key format incompatible)")
     supabase = None
+
+
+def clear_schema_cache():
+    """Clear the Supabase schema cache to avoid stale schema issues"""
+    if supabase and hasattr(supabase, 'postgrest') and hasattr(supabase.postgrest, '_cache'):
+        supabase.postgrest._cache.clear()
