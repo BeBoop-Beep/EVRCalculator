@@ -16,6 +16,8 @@ def insert_sealed_product(sealed_product_row: Dict[str, Any]) -> int:
         RuntimeError: If insertion fails
     """
     res = supabase.table("sealed_products").insert(sealed_product_row).execute()
+    if res is None:
+        raise RuntimeError("Insert sealed product returned no response object")
     if res.error:
         raise RuntimeError(f"Failed to insert sealed product: {res.error}")
     
@@ -45,6 +47,6 @@ def get_sealed_product_by_name_and_set(name: str, set_id: int) -> Optional[Dict[
         .maybe_single()
         .execute()
     )
-    return res.data if res.data else None
+    return res.data if res and res.data else None
 
 

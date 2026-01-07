@@ -15,7 +15,7 @@ def get_tcg_id_by_name(tcg_name: str):
     
     try:
         result = supabase.table("tcgs").select("id").eq("name", tcg_name).single().execute()
-        return result.data['id'] if result.data else None
+        return result.data['id'] if result and result.data else None
     except Exception as e:
         print(f"[WARN]  Error looking up TCG {tcg_name}: {e}")
         return None
