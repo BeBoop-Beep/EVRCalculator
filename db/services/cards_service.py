@@ -1,6 +1,7 @@
 import sys
 import os
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
@@ -14,6 +15,10 @@ class CardsService:
     Service layer for card business logic.
     Orchestrates writes across cards, card_variants, and card_variant_prices tables.
     """
+    
+    # Thread pool size for concurrent card processing
+    # Reduced to 5 to avoid socket exhaustion and connection pool limits
+    THREAD_POOL_SIZE = 5
     
     def __init__(self):
         """Initialize service and cache conditions"""
@@ -48,7 +53,8 @@ class CardsService:
         conditions_map = self._get_conditions_map()
         
         if condition_name not in conditions_map:
-            raise ValueError(f"Condition '{condition_name}' not found in database. Available: {list(conditions_map.keys())}")
+            available = list(conditions_map.keys())
+            raise ValueError(f"Condition '{condition_name}' not found in database. Available: {available}")
         
         return conditions_map[condition_name]
     
@@ -63,12 +69,12 @@ class CardsService:
             Tuple of (printing_type, special_type, edition)
         """
         variant = card.get('variant')
-        printing = card.get('printing', 'Normal')
+        printing = (card.get('printing') or '').strip().lower()
         
         # Determine printing type based on the 'printing' field from payload
         printing_type = 'non-holo'
-        if 'holofoil' in printing.lower():
-            if 'reverse' in printing.lower():
+        if 'holofoil' in printing or 'holo' in printing:
+            if 'reverse' in printing:
                 printing_type = 'reverse-holo'
             else:
                 printing_type = 'holo'
@@ -80,6 +86,127 @@ class CardsService:
         edition = None
         
         return printing_type, special_type, edition
+    
+    def _insert_price_task(self, price_data, card_name, market_price):
+        """
+        Helper method for threading price insertions.
+        
+        Args:
+            price_data: Dictionary of price data to insert
+            card_name: Card name for logging
+            market_price: Price value for logging
+            
+        Returns:
+            Tuple of (price_id, error_msg) or (None, error_msg) on failure
+        """
+        try:
+            price_id = insert_card_variant_price(price_data)
+            print(f"    [OK] Inserted price: ${market_price} (Price ID: {price_id})")
+            return price_id, None
+        except Exception as e:
+            error_msg = f"Failed to insert price for {card_name}: {e}"
+            print(f"    [ERROR] {error_msg}")
+            return None, error_msg
+    
+    def _process_card_task(self, card_key, card_id, card_list):
+        """
+        Process a single card's variants and prices (runs in thread pool).
+        
+        Args:
+            card_key: Tuple of (name, card_number, rarity)
+            card_id: The ID of the card in database
+            card_list: List of card entries for this card (different conditions/printings)
+            
+        Returns:
+            Tuple of (variants_inserted, prices_to_insert, errors)
+        """
+        name, card_number, rarity = card_key
+        variants_inserted = 0
+        prices_to_insert = []
+        errors = []
+        prices_skipped = 0
+        
+        try:
+            # Process each price entry (which may have different variants)
+            for card_entry in card_list:
+                card_variant_id = None
+                try:
+                    # Extract variant information
+                    printing_type, special_type, edition = self._extract_variant_info(card_entry)
+                    
+                    # Get or create the variant
+                    existing_variant = get_card_variant_by_card_and_type(
+                        card_id, printing_type, special_type, edition
+                    )
+                    
+                    if existing_variant:
+                        card_variant_id = existing_variant['id']
+                        print(f"  [INFO]  Variant already exists: {printing_type}/{special_type} (ID: {card_variant_id})")
+                    else:
+                        # Insert new card variant
+                        variant_data = {
+                            'card_id': card_id,
+                            'printing_type': printing_type,
+                            'special_type': special_type,
+                            'edition': edition,
+                        }
+                        
+                        card_variant_id = insert_card_variant(variant_data)
+                        variants_inserted += 1
+                        print(f"  [OK] Inserted variant: {printing_type}/{special_type} (ID: {card_variant_id})")
+                    
+                    # Build price data for later insertion (done sequentially)
+                    prices = card_entry.get('prices', {})
+                    market_price = prices.get('market')
+                    
+                    if market_price is not None:
+                        try:
+                            condition_name = card_entry.get('condition', 'Near Mint')
+                            try:
+                                condition_id = self._get_condition_id_for_price(condition_name)
+                            except ValueError as e:
+                                error_msg = f"Invalid condition '{condition_name}' for {name}: {e}"
+                                print(f"    [ERROR] {error_msg}")
+                                errors.append(error_msg)
+                                prices_skipped += 1
+                                continue
+                            
+                            price_data = {
+                                'card_variant_id': card_variant_id,
+                                'condition_id': condition_id,
+                                'market_price': market_price,
+                                'currency': prices.get('currency') or 'USD',
+                                'source': card_entry.get('source') or prices.get('source'),
+                                'captured_at': datetime.utcnow().isoformat(),
+                                'high_price': prices.get('high'),
+                                'low_price': prices.get('low'),
+                            }
+                            
+                            prices_to_insert.append((price_data, name, market_price))
+                        except Exception as e:
+                            error_msg = f"Failed to build price data for {name}: {e}"
+                            print(f"    [ERROR] {error_msg}")
+                            errors.append(error_msg)
+                            prices_skipped += 1
+                    else:
+                        print(f"    [WARN]  No market price found for {name}")
+                        prices_skipped += 1
+                
+                except Exception as e:
+                    error_msg = f"Failed to process variant for {name}: {e}"
+                    print(f"  [ERROR] {error_msg}")
+                    errors.append(error_msg)
+                    prices_skipped += 1
+        
+        except Exception as e:
+            error_msg = f"Failed to process card {name}: {e}"
+            print(f"[ERROR] {error_msg}")
+            errors.append(error_msg)
+        
+        if prices_skipped > 0:
+            print(f"  [DEBUG] Card {name}: collected {len(prices_to_insert)} prices, skipped {prices_skipped}")
+        
+        return variants_inserted, prices_to_insert, errors
     
     def insert_cards_with_variants_and_prices(self, set_id, cards):
         print(cards)
@@ -171,86 +298,38 @@ class CardsService:
                 results['errors'].append(error_msg)
                 results['failed'] += 1
         
-        # Now process variants and prices for all cards (both existing and newly inserted)
-        for (name, card_number, rarity), card_list in cards_by_key.items():
+        # Now process variants and prices for all cards SEQUENTIALLY
+        # Sequential processing is more reliable and consistent
+        print(f"\n[INFO] Starting sequential processing of {len(card_key_to_id)} cards...")
+        
+        total_prices = 0
+        
+        for card_key, card_id in card_key_to_id.items():
+            card_list = cards_by_key[card_key]
             try:
-                card_key = (name, card_number, rarity)
-                if card_key not in card_key_to_id:
-                    # Card insertion failed earlier
-                    continue
+                variants_inserted, prices_to_insert, errors = self._process_card_task(card_key, card_id, card_list)
+                results['inserted_variants'] += variants_inserted
+                total_prices += len(prices_to_insert)
+                results['errors'].extend(errors)
                 
-                card_id = card_key_to_id[card_key]
-                
-                # Process each price entry (which may have different variants)
-                for card_entry in card_list:
+                # Insert prices for this card immediately (sequential)
+                for price_data, card_name, market_price in prices_to_insert:
                     try:
-                        # Extract variant information
-                        printing_type, special_type, edition = self._extract_variant_info(card_entry)
-                        
-                        # Get or create the variant
-                        # Note: Variants are unique per card and printing type - there should only be 1 of each
-                        existing_variant = get_card_variant_by_card_and_type(
-                            card_id, printing_type, special_type, edition
-                        )
-                        
-                        if existing_variant:
-                            card_variant_id = existing_variant['id']
-                            print(f"  [INFO]  Variant already exists: {printing_type}/{special_type} (ID: {card_variant_id})")
-                        else:
-                            # Insert new card variant
-                            variant_data = {
-                                'card_id': card_id,
-                                'printing_type': printing_type,
-                                'special_type': special_type,
-                                'edition': edition,
-                            }
-                            
-                            card_variant_id = insert_card_variant(variant_data)
-                            results['inserted_variants'] += 1
-                            print(f"  [OK] Inserted variant: {printing_type}/{special_type} (ID: {card_variant_id})")
-                        
-                        # ALWAYS insert price data for this scrape
-                        # Prices are historical and can fluctuate over time
-                        # Each scrape should record the current price with a new timestamp
-                        prices = card_entry.get('prices', {})
-                        market_price = prices.get('market')
-                        
-                        if market_price is not None:
-                            try:
-                                condition_name = card_entry.get('condition', 'Near Mint')
-                                condition_id = self._get_condition_id_for_price(condition_name)
-                                
-                                price_data = {
-                                    'card_variant_id': card_variant_id,
-                                    'condition_id': condition_id,
-                                    'market_price': market_price,
-                                    'currency': prices.get('currency') or 'USD',
-                                    'source': card_entry.get('source') or prices.get('source'),
-                                    'captured_at': datetime.utcnow().isoformat(),
-                                    'high_price': prices.get('high'),
-                                    'low_price': prices.get('low'),
-                                }
-                                
-                                price_id = insert_card_variant_price(price_data)
-                                results['inserted_prices'] += 1
-                                print(f"    [OK] Inserted price: ${market_price} (Price ID: {price_id})")
-                            
-                            except Exception as e:
-                                error_msg = f"Failed to insert price for {name}: {e}"
-                                print(f"    [ERROR] {error_msg}")
-                                results['errors'].append(error_msg)
-                        else:
-                            print(f"    [WARN]  No market price found for {name}")
-                    
+                        price_id, error_msg = self._insert_price_task(price_data, card_name, market_price)
+                        if price_id:
+                            results['inserted_prices'] += 1
+                        elif error_msg:
+                            results['errors'].append(error_msg)
                     except Exception as e:
-                        error_msg = f"Failed to process variant for {name}: {e}"
-                        print(f"  [ERROR] {error_msg}")
+                        error_msg = f"Unexpected error in price insertion: {e}"
+                        print(f"[ERROR] {error_msg}")
                         results['errors'].append(error_msg)
             
             except Exception as e:
-                error_msg = f"Failed to process card {name}: {e}"
+                error_msg = f"Unexpected error processing card {card_key}: {e}"
                 print(f"[ERROR] {error_msg}")
                 results['errors'].append(error_msg)
-                results['failed'] += 1
+        
+        print(f"[INFO] Sequential processing complete. Inserted {results['inserted_prices']} prices")
         
         return results
