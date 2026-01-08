@@ -1,4 +1,4 @@
-from ..helpers.card_helper import clean_price_value, process_card
+from ..helpers.card_helper import clean_price_value, process_card, clean_condition, normalize_condition
 from ..helpers.sealed_price_helper import parse_sealed_prices
 
 class TCGPlayerParser:
@@ -108,13 +108,18 @@ class TCGPlayerParser:
         cleaned = []
         for card in cards:
             
+            # Normalize condition to match database values
+            condition = card.get('condition', '')
+            condition = clean_condition(condition) if condition else 'Near Mint'
+            normalized_condition = normalize_condition(condition)
+            
             cleaned_card = {
                 'name': card.get('productName', '').strip(),
                 'card_number': card.get('number'),
                 'rarity': card.get('rarity', '').strip(),
                 'variant': card.get('specialType'), 
-                'condition': card.get('condition', '').strip(),
-                'printing': card.get('printing', '').strip(),
+                'condition': normalized_condition,  # Use normalized condition
+                'printing': (card.get('printing') or '').strip(),
                 'pull_rate': card.get('Pull Rate (1/X)'),
                 'currency': 'USD',
                 'source': 'TCGPlayer',

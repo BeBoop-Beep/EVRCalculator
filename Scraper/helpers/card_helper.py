@@ -22,6 +22,50 @@ def clean_condition(condition):
     
     return cleaned
 
+def normalize_condition(condition):
+    """
+    Normalize condition strings to match database values.
+    Database conditions: Mint, Staining, Heavily Played, Near Mint, Moderately Played, Lightly Played, Damaged, Print Defect
+    
+    Args:
+        condition: Raw condition string from TCGPlayer
+        
+    Returns:
+        Normalized condition name matching database, or None if no match
+    """
+    if not condition:
+        return None
+    
+    condition_lower = condition.lower().strip()
+    
+    # Map common condition strings to database values
+    condition_map = {
+        'mint': 'Mint',
+        'near mint': 'Near Mint',
+        'lightly played': 'Lightly Played',
+        'moderately played': 'Moderately Played',
+        'heavily played': 'Heavily Played',
+        'damaged': 'Damaged',
+        'staining': 'Staining',
+        'print defect': 'Print Defect',
+        'light play': 'Lightly Played',
+        'moderate play': 'Moderately Played',
+        'heavy play': 'Heavily Played',
+    }
+    
+    # Check for exact match
+    if condition_lower in condition_map:
+        return condition_map[condition_lower]
+    
+    # Check for partial matches
+    for key, value in condition_map.items():
+        if key in condition_lower:
+            return value
+    
+    # Default to Near Mint if we can't match
+    print(f"[WARN] Unknown condition '{condition}', defaulting to 'Near Mint'")
+    return 'Near Mint'
+
 def clean_product_name(product_name, remove_special_patterns=False):
     """
     Remove card number suffix and optionally special type patterns from product name

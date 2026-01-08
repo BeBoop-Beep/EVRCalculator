@@ -1,5 +1,6 @@
 from ..clients.supabase_client import supabase, SUPABASE_URL, SUPABASE_KEY
 from supabase import create_client
+from postgrest.exceptions import APIError
 from typing import Dict, Any, Optional
 import time
 
@@ -18,34 +19,49 @@ def insert_sealed_product_price(price_row: Dict[str, Any]) -> int:
     Raises:
         RuntimeError: If insertion fails
     """
+    print(f"[DEBUG] Inserting sealed price with data: {price_row}")
+    
     # Retry mechanism for schema cache issues
     max_retries = 3
+    last_error = None
+    
     for attempt in range(max_retries):
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
             res = fresh_client.table("sealed_product_prices").insert(price_row).execute()
             if res is None:
                 raise RuntimeError("Insert sealed product price returned no response object")
-            if res.error:
-                error_msg = str(res.error)
-                if "schema cache" in error_msg.lower():
-                    print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
-                    if attempt < max_retries - 1:
-                        time.sleep(1)
-                        continue
-                raise RuntimeError(f"Failed to insert sealed product price: {res.error}")
             
             inserted = res.data
             if not inserted:
                 raise RuntimeError("Insert returned no data")
             
             return inserted[0]["id"]
+        
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            
+            # Check if it's a schema cache error
+            if "schema cache" in error_msg.lower():
+                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+            else:
+                # Not a schema cache error, fail immediately
+                print(f"[DEBUG] API Error: {error_msg}")
+                raise RuntimeError(f"Failed to insert sealed product price: {error_msg}")
+        
         except RuntimeError as e:
+            last_error = str(e)
             if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                print(f"[WARN]  Retrying after error: {e}")
                 time.sleep(1)
                 continue
             raise
-    raise RuntimeError("Failed to insert sealed product price after retries")
+    
+    raise RuntimeError(f"Failed to insert sealed product price after {max_retries} retries: {last_error}")
 
 
 def get_latest_price(sealed_product_id: int) -> Optional[Dict[str, Any]]:

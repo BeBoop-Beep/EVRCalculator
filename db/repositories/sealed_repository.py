@@ -1,5 +1,8 @@
 from ..clients.supabase_client import supabase
+from supabase import create_client
+from postgrest.exceptions import APIError
 from typing import Optional, Dict, Any
+import time
 
 
 def insert_sealed_product(sealed_product_row: Dict[str, Any]) -> int:
@@ -15,17 +18,45 @@ def insert_sealed_product(sealed_product_row: Dict[str, Any]) -> int:
     Raises:
         RuntimeError: If insertion fails
     """
-    res = supabase.table("sealed_products").insert(sealed_product_row).execute()
-    if res is None:
-        raise RuntimeError("Insert sealed product returned no response object")
-    if res.error:
-        raise RuntimeError(f"Failed to insert sealed product: {res.error}")
+    from ..clients.supabase_client import SUPABASE_URL, SUPABASE_KEY
     
-    inserted = res.data
-    if not inserted:
-        raise RuntimeError("Insert returned no data")
+    max_retries = 3
+    last_error = None
     
-    return inserted[0]["id"]
+    for attempt in range(max_retries):
+        try:
+            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            res = fresh_client.table("sealed_products").insert(sealed_product_row).execute()
+            if res is None:
+                raise RuntimeError("Insert sealed product returned no response object")
+            
+            inserted = res.data
+            if not inserted:
+                raise RuntimeError("Insert returned no data")
+            
+            return inserted[0]["id"]
+        
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            
+            if "schema cache" in error_msg.lower():
+                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+            else:
+                raise RuntimeError(f"Failed to insert sealed product: {error_msg}")
+        
+        except RuntimeError as e:
+            last_error = str(e)
+            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                print(f"[WARN]  Retrying after error: {e}")
+                time.sleep(1)
+                continue
+            raise
+    
+    raise RuntimeError(f"Failed to insert sealed product after {max_retries} retries: {last_error}")
 
 
 def get_sealed_product_by_name_and_set(name: str, set_id: int) -> Optional[Dict[str, Any]]:
@@ -39,14 +70,43 @@ def get_sealed_product_by_name_and_set(name: str, set_id: int) -> Optional[Dict[
     Returns:
         The sealed product record, or None if not found
     """
-    res = (
-        supabase.table("sealed_products")
-        .select("*")
-        .eq("name", name)
-        .eq("set_id", set_id)
-        .maybe_single()
-        .execute()
-    )
-    return res.data if res and res.data else None
+    from ..clients.supabase_client import SUPABASE_URL, SUPABASE_KEY
+    
+    max_retries = 3
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            res = (
+                fresh_client.table("sealed_products")
+                .select("*")
+                .eq("name", name)
+                .eq("set_id", set_id)
+                .maybe_single()
+                .execute()
+            )
+            return res.data if res and res.data else None
+        
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            
+            if "schema cache" in error_msg.lower():
+                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+            else:
+                raise RuntimeError(f"Failed to get sealed product: {error_msg}")
+        
+        except RuntimeError as e:
+            last_error = str(e)
+            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise
+    
+    raise RuntimeError(f"Failed to get sealed product after {max_retries} retries: {last_error}")
 
 
