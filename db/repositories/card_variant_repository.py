@@ -101,3 +101,58 @@ def get_card_variants_by_card_id(card_id: int) -> List[Dict[str, Any]]:
     """
     res = supabase.table("card_variants").select("*").eq("card_id", card_id).execute()
     return res.data if res and res.data else []
+
+
+def insert_card_variants_batch(card_variants: List[Dict[str, Any]]) -> List[int]:
+    """
+    Insert multiple card variant rows in a single batch operation.
+    
+    Args:
+        card_variants: List of card variant dictionaries to insert
+        
+    Returns:
+        List of IDs of the newly inserted card variants
+        
+    Raises:
+        RuntimeError: If insertion fails
+    """
+    if not card_variants:
+        return []
+    
+    max_retries = 3
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            res = fresh_client.table("card_variants").insert(card_variants).execute()
+            
+            if res is None:
+                raise RuntimeError("Batch insert card variants returned no response object")
+            
+            inserted = res.data
+            if not inserted:
+                raise RuntimeError("Batch insert returned no data")
+            
+            # Return list of IDs
+            return [item["id"] for item in inserted]
+        
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            if "schema cache" in error_msg.lower():
+                print(f"[WARN]  Schema cache error on batch insert attempt {attempt + 1}/{max_retries}, retrying...")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+            else:
+                raise RuntimeError(f"Failed to batch insert card variants: {error_msg}")
+        except RuntimeError as e:
+            last_error = str(e)
+            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise
+    
+    raise RuntimeError(f"Failed to batch insert card variants after {max_retries} retries: {last_error}")
+

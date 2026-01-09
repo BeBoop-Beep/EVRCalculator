@@ -1,7 +1,7 @@
 from ..clients.supabase_client import supabase, SUPABASE_URL, SUPABASE_KEY
 from supabase import create_client
 from postgrest.exceptions import APIError
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import time
 
 
@@ -84,3 +84,58 @@ def get_latest_price(sealed_product_id: int) -> Optional[Dict[str, Any]]:
         .execute()
     )
     return res.data if res and res.data else None
+
+
+def insert_sealed_product_prices_batch(price_rows: List[Dict[str, Any]]) -> List[int]:
+    """
+    Insert multiple sealed product price rows in a single batch operation.
+    
+    Args:
+        price_rows: List of price dictionaries to insert
+        
+    Returns:
+        List of IDs of the newly inserted price records
+        
+    Raises:
+        RuntimeError: If insertion fails
+    """
+    if not price_rows:
+        return []
+    
+    max_retries = 3
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            res = fresh_client.table("sealed_product_prices").insert(price_rows).execute()
+            
+            if res is None:
+                raise RuntimeError("Batch insert sealed product prices returned no response object")
+            
+            inserted = res.data
+            if not inserted:
+                raise RuntimeError("Batch insert returned no data")
+            
+            # Return list of IDs
+            return [item["id"] for item in inserted]
+        
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            if "schema cache" in error_msg.lower():
+                print(f"[WARN]  Schema cache error on batch insert attempt {attempt + 1}/{max_retries}, retrying...")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+            else:
+                raise RuntimeError(f"Failed to batch insert sealed product prices: {error_msg}")
+        except RuntimeError as e:
+            last_error = str(e)
+            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise
+    
+    raise RuntimeError(f"Failed to batch insert sealed product prices after {max_retries} retries: {last_error}")
+
