@@ -2,8 +2,6 @@ import sys
 import os
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from queue import Queue
-import threading
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
@@ -21,11 +19,8 @@ class SealedProductsService:
     THREAD_POOL_SIZE = 4
     
     def __init__(self):
-        """Initialize service and shared caches"""
-        # Shared product cache across all writers: (set_id, product_name) -> product_id
-        # Protected by lock to ensure thread-safe access
-        self._shared_product_cache = {}
-        self._cache_lock = threading.Lock()
+        """Initialize service"""
+        pass
     
     def _prepare_sealed_product_data(self, product, set_id):
         """
@@ -186,8 +181,6 @@ class SealedProductsService:
                 results_queue.put(('ERROR', str(e)))
             prices_batch = []
         
-        print(f"[Writer {writer_id}] Completed: +{products_inserted} products, +{prices_inserted} prices (local cache: {len(product_cache)}, shared cache size: {len(self._shared_product_cache)})")
-        results_queue.put(('DONE', products_inserted, prices_inserted))
     
     def insert_sealed_products_with_prices(self, set_id, sealed_products):
         """
@@ -222,8 +215,7 @@ class SealedProductsService:
         # Phase 1: Prepare all sealed product data in parallel (no DB access - safe)
         print(f"\n[INFO] Phase 1: Preparing {len(sealed_products)} sealed products in parallel...")
         
-        work_queue = Queue()
-        results_queue = Queue()
+        work_items = []
         all_errors = []
         
         with ThreadPoolExecutor(max_workers=self.THREAD_POOL_SIZE) as executor:
@@ -238,14 +230,14 @@ class SealedProductsService:
                 )
                 futures[future] = i
             
-            # Collect prepared data and queue it
+            # Collect prepared data and accumulate it
             for future in as_completed(futures):
                 try:
                     product_data, price_data, product_name, errors = future.result(timeout=60)
                     all_errors.extend(errors)
                     
                     if product_data:
-                        work_queue.put((product_data, price_data, product_name))
+                        work_items.append((product_data, price_data, product_name))
                     
                 except TimeoutError:
                     error_msg = f"Timeout (60s) preparing sealed products"
@@ -256,63 +248,75 @@ class SealedProductsService:
                     print(f"[ERROR] {error_msg}")
                     all_errors.append(error_msg)
         
-        # Phase 2: Partition work and assign to writers (NO shared queue - no overlap!)
-        print(f"\n[INFO] Phase 2: Partitioning {work_queue.qsize()} items into {self.THREAD_POOL_SIZE} equal parts...")
+        # Phase 2: Sequential batch writing (eliminates race conditions)
+        print(f"\n[INFO] Phase 2: Sequential batch writing of {len(work_items)} prepared items...")
         
-        # Convert queue to list for partitioning
-        all_work_items = []
-        while not work_queue.empty():
-            all_work_items.append(work_queue.get())
+        print(f"[INFO] Writing {len(work_items)} sealed products sequentially with batch operations...")
         
-        # Partition work evenly across writers
-        partition_size = len(all_work_items) // self.THREAD_POOL_SIZE
-        work_partitions = []
-        for i in range(self.THREAD_POOL_SIZE):
-            start_idx = i * partition_size
-            end_idx = start_idx + partition_size if i < self.THREAD_POOL_SIZE - 1 else len(all_work_items)
-            work_partitions.append(all_work_items[start_idx:end_idx])
+        # Single-threaded sequential writing with batching
+        product_cache = {}  # Local cache to track inserted products
+        prices_batch = []
+        BATCH_SIZE = 50  # Conservative batch size for sealed products
         
-        print(f"[INFO] Partition sizes: {[len(p) for p in work_partitions]}")
-        
-        # Phase 2: Write all data with partitioned work (NO overlap, true parallelism)
-        print(f"\n[INFO] Phase 2: Starting {self.THREAD_POOL_SIZE} writer threads with partitioned work...")
-        
-        results_queue = Queue()
-        write_lock = threading.RLock()  # Lock only for DB access, not for product checking
-        writer_threads = []
-        
-        # Start writer threads with their own work partitions
-        for writer_id in range(self.THREAD_POOL_SIZE):
-            writer_thread = threading.Thread(
-                target=self._database_writer_thread_sealed,
-                args=(work_partitions[writer_id], results_queue, write_lock, writer_id),
-                daemon=False,
-                name=f"SealedWriter-{writer_id}"
-            )
-            writer_thread.start()
-            writer_threads.append(writer_thread)
-        
-        # Collect results from all writers
-        completed_writers = 0
-        while completed_writers < self.THREAD_POOL_SIZE:
+        for item_index, (product_data, price_data, product_name) in enumerate(work_items):
             try:
-                result = results_queue.get(timeout=30)
-                if result[0] == 'DONE':
-                    results['inserted_products'] += result[1]
-                    results['inserted_prices'] += result[2]
-                    completed_writers += 1
-                    print(f"[INFO] Writer completed: +{result[1]} products, +{result[2]} prices")
-                elif result[0] == 'ERROR':
-                    all_errors.append(result[1])
-            except:
-                break
+                cache_key = (product_data['set_id'], product_name)
+                sealed_product_id = None
+                
+                # Check local cache first
+                if cache_key in product_cache:
+                    sealed_product_id = product_cache[cache_key]
+                    if item_index % 50 == 0:
+                        print(f"[CACHE] Using cached product: {product_name} (ID: {sealed_product_id})")
+                else:
+                    # Check if already exists in DB
+                    existing_product = get_sealed_product_by_name_and_set(product_name, product_data['set_id'])
+                    if existing_product:
+                        sealed_product_id = existing_product['id']
+                        print(f"[DB] Sealed product already exists: {product_name} (ID: {sealed_product_id})")
+                    else:
+                        # Insert new product immediately to get its ID
+                        sealed_product_id = insert_sealed_product(product_data)
+                        results['inserted_products'] += 1
+                        print(f"[OK] Inserted sealed product: {product_name} (ID: {sealed_product_id})")
+                    
+                    # Cache it
+                    product_cache[cache_key] = sealed_product_id
+                
+                # Add price to batch with correct product ID
+                if price_data:
+                    price_data['sealed_product_id'] = sealed_product_id
+                    prices_batch.append(price_data)
+                
+                # Flush price batch when it reaches threshold
+                if len(prices_batch) >= BATCH_SIZE:
+                    try:
+                        inserted_ids = insert_sealed_product_prices_batch(prices_batch)
+                        results['inserted_prices'] += len(inserted_ids)
+                        print(f"[BATCH] Flushed {len(inserted_ids)} sealed product prices")
+                        prices_batch = []
+                    except Exception as e:
+                        print(f"[ERROR] Batch price insert failed: {e}")
+                        all_errors.append(str(e))
+                        prices_batch = []
+            
+            except Exception as e:
+                error_msg = f"Error processing item {item_index}: {e}"
+                print(f"[ERROR] {error_msg}")
+                all_errors.append(error_msg)
         
-        # Wait for all writer threads to finish
-        for writer_thread in writer_threads:
-            writer_thread.join(timeout=30)
+        # Flush final price batch
+        if prices_batch:
+            try:
+                ids = insert_sealed_product_prices_batch(prices_batch)
+                results['inserted_prices'] += len(ids)
+                print(f"[BATCH] Flushed final {len(ids)} sealed product prices")
+            except Exception as e:
+                print(f"[ERROR] Failed to batch insert final prices: {e}")
+                all_errors.append(str(e))
         
         results['errors'].extend(all_errors)
         
-        print(f"[INFO] Partitioned multi-threaded batch writing complete. Inserted {results['inserted_prices']} prices")
+        print(f"[INFO] Sequential batch writing complete. Inserted {results['inserted_products']} products, {results['inserted_prices']} prices")
         
         return results

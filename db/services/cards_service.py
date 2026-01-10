@@ -2,12 +2,10 @@ import sys
 import os
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from queue import Queue
-import threading
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.repositories.cards_repository import insert_card, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
+from db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
 from db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
 from db.repositories.card_variant_prices_repository import insert_card_variant_price, insert_card_variant_prices_batch
 from db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
@@ -25,10 +23,6 @@ class CardsService:
     def __init__(self):
         """Initialize service and cache conditions"""
         self._conditions_cache = None
-        # Shared variant cache across all writers: (card_id, printing_type, special_type, edition) -> variant_id
-        # Protected by lock to ensure thread-safe access
-        self._shared_variant_cache = {}
-        self._cache_lock = threading.Lock()
     
     def _get_conditions_map(self):
         """
@@ -280,11 +274,10 @@ class CardsService:
                 print(f"[Writer {writer_id}] [ERROR] Failed to batch insert final prices: {e}")
                 results_queue.put(('ERROR', str(e)))
         
-        print(f"[Writer {writer_id}] Completed: {variants_inserted} variants, {prices_inserted} prices (local cache: {len(variant_cache)}, shared cache size: {len(self._shared_variant_cache)})")
-        results_queue.put(('DONE', variants_inserted, prices_inserted))
+        
+        return work_items, errors
     
     def insert_cards_with_variants_and_prices(self, set_id, cards):
-        print(cards)
         """
         Process and insert multiple cards with their variants and prices into database.
         
@@ -359,16 +352,20 @@ class CardsService:
             new_cards_to_insert.append(card_data)
             new_cards_set.add(card_key)
         
-        # Insert all new cards at once
-        for card_data in new_cards_to_insert:
+        # Batch insert all new cards at once
+        if new_cards_to_insert:
             try:
-                card_id = insert_card(card_data)
-                results['inserted_cards'] += 1
-                card_key = (card_data['name'], card_data['card_number'], card_data['rarity'])
-                card_key_to_id[card_key] = card_id
-                print(f"[OK] Inserted card: {card_data['name']} (ID: {card_id})")
+                print(f"[INFO] Batch inserting {len(new_cards_to_insert)} new cards...")
+                card_ids = insert_cards_batch(new_cards_to_insert)
+                results['inserted_cards'] += len(card_ids)
+                
+                # Map card keys to IDs
+                for i, card_data in enumerate(new_cards_to_insert):
+                    card_key = (card_data['name'], card_data['card_number'], card_data['rarity'])
+                    card_key_to_id[card_key] = card_ids[i]
+                    print(f"[OK] Inserted card: {card_data['name']} (ID: {card_ids[i]})")
             except Exception as e:
-                error_msg = f"Failed to insert card {card_data['name']}: {e}"
+                error_msg = f"Failed to batch insert cards: {e}"
                 print(f"[ERROR] {error_msg}")
                 results['errors'].append(error_msg)
                 results['failed'] += 1
@@ -376,8 +373,7 @@ class CardsService:
         # Phase 1: Prepare all card data in parallel (no DB access - safe)
         print(f"\n[INFO] Phase 1: Preparing {len(card_key_to_id)} cards in parallel...")
         
-        work_queue = Queue()
-        results_queue = Queue()
+        work_items = []
         all_errors = []
         
         with ThreadPoolExecutor(max_workers=self.THREAD_POOL_SIZE) as executor:
@@ -394,15 +390,14 @@ class CardsService:
                 )
                 futures[future] = card_key
             
-            # Collect prepared data and queue it
+            # Collect prepared data and accumulate it
             for future in as_completed(futures):
                 try:
-                    work_items, errors = future.result(timeout=60)
+                    prepared_work_items, errors = future.result(timeout=60)
                     all_errors.extend(errors)
                     
-                    # Queue all work items for the writer thread
-                    for work_item in work_items:
-                        work_queue.put(work_item)
+                    # Add all work items to the list for Phase 2
+                    work_items.extend(prepared_work_items)
                     
                 except TimeoutError:
                     error_msg = f"Timeout (60s) preparing cards"
@@ -413,63 +408,86 @@ class CardsService:
                     print(f"[ERROR] {error_msg}")
                     all_errors.append(error_msg)
         
-        # Phase 2: Partition work and assign to writers (NO shared queue - no overlap!)
-        print(f"\n[INFO] Phase 2: Partitioning {work_queue.qsize()} items into {self.THREAD_POOL_SIZE} equal parts...")
+        # Phase 2: Sequential batch writing (eliminates race conditions)
+        print(f"\n[INFO] Phase 2: Sequential batch writing of {len(work_items)} prepared items...")
         
-        # Convert queue to list for partitioning
-        all_work_items = []
-        while not work_queue.empty():
-            all_work_items.append(work_queue.get())
+        print(f"[INFO] Writing {len(work_items)} card variants sequentially with batch operations...")
         
-        # Partition work evenly across writers
-        partition_size = len(all_work_items) // self.THREAD_POOL_SIZE
-        work_partitions = []
-        for i in range(self.THREAD_POOL_SIZE):
-            start_idx = i * partition_size
-            end_idx = start_idx + partition_size if i < self.THREAD_POOL_SIZE - 1 else len(all_work_items)
-            work_partitions.append(all_work_items[start_idx:end_idx])
+        # Single-threaded sequential writing with batching
+        variant_cache = {}  # Local cache for (card_id, printing, special_type, edition) -> variant_id
+        prices_batch = []
+        BATCH_SIZE = 300  # Larger batches = fewer DB round trips
         
-        print(f"[INFO] Partition sizes: {[len(p) for p in work_partitions]}")
-        
-        # Phase 2: Write all data with partitioned work (NO overlap, true parallelism)
-        print(f"\n[INFO] Phase 2: Starting {self.THREAD_POOL_SIZE} writer threads with partitioned work...")
-        
-        results_queue = Queue()
-        write_lock = threading.RLock()  # Lock only for DB access, not for variant checking
-        writer_threads = []
-        
-        # Start writer threads with their own work partitions
-        for writer_id in range(self.THREAD_POOL_SIZE):
-            writer_thread = threading.Thread(
-                target=self._database_writer_thread,
-                args=(work_partitions[writer_id], results_queue, write_lock, writer_id),
-                daemon=False,
-                name=f"CardWriter-{writer_id}"
-            )
-            writer_thread.start()
-            writer_threads.append(writer_thread)
-        
-        # Collect results from all writers
-        completed_writers = 0
-        while completed_writers < self.THREAD_POOL_SIZE:
+        for item_index, (variant_data, price_data_list, card_key) in enumerate(work_items):
             try:
-                result = results_queue.get(timeout=30)
-                if result[0] == 'DONE':
-                    results['inserted_variants'] += result[1]
-                    results['inserted_prices'] += result[2]
-                    completed_writers += 1
-                    print(f"[INFO] Writer completed: +{result[1]} variants, +{result[2]} prices")
-                elif result[0] == 'ERROR':
-                    all_errors.append(result[1])
-            except:
-                break
+                # Extract card info from card_key
+                card_id = card_key_to_id[card_key]
+                
+                # Check if variant already exists
+                variant_key = (card_id, variant_data.get('printing_type'), 
+                              variant_data.get('special_type'), variant_data.get('edition'))
+                
+                variant_id = None
+                
+                # Check local cache first
+                if variant_key in variant_cache:
+                    variant_id = variant_cache[variant_key]
+                    if item_index % 50 == 0:
+                        print(f"[CACHE] Using cached variant for card {card_key[0]} (ID: {variant_id})")
+                else:
+                    # Check DB
+                    existing_variant = get_card_variant_by_card_and_type(
+                        card_id, 
+                        variant_data.get('printing_type'),
+                        variant_data.get('special_type'),
+                        variant_data.get('edition')
+                    )
+                    if existing_variant:
+                        variant_id = existing_variant['id']
+                        print(f"[DB] Variant already exists for card {card_key[0]} (ID: {variant_id})")
+                    else:
+                        # Insert new variant
+                        variant_id = insert_card_variant(variant_data)
+                        results['inserted_variants'] += 1
+                        print(f"[OK] Inserted variant for card {card_key[0]} (ID: {variant_id})")
+                    
+                    # Cache it
+                    variant_cache[variant_key] = variant_id
+                
+                # Add prices to batch with correct variant ID
+                for price in price_data_list:
+                    price['card_variant_id'] = variant_id
+                    prices_batch.append(price)
+                
+                # Flush price batch when it reaches threshold
+                if len(prices_batch) >= BATCH_SIZE:
+                    try:
+                        inserted_ids = insert_card_variant_prices_batch(prices_batch)
+                        results['inserted_prices'] += len(inserted_ids)
+                        print(f"[BATCH] Flushed {len(inserted_ids)} card variant prices (batch size: {BATCH_SIZE})")
+                        prices_batch = []
+                    except Exception as e:
+                        print(f"[ERROR] Batch price insert failed: {e}")
+                        all_errors.append(str(e))
+                        prices_batch = []
+            
+            except Exception as e:
+                error_msg = f"Error processing item {item_index}: {e}"
+                print(f"[ERROR] {error_msg}")
+                all_errors.append(error_msg)
         
-        # Wait for all writer threads to finish
-        for writer_thread in writer_threads:
-            writer_thread.join(timeout=30)
+        # Flush final price batch
+        if prices_batch:
+            try:
+                ids = insert_card_variant_prices_batch(prices_batch)
+                results['inserted_prices'] += len(ids)
+                print(f"[BATCH] Flushed final {len(ids)} card variant prices")
+            except Exception as e:
+                print(f"[ERROR] Failed to batch insert final prices: {e}")
+                all_errors.append(str(e))
         
         results['errors'].extend(all_errors)
         
-        print(f"[INFO] Partitioned multi-threaded batch writing complete. Inserted {results['inserted_prices']} prices from {results['inserted_variants']} variants")
+        print(f"[INFO] Sequential batch writing complete. Inserted {results['inserted_variants']} variants, {results['inserted_prices']} prices")
         
         return results
