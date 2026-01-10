@@ -17,8 +17,8 @@ class CardsService:
     """
     
     # Thread pool size for concurrent card processing
-    # Reduced to 5 to avoid socket exhaustion and connection pool limits
-    THREAD_POOL_SIZE = 5
+    # Set to 10 for better parallelization during data preparation phase
+    THREAD_POOL_SIZE = 10
     
     def __init__(self):
         """Initialize service and cache conditions"""
