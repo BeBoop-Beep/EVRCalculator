@@ -10,6 +10,7 @@ from db.repositories.card_variant_repository import insert_card_variant, get_car
 from db.repositories.card_variant_prices_repository import insert_card_variant_price, insert_card_variant_prices_batch
 from db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
 from db.services.batch_processor import BatchProcessor
+from db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
 
 class CardsService(BatchProcessor):
     """
@@ -455,7 +456,7 @@ class CardsService(BatchProcessor):
                 'name': name,
                 'rarity': rarity,
                 'card_number': card_number,
-                'copies_in_pack': card_list[0].get('pull_rate'),
+                'copies_in_pack': card_list[0].get('copies_in_pack'),
             }
             new_cards_to_insert.append(card_data)
             new_cards_set.add(card_key)
@@ -479,42 +480,26 @@ class CardsService(BatchProcessor):
                 results['failed'] += 1
         
         # Phase 1: Prepare all card data in parallel (no DB access - safe)
-        print(f"\n[INFO] Phase 1: Preparing {len(card_key_to_id)} cards in parallel...")
+        def prepare_card_wrapper(card_key_tuple, index):
+            """Wrapper to adapt phase 1 orchestrator interface"""
+            card_key, card_id = card_key_tuple
+            card_list = cards_by_key[card_key]
+            work_items, errors = self._prepare_card_data(card_key, card_id, card_list)
+            return work_items, errors
         
+        # Prepare cards using shared orchestrator
+        card_key_tuples = [(card_key, card_id) for card_key, card_id in card_key_to_id.items()]
+        prepared_items, all_errors = DataPreparationOrchestrator.prepare_data_in_parallel(
+            card_key_tuples,
+            prepare_card_wrapper,
+            self.THREAD_POOL_SIZE,
+            timeout=60
+        )
+        
+        # Flatten prepared items (each is a list of work items)
         work_items = []
-        all_errors = []
-        
-        with ThreadPoolExecutor(max_workers=self.THREAD_POOL_SIZE) as executor:
-            futures = {}
-            
-            # Submit all preparation tasks
-            for card_key, card_id in card_key_to_id.items():
-                card_list = cards_by_key[card_key]
-                future = executor.submit(
-                    self._prepare_card_data,
-                    card_key,
-                    card_id,
-                    card_list
-                )
-                futures[future] = card_key
-            
-            # Collect prepared data and accumulate it
-            for future in as_completed(futures):
-                try:
-                    prepared_work_items, errors = future.result(timeout=60)
-                    all_errors.extend(errors)
-                    
-                    # Add all work items to the list for Phase 2
-                    work_items.extend(prepared_work_items)
-                    
-                except TimeoutError:
-                    error_msg = f"Timeout (60s) preparing cards"
-                    print(f"[ERROR] {error_msg}")
-                    all_errors.append(error_msg)
-                except Exception as e:
-                    error_msg = f"Error preparing cards: {e}"
-                    print(f"[ERROR] {error_msg}")
-                    all_errors.append(error_msg)
+        for item_list in prepared_items:
+            work_items.extend(item_list)
         
         # Phase 2: Parallel batch processing with multiprocessing
         print(f"\n[INFO] Phase 2: Dividing {len(work_items)} items into batches...")

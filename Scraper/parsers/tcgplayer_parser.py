@@ -113,11 +113,14 @@ class TCGPlayerParser:
             condition = clean_condition(condition) if condition else 'Near Mint'
             normalized_condition = normalize_condition(condition)
             
+            # Get raw rarity
+            raw_rarity = card.get('rarity', '').strip()
+            
             cleaned_card = {
                 'name': card.get('productName', '').strip(),
                 'card_number': card.get('number'),
-                'rarity': card.get('rarity', '').strip(),
-                'variant': card.get('specialType'), 
+                'rarity': raw_rarity,
+                'variant': (card.get('specialType') or '').lower().strip(),  # Normalize to lowercase
                 'condition': normalized_condition,  # Use normalized condition
                 'printing': (card.get('printing') or '').strip(),
                 'pull_rate': card.get('Pull Rate (1/X)'),
