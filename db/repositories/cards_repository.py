@@ -6,7 +6,7 @@ import time
 
 def insert_card(card_row: Dict[str, Any]) -> int:
     """Insert a card row into `cards` and return the new id.
-        card_row should include: set_id, name, rarity, copies_in_pack (optional)
+        card_row should include: set_id, name, rarity, card_number
     """
     # Retry mechanism for schema cache issues
     max_retries = 3

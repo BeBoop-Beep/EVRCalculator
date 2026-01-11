@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from db.repositories.sealed_repository import insert_sealed_product, get_sealed_product_by_name_and_set, insert_sealed_products_batch
 from db.repositories.sealed_product_prices_repository import insert_sealed_product_price, insert_sealed_product_prices_batch
 from db.services.batch_processor import BatchProcessor
+from db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
 
 class SealedProductsService(BatchProcessor):
     """
@@ -307,40 +308,22 @@ class SealedProductsService(BatchProcessor):
         }
         
         # Phase 1: Prepare all sealed product data in parallel (no DB access - safe)
-        print(f"\n[INFO] Phase 1: Preparing {len(sealed_products)} sealed products in parallel...")
+        def prepare_product_wrapper(product, index):
+            """Wrapper to adapt phase 1 orchestrator interface"""
+            product_data, price_data, product_name, errors = self._prepare_sealed_product_data(product, set_id)
+            # Return in (prepared_item, errors) format
+            return (product_data, price_data, product_name), errors
         
-        work_items = []
-        all_errors = []
+        # Prepare products using shared orchestrator
+        prepared_items, all_errors = DataPreparationOrchestrator.prepare_data_in_parallel(
+            sealed_products,
+            prepare_product_wrapper,
+            self.THREAD_POOL_SIZE,
+            timeout=60
+        )
         
-        with ThreadPoolExecutor(max_workers=self.THREAD_POOL_SIZE) as executor:
-            futures = {}
-            
-            # Submit all preparation tasks
-            for i, product in enumerate(sealed_products):
-                future = executor.submit(
-                    self._prepare_sealed_product_data,
-                    product,
-                    set_id
-                )
-                futures[future] = i
-            
-            # Collect prepared data and accumulate it
-            for future in as_completed(futures):
-                try:
-                    product_data, price_data, product_name, errors = future.result(timeout=60)
-                    all_errors.extend(errors)
-                    
-                    if product_data:
-                        work_items.append((product_data, price_data, product_name))
-                    
-                except TimeoutError:
-                    error_msg = f"Timeout (60s) preparing sealed products"
-                    print(f"[ERROR] {error_msg}")
-                    all_errors.append(error_msg)
-                except Exception as e:
-                    error_msg = f"Error preparing sealed products: {e}"
-                    print(f"[ERROR] {error_msg}")
-                    all_errors.append(error_msg)
+        # Convert prepared items format
+        work_items = [item for item in prepared_items if item]  # Filter out None entries
         
         # Phase 2: Parallel batch processing with multiprocessing
         print(f"\n[INFO] Phase 2: Dividing {len(work_items)} items into batches...")
