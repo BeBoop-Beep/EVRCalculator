@@ -7,15 +7,21 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from db.repositories.sealed_repository import insert_sealed_product, get_sealed_product_by_name_and_set, insert_sealed_products_batch
 from db.repositories.sealed_product_prices_repository import insert_sealed_product_price, insert_sealed_product_prices_batch
+from db.services.batch_processor import BatchProcessor
 
-class SealedProductsService:
+class SealedProductsService(BatchProcessor):
     """
     Service layer for sealed product business logic.
     Orchestrates writes to sealed_products and sealed_product_prices tables.
+    Uses multiprocessing for parallel batch processing.
     """
     
-    # Thread pool size for concurrent sealed product processing
-    # Reduced to 4 to avoid socket exhaustion and connection pool limits
+    # Multiprocessing configuration
+    MAX_WORKERS = 4
+    WORK_BATCH_SIZE = 10  # Smaller batches: ~3 batches of 10-11 items each for 31 products
+    PRICE_BATCH_SIZE = 50
+    
+    # Thread pool size for concurrent sealed product data preparation
     THREAD_POOL_SIZE = 4
     
     def __init__(self):
@@ -74,6 +80,94 @@ class SealedProductsService:
             error_msg = f"Failed to prepare sealed product {product_name}: {e}"
             errors.append(error_msg)
             return None, None, product_name, errors
+    
+    def _process_batch_worker(self, batch_data, batch_id):
+        """
+        Worker function that processes a single batch of sealed product items.
+        Implements BatchProcessor abstract method.
+        This runs in a separate process - minimal shared state.
+        
+        Args:
+            batch_data: Tuple of (work_items, set_id)
+            batch_id: ID of this batch for logging
+            
+        Returns:
+            Dictionary with batch processing results
+        """
+        work_items, set_id = batch_data
+        batch_result = {
+            'batch_id': batch_id,
+            'inserted_products': 0,
+            'errors': [],
+            'prices_to_ship': []  # Prices that need to be inserted (after batch completes)
+        }
+        
+        # Local product cache for this process
+        product_cache = {}
+        
+        print(f"[Batch {batch_id}] Processing {len(work_items)} sealed products...")
+        
+        items_without_prices = 0
+        
+        for item_index, (product_data, price_data, product_name) in enumerate(work_items):
+            try:
+                cache_key = (set_id, product_name)
+                sealed_product_id = None
+                
+                # Check local cache first
+                if cache_key in product_cache:
+                    sealed_product_id = product_cache[cache_key]
+                    if item_index % 25 == 0:
+                        print(f"[Batch {batch_id}] [CACHE] Using cached product (ID: {sealed_product_id})")
+                else:
+                    # Check DB
+                    existing_product = get_sealed_product_by_name_and_set(product_name, set_id)
+                    if existing_product:
+                        sealed_product_id = existing_product['id']
+                        print(f"[Batch {batch_id}] [DB] Product exists (ID: {sealed_product_id})")
+                    else:
+                        # Insert new product
+                        sealed_product_id = insert_sealed_product(product_data)
+                        batch_result['inserted_products'] += 1
+                        print(f"[Batch {batch_id}] [OK] Inserted product (ID: {sealed_product_id})")
+                    
+                    product_cache[cache_key] = sealed_product_id
+                
+                # Collect prices for this product to ship after batch completes
+                if not price_data:
+                    items_without_prices += 1
+                    if item_index % 25 == 0 or items_without_prices <= 3:
+                        print(f"[Batch {batch_id}] [WARNING] Product {item_index} ({product_name}) has NO price")
+                else:
+                    price_data['sealed_product_id'] = sealed_product_id
+                    batch_result['prices_to_ship'].append(price_data)
+                
+            except Exception as e:
+                error_msg = f"Batch {batch_id} error on item {item_index}: {e}"
+                print(f"[ERROR] {error_msg}")
+                batch_result['errors'].append(error_msg)
+        
+        if items_without_prices > 0:
+            print(f"[Batch {batch_id}] Complete. Products: {batch_result['inserted_products']}, Prices to ship: {len(batch_result['prices_to_ship'])} (Items without prices: {items_without_prices})")
+        else:
+            print(f"[Batch {batch_id}] Complete. Products: {batch_result['inserted_products']}, Prices to ship: {len(batch_result['prices_to_ship'])}")
+        
+        return batch_result
+    
+    def _ship_batch_prices(self, price_batch, batch_id):
+        """
+        Ship a batch of sealed product prices to the database.
+        Implements BatchProcessor abstract method.
+        
+        Args:
+            price_batch: List of price dictionaries to insert
+            batch_id: ID of the batch being shipped (for logging)
+            
+        Returns:
+            Number of prices successfully inserted
+        """
+        inserted_ids = insert_sealed_product_prices_batch(price_batch)
+        return len(inserted_ids)
     
     def _database_writer_thread_sealed(self, work_partition, results_queue, write_lock, writer_id):
         """
@@ -248,72 +342,23 @@ class SealedProductsService:
                     print(f"[ERROR] {error_msg}")
                     all_errors.append(error_msg)
         
-        # Phase 2: Sequential batch writing (eliminates race conditions)
-        print(f"\n[INFO] Phase 2: Sequential batch writing of {len(work_items)} prepared items...")
+        # Phase 2: Parallel batch processing with multiprocessing
+        print(f"\n[INFO] Phase 2: Dividing {len(work_items)} items into batches...")
         
-        print(f"[INFO] Writing {len(work_items)} sealed products sequentially with batch operations...")
+        batches = self.divide_work_into_batches(work_items, batch_size=self.WORK_BATCH_SIZE)
+        print(f"[INFO] Created {len(batches)} batches for parallel processing")
         
-        # Single-threaded sequential writing with batching
-        product_cache = {}  # Local cache to track inserted products
-        prices_batch = []
-        BATCH_SIZE = 50  # Conservative batch size for sealed products
+        # Define function to prepare batch data for workers
+        def prepare_batch_data(batch, batch_id):
+            return (batch, set_id)
         
-        for item_index, (product_data, price_data, product_name) in enumerate(work_items):
-            try:
-                cache_key = (product_data['set_id'], product_name)
-                sealed_product_id = None
-                
-                # Check local cache first
-                if cache_key in product_cache:
-                    sealed_product_id = product_cache[cache_key]
-                    if item_index % 50 == 0:
-                        print(f"[CACHE] Using cached product: {product_name} (ID: {sealed_product_id})")
-                else:
-                    # Check if already exists in DB
-                    existing_product = get_sealed_product_by_name_and_set(product_name, product_data['set_id'])
-                    if existing_product:
-                        sealed_product_id = existing_product['id']
-                        print(f"[DB] Sealed product already exists: {product_name} (ID: {sealed_product_id})")
-                    else:
-                        # Insert new product immediately to get its ID
-                        sealed_product_id = insert_sealed_product(product_data)
-                        results['inserted_products'] += 1
-                        print(f"[OK] Inserted sealed product: {product_name} (ID: {sealed_product_id})")
-                    
-                    # Cache it
-                    product_cache[cache_key] = sealed_product_id
-                
-                # Add price to batch with correct product ID
-                if price_data:
-                    price_data['sealed_product_id'] = sealed_product_id
-                    prices_batch.append(price_data)
-                
-                # Flush price batch when it reaches threshold
-                if len(prices_batch) >= BATCH_SIZE:
-                    try:
-                        inserted_ids = insert_sealed_product_prices_batch(prices_batch)
-                        results['inserted_prices'] += len(inserted_ids)
-                        print(f"[BATCH] Flushed {len(inserted_ids)} sealed product prices")
-                        prices_batch = []
-                    except Exception as e:
-                        print(f"[ERROR] Batch price insert failed: {e}")
-                        all_errors.append(str(e))
-                        prices_batch = []
-            
-            except Exception as e:
-                error_msg = f"Error processing item {item_index}: {e}"
-                print(f"[ERROR] {error_msg}")
-                all_errors.append(error_msg)
+        # Process batches in parallel using BatchProcessor
+        batch_results, phase_2_errors = self.process_batches_in_parallel(batches, prepare_batch_data)
+        all_errors.extend(phase_2_errors)
         
-        # Flush final price batch
-        if prices_batch:
-            try:
-                ids = insert_sealed_product_prices_batch(prices_batch)
-                results['inserted_prices'] += len(ids)
-                print(f"[BATCH] Flushed final {len(ids)} sealed product prices")
-            except Exception as e:
-                print(f"[ERROR] Failed to batch insert final prices: {e}")
-                all_errors.append(str(e))
+        # Phase 3: Sequential batch shipping
+        prices_expected, prices_shipped, phase_3_errors = self.ship_results_sequentially(batch_results, results)
+        all_errors.extend(phase_3_errors)
         
         results['errors'].extend(all_errors)
         
