@@ -9,15 +9,21 @@ from db.repositories.cards_repository import insert_card, insert_cards_batch, ge
 from db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
 from db.repositories.card_variant_prices_repository import insert_card_variant_price, insert_card_variant_prices_batch
 from db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
+from db.services.batch_processor import BatchProcessor
 
-class CardsService:
+class CardsService(BatchProcessor):
     """
     Service layer for card business logic.
     Orchestrates writes across cards, card_variants, and card_variant_prices tables.
+    Uses multiprocessing for parallel batch processing.
     """
     
-    # Thread pool size for concurrent card processing
-    # Set to 10 for better parallelization during data preparation phase
+    # Multiprocessing configuration
+    MAX_WORKERS = 4
+    WORK_BATCH_SIZE = 400  # Optimized for 1265-2000 card sets (better load balancing)
+    PRICE_BATCH_SIZE = 500
+    
+    # Thread pool size for concurrent card data preparation
     THREAD_POOL_SIZE = 10
     
     def __init__(self):
@@ -86,6 +92,108 @@ class CardsService:
         edition = None
         
         return printing_type, special_type, edition
+    
+    def _process_batch_worker(self, batch_data, batch_id):
+        """
+        Worker function that processes a single batch of work items.
+        Implements BatchProcessor abstract method.
+        This runs in a separate process - minimal shared state.
+        
+        Args:
+            batch_data: Tuple of (work_items, card_key_to_id)
+            batch_id: ID of this batch for logging
+            
+        Returns:
+            Dictionary with batch processing results
+        """
+        work_items, card_key_to_id = batch_data
+        batch_result = {
+            'batch_id': batch_id,
+            'inserted_variants': 0,
+            'inserted_prices': 0,
+            'errors': [],
+            'prices_to_ship': []  # Prices that need to be inserted (after batch completes)
+        }
+        
+        # Local variant cache for this process
+        variant_cache = {}
+        
+        print(f"[Batch {batch_id}] Processing {len(work_items)} items...")
+        
+        items_without_prices = 0
+        
+        for item_index, (variant_data, price_data_list, card_key) in enumerate(work_items):
+            try:
+                card_id = card_key_to_id[card_key]
+                variant_key = (
+                    card_id,
+                    variant_data.get('printing_type'),
+                    variant_data.get('special_type'),
+                    variant_data.get('edition')
+                )
+                
+                variant_id = None
+                
+                # Check local cache first
+                if variant_key in variant_cache:
+                    variant_id = variant_cache[variant_key]
+                    if item_index % 50 == 0:
+                        print(f"[Batch {batch_id}] [CACHE] Using cached variant (ID: {variant_id})")
+                else:
+                    # Check DB
+                    existing_variant = get_card_variant_by_card_and_type(
+                        card_id,
+                        variant_data.get('printing_type'),
+                        variant_data.get('special_type'),
+                        variant_data.get('edition')
+                    )
+                    if existing_variant:
+                        variant_id = existing_variant['id']
+                        print(f"[Batch {batch_id}] [DB] Variant exists (ID: {variant_id})")
+                    else:
+                        # Insert new variant
+                        variant_id = insert_card_variant(variant_data)
+                        batch_result['inserted_variants'] += 1
+                        print(f"[Batch {batch_id}] [OK] Inserted variant (ID: {variant_id})")
+                    
+                    variant_cache[variant_key] = variant_id
+                
+                # Collect prices for this variant to ship after batch completes
+                if not price_data_list:
+                    items_without_prices += 1
+                    if item_index % 50 == 0 or items_without_prices <= 5:
+                        print(f"[Batch {batch_id}] [WARNING] Item {item_index} ({card_key[0]}) has NO prices to ship")
+                
+                for price in price_data_list:
+                    price['card_variant_id'] = variant_id
+                    batch_result['prices_to_ship'].append(price)
+                
+            except Exception as e:
+                error_msg = f"Batch {batch_id} error on item {item_index}: {e}"
+                print(f"[ERROR] {error_msg}")
+                batch_result['errors'].append(error_msg)
+        
+        if items_without_prices > 0:
+            print(f"[Batch {batch_id}] Complete. Variants: {batch_result['inserted_variants']}, Prices to ship: {len(batch_result['prices_to_ship'])} (Items without prices: {items_without_prices})")
+        else:
+            print(f"[Batch {batch_id}] Complete. Variants: {batch_result['inserted_variants']}, Prices to ship: {len(batch_result['prices_to_ship'])}")
+        
+        return batch_result
+    
+    def _ship_batch_prices(self, price_batch, batch_id):
+        """
+        Ship a batch of card variant prices to the database.
+        Implements BatchProcessor abstract method.
+        
+        Args:
+            price_batch: List of price dictionaries to insert
+            batch_id: ID of the batch being shipped (for logging)
+            
+        Returns:
+            Number of prices successfully inserted
+        """
+        inserted_ids = insert_card_variant_prices_batch(price_batch)
+        return len(inserted_ids)
     
     def _prepare_card_data(self, card_key, card_id, card_list):
         """
@@ -408,86 +516,26 @@ class CardsService:
                     print(f"[ERROR] {error_msg}")
                     all_errors.append(error_msg)
         
-        # Phase 2: Sequential batch writing (eliminates race conditions)
-        print(f"\n[INFO] Phase 2: Sequential batch writing of {len(work_items)} prepared items...")
+        # Phase 2: Parallel batch processing with multiprocessing
+        print(f"\n[INFO] Phase 2: Dividing {len(work_items)} items into batches...")
         
-        print(f"[INFO] Writing {len(work_items)} card variants sequentially with batch operations...")
+        batches = self.divide_work_into_batches(work_items, batch_size=self.WORK_BATCH_SIZE)
+        print(f"[INFO] Created {len(batches)} batches for parallel processing")
         
-        # Single-threaded sequential writing with batching
-        variant_cache = {}  # Local cache for (card_id, printing, special_type, edition) -> variant_id
-        prices_batch = []
-        BATCH_SIZE = 300  # Larger batches = fewer DB round trips
+        # Define function to prepare batch data for workers
+        def prepare_batch_data(batch, batch_id):
+            return (batch, card_key_to_id)
         
-        for item_index, (variant_data, price_data_list, card_key) in enumerate(work_items):
-            try:
-                # Extract card info from card_key
-                card_id = card_key_to_id[card_key]
-                
-                # Check if variant already exists
-                variant_key = (card_id, variant_data.get('printing_type'), 
-                              variant_data.get('special_type'), variant_data.get('edition'))
-                
-                variant_id = None
-                
-                # Check local cache first
-                if variant_key in variant_cache:
-                    variant_id = variant_cache[variant_key]
-                    if item_index % 50 == 0:
-                        print(f"[CACHE] Using cached variant for card {card_key[0]} (ID: {variant_id})")
-                else:
-                    # Check DB
-                    existing_variant = get_card_variant_by_card_and_type(
-                        card_id, 
-                        variant_data.get('printing_type'),
-                        variant_data.get('special_type'),
-                        variant_data.get('edition')
-                    )
-                    if existing_variant:
-                        variant_id = existing_variant['id']
-                        print(f"[DB] Variant already exists for card {card_key[0]} (ID: {variant_id})")
-                    else:
-                        # Insert new variant
-                        variant_id = insert_card_variant(variant_data)
-                        results['inserted_variants'] += 1
-                        print(f"[OK] Inserted variant for card {card_key[0]} (ID: {variant_id})")
-                    
-                    # Cache it
-                    variant_cache[variant_key] = variant_id
-                
-                # Add prices to batch with correct variant ID
-                for price in price_data_list:
-                    price['card_variant_id'] = variant_id
-                    prices_batch.append(price)
-                
-                # Flush price batch when it reaches threshold
-                if len(prices_batch) >= BATCH_SIZE:
-                    try:
-                        inserted_ids = insert_card_variant_prices_batch(prices_batch)
-                        results['inserted_prices'] += len(inserted_ids)
-                        print(f"[BATCH] Flushed {len(inserted_ids)} card variant prices (batch size: {BATCH_SIZE})")
-                        prices_batch = []
-                    except Exception as e:
-                        print(f"[ERROR] Batch price insert failed: {e}")
-                        all_errors.append(str(e))
-                        prices_batch = []
-            
-            except Exception as e:
-                error_msg = f"Error processing item {item_index}: {e}"
-                print(f"[ERROR] {error_msg}")
-                all_errors.append(error_msg)
+        # Process batches in parallel using BatchProcessor
+        batch_results, phase_2_errors = self.process_batches_in_parallel(batches, prepare_batch_data)
+        all_errors.extend(phase_2_errors)
         
-        # Flush final price batch
-        if prices_batch:
-            try:
-                ids = insert_card_variant_prices_batch(prices_batch)
-                results['inserted_prices'] += len(ids)
-                print(f"[BATCH] Flushed final {len(ids)} card variant prices")
-            except Exception as e:
-                print(f"[ERROR] Failed to batch insert final prices: {e}")
-                all_errors.append(str(e))
+        # Phase 3: Sequential batch shipping
+        prices_expected, prices_shipped, phase_3_errors = self.ship_results_sequentially(batch_results, results)
+        all_errors.extend(phase_3_errors)
         
         results['errors'].extend(all_errors)
         
-        print(f"[INFO] Sequential batch writing complete. Inserted {results['inserted_variants']} variants, {results['inserted_prices']} prices")
+        print(f"[INFO] All batch processing and shipping complete. Inserted {results['inserted_variants']} variants, {results['inserted_prices']} prices")
         
         return results
