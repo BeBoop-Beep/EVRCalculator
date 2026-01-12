@@ -5,16 +5,20 @@ from typing import List, Optional, Dict
 # we will need a sorter later that creates 
 # specific DTO's per collection and even TCG type.
 class CollectionDTO(BaseModel):
+    model_config = ConfigDict(extra='ignore')
     name: str 
 
 class GameContextDTO(BaseModel):
     """Contains game context metadata (TCG type, era, etc) - works for any product type"""
+    model_config = ConfigDict(extra='ignore')
     set: str
     abbreviation: Optional[str]
     tcg: Optional[str]  # Pokemon, Magic, Yu-Gi-Oh, etc.
     era: Optional[str]  # Base, Neo, etc. (optional for non-TCG products)
 
 class CardDTO(BaseModel):
+    """Card data DTO - explicitly ignores unknown fields like copies_in_pack"""
+    model_config = ConfigDict(extra='ignore')
     name: str
     card_number: Optional[str]
     rarity: Optional[str]
@@ -27,6 +31,7 @@ class CardDTO(BaseModel):
     currency: Optional[str] = None  # defaults to USD if not provided
 
 class SealedProductDTO(BaseModel):
+    model_config = ConfigDict(extra='ignore')
     name: str
     product_type: str           # booster box, ETB, etc.
     prices: Dict[str, Optional[float]]

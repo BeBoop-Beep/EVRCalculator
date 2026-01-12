@@ -4,6 +4,35 @@ from postgrest.exceptions import APIError
 from typing import Optional, Dict, Any, List
 import time
 
+# Define allowed fields for each table to prevent schema mismatches
+# Only these fields will be sent to the database on insert operations
+TABLE_ALLOWED_FIELDS = {
+    'cards': {'set_id', 'name', 'rarity', 'card_number'},
+    'card_variants': {'card_id', 'printing_type', 'special_type', 'edition'},
+    'card_variant_prices': {'card_variant_id', 'condition_id', 'market_price', 'low_price'},
+    'sealed_products': {'set_id', 'product_type', 'name'},
+    'sealed_product_prices': {'sealed_product_id', 'market_price', 'low_price'},
+}
+
+def _filter_row_fields(table_name: str, row: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Filter a row dictionary to only include allowed fields for a given table.
+    This prevents schema mismatches when extra fields are accidentally included.
+    
+    Args:
+        table_name: Name of the table (e.g., 'cards', 'card_variants')
+        row: Dictionary with row data
+        
+    Returns:
+        Filtered dictionary with only allowed fields
+    """
+    allowed_fields = TABLE_ALLOWED_FIELDS.get(table_name)
+    if not allowed_fields:
+        # If table not in mapping, return row as-is (no filtering)
+        return row
+    
+    return {k: v for k, v in row.items() if k in allowed_fields}
+
 def insert_card(card_row: Dict[str, Any]) -> int:
     """Insert a card row into `cards` and return the new id.
         card_row should include: set_id, name, rarity, card_number
@@ -57,6 +86,12 @@ def insert_cards_batch(card_rows: List[Dict[str, Any]]) -> List[int]:
     if not card_rows:
         return []
     
+    # Filter to ONLY allowed fields for this table using generic helper
+    filtered_card_rows = [_filter_row_fields('cards', card_row) for card_row in card_rows]
+    
+    if not filtered_card_rows:
+        return []
+    
     # Retry mechanism for schema cache issues
     max_retries = 3
     last_error = None
@@ -64,7 +99,7 @@ def insert_cards_batch(card_rows: List[Dict[str, Any]]) -> List[int]:
     for attempt in range(max_retries):
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = fresh_client.table("cards").insert(card_rows).execute()
+            res = fresh_client.table("cards").insert(filtered_card_rows).execute()
             if res is None:
                 raise RuntimeError("Batch insert cards returned no response object")
             # Supabase returns list of inserted rows
@@ -98,7 +133,7 @@ def get_card_by_name_and_set(name: str, set_id: int) -> Optional[Dict[str, Any]]
     """Return a single card record matching name+set_id, or None."""
     res = (
         supabase.table("cards")
-        .select("*")
+        .select("id, set_id, name, rarity, card_number")
         .eq("name", name)
         .eq("set_id", set_id)
         .maybe_single()
@@ -111,7 +146,7 @@ def get_card_by_name_number_rarity_and_set(name: str, card_number: str, rarity: 
     """Return a single card record matching name+card_number+rarity+set_id, or None."""
     res = (
         supabase.table("cards")
-        .select("*")
+        .select("id, set_id, name, rarity, card_number")
         .eq("name", name)
         .eq("card_number", card_number)
         .eq("rarity", rarity)
@@ -126,7 +161,7 @@ def get_all_cards_for_set(set_id: int) -> list:
     """Return all card records for a given set."""
     res = (
         supabase.table("cards")
-        .select("*")
+        .select("id, set_id, name, rarity, card_number")
         .eq("set_id", set_id)
         .execute()
     )
