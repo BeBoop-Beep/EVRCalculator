@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.calculators.packCalculations import calculate_pack_stats
 from src.printEvCalculations import append_summary_to_existing_excel
 from src.calculators.evrEtb import calculate_etb_metrics
-from constants.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
+from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 
 def main():
@@ -33,7 +33,7 @@ def main():
     setName = input("What set are we working on: \n")
     try:
         config = get_config_for_set(setName)
-        print(config.SET_NAME, ", ", config.SCRAPE_URL)
+        print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         excel_path = os.path.join(project_root, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
 
