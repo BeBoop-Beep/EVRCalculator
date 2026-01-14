@@ -10,8 +10,8 @@ class TCGPlayerClient:
             "Referer": "https://www.tcgplayer.com/"
         }
     
-    def fetch_card_data(self, price_guide_url):
-        """Fetch raw card data from TCGPlayer API"""
+    def fetch_price_data(self, price_guide_url):
+        """Fetch price data from TCGPlayer API"""
         response = requests.get(price_guide_url)
         if response.status_code != 200:
             raise Exception(f"Error fetching data: {response.status_code}")
