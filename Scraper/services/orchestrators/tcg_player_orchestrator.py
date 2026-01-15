@@ -8,7 +8,7 @@ import os
 
 # Add path to import from db folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
-from db.controllers.ingest_controller import IngestController
+from db.services.ingest_service import IngestService
 
 class TCGScraper:
     def __init__(self, enable_db_ingestion=False):
@@ -16,7 +16,7 @@ class TCGScraper:
         self.dto_builder = TCGPlayerDTOBuilder()
         self.enable_db_ingestion = enable_db_ingestion
         if enable_db_ingestion:
-            self.ingest_controller = IngestController()
+            self.ingest_service = IngestService()
     
     def scrape(self, config, excel_path):
         """Main scraping workflow"""
@@ -49,13 +49,14 @@ class TCGScraper:
         if self.enable_db_ingestion:
             print("\n[SEND] Sending data to database...")
             try:
-                # Payload already has the correct structure with type and data fields
-                result = self.ingest_controller.ingest(payload)
+                # Extract data directly and pass to service (bypass controller)
+                data = payload.get('data', {})
+                result = self.ingest_service.ingest(data)
                 if result and result.get('success'):
                     print("[OK] Database ingestion successful")
                     print(f"\n[SUMMARY] Ingestion Summary:")
-                    if 'summary' in result:
-                        for key, value in result['summary'].items():
+                    if 'details' in result:
+                        for key, value in result['details'].items():
                             print(f"   {key}: {value}")
                 else:
                     print(f"[WARN] Database ingestion failed: {result.get('error', 'Unknown error')}")

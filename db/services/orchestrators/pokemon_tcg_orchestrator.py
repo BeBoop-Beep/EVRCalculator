@@ -3,10 +3,9 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
-from db.controllers.sets_controller import SetsController
-from db.controllers.cards_controller import CardsController
-from db.controllers.prices_controller import PricesController
-from db.controllers.sealed_products_controller import SealedProductsController
+from db.services.sets_service import SetsService
+from db.services.cards_service import CardsService
+from db.services.sealed_products_service import SealedProductsService
 
 class PokemonTCGOrchestrator:
     """
@@ -17,10 +16,9 @@ class PokemonTCGOrchestrator:
     """
     
     def __init__(self):
-        self.sets_controller = SetsController()
-        self.cards_controller = CardsController()
-        self.prices_controller = PricesController()
-        self.sealed_products_controller = SealedProductsController()
+        self.sets_service = SetsService()
+        self.cards_service = CardsService()
+        self.sealed_products_service = SealedProductsService()
     
     def ingest(self, data):
         """
@@ -51,7 +49,7 @@ class PokemonTCGOrchestrator:
             # Step 1: Process Set (this establishes the root context)
             if 'set' in data:
                 try:
-                    set_id = self.sets_controller.get_or_create_set(data['set'])
+                    set_id = self.sets_service.get_or_create_set(data['set'])
                     result['set_id'] = set_id
                     result['details']['set'] = {
                         'status': 'success',
@@ -67,7 +65,7 @@ class PokemonTCGOrchestrator:
             # Step 2: Process Cards (depends on set_id)
             if 'cards' in data and set_id:
                 try:
-                    cards_result = self.cards_controller.ingest_cards(set_id, data['cards'])
+                    cards_result = self.cards_service.insert_cards_with_variants_and_prices(set_id, data['cards'])
                     result['details']['cards'] = cards_result
                     inserted = cards_result.get('inserted', 0)
                     print(f"[OK] Processed {inserted} cards")
@@ -78,7 +76,7 @@ class PokemonTCGOrchestrator:
             # Step 3: Process Sealed Products (depends on set_id)
             if 'sealed_products' in data and set_id:
                 try:
-                    sealed_result = self.sealed_products_controller.ingest_sealed_products(
+                    sealed_result = self.sealed_products_service.insert_sealed_products_with_prices(
                         set_id, 
                         data['sealed_products']
                     )
