@@ -7,7 +7,7 @@ Works with database-loaded DataFrames.
 import pandas as pd
 
 
-def group_cards_by_rarity(config, df):
+def group_cards_by_rarity(config, df, reverse_df=None):
     """
     Group cards by rarity category for simulation
     Simplified version that works with database-loaded data
@@ -15,6 +15,7 @@ def group_cards_by_rarity(config, df):
     Args:
         config: Set configuration
         df: DataFrame with card data
+        reverse_df: Optional DataFrame with reverse-holo variant cards
         
     Returns:
         Dictionary with card groups:
@@ -36,11 +37,16 @@ def group_cards_by_rarity(config, df):
     # If mapping doesn't exist, use the rarity_raw directly as fallback
     df['rarity_group'] = df['rarity_group'].fillna(df['rarity_raw'])
     
+    # Prepare reverse cards if provided
+    reverse_pool = pd.DataFrame()
+    if reverse_df is not None and not reverse_df.empty:
+        reverse_pool = reverse_df.copy()
+    
     result = {
         "common": df[df['rarity_group'] == 'common'],
         "uncommon": df[df['rarity_group'] == 'uncommon'],
         "rare": df[df['rarity_group'] == 'rare'],
-        "reverse": pd.DataFrame(),  # Database doesn't have reverse pricing yet
+        "reverse": reverse_pool,
         "hit": df[df['rarity_group'] == 'hits'],
     }
     
@@ -49,6 +55,6 @@ def group_cards_by_rarity(config, df):
     print(f"  Uncommon: {len(result['uncommon'])} cards")
     print(f"  Rare: {len(result['rare'])} cards")
     print(f"  Hits: {len(result['hit'])} cards")
-    print(f"  Reverse: {len(result['reverse'])} cards (not available in database)")
+    print(f"  Reverse: {len(result['reverse'])} cards" + (" (from database)" if not reverse_pool.empty else " (not available)"))
     
     return result

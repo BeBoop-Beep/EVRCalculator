@@ -12,6 +12,7 @@ from collections import defaultdict
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from src.calculators.packCalculations.monteCarloSim import make_simulate_pack_fn, run_simulation, print_simulation_summary
+from src.calculators.packCalculations.otherCalculations import PackCalculations
 from src.utils.card_grouping import group_cards_by_rarity
 
 
@@ -30,14 +31,16 @@ class SimulationEngine:
             config: Set configuration (e.g., SET_CONFIG_MAP['Stellar Crown'])
         """
         self.config = config
+        self.calculator = PackCalculations(config)
     
-    def run_simulation(self, df: pd.DataFrame, pack_price: float, num_simulations: int = 100000) -> dict:
+    def run_simulation(self, df: pd.DataFrame, pack_price: float, reverse_df: pd.DataFrame = None, num_simulations: int = 100000) -> dict:
         """
         Run Monte Carlo pack simulation
         
         Args:
             df: DataFrame with card data (from DatabaseCardLoader)
             pack_price: Price of a single pack
+            reverse_df: DataFrame with reverse-holo variant cards (optional)
             num_simulations: Number of pack simulations to run (default 100000)
             
         Returns:
@@ -60,8 +63,17 @@ class SimulationEngine:
         """
         print(f"=== STARTING MONTE CARLO SIMULATION ({num_simulations:,} packs) ===")
         
+        # Prepare DataFrame: calculate EV columns based on config
+        df = self._prepare_dataframe_for_simulation(df)
+        
+        # Prepare reverse DataFrame if provided
+        if reverse_df is not None and not reverse_df.empty:
+            reverse_df = self._prepare_dataframe_for_simulation(reverse_df)
+        else:
+            reverse_df = pd.DataFrame()
+        
         # Extract card groups from data
-        card_groups = group_cards_by_rarity(self.config, df)
+        card_groups = group_cards_by_rarity(self.config, df, reverse_df)
         
         # Initialize tracking dictionaries
         rarity_pull_counts = defaultdict(int)
@@ -130,4 +142,22 @@ class SimulationEngine:
         }
         
         print("=== SIMULATION COMPLETE ===\n")
-        return results
+        return results    
+    def _prepare_dataframe_for_simulation(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Prepare DataFrame using the initializer's exact EV column calculation
+        This preserves the original calculation logic exactly
+        
+        Args:
+            df: DataFrame with card data
+            
+        Returns:
+            DataFrame with EV columns calculated using original logic
+        """
+        # Make a copy to avoid modifying original
+        df = df.copy()
+        
+        # Use the initializer's _calculate_ev_columns method which has the exact logic
+        self.calculator._calculate_ev_columns(df)
+        
+        return df

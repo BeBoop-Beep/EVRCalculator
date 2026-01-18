@@ -45,8 +45,10 @@ def main():
     print("EVR CALCULATOR - Refactored (Database-driven, Independent Processes)")
     print("="*80 + "\n")
     
-    # Get set from user
-    set_name = input("What set are we working on? ")
+    # Get set from user (default to 151 for testing)
+    set_name = input("What set are we working on? (default: Scarlet and Violet 151) ").strip()
+    if not set_name:
+        set_name = "Scarlet and Violet 151"
     
     try:
         config = get_config_for_set(set_name)
@@ -62,6 +64,7 @@ def main():
         pack_price = getattr(config, 'PACK_PRICE', 4.00)  # Default to $4.00
         
         df, _ = loader.load_cards_for_set(config.SET_NAME, pack_price)
+        reverse_df = loader.get_reverse_cards()
         
         # =================================================================
         # STEP 2: Run MANUAL calculations (independent process)
@@ -75,7 +78,7 @@ def main():
         # =================================================================
         print("[3/3] Running Monte Carlo simulation...")
         sim_engine = SimulationEngine(config)
-        sim_results = sim_engine.run_simulation(df, pack_price, num_simulations=100000)
+        sim_results = sim_engine.run_simulation(df, pack_price, reverse_df, num_simulations=100000)
         
         # =================================================================
         # STEP 4: Save results to database (COMMENTED OUT FOR TESTING)
