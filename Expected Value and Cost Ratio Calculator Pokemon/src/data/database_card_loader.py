@@ -14,6 +14,8 @@ from db.repositories.cards_repository import get_all_cards_for_set
 from db.repositories.card_variant_repository import get_card_variants_by_card_id
 from db.repositories.card_variant_prices_repository import get_latest_price
 from db.repositories.sets_repository import get_set_id_by_name
+from db.repositories.sealed_repository import get_sealed_products_by_set
+from db.repositories.sealed_product_prices_repository import get_latest_price as get_latest_sealed_price
 from db.services.conditions_service import ConditionsService
 
 
@@ -51,6 +53,10 @@ class DatabaseCardLoader:
             raise ValueError(f"Set '{set_name}' not found in database")
         
         self.set_id = set_id
+        
+        # If pack_price not provided, fetch from database
+        if pack_price is None:
+            pack_price = self._get_booster_pack_price(set_id)
         
         # Get all cards for this set
         cards = get_all_cards_for_set(set_id)
@@ -91,6 +97,46 @@ class DatabaseCardLoader:
         if x_value == 0:
             return 1.0
         return 1.0 / x_value
+    
+    def _get_booster_pack_price(self, set_id: int) -> float:
+        """
+        Get the booster pack price from the database for this set.
+        Looks for a sealed product with 'booster pack' in the name.
+        
+        Args:
+            set_id: The set ID
+            
+        Returns:
+            The latest booster pack price, or 4.00 as fallback
+        """
+        try:
+            # Get all sealed products for this set
+            sealed_products = get_sealed_products_by_set(set_id)
+            
+            # Find booster pack (case-insensitive search)
+            booster_pack = None
+            for product in sealed_products:
+                if 'booster pack' in product.get('name', '').lower():
+                    booster_pack = product
+                    break
+            
+            if not booster_pack:
+                print(f"[WARN] No booster pack found for set ID {set_id}, using default $4.00")
+                return 4.00
+            
+            # Get latest price for this booster pack
+            price_data = get_latest_sealed_price(booster_pack['id'])
+            if price_data:
+                price = price_data.get('market_price', 4.00)
+                print(f"[INFO] Booster pack price from DB: ${price:.2f}")
+                return price
+            else:
+                print(f"[WARN] No price data found for booster pack, using default $4.00")
+                return 4.00
+                
+        except Exception as e:
+            print(f"[WARN] Error fetching booster pack price: {e}, using default $4.00")
+            return 4.00
     
     def _build_card_dataframe(self, cards: list, set_id: int) -> pd.DataFrame:
         """

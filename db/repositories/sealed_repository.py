@@ -183,4 +183,25 @@ def insert_sealed_products_batch(sealed_products: List[Dict[str, Any]]) -> List[
     raise RuntimeError(f"Failed to batch insert sealed products after {max_retries} retries: {last_error}")
 
 
+def get_sealed_products_by_set(set_id: int) -> List[Dict[str, Any]]:
+    """
+    Retrieve all sealed products for a given set.
+    
+    Args:
+        set_id: The ID of the set
+        
+    Returns:
+        List of sealed product records for the set
+    """
+    from ..clients.supabase_client import SUPABASE_URL, SUPABASE_KEY
+    
+    fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    res = (
+        fresh_client.table("sealed_products")
+        .select("*")
+        .eq("set_id", set_id)
+        .execute()
+    )
+    return res.data if res and res.data else []
+
 
