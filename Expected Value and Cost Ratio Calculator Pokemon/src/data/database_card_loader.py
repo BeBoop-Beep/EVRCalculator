@@ -20,19 +20,21 @@ from db.services.conditions_service import ConditionsService
 class DatabaseCardLoader:
     """Loads and prepares card data from the database for calculations"""
     
-    def __init__(self):
+    def __init__(self, config=None):
         self.df = None
         self.set_id = None
         self.pack_price = None
         self.reverse_df = None  # Store reverse variant data separately
+        self.config = config  # Store config for pull rate mapping
     
-    def load_cards_for_set(self, set_name: str, pack_price: float = None) -> tuple:
+    def load_cards_for_set(self, set_name: str, pack_price: float = None, config=None) -> tuple:
         """
         Load all cards for a set from the database and prepare DataFrame
         
         Args:
             set_name: Name of the set (e.g., "Stellar Crown")
             pack_price: Optional pack price. If not provided, must be set separately.
+            config: Optional config for pull rate mappings
             
         Returns:
             Tuple of (DataFrame with card data, pack_price)
@@ -40,6 +42,9 @@ class DatabaseCardLoader:
         Raises:
             ValueError: If set not found or no cards exist
         """
+        # Update config if provided
+        if config:
+            self.config = config
         # Get set ID from database
         set_id = get_set_id_by_name(set_name)
         if not set_id:
@@ -59,6 +64,33 @@ class DatabaseCardLoader:
         self.pack_price = pack_price
         
         return self.df, self.pack_price
+    
+    def _get_pull_rate_for_rarity(self, rarity: str) -> float:
+        """
+        Get the pull rate (as a fraction: 1/X) for a given rarity from config
+        
+        Args:
+            rarity: The rarity value
+            
+        Returns:
+            The pull rate as a fraction (e.g., 1/66 = 0.01515 for common)
+        """
+        if not self.config:
+            return 1.0
+        
+        # Get rarity group from rarity
+        rarity_raw = str(rarity).lower().strip()
+        rarity_mapping = getattr(self.config, 'RARITY_MAPPING', {})
+        rarity_group = rarity_mapping.get(rarity_raw, rarity_raw)
+        
+        # Get pull rate X value from mapping
+        pull_rate_mapping = getattr(self.config, 'PULL_RATE_MAPPING', {})
+        x_value = pull_rate_mapping.get(rarity_group, 1.0)
+        
+        # Convert X to fraction (1/X)
+        if x_value == 0:
+            return 1.0
+        return 1.0 / x_value
     
     def _build_card_dataframe(self, cards: list, set_id: int) -> pd.DataFrame:
         """
@@ -112,7 +144,7 @@ class DatabaseCardLoader:
                 'Rarity': card['rarity'],
                 'card_number': card['card_number'],
                 'Price ($)': holo_price,
-                'Pull Rate (1/X)': 1.0,  # Placeholder - will be set by config
+                'Pull Rate (1/X)': self._get_pull_rate_for_rarity(card['rarity']),
                 'Effective_Pull_Rate': 0.0,  # Will be calculated
                 # Add derived columns for compatibility
                 'rarity_raw': str(card['rarity']).lower().strip(),
@@ -133,7 +165,7 @@ class DatabaseCardLoader:
                     'Rarity': card['rarity'],
                     'card_number': card['card_number'],
                     'Price ($)': reverse_price,
-                    'Pull Rate (1/X)': 1.0,
+                    'Pull Rate (1/X)': self._get_pull_rate_for_rarity(card['rarity']),
                     'Effective_Pull_Rate': 0.0,
                     'rarity_raw': str(card['rarity']).lower().strip(),
                     'rarity_group': str(card['rarity']).lower().strip(),
