@@ -58,12 +58,12 @@ def main():
         # STEP 1: Load card data from database (shared data source)
         # =================================================================
         print("\n[1/3] Loading card data from database...")
-        loader = DatabaseCardLoader()
+        loader = DatabaseCardLoader(config)
         
         # Get pack price from config
         pack_price = getattr(config, 'PACK_PRICE', 4.00)  # Default to $4.00
         
-        df, _ = loader.load_cards_for_set(config.SET_NAME, pack_price)
+        df, _ = loader.load_cards_for_set(config.SET_NAME, pack_price, config)
         reverse_df = loader.get_reverse_cards()
         
         # =================================================================

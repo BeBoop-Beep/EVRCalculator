@@ -27,7 +27,13 @@ def main():
         possible_inputs = list(SET_ALIAS_MAP.keys()) + list(SET_CONFIG_MAP.keys())
         matches = difflib.get_close_matches(key, possible_inputs, n=1, cutoff=0.6)
         print("We think you mean :", matches[0])
-        return SET_CONFIG_MAP[matches[0]]
+        matched_key = matches[0]
+        
+        # If matched key is in alias map, resolve it first
+        if matched_key in SET_ALIAS_MAP:
+            matched_key = SET_ALIAS_MAP[matched_key]
+        
+        return SET_CONFIG_MAP[matched_key]
     
     # # Step 1: Scrape and gather HTML Doc  # #
     setName = input("What set are we working on: \n")
