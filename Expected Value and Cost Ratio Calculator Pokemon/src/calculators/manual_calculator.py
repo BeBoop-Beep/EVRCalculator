@@ -39,23 +39,12 @@ class ManualCalculator:
             pack_price: Price of a single pack
             
         Returns:
-            Dictionary with all manual calculation results:
-            {
-                'total_ev': float,
-                'pack_price': float,
-                'net_value': float,
-                'roi': float,
-                'roi_percent': float,
-                'hit_probability_percent': float,
-                'no_hit_probability_percent': float,
-                'ev_breakdown': dict,  # EV by rarity
-                'god_pack_ev': float,
-                'demi_god_pack_ev': float,
-                'reverse_multiplier': float,
-                'rare_multiplier': float,
-            }
+            Dictionary with all manual calculation results
         """
         print("=== STARTING MANUAL EV CALCULATION ===")
+        
+        # Prepare DataFrame using the initializer's exact method
+        df = self._prepare_dataframe_for_calculation(df)
         
         # Calculate reverse EV (dynamically handles all slots)
         ev_reverse_total = self.calculator.calculate_reverse_ev(df)
@@ -114,3 +103,22 @@ class ManualCalculator:
         
         print("=== MANUAL EV CALCULATION COMPLETE ===\n")
         return results
+    
+    def _prepare_dataframe_for_calculation(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Prepare DataFrame by using the initializer's exact EV column calculation
+        This preserves the original calculation logic exactly
+        
+        Args:
+            df: DataFrame with card data
+            
+        Returns:
+            DataFrame with EV columns calculated using original logic
+        """
+        # Make a copy to avoid modifying original
+        df = df.copy()
+        
+        # Use the initializer's _calculate_ev_columns method which has the exact logic
+        self.calculator._calculate_ev_columns(df)
+        
+        return df
