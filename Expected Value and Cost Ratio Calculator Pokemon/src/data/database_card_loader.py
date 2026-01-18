@@ -13,6 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 from db.repositories.cards_repository import get_all_cards_for_set
 from db.repositories.card_variant_prices_repository import get_latest_price
 from db.repositories.sets_repository import get_set_id_by_name
+from db.services.conditions_service import ConditionsService
 
 
 class DatabaseCardLoader:
@@ -68,11 +69,14 @@ class DatabaseCardLoader:
         Returns:
             DataFrame with card data and prices
         """
+        # Get the Near Mint condition ID (cached after first lookup)
+        condition_id = ConditionsService.get_near_mint_condition_id()
+        
         card_data = []
         
         for card in cards:
-            # Get latest price for this card
-            price_data = get_latest_price(card['id'])
+            # Get latest price for this card variant in Near Mint condition
+            price_data = get_latest_price(card['id'], condition_id)
             price = price_data.get('market_price', 0.0) if price_data else 0.0
             
             # Build row data
@@ -98,6 +102,8 @@ class DatabaseCardLoader:
         print(f"Card data prepared: {len(df)} cards")
         print(f"Price range: ${df['Price ($)'].min():.2f} - ${df['Price ($)'].max():.2f}")
         print(f"Average price: ${df['Price ($)'].mean():.2f}")
+        
+        return df
         
         return df
     
