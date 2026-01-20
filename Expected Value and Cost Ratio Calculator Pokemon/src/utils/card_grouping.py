@@ -31,11 +31,11 @@ def group_cards_by_rarity(config, df, reverse_df=None):
     # Get rarity mapping from config
     rarity_mapping = getattr(config, 'RARITY_MAPPING', {})
     
-    # Map raw rarities to rarity groups
-    df['rarity_group'] = df['rarity_raw'].map(rarity_mapping)
-    
-    # If mapping doesn't exist, use the rarity_raw directly as fallback
-    df['rarity_group'] = df['rarity_group'].fillna(df['rarity_raw'])
+    # Only map if rarity_group doesn't exist or is not set properly
+    if 'rarity_group' not in df.columns or df['rarity_group'].isna().any():
+        df['rarity_group'] = df['rarity_raw'].map(rarity_mapping)
+        # If mapping doesn't exist, use the rarity_raw directly as fallback
+        df['rarity_group'] = df['rarity_group'].fillna(df['rarity_raw'])
     
     # Prepare reverse cards if provided
     reverse_pool = pd.DataFrame()

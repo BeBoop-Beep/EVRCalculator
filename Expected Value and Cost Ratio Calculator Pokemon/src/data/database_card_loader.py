@@ -29,13 +29,13 @@ class DatabaseCardLoader:
         self.reverse_df = None  # Store reverse variant data separately
         self.config = config  # Store config for pull rate mapping
     
-    def load_cards_for_set(self, set_name: str, pack_price: float = None, config=None) -> tuple:
+    def load_and_prepare_set_data(self, set_name: str, pack_price: float = None, config=None) -> tuple:
         """
-        Load all cards for a set from the database and prepare DataFrame
+        Load all cards for a set from database, prepare DataFrame, and fetch pack pricing
         
         Args:
             set_name: Name of the set (e.g., "Stellar Crown")
-            pack_price: Optional pack price. If not provided, must be set separately.
+            pack_price: Optional pack price. If not provided, fetches from database.
             config: Optional config for pull rate mappings
             
         Returns:
@@ -73,30 +73,37 @@ class DatabaseCardLoader:
     
     def _get_pull_rate_for_rarity(self, rarity: str) -> float:
         """
-        Get the pull rate (as a fraction: 1/X) for a given rarity from config
+        Get the pull rate X value for a given rarity from config.
+        Returns X where the actual probability is 1/X.
         
         Args:
             rarity: The rarity value
             
         Returns:
-            The pull rate as a fraction (e.g., 1/66 = 0.01515 for common)
+            The pull rate X value (e.g., 66 for common, meaning 1/66 probability)
         """
         if not self.config:
             return 1.0
         
-        # Get rarity group from rarity
+        # Get rarity raw value
         rarity_raw = str(rarity).lower().strip()
-        rarity_mapping = getattr(self.config, 'RARITY_MAPPING', {})
-        rarity_group = rarity_mapping.get(rarity_raw, rarity_raw)
         
         # Get pull rate X value from mapping
+        # Try rarity_raw first (specific rarity like 'double rare')
+        # This matches how Excel files stored pull rates
         pull_rate_mapping = getattr(self.config, 'PULL_RATE_MAPPING', {})
-        x_value = pull_rate_mapping.get(rarity_group, 1.0)
+        x_value = pull_rate_mapping.get(rarity_raw, None)
         
-        # Convert X to fraction (1/X)
+        # If not found, try the rarity group (like 'hits')
+        if x_value is None:
+            rarity_mapping = getattr(self.config, 'RARITY_MAPPING', {})
+            rarity_group = rarity_mapping.get(rarity_raw, rarity_raw)
+            x_value = pull_rate_mapping.get(rarity_group, 1.0)
+        
+        # Return X directly (not 1/X)
         if x_value == 0:
             return 1.0
-        return 1.0 / x_value
+        return x_value
     
     def _get_booster_pack_price(self, set_id: int) -> float:
         """
@@ -121,22 +128,22 @@ class DatabaseCardLoader:
                     break
             
             if not booster_pack:
-                print(f"[WARN] No booster pack found for set ID {set_id}, using default $4.00")
-                return 4.00
+                print(f"[WARN] No booster pack found for set ID {set_id}, using default $0.00")
+                return 0.00
             
             # Get latest price for this booster pack
             price_data = get_latest_sealed_price(booster_pack['id'])
             if price_data:
-                price = price_data.get('market_price', 4.00)
+                price = price_data.get('market_price', 0.00)
                 print(f"[INFO] Booster pack price from DB: ${price:.2f}")
                 return price
             else:
                 print(f"[WARN] No price data found for booster pack, using default $4.00")
-                return 4.00
+                return 0.00
                 
         except Exception as e:
             print(f"[WARN] Error fetching booster pack price: {e}, using default $4.00")
-            return 4.00
+            return 0.00
     
     def _build_card_dataframe(self, cards: list, set_id: int) -> pd.DataFrame:
         """
@@ -183,6 +190,9 @@ class DatabaseCardLoader:
             holo_price = holo_price_data.get('market_price', 0.0) if holo_price_data else 0.0
             
             # Build row data for regular card (holo)
+            rarity_raw = str(card['rarity']).lower().strip()
+            rarity_group = self.config.RARITY_MAPPING.get(rarity_raw, rarity_raw) if self.config else rarity_raw
+            
             row = {
                 'id': card['id'],
                 'variant_id': holo_variant['id'],
@@ -193,8 +203,8 @@ class DatabaseCardLoader:
                 'Pull Rate (1/X)': self._get_pull_rate_for_rarity(card['rarity']),
                 'Effective_Pull_Rate': 0.0,  # Will be calculated
                 # Add derived columns for compatibility
-                'rarity_raw': str(card['rarity']).lower().strip(),
-                'rarity_group': str(card['rarity']).lower().strip(),  # Will be mapped by config
+                'rarity_raw': rarity_raw,
+                'rarity_group': rarity_group,
                 'Reverse Variant Price ($)': None,  # Will be filled if reverse exists
             }
             
@@ -213,8 +223,8 @@ class DatabaseCardLoader:
                     'Price ($)': reverse_price,
                     'Pull Rate (1/X)': self._get_pull_rate_for_rarity(card['rarity']),
                     'Effective_Pull_Rate': 0.0,
-                    'rarity_raw': str(card['rarity']).lower().strip(),
-                    'rarity_group': str(card['rarity']).lower().strip(),
+                    'rarity_raw': rarity_raw,
+                    'rarity_group': rarity_group,
                     'Reverse Variant Price ($)': reverse_price,
                     'printing_type': 'reverse-holo',
                 }
@@ -240,8 +250,6 @@ class DatabaseCardLoader:
             print(f"Reverse cards available: {len(self.reverse_df)} cards")
         
         return df
-        
-        return df
     
     def set_pack_price(self, price: float):
         """
@@ -256,19 +264,19 @@ class DatabaseCardLoader:
     def get_dataframe(self) -> pd.DataFrame:
         """Get the loaded DataFrame"""
         if self.df is None:
-            raise RuntimeError("No card data loaded. Call load_cards_for_set() first.")
+            raise RuntimeError("No card data loaded. Call load_and_prepare_set_data() first.")
         return self.df
     
     def get_pack_price(self) -> float:
         """Get the pack price"""
         if self.pack_price is None:
-            raise RuntimeError("Pack price not set. Call set_pack_price() or load_cards_for_set() with price parameter.")
+            raise RuntimeError("Pack price not set. Call set_pack_price() or load_and_prepare_set_data() with price parameter.")
         return self.pack_price
     
     def get_set_id(self) -> int:
         """Get the set ID"""
         if self.set_id is None:
-            raise RuntimeError("Set ID not available. Call load_cards_for_set() first.")
+            raise RuntimeError("Set ID not available. Call load_and_prepare_set_data() first.")
         return self.set_id
     
     def get_reverse_cards(self) -> pd.DataFrame:
