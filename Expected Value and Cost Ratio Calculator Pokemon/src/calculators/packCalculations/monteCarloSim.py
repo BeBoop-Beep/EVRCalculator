@@ -112,7 +112,8 @@ def make_simulate_pack_fn(
         if chosen_slot1_rarity == 'regular reverse':
             # Only sample if reverse_pool is not empty
             if not reverse_pool.empty:
-                sampled_card = reverse_pool['EV_Reverse'].sample(1).iloc[0]
+                # Use actual reverse card price, not EV
+                sampled_card = reverse_pool['Price ($)'].sample(1).iloc[0]
             else:
                 sampled_card = 0.0
         else:
@@ -132,7 +133,8 @@ def make_simulate_pack_fn(
         if chosen_slot2_rarity == 'regular reverse':
             # Only sample if reverse_pool is not empty
             if not reverse_pool.empty:
-                sampled_card = reverse_pool['EV_Reverse'].sample(1).iloc[0]
+                # Use actual reverse card price, not EV
+                sampled_card = reverse_pool['Price ($)'].sample(1).iloc[0]
             else:
                 sampled_card = 0.0
         else:

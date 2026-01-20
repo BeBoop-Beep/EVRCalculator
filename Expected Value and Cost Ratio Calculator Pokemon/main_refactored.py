@@ -60,10 +60,9 @@ def main():
         print("\n[1/3] Loading card data from database...")
         loader = DatabaseCardLoader(config)
         
-        # Get pack price from config
-        pack_price = getattr(config, 'PACK_PRICE', 4.00)  # Default to $4.00
-        
-        df, _ = loader.load_cards_for_set(config.SET_NAME, pack_price, config)
+        # Let loader fetch pack price from database (sealed_products table)
+        # If not found in DB, it will default to $4.00
+        df, pack_price = loader.load_and_prepare_set_data(config.SET_NAME, pack_price=None, config=config)
         reverse_df = loader.get_reverse_cards()
         
         # =================================================================
