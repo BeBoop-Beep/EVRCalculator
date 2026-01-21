@@ -121,11 +121,12 @@ class DatabaseCardLoader:
             sealed_products = get_sealed_products_by_set(set_id)
             
             # Find booster pack (case-insensitive search)
-            booster_pack = None
-            for product in sealed_products:
-                if 'booster pack' in product.get('name', '').lower():
-                    booster_pack = product
-                    break
+            # Pick the shortest product name containing "booster pack" to filter out bundles/art sets
+            booster_packs = [
+                p for p in sealed_products 
+                if 'booster pack' in p.get('name', '').lower()
+            ]
+            booster_pack = min(booster_packs, key=lambda p: len(p.get('name', ''))) if booster_packs else None
             
             if not booster_pack:
                 print(f"[WARN] No booster pack found for set ID {set_id}, using default $0.00")
