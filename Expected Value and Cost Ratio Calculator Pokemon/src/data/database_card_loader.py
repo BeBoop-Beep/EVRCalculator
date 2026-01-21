@@ -172,83 +172,54 @@ class DatabaseCardLoader:
                 print(f"[WARN] No variants found for card '{card['name']}' (ID: {card['id']})")
                 continue
             
-            # Find holo and reverse-holo variants
-            holo_variant = None
-            reverse_variant = None
-            
-            for variant in variants:
-                if variant['printing_type'] == 'holo':
-                    holo_variant = variant
-                elif variant['printing_type'] == 'reverse-holo':
-                    reverse_variant = variant
-            
-            # If no holo, use first available variant
-            if not holo_variant:
-                holo_variant = variants[0]
-            
-            # Get price for holo variant
-            holo_price_data = get_latest_price(holo_variant['id'], condition_id)
-            holo_price = holo_price_data.get('market_price', 0.0) if holo_price_data else 0.0
-            
-            # Build row data for regular card (holo)
             rarity_raw = str(card['rarity']).lower().strip()
             rarity_group = self.config.RARITY_MAPPING.get(rarity_raw, rarity_raw) if self.config else rarity_raw
+            pull_rate = self._get_pull_rate_for_rarity(card['rarity'])
             
-            row = {
-                'id': card['id'],
-                'variant_id': holo_variant['id'],
-                'Card Name': card['name'],
-                'Rarity': card['rarity'],
-                'card_number': card['card_number'],
-                'Price ($)': holo_price,
-                'Pull Rate (1/X)': self._get_pull_rate_for_rarity(card['rarity']),
-                'Effective_Pull_Rate': 0.0,  # Will be calculated
-                # Add derived columns for compatibility
-                'rarity_raw': rarity_raw,
-                'rarity_group': rarity_group,
-                'Reverse Variant Price ($)': None,  # Will be filled if reverse exists
-            }
-            
-            # If reverse-holo variant exists, get its price
-            if reverse_variant:
-                reverse_price_data = get_latest_price(reverse_variant['id'], condition_id)
-                reverse_price = reverse_price_data.get('market_price', 0.0) if reverse_price_data else 0.0
+            # Process all variants
+            for variant in variants:
+                printing_type = variant.get('printing_type', 'holo')
+                special_type = variant.get('special_type')
                 
-                # Create reverse card row
-                reverse_row = {
+                # Get price for this variant
+                price_data = get_latest_price(variant['id'], condition_id)
+                price = price_data.get('market_price', 0.0) if price_data else 0.0
+                
+                # Determine variant label for display
+                if printing_type == 'reverse-holo':
+                    variant_label = 'regular reverse'
+                elif special_type:
+                    # For holo with special_type (pokeball, master ball, ace spec, special illustration)
+                    variant_label = special_type.lower()
+                else:
+                    # Regular holo or non-holo
+                    variant_label = printing_type
+                
+                row = {
                     'id': card['id'],
-                    'variant_id': reverse_variant['id'],
+                    'variant_id': variant['id'],
                     'Card Name': card['name'],
                     'Rarity': card['rarity'],
                     'card_number': card['card_number'],
-                    'Price ($)': reverse_price,
-                    'Pull Rate (1/X)': self._get_pull_rate_for_rarity(card['rarity']),
-                    'Effective_Pull_Rate': 0.0,
+                    'Price ($)': price,
+                    'Pull Rate (1/X)': pull_rate,
+                    'Effective_Pull_Rate': 0.0,  # Will be calculated
                     'rarity_raw': rarity_raw,
                     'rarity_group': rarity_group,
-                    'Reverse Variant Price ($)': reverse_price,
-                    'printing_type': 'reverse-holo',
+                    'printing_type': printing_type,
+                    'special_type': special_type,
+                    'variant_label': variant_label,
                 }
-                reverse_data.append(reverse_row)
-                
-                # Also store reverse price in main row for reference
-                row['Reverse Variant Price ($)'] = reverse_price
-            
-            card_data.append(row)
+                card_data.append(row)
         
         df = pd.DataFrame(card_data)
         
         # Sort by price descending for easier analysis
         df = df.sort_values('Price ($)', ascending=False).reset_index(drop=True)
         
-        print(f"Card data prepared: {len(df)} cards")
+        print(f"Card data prepared: {len(df)} card variants")
         print(f"Price range: ${df['Price ($)'].min():.2f} - ${df['Price ($)'].max():.2f}")
         print(f"Average price: ${df['Price ($)'].mean():.2f}")
-        
-        # Store reverse cards data for later access
-        self.reverse_df = pd.DataFrame(reverse_data) if reverse_data else pd.DataFrame()
-        if not self.reverse_df.empty:
-            print(f"Reverse cards available: {len(self.reverse_df)} cards")
         
         return df
     
@@ -282,6 +253,6 @@ class DatabaseCardLoader:
     
     def get_reverse_cards(self) -> pd.DataFrame:
         """Get the reverse variant cards DataFrame"""
-        if self.reverse_df is None:
-            return pd.DataFrame()  # Return empty DataFrame if no reverse cards
-        return self.reverse_df
+        if self.df is None:
+            return pd.DataFrame()
+        return self.df[self.df['printing_type'] == 'reverse-holo']

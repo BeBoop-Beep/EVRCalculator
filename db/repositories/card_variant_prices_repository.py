@@ -71,6 +71,7 @@ def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
 def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[str, Any]]:
     """
     Get the most recent price record for a card variant and condition.
+    Falls back to any condition if not found with specific condition.
     
     Args:
         card_variant_id: The ID of the card variant
@@ -80,11 +81,27 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
         The most recent price record, or None if not found
     """
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    
+    # Try to find price with specific condition first
     res = (
         fresh_client.table("card_variant_prices")
         .select("*")
         .eq("card_variant_id", card_variant_id)
         .eq("condition_id", condition_id)
+        .order("captured_at", desc=True)
+        .limit(1)
+        .maybe_single()
+        .execute()
+    )
+    
+    if res and res.data:
+        return res.data
+    
+    # Fallback: Get latest price regardless of condition
+    res = (
+        fresh_client.table("card_variant_prices")
+        .select("*")
+        .eq("card_variant_id", card_variant_id)
         .order("captured_at", desc=True)
         .limit(1)
         .maybe_single()

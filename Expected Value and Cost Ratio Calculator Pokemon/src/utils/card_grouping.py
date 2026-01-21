@@ -10,7 +10,7 @@ import pandas as pd
 def group_cards_by_rarity(config, df, reverse_df=None):
     """
     Group cards by rarity category for simulation
-    Simplified version that works with database-loaded data
+    Handles both regular rarities and special variants (pokeball, master ball, ace spec, sir)
     
     Args:
         config: Set configuration
@@ -28,14 +28,19 @@ def group_cards_by_rarity(config, df, reverse_df=None):
         }
     """
     
+    df = df.copy()
+    
     # Get rarity mapping from config
     rarity_mapping = getattr(config, 'RARITY_MAPPING', {})
     
-    # Only map if rarity_group doesn't exist or is not set properly
-    if 'rarity_group' not in df.columns or df['rarity_group'].isna().any():
-        df['rarity_group'] = df['rarity_raw'].map(rarity_mapping)
-        # If mapping doesn't exist, use the rarity_raw directly as fallback
-        df['rarity_group'] = df['rarity_group'].fillna(df['rarity_raw'])
+    # Map rarities using config mapping
+    df['rarity_group'] = df['rarity_raw'].map(rarity_mapping)
+    df['rarity_group'] = df['rarity_group'].fillna(df['rarity_raw'])
+    
+    # Special handling for variants with special_type
+    # These should go to 'hits' group regardless of their base rarity
+    has_special_type = (df['special_type'].notna()) & (df['special_type'] != '')
+    df.loc[has_special_type, 'rarity_group'] = 'hits'
     
     # Prepare reverse cards if provided
     reverse_pool = pd.DataFrame()
