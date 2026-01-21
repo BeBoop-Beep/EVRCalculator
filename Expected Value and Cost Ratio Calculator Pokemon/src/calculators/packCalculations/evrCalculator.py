@@ -210,35 +210,46 @@ class PackEVCalculator(PackEVInitializer):
         return total_reverse_ev
         
     def calculate_rarity_ev_totals(self, df, ev_reverse_total):
-        """Calculate EV totals by rarity group - NO ADDITIONAL MULTIPLIERS NEEDED"""
+        """Calculate EV totals by rarity group and special variant types"""
         print("\n=== CALCULATING RARITY EV TOTALS ===")
         
-        # Filter out special patterns from rarity calculations
-        pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
+        # Group by rarity AND variant type (using printing_type and special_type)
+        # Regular reverses
+        regular_reverses = df[df['printing_type'] == 'reverse-holo']
         
-        # Get special cards separately
-        master_ball_cards = df[df['Card Name'].str.contains('Master Ball', case=False, na=False)]
-        pokeball_cards = df[df['Card Name'].str.contains('Poke Ball', case=False, na=False)]
+        # Special variants (holos with special_type)
+        master_ball_cards = df[(df['special_type'] == 'Master Ball') | 
+                                (df['special_type'] == 'master ball')]
+        pokeball_cards = df[(df['special_type'] == 'Pokeball') | 
+                            (df['special_type'] == 'pokeball')]
+        ace_spec_holos = df[(df['special_type'] == 'ACE SPEC') | 
+                            (df['special_type'] == 'ace spec')]
+        sir_holos = df[(df['special_type'] == 'Special Illustration') | 
+                       (df['special_type'] == 'special illustration')]
         
-        # Calculate EV totals by rarity - NO MULTIPLIERS because they're already in effective rates
+        # Regular holos (no special_type)
+        regular_holos_mask = (df['printing_type'] == 'holo') & (df['special_type'].isna() | (df['special_type'] == ''))
+        
+        # Calculate EV totals by rarity for regular holos
         ev_totals = {
-            'common': df[(df['Rarity'] == 'common') & ~pattern_mask]['EV'].sum(),  # REMOVED MULTIPLIER
-            'uncommon': df[(df['Rarity'] == 'uncommon') & ~pattern_mask]['EV'].sum(),  # REMOVED MULTIPLIER
-            'rare': df[(df['Rarity'] == 'rare') & ~pattern_mask]['EV'].sum(),
-            'double_rare': df[(df['Rarity'] == 'double rare') & ~pattern_mask]['EV'].sum(),
-            'ace_spec_rare': df[(df['Rarity'] == 'ace spec rare') & ~pattern_mask]['EV'].sum(),
-            'hyper_rare': df[(df['Rarity'] == 'hyper rare') & ~pattern_mask]['EV'].sum(),
-            'ultra_rare': df[(df['Rarity'] == 'ultra rare') & ~pattern_mask]['EV'].sum(),
-            'special_illustration_rare': df[(df['Rarity'] == 'special illustration rare') & ~pattern_mask]['EV'].sum(),
-            'illustration_rare': df[(df['Rarity'] == 'illustration rare') & ~pattern_mask]['EV'].sum(),
-            'black white rare': df[(df['Rarity'] == 'black white rare') & ~pattern_mask]['EV'].sum(),
+            'common': df[(df['Rarity'] == 'common') & regular_holos_mask]['EV'].sum(),
+            'uncommon': df[(df['Rarity'] == 'uncommon') & regular_holos_mask]['EV'].sum(),
+            'rare': df[(df['Rarity'] == 'rare') & regular_holos_mask]['EV'].sum(),
+            'double_rare': df[(df['Rarity'] == 'double rare') & regular_holos_mask]['EV'].sum(),
+            'hyper_rare': df[(df['Rarity'] == 'hyper rare') & regular_holos_mask]['EV'].sum(),
+            'ultra_rare': df[(df['Rarity'] == 'ultra rare') & regular_holos_mask]['EV'].sum(),
+            'illustration_rare': df[(df['Rarity'] == 'illustration rare') & regular_holos_mask]['EV'].sum(),
+            'black_white_rare': df[(df['Rarity'] == 'black white rare') & regular_holos_mask]['EV'].sum(),
+            # Special variants
+            'ace_spec_rare': ace_spec_holos['EV'].sum(),
+            'special_illustration_rare': sir_holos['EV'].sum(),
             'master_ball': master_ball_cards['EV'].sum(),
             'pokeball': pokeball_cards['EV'].sum(),
-            'reverse': ev_reverse_total,
-            'other': df[df['rarity_group'] == 'other']['EV'].sum(),
+            # Reverses
+            'reverse': regular_reverses['EV'].sum(),
         }
 
-        print("EV totals by rarity:")
+        print("EV totals by rarity and variant:")
         for rarity, total in ev_totals.items():
             if total > 0:
                 print(f"  {rarity}: {total:.4f}")
