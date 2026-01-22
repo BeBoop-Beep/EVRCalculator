@@ -43,36 +43,9 @@ class PackEVCalculator(PackEVInitializer):
                 print(f"God Pack Fixed Value With Multiple Options: ${avg_pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
                 return adjusted_ev
             elif "cards" in strategy:
-                # Handle fixed card list with structured format (name, rarity, special_type)
+                # Handle fixed card list (original logic)
                 cards = strategy.get("cards", [])
-                total = 0.0
-                
-                for card_info in cards:
-                    # Handle both old string format and new dict format
-                    if isinstance(card_info, str):
-                        # Legacy format: try to match by name
-                        matches = df[df["Card Name"].str.contains(card_info, case=False, na=False)]
-                        if not matches.empty:
-                            total += matches["Price ($)"].iloc[0]
-                    else:
-                        # New structured format: {"name": "...", "rarity": "...", "special_type": "..."}
-                        name = card_info.get("name", "")
-                        rarity = card_info.get("rarity")
-                        special_type = card_info.get("special_type")
-                        
-                        # Build filter conditions
-                        mask = df["Card Name"].str.contains(name, case=False, na=False)
-                        
-                        if special_type:
-                            mask = mask & (df["special_type"].str.lower() == special_type.lower())
-                        
-                        if rarity:
-                            mask = mask & (df["Rarity"].str.lower() == rarity.lower())
-                        
-                        matches = df[mask]
-                        if not matches.empty:
-                            total += matches["Price ($)"].iloc[0]
-                
+                total = df[df["Card Name"].isin(cards)]["Price ($)"].sum()
                 adjusted_ev = pull_rate * total
                 print(f"God Pack Fixed Value 1 Option: ${total:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
                 return adjusted_ev
@@ -207,8 +180,6 @@ class PackEVCalculator(PackEVInitializer):
         
         eligible_df = df[is_eligible_for_reverse & df['Reverse Variant Price ($)'].notna()].copy()
         
-        print(f"[DEBUG] {slot_name}: eligible reverses: {len(eligible_df)}, avg price: ${eligible_df['Reverse Variant Price ($)'].mean():.2f}")
-        
         if not eligible_df.empty:
             total_eligible_cards = len(eligible_df)
             
@@ -239,44 +210,35 @@ class PackEVCalculator(PackEVInitializer):
         return total_reverse_ev
         
     def calculate_rarity_ev_totals(self, df, ev_reverse_total):
-        """Calculate EV totals by rarity group and special variant types"""
+        """Calculate EV totals by rarity group - NO ADDITIONAL MULTIPLIERS NEEDED"""
         print("\n=== CALCULATING RARITY EV TOTALS ===")
         
-        # Group by rarity AND variant type (using printing_type and special_type)
-        # Special variants (holos with special_type)
-        master_ball_cards = df[(df['special_type'] == 'Master Ball') | 
-                                (df['special_type'] == 'master ball')]
-        pokeball_cards = df[(df['special_type'] == 'Pokeball') | 
-                            (df['special_type'] == 'pokeball')]
-        ace_spec_holos = df[(df['special_type'] == 'ACE SPEC') | 
-                            (df['special_type'] == 'ace spec')]
-        # SIR is a rarity level, not a special_type
-        sir_holos = df[(df['Rarity'].str.lower() == 'special illustration rare')]
+        # Filter out special patterns from rarity calculations
+        pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
         
-        # Regular holos (no special_type) - check for None, NaN, and empty string
-        regular_holos_mask = (df['printing_type'] == 'holo') & (df['special_type'].isna() | (df['special_type'] == ''))
-        print(f"[DEBUG] Regular holos count: {len(df[regular_holos_mask])}")
+        # Get special cards separately
+        master_ball_cards = df[df['Card Name'].str.contains('Master Ball', case=False, na=False)]
+        pokeball_cards = df[df['Card Name'].str.contains('Poke Ball', case=False, na=False)]
         
-        # Calculate EV totals by rarity for regular holos
+        # Calculate EV totals by rarity - NO MULTIPLIERS because they're already in effective rates
         ev_totals = {
-            'common': df[(df['Rarity'].str.lower() == 'common') & regular_holos_mask]['EV'].sum(),
-            'uncommon': df[(df['Rarity'].str.lower() == 'uncommon') & regular_holos_mask]['EV'].sum(),
-            'rare': df[(df['Rarity'].str.lower() == 'rare') & regular_holos_mask]['EV'].sum(),
-            'double_rare': df[(df['Rarity'].str.lower() == 'double rare') & regular_holos_mask]['EV'].sum(),
-            'hyper_rare': df[(df['Rarity'].str.lower() == 'hyper rare') & regular_holos_mask]['EV'].sum(),
-            'ultra_rare': df[(df['Rarity'].str.lower() == 'ultra rare') & regular_holos_mask]['EV'].sum(),
-            'illustration_rare': df[(df['Rarity'].str.lower() == 'illustration rare') & regular_holos_mask]['EV'].sum(),
-            'black_white_rare': df[(df['Rarity'].str.lower() == 'black white rare') & regular_holos_mask]['EV'].sum(),
-            # Special variants
-            'ace_spec_rare': ace_spec_holos['EV'].sum(),
-            'special_illustration_rare': sir_holos['EV'].sum(),
+            'common': df[(df['Rarity'] == 'common') & ~pattern_mask]['EV'].sum(),  # REMOVED MULTIPLIER
+            'uncommon': df[(df['Rarity'] == 'uncommon') & ~pattern_mask]['EV'].sum(),  # REMOVED MULTIPLIER
+            'rare': df[(df['Rarity'] == 'rare') & ~pattern_mask]['EV'].sum(),
+            'double_rare': df[(df['Rarity'] == 'double rare') & ~pattern_mask]['EV'].sum(),
+            'ace_spec_rare': df[(df['Rarity'] == 'ace spec rare') & ~pattern_mask]['EV'].sum(),
+            'hyper_rare': df[(df['Rarity'] == 'hyper rare') & ~pattern_mask]['EV'].sum(),
+            'ultra_rare': df[(df['Rarity'] == 'ultra rare') & ~pattern_mask]['EV'].sum(),
+            'special_illustration_rare': df[(df['Rarity'] == 'special illustration rare') & ~pattern_mask]['EV'].sum(),
+            'illustration_rare': df[(df['Rarity'] == 'illustration rare') & ~pattern_mask]['EV'].sum(),
+            'black white rare': df[(df['Rarity'] == 'black white rare') & ~pattern_mask]['EV'].sum(),
             'master_ball': master_ball_cards['EV'].sum(),
             'pokeball': pokeball_cards['EV'].sum(),
-            # Reverses come from slot calculations, NOT from summing reverse-holo row EVs
             'reverse': ev_reverse_total,
+            'other': df[df['rarity_group'] == 'other']['EV'].sum(),
         }
 
-        print("EV totals by rarity and variant:")
+        print("EV totals by rarity:")
         for rarity, total in ev_totals.items():
             if total > 0:
                 print(f"  {rarity}: {total:.4f}")
