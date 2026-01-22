@@ -76,16 +76,23 @@ def get_latest_price(sealed_product_id: int) -> Optional[Dict[str, Any]]:
         The most recent price record, or None if not found
     """
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    res = (
-        fresh_client.table("sealed_product_price_observations")
-        .select("*")
-        .eq("sealed_product_id", sealed_product_id)
-        .order("captured_at", desc=True)
-        .limit(1)
-        .maybe_single()
-        .execute()
-    )
-    return res.data if res and res.data else None
+    try:
+        res = (
+            fresh_client.table("sealed_product_price_observations")
+            .select("*")
+            .eq("sealed_product_id", sealed_product_id)
+            .order("captured_at", desc=True)
+            .limit(1)
+            .maybe_single()
+            .execute()
+        )
+        return res.data if res and res.data else None
+    except APIError as e:
+        # Handle 204 No Content responses gracefully
+        if e.code == '204':
+            return None
+        else:
+            raise
 
 
 def insert_sealed_product_prices_batch(price_rows: List[Dict[str, Any]]) -> List[int]:
