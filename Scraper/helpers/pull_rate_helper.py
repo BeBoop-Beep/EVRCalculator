@@ -4,10 +4,10 @@ def determine_pull_rate(card_name, rarity_text, pull_rate_mapping):
     rarity_lower = rarity_text.lower().strip()
 
     # Check special cases first
-    if 'master ball pattern' in card_name_lower:
-        return 1362, 'master ball pattern'
-    if 'poke ball pattern' in card_name_lower:
-        return 302, 'poke ball pattern'
+    if 'master ball' in card_name_lower:
+        return 1362, 'master ball'
+    if 'pokeball' in card_name_lower:
+        return 302, 'pokeball'
     if 'ace spec rare' in rarity_lower:
         return 128, 'ace spec rare'
 

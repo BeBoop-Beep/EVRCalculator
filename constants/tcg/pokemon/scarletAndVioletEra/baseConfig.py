@@ -20,8 +20,8 @@ class BaseSetConfig:
         'black white rare': 'hits',      
         "shiny rare": 'hits', 
         "shiny ultra rare": 'hits',
-        'poke ball pattern': 'hits',
-        'master ball pattern': 'hits',
+        'pokeball': 'hits',
+        'master ball': 'hits',
     }) 
 
     GOD_PACK_CONFIG = {

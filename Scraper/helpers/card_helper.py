@@ -72,7 +72,7 @@ def clean_product_name(product_name, remove_special_patterns=False):
     
     Args:
         product_name: The raw product name
-        remove_special_patterns: If True, also remove special type patterns like (Poke Ball Pattern)
+        remove_special_patterns: If True, also remove special type patterns like (pokeball)
     """
     if not product_name:
         return product_name
