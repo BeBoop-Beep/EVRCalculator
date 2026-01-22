@@ -1,7 +1,7 @@
 """
-Main entry point for EVR Calculator
-Demonstrates using completely independent manual calculator and simulation engine
-Both draw from the same database but operate independently.
+Main entry point for EVR Calculator - Database-driven version
+Uses database as primary source with constants configuration
+Maintains exact compatibility with Excel-based calculations
 """
 
 import sys
@@ -10,11 +10,10 @@ import difflib
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.data.database_card_loader import DatabaseCardLoader
-from src.calculators.manual_calculator import ManualCalculator
-from src.calculators.simulation_engine import SimulationEngine
+from src.data.excel_format_database_loader import ExcelFormatDatabaseLoader
+from src.calculators.packCalculations.otherCalculations import PackCalculations
+from src.calculators.packCalculations.evrCalculator import PackEVCalculator
 from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
-# from db.services.simulation_service import SimulationService
 
 
 def get_config_for_set(user_input):
@@ -55,93 +54,90 @@ def main():
         print(f"\nUsing set: {config.SET_NAME}")
         
         # =================================================================
-        # STEP 1: Load card data from database (shared data source)
+        # STEP 1: Load card data from database (Excel-compatible format)
         # =================================================================
         print("\n[1/3] Loading card data from database...")
-        loader = DatabaseCardLoader(config)
-        
-        # Let loader fetch pack price from database (sealed_products table)
-        # If not found in DB, it will default to $4.00
-        df, pack_price = loader.load_and_prepare_set_data(config.SET_NAME, pack_price=None, config=config)
-        reverse_df = loader.get_reverse_cards()
+        loader = ExcelFormatDatabaseLoader(config)
+        df, pack_price = loader.load_and_prepare_set_data(config.SET_NAME, config=config)
         
         # =================================================================
-        # STEP 2: Run MANUAL calculations (independent process)
+        # STEP 2: Run PACK EV CALCULATIONS (matches develop exactly)
         # =================================================================
-        print("\n[2/3] Running manual EV calculations...")
-        manual_calc = ManualCalculator(config)
-        manual_results = manual_calc.calculate(df, pack_price)
+        print("\n[2/3] Running pack EV calculations...")
+        calculator = PackCalculations(config)
+        
+        # Prepare DataFrame with EV calculations
+        calculator._calculate_ev_columns(df)
+        
+        # Calculate reverse EV
+        ev_reverse_total = calculator.calculate_reverse_ev(df)
+        
+        # Calculate EV totals by rarity
+        ev_totals = calculator.calculate_rarity_ev_totals(df, ev_reverse_total)
+        
+        # Calculate total EV with special pack adjustments
+        total_ev, regular_pack_contribution, god_pack_ev, demi_god_pack_ev = \
+            calculator.calculate_total_ev(ev_totals, df)
+        
+        print(f"Total EV: ${total_ev:.2f}")
         
         # =================================================================
-        # STEP 3: Run SIMULATION (independent process)
+        # STEP 3: Run MONTE CARLO SIMULATION
         # =================================================================
         print("[3/3] Running Monte Carlo simulation...")
-        sim_engine = SimulationEngine(config)
-        sim_results = sim_engine.run_simulation(df, pack_price, reverse_df, num_simulations=100000)
+        from src.calculators.packCalculations.monteCarloSim import make_simulate_pack_fn, run_simulation, print_simulation_summary
+        from src.utils.card_grouping import group_cards_by_rarity
+        from collections import defaultdict
         
-        # =================================================================
-        # STEP 4: Save results to database (COMMENTED OUT FOR TESTING)
-        # =================================================================
-        # print("\n=== SAVING RESULTS TO DATABASE ===")
-        # simulation_service = SimulationService()
-        # 
-        # # Prepare data for database save
-        # save_data = {
-        #     'set_name': config.SET_NAME,
-        #     'manual_results': manual_results,
-        #     'simulation_results': sim_results,
-        # }
-        # 
-        # # Note: You may need to update SimulationService.save_pack_simulation()
-        # # to accept both manual and simulation results independently
-        # simulation_id = simulation_service.save_pack_simulation(
-        #     set_name=config.SET_NAME,
-        #     results={
-        #         'total_manual_ev': manual_results['total_ev'],
-        #         'simulated_ev': sim_results['simulated_ev'],
-        #         'pack_price': pack_price,
-        #         'hit_probability_percentage': manual_results['hit_probability_percent'],
-        #         'net_value': sim_results['net_value'],
-        #         'opening_pack_roi': sim_results['roi'],
-        #         'opening_pack_roi_percent': sim_results['roi_percent'],
-        #     },
-        #     summary_data=manual_results['ev_breakdown'],
-        #     sim_results=sim_results,
-        #     top_10_hits=sim_results['top_hits']
-        # )
-        # 
-        # if simulation_id:
-        #     print(f"✅ Successfully saved to database with ID: {simulation_id}")
-        # else:
-        #     print("⚠️  Warning: Failed to save to database.")
+        # Group cards by rarity
+        card_groups = group_cards_by_rarity(config, df)
         
-        # =================================================================
-        # STEP 5: Display comparison
-        # =================================================================
-        print("\n" + "="*80)
-        print("RESULTS COMPARISON")
-        print("="*80)
-        print(f"\nSet: {config.SET_NAME}")
-        print(f"Pack Price: ${pack_price:.2f}")
-        print(f"\nManual Calculation:")
-        print(f"  Expected Value: ${manual_results['total_ev']:.4f}")
-        print(f"  ROI: {manual_results['roi_percent']:.2f}%")
-        print(f"\nMonte Carlo Simulation ({100000:,} packs):")
-        print(f"  Expected Value: ${sim_results['simulated_ev']:.4f}")
-        print(f"  Std Dev: ${sim_results['std_dev']:.4f}")
-        print(f"  ROI: {sim_results['roi_percent']:.2f}%")
-        print(f"  5th Percentile: ${sim_results['percentiles']['5th']:.4f}")
-        print(f"  95th Percentile: ${sim_results['percentiles']['95th']:.4f}")
-        print(f"\nDifference: ${abs(manual_results['total_ev'] - sim_results['simulated_ev']):.4f}")
-        print("="*80 + "\n")
+        # Initialize tracking
+        rarity_pull_counts = defaultdict(int)
+        rarity_value_totals = defaultdict(float)
         
-    except ValueError as e:
-        print(f"Error: {e}")
+        # Create simulation function
+        simulate_one_pack = make_simulate_pack_fn(
+            common_cards=card_groups["common"],
+            uncommon_cards=card_groups["uncommon"],
+            rare_cards=card_groups["rare"],
+            hit_cards=card_groups["hit"],
+            reverse_pool=card_groups["reverse"],
+            rare_slot_config=config.RARE_SLOT_PROBABILITY,
+            reverse_slot_config=config.REVERSE_SLOT_PROBABILITIES,
+            slots_per_rarity=config.SLOTS_PER_RARITY,
+            config=config,
+            df=df,
+            rarity_pull_counts=rarity_pull_counts,
+            rarity_value_totals=rarity_value_totals,
+        )
+        
+        # Run simulation
+        sim_results = run_simulation(simulate_one_pack, rarity_pull_counts, rarity_value_totals, n=100000)
+        
+        # Print results
+        print_simulation_summary(sim_results)
+        
+        # Calculate metrics
+        simulated_ev = sim_results["mean"]
+        net_value = simulated_ev - pack_price
+        roi = simulated_ev / pack_price if pack_price > 0 else 0
+        
+        print(f"\nExpected Value Per Pack: {simulated_ev:.10f}")
+        print(f"Cost Per Pack: {pack_price:.2f}")
+        print(f"Net Value Upon Opening: {net_value:.10f}")
+        print(f"ROI Upon Opening: {roi:.10f}")
+        print(f"ROI Percent Upon Opening: {(roi - 1) * 100:.2f}")
+        
+        print("\n=== CALCULATION COMPLETE ===")
+        
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
+

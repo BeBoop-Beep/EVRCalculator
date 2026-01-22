@@ -28,16 +28,16 @@ class SetWhiteFlareConfig(BaseSetConfig):
         'ultra rare': 274,
         # Special cases (checked first)
         'black white rare': 1400,
-        'poke ball pattern': 488,
-        'master ball pattern': 2802,
+        'pokeball': 488,
+        'master ball': 2802,
         'god pack': 2000,
     }
 
     REVERSE_SLOT_PROBABILITIES = {
         # Total: ≈ 1.4349033
         "slot_1": {
-            "poke ball pattern": 1/3,
-            "master ball pattern": 1/19,
+            "pokeball": 1/3,
+            "master ball": 1/19,
             "regular reverse": 1 - (1/3) - (1/19) # ≈ 0.61407
         },
         "slot_2": {

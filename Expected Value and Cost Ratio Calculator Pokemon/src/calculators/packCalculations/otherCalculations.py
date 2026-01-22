@@ -180,15 +180,15 @@ class PackCalculations(PackEVCalculator):
                                 reverse_price = card['Reverse Variant Price ($)'] if 'Reverse Variant Price ($)' in card else card['Price ($)']
                                 slot_outcomes_list.append((card_prob, reverse_price))
                     
-                    elif outcome_type in ["illustration rare", "special illustration rare", "ace spec", "poke ball pattern", "master ball pattern"]:
+                    elif outcome_type in ["illustration rare", "special illustration rare", "ace spec", "pokeball", "master ball"]:
                         # Special cards that can appear in reverse slot
                         # Map outcome types to actual rarity names in your data
                         rarity_mapping = {
                             "illustration_rare": "illustration rare",
                             "special_illustration_rare": "special illustration rare", 
                             "ace_spec": "ace spec",
-                            "pokeball_pattern": "poke ball pattern",
-                            "masterball_pattern": "master ball pattern"
+                            "pokeball_pattern": "pokeball",
+                            "masterball_pattern": "master ball"
                         }
                         
                         mapped_rarity = rarity_mapping.get(outcome_type, outcome_type.replace('_', ' '))

@@ -52,7 +52,7 @@ class ManualCalculator:
         
         # Calculate EV totals by rarity
         ev_totals = self.calculator.calculate_rarity_ev_totals(df, ev_reverse_total)
-        
+        print("EV Totals by Rarity:", ev_totals)
         # Calculate hit probability
         hit_prob, no_hit_prob = self.calculator.calculate_hit_probability(df)
         
