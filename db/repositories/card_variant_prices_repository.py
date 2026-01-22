@@ -7,7 +7,7 @@ import time
 
 def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
     """
-    Insert a price row into `card_variant_prices`.
+    Insert a price row into `card_variant_price_observations`.
     
     Args:
         price_row: Should include card_variant_id, condition_id, market_price, 
@@ -29,7 +29,7 @@ def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
         try:
             # Create a fresh client for each attempt to avoid schema cache issues
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = fresh_client.table("card_variant_prices").insert(price_row).execute()
+            res = fresh_client.table("card_variant_price_observations").insert(price_row).execute()
             
             if res is None:
                 raise RuntimeError("Insert card variant price returned no response object")
@@ -84,7 +84,7 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     
     # Try to find price with specific condition first
     res = (
-        fresh_client.table("card_variant_prices")
+        fresh_client.table("card_variant_price_observations")
         .select("*")
         .eq("card_variant_id", card_variant_id)
         .eq("condition_id", condition_id)
@@ -99,7 +99,7 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     
     # Fallback: Get latest price regardless of condition
     res = (
-        fresh_client.table("card_variant_prices")
+        fresh_client.table("card_variant_price_observations")
         .select("*")
         .eq("card_variant_id", card_variant_id)
         .order("captured_at", desc=True)
@@ -133,7 +133,7 @@ def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[i
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
             # Insert and let Postgrest return the data
-            res = fresh_client.table("card_variant_prices").insert(price_rows).execute()
+            res = fresh_client.table("card_variant_price_observations").insert(price_rows).execute()
             
             if res is None:
                 raise RuntimeError("Batch insert prices returned no response object")
