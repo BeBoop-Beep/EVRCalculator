@@ -82,32 +82,46 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     """
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     
-    # Try to find price with specific condition first
-    res = (
-        fresh_client.table("card_variant_price_observations")
-        .select("*")
-        .eq("card_variant_id", card_variant_id)
-        .eq("condition_id", condition_id)
-        .order("captured_at", desc=True)
-        .limit(1)
-        .maybe_single()
-        .execute()
-    )
+    try:
+        # Try to find price with specific condition first
+        res = (
+            fresh_client.table("card_variant_price_observations")
+            .select("*")
+            .eq("card_variant_id", card_variant_id)
+            .eq("condition_id", condition_id)
+            .order("captured_at", desc=True)
+            .limit(1)
+            .maybe_single()
+            .execute()
+        )
+        
+        if res and res.data:
+            return res.data
+    except APIError as e:
+        # Handle 204 No Content responses gracefully
+        if e.code == '204':
+            pass  # Continue to fallback
+        else:
+            raise
     
-    if res and res.data:
-        return res.data
-    
-    # Fallback: Get latest price regardless of condition
-    res = (
-        fresh_client.table("card_variant_price_observations")
-        .select("*")
-        .eq("card_variant_id", card_variant_id)
-        .order("captured_at", desc=True)
-        .limit(1)
-        .maybe_single()
-        .execute()
-    )
-    return res.data if res and res.data else None
+    try:
+        # Fallback: Get latest price regardless of condition
+        res = (
+            fresh_client.table("card_variant_price_observations")
+            .select("*")
+            .eq("card_variant_id", card_variant_id)
+            .order("captured_at", desc=True)
+            .limit(1)
+            .maybe_single()
+            .execute()
+        )
+        return res.data if res and res.data else None
+    except APIError as e:
+        # Handle 204 No Content responses gracefully
+        if e.code == '204':
+            return None
+        else:
+            raise
 
 
 def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[int]:
