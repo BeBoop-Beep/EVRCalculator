@@ -7,7 +7,7 @@ import time
 
 def insert_sealed_product_price(price_row: Dict[str, Any]) -> int:
     """
-    Insert a price row into `sealed_product_prices`.
+    Insert a price row into `sealed_product_price_observations`.
     
     Args:
         price_row: Should include sealed_product_id, market_price, source, captured_at.
@@ -29,7 +29,7 @@ def insert_sealed_product_price(price_row: Dict[str, Any]) -> int:
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
             # Insert and let Postgrest return the data
-            res = fresh_client.table("sealed_product_prices").insert(price_row).execute()
+            res = fresh_client.table("sealed_product_price_observations").insert(price_row).execute()
             if res is None:
                 raise RuntimeError("Insert sealed product price returned no response object")
             
@@ -77,7 +77,7 @@ def get_latest_price(sealed_product_id: int) -> Optional[Dict[str, Any]]:
     """
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     res = (
-        fresh_client.table("sealed_product_prices")
+        fresh_client.table("sealed_product_price_observations")
         .select("*")
         .eq("sealed_product_id", sealed_product_id)
         .order("captured_at", desc=True)
@@ -111,7 +111,7 @@ def insert_sealed_product_prices_batch(price_rows: List[Dict[str, Any]]) -> List
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
             # Insert and let Postgrest return the data
-            res = fresh_client.table("sealed_product_prices").insert(price_rows).execute()
+            res = fresh_client.table("sealed_product_price_observations").insert(price_rows).execute()
             
             if res is None:
                 raise RuntimeError("Batch insert sealed product prices returned no response object")
