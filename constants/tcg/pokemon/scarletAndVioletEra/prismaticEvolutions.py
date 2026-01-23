@@ -3,6 +3,7 @@ from .baseConfig import BaseSetConfig
 class SetPrismaticEvolutionsConfig(BaseSetConfig):
     SET_NAME = "Prismatic Evolutions"
     SET_ABBREVIATION = "PRE"
+    FOLDER_NAME = "prismaticEvolution"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=25"

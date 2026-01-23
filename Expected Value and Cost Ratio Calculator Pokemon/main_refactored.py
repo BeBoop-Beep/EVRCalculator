@@ -1,143 +1,90 @@
-"""
-Main entry point for EVR Calculator - Database-driven version
-Uses database as primary source with constants configuration
-Maintains exact compatibility with Excel-based calculations
-"""
-
 import sys
-import os
 import difflib
-
+import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.data.excel_format_database_loader import ExcelFormatDatabaseLoader
-from src.calculators.packCalculations.otherCalculations import PackCalculations
-from src.calculators.packCalculations.evrCalculator import PackEVCalculator
+from src.calculators.packCalculations import PackCalculationOrchestrator
+from src.printEvCalculations import append_summary_to_existing_excel
+from src.calculators.evrEtb import calculate_etb_metrics
 from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 
 def get_config_for_set(user_input):
-    """Resolve set input to configuration"""
+    """Fuzzy match set name/alias to configuration"""
     key = user_input.lower().strip()
 
     # Try alias map first
     if key in SET_ALIAS_MAP:
         mapped_key = SET_ALIAS_MAP[key]
-        return SET_CONFIG_MAP[mapped_key]
+        return SET_CONFIG_MAP[mapped_key], mapped_key
 
     # Try exact key in config map
     if key in SET_CONFIG_MAP:
-        return SET_CONFIG_MAP[key]
+        return SET_CONFIG_MAP[key], key
 
     # Try fuzzy matching against aliases and set names
     possible_inputs = list(SET_ALIAS_MAP.keys()) + list(SET_CONFIG_MAP.keys())
     matches = difflib.get_close_matches(key, possible_inputs, n=1, cutoff=0.6)
-    if matches:
-        print(f"We think you mean: {matches[0]}")
-        return SET_CONFIG_MAP.get(SET_ALIAS_MAP.get(matches[0], matches[0]))
-    
-    raise ValueError(f"Set '{user_input}' not found")
+    print("We think you mean :", matches[0])
+    matched_key = SET_ALIAS_MAP.get(matches[0], matches[0])
+    return SET_CONFIG_MAP[matched_key], matched_key
 
 
 def main():
-    print("\n" + "="*80)
-    print("EVR CALCULATOR - Refactored (Database-driven, Independent Processes)")
-    print("="*80 + "\n")
+    """Main entry point demonstrating decoupled calculator and simulator"""
     
-    # Get set from user (default to 151 for testing)
-    set_name = input("What set are we working on? (default: Scarlet and Violet 151) ").strip()
-    if not set_name:
-        set_name = "Scarlet and Violet 151"
-    
+    setName = input("What set are we working on: \n")
     try:
-        config = get_config_for_set(set_name)
-        print(f"\nUsing set: {config.SET_NAME}")
+        config, folder_name = get_config_for_set(setName)
+        print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
         
-        # =================================================================
-        # STEP 1: Load card data from database (Excel-compatible format)
-        # =================================================================
-        print("\n[1/3] Loading card data from database...")
-        loader = ExcelFormatDatabaseLoader(config)
-        df, pack_price = loader.load_and_prepare_set_data(config.SET_NAME, config=config)
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        # =================================================================
-        # STEP 2: Run PACK EV CALCULATIONS (matches develop exactly)
-        # =================================================================
-        print("\n[2/3] Running pack EV calculations...")
-        calculator = PackCalculations(config)
+        # Use FOLDER_NAME from config if available, otherwise use folder_name
+        actual_folder_name = getattr(config, 'FOLDER_NAME', folder_name)
+        excel_path = os.path.join(project_root, 'excelDocs', actual_folder_name, 'pokemon_data.xlsx')
+
+        # Initialize orchestrator
+        orchestrator = PackCalculationOrchestrator(config)
+
+        # ===== OPTION 1: Run Calculator and Simulator Independently =====
+        print("\n--- RUNNING CALCULATOR ---")
+        summary_data, total_manual_ev, top_10_hits, df, pack_price = orchestrator.calculate_manual_ev(excel_path)
         
-        # Prepare DataFrame with EV calculations
-        calculator._calculate_ev_columns(df)
-        
-        # Calculate reverse EV
-        ev_reverse_total = calculator.calculate_reverse_ev(df)
-        
-        # Calculate EV totals by rarity
-        ev_totals = calculator.calculate_rarity_ev_totals(df, ev_reverse_total)
-        
-        # Calculate total EV with special pack adjustments
-        total_ev, regular_pack_contribution, god_pack_ev, demi_god_pack_ev = \
-            calculator.calculate_total_ev(ev_totals, df)
-        
-        print(f"Total EV: ${total_ev:.2f}")
-        
-        # =================================================================
-        # STEP 3: Run MONTE CARLO SIMULATION
-        # =================================================================
-        print("[3/3] Running Monte Carlo simulation...")
-        from src.calculators.packCalculations.monteCarloSim import make_simulate_pack_fn, run_simulation, print_simulation_summary
-        from src.utils.card_grouping import group_cards_by_rarity
-        from collections import defaultdict
-        
-        # Group cards by rarity
-        card_groups = group_cards_by_rarity(config, df)
-        
-        # Initialize tracking
-        rarity_pull_counts = defaultdict(int)
-        rarity_value_totals = defaultdict(float)
-        
-        # Create simulation function
-        simulate_one_pack = make_simulate_pack_fn(
-            common_cards=card_groups["common"],
-            uncommon_cards=card_groups["uncommon"],
-            rare_cards=card_groups["rare"],
-            hit_cards=card_groups["hit"],
-            reverse_pool=card_groups["reverse"],
-            rare_slot_config=config.RARE_SLOT_PROBABILITY,
-            reverse_slot_config=config.REVERSE_SLOT_PROBABILITIES,
-            slots_per_rarity=config.SLOTS_PER_RARITY,
-            config=config,
-            df=df,
-            rarity_pull_counts=rarity_pull_counts,
-            rarity_value_totals=rarity_value_totals,
-        )
-        
-        # Run simulation
-        sim_results = run_simulation(simulate_one_pack, rarity_pull_counts, rarity_value_totals, n=100000)
-        
-        # Print results
-        print_simulation_summary(sim_results)
-        
-        # Calculate metrics
-        simulated_ev = sim_results["mean"]
-        net_value = simulated_ev - pack_price
-        roi = simulated_ev / pack_price if pack_price > 0 else 0
-        
-        print(f"\nExpected Value Per Pack: {simulated_ev:.10f}")
-        print(f"Cost Per Pack: {pack_price:.2f}")
-        print(f"Net Value Upon Opening: {net_value:.10f}")
-        print(f"ROI Upon Opening: {roi:.10f}")
-        print(f"ROI Percent Upon Opening: {(roi - 1) * 100:.2f}")
-        
-        print("\n=== CALCULATION COMPLETE ===")
-        
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        print("\n--- RUNNING SIMULATOR ---")
+        sim_results, pack_metrics = orchestrator.run_monte_carlo_simulation(df, pack_price, n=100000, run_validations=True)
+
+        # ===== OPTION 2 (Alternative): Use legacy method for backward compatibility =====
+        # Uncomment below to use the original orchestrated flow instead:
+        # results, summary_data, total_simulated_ev, sim_results, top_10_hits = orchestrator.calculate_pack_ev(excel_path)
+        # return
+
+        # Calculate ETB EV
+        print("\n--- CALCULATING ETB EV ---")
+        etb_metrics = calculate_etb_metrics(excel_path, 9, pack_metrics['total_ev'])
+
+        # Calculate Booster Box EV (similar pattern)
+        print("\n--- CALCULATING BOOSTER BOX EV ---")
+        # Additional calculation as needed
+
+        # Compile final results for output
+        results = {
+            "total_manual_ev": total_manual_ev,
+            "actual_simulated_ev": pack_metrics['total_ev'],
+            "pack_price": pack_price,
+            "net_value": pack_metrics['net_value'],
+            "opening_pack_roi": pack_metrics['opening_pack_roi'],
+            "opening_pack_roi_percent": pack_metrics['opening_pack_roi_percent'],
+        }
+
+        # Export results to Excel
+        append_summary_to_existing_excel(excel_path, summary_data, results, sim_results, top_10_hits)
+
+    except ValueError as e:
+        print(e)
+
+    print("\nOperation completed successfully!")
 
 
 if __name__ == "__main__":
     main()
-
