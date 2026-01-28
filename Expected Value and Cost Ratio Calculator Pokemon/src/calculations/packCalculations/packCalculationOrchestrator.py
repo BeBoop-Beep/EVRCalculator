@@ -15,7 +15,7 @@ class PackCalculationOrchestrator(PackCalculations):
     def calculate_manual_ev(self, file_path):
         """
         Calculate manual EV using mathematical formulas.
-        Returns: (results, summary_data, total_manual_ev, top_10_hits, df, pack_price)
+        Returns: (summary_data, total_manual_ev, top_10_hits, df, pack_price)
         """
         print("=== STARTING MANUAL EV CALCULATION ===")
         
