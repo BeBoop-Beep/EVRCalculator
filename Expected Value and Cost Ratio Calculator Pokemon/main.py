@@ -55,7 +55,7 @@ def main():
         print("\n Calculating Booster Box EV..")
         # etb_metrics = calculate_etb_metrics(file_path, 9, total_ev)
 
-        append_summary_to_existing_excel(file_path, summary_data, results, sim_results, top_10_hits)
+        # append_summary_to_existing_excel(file_path, summary_data, results, sim_results, top_10_hits)
     except ValueError as e:
         print(e)
 
