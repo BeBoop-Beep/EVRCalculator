@@ -17,25 +17,34 @@ def main():
         # Try alias map first
         if key in SET_ALIAS_MAP:
             mapped_key = SET_ALIAS_MAP[key]
-            return SET_CONFIG_MAP[mapped_key]
+            return SET_CONFIG_MAP[mapped_key], mapped_key
 
         # Try exact key in config map
         if key in SET_CONFIG_MAP:
-            return SET_CONFIG_MAP[key]
+            return SET_CONFIG_MAP[key], key
 
         # Try fuzzy matching against aliases and set names
         possible_inputs = list(SET_ALIAS_MAP.keys()) + list(SET_CONFIG_MAP.keys())
         matches = difflib.get_close_matches(key, possible_inputs, n=1, cutoff=0.6)
-        print("We think you mean :", matches[0])
-        return SET_CONFIG_MAP[matches[0]]
+        
+        if matches:
+            matched_key = matches[0]
+            # Check if it's an alias and resolve to actual key
+            if matched_key in SET_ALIAS_MAP:
+                matched_key = SET_ALIAS_MAP[matched_key]
+            print("We think you mean :", matched_key)
+            return SET_CONFIG_MAP[matched_key], matched_key
+        
+        # No matches found
+        raise ValueError(f"Set '{user_input}' not found. Please check the set name and try again.")
     
     # # Step 1: Scrape and gather HTML Doc  # #
     setName = input("What set are we working on: \n")
     try:
-        config = get_config_for_set(setName)
+        config, folder_name = get_config_for_set(setName)
         print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        excel_path = os.path.join(project_root, 'excelDocs', config.SET_NAME, 'pokemon_data.xlsx')
+        excel_path = os.path.join(project_root, 'excelDocs', folder_name, 'pokemon_data.xlsx')
 
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
