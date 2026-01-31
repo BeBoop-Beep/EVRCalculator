@@ -2,11 +2,11 @@
 from .initializeCalculations import PackEVInitializer
 from .evrCalculator import PackEVCalculator 
 from .otherCalculations import PackCalculations
-from .packCalculationOrchestratorRefractored import PackCalculationOrchestrator
+from .packCalculationOrchestrator import PackCalculationOrchestrator
 
 def calculate_pack_stats(file_path, config):
     """Convenience function to maintain backward compatibility"""
-    orchestrator  = PackCalculationOrchestrator(config)
+    orchestrator = PackCalculationOrchestrator(config)
     return orchestrator.calculate_pack_ev(file_path)
 
 # Define what gets imported with "from package import *"
