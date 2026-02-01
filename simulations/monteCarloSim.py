@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from typing import Callable, List, Dict
-from src.utils.monteCarloSimUtils.specialPackLogic import sample_god_pack, sample_demi_god_pack
+from .utils.monteCarloSimUtils.specialPackLogic import sample_god_pack, sample_demi_god_pack
 
 def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 100000) -> List[float]:
     """Simulates opening n packs using the provided simulation function."""

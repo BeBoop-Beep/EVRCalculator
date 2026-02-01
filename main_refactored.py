@@ -1,11 +1,14 @@
 import sys
 import difflib
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.calculators.packCalcsRefractored import calculate_pack_stats
-from src.simulations import calculate_pack_simulations
-from src.calculators.evrEtb import calculate_etb_metrics
+base_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(base_dir)
+sys.path.append(os.path.join(base_dir, 'Expected Value and Cost Ratio Calculator Pokemon'))
+
+from calculations.packCalcsRefractored import calculate_pack_stats
+from simulations import calculate_pack_simulations
+from calculations.evrEtb import calculate_etb_metrics
 from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 
@@ -43,7 +46,7 @@ def main():
     try:
         config, folder_name = get_config_for_set(setName)
         print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.abspath(__file__))
         excel_path = os.path.join(project_root, 'excelDocs', folder_name, 'pokemon_data.xlsx')
 
         # # Step 2: Calculate EVR Per Pack # #

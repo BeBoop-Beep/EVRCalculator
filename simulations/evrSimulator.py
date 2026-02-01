@@ -1,9 +1,9 @@
 from collections import defaultdict
 
-from src.simulations.monteCarloSim import make_simulate_pack_fn, print_simulation_summary, run_simulation
-from src.calculators.packCalcsRefractored.otherCalculations import PackCalculations
-from src.utils.extractScarletAndVioletCardGroups import extract_scarletandviolet_card_groups
-from src.validations.monteCarloValidations import validate_and_debug_slot, validate_full_pack_logic
+from .monteCarloSim import make_simulate_pack_fn, print_simulation_summary, run_simulation
+from calculations.packCalcsRefractored.otherCalculations import PackCalculations
+from .utils.extractScarletAndVioletCardGroups import extract_scarletandviolet_card_groups
+from .validations.monteCarloValidations import validate_and_debug_slot, validate_full_pack_logic
 
 
 class PackEVRSimulator(PackCalculations):
@@ -11,6 +11,7 @@ class PackEVRSimulator(PackCalculations):
         super().__init__(config)
 
     def calculate_evr_simulations(self, df):
+        print("=== ❗STARTING PACK EV SIMULATION❗ ===")
         card_groups = extract_scarletandviolet_card_groups(self.config, df)
 
         rarity_pull_counts = defaultdict(int)
