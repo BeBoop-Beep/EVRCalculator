@@ -55,7 +55,7 @@ class PackCalculationOrchestrator(PackCalculations):
 
     def calculate_pack_ev(self, file_path):
         """Main calculation method that orchestrates all calculations"""
-        print("=== ⭐STARTING REFRACTORED PACK EV CALCULATION⭐ ===")
+        print("=== ❗STARTING PACK EV CALCULATION❗ ===")
         
         # Load and prepare data
         df, pack_price = self.load_and_prepare_data(file_path)
