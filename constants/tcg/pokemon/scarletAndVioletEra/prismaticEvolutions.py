@@ -1,8 +1,9 @@
 from .baseConfig import BaseSetConfig
 
-class SetPrismaticEvolutionConfig(BaseSetConfig):
-    SET_NAME = "Prismatic Evolution"
+class SetPrismaticEvolutionsConfig(BaseSetConfig):
+    SET_NAME = "Prismatic Evolutions"
     SET_ABBREVIATION = "PRE"
+    FOLDER_NAME = "prismaticEvolution"
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=25"
@@ -26,8 +27,8 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
         'ultra rare': 161,
         'hyper rare': 900,
         # Special cases (checked first)
-        'poke ball pattern': 302,
-        'master ball pattern': 1362,
+        'pokeball': 302,
+        'master ball': 1362,
         'ace spec rare': 128,
         'god pack': 2000,
         'demi god pack': (1/3) * 2000
@@ -37,11 +38,11 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
         # Total: ≈ 1.517547
         "slot_1": {
             "ace spec rare": 1 / 13,
-            "poke ball pattern": 1 / 3,
+            "pokeball": 1 / 3,
             "regular reverse": 1 - (1 / 13) - (1 / 3) # ≈ 0.589747
         },
         "slot_2": {
-            "master ball pattern": 1/20, #TODO: Research
+            "master ball": 1/20, #TODO: Research
             "special illustration rare": 1 / 45,
             'hyper rare': 1 / 180,
             "regular reverse": 1 - (1 / 20) - (1 / 45) - (1 / 180), # ≈ 0.9278
@@ -60,16 +61,16 @@ class SetPrismaticEvolutionConfig(BaseSetConfig):
         "strategy": {
             "type": "fixed",
             "cards": [
-                "Eevee (Master Ball Pattern)",
-                "Eevee ex - 167/131",
-                "Vaporeon ex - 149/131",
-                "Jolteon ex - 153/131",
-                "Flareon ex - 146/131",
-                "Espeon ex - 155/131",
-                "Umbreon ex - 161/131",
-                "Glaceon ex - 150/131",
-                "Leafeon ex - 144/131",
-                "Sylveon ex - 156/131"
+                {"name": "Eevee", "special_type": "master ball", "rarity": None},
+                {"name": "Eevee ex", "rarity": "special illustration rare"},
+                {"name": "Vaporeon ex", "rarity": "special illustration rare"},
+                {"name": "Jolteon ex", "rarity": "special illustration rare"},
+                {"name": "Flareon ex", "rarity": "special illustration rare"},
+                {"name": "Espeon ex", "rarity": "special illustration rare"},
+                {"name": "Umbreon ex", "rarity": "special illustration rare"},
+                {"name": "Glaceon ex", "rarity": "special illustration rare"},
+                {"name": "Leafeon ex", "rarity": "special illustration rare"},
+                {"name": "Sylveon ex", "rarity": "special illustration rare"}
             ]
         }
     }

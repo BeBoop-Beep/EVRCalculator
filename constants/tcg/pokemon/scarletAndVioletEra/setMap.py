@@ -5,7 +5,7 @@ from .obsidianFlames import SetObsidianFlamesConfig
 from .paldeaEvolved import SetPaldeaEvolvedConfig
 from .paldeanFates import SetPaldeanFatesConfig
 from .paradoxRift import SetParadoxRiftConfig
-from .prismaticEvolution import SetPrismaticEvolutionConfig
+from .prismaticEvolutions import SetPrismaticEvolutionsConfig
 from .scarletAndViolet151 import Set151Config
 from .scarletAndVioletBase import SetScarletAndVioletBaseConfig
 from .shroudedFable import SetShroudedFableConfig
@@ -24,7 +24,7 @@ SET_CONFIG_MAP = {
     'paldeaEvolved' : SetPaldeaEvolvedConfig,
     'paldeanFates' : SetPaldeanFatesConfig,
     'paradoxRift' : SetParadoxRiftConfig,
-    'prismaticEvolution' : SetPrismaticEvolutionConfig,
+    'prismaticEvolutions' : SetPrismaticEvolutionsConfig,
     'scarletAndViolet151' : Set151Config,
     'scarletAndVioletBase' : SetScarletAndVioletBaseConfig,
     'shroudedFable' : SetShroudedFableConfig,
@@ -246,31 +246,31 @@ SET_ALIAS_MAP = {
     "pradox rift": "paradoxRift",
     "paradox rifft": "paradoxRift",
 
-    # Prismatic Evolution
-    "prismatic evolution": "prismaticEvolution",
-    "prismaticevolution": "prismaticEvolution",
-    "pris evo": "prismaticEvolution",
-    "prism evo": "prismaticEvolution",
-    "prismatic evo": "prismaticEvolution",
-    "prismatic": "prismaticEvolution",
-    "pris": "prismaticEvolution",
-    "pevo": "prismaticEvolution",
-    "prsm evo": "prismaticEvolution",
-    "prsm evol": "prismaticEvolution",
-    "p evo prism": "prismaticEvolution",
-    "prismaticevo": "prismaticEvolution",
-    "prism evolution": "prismaticEvolution",
-    "evolution prismatic": "prismaticEvolution",
-    "evo prismatic": "prismaticEvolution",
-    "p evo": "prismaticEvolution",
-    "pris ev": "prismaticEvolution",
-    "p evo set": "prismaticEvolution",
-    "prism evo set": "prismaticEvolution",
-    "pris evo set": "prismaticEvolution",
-    "prism evol set": "prismaticEvolution",
-    "pris evolution": "prismaticEvolution",
-    "prsmc evo": "prismaticEvolution",
-    "prsm evo set": "prismaticEvolution",
+    # Prismatic Evolutions
+    "prismatic evolution": "prismaticEvolutions",
+    "prismaticevolution": "prismaticEvolutions",
+    "pris evo": "prismaticEvolutions",
+    "prism evo": "prismaticEvolutions",
+    "prismatic evo": "prismaticEvolutions",
+    "prismatic": "prismaticEvolutions",
+    "pris": "prismaticEvolutions",
+    "pevo": "prismaticEvolutions",
+    "prsm evo": "prismaticEvolutions",
+    "prsm evol": "prismaticEvolutions",
+    "p evo prism": "prismaticEvolutions",
+    "prismaticevo": "prismaticEvolutions",
+    "prism evolution": "prismaticEvolutions",
+    "evolution prismatic": "prismaticEvolutions",
+    "evo prismatic": "prismaticEvolutions",
+    "p evo": "prismaticEvolutions",
+    "pris ev": "prismaticEvolutions",
+    "p evo set": "prismaticEvolutions",
+    "prism evo set": "prismaticEvolutions",
+    "pris evo set": "prismaticEvolutions",
+    "prism evol set": "prismaticEvolutions",
+    "pris evolution": "prismaticEvolutions",
+    "prsmc evo": "prismaticEvolutions",
+    "prsm evo set": "prismaticEvolutions",
 
     # Scarlet & Violet Base
     "scarlet violet base": "scarletAndVioletBase",
