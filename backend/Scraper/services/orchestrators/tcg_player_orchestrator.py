@@ -2,13 +2,14 @@ from ...clients.tcgplayer_client import TCGPlayerClient
 from ...parsers.tcgplayer_parser import TCGPlayerParser
 from ..dto_builders.tcgplayer_dto_builder import TCGPlayerDTOBuilder
 from ...exporters.excel_writer import save_to_excel
+from db.controllers.ingest_controller import IngestController
 import json
 import sys
 import os
 
 # Add path to import from db folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
-from db.controllers.ingest_controller import IngestController
+
 
 class TCGScraper:
     def __init__(self, enable_db_ingestion=False):

@@ -46,8 +46,9 @@ def main():
     try:
         config, folder_name = get_config_for_set(setName)
         print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
-        project_root = os.path.dirname(os.path.abspath(__file__))
-        excel_path = os.path.join(project_root, 'excelDocs', folder_name, 'pokemon_data.xlsx')
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.dirname(repo_root)
+        excel_path = os.path.join(repo_root, 'data', 'excelDocs', folder_name, 'pokemon_data.xlsx')
 
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
