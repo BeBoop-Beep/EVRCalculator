@@ -1,11 +1,14 @@
 import sys
 import difflib
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.calculators.packCalculations import calculate_pack_stats
-from src.printEvCalculations import append_summary_to_existing_excel
-from src.calculators.evrEtb import calculate_etb_metrics
+base_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(base_dir)
+sys.path.append(os.path.join(base_dir, 'Expected Value and Cost Ratio Calculator Pokemon'))
+
+from calculations.packCalcsRefractored import calculate_pack_stats
+from simulations import calculate_pack_simulations
+from calculations.evrEtb import calculate_etb_metrics
 from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 
@@ -43,13 +46,23 @@ def main():
     try:
         config, folder_name = get_config_for_set(setName)
         print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(os.path.abspath(__file__))
         excel_path = os.path.join(project_root, 'excelDocs', folder_name, 'pokemon_data.xlsx')
 
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
         file_path = excel_path
-        results, summary_data, total_ev, sim_results, top_10_hits = calculate_pack_stats(file_path, config)
+        results, summary_data, top_10_hits, pack_price = calculate_pack_stats(file_path, config)
+
+        sim_results, pack_metrics = calculate_pack_simulations(file_path, config)
+        total_ev = pack_metrics['total_ev']
+
+        results.update({
+            "acutal_simulated_ev": pack_metrics['total_ev'],
+            "net_value": pack_metrics['net_value'],
+            "opening_pack_roi": pack_metrics['opening_pack_roi'],
+            "opening_pack_roi_percent": pack_metrics['opening_pack_roi_percent'],
+        })
        
 
         # # Step 3: Calculate ETB EV # #
@@ -60,7 +73,7 @@ def main():
         print("\n Calculating Booster Box EV..")
         # etb_metrics = calculate_etb_metrics(file_path, 9, total_ev)
 
-        append_summary_to_existing_excel(file_path, summary_data, results, sim_results, top_10_hits)
+        # append_summary_to_existing_excel(file_path, summary_data, results, sim_results, top_10_hits)
     except ValueError as e:
         print(e)
 
