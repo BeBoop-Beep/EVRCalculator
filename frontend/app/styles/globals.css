@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&family=Poppins:wght@100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+/* Ensure body starts fully visible by default */
+body {
+  font-family: 'Poppins', sans-serif;
+  opacity: 1;
+  transition: opacity 0.75s ease-in-out;
+  margin: 0;
+  padding: 0;
+}
+
+/* Before JavaScript runs, the page will have full opacity */
+body.fade-out {
+  opacity: 0;  
+}
+
+
+/* Use a different font for the header */
+header {
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Default logo container without hover */
+.logo-container .logo {
+  transition: transform 0.3s ease-in-out; /* Smooth zoom effect */
+}
+
+/* On hover, apply zoom effect directly on the logo */
+.logo-container:hover .logo img {
+  transform: scale(1.1); /* Zoom-in effect */
+}
+
+
+link[rel="icon"] {
+  width: 48px;
+  height: 48px;
+}
+
+@keyframes zoom-in {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.1); /* Slight zoom effect */
+  }
+}
+
+.animate-zoom-in {
+  animation: zoom-in 5s ease-in-out infinite alternate; /* Slow, smooth zoom */
+}
+
