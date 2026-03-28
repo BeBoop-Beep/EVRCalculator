@@ -1,14 +1,20 @@
 'use client';
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { usePathname } from 'next/navigation'; // Use next/navigation for routing
+import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation for routing
+import SearchBar from "@/components/Search/SearchBar";
 
 export default function Header() {
-  const [isHovered, setIsHovered] = useState(false); // Track hover state
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Track authentication state
   const [customerName, setCustomerName] = useState(null); // Track the customer's name
   const [isClient, setIsClient] = useState(false); // Track if the component is rendered on the client
-  const pathname = usePathname(); // Get the current route path  
+  const pathname = usePathname(); // Get the current route path
+  const router = useRouter();
+
+  const handleHeaderSearch = (query) => {
+    if (!query) return;
+    router.push(`/priceCheck?query=${encodeURIComponent(query)}`);
+  };
 
   useEffect(() => {
     setIsClient(true); // Set isClient to true on client-side rendering
@@ -49,56 +55,62 @@ export default function Header() {
     } else {
       checkAuth(); // Perform the authentication check for other pages
     }
-
   }, [pathname, isClient]); // Dependency on pathname and isClient
 
   return (
-    <header className="shadow">
-      <div className="bg-primary text-white py-2">
-        <div className="container mx-auto flex justify-between items-center px-4">
-          {/* Logo and Store Name */}
-          <div className="flex items-center logo-container">
+    <header>
+      <div className="bg-primary text-white py-0.5">
+        <div className="w-full flex items-center justify-between gap-4 px-2 md:px-6 lg:px-10">
+          <div className="flex items-center min-w-0">
             <Link
               href="/"
-              className="text-3xl font-bold text-neutral-light cursor-pointer flex justify-content items-center space-x-0 w-100"
-              onMouseEnter={() => setIsHovered(true)} // Set hover state
-              onMouseLeave={() => setIsHovered(false)} // Reset hover state
+              className="text-neutral-light cursor-pointer flex items-center gap-0 transition-transform duration-300 ease-in-out hover:scale-105"
             >
-              <div className="logo h-16 w-auto overflow-hidden">
-                <img
-                  src={isHovered
-                    ? "/images/shinyFindsLogoHoverFour.png"
-                    : "/images/shinyFindsLogoFour.png"}
-                  alt="Shiny Finds Logo"
-                  className="h-full w-full object-contain transition-transform duration-300 ease-in-out"
-                  style={{
-                    transform: isHovered ? "scale(1.1)" : "scale(1)",
-                    transition: "transform 1.0s ease-in-out",
-                  }}
-                />
-              </div>
-              <span
-                style={{
-                  transform: isHovered ? "scale(1.1)" : "scale(1)",
-                  transition: "transform 0.2s ease-in-out",
-                }}
-              >
-                Shiny Finds
+              <img
+                src="/images/inDex.png"
+                alt="inDex"
+                className="h-[52px] w-[52px] md:h-[58px] md:w-[58px] object-contain"
+              />
+              <span className="hidden sm:inline -ml-1 text-xl md:text-2xl font-semibold tracking-tight">
+                inDex
               </span>
+            </Link>
+
+          </div>
+
+          <div className="flex-1 flex items-center justify-center gap-4 md:gap-5 lg:gap-6 min-w-0">
+            <nav className="hidden md:flex items-center gap-4 lg:gap-5 text-[15px] font-semibold whitespace-nowrap">
+              <Link href="/products" className="hover:underline">
+                Explore
+              </Link>
+              <Link href="/products" className="hover:underline">
+                TCG
+              </Link>
+              <Link href="/products" className="hover:underline">
+                Sets
+              </Link>
+            </nav>
+
+            <div className="w-full max-w-md lg:max-w-lg flex items-center">
+              <SearchBar
+                onSearch={handleHeaderSearch}
+                className="flex items-center w-full"
+                inputClassName="w-full px-2.5 py-1 text-sm border border-transparent text-primary rounded-l-lg focus:outline-none"
+                buttonClassName="bg-black text-white text-sm px-3 py-1 rounded-r-lg hover:bg-gray-800 transition-colors"
+                placeholder="Search"
+              />
+            </div>
+
+            <Link href={isAuthenticated ? "/dashboard" : "/login"} className="hidden md:inline hover:underline text-[15px] font-semibold whitespace-nowrap">
+              My Collection
             </Link>
           </div>
 
-          {/* Conditional navigation links */}
-          <div className="text-sm space-x-4">
+          <div className="flex items-center text-sm whitespace-nowrap gap-4 md:gap-5 lg:gap-6">
             {!isAuthenticated ? (
-              <>
-                <Link href="/login" className="hover:underline">
-                  Login
-                </Link>
-                <Link href="/signup" className="hover:underline">
-                  Sign Up
-                </Link>
-              </>
+              <Link href="/login" className="px-4 py-1.5 text-[15px] font-semibold border-2 border-white rounded-lg hover:bg-white hover:text-primary transition-colors">
+                Login
+              </Link>
             ) : (
               <>
                 {customerName ? (

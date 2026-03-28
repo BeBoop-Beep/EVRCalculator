@@ -8,7 +8,7 @@ export default function NavBar() {
     <div className="bg-neutral-light py-4">
       <div className="container mx-auto flex justify-between items-center px-4">
         <nav className="flex space-x-8">
-          <Link href="/products" className="text-primary hover:text-accent">
+          {/* <Link href="/products" className="text-primary hover:text-accent">
             Product Store
           </Link>
           <Link href="/merchandise" className="text-primary hover:text-accent">
@@ -16,12 +16,12 @@ export default function NavBar() {
           </Link>
           <Link href="/ripAndShip" className="text-primary hover:text-accent">
             Rip &amp; Ship
-          </Link>
+          </Link> */}
           <Link href="/priceCheck" className="text-primary hover:text-accent">
             Price Check
           </Link>
         </nav>
-        <Link href="/cart" className="text-primary hover:text-accent flex">
+        {/* <Link href="/cart" className="text-primary hover:text-accent flex">
           <span className="flex gap-1">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -39,7 +39,7 @@ export default function NavBar() {
             </svg>
             ({cartProducts?.length ?? 0})
           </span>
-        </Link>
+        </Link> */}
       </div>
     </div>
   );
