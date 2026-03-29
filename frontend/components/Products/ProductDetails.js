@@ -6,6 +6,7 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { CartContext } from "@/components/Cart/CartContext"; // Import CartContext
+import Image from "next/image";
 
 export default function ProductDetails({ product }) {
   const [selectedVariant, setSelectedVariant] = useState(product.variants?.[0]);
@@ -38,9 +39,12 @@ export default function ProductDetails({ product }) {
               {(selectedVariant?.image ? [selectedVariant.image] : product.images).map(
                 (image, index) => (
                   <SwiperSlide key={index}>
-                    <img
+                    <Image
+                      unoptimized
                       src={image || "/fallback-image.jpg"}
                       alt={product.title}
+                      width={1200}
+                      height={500}
                       className="w-full h-[500px] object-cover rounded-lg" // Increased height
                     />
                   </SwiperSlide>

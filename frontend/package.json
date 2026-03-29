@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "@aws-sdk/client-s3": "^3.749.0",
     "@stripe/stripe-js": "^5.6.0",
     "aws-sdk": "^2.1692.0",
@@ -21,7 +22,6 @@
     "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
     "mime-types": "^2.1.35",
-    "mongoose": "^8.10.0",
     "multiparty": "^4.2.3",
     "next": "^15.1.7",
     "next-auth": "^4.24.11",

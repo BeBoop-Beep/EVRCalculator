@@ -2,12 +2,11 @@
 import { useContext, useEffect, useState } from "react";
 import { CartContext } from "@/components/Cart/CartContext";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function Cart() {
   const { cartProducts, setCartProducts } = useContext(CartContext);
   const [products, setProducts] = useState([]);
-  const [merchandise, setMerchandise] = useState([]);
-  const [ripAndShipItems, setRipAndShipItems] = useState([]);
   const [cartTimestamp, setCartTimestamp] = useState(null); // Track timestamp
   const [showPriceReview, setShowPriceReview] = useState(false); // Track price review prompt
   const [shippingCost, setShippingCost] = useState(null); // For shipping cost
@@ -25,8 +24,6 @@ export default function Cart() {
     async function fetchCartItems() {
       if (cartProducts.length === 0) {
         setProducts([]);
-        setMerchandise([]);
-        setRipAndShipItems([]);
         return;
       }
 
@@ -36,31 +33,12 @@ export default function Cart() {
         if (!productRes.ok) throw new Error("Failed to fetch products");
         const productData = await productRes.json();
 
-        // Fetch merchandise
-        const merchandiseRes = await fetch("/api/merchandise");
-        if (!merchandiseRes.ok) throw new Error("Failed to fetch merchandise");
-        const merchandiseData = await merchandiseRes.json();
-
-        // Fetch ripAndShipItems
-        const ripAndShipRes = await fetch("/api/ripAndShip");
-        if (!ripAndShipRes.ok)
-          throw new Error("Failed to fetch ripAndShip items");
-        const ripAndShipData = await ripAndShipRes.json();
-
         // Filter items that are in the cart
         const filteredProducts = productData.filter((p) =>
           cartProducts.includes(String(p._id))
         );
-        const filteredMerchandise = merchandiseData.filter((m) =>
-          cartProducts.includes(String(m._id))
-        );
-        const filteredRipAndShipItems = ripAndShipData.filter((r) =>
-          cartProducts.includes(String(r._id))
-        );
 
         setProducts(filteredProducts);
-        setMerchandise(filteredMerchandise);
-        setRipAndShipItems(filteredRipAndShipItems);
       } catch (error) {
         console.error("Error fetching cart items:", error);
       }
@@ -139,7 +117,7 @@ export default function Cart() {
     updatePrices();
   }
 
-  const totalPrice = [...products, ...merchandise, ...ripAndShipItems].reduce(
+  const totalPrice = products.reduce(
     (sum, item) => {
       const quantity = cartProducts.filter((id) => id === item._id).length;
       return sum + item.price * quantity;
@@ -173,7 +151,7 @@ export default function Cart() {
             <p className="text-gray-500 text-lg">Your cart is empty.</p>
           ) : (
             <ul>
-              {[...products, ...merchandise, ...ripAndShipItems].map(
+              {products.map(
                 (item, index) => {
                   const quantity = cartProducts.filter(
                     (id) => id === item._id
@@ -183,9 +161,12 @@ export default function Cart() {
                       key={`${item._id}-${index}`}
                       className="flex items-center border-b py-4"
                     >
-                      <img
+                      <Image
+                        unoptimized
                         src={item.images?.[0] || "/fallback-image.jpg"}
                         alt={item.title}
+                        width={96}
+                        height={96}
                         className="w-24 h-24 object-cover rounded-lg"
                       />
                       <div className="ml-4 flex-grow flex justify-between items-center">

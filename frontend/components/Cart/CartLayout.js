@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function CartLayout({
     cartProducts,
     products,
@@ -41,9 +43,12 @@ export default function CartLayout({
                       key={`${item._id}-${index}`}
                       className="flex items-center border-b py-4"
                     >
-                      <img
+                      <Image
+                        unoptimized
                         src={item.images?.[0] || "/fallback-image.jpg"}
                         alt={item.title}
+                        width={96}
+                        height={96}
                         className="w-24 h-24 object-cover rounded-lg"
                       />
                       <div className="ml-4 flex-grow flex justify-between items-center">

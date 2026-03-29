@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation for routing
 import SearchBar from "@/components/Search/SearchBar";
+import Image from "next/image";
 
 export default function Header() {
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Track authentication state
@@ -24,11 +25,23 @@ export default function Header() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsAuthenticated(false);
-    setCustomerName(null);
-    setIsMobileMenuOpen(false);
-    router.push('/login');
+    const logoutUser = async () => {
+      try {
+        await fetch('/api/logout', {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch (error) {
+        // Continue local cleanup even if API logout fails.
+      }
+
+      setIsAuthenticated(false);
+      setCustomerName(null);
+      setIsMobileMenuOpen(false);
+      router.push('/login');
+    };
+
+    logoutUser();
   };
 
   useEffect(() => {
@@ -41,26 +54,21 @@ export default function Header() {
     // Function to check authentication status
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem("token"); // Get token from localStorage
-
-        // Token exists and is valid, fetch user details
         const res = await fetch('/api/auth/me', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: 'include',
         });
 
         if (res.ok) {
           const customer = await res.json();
           setIsAuthenticated(true);
-          setCustomerName(customer.name || null);
+          setCustomerName(customer.user?.name || null);
         } else {
           setIsAuthenticated(false);
-          localStorage.removeItem("token"); // Remove invalid token
+          setCustomerName(null);
         }
       } catch (error) {
         setIsAuthenticated(false);
-        localStorage.removeItem("token"); // Ensure to remove invalid token in case of error
+        setCustomerName(null);
       }
     };
 
@@ -112,9 +120,11 @@ export default function Header() {
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-white cursor-pointer flex items-center gap-0 transition-all duration-300 ease-in-out hover:scale-105"
             >
-              <img
+              <Image
                 src="/images/inDex.png"
                 alt="inDex"
+                width={58}
+                height={58}
                 className="h-[52px] w-[52px] md:h-[58px] md:w-[58px] object-contain"
               />
               <span className="hidden sm:inline -ml-1 text-xl md:text-2xl font-semibold tracking-tight">

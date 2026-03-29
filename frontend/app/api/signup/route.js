@@ -1,9 +1,6 @@
-import { mongooseConnect } from "@/lib/mongoose"; 
-import { serialize } from 'cookie';
-import Customer from "@/models/Customer"; // Your customer model
-import bcrypt from "bcryptjs"; // Password hashing
 import jwt from "jsonwebtoken"; // JWT library
 import { NextResponse } from "next/server"; // Import NextResponse
+import { createSupabaseAnonClient, createSupabaseAdminClient } from "@/lib/supabaseServer";
 
 export async function POST(req) {
   const { name, email, password } = await req.json(); // Parse the request body
@@ -14,62 +11,67 @@ export async function POST(req) {
   }
 
   try {
-    // Connect to MongoDB
-    await mongooseConnect();
+    const anonClient = createSupabaseAnonClient();
+    const adminClient = createSupabaseAdminClient();
 
-    // Check if the email already exists
-    const existingCustomer = await Customer.findOne({ email });
-    if (existingCustomer) {
-      return NextResponse.json({ error: "Email already in use." }, { status: 400 });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 12);
-    // console.log("Hashed password:", hashedPassword);
-
-
-    // Create a new customer
-    const newCustomer = new Customer({
-      name,
+    const { data: signUpData, error: signUpError } = await anonClient.auth.signUp({
       email,
-      password: hashedPassword,
+      password,
+      options: {
+        data: { username: name },
+      },
     });
 
-    // Save customer to the database
-    await newCustomer.save();
+    if (signUpError || !signUpData?.user) {
+      const isConflict = signUpError?.message?.toLowerCase().includes("already");
+      return NextResponse.json(
+        { error: signUpError?.message || "Signup failed." },
+        { status: isConflict ? 400 : 500 }
+      );
+    }
 
-    // Create a JWT token
+    const user = signUpData.user;
+    const { error: upsertError } = await adminClient.from("users").upsert(
+      {
+        id: user.id,
+        email,
+        username: name,
+      },
+      { onConflict: "id" }
+    );
+
+    if (upsertError) {
+      console.error("Error upserting customer profile:", upsertError);
+      return NextResponse.json({ error: "Failed to create customer profile." }, { status: 500 });
+    }
+
     const token = jwt.sign(
-      { id: newCustomer._id, email: newCustomer.email, name: newCustomer.name },
+      { id: user.id, email, name },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
-    // Set the token in a cookie
-    const cookie = serialize('token', token, {
-      httpOnly: true, // Prevents access to the cookie from JavaScript
-      secure: process.env.NODE_ENV === 'production', // Only set the cookie over HTTPS in production
-      maxAge: 60 * 60 * 24, // Expires after 1 day
-      path: '/', // Cookie is available throughout the site
-      sameSite: 'Strict', // Enforces same-site policy
-    });
-    
-    // Attach the cookie to the response
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         message: 'Signup successful',
         user: {
-          name: newCustomer.name,
-          email: newCustomer.email,
+          id: user.id,
+          name,
+          email,
         }
       }, 
-      {
-        status: 201,
-        headers: {
-          'Set-Cookie': cookie,
-        },
-      }
+      { status: 201 }
     );
+
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24,
+      path: '/',
+      sameSite: 'strict',
+    });
+
+    return response;
   } catch (error) {
     console.error("Error during signup:", error);
     return NextResponse.json({ error: "Server error. Please try again later." }, { status: 500 });

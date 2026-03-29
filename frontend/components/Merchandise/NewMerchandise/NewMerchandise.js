@@ -1,6 +1,7 @@
 "use client"; // Add this directive for client-side interactivity
 import { useRouter } from "next/navigation"; // Import useRouter
 import styles from "./NewMerchandise.module.css";
+import Image from "next/image";
 
 export default function NewMerchandise({ merchandise }) {
   const router = useRouter(); // Initialize the router
@@ -34,9 +35,12 @@ export default function NewMerchandise({ merchandise }) {
               className={styles.imageBlock}
               onClick={() => handleMerchandiseClick(merch)} // Handle merch click
             >
-              <img
+              <Image
+                unoptimized
                 src={merch.images?.[0] || "/fallback-image.jpg"} // Fallback image if missing
                 alt={merch.title}
+                width={1200}
+                height={1200}
                 className={styles.merchImage}
               />
               <div className={styles.overlay}>

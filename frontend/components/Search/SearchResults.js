@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function SearchResults({ results }) {
   if (!results || results.length === 0) {
     return (
@@ -11,9 +13,12 @@ export default function SearchResults({ results }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {results.map((result, index) => (
         <div key={index} className="bg-white p-4 rounded-lg shadow-lg">
-          <img
+          <Image
+            unoptimized
             src={result.image}
             alt={result.title}
+            width={800}
+            height={480}
             className="w-full h-48 object-cover rounded-lg"
           />
           <h3 className="text-lg font-semibold mt-2">{result.title}</h3>

@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function ProductDetailsCard({ product }) {
   const router = useRouter();
@@ -16,9 +17,12 @@ export default function ProductDetailsCard({ product }) {
     >
       {/* Product Image */}
       <div className="w-full h-96 bg-gray-100 rounded-lg overflow-hidden flex justify-center items-center"> {/* Increased height */}
-        <img
+        <Image
+          unoptimized
           src={product.images?.[0] || "/fallback-image.jpg"}
           alt={product.title}
+          width={1200}
+          height={1200}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
         />
       </div>

@@ -9,12 +9,26 @@ export function AuthProvider({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    const token = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("token="));
-    if (token) {
-      setUser({ token: token.split("=")[1] });
-    }
+    const initializeAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          setUser(null);
+          return;
+        }
+
+        const data = await response.json();
+        setUser(data.user || null);
+      } catch (error) {
+        setUser(null);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email, password) => {
@@ -29,9 +43,19 @@ export function AuthProvider({ children }) {
   
       const data = await response.json();
   
-      if (data.token) {
-        document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24}; SameSite=Strict`;
-        setUser({ token: data.token });
+      if (response.ok && data.token) {
+        const meResponse = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (meResponse.ok) {
+          const meData = await meResponse.json();
+          setUser(meData.user || { token: data.token });
+        } else {
+          setUser({ token: data.token });
+        }
+
         return { token: data.token };
       } else {
         return { error: data.message || "Invalid credentials" };
@@ -43,12 +67,18 @@ export function AuthProvider({ children }) {
   };
   
 
-  const logout = () => {
-    // Clear the cookie and update state
-    document.cookie = "token=; path=/; max-age=0; Secure; SameSite=Strict";
+  const logout = async () => {
+    try {
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      // Even if API logout fails, clear local auth state.
+    }
 
-    setUser(null); // Reset user state
-    router.push("/login"); // Redirect to login page
+    setUser(null);
+    router.push("/login");
   };
 
   return (

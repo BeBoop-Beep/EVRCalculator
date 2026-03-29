@@ -1,14 +1,14 @@
 import { sign, verify } from "jsonwebtoken";
 import { cookies } from "next/headers";
-import { mongooseConnect } from "@/lib/mongoose";
-import Customer from "@/models/Customer";
+import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 
 export async function PUT(req) {
   try {
-    await mongooseConnect();
+    const adminClient = createSupabaseAdminClient();
 
     // Extract token from cookie or Authorization header
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     let token = cookieStore.get("token")?.value || req.headers.get("Authorization")?.split(" ")[1];
 
     if (!token) {
@@ -24,8 +24,11 @@ export async function PUT(req) {
     }
 
     // Parse the request body
-    const { name, email, phone, address } = await req.json();
-    const updateFields = { name, email, phone, address };
+    const { name, email } = await req.json();
+    const updateFields = {};
+
+    if (name) updateFields.username = name;
+    if (email) updateFields.email = email;
 
     // Remove undefined or empty fields
     Object.keys(updateFields).forEach((key) => {
@@ -37,12 +40,17 @@ export async function PUT(req) {
       return new Response(JSON.stringify({ message: "No fields provided for update" }), { status: 400 });
     }
 
-    // Update the customer in the database
-    const updatedCustomer = await Customer.findByIdAndUpdate(
-      user.id,
-      updateFields,
-      { new: true }
-    );
+    const { data: updatedCustomer, error: updateError } = await adminClient
+      .from("users")
+      .update(updateFields)
+      .eq("id", user.id)
+      .select("id, username, email")
+      .maybeSingle();
+
+    if (updateError) {
+      console.error("Error updating customer profile:", updateError);
+      return new Response(JSON.stringify({ message: "Failed to update customer" }), { status: 500 });
+    }
 
     if (!updatedCustomer) {
       return new Response(JSON.stringify({ message: "Customer not found" }), { status: 404 });
@@ -51,32 +59,31 @@ export async function PUT(req) {
     // Generate new JWT with updated info
     const newToken = sign(
       { 
-        id: updatedCustomer._id, 
+        id: updatedCustomer.id,
         email: updatedCustomer.email, 
-        name: updatedCustomer.name,
-        phone: updatedCustomer.phone, 
-        address: updatedCustomer.address 
+        name: updatedCustomer.username,
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
     
     // Set secure cookie attributes
-    const response = new Response(
-      JSON.stringify({
-        id: updatedCustomer._id,
-        name: updatedCustomer.name,
+    const response = NextResponse.json(
+      {
+        id: updatedCustomer.id,
+        name: updatedCustomer.username,
         email: updatedCustomer.email,
-        phone: updatedCustomer.phone,  // Ensure phone is included
-        address: updatedCustomer.address // Ensure address is included
-      }),
+      },
       { status: 200 }
     );
 
-    response.headers.set(
-      "Set-Cookie",
-      `token=${newToken}; path=/; max-age=86400; HttpOnly; SameSite=Lax; Secure`
-    );
+    response.cookies.set("token", newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24,
+      path: "/",
+    });
 
     return response;
   } catch (error) {

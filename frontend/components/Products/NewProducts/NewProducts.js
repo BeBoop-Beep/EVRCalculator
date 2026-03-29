@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation"; // Import useRouter
 import Spinner from "@/utils/Spinner";
 import styles from "./NewProducts.module.css";
+import Image from "next/image";
 
 export default function NewProducts({ products }) {
   const router = useRouter(); // Initialize the router
@@ -44,9 +45,12 @@ export default function NewProducts({ products }) {
               className={styles.imageBlock}
               onClick={() => handleProductClick(product)} // Handle product click
             >
-              <img
+              <Image
+                unoptimized
                 src={product.images?.[0] || "/fallback-image.jpg"} // Fallback image if missing
                 alt={product.title}
+                width={1200}
+                height={1200}
                 className={styles.productImage}
               />
               <div className={styles.overlay}>

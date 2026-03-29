@@ -1,29 +1,73 @@
 // /app/api/auth/login/route.js
 import { sign } from "jsonwebtoken";
-import Customer from "@/models/Customer"; // Import your customer model for DB queries
+import { NextResponse } from "next/server";
+import { createSupabaseAnonClient, createSupabaseAdminClient } from "@/lib/supabaseServer";
 
 export async function POST(req) {
   try {
-    const { email, password } = await req.json(); // Get email and password from request body
+    const { email, password } = await req.json();
 
-    // Find customer in the database (replace this with actual DB query)
-    const customer = await Customer.findOne({ email });
-
-    if (!customer || customer.password !== password) {
-      return new Response(JSON.stringify({ message: "Invalid credentials" }), { status: 401 });
+    if (!email || !password) {
+      return NextResponse.json({ message: "Email and password are required." }, { status: 400 });
     }
 
-    // Create a JWT token
+    const anonClient = createSupabaseAnonClient();
+    const adminClient = createSupabaseAdminClient();
+
+    const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError || !signInData?.user) {
+      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+    }
+
+    const user = signInData.user;
+
+    const { data: profile, error: profileError } = await adminClient
+      .from("users")
+      .select("username, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Error fetching customer profile:", profileError);
+    }
+
+    const userName = profile?.username || user.user_metadata?.username || user.user_metadata?.name || "";
+
     const token = sign(
-      { id: customer.id, email: customer.email, name: customer.name },
+      {
+        id: user.id,
+        email: user.email,
+        name: userName,
+      },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" } // You can change the expiration as needed
+      { expiresIn: "1d" }
     );
 
-    return new Response(JSON.stringify({ token }), { status: 200 });
+    const response = NextResponse.json(
+      {
+        id: user.id,
+        email: user.email,
+        name: userName,
+        token,
+      },
+      { status: 200 }
+    );
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24,
+      path: "/",
+    });
+
+    return response;
 
   } catch (error) {
     console.error(error);
-    return new Response(JSON.stringify({ message: "Server error" }), { status: 500 });
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }

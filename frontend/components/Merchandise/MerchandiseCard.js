@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 export default function MerchandiseCard({ merch, addProductToCart }) {
   return (
@@ -11,9 +12,12 @@ export default function MerchandiseCard({ merch, addProductToCart }) {
       >
         {/* Product Image */}
         <div className="w-full h-72 bg-gray-100 rounded-lg overflow-hidden flex justify-center items-center">
-          <img
+          <Image
+            unoptimized
             src={merch.images?.[0] || "/fallback-image.jpg"}
             alt={merch.title}
+            width={720}
+            height={720}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
           />
         </div>

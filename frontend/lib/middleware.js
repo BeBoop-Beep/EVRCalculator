@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verify } from "jsonwebtoken";
 
 export async function middleware(req) {
-  const token = req.cookies.get("token"); // Use get() for cookies in Next.js 13 middleware
+  const token = req.cookies.get("token")?.value;
   console.log("Retrieved token in middleware:", token); 
 
   // Define protected routes

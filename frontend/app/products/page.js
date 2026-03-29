@@ -34,19 +34,7 @@ export default function Products() {
 
   // Fetch all categories from the server when the component mounts
   useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const res = await fetch("/api/category");
-        if (!res.ok) {
-          throw new Error("Failed to fetch categories");
-        }
-        const data = await res.json();
-        setCategories(data);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-      }
-    }
-    fetchCategories();
+    setCategories([]);
   }, []);
 
   // Filter products when selected child categories change

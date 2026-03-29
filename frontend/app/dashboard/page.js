@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
@@ -9,8 +9,6 @@ export default function Dashboard() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
-    address: "",
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -23,7 +21,7 @@ export default function Dashboard() {
   const router = useRouter();
 
   // Fetch customer details
-  const fetchCustomerDetails = async () => {
+  const fetchCustomerDetails = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/me");
       if (!res.ok) {
@@ -35,17 +33,15 @@ export default function Dashboard() {
       setFormData({
         name: data.user.name || "",
         email: data.user.email || "",
-        phone: data.user.phone || "",
-        address: data.user.address || "",
       });
     } catch (error) {
       console.error("Error fetching customer details:", error);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     fetchCustomerDetails();
-  }, []);
+  }, [fetchCustomerDetails]);
 
   // Logout function
   const handleLogout = async () => {

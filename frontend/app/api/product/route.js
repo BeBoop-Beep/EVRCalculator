@@ -1,11 +1,17 @@
-import { mongooseConnect } from "@/lib/mongoose"; 
-import Product from "@/models/Product";
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 
 export async function GET() {
-  await mongooseConnect();
-  const products = await Product.find().sort({ createdAt: -1 }); // Fetch all products sorted by newest
+  const adminClient = createSupabaseAdminClient();
+  const { data: products, error } = await adminClient
+    .from("products")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching products:", error);
+    return NextResponse.json({ message: "Failed to fetch products" }, { status: 500 });
+  }
+
   return NextResponse.json(products);
 }
-
-  // const featuredProductId = "679c226955387359de7ff2e0";
