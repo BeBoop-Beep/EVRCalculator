@@ -1,7 +1,14 @@
 import StickyNav from "@/components/StickyNav";
 import { CartContextProvider } from "@/components/Cart/CartContext";
 import { AuthProvider } from "@/components/AuthContext";
+import { Manrope } from "next/font/google";
 import "./styles/globals.css";
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+});
 
 export const metadata = {
   title: "inDex",
@@ -16,7 +23,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="flex flex-col min-h-screen">
+      <body className={`${manrope.variable} flex flex-col min-h-screen`}>
         {/* Header */}
         <CartContextProvider>
           <AuthProvider>

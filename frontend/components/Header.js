@@ -1,6 +1,6 @@
 'use client';
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation for routing
 import SearchBar from "@/components/Search/SearchBar";
 
@@ -10,6 +10,9 @@ export default function Header() {
   const [isClient, setIsClient] = useState(false); // Track if the component is rendered on the client
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTCGsDropdownOpen, setIsTCGsDropdownOpen] = useState(false);
+  const [isCollectionDropdownOpen, setIsCollectionDropdownOpen] = useState(false);
+  const tcgsDropdownRef = useRef(null);
+  const collectionDropdownRef = useRef(null);
   const pathname = usePathname(); // Get the current route path
   const router = useRouter();
 
@@ -71,7 +74,33 @@ export default function Header() {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsTCGsDropdownOpen(false);
+    setIsCollectionDropdownOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        tcgsDropdownRef.current &&
+        !tcgsDropdownRef.current.contains(event.target)
+      ) {
+        setIsTCGsDropdownOpen(false);
+      }
+
+      if (
+        collectionDropdownRef.current &&
+        !collectionDropdownRef.current.contains(event.target)
+      ) {
+        setIsCollectionDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
     <header>
@@ -105,19 +134,29 @@ export default function Header() {
               >
                 Explore
               </Link>
-              <div className="relative overflow-visible">
+              <div ref={tcgsDropdownRef} className="relative overflow-visible">
                 <button
-                  onClick={() => setIsTCGsDropdownOpen(!isTCGsDropdownOpen)}
+                  onClick={() => {
+                    setIsTCGsDropdownOpen(!isTCGsDropdownOpen);
+                    setIsCollectionDropdownOpen(false);
+                  }}
                   className={`transition-colors duration-200 ease-in-out flex items-center gap-1 ${
                     isTopNavActive('/TCGs') ? 'text-accent' : 'hover:text-accent'
                   }`}
                 >
                   TCGs
-                  <span className={`text-sm transition-transform ${isTCGsDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`h-4 w-4 transition-transform duration-200 ${isTCGsDropdownOpen ? 'rotate-180' : ''}`}
+                  >
+                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
                 {isTCGsDropdownOpen && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 bg-primary/60 text-white divide-y divide-white/30 z-50 border-b border-white/20 whitespace-nowrap min-w-fit">
-                    <Link href="/TCGs/Pokemon" className="block px-4 py-3 hover:bg-white/10 transition-colors font-semibold" onClick={() => setIsTCGsDropdownOpen(false)}>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-[18px] bg-primary/[0.85] text-white divide-y divide-white/30 z-50 border-b border-white/20 whitespace-nowrap min-w-fit">
+                    <Link href="/TCGs/Pokemon" className="block px-6 py-4 hover:bg-white/10 transition-colors font-semibold" onClick={() => setIsTCGsDropdownOpen(false)}>
                       Pokémon
                     </Link>
                   </div>
@@ -148,12 +187,43 @@ export default function Header() {
             </div>
 
             <div className="hidden md:flex justify-start">
-              <Link
-                href={isAuthenticated ? "/dashboard" : "/login"}
-                className="text-[16px] font-semibold whitespace-nowrap transition-colors duration-200 ease-in-out hover:text-accent"
-              >
-                My Collection
-              </Link>
+              <div ref={collectionDropdownRef} className="relative overflow-visible">
+                <button
+                  onClick={() => {
+                    setIsCollectionDropdownOpen(!isCollectionDropdownOpen);
+                    setIsTCGsDropdownOpen(false);
+                  }}
+                  className={`text-[16px] font-semibold whitespace-nowrap transition-colors duration-200 ease-in-out flex items-center gap-1 ${
+                    isTopNavActive('/dashboard') ? 'text-accent' : 'hover:text-accent'
+                  }`}
+                >
+                  My Collection
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`h-4 w-4 transition-transform duration-200 ${isCollectionDropdownOpen ? 'rotate-180' : ''}`}
+                  >
+                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {isCollectionDropdownOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-[18px] min-w-full w-max bg-primary/[0.85] text-white divide-y divide-white/30 z-50 border-b border-white/20 whitespace-nowrap">
+                    <Link href="/dashboard/Collection" className="block px-6 py-4 hover:bg-white/10 transition-colors font-semibold" onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Collection
+                    </Link>
+                    <Link href="/dashboard/Binder" className="block px-6 py-4 hover:bg-white/10 transition-colors font-semibold" onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Binder
+                    </Link>
+                    <Link href="/dashboard/Shelf" className="block px-6 py-4 hover:bg-white/10 transition-colors font-semibold" onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Shelf
+                    </Link>
+                    <Link href="/dashboard/Watchlist" className="block px-6 py-4 hover:bg-white/10 transition-colors font-semibold" onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Watchlist
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -173,8 +243,15 @@ export default function Header() {
 
             <div className="hidden md:flex items-center">
               {!isAuthenticated ? (
-                <Link href="/login" className="px-4 py-1.5 text-[15px] font-semibold border-2 border-brand rounded-lg bg-brand text-white hover:bg-brand-dark hover:border-brand-dark transition-colors duration-200 ease-in-out">
-                  Login
+                <Link href="/login" className="pl-4 pr-2.5 py-2 text-[16px] font-semibold border-2 border-brand rounded-xl bg-brand text-white hover:bg-brand-dark hover:border-brand-dark transition-colors duration-200 ease-in-out">
+                  <span className="inline-flex items-center gap-1">
+                    Login
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
+                      <path d="M11 4.5H14.25C15.2165 4.5 16 5.2835 16 6.25V13.75C16 14.7165 15.2165 15.5 14.25 15.5H11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M4 10H12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M9.5 7.5L12 10L9.5 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
                 </Link>
               ) : (
                 <>
@@ -194,7 +271,7 @@ export default function Header() {
         {isMobileMenuOpen && (
           <div
             id="mobile-header-menu"
-            className="md:hidden fixed left-0 right-0 top-[57px] bottom-0 z-40 border-t border-white/20 bg-primary/60"
+            className="md:hidden fixed left-0 right-0 top-[57px] bottom-0 z-40 border-t border-white/20 bg-primary/[0.85]"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <nav
@@ -238,7 +315,14 @@ export default function Header() {
               <div className="border-y border-white/30 mb-6">
                 {!isAuthenticated ? (
                   <Link href="/login" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-white/10 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                    Login
+                    <span className="inline-flex items-center gap-1">
+                      Login
+                      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
+                        <path d="M11 4.5H14.25C15.2165 4.5 16 5.2835 16 6.25V13.75C16 14.7165 15.2165 15.5 14.25 15.5H11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M4 10H12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M9.5 7.5L12 10L9.5 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
                   </Link>
                 ) : (
                   <>
