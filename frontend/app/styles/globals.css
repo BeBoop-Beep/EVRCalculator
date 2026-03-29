@@ -4,6 +4,21 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --brand: #059669;
+  --brand-dark: #047857;
+  --brand-active: #065F46;
+  --brand-light: #A7F3D0;
+  --accent: #FACC15;
+  --accent-dark: #EAB308;
+  --success: #059669;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --neutral: #94A3B8;
+  --transition-default: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 100ms ease-in-out;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -23,6 +38,53 @@ body {
 /* Before JavaScript runs, the page will have full opacity */
 body.fade-out {
   opacity: 0;  
+}
+
+/* Focus ring styling for inputs */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
+  transition: var(--transition-default);
+}
+
+/* Smooth transitions for interactive elements */
+button,
+a,
+input,
+textarea,
+select {
+  transition: var(--transition-default);
+}
+
+/* Chart and metric styling helpers */
+.metric-positive {
+  color: var(--success);
+}
+
+.metric-negative {
+  color: var(--danger);
+}
+
+.metric-neutral {
+  color: var(--neutral);
+}
+
+.brand-text {
+  color: var(--brand);
+}
+
+.brand-bg {
+  background-color: var(--brand);
+}
+
+.accent-text {
+  color: var(--accent);
+}
+
+.accent-bg {
+  background-color: var(--accent);
 }
 
 
@@ -58,5 +120,19 @@ link[rel="icon"] {
 
 .animate-zoom-in {
   animation: zoom-in 5s ease-in-out infinite alternate; /* Slow, smooth zoom */
+}
+
+/* Smooth pulse for live metrics */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 

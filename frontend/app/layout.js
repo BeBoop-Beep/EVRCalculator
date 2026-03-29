@@ -4,8 +4,13 @@ import { AuthProvider } from "@/components/AuthContext";
 import "./styles/globals.css";
 
 export const metadata = {
-  title: "Shiny Finds",
+  title: "inDex",
   description: "Your go-to Pokémon TCG store!",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon-180x180.png",
+  },
 };
 
 export default function RootLayout({ children }) {

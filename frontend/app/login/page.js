@@ -101,14 +101,14 @@ export default function LoginPage() {
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
           <button
             type="submit"
-            className="w-full bg-primary text-white text-lg py-2 rounded-md mt-4 hover:bg-neutral-dark transition"
+            className="w-full bg-brand text-white text-lg py-2 rounded-md mt-4 hover:bg-brand-dark transition-colors duration-200 ease-in-out font-semibold"
           >
             Login
           </button>
           <div className="mt-4 text-center text-gray-600">
             <p>
               Don&apos;t have an account yet?{" "}
-              <Link href="/signup" className="text-primary font-semibold hover:underline">
+              <Link href="/signup" className="text-accent font-semibold hover:underline transition-colors duration-200 ease-in-out">
                 Sign up
               </Link>
             </p>

@@ -69,7 +69,7 @@ export default function Signup() {
           <input
             type="text"
             id="name"
-            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 transition-[border-color,box-shadow] duration-200 ease-in-out"
             placeholder="Enter your full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -81,7 +81,7 @@ export default function Signup() {
           <input
             type="email"
             id="email"
-            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 transition-[border-color,box-shadow] duration-200 ease-in-out"
             placeholder="Enter your email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -93,7 +93,7 @@ export default function Signup() {
           <input
             type="password"
             id="password"
-            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 transition-[border-color,box-shadow] duration-200 ease-in-out"
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -105,7 +105,7 @@ export default function Signup() {
           <input
             type="password"
             id="confirm-password"
-            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 transition-[border-color,box-shadow] duration-200 ease-in-out"
             placeholder="Confirm your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -125,7 +125,7 @@ export default function Signup() {
             I agree to the{' '}
             <button
               onClick={() => setIsTermsModalOpen(true)}
-              className="text-primary hover:underline"
+              className="text-accent hover:underline transition-colors duration-200 ease-in-out"
             >
               Terms & Conditions
             </button>
@@ -134,7 +134,7 @@ export default function Signup() {
 
         <button
           onClick={handleSignup}
-          className="w-full bg-primary text-white text-xl py-2 rounded-md hover:bg-neutral-dark transition cursor-pointer"
+          className="w-full bg-brand text-white text-xl py-2 rounded-md hover:bg-brand-dark transition-colors duration-200 ease-in-out cursor-pointer font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={!termsAccepted}
         >
           Create Account
@@ -143,7 +143,7 @@ export default function Signup() {
         <div className="mt-4 text-center text-gray-600">
           <p>
             Already have an account?{' '}
-            <a href="/login" className="text-primary hover:underline">
+            <a href="/login" className="text-accent hover:underline transition-colors duration-200 ease-in-out">
               Login
             </a>
           </p>

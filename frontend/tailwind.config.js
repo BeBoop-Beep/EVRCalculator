@@ -9,18 +9,31 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "rgb(2 6 23)", // Dark Blue
-        accent: "#FACC15", // Gold
-        "accent-dark": "#FFEB3B", // Dark yellow
-        "accent-light": "#FFF176", // Lighter Gold
+        primary: "rgb(2 6 23)", // Dark slate base
+        brand: "#059669", // Emerald green - default
+        "brand-dark": "#047857", // Emerald - hover
+        "brand-active": "#065F46", // Emerald - active
+        accent: "#FACC15", // Electric yellow - highlights & insights
+        "accent-dark": "#EAB308", // Dark yellow
+        "accent-light": "#FDE68A", // Light yellow
+        success: "#059669", // Chart: upward trends
+        danger: "#EF4444", // Chart: downward trends
+        warning: "#F59E0B", // Chart: warnings
+        neutral: "#94A3B8", // Chart: stable data
         "neutral-dark": "#374151", // Dark Gray for text
         "neutral-light": "#F8FAFC", // Light Gray background
         background: "var(--background)", // CSS variable for background
         foreground: "var(--foreground)", // CSS variable for foreground
       },
+      transitionDuration: {
+        100: "100ms",
+        200: "200ms",
+        300: "300ms",
+      },
       animation: {
         fadeIn: "fadeIn 0.8s ease-out forwards",
         slideUp: "slideUp 1s ease-out forwards",
+        pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
       keyframes: {
         fadeIn: {
