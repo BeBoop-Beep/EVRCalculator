@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export default function MerchandiseCard({ merch, addProductToCart }) {
   return (
-    <div className="group relative bg-white p-4 rounded-2xl shadow-lg hover:shadow-xl transition-all hover:cursor-pointer flex flex-col justify-between h-full">
+    <div className="group relative bg-[var(--surface-panel)] p-4 rounded-2xl border border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-all hover:cursor-pointer flex flex-col justify-between h-full">
       <a
         href={merch.url}
         target="_blank"
@@ -11,7 +11,7 @@ export default function MerchandiseCard({ merch, addProductToCart }) {
         className="w-full block"
       >
         {/* Product Image */}
-        <div className="w-full h-72 bg-gray-100 rounded-lg overflow-hidden flex justify-center items-center">
+        <div className="w-full h-72 bg-[var(--surface-page)] rounded-lg overflow-hidden flex justify-center items-center">
           <Image
             unoptimized
             src={merch.images?.[0] || "/fallback-image.jpg"}
@@ -24,8 +24,8 @@ export default function MerchandiseCard({ merch, addProductToCart }) {
 
         {/* Product Details */}
         <div className="mt-4 text-center">
-          <h3 className="text-lg font-semibold text-gray-900">{merch.title}</h3>
-          <p className="text-gray-600 mt-1">${merch.price}</p>
+          <h3 className="text-lg font-semibold text-[var(--text-primary)]">{merch.title}</h3>
+          <p className="text-[var(--text-secondary)] mt-1">${merch.price}</p>
         </div>
       </a>
 

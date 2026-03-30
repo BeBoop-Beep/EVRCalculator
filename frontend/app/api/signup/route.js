@@ -4,9 +4,10 @@ import { createSupabaseAnonClient, createSupabaseAdminClient } from "@/lib/supab
 
 export async function POST(req) {
   const { name, email, password } = await req.json(); // Parse the request body
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
 
   // Input validation
-  if (!name || !email || !password) {
+  if (!name || !normalizedEmail || !password) {
     return NextResponse.json({ error: "Please provide all required fields." }, { status: 400 });
   }
 
@@ -15,7 +16,7 @@ export async function POST(req) {
     const adminClient = createSupabaseAdminClient();
 
     const { data: signUpData, error: signUpError } = await anonClient.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         data: { username: name },
@@ -34,7 +35,7 @@ export async function POST(req) {
     const { error: upsertError } = await adminClient.from("users").upsert(
       {
         id: user.id,
-        email,
+        email: normalizedEmail,
         username: name,
       },
       { onConflict: "id" }
@@ -45,30 +46,46 @@ export async function POST(req) {
       return NextResponse.json({ error: "Failed to create customer profile." }, { status: 500 });
     }
 
-    const token = jwt.sign(
-      { id: user.id, email, name },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
+    // If session is missing, Supabase likely requires email confirmation before login.
+    if (!signUpData.session) {
+      return NextResponse.json(
+        {
+          message: "Signup successful. Please confirm your email before logging in.",
+          requiresEmailConfirmation: true,
+          user: {
+            id: user.id,
+            name,
+            email: normalizedEmail,
+          },
+        },
+        { status: 201 }
+      );
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return NextResponse.json({ error: "Server authentication is not configured." }, { status: 500 });
+    }
+
+    const token = jwt.sign({ id: user.id, email: normalizedEmail, name }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
     const response = NextResponse.json(
       {
-        message: 'Signup successful',
+        message: "Signup successful",
         user: {
           id: user.id,
           name,
-          email,
-        }
-      }, 
+          email: normalizedEmail,
+        },
+      },
       { status: 201 }
     );
 
-    response.cookies.set('token', token, {
+    response.cookies.set("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24,
-      path: '/',
-      sameSite: 'strict',
+      path: "/",
+      sameSite: "strict",
     });
 
     return response;

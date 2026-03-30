@@ -189,7 +189,7 @@ export default function Checkout() {
       </div>
 
       {/* Right Section: Order Summary */}
-      <div className="bg-gray-100 p-6 rounded-lg h-fit">
+      <div className="bg-[var(--surface-panel)] border border-[var(--border-subtle)] p-6 rounded-lg h-fit">
         <h2 className="text-lg font-semibold mb-3">Order Summary</h2>
         {cartProducts.map((product, index) => (
           <div key={index} className="flex justify-between mb-2">

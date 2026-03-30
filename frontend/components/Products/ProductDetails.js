@@ -22,10 +22,10 @@ export default function ProductDetails({ product }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-10">
+    <div className="min-h-screen bg-[var(--surface-page)] py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Increased the width and height of the container */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-12 rounded-lg shadow-lg" style={{ minHeight: '600px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-[var(--surface-panel)] p-12 rounded-lg border border-[var(--border-subtle)]" style={{ minHeight: '600px' }}>
           {/* Product Image Gallery */}
           <div className="flex justify-center items-center">
             <Swiper
@@ -55,14 +55,14 @@ export default function ProductDetails({ product }) {
 
           {/* Product Details Section */}
           <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">{product.title}</h1>
-            <p className="text-xl text-gray-700">${product.price}</p>
-            <p className="text-gray-600">{product.description}</p>
+            <h1 className="text-3xl font-bold text-[var(--text-primary)]">{product.title}</h1>
+            <p className="text-xl text-[var(--text-secondary)]">${product.price}</p>
+            <p className="text-[var(--text-secondary)]">{product.description}</p>
 
             {/* Variants */}
             {product.variants && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Select Variant</h3>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">Select Variant</h3>
                 <div className="flex flex-wrap gap-2">
                   {product.variants.map((variant) => (
                     <button
@@ -70,9 +70,9 @@ export default function ProductDetails({ product }) {
                       onClick={() => setSelectedVariant(variant)}
                       className={`px-4 py-2 border rounded-lg ${
                         selectedVariant?._id === variant._id
-                          ? "bg-black text-white"
-                          : "bg-white text-gray-700"
-                      } hover:bg-gray-100 transition-colors`}
+                          ? "bg-[var(--surface-header)] text-[var(--text-primary)]"
+                          : "bg-[var(--surface-page)] text-[var(--text-secondary)]"
+                      } hover:bg-[var(--surface-hover)] transition-colors`}
                     >
                       {variant.name}
                     </button>

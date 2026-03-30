@@ -9,9 +9,9 @@ export default function Error({ error, reset }) {
 
   return (
     <div className="min-h-[50vh] flex items-center justify-center px-6 py-16">
-      <div className="max-w-xl w-full rounded-xl border border-gray-200 bg-white p-8 shadow-sm text-center">
-        <h2 className="text-2xl font-bold text-primary mb-3">Something went wrong</h2>
-        <p className="text-gray-600 mb-6">An unexpected error occurred while loading this page.</p>
+      <div className="max-w-xl w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-8 text-center">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-3">Something went wrong</h2>
+        <p className="text-[var(--text-secondary)] mb-6">An unexpected error occurred while loading this page.</p>
         <button
           type="button"
           onClick={() => reset()}

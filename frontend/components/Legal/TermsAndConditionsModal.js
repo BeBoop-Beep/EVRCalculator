@@ -25,7 +25,7 @@ const TermsModal = ({ isOpen, onClose, onAgree }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div className="bg-[var(--surface-panel)] p-6 rounded-lg border border-[var(--border-subtle)] max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         <h1 className="text-2xl font-bold mb-4">Terms and Conditions</h1>
         <p>
           <strong>Last Updated:</strong> {lastUpdated}
@@ -206,13 +206,13 @@ const TermsModal = ({ isOpen, onClose, onAgree }) => {
             contact us at:
             <br />
             Email:{" "}
-            <span className="text-gray-500">TODO: Add your email address</span>
+            <span className="text-[var(--text-secondary)]">TODO: Add your email address</span>
             <br />
             Phone:{" "}
-            <span className="text-gray-500">TODO: Add your phone number</span>
+            <span className="text-[var(--text-secondary)]">TODO: Add your phone number</span>
             <br />
             Address:{" "}
-            <span className="text-gray-500">
+            <span className="text-[var(--text-secondary)]">
               TODO: Add your business address
             </span>
           </p>
@@ -220,7 +220,7 @@ const TermsModal = ({ isOpen, onClose, onAgree }) => {
         <div className="mt-4 flex justify-end">
           <button
             onClick={onClose}
-            className="mr-2 px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+            className="mr-2 px-4 py-2 bg-[var(--surface-hover)] text-[var(--text-primary)] rounded-md hover:bg-[var(--surface-hover)]"
           >
             Close
           </button>
@@ -230,7 +230,7 @@ const TermsModal = ({ isOpen, onClose, onAgree }) => {
             className={`px-4 py-2 ${
               isScrolledToBottom
                 ? "bg-primary text-white hover:bg-primary-dark"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[var(--surface-hover)] text-[var(--text-secondary)] cursor-not-allowed"
             } rounded-md`}
           >
             Agree

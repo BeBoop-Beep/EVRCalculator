@@ -13,10 +13,10 @@ export default function ProductDetailsCard({ product }) {
   return (
     <div
       onClick={handleProductClick}
-      className="group relative bg-white p-4 rounded-2xl shadow-lg hover:shadow-xl transition-all hover:cursor-pointer"
+      className="group relative bg-[var(--surface-panel)] p-4 rounded-2xl border border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-all hover:cursor-pointer"
     >
       {/* Product Image */}
-      <div className="w-full h-96 bg-gray-100 rounded-lg overflow-hidden flex justify-center items-center"> {/* Increased height */}
+      <div className="w-full h-96 bg-[var(--surface-page)] rounded-lg overflow-hidden flex justify-center items-center"> {/* Increased height */}
         <Image
           unoptimized
           src={product.images?.[0] || "/fallback-image.jpg"}
@@ -29,8 +29,8 @@ export default function ProductDetailsCard({ product }) {
 
       {/* Product Details */}
       <div className="mt-4 text-center">
-        <h3 className="text-lg font-semibold text-gray-900">{product.title}</h3>
-        <p className="text-gray-600 mt-1">${product.price}</p>
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">{product.title}</h3>
+        <p className="text-[var(--text-secondary)] mt-1">${product.price}</p>
       </div>
     </div>
   );

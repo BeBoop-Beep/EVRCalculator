@@ -17,8 +17,8 @@ export default function MerchandiseStoreFilter({
   };
 
   return (
-    <div className="fixed top-[140px] left-0 w-64 h-[calc(100vh-140px)] bg-white p-6 overflow-y-auto border-r border-gray-200 shadow-lg">
-      <h3 className="text-xl font-semibold text-gray-900 mb-6">Filters</h3>
+    <div className="fixed top-[140px] left-0 w-64 h-[calc(100vh-140px)] bg-[var(--surface-panel)] p-6 overflow-y-auto border-r border-[var(--border-subtle)]">
+      <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-6">Filters</h3>
 
       {/* Render only the filtered parents */}
       {parents.map((parent) => {
@@ -27,8 +27,8 @@ export default function MerchandiseStoreFilter({
 
         return (
           <div key={parent._id} className="mb-3">
-            <label className="flex items-center cursor-pointer font-semibold text-gray-800 hover:text-gray-900 transition-colors">
-              <div className="relative w-5 h-5 mr-3 border border-gray-300 rounded-md flex items-center justify-center transition-all hover:border-gray-400">
+            <label className="flex items-center cursor-pointer font-semibold text-[var(--text-primary)] hover:text-[var(--text-primary)] transition-colors">
+              <div className="relative w-5 h-5 mr-3 border border-[var(--border-subtle)] rounded-md flex items-center justify-center transition-all hover:border-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   className="absolute opacity-0 w-full h-full cursor-pointer"
@@ -36,9 +36,9 @@ export default function MerchandiseStoreFilter({
                   onChange={() => toggleParent(parent._id)}
                 />
                 {isExpanded ? (
-                  <span className="text-gray-800 text-sm">-</span>
+                  <span className="text-[var(--text-primary)] text-sm">-</span>
                 ) : hasChildrenSelected ? (
-                  <span className="text-gray-800 text-sm">✓</span>
+                  <span className="text-[var(--text-primary)] text-sm">✓</span>
                 ) : null}
               </div>
               <span>{parent.name}</span>
@@ -50,9 +50,9 @@ export default function MerchandiseStoreFilter({
                   {groupedChildren[parent._id].map((child) => (
                     <label
                       key={child._id}
-                      className="flex items-center cursor-pointer text-gray-700 hover:text-gray-900 transition-colors"
+                      className="flex items-center cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                     >
-                      <div className="relative w-5 h-5 mr-3 border border-gray-300 rounded-md flex items-center justify-center transition-all hover:border-gray-400">
+                      <div className="relative w-5 h-5 mr-3 border border-[var(--border-subtle)] rounded-md flex items-center justify-center transition-all hover:border-[var(--text-secondary)]">
                         <input
                           type="checkbox"
                           className="absolute opacity-0 w-full h-full cursor-pointer"
@@ -60,7 +60,7 @@ export default function MerchandiseStoreFilter({
                           onChange={() => onChildCategorySelect(child._id)}
                         />
                         {selectedChildCategories.includes(child._id) && (
-                          <span className="text-gray-800 text-sm">✓</span>
+                          <span className="text-[var(--text-primary)] text-sm">✓</span>
                         )}
                       </div>
                       <span>{child.name}</span>
@@ -75,7 +75,7 @@ export default function MerchandiseStoreFilter({
       {/* Clear All Filters Button */}
       {selectedChildCategories.length > 0 && (
         <button
-          className="w-full py-2 px-4 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+          className="w-full py-2 px-4 bg-[var(--surface-page)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--border-subtle)]"
           onClick={onClearAllFilters}
         >
           Clear All Filters

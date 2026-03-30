@@ -94,14 +94,14 @@ export default function Products() {
         {/* Product Listing */}
         <div className={`flex-grow ${isFilterOpen ? "" : "w-full"}`}>
           <div className="flex w-full mb-6 items-center justify-center">
-            <h2 className="text-3xl font-bold text-gray-900 text-center mr-4">
+            <h2 className="text-3xl font-bold text-[var(--text-primary)] text-center mr-4">
               The Shiny Shop
             </h2>
             {/* Filter Toggle Button with Tooltip */}
             <div className="relative group">
               <button
                 onClick={toggleFilter}
-                className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="p-2 bg-[var(--surface-panel)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
                 aria-label="Toggle filters"
               >
                 {isFilterOpen ? (
@@ -137,9 +137,9 @@ export default function Products() {
                 )}
               </button>
               {/* Tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-[var(--surface-header)] text-[var(--text-primary)] text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
                 Filters
-                <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[var(--surface-header)] rotate-45"></div>
               </div>
             </div>
           </div>
@@ -160,7 +160,7 @@ export default function Products() {
                 </div>
               ))
             ) : (
-              <div className="col-span-full text-center text-gray-500">
+              <div className="col-span-full text-center text-[var(--text-secondary)]">
                 No products found under those filters at this time.
               </div>
             )}

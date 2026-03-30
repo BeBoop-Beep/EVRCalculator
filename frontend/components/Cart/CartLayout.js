@@ -29,9 +29,9 @@ export default function CartLayout({
         </h2>
   
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+          <div className="lg:col-span-2 bg-[var(--surface-panel)] p-6 rounded-lg border border-[var(--border-subtle)]">
             {cartProducts.length === 0 ? (
-              <p className="text-gray-500 text-lg">Your cart is empty.</p>
+              <p className="text-[var(--text-secondary)] text-lg">Your cart is empty.</p>
             ) : (
               <ul>
                 {[...products, ...merchandise].map((item, index) => {
@@ -57,7 +57,7 @@ export default function CartLayout({
                           <div className="flex items-center mt-2">
                             <button
                               className={`w-8 h-8 flex items-center justify-center rounded-md ${
-                                quantity === 1 ? "bg-transparent" : "bg-gray-200"
+                                quantity === 1 ? "bg-transparent" : "bg-[var(--surface-hover)]"
                               }`}
                               onClick={() =>
                                 quantity === 1
@@ -86,7 +86,7 @@ export default function CartLayout({
                             </button>
                             <span className="mx-2">{quantity}</span>
                             <button
-                              className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-md"
+                              className="w-8 h-8 flex items-center justify-center bg-[var(--surface-hover)] rounded-md"
                               onClick={() => updateQuantity(item._id, 1)}
                             >
                               +
@@ -104,7 +104,7 @@ export default function CartLayout({
             )}
           </div>
   
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-[var(--surface-panel)] p-6 rounded-lg border border-[var(--border-subtle)]">
             <h3 className="text-xl font-semibold mb-4">Summary</h3>
   
             <div className="flex justify-between items-center border-b pb-2 mb-2">

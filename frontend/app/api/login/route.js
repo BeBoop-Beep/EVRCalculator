@@ -4,8 +4,9 @@ import { createSupabaseAnonClient, createSupabaseAdminClient } from "@/lib/supab
 
 export async function POST(req) {
   const { email, password } = await req.json();
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
 
-  if (!email || !password) {
+  if (!normalizedEmail || !password) {
     return NextResponse.json(
       { message: "Email and password are required." },
       { status: 400 }
@@ -17,13 +18,13 @@ export async function POST(req) {
     const adminClient = createSupabaseAdminClient();
 
     const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     });
 
     if (signInError || !signInData?.user) {
       return NextResponse.json(
-        { message: "Invalid email or password." },
+        { message: signInError?.message || "Invalid email or password." },
         { status: 400 }
       );
     }
@@ -40,6 +41,13 @@ export async function POST(req) {
     }
 
     const userName = profile?.username || user.user_metadata?.username || user.user_metadata?.name || "";
+
+    if (!process.env.JWT_SECRET) {
+      return NextResponse.json(
+        { message: "Server authentication is not configured." },
+        { status: 500 }
+      );
+    }
 
     const newToken = sign(
       {

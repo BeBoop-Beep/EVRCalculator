@@ -5,10 +5,13 @@ export async function middleware(req) {
   const token = req.cookies.get("token")?.value;
   console.log("Retrieved token in middleware:", token); 
 
-  // Define protected routes
-  const protectedRoutes = ["/dashboard"];
+  // Define protected route prefixes.
+  const protectedRoutes = ["/dashboard", "/profile", "/account-settings"];
+  const isProtectedRoute = protectedRoutes.some(
+    (route) => req.nextUrl.pathname === route || req.nextUrl.pathname.startsWith(`${route}/`)
+  );
 
-  if (protectedRoutes.includes(req.nextUrl.pathname)) {
+  if (isProtectedRoute) {
     if (!token) {
       return NextResponse.redirect(new URL("/login", req.url)); // Redirect to login if no token
     }
@@ -26,5 +29,5 @@ export async function middleware(req) {
 
 // Configure middleware to run on specific paths
 export const config = {
-  matcher: ["/dashboard"], // Add more protected routes here
+  matcher: ["/dashboard/:path*", "/profile/:path*", "/account-settings/:path*"],
 };

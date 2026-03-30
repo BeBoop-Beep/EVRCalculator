@@ -25,7 +25,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="">
+    <div className="bg-[linear-gradient(180deg,#020817_0%,#06122a_28%,#0a1a37_46%,#f8fafc_72%,#f8fafc_100%)]">
       <Featured products={products} />
       <NewProducts products={products} />
     </div>
