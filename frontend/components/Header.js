@@ -5,9 +5,31 @@ import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation
 import SearchBar from "@/components/Search/SearchBar";
 import Image from "next/image";
 
+function getCleanText(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
+function getPreferredAccountLabel(user) {
+  const displayName = getCleanText(user?.display_name ?? user?.displayName);
+  if (displayName) return displayName;
+
+  const username = getCleanText(user?.username);
+  if (username) return username;
+
+  const directFirstName = getCleanText(user?.first_name ?? user?.firstName);
+  if (directFirstName) return directFirstName;
+
+  const fullName = getCleanText(user?.name ?? user?.full_name ?? user?.fullName);
+  if (fullName) return fullName.split(/\s+/)[0];
+
+  return null;
+}
+
 export default function Header() {
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Track authentication state
-  const [customerName, setCustomerName] = useState(null); // Track the customer's name
+  const [accountLabel, setAccountLabel] = useState(null); // Track the account label shown in the header
   const [isClient, setIsClient] = useState(false); // Track if the component is rendered on the client
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -19,17 +41,19 @@ export default function Header() {
   const pathname = usePathname(); // Get the current route path
   const router = useRouter();
 
-  const navTabBase = "min-w-[96px] xl:min-w-[110px] px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-colors duration-200 ease-in-out";
+  const avatarLetter = (accountLabel || "A").charAt(0).toUpperCase();
+
+  const navTabBase = "min-w-[96px] xl:min-w-[110px] px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out";
   const navTabActive = "text-[var(--accent)] relative after:content-[''] after:absolute after:left-4 after:right-4 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
-  const navTabInactive = "text-[var(--text-secondary)] hover:text-[var(--accent)]";
+  const navTabInactive = "text-[var(--text-secondary)] opacity-85 hover:text-[var(--text-primary)] hover:opacity-100";
   const navDropdownSurface = "bg-[var(--surface-panel)]";
-  const navDropTrigger = "inline-flex items-center gap-1.5 px-2 py-2 text-sm xl:text-[15px] font-medium leading-5 rounded-md border border-transparent transition-colors duration-200 ease-in-out";
-  const navDropPanel = `absolute top-full mt-1 rounded-md ${navDropdownSurface} text-[var(--text-primary)] z-50 border border-[var(--border-subtle)] whitespace-nowrap py-1`;
+  const navDropTrigger = "inline-flex items-center gap-1.5 px-2 py-2 text-sm xl:text-[15px] font-medium leading-5 rounded-md border border-transparent transition-[color,background-color,opacity] duration-150 ease-out";
+  const navDropPanel = `absolute top-full mt-1 rounded-xl ${navDropdownSurface} text-[var(--text-primary)] z-50 border border-[var(--border-subtle)] whitespace-nowrap py-1 dropdown-enter`;
   const navDropPanelCompact = "w-36";
   const navDropPanelAccount = "w-48";
   const navDropItem = "block w-full px-4 py-2 text-[15px] leading-5 text-left text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors";
-  const navDropTriggerOpen = "text-[var(--accent)] bg-[var(--surface-header)]";
-  const navDropTriggerClosed = "text-[var(--text-secondary)] bg-[var(--surface-header)] hover:text-[var(--accent)] hover:bg-[var(--surface-hover)]";
+  const navDropTriggerOpen = "text-[var(--text-primary)] bg-[var(--surface-hover)]";
+  const navDropTriggerClosed = "text-[var(--text-secondary)] bg-[var(--surface-header)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]";
 
   const isTopNavActive = (path) => pathname === path || pathname.startsWith(`${path}/`);
 
@@ -50,7 +74,7 @@ export default function Header() {
       }
 
       setIsAuthenticated(false);
-      setCustomerName(null);
+      setAccountLabel(null);
       setIsMobileMenuOpen(false);
       setIsUserDropdownOpen(false);
       router.push('/login');
@@ -76,14 +100,14 @@ export default function Header() {
         if (res.ok) {
           const customer = await res.json();
           setIsAuthenticated(true);
-          setCustomerName(customer.user?.name || null);
+          setAccountLabel(getPreferredAccountLabel(customer.user));
         } else {
           setIsAuthenticated(false);
-          setCustomerName(null);
+          setAccountLabel(null);
         }
       } catch (error) {
         setIsAuthenticated(false);
-        setCustomerName(null);
+        setAccountLabel(null);
       }
     };
 
@@ -295,7 +319,10 @@ export default function Header() {
                     aria-expanded={isUserDropdownOpen}
                     aria-haspopup="menu"
                   >
-                    <span className="truncate">{customerName || "Account"}</span>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">
+                      {avatarLetter}
+                    </span>
+                    <span className="truncate">{accountLabel || "Account"}</span>
                     <svg
                       viewBox="0 0 20 20"
                       fill="none"

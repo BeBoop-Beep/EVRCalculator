@@ -57,7 +57,9 @@ export default function Checkout() {
 // console.log("Total:", total);
 
   return (
-    <div className="max-w-4xl mx-auto p-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="mx-auto w-full max-w-4xl px-6 py-10">
+      <div className="dashboard-container">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Left Section: Form Steps */}
       <div className="md:col-span-2">
         {/* Step 1: Shipping Details */}
@@ -214,6 +216,8 @@ export default function Checkout() {
           <span>Total</span>
           <span>${Number(total).toFixed(2)}</span>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

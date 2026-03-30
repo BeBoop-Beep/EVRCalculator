@@ -7,6 +7,7 @@ export default function PokemonPage() {
       <SecondaryNav basePath="/TCGs/Pokemon" />
       <main className="w-full px-2 md:px-6 lg:px-10 py-8">
         <div className="max-w-6xl mx-auto">
+          <div className="dashboard-container">
           <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-4">
             Pokémon Trading Card Game
           </h1>
@@ -42,7 +43,8 @@ export default function PokemonPage() {
               </p>
             </div>
           </div>
-        </div>
+            </div>
+          </div>
       </main>
     </div>
   );

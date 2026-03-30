@@ -164,8 +164,9 @@ export default function AccountSettingsPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-6 py-5">
+    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="dashboard-container space-y-6">
+      <section className="page-hero-panel rounded-2xl px-6 py-7">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">inDex</p>
@@ -306,6 +307,7 @@ export default function AccountSettingsPage() {
           </div>
         </form>
       </div>
-    </main>
+        </div>
+      </main>
   );
 }

@@ -78,7 +78,8 @@ export default function Products() {
   };
 
   return (
-    <div className="container mx-auto px-6 py-10">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="dashboard-container">
       {/* Flex container for filter and products */}
       <div className="flex space-x-8">
         {/* Filter Wrapper Component (conditionally rendered) */}
@@ -167,6 +168,7 @@ export default function Products() {
           </div>
         </div>
       </div>
+        </div>
     </div>
   );
 }

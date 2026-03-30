@@ -7,6 +7,8 @@
   --surface-header: #050b15;
   --surface-page: #09101b;
   --surface-panel: #101b2d;
+  --surface-hero-top: #131d34;
+  --surface-hero-bottom: #0f182c;
   --surface-hover: #18223f;
   --surface-primary: var(--surface-page);
   --border-subtle: rgba(255, 255, 255, 0.06);
@@ -31,6 +33,8 @@
   --surface-header: #ffffff;
   --surface-page: #f8fafc;
   --surface-panel: #ffffff;
+  --surface-hero-top: #ffffff;
+  --surface-hero-bottom: #f3f7fc;
   --surface-hover: rgba(2, 6, 23, 0.05);
   --border-subtle: rgba(15, 23, 42, 0.09);
   --text-primary: #0f172a;
@@ -94,6 +98,36 @@ input,
 textarea,
 select {
   transition: var(--transition-default);
+}
+
+.dashboard-panel {
+  background-color: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  transition: background-color 150ms ease;
+}
+
+.dashboard-panel:hover {
+  background-color: var(--surface-hover);
+}
+
+.page-hero-panel {
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-panel);
+}
+
+.dashboard-container {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.metric-label {
+  opacity: 0.65;
+}
+
+.metric-value {
+  opacity: 1;
 }
 
 /* Chart and metric styling helpers */
@@ -172,6 +206,29 @@ link[rel="icon"] {
 
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdown-enter {
+  transform-origin: top center;
+  animation: dropdown-enter 120ms ease-out;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropdown-enter {
+    animation: none;
+  }
 }
 
 /* For page-level sticky controls that should sit below the global sticky header. */

@@ -126,7 +126,8 @@ export default function Cart() {
   );
 
   return (
-    <div className="container mx-auto p-6 py-10">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="dashboard-container">
       <h2 className="text-3xl font-bold text-primary mb-6 flex items-center gap-2">
         Cart{" "}
         <svg
@@ -270,6 +271,7 @@ export default function Cart() {
             Checkout
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

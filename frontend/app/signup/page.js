@@ -67,8 +67,9 @@ export default function Signup() {
   };
 
   return (
-    <div className="container mx-auto p-6 py-16">
-      <div className="max-w-md mx-auto bg-[var(--surface-panel)] p-8 rounded-lg border border-[var(--border-subtle)]">
+    <div className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
+      <div className="dashboard-container">
+        <div className="max-w-md mx-auto bg-[var(--surface-panel)] p-8 rounded-lg border border-[var(--border-subtle)]">
         <h2 className="text-4xl font-bold text-center text-[var(--text-primary)] mb-6">Create Account</h2>
 
         {errorMessage && <p className="text-red-500 text-center">{errorMessage}</p>}
@@ -159,6 +160,8 @@ export default function Signup() {
             </a>
           </p>
         </div>
+      </div>
+
       </div>
 
       {/* Terms Modal */}

@@ -9,12 +9,14 @@ export default function Merchandise() {
   }, []);
 
   return (
-    <div className="container mx-auto px-6 py-10">
-      <div className="max-w-2xl mx-auto bg-[var(--surface-panel)] rounded-lg border border-[var(--border-subtle)] p-8 text-center">
-        <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-4">Shiny Merch</h2>
-        <p className="text-[var(--text-secondary)]">
-          Merchandise is currently unavailable in the frontend while this section is being migrated.
-        </p>
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="dashboard-container">
+        <div className="max-w-2xl mx-auto bg-[var(--surface-panel)] rounded-lg border border-[var(--border-subtle)] p-8 text-center">
+          <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-4">Shiny Merch</h2>
+          <p className="text-[var(--text-secondary)]">
+            Merchandise is currently unavailable in the frontend while this section is being migrated.
+          </p>
+        </div>
       </div>
     </div>
   );

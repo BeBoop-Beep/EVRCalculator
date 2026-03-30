@@ -90,8 +90,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 py-16">
-      <div>
+    <div className="mx-auto w-full max-w-lg px-4 py-16 sm:px-6">
+      <div className="dashboard-container">
           <h2 className="text-4xl font-bold text-center text-[var(--text-primary)] mb-6">
           Login
         </h2>

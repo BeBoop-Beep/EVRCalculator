@@ -138,16 +138,17 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="p-6 shadow-lg rounded-2xl bg-white border border-gray-200">
-        <h1 className="text-3xl font-bold mb-4 text-primary text-center">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+      <div className="dashboard-container">
+      <div className="page-hero-panel rounded-2xl px-6 py-8">
+        <h1 className="mb-4 text-center text-3xl font-bold text-[var(--text-primary)]">
           Dashboard
         </h1>
         {customer && (
           <div className="flex flex-col items-center space-y-6">
             {Object.keys(formData).map((field) => (
               <div key={field} className="w-full mb-3">
-                <label className="font-semibold capitalize text-gray-700">
+                <label className="font-semibold capitalize text-[var(--text-secondary)]">
                   {field}
                 </label>
                 {editingField === field ? (
@@ -157,28 +158,28 @@ export default function Dashboard() {
                       name={field}
                       value={formData[field]}
                       onChange={handleChange}
-                      className="border p-2 w-full rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent)]"
                     />
                     <button
                       onClick={() => handleSubmit(field)}
-                      className="bg-primary text-white hover:bg-neutral-dark px-4 py-2 rounded-lg"
+                      className="rounded-lg bg-[var(--brand)] px-4 py-2 text-white hover:bg-[var(--brand-dark)]"
                     >
                       ✔
                     </button>
                     <button
                       onClick={() => setEditingField(null)}
-                      className="bg-gray-300 hover:bg-gray-200 hover:text-neutral-dark text-primary px-4 py-2 rounded-lg"
+                      className="rounded-lg bg-[var(--surface-page)] px-4 py-2 text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     >
                       ✖
                     </button>
                   </div>
                 ) : (
                   <div
-                    className="flex justify-between items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-100"
+                    className="flex cursor-pointer items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-2 hover:bg-[var(--surface-hover)]"
                     onClick={() => setEditingField(field)}
                   >
-                    <span>{customer[field] || "Not set"}</span>
-                    <button className="text-primary hover:text-yellow-400">
+                    <span className="text-[var(--text-primary)]">{customer[field] || "Not set"}</span>
+                    <button className="text-[var(--brand)] hover:text-[var(--accent)]">
                       Edit
                     </button>
                   </div>
@@ -188,7 +189,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setIsPasswordModalOpen(true)}
-              className="bg-primary hover:bg-neutral-dark text-white px-4 py-2 rounded-lg mt-4"
+              className="mt-4 rounded-lg bg-[var(--brand)] px-4 py-2 text-white hover:bg-[var(--brand-dark)]"
             >
               Change Password
             </button>
@@ -196,15 +197,15 @@ export default function Dashboard() {
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="bg-gray-400 hover:bg-gray-200 text-white px-4 py-2 rounded-lg mt-4"
+              className="mt-4 rounded-lg bg-[var(--neutral)] px-4 py-2 text-white hover:bg-[var(--surface-hover)]"
             >
               Logout
             </button>
 
             {isPasswordModalOpen && (
-              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-                <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-                  <h2 className="text-xl font-semibold mb-4 text-primary">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="w-96 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-6">
+                  <h2 className="mb-4 text-xl font-semibold text-[var(--text-primary)]">
                     Change Password
                   </h2>
                   {passwordError && (
@@ -215,7 +216,7 @@ export default function Dashboard() {
                     name="currentPassword"
                     value={passwordData.currentPassword}
                     onChange={handlePasswordChange}
-                    className="border p-2 w-full rounded-lg mb-2"
+                    className="mb-2 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-2 text-[var(--text-primary)]"
                     placeholder="Current Password"
                   />
                   <input
@@ -223,7 +224,7 @@ export default function Dashboard() {
                     name="newPassword"
                     value={passwordData.newPassword}
                     onChange={handlePasswordChange}
-                    className="border p-2 w-full rounded-lg mb-2"
+                    className="mb-2 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-2 text-[var(--text-primary)]"
                     placeholder="New Password"
                   />
                   <input
@@ -231,19 +232,19 @@ export default function Dashboard() {
                     name="confirmNewPassword"
                     value={passwordData.confirmNewPassword}
                     onChange={handlePasswordChange}
-                    className="border p-2 w-full rounded-lg mb-4"
+                    className="mb-4 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-2 text-[var(--text-primary)]"
                     placeholder="Confirm New Password"
                   />
                   <div className="flex justify-between">
                     <button
                       onClick={handlePasswordSubmit}
-                      className="bg-primary text-white px-3 py-2 rounded-lg"
+                      className="rounded-lg bg-[var(--brand)] px-3 py-2 text-white hover:bg-[var(--brand-dark)]"
                     >
                       Update Password
                     </button>
                     <button
                       onClick={() => setIsPasswordModalOpen(false)}
-                      className="bg-gray-300 hover:bg-gray-200 hover:text-neutral-dark text-primary px-3 py-2 rounded-lg"
+                      className="rounded-lg bg-[var(--surface-page)] px-3 py-2 text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     >
                       Cancel
                     </button>
@@ -253,7 +254,8 @@ export default function Dashboard() {
             )}
           </div>
         )}
+        </div>
+        </div>
       </div>
-    </div>
   );
 }

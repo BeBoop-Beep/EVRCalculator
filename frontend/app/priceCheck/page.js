@@ -38,13 +38,15 @@ export default function PriceChartingPage() {
   }, [queryFromUrl, handleSearch]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-8">
-        Pokémon TCG Price Tracker
-      </h1>
-      <SearchBar onSearch={handleSearch} initialQuery={queryFromUrl} />
-      <SearchResults results={results} />
-      {chartData.length > 0 && <PriceChart data={chartData} />}
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="dashboard-container">
+        <h1 className="text-3xl font-bold text-center mb-8">
+          Pokémon TCG Price Tracker
+        </h1>
+        <SearchBar onSearch={handleSearch} initialQuery={queryFromUrl} />
+        <SearchResults results={results} />
+        {chartData.length > 0 && <PriceChart data={chartData} />}
+      </div>
     </div>
   );
 }
