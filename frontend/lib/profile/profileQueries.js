@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
+import { normalizeUsernameForRoute } from "@/lib/profile/publicIdentity";
 
 const PROFILE_SELECT_FIELDS = [
   "id",
@@ -141,6 +142,64 @@ export async function getCurrentAuthenticatedUserProfile() {
     data: {
       ...profile,
       favorite_tcg_name: favoriteTcgResult.data?.name || null,
+    },
+    error: null,
+  };
+}
+
+/**
+ * Gets a public profile by route username.
+ * Returns not found when profile is private.
+ * @param {string} usernameParam
+ * @returns {Promise<ProfileDataResult<Pick<UserProfileRow, "id" | "username" | "display_name" | "avatar_url" | "bio" | "is_profile_public" | "location" | "favorite_tcg_id" | "created_at"> | null>>}
+ */
+export async function getPublicProfileByUsername(usernameParam) {
+  const username = normalizeUsernameForRoute(usernameParam);
+
+  const adminClient = createSupabaseAdminClient();
+  const { data: profile, error } = await adminClient
+    .from("users")
+    .select("id, username, display_name, avatar_url, bio, is_profile_public, location, favorite_tcg_id, created_at")
+    .eq("username", username)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      data: null,
+      error: createError("Unable to fetch public profile", 500, error.code),
+    };
+  }
+
+  if (!profile) {
+    return {
+      data: null,
+      error: createError("Public profile not found", 404, "PROFILE_NOT_FOUND"),
+    };
+  }
+
+  if (profile.is_profile_public === false) {
+    const authResult = await getCurrentAuthenticatedUser();
+    const isOwner = !authResult.error && authResult.data?.id && authResult.data.id === profile.id;
+
+    if (!isOwner) {
+      return {
+        data: null,
+        error: createError("Public profile not found", 404, "PROFILE_NOT_FOUND"),
+      };
+    }
+  }
+
+  // Resolve favorite TCG name if available
+  let favorite_tcg_name = null;
+  if (profile.favorite_tcg_id) {
+    const favoriteTcgResult = await getFavoriteTcgById(profile.favorite_tcg_id);
+    favorite_tcg_name = favoriteTcgResult.data?.name || null;
+  }
+
+  return {
+    data: {
+      ...profile,
+      favorite_tcg_name,
     },
     error: null,
   };

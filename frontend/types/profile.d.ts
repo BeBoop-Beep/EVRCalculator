@@ -32,6 +32,19 @@ export interface ProfileResponse {
   profile: UserProfileRow;
 }
 
+export interface PublicUserProfile {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  is_profile_public: boolean | null;
+}
+
+export interface PublicProfileResponse {
+  profile: PublicUserProfile;
+}
+
 export interface ProfileUpdatePayload {
   display_name?: string;
   bio?: string;
@@ -51,4 +64,55 @@ export interface ProfileDataError {
 export interface ProfileDataResult<T> {
   data: T;
   error: ProfileDataError | null;
+}
+
+export interface PublicProfileTabItem {
+  label: string;
+  href: string;
+  exact?: boolean;
+}
+
+export interface PublicFeaturedItem {
+  id: string;
+  name: string;
+  context: string;
+  valueLabel: string;
+  imageUrl: string | null;
+}
+
+export interface PublicPortfolioStat {
+  id: string;
+  label: string;
+  value: string;
+  helpText?: string;
+}
+
+export interface PublicPortfolioPerformance {
+  points: number[];
+  periodLabel: string;
+  valueLabel: string;
+  trendLabel: string;
+  returnLabel: string;
+}
+
+export interface PublicPortfolioHighlight {
+  id: string;
+  label: string;
+  value: string;
+  context?: string;
+}
+
+export interface PublicRecentActivityItem {
+  id: string;
+  title: string;
+  description: string;
+  timestampLabel: string;
+}
+
+export interface PublicProfileOverviewModel {
+  featuredItems: PublicFeaturedItem[];
+  snapshotStats: PublicPortfolioStat[];
+  performance: PublicPortfolioPerformance;
+  highlights: PublicPortfolioHighlight[];
+  recentActivity: PublicRecentActivityItem[];
 }

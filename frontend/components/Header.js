@@ -18,18 +18,13 @@ function getPreferredAccountLabel(user) {
   const username = getCleanText(user?.username);
   if (username) return username;
 
-  const directFirstName = getCleanText(user?.first_name ?? user?.firstName);
-  if (directFirstName) return directFirstName;
-
-  const fullName = getCleanText(user?.name ?? user?.full_name ?? user?.fullName);
-  if (fullName) return fullName.split(/\s+/)[0];
-
   return null;
 }
 
 export default function Header() {
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Track authentication state
   const [accountLabel, setAccountLabel] = useState(null); // Track the account label shown in the header
+  const [accountUsername, setAccountUsername] = useState(null);
   const [isClient, setIsClient] = useState(false); // Track if the component is rendered on the client
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -54,8 +49,12 @@ export default function Header() {
   const navDropItem = "block w-full px-4 py-2 text-[15px] leading-5 text-left text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors";
   const navDropTriggerOpen = "text-[var(--text-primary)] bg-[var(--surface-hover)]";
   const navDropTriggerClosed = "text-[var(--text-secondary)] bg-[var(--surface-header)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]";
+  const navDropTriggerActive = "relative text-[var(--accent)] after:content-[''] after:absolute after:left-2 after:right-2 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
 
   const isTopNavActive = (path) => pathname === path || pathname.startsWith(`${path}/`);
+  const isTcgsRouteActive = isTopNavActive('/TCGs');
+  const isMyCollectionRouteActive = isTopNavActive('/my-collection') || isTopNavActive('/dashboard');
+  const publicProfileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}` : "/profile";
 
   const handleHeaderSearch = (query) => {
     if (!query) return;
@@ -75,6 +74,7 @@ export default function Header() {
 
       setIsAuthenticated(false);
       setAccountLabel(null);
+      setAccountUsername(null);
       setIsMobileMenuOpen(false);
       setIsUserDropdownOpen(false);
       router.push('/login');
@@ -99,15 +99,19 @@ export default function Header() {
 
         if (res.ok) {
           const customer = await res.json();
+          const username = getCleanText(customer?.user?.username);
           setIsAuthenticated(true);
           setAccountLabel(getPreferredAccountLabel(customer.user));
+          setAccountUsername(username);
         } else {
           setIsAuthenticated(false);
           setAccountLabel(null);
+          setAccountUsername(null);
         }
       } catch (error) {
         setIsAuthenticated(false);
         setAccountLabel(null);
+        setAccountUsername(null);
       }
     };
 
@@ -197,7 +201,7 @@ export default function Header() {
                     setIsTCGsDropdownOpen(!isTCGsDropdownOpen);
                     setIsCollectionDropdownOpen(false);
                   }}
-                  className={`${navDropTrigger} ${isTopNavActive('/TCGs') || isTCGsDropdownOpen ? navDropTriggerOpen : navDropTriggerClosed}`}
+                  className={`${navDropTrigger} ${(isTcgsRouteActive || isTCGsDropdownOpen) ? navDropTriggerActive : navDropTriggerClosed}`}
                   aria-expanded={isTCGsDropdownOpen}
                   aria-haspopup="menu"
                 >
@@ -250,7 +254,7 @@ export default function Header() {
                     setIsCollectionDropdownOpen(!isCollectionDropdownOpen);
                     setIsTCGsDropdownOpen(false);
                   }}
-                  className={`${navDropTrigger} ${isTopNavActive('/dashboard') || isCollectionDropdownOpen ? navDropTriggerOpen : navDropTriggerClosed}`}
+                  className={`${navDropTrigger} ${(isMyCollectionRouteActive || isCollectionDropdownOpen) ? navDropTriggerActive : navDropTriggerClosed}`}
                   aria-expanded={isCollectionDropdownOpen}
                   aria-haspopup="menu"
                 >
@@ -266,16 +270,16 @@ export default function Header() {
                 </button>
                 {isCollectionDropdownOpen && (
                   <div className={`${navDropPanel} ${navDropPanelCompact} left-1/2 -translate-x-1/2`}>
-                    <Link href="/dashboard/Collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-collection/cards" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Collection
                     </Link>
-                    <Link href="/dashboard/Binder" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-collection/binder" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Binder
                     </Link>
-                    <Link href="/dashboard/Shelf" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-collection/shelf" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Shelf
                     </Link>
-                    <Link href="/dashboard/Watchlist" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-collection/wishlist" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Watchlist
                     </Link>
                   </div>
@@ -315,7 +319,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setIsUserDropdownOpen((prev) => !prev)}
-                    className={`${navDropTrigger} ${navDropPanelAccount} justify-between ${isTopNavActive('/profile') || isTopNavActive('/account-settings') || isUserDropdownOpen ? navDropTriggerOpen : navDropTriggerClosed}`}
+                    className={`${navDropTrigger} ${navDropPanelAccount} justify-between ${(isTopNavActive('/profile') || isTopNavActive('/u') || isTopNavActive('/my-collection') || isTopNavActive('/account-settings') || isUserDropdownOpen) ? navDropTriggerOpen : navDropTriggerClosed}`}
                     aria-expanded={isUserDropdownOpen}
                     aria-haspopup="menu"
                   >
@@ -336,11 +340,11 @@ export default function Header() {
                   {isUserDropdownOpen && (
                     <div className={`${navDropPanel} ${navDropPanelAccount} left-1/2 -translate-x-1/2`}>
                       <Link
-                        href="/profile"
+                        href={publicProfileHref}
                         className={navDropItem}
                         onClick={() => setIsUserDropdownOpen(false)}
                       >
-                        Profile
+                        Public Profile
                       </Link>
                       <Link
                         href="/account-settings"
@@ -393,16 +397,16 @@ export default function Header() {
 
               <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">MY COLLECTION</div>
               <div className="border-y border-[var(--border-subtle)]">
-                <Link href="/dashboard/Collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-collection/cards" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Collection
                 </Link>
-                <Link href="/dashboard/Binder" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-collection/binder" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Binder
                 </Link>
-                <Link href="/dashboard/Shelf" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-collection/shelf" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Shelf
                 </Link>
-                <Link href="/dashboard/Watchlist" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-collection/wishlist" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Watchlist
                 </Link>
               </div>
@@ -422,8 +426,11 @@ export default function Header() {
                   </Link>
                 ) : (
                   <>
-                    <Link href="/profile" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                      Profile
+                    <Link href={publicProfileHref} className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      Public Profile
+                    </Link>
+                    <Link href="/my-collection" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      My Collection
                     </Link>
                     <Link href="/account-settings" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                       Account Settings
