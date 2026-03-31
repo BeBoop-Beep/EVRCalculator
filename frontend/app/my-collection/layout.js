@@ -1,9 +1,8 @@
-import MyCollectionQuickActions from "@/components/Profile/MyCollectionQuickActions";
 import RouteTabsNav from "@/components/Profile/RouteTabsNav";
 
 const myCollectionTabs = [
   { label: "Overview", href: "/my-collection" },
-  { label: "Cards", href: "/my-collection/cards" },
+  { label: "Collection", href: "/my-collection/collection" },
   { label: "Binder", href: "/my-collection/binder" },
   { label: "Shelf", href: "/my-collection/shelf" },
   { label: "Wishlist", href: "/my-collection/wishlist" },
@@ -19,9 +18,6 @@ export default function MyCollectionLayout({ children }) {
           <p className="mt-2 text-sm text-[var(--text-secondary)]">Owner-only tools for building, importing, and managing your collection.</p>
           <RouteTabsNav items={myCollectionTabs} ariaLabel="My Collection sections" />
         </section>
-
-        <MyCollectionQuickActions />
-
         {children}
       </div>
     </main>

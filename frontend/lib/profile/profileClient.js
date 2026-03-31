@@ -69,3 +69,5 @@ export async function logoutCurrentUser() {
 
   return parseJsonResponse(response);
 }
+
+

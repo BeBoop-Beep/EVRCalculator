@@ -1,6 +1,12 @@
 /**
  * Reusable card component for collection items, wishlist items, and shelf items.
  * Displays card/product image with metadata and optional value/grade info.
+ * 
+ * Layout improvements:
+ * - Uniform card height with flex column structure
+ * - Fixed 3:4 aspect ratio for image containers
+ * - Consistent content area spacing and alignment
+ * - Minimum card height ensures alignment in grids
  */
 export default function CollectionItemCard({
   item,
@@ -14,9 +20,10 @@ export default function CollectionItemCard({
     if (variant === "shelf") {
       return (
         <>
-          <div className="relative aspect-square overflow-hidden bg-[var(--surface-hover)]">
+          {/* Image container with fixed 3:4 aspect ratio */}
+          <div className="relative w-full overflow-hidden bg-[var(--surface-hover)]" style={{ aspectRatio: "3 / 4" }}>
             {isPlaceholder ? (
-              <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
+              <div className="flex h-full w-full items-center justify-center text-xs text-[var(--text-secondary)]">
                 No image
               </div>
             ) : (
@@ -28,15 +35,24 @@ export default function CollectionItemCard({
               />
             )}
           </div>
-          <div className="space-y-2 p-3">
+          {/* Content area with flex column layout */}
+          <div className="flex flex-col gap-2 p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
               {item.productType || "Sealed Product"}
             </p>
-            <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
-            {item.quantity && <p className="text-xs text-[var(--text-secondary)]">Qty: {item.quantity}</p>}
-            {item.valueLabel && (
-              <p className="pt-1 text-sm font-medium text-[var(--text-primary)]">{item.valueLabel}</p>
-            )}
+            <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-[var(--text-primary)]">
+              {item.name}
+            </p>
+            <div className="mt-auto">
+              {item.quantity && (
+                <p className="text-xs text-[var(--text-secondary)]">Qty: {item.quantity}</p>
+              )}
+              {item.valueLabel && (
+                <p className="pt-1 text-sm font-medium text-[var(--text-primary)]">
+                  {item.valueLabel}
+                </p>
+              )}
+            </div>
           </div>
         </>
       );
@@ -45,9 +61,10 @@ export default function CollectionItemCard({
     if (variant === "detailed") {
       return (
         <>
-          <div className="relative aspect-[16/10] overflow-hidden bg-[var(--surface-hover)]">
+          {/* Image container with fixed 3:4 aspect ratio */}
+          <div className="relative w-full overflow-hidden bg-[var(--surface-hover)]" style={{ aspectRatio: "3 / 4" }}>
             {isPlaceholder ? (
-              <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
+              <div className="flex h-full w-full items-center justify-center text-xs text-[var(--text-secondary)]">
                 No image
               </div>
             ) : (
@@ -69,20 +86,31 @@ export default function CollectionItemCard({
               </div>
             )}
           </div>
-          <div className="space-y-2 p-4">
+          {/* Content area with flex column layout */}
+          <div className="flex flex-col gap-2 p-4">
             <div>
-              <p className="truncate text-xs text-[var(--text-secondary)]">{item.set || "Unknown Set"}</p>
-              <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
+              <p className="truncate text-xs text-[var(--text-secondary)]">
+                {item.set || "Unknown Set"}
+              </p>
+              <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-[var(--text-primary)]">
+                {item.name}
+              </p>
             </div>
-            {item.cardNumber && (
-              <p className="text-xs text-[var(--text-secondary)]">#{item.cardNumber}</p>
-            )}
-            {item.condition && (
-              <p className="text-xs font-medium text-[var(--text-secondary)]">Condition: {item.condition}</p>
-            )}
-            {item.valueLabel && (
-              <p className="pt-2 text-sm font-medium text-[var(--text-primary)]">{item.valueLabel}</p>
-            )}
+            <div className="mt-auto space-y-1">
+              {item.cardNumber && (
+                <p className="text-xs text-[var(--text-secondary)]">#{item.cardNumber}</p>
+              )}
+              {item.condition && (
+                <p className="text-xs font-medium text-[var(--text-secondary)]">
+                  Condition: {item.condition}
+                </p>
+              )}
+              {item.valueLabel && (
+                <p className="pt-1 text-sm font-medium text-[var(--text-primary)]">
+                  {item.valueLabel}
+                </p>
+              )}
+            </div>
           </div>
         </>
       );
@@ -91,9 +119,10 @@ export default function CollectionItemCard({
     // compact variant (default)
     return (
       <>
-        <div className="relative aspect-[16/10] overflow-hidden bg-[var(--surface-hover)]">
+        {/* Image container with fixed 3:4 aspect ratio */}
+        <div className="relative w-full overflow-hidden bg-[var(--surface-hover)]" style={{ aspectRatio: "3 / 4" }}>
           {isPlaceholder ? (
-            <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
+            <div className="flex h-full w-full items-center justify-center text-xs text-[var(--text-secondary)]">
               No image
             </div>
           ) : (
@@ -105,10 +134,19 @@ export default function CollectionItemCard({
             />
           )}
         </div>
-        <div className="space-y-1 p-4">
-          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
-          <p className="text-xs text-[var(--text-secondary)]">{item.context}</p>
-          {item.valueLabel && <p className="pt-2 text-sm font-medium text-[var(--text-primary)]">{item.valueLabel}</p>}
+        {/* Content area with flex column layout */}
+        <div className="flex flex-col gap-1 p-4">
+          <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-[var(--text-primary)]">
+            {item.name}
+          </p>
+          <div className="mt-auto">
+            <p className="text-xs text-[var(--text-secondary)]">{item.context}</p>
+            {item.valueLabel && (
+              <p className="pt-2 text-sm font-medium text-[var(--text-primary)]">
+                {item.valueLabel}
+              </p>
+            )}
+          </div>
         </div>
       </>
     );
@@ -116,8 +154,8 @@ export default function CollectionItemCard({
 
   return (
     <article
-      className={`group overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] ${
-        onClick ? "cursor-pointer transition-colors hover:border-[var(--border-prominent)]" : ""
+      className={`group flex h-full flex-col overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] transition-colors ${
+        onClick ? "cursor-pointer hover:border-[var(--border-prominent)]" : ""
       } ${className}`}
       onClick={onClick}
       role={onClick ? "button" : "article"}

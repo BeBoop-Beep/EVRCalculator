@@ -5,8 +5,8 @@ import CollectionSectionLayout from "@/components/Profile/CollectionSectionLayou
 import CollectionItemCard from "@/components/Profile/CollectionItemCard";
 import { getSectionConfig } from "@/config/collectionSectionConfig";
 
-// Mock data for binder (cards only)
-const MOCK_BINDER_ITEMS = [
+// Mock data for demonstration
+const MOCK_ITEMS = [
   {
     id: "1",
     name: "Pikachu ex",
@@ -16,7 +16,6 @@ const MOCK_BINDER_ITEMS = [
     imageUrl: null,
     valueLabel: "$45.50",
     isFoil: false,
-    rarity: "holo-rare",
   },
   {
     id: "2",
@@ -27,34 +26,29 @@ const MOCK_BINDER_ITEMS = [
     imageUrl: null,
     valueLabel: "$120.00",
     isFoil: true,
-    rarity: "holo-rare",
   },
   {
     id: "3",
+    name: "Booster Box - Scarlet & Violet",
+    set: "Scarlet & Violet",
+    productType: "Booster Box",
+    condition: "Sealed",
+    imageUrl: null,
+    valueLabel: "$89.99",
+  },
+  {
+    id: "4",
     name: "Blastoise",
     set: "Base Set",
     cardNumber: "002/102",
     condition: "Lightly Played",
     imageUrl: null,
     valueLabel: "$15.00",
-    isFoil: false,
-    rarity: "rare",
-  },
-  {
-    id: "4",
-    name: "Dragonite",
-    set: "Base Set",
-    cardNumber: "004/102",
-    condition: "Near Mint",
-    imageUrl: null,
-    valueLabel: "$28.00",
-    isFoil: true,
-    rarity: "holo-rare",
   },
 ];
 
-export default function MyCollectionBinderSection() {
-  const config = getSectionConfig("binder");
+export default function MyCollectionSection() {
+  const config = getSectionConfig("collection");
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
@@ -62,7 +56,7 @@ export default function MyCollectionBinderSection() {
 
   // Filter and sort items
   const filteredAndSortedItems = useMemo(() => {
-    let result = [...MOCK_BINDER_ITEMS];
+    let result = [...MOCK_ITEMS];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -70,31 +64,21 @@ export default function MyCollectionBinderSection() {
       result = result.filter(
         (item) =>
           item.name.toLowerCase().includes(query) ||
-          (item.set && item.set.toLowerCase().includes(query)) ||
-          (item.cardNumber && item.cardNumber.includes(query))
+          (item.set && item.set.toLowerCase().includes(query))
       );
     }
 
-    // Apply rarity filter
-    if (activeFilters.rarity && activeFilters.rarity.length > 0) {
-      result = result.filter((item) =>
-        activeFilters.rarity.includes(item.rarity)
-      );
-    }
-
-    // Apply foil filter
-    if (activeFilters.foil && activeFilters.foil.length > 0) {
-      result = result.filter((item) => item.isFoil);
+    // Apply type filter if active
+    if (activeFilters.type && activeFilters.type.length > 0) {
+      result = result.filter((item) => {
+        if (activeFilters.type.includes("cards")) return item.cardNumber;
+        if (activeFilters.type.includes("sealed")) return item.productType;
+        return false;
+      });
     }
 
     // Apply sort
     switch (sortBy) {
-      case "rarity":
-        result.sort((a, b) => a.rarity.localeCompare(b.rarity));
-        break;
-      case "name-asc":
-        result.sort((a, b) => a.name.localeCompare(b.name));
-        break;
       case "value-desc":
         result.sort((a, b) => {
           const aVal = parseFloat(a.valueLabel || "0");
@@ -102,8 +86,14 @@ export default function MyCollectionBinderSection() {
           return bVal - aVal;
         });
         break;
+      case "name-asc":
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "name-desc":
+        result.sort((a, b) => b.name.localeCompare(a.name));
+        break;
       default:
-        // set-name: default order
+        // recent (default order)
         break;
     }
 
@@ -119,18 +109,21 @@ export default function MyCollectionBinderSection() {
       isLoading={isLoading}
       isEmpty={isEmpty}
       renderItem={(item) => (
-        <div className="cursor-pointer transition-transform hover:scale-105">
-          <CollectionItemCard item={item} variant="detailed" />
+        <div className="h-full cursor-pointer transition-transform hover:scale-105">
+          <CollectionItemCard
+            item={item}
+            variant={item.cardNumber ? "detailed" : "shelf"}
+          />
         </div>
       )}
       onSearch={setSearchQuery}
       onFiltersChange={setActiveFilters}
       onSortChange={setSortBy}
-      onViewChange={() => {
-        /* Binder doesn't support view toggle */
+      onViewChange={(view) => {
+        /* Handle view change */
       }}
-      emptyStateTitle="No cards in binder"
-      emptyStateDesc="Add cards to your binder to start organizing your collection."
+      emptyStateTitle="No collection items yet"
+      emptyStateDesc="Start by adding cards, sealed products, or other items to your collection."
     />
   );
 }

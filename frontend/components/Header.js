@@ -270,7 +270,7 @@ export default function Header() {
                 </button>
                 {isCollectionDropdownOpen && (
                   <div className={`${navDropPanel} ${navDropPanelCompact} left-1/2 -translate-x-1/2`}>
-                    <Link href="/my-collection/cards" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-collection/collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Collection
                     </Link>
                     <Link href="/my-collection/binder" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
@@ -280,7 +280,7 @@ export default function Header() {
                       Shelf
                     </Link>
                     <Link href="/my-collection/wishlist" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
-                      Watchlist
+                      Wishlist
                     </Link>
                   </div>
                 )}
@@ -397,7 +397,7 @@ export default function Header() {
 
               <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">MY COLLECTION</div>
               <div className="border-y border-[var(--border-subtle)]">
-                <Link href="/my-collection/cards" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-collection/collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Collection
                 </Link>
                 <Link href="/my-collection/binder" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
@@ -407,7 +407,7 @@ export default function Header() {
                   Shelf
                 </Link>
                 <Link href="/my-collection/wishlist" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Watchlist
+                  Wishlist
                 </Link>
               </div>
 

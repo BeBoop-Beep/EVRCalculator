@@ -1,15 +1,7 @@
-import RoutePageShell from "@/components/Profile/RoutePageShell";
+"use client";
 
-export default function MyCollectionCardsPage() {
-  return (
-    <RoutePageShell
-      eyebrow="Manage Cards"
-      title="My Cards"
-      subtitle="Add, edit, import, and organize your singles inventory."
-    >
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 text-sm text-[var(--text-secondary)]">
-        Card management workspace placeholder.
-      </div>
-    </RoutePageShell>
-  );
+import { redirect } from "next/navigation";
+
+export default function MyCollectionCardsRedirect() {
+  redirect("/my-collection/collection");
 }
