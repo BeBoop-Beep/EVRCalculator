@@ -14,18 +14,32 @@ const MOCK_INSIGHTS_DATA = {
   ],
 };
 
-export default function PortfolioInsightsSidebar({ insightsData }) {
+/**
+ * Portfolio Insights Sidebar
+ * 
+ * Displays top movers and asset allocation breakdown for portfolio analysis.
+ * Shared between owner and public portfolio views.
+ * 
+ * @component
+ * @param {Object} props
+ * @param {Object} props.insightsData - Insights data containing topMovers and allocationSummary
+ * @param {"owner" | "public"} [props.mode="owner"] - Rendering mode (available for future mode-specific logic)
+ */
+export default function PortfolioInsightsSidebar({ insightsData, mode = "owner" }) {
+  const isOwnerMode = mode === "owner";
   const data = insightsData || MOCK_INSIGHTS_DATA;
 
   return (
     <div className="space-y-3">
       <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Top Movers</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+          {isOwnerMode ? "Top Movers" : "Public Movers"}
+        </p>
         <div className="mt-3 space-y-2.5">
           {data.topMovers.map((mover) => {
             const deltaClassName = mover.changePercent7d >= 0 ? "metric-positive" : "metric-negative";
             return (
-              <div key={mover.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2.5">
+              <div key={mover.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3.5 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <p className="line-clamp-1 text-sm font-medium text-[var(--text-primary)]">{mover.name}</p>
                   <p className={`text-xs font-semibold ${deltaClassName}`}>{`${mover.changePercent7d >= 0 ? "+" : ""}${mover.changePercent7d.toFixed(1)}%`}</p>
@@ -38,7 +52,9 @@ export default function PortfolioInsightsSidebar({ insightsData }) {
       </section>
 
       <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Allocation Summary</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+          {isOwnerMode ? "Allocation Summary" : "Public Allocation"}
+        </p>
         <div className="mt-3 space-y-2">
           {data.allocationSummary.map((slice) => (
             <div key={slice.id}>

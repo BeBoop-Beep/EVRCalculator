@@ -11,9 +11,9 @@ import {
 } from "recharts";
 
 import {
-  PERFORMANCE_TIME_RANGES,
   getPerformanceRangeData,
 } from "@/lib/profile/portfolioPerformanceRange";
+import OverviewRangeToggle from "@/components/Profile/OverviewRangeToggle";
 
 /** @typedef {import("@/types/portfolioDashboard").PortfolioPerformancePoint} PortfolioPerformancePoint */
 
@@ -64,7 +64,26 @@ function FinalPointDot({ cx, cy, payload }) {
   );
 }
 
-export default function PortfolioPerformanceCard({ performanceData, selectedRange = "7D", onRangeChange }) {
+/**
+ * Unified Portfolio Performance Canvas
+ * 
+ * Premium Recharts AreaChart component for displaying portfolio performance over time.
+ * Shared between owner and public portfolio views.
+ * 
+ * @component
+ * @param {Object} props
+ * @param {Object} props.performanceData - Performance data with points array and metadata
+ * @param {string} [props.selectedRange="7D"] - Currently selected time range (7D, 1M, 6M, 1Y)
+ * @param {Function} props.onRangeChange - Callback when time range is changed
+ * @param {"owner" | "public"} [props.mode="owner"] - Rendering mode (not visually different, but available for future mode-specific logic)
+ */
+export default function PortfolioPerformanceCanvas({ 
+  performanceData, 
+  selectedRange = "7D", 
+  onRangeChange,
+  mode = "owner",
+}) {
+  const isOwnerMode = mode === "owner";
   const perf = getPerformanceRangeData(selectedRange, performanceData);
   const chartData = perf.points.map((point, index) => ({
     ...point,
@@ -75,43 +94,29 @@ export default function PortfolioPerformanceCard({ performanceData, selectedRang
 
   return (
     <section className="dashboard-panel flex h-full min-h-[31rem] flex-col rounded-2xl border border-[var(--border-subtle)] p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Performance</p>
         </div>
-        <div
-          className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5"
-          role="group"
-          aria-label="Portfolio performance time range"
-        >
-          {PERFORMANCE_TIME_RANGES.map((range) => (
-            <button
-              key={range}
-              type="button"
-              onClick={() => onRangeChange?.(range)}
-              aria-pressed={selectedRange === range}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                selectedRange === range
-                  ? "bg-[var(--brand)] text-white"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
-            >
-              {range}
-            </button>
-          ))}
-        </div>
+        <OverviewRangeToggle
+          selectedRange={selectedRange}
+          onRangeChange={onRangeChange}
+          ariaLabel="Portfolio performance time range"
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Value</p>
-          <p className="mt-1 text-[2rem] font-semibold leading-none text-[var(--text-primary)] sm:text-[2.4rem]">
+          <p className="mt-1 text-[2rem] font-bold leading-none text-[var(--text-primary)] sm:text-[2.35rem]">
             {currencyFormatter.format(perf.currentValue)}
           </p>
-          <p className={`mt-2 text-sm font-semibold ${deltaClassName}`}>{formatPercent(perf.changePercent)}</p>
+          <p className={`mt-1.5 text-sm font-semibold ${deltaClassName}`}>{formatPercent(perf.changePercent)}</p>
         </div>
         <div className="max-w-[16rem] text-left sm:text-right">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">Signal</p>
+          <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            {isOwnerMode ? "Signal" : "Public Signal"}
+          </p>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{perf.helper}</p>
         </div>
       </div>

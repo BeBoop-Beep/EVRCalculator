@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 
-import MyCollectionAnalyticsDashboard from "@/components/Profile/MyCollectionAnalyticsDashboard";
-import MyCollectionCommandCenter from "@/components/Profile/MyCollectionCommandCenter";
+import PortfolioOverviewComposer from "@/components/Profile/PortfolioOverviewComposer";
 
 const DASHBOARD_DATA = {
   commandCenter: {
@@ -53,17 +52,11 @@ export default function MyCollectionOverviewDashboardClient() {
   const [selectedRange, setSelectedRange] = useState("7D");
 
   return (
-    <section className="space-y-6">
-      <MyCollectionCommandCenter
-        dashboardData={DASHBOARD_DATA}
-        selectedRange={selectedRange}
-        onRangeChange={setSelectedRange}
-      />
-      <MyCollectionAnalyticsDashboard
-        dashboardData={DASHBOARD_DATA}
-        selectedRange={selectedRange}
-        onRangeChange={setSelectedRange}
-      />
-    </section>
+    <PortfolioOverviewComposer
+      dashboardData={DASHBOARD_DATA}
+      selectedRange={selectedRange}
+      onRangeChange={setSelectedRange}
+      mode="owner"
+    />
   );
 }

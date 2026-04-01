@@ -1,8 +1,8 @@
 "use client";
 
 import ProfileStatCard from "@/components/Profile/ProfileStatCard";
+import OverviewRangeToggle from "@/components/Profile/OverviewRangeToggle";
 import {
-  PERFORMANCE_TIME_RANGES,
   getPerformanceRangeData,
 } from "@/lib/profile/portfolioPerformanceRange";
 
@@ -55,7 +55,26 @@ function formatRelativeSync(isoString) {
   return `Updated ${days}d ago`;
 }
 
-export default function MyCollectionCommandCenter({ dashboardData, selectedRange, onRangeChange }) {
+/**
+ * Unified Portfolio Command Center
+ * 
+ * Hero section displaying portfolio totals, performance overview, and key metrics.
+ * Adapts visual treatment based on owner vs public mode.
+ * 
+ * @component
+ * @param {Object} props
+ * @param {Object} props.dashboardData - Dashboard data shape
+ * @param {string} props.selectedRange - Currently selected time range
+ * @param {Function} props.onRangeChange - Callback when time range is changed
+ * @param {"owner" | "public"} [props.mode="owner"] - Rendering mode
+ */
+export default function PortfolioCommandCenter({ 
+  dashboardData, 
+  selectedRange, 
+  onRangeChange,
+  mode = "owner",
+}) {
+  const isOwnerMode = mode === "owner";
   const data = dashboardData?.commandCenter || MOCK_COMMAND_CENTER_DATA;
   const perf = getPerformanceRangeData(selectedRange, dashboardData?.performance);
   const freshnessLabel = data.freshnessLabel ?? "—";
@@ -66,12 +85,18 @@ export default function MyCollectionCommandCenter({ dashboardData, selectedRange
       {/* Section header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Analytics</p>
-          <h2 className="mt-0.5 text-xl font-semibold text-[var(--text-primary)]">Command Center</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+            {isOwnerMode ? "Portfolio Analytics" : "Portfolio Overview"}
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
+            {isOwnerMode ? "Command Center" : "Portfolio Summary"}
+          </h2>
         </div>
-        <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
-          {formatRelativeSync(data.lastSyncedAt)}
-        </div>
+        {isOwnerMode && (
+          <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
+            {formatRelativeSync(data.lastSyncedAt)}
+          </div>
+        )}
       </div>
 
       {/* Primary row */}
@@ -94,49 +119,35 @@ export default function MyCollectionCommandCenter({ dashboardData, selectedRange
               {formatPercent(data.change7dPercent)}
             </span>
           </div>
-          <div className="mt-auto pt-4">
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
-                isFresh
-                  ? "border-[var(--success)]/35 bg-[var(--success)]/12 text-[var(--success)]"
-                  : "border-[var(--warning)]/35 bg-[var(--warning)]/12 text-[var(--warning)]"
-              }`}
-            >
-              {freshnessLabel}
-            </span>
-          </div>
+          {isOwnerMode && (
+            <div className="mt-auto pt-4">
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                  isFresh
+                    ? "border-[var(--success)]/35 bg-[var(--success)]/12 text-[var(--success)]"
+                    : "border-[var(--warning)]/35 bg-[var(--warning)]/12 text-[var(--warning)]"
+                }`}
+              >
+                {freshnessLabel}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Performance card reflecting shared dashboard range */}
         <div className="dashboard-panel flex flex-col rounded-2xl border border-[var(--border-subtle)] p-5">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Performance</p>
-            <div
-              className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5"
-              role="group"
-              aria-label="Command center performance time range"
-            >
-              {PERFORMANCE_TIME_RANGES.map((range) => (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() => onRangeChange?.(range)}
-                  aria-pressed={selectedRange === range}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                    selectedRange === range
-                      ? "bg-[var(--brand)] text-white"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
+            <OverviewRangeToggle
+              selectedRange={selectedRange}
+              onRangeChange={onRangeChange}
+              ariaLabel="Portfolio command center performance time range"
+            />
           </div>
-          <p className={`mt-3 text-[2.5rem] font-bold leading-none tracking-tight ${getChangeToneClass(perf.changePercent)}`}>
+          <p className={`mt-3 text-[2.35rem] font-bold leading-none tracking-tight ${getChangeToneClass(perf.changePercent)}`}>
             {formatPercent(perf.changePercent)}
           </p>
-          <p className="mt-2 text-sm font-medium text-[var(--text-secondary)]">
+          <p className="mt-1.5 text-sm font-medium text-[var(--text-secondary)]">
             {perf.changePercent >= 0 ? "+" : ""}
             {currencyFormatter.format(perf.changeDollar)} · {perf.range}
           </p>
@@ -164,15 +175,27 @@ export default function MyCollectionCommandCenter({ dashboardData, selectedRange
           subValue="Acquisition targets"
           compact
         />
-        <ProfileStatCard
-          label="Price Freshness"
-          value={freshnessLabel}
-          subValue={formatRelativeSync(data.lastSyncedAt)}
-          valueClassName="text-[1.5rem] font-medium text-[var(--text-secondary)]"
-          badge="Sync"
-          badgeTone="neutral"
-          compact
-        />
+        {isOwnerMode ? (
+          <ProfileStatCard
+            label="Price Freshness"
+            value={freshnessLabel}
+            subValue={formatRelativeSync(data.lastSyncedAt)}
+            valueClassName="text-[1.5rem] font-medium text-[var(--text-secondary)]"
+            badge="Sync"
+            badgeTone="neutral"
+            compact
+          />
+        ) : (
+          <ProfileStatCard
+            label="Profile Mode"
+            value="Public"
+            subValue="Read-only portfolio lens"
+            valueClassName="text-[1.35rem] font-medium text-[var(--text-secondary)]"
+            badge="Read only"
+            badgeTone="neutral"
+            compact
+          />
+        )}
       </div>
     </section>
   );

@@ -1,8 +1,7 @@
 import PublicFeaturedItemsSection from "@/components/Profile/PublicFeaturedItemsSection";
-import PublicPortfolioSnapshot from "@/components/Profile/PublicPortfolioSnapshot";
-import PublicPortfolioPerformance from "@/components/Profile/PublicPortfolioPerformance";
-import PublicPortfolioHighlights from "@/components/Profile/PublicPortfolioHighlights";
 import PublicRecentActivityPreview from "@/components/Profile/PublicRecentActivityPreview";
+import PublicPortfolioOverviewComposer from "@/components/Profile/PublicPortfolioOverviewComposer";
+import { mapPublicOverviewToDashboardData } from "@/lib/profile/publicOverviewDashboardAdapter";
 import { buildPublicOverviewModel } from "@/lib/profile/publicOverviewModel";
 import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
@@ -16,6 +15,8 @@ export default async function PublicProfileOverviewPage({ params }) {
     enableMockFallback: Boolean(publicProfile),
   });
 
+  const dashboardData = mapPublicOverviewToDashboardData(overview);
+
   return (
     <div className="space-y-6">
       {!publicProfile ? (
@@ -28,12 +29,8 @@ export default async function PublicProfileOverviewPage({ params }) {
       ) : null}
 
       <PublicFeaturedItemsSection items={overview.featuredItems} />
-      <PublicPortfolioSnapshot stats={overview.snapshotStats} />
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <PublicPortfolioPerformance performance={overview.performance} />
-        <PublicPortfolioHighlights highlights={overview.highlights} />
-      </div>
+      
+      <PublicPortfolioOverviewComposer dashboardData={dashboardData} />
 
       <PublicRecentActivityPreview activities={overview.recentActivity} username={username || "collector"} />
     </div>

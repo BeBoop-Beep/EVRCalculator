@@ -50,9 +50,12 @@ const PERFORMANCE_SERIES = {
 export function getPerformanceRangeData(selectedRange, performanceData) {
   const range = PERFORMANCE_SERIES[selectedRange] ? selectedRange : "7D";
   const baseSeries = PERFORMANCE_SERIES[range];
-  const points = range === "7D" && performanceData?.points?.length
-    ? performanceData.points
-    : baseSeries.points;
+  const overrideSeries = performanceData?.rangeSeries?.[range];
+  const points = overrideSeries?.points?.length
+    ? overrideSeries.points
+    : range === "7D" && performanceData?.points?.length
+      ? performanceData.points
+      : baseSeries.points;
 
   const currentValue = points[points.length - 1]?.totalValue || 0;
   const startValue = points[0]?.totalValue || 0;
@@ -61,7 +64,7 @@ export function getPerformanceRangeData(selectedRange, performanceData) {
 
   return {
     range,
-    helper: baseSeries.helper,
+    helper: overrideSeries?.helper || baseSeries.helper,
     points,
     currentValue,
     changeDollar,
