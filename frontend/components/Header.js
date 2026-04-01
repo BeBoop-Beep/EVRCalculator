@@ -270,6 +270,9 @@ export default function Header() {
                 </button>
                 {isCollectionDropdownOpen && (
                   <div className={`${navDropPanel} ${navDropPanelCompact} left-1/2 -translate-x-1/2`}>
+                    <Link href="/my-collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                      Overview
+                    </Link>
                     <Link href="/my-collection/collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Collection
                     </Link>
@@ -397,6 +400,9 @@ export default function Header() {
 
               <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">MY COLLECTION</div>
               <div className="border-y border-[var(--border-subtle)]">
+                <Link href="/my-collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                  Overview
+                </Link>
                 <Link href="/my-collection/collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Collection
                 </Link>

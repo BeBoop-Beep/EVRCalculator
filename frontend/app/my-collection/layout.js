@@ -1,7 +1,7 @@
 import RouteTabsNav from "@/components/Profile/RouteTabsNav";
 
 const myCollectionTabs = [
-  { label: "Overview", href: "/my-collection" },
+  { label: "Overview", href: "/my-collection", exact: true },
   { label: "Collection", href: "/my-collection/collection" },
   { label: "Binder", href: "/my-collection/binder" },
   { label: "Shelf", href: "/my-collection/shelf" },
