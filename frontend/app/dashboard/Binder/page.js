@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function BinderPage() {
-  redirect("/my-collection/binder");
+  redirect("/my-portfolio/binder");
 }

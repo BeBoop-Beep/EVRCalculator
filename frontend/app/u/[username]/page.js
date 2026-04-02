@@ -3,15 +3,18 @@ import PublicRecentActivityPreview from "@/components/Profile/PublicRecentActivi
 import PublicPortfolioOverviewComposer from "@/components/Profile/PublicPortfolioOverviewComposer";
 import { mapPublicOverviewToDashboardData } from "@/lib/profile/publicOverviewDashboardAdapter";
 import { buildPublicOverviewModel } from "@/lib/profile/publicOverviewModel";
+import { getPublicCollectionEntries } from "@/lib/profile/collectionEntryLoader";
 import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
 export default async function PublicProfileOverviewPage({ params }) {
   const { username } = await params;
   const { publicProfile } = await getCachedPublicRouteContextByUsername(username || "");
+  const publicCollectionAssets = await getPublicCollectionEntries(username || "");
 
   const overview = buildPublicOverviewModel({
     publicProfile,
     username: username || "collector",
+    collectionAssets: publicCollectionAssets,
     enableMockFallback: Boolean(publicProfile),
   });
 
@@ -28,10 +31,10 @@ export default async function PublicProfileOverviewPage({ params }) {
         </section>
       ) : null}
 
-      <PublicFeaturedItemsSection items={overview.featuredItems} />
-      
       <PublicPortfolioOverviewComposer dashboardData={dashboardData} />
 
+      <PublicFeaturedItemsSection showcase={overview.showcase} username={username || ""} />
+      
       <PublicRecentActivityPreview activities={overview.recentActivity} username={username || "collector"} />
     </div>
   );

@@ -11,6 +11,9 @@ export default function SectionFilterBar({
   activeFilters = {},
   onFilterChange = () => {},
   isLoading = false,
+  leadingControls = null,
+  extraActiveSelections = [],
+  onClearAll = null,
 }) {
   const [openDropdown, setOpenDropdown] = useState(null);
   const dropdownRef = useRef(null);
@@ -36,16 +39,14 @@ export default function SectionFilterBar({
   };
 
   const handleClearAll = () => {
-    const updatedFilters = {};
-    filters.forEach((f) => {
-      updatedFilters[f.id] = null;
-    });
     Object.keys(activeFilters).forEach((key) => {
       onFilterChange(key, null);
     });
+    onClearAll?.();
   };
 
   const hasActiveFilters = Object.values(activeFilters).some((v) => v && v.length > 0);
+  const hasExtraSelections = extraActiveSelections.length > 0;
 
   if (filters.length === 0) {
     return null;
@@ -54,6 +55,8 @@ export default function SectionFilterBar({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2" ref={dropdownRef}>
+        {leadingControls}
+
         {filters.map((filter) => (
           <div key={filter.id} className="relative">
             <button
@@ -61,13 +64,15 @@ export default function SectionFilterBar({
                 setOpenDropdown(openDropdown === filter.id ? null : filter.id)
               }
               disabled={isLoading}
-              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+              className={`inline-flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
                 activeFilters[filter.id] && activeFilters[filter.id].length > 0
                   ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
-                  : "border-[var(--border-subtle)] bg-[var(--surface-input)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
+                  : "text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
               }`}
             >
-              {filter.label}
+              <span className="text-xs font-semibold uppercase tracking-[0.05em] text-[var(--text-secondary)]">
+                {filter.label}
+              </span>
               <svg
                 className={`h-4 w-4 transition-transform ${
                   openDropdown === filter.id ? "rotate-180" : ""
@@ -86,12 +91,12 @@ export default function SectionFilterBar({
             </button>
 
             {openDropdown === filter.id && (
-              <div className="absolute top-full z-10 mt-2 w-48 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-lg">
-                <div className="p-2">
+              <div className="absolute left-0 top-full z-50 mt-2 w-48 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-lg">
+                <div className="space-y-1 p-2">
                   {filter.options.map((option) => (
                     <label
                       key={option.id}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     >
                       <input
                         type="checkbox"
@@ -112,18 +117,35 @@ export default function SectionFilterBar({
           </div>
         ))}
 
-        {hasActiveFilters && (
+        {(hasActiveFilters || hasExtraSelections) && (
           <button
             onClick={handleClearAll}
-            className="rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
+            className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
           >
             Clear all
           </button>
         )}
       </div>
 
-      {hasActiveFilters && (
+      {(hasActiveFilters || hasExtraSelections) && (
         <div className="flex flex-wrap gap-2">
+          {extraActiveSelections.map((selection) => (
+            <div
+              key={selection.id}
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)]/10 px-3 py-1 text-xs text-[var(--accent)]"
+            >
+              {selection.label}
+              <button
+                onClick={selection.onRemove}
+                className="hover:opacity-70"
+              >
+                <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+
           {filters.map(
             (filter) =>
               activeFilters[filter.id] &&

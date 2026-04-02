@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import CollectionSectionLayout from "@/components/Profile/CollectionSectionLayout";
-import CollectionItemCard from "@/components/Profile/CollectionItemCard";
 import { getSectionConfig } from "@/config/collectionSectionConfig";
+
+function parseCurrencyValue(valueLabel) {
+  if (!valueLabel) return 0;
+  const numeric = Number(String(valueLabel).replace(/[^\d.-]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
 
 // Mock data for shelf (sealed products)
 const MOCK_SHELF_ITEMS = [
@@ -50,12 +56,13 @@ const MOCK_SHELF_ITEMS = [
 ];
 
 export default function MyCollectionShelfSection() {
+  const router = useRouter();
   const config = getSectionConfig("shelf");
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
   const [sortBy, setSortBy] = useState(config.defaultSort);
-  const [view, setView] = useState("grid");
+  const [view, setView] = useState("continuous");
 
   // Filter and sort items
   const filteredAndSortedItems = useMemo(() => {
@@ -89,15 +96,15 @@ export default function MyCollectionShelfSection() {
     switch (sortBy) {
       case "value-desc":
         result.sort((a, b) => {
-          const aVal = parseFloat(a.valueLabel || "0");
-          const bVal = parseFloat(b.valueLabel || "0");
+          const aVal = parseCurrencyValue(a.valueLabel);
+          const bVal = parseCurrencyValue(b.valueLabel);
           return bVal - aVal;
         });
         break;
       case "value-asc":
         result.sort((a, b) => {
-          const aVal = parseFloat(a.valueLabel || "0");
-          const bVal = parseFloat(b.valueLabel || "0");
+          const aVal = parseCurrencyValue(a.valueLabel);
+          const bVal = parseCurrencyValue(b.valueLabel);
           return aVal - bVal;
         });
         break;
@@ -116,6 +123,22 @@ export default function MyCollectionShelfSection() {
   }, [searchQuery, activeFilters, sortBy]);
 
   const isEmpty = filteredAndSortedItems.length === 0 && !isLoading;
+  const handleSetAssetSpotlight = (asset) => {
+    if (!asset?.id) return;
+    router.push(`/account-settings?spotlightAssetId=${encodeURIComponent(String(asset.id))}#spotlight-asset`);
+  };
+
+  const handleAddCard = () => {
+    router.push("/cards");
+  };
+
+  const handleAddSealedProduct = () => {
+    router.push("/products");
+  };
+
+  const handleImportCollection = () => {
+    router.push("/my-portfolio");
+  };
 
   return (
     <CollectionSectionLayout
@@ -123,16 +146,18 @@ export default function MyCollectionShelfSection() {
       items={filteredAndSortedItems}
       isLoading={isLoading}
       isEmpty={isEmpty}
-      renderItem={(item) => (
-        <div className="h-full cursor-pointer transition-transform hover:scale-105">
-          <CollectionItemCard item={item} variant="shelf" />
-        </div>
-      )}
       onSearch={setSearchQuery}
       onFiltersChange={setActiveFilters}
       onSortChange={setSortBy}
+      showHeader={false}
       onViewChange={setView}
       viewMode={view}
+      variant="shelf"
+      onSetAssetSpotlight={handleSetAssetSpotlight}
+      showAddAction
+      onAddCard={handleAddCard}
+      onAddSealedProduct={handleAddSealedProduct}
+      onImportCollection={handleImportCollection}
       emptyStateTitle="No sealed inventory"
       emptyStateDesc="Add sealed products to track your display and investment inventory."
     />

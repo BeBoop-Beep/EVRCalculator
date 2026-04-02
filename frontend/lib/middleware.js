@@ -6,7 +6,7 @@ export async function middleware(req) {
   console.log("Retrieved token in middleware:", token); 
 
   // Define protected route prefixes.
-  const protectedRoutes = ["/dashboard", "/profile", "/my-collection", "/account-settings"];
+  const protectedRoutes = ["/dashboard", "/profile", "/my-portfolio", "/my-collection", "/account-settings"];
   const isProtectedRoute = protectedRoutes.some(
     (route) => req.nextUrl.pathname === route || req.nextUrl.pathname.startsWith(`${route}/`)
   );
@@ -29,5 +29,11 @@ export async function middleware(req) {
 
 // Configure middleware to run on specific paths
 export const config = {
-  matcher: ["/dashboard/:path*", "/profile/:path*", "/my-collection/:path*", "/account-settings/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/my-portfolio/:path*",
+    "/my-collection/:path*",
+    "/account-settings/:path*",
+  ],
 };

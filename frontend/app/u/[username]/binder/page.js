@@ -1,6 +1,4 @@
-import RoutePageShell from "@/components/Profile/RoutePageShell";
 import PublicBinderViewer from "@/components/Profile/PublicBinderViewer";
-import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
 // Mock data generator - creates realistic binder pages
 function generateMockBinderPages(username) {
@@ -40,19 +38,12 @@ function generateMockBinderPages(username) {
 
 export default async function PublicBinderPage({ params }) {
   const { username } = await params;
-  const { identity } = await getCachedPublicRouteContextByUsername(username || "");
-  const ownerLabel = identity.displayName || identity.username;
 
   // Generate mock binder pages
   const binderPages = generateMockBinderPages(username);
 
   return (
-    <RoutePageShell
-      eyebrow="Public Binder"
-      title={`${ownerLabel}'s Binder`}
-      subtitle="Browse this collector's organized binder pages and favorite cards."
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Info Panel */}
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-4">
           <p className="text-sm text-[var(--text-secondary)]">
@@ -77,8 +68,7 @@ export default async function PublicBinderPage({ params }) {
             content="Organized by rarity level and acquisition date for optimal display."
           />
         </div>
-      </div>
-    </RoutePageShell>
+    </div>
   );
 }
 

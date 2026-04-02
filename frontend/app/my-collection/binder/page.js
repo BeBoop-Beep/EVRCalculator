@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import CollectionSectionLayout from "@/components/Profile/CollectionSectionLayout";
-import CollectionItemCard from "@/components/Profile/CollectionItemCard";
 import { getSectionConfig } from "@/config/collectionSectionConfig";
 
 // Mock data for binder (cards only)
@@ -54,6 +54,7 @@ const MOCK_BINDER_ITEMS = [
 ];
 
 export default function MyCollectionBinderSection() {
+  const router = useRouter();
   const config = getSectionConfig("binder");
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,6 +112,22 @@ export default function MyCollectionBinderSection() {
   }, [searchQuery, activeFilters, sortBy]);
 
   const isEmpty = filteredAndSortedItems.length === 0 && !isLoading;
+  const handleSetAssetSpotlight = (asset) => {
+    if (!asset?.id) return;
+    router.push(`/account-settings?spotlightAssetId=${encodeURIComponent(String(asset.id))}#spotlight-asset`);
+  };
+
+  const handleAddCard = () => {
+    router.push("/cards");
+  };
+
+  const handleAddSealedProduct = () => {
+    router.push("/products");
+  };
+
+  const handleImportCollection = () => {
+    router.push("/my-portfolio");
+  };
 
   return (
     <CollectionSectionLayout
@@ -118,17 +135,20 @@ export default function MyCollectionBinderSection() {
       items={filteredAndSortedItems}
       isLoading={isLoading}
       isEmpty={isEmpty}
-      renderItem={(item) => (
-        <div className="cursor-pointer transition-transform hover:scale-105">
-          <CollectionItemCard item={item} variant="detailed" />
-        </div>
-      )}
       onSearch={setSearchQuery}
       onFiltersChange={setActiveFilters}
       onSortChange={setSortBy}
+      showHeader={false}
       onViewChange={() => {
         /* Binder doesn't support view toggle */
       }}
+      viewMode="binder"
+      variant="detailed"
+      onSetAssetSpotlight={handleSetAssetSpotlight}
+      showAddAction
+      onAddCard={handleAddCard}
+      onAddSealedProduct={handleAddSealedProduct}
+      onImportCollection={handleImportCollection}
       emptyStateTitle="No cards in binder"
       emptyStateDesc="Add cards to your binder to start organizing your collection."
     />

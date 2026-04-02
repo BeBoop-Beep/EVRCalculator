@@ -27,9 +27,9 @@ const DEFAULT_DASHBOARD_DATA = {
   },
   insights: {
     topMovers: [
-      { id: "m1", name: "Charizard ex SIR", changePercent7d: 8.7, valueLabel: "$582" },
-      { id: "m2", name: "Mew ex Gold", changePercent7d: 6.1, valueLabel: "$214" },
-      { id: "m3", name: "Gengar VMAX Alt", changePercent7d: -2.4, valueLabel: "$331" },
+      { id: "m1", name: "Charizard ex SIR", changePercent7d: 8.7, dollarImpact: 51 },
+      { id: "m2", name: "Mew ex Gold", changePercent7d: 6.1, dollarImpact: 13 },
+      { id: "m3", name: "Gengar VMAX Alt", changePercent7d: -2.4, dollarImpact: -8 },
     ],
     allocationSummary: [
       { id: "a1", label: "Cards", valuePercent: 68, valueLabel: "$12.4k" },
@@ -77,7 +77,7 @@ async function trySelect({ adminClient, table, select, filters = [], orderBy, li
 }
 
 /**
- * Returns dashboard-ready data for /my-collection with graceful fallback.
+ * Returns dashboard-ready data for /my-portfolio with graceful fallback.
  */
 export async function getCurrentUserPortfolioDashboardData() {
   const { user, error: authError, status } = await getAuthenticatedUserFromCookies();
@@ -118,8 +118,7 @@ export async function getCurrentUserPortfolioDashboardData() {
       table: "portfolio_movers_7d",
       select: "asset_id,asset_name,change_percent_7d,current_value",
       filters: [{ column: "user_id", value: user.id }],
-      orderBy: { column: "change_percent_7d", ascending: false },
-      limit: 3,
+      limit: 20,
     });
 
     if (!topMoversResult.error && topMoversResult.data.length > 0) {
@@ -159,12 +158,19 @@ export async function getCurrentUserPortfolioDashboardData() {
     }
 
     const movers = topMoversResult.data.length
-      ? topMoversResult.data.map((m) => ({
-          id: String(m.asset_id || m.asset_name),
-          name: m.asset_name || "Unknown Asset",
-          changePercent7d: toNumber(m.change_percent_7d),
-          valueLabel: formatCompactCurrency(toNumber(m.current_value)),
-        }))
+      ? topMoversResult.data
+          .map((m) => {
+            const currentValue = toNumber(m.current_value);
+            const changePercent = toNumber(m.change_percent_7d);
+            return {
+              id: String(m.asset_id || m.asset_name),
+              name: m.asset_name || "Unknown Asset",
+              changePercent7d: changePercent,
+              dollarImpact: Math.round(currentValue * (changePercent / 100)),
+            };
+          })
+          .sort((a, b) => Math.abs(b.dollarImpact) - Math.abs(a.dollarImpact))
+          .slice(0, 3)
       : DEFAULT_DASHBOARD_DATA.insights.topMovers;
 
     const allocations = allocationResult.data.length

@@ -1,4 +1,9 @@
-export default function MyCollectionQuickActions({ compact = false }) {
+export default function MyCollectionQuickActions({
+  compact = false,
+  onAddCard = () => {},
+  onAddSealedProduct = () => {},
+  onImportCollection = () => {},
+}) {
   const wrapperClasses = compact
     ? "rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4"
     : "rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5";
@@ -14,12 +19,14 @@ export default function MyCollectionQuickActions({ compact = false }) {
         <button
           type="button"
           className={buttonClasses}
+          onClick={onAddCard}
         >
           Add Card
         </button>
         <button
           type="button"
           className={buttonClasses}
+          onClick={onAddSealedProduct}
         >
           Add Sealed Product
         </button>
@@ -29,6 +36,7 @@ export default function MyCollectionQuickActions({ compact = false }) {
             ? "w-full rounded-xl border border-[var(--border-subtle)] bg-brand px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-brand-dark"
             : "rounded-xl border border-[var(--border-subtle)] bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
           }
+          onClick={onImportCollection}
         >
           Import Collection
         </button>

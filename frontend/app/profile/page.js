@@ -23,7 +23,7 @@ export default function ProfilePage() {
           return;
         }
 
-        router.replace("/my-collection");
+        router.replace("/my-portfolio");
       } catch (error) {
         if (!mounted) return;
 
@@ -51,8 +51,8 @@ export default function ProfilePage() {
         {errorMessage ? (
           <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
             <p className="text-sm text-red-200">{errorMessage}</p>
-            <Link href="/my-collection" className="mt-3 inline-block text-sm font-semibold text-[var(--text-primary)] underline">
-              Go to My Collection
+            <Link href="/my-portfolio" className="mt-3 inline-block text-sm font-semibold text-[var(--text-primary)] underline">
+              Go to My Portfolio
             </Link>
           </div>
         ) : null}

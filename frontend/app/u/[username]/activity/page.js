@@ -1,6 +1,4 @@
-import RoutePageShell from "@/components/Profile/RoutePageShell";
 import PublicActivityTimeline from "@/components/Profile/PublicActivityTimeline";
-import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
 // Mock data generator for activity
 function generateMockActivityItems(username) {
@@ -67,19 +65,12 @@ function generateMockActivityItems(username) {
 
 export default async function PublicActivityPage({ params }) {
   const { username } = await params;
-  const { identity } = await getCachedPublicRouteContextByUsername(username || "");
-  const ownerLabel = identity.displayName || identity.username;
 
   // Generate mock activity items
   const activityItems = generateMockActivityItems(username);
 
   return (
-    <RoutePageShell
-      eyebrow="Public Activity"
-      title={`${ownerLabel}'s Activity`}
-      subtitle="Timeline of collector actions and updates shared publicly."
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Activity Filter Info */}
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-4">
           <p className="text-sm text-[var(--text-secondary)]">
@@ -126,8 +117,7 @@ export default async function PublicActivityPage({ params }) {
             <li>• Recently focused on Base Set acquisitions</li>
           </ul>
         </div>
-      </div>
-    </RoutePageShell>
+    </div>
   );
 }
 

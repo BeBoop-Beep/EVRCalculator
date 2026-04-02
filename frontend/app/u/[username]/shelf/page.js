@@ -1,6 +1,4 @@
-import RoutePageShell from "@/components/Profile/RoutePageShell";
 import PublicShelfDisplay from "@/components/Profile/PublicShelfDisplay";
-import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
 // Mock data generator for sealed products
 function generateMockShelfItems(username, count = 12) {
@@ -36,19 +34,12 @@ function generateMockShelfItems(username, count = 12) {
 
 export default async function PublicShelfPage({ params }) {
   const { username } = await params;
-  const { identity } = await getCachedPublicRouteContextByUsername(username || "");
-  const ownerLabel = identity.displayName || identity.username;
 
   // Generate mock shelf items
   const shelfItems = generateMockShelfItems(username, 16);
 
   return (
-    <RoutePageShell
-      eyebrow="Public Shelf"
-      title={`${ownerLabel}'s Shelf`}
-      subtitle="Showcase of sealed products, booster boxes, and display inventory."
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Info Panel */}
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-4">
           <p className="text-sm text-[var(--text-secondary)]">
@@ -82,8 +73,7 @@ export default async function PublicShelfPage({ params }) {
             value={new Set(shelfItems.map((i) => i.set)).size}
           />
         </div>
-      </div>
-    </RoutePageShell>
+    </div>
   );
 }
 

@@ -1,18 +1,20 @@
-// app/products/[slug]/page.js
-"use client";
-import { useSearchParams } from "next/navigation";
-import ProductDetails from "@/components/Products/ProductDetails";
+import { redirect } from "next/navigation";
 
-export default function ProductDetailsPage() {
-  const searchParams = useSearchParams();
-  const productData = searchParams.get("data"); // Get the product data from the query parameter
+export default async function LegacyProductDetailsPage({ searchParams }) {
+  const resolvedSearchParams = await searchParams;
+  const rawData = resolvedSearchParams?.data;
 
-  // Parse the product data
-  const product = JSON.parse(decodeURIComponent(productData));
-
-  if (!product) {
-    return <div>Product not found.</div>;
+  if (typeof rawData === "string" && rawData.length > 0) {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(rawData));
+      const productId = decoded?._id || decoded?.id;
+      if (productId) {
+        redirect(`/sealed-products/${encodeURIComponent(String(productId))}`);
+      }
+    } catch {
+      // Fall through to default redirect.
+    }
   }
 
-  return <ProductDetails product={product} />;
+  redirect("/products");
 }

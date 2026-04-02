@@ -6,10 +6,9 @@ export default function ProductDetailsCard({ product, addProductToCart }) {
   const router = useRouter();
 
   const handleProductClick = () => {
-    // Convert the product object to a URL-friendly string
-    const productData = encodeURIComponent(JSON.stringify(product));
-    // Navigate to the product details page with the product data
-    router.push(`/products/details?data=${productData}`);
+    const productId = product?._id || product?.id;
+    if (!productId) return;
+    router.push(`/sealed-products/${encodeURIComponent(String(productId))}`);
   };
 
   const handleAddToCartClick = (e) => {

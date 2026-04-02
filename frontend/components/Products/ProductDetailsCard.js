@@ -6,8 +6,9 @@ export default function ProductDetailsCard({ product }) {
   const router = useRouter();
 
   const handleProductClick = () => {
-    const productData = encodeURIComponent(JSON.stringify(product));
-    router.push(`/products/details?data=${productData}`);
+    const productId = product?._id || product?.id;
+    if (!productId) return;
+    router.push(`/sealed-products/${encodeURIComponent(String(productId))}`);
   };
 
   return (

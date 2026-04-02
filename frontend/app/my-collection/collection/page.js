@@ -1,14 +1,49 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import CollectionSectionLayout from "@/components/Profile/CollectionSectionLayout";
-import CollectionItemCard from "@/components/Profile/CollectionItemCard";
+import CollectionPerformanceCard from "@/components/Collection/CollectionPerformanceCard";
+import CollectionScopeFilter from "@/components/Collection/CollectionScopeFilter";
 import { getSectionConfig } from "@/config/collectionSectionConfig";
+import { buildMyCollectionEntryRoute } from "@/lib/profile/collectionRoutes";
+import { filterCollectionByTCG, getAvailableTCGs } from "@/lib/profile/collectionValueHistory";
 
-// Mock data for demonstration
+function parseCurrencyValue(valueLabel) {
+  if (!valueLabel) return 0;
+  const numeric = Number(String(valueLabel).replace(/[^\d.-]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function buildMyCollectionItemHref(item) {
+  return buildMyCollectionEntryRoute(item);
+}
+
+function calculateCollectionStats(items) {
+  const totalValue = items.reduce((sum, item) => {
+    const val = parseCurrencyValue(item.valueLabel);
+    return sum + val;
+  }, 0);
+
+  const sealedItems = items.filter((item) => item.productType || !item.cardNumber);
+
+  return {
+    totalItems: items.length,
+    totalValue: `$${totalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    sealedCount: sealedItems.length,
+    config: {
+      itemsLabel: "Total Items",
+      valueLabel: "Collection Value",
+      sealedLabel: "Sealed Products",
+    },
+  };
+}
+
 const MOCK_ITEMS = [
   {
     id: "1",
+    collectible_type: "card",
+    collectible_id: "card-1",
     name: "Pikachu ex",
     set: "Scarlet & Violet",
     cardNumber: "025/102",
@@ -19,6 +54,8 @@ const MOCK_ITEMS = [
   },
   {
     id: "2",
+    collectible_type: "card",
+    collectible_id: "card-2",
     name: "Charizard ex",
     set: "Scarlet & Violet",
     cardNumber: "003/102",
@@ -29,6 +66,8 @@ const MOCK_ITEMS = [
   },
   {
     id: "3",
+    collectible_type: "sealed_product",
+    collectible_id: "sealed-1",
     name: "Booster Box - Scarlet & Violet",
     set: "Scarlet & Violet",
     productType: "Booster Box",
@@ -38,6 +77,8 @@ const MOCK_ITEMS = [
   },
   {
     id: "4",
+    collectible_type: "card",
+    collectible_id: "card-4",
     name: "Blastoise",
     set: "Base Set",
     cardNumber: "002/102",
@@ -47,18 +88,33 @@ const MOCK_ITEMS = [
   },
 ];
 
-export default function MyCollectionSection() {
+export default function MyCollectionPage() {
+  const router = useRouter();
   const config = getSectionConfig("collection");
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
   const [sortBy, setSortBy] = useState(config.defaultSort);
+  const [viewMode, setViewMode] = useState("continuous");
+  const [activeTCGs, setActiveTCGs] = useState(["All"]);
+  const [timeRange, setTimeRange] = useState("7D");
 
-  // Filter and sort items
+  const availableTCGs = useMemo(() => getAvailableTCGs(MOCK_ITEMS), []);
+
+  // Filter by TCG first, then apply other filters
+  const tcgFilteredItems = useMemo(() => {
+    if (!activeTCGs || activeTCGs.length === 0 || activeTCGs.includes("All")) {
+      return MOCK_ITEMS;
+    }
+
+    return MOCK_ITEMS.filter((item) => {
+      return activeTCGs.some((tcg) => filterCollectionByTCG([item], tcg).length > 0);
+    });
+  }, [activeTCGs]);
+
   const filteredAndSortedItems = useMemo(() => {
-    let result = [...MOCK_ITEMS];
+    let result = [...tcgFilteredItems];
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -68,7 +124,6 @@ export default function MyCollectionSection() {
       );
     }
 
-    // Apply type filter if active
     if (activeFilters.type && activeFilters.type.length > 0) {
       result = result.filter((item) => {
         if (activeFilters.type.includes("cards")) return item.cardNumber;
@@ -77,13 +132,19 @@ export default function MyCollectionSection() {
       });
     }
 
-    // Apply sort
     switch (sortBy) {
       case "value-desc":
         result.sort((a, b) => {
-          const aVal = parseFloat(a.valueLabel || "0");
-          const bVal = parseFloat(b.valueLabel || "0");
+          const aVal = parseCurrencyValue(a.valueLabel);
+          const bVal = parseCurrencyValue(b.valueLabel);
           return bVal - aVal;
+        });
+        break;
+      case "value-asc":
+        result.sort((a, b) => {
+          const aVal = parseCurrencyValue(a.valueLabel);
+          const bVal = parseCurrencyValue(b.valueLabel);
+          return aVal - bVal;
         });
         break;
       case "name-asc":
@@ -93,37 +154,95 @@ export default function MyCollectionSection() {
         result.sort((a, b) => b.name.localeCompare(a.name));
         break;
       default:
-        // recent (default order)
         break;
     }
 
     return result;
-  }, [searchQuery, activeFilters, sortBy]);
+  }, [searchQuery, activeFilters, sortBy, tcgFilteredItems]);
 
   const isEmpty = filteredAndSortedItems.length === 0 && !isLoading;
+  const handleSetAssetSpotlight = (asset) => {
+    if (!asset?.id) return;
+    router.push(`/account-settings?spotlightAssetId=${encodeURIComponent(String(asset.id))}#spotlight-asset`);
+  };
+
+  const activeTCGSelections = useMemo(
+    () =>
+      activeTCGs
+        .filter((tcg) => tcg !== "All")
+        .map((tcg) => ({
+          id: `tcg-${tcg}`,
+          label: `TCG: ${tcg}`,
+          onRemove: () => {
+            setActiveTCGs((prev) => {
+              const next = prev.filter((value) => value !== tcg && value !== "All");
+              return next.length > 0 ? next : ["All"];
+            });
+          },
+        })),
+    [activeTCGs]
+  );
+
+  const handleClearAllFilters = () => {
+    setActiveTCGs(["All"]);
+  };
+
+  const handleAddCard = () => {
+    router.push("/cards");
+  };
+
+  const handleAddSealedProduct = () => {
+    router.push("/products");
+  };
+
+  const handleImportCollection = () => {
+    router.push("/my-portfolio");
+  };
 
   return (
-    <CollectionSectionLayout
-      config={config}
-      items={filteredAndSortedItems}
-      isLoading={isLoading}
-      isEmpty={isEmpty}
-      renderItem={(item) => (
-        <div className="h-full cursor-pointer transition-transform hover:scale-105">
-          <CollectionItemCard
-            item={item}
-            variant={item.cardNumber ? "detailed" : "shelf"}
+    <section className="space-y-6">
+      {/* Main Collection Section */}
+      <CollectionSectionLayout
+        config={config}
+        items={filteredAndSortedItems}
+        isLoading={isLoading}
+        isEmpty={isEmpty}
+        onSearch={setSearchQuery}
+        onFiltersChange={setActiveFilters}
+        onSortChange={setSortBy}
+        onViewChange={setViewMode}
+        showHeader={false}
+        viewMode={viewMode}
+        variant="detailed"
+        showStats={false}
+        stats={calculateCollectionStats(filteredAndSortedItems)}
+        contentAfterHeader={(
+          <CollectionPerformanceCard
+            initialRange={timeRange}
+            tcg={activeTCGs.length === 1 ? activeTCGs[0] : "All"}
+            onRangeChange={setTimeRange}
+            totalItems={MOCK_ITEMS.length}
+            totalValue={`$${MOCK_ITEMS.reduce((sum, item) => sum + parseCurrencyValue(item.valueLabel), 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           />
-        </div>
-      )}
-      onSearch={setSearchQuery}
-      onFiltersChange={setActiveFilters}
-      onSortChange={setSortBy}
-      onViewChange={(view) => {
-        /* Handle view change */
-      }}
-      emptyStateTitle="No collection items yet"
-      emptyStateDesc="Start by adding cards, sealed products, or other items to your collection."
-    />
+        )}
+        leadingFilterControls={(
+          <CollectionScopeFilter
+            options={availableTCGs}
+            selectedValues={activeTCGs}
+            onTCGChange={setActiveTCGs}
+          />
+        )}
+        extraActiveSelections={activeTCGSelections}
+        onClearAllFilters={handleClearAllFilters}
+        getItemHref={buildMyCollectionItemHref}
+        onSetAssetSpotlight={handleSetAssetSpotlight}
+        showAddAction
+        onAddCard={handleAddCard}
+        onAddSealedProduct={handleAddSealedProduct}
+        onImportCollection={handleImportCollection}
+        emptyStateTitle="No collection items yet"
+        emptyStateDesc="Start by adding cards, sealed products, or other items to your collection."
+      />
+    </section>
   );
 }

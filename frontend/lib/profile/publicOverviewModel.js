@@ -1,3 +1,5 @@
+import { buildCollectionAssetShowcaseSlots } from "@/lib/profile/featuredItemsModel";
+
 function toCurrency(value) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
@@ -18,12 +20,16 @@ function formatRelativeDate(daysAgo) {
  */
 
 /**
- * @param {{ publicProfile: UserProfileRow | null, username: string, enableMockFallback?: boolean }} params
+ * @param {{ publicProfile: UserProfileRow | null, username: string, collectionAssets?: Array<any>, enableMockFallback?: boolean }} params
  */
-export function buildPublicOverviewModel({ publicProfile, username, enableMockFallback = true }) {
+export function buildPublicOverviewModel({ publicProfile, username, collectionAssets = [], enableMockFallback = true }) {
   if (!publicProfile && !enableMockFallback) {
     return {
-      featuredItems: [],
+      showcase: {
+        topConviction: null,
+        biggestGainer: null,
+        spotlight: null,
+      },
       snapshotStats: [],
       performance: {
         points: [],
@@ -42,31 +48,12 @@ export function buildPublicOverviewModel({ publicProfile, username, enableMockFa
   const trackedItems = 120 + (seed % 480);
   const wishlistCount = 12 + (seed % 70);
   const favoriteTcg = publicProfile?.favorite_tcg_name || "Pokemon";
+  const showcase = buildCollectionAssetShowcaseSlots(collectionAssets, {
+    activePeriodLabel: "30D",
+  });
 
   return {
-    featuredItems: [
-      {
-        id: "featured-1",
-        name: "Signature Chase",
-        context: `${favoriteTcg} showcase item`,
-        valueLabel: toCurrency(Math.round(collectionValue * 0.19)),
-        imageUrl: null,
-      },
-      {
-        id: "featured-2",
-        name: "High Conviction Hold",
-        context: "Long-term portfolio anchor",
-        valueLabel: toCurrency(Math.round(collectionValue * 0.13)),
-        imageUrl: null,
-      },
-      {
-        id: "featured-3",
-        name: "Recent Add",
-        context: "Recently added to featured shelf",
-        valueLabel: toCurrency(Math.round(collectionValue * 0.07)),
-        imageUrl: null,
-      },
-    ],
+    showcase,
     snapshotStats: [
       {
         id: "snapshot-value",
@@ -109,9 +96,9 @@ export function buildPublicOverviewModel({ publicProfile, username, enableMockFa
       },
       {
         id: "highlight-most-valuable",
-        label: "Most Valuable Item",
+        label: "Most Valuable Asset",
         value: toCurrency(Math.round(collectionValue * 0.19)),
-        context: "Top public item by estimated value",
+        context: "Top public asset by estimated value",
       },
       {
         id: "highlight-strongest-category",

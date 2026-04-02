@@ -18,7 +18,7 @@ export const sectionConfigs = {
     supportsFilters: true,
     supportsSorting: true,
     supportsViewToggle: true,
-    defaultView: "grid", // "grid" or "list"
+    defaultView: "continuous",
     
     // Filter definitions
     filters: [
@@ -71,7 +71,7 @@ export const sectionConfigs = {
     supportsFilters: true,
     supportsSorting: true,
     supportsViewToggle: false,
-    defaultView: "grid",
+    defaultView: "binder",
     
     filters: [
       {
@@ -123,7 +123,7 @@ export const sectionConfigs = {
     supportsFilters: true,
     supportsSorting: true,
     supportsViewToggle: true,
-    defaultView: "grid",
+    defaultView: "continuous",
     
     filters: [
       {
@@ -173,7 +173,7 @@ export const sectionConfigs = {
     supportsFilters: true,
     supportsSorting: true,
     supportsViewToggle: true,
-    defaultView: "grid",
+    defaultView: "continuous",
     
     filters: [
       {

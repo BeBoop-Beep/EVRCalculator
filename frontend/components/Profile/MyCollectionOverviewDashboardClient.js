@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import PortfolioOverviewComposer from "@/components/Profile/PortfolioOverviewComposer";
+import CollectionFeaturedHighlight from "@/components/Profile/CollectionFeaturedHighlight";
+import { buildCollectionAssetShowcaseSlots } from "@/lib/profile/featuredItemsModel";
 
 const DASHBOARD_DATA = {
   commandCenter: {
@@ -48,15 +51,85 @@ const DASHBOARD_DATA = {
   },
 };
 
-export default function MyCollectionOverviewDashboardClient() {
+export default function MyCollectionOverviewDashboardClient({
+  collectionItems = [],
+  initialSpotlightAssetId = null,
+}) {
+  const router = useRouter();
   const [selectedRange, setSelectedRange] = useState("7D");
+  const spotlightAssetId = initialSpotlightAssetId;
+
+  const showcase = useMemo(
+    () => buildCollectionAssetShowcaseSlots(collectionItems, {
+      spotlightAssetId,
+      activePeriodLabel: selectedRange,
+    }),
+    [collectionItems, spotlightAssetId, selectedRange],
+  );
+
+  const handleSpotlightEdit = () => {
+    router.push("/account-settings#spotlight-asset");
+  };
+
+  const handleAddCard = () => {
+    router.push("/cards");
+  };
+
+  const handleAddSealedProduct = () => {
+    router.push("/products");
+  };
+
+  const handleImportCollection = () => {
+    router.push("/my-portfolio");
+  };
+
+  useEffect(() => {
+    const isTypingTarget = (element) => {
+      if (!element || !(element instanceof HTMLElement)) return false;
+
+      const tagName = element.tagName?.toLowerCase();
+      if (tagName === "input" || tagName === "textarea") {
+        return true;
+      }
+
+      return element.isContentEditable || Boolean(element.closest("[contenteditable='true']"));
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.defaultPrevented || event.repeat) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (String(event.key).toLowerCase() !== "a") return;
+      if (isTypingTarget(document.activeElement)) return;
+
+      event.preventDefault();
+      handleAddCard();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
-    <PortfolioOverviewComposer
-      dashboardData={DASHBOARD_DATA}
-      selectedRange={selectedRange}
-      onRangeChange={setSelectedRange}
-      mode="owner"
-    />
+    <section className="space-y-5">
+      {/* Portfolio Analytics - PRIMARY DATA FOCUS */}
+      <PortfolioOverviewComposer
+        dashboardData={DASHBOARD_DATA}
+        selectedRange={selectedRange}
+        onRangeChange={setSelectedRange}
+        mode="owner"
+        onAddCard={handleAddCard}
+        onAddSealedProduct={handleAddSealedProduct}
+        onImportCollection={handleImportCollection}
+      />
+
+      {/* Showcase Slots - SECONDARY UTILITY */}
+      <CollectionFeaturedHighlight
+        showcase={showcase}
+        mode="owner"
+        title="Portfolio Showcase"
+        subtitle="Top Conviction Hold and Biggest Gainer are computed from current portfolio data. Spotlight stays owner-controlled."
+        onSpotlightEdit={handleSpotlightEdit}
+      />
+    </section>
   );
 }

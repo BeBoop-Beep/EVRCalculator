@@ -76,12 +76,16 @@ export function mapPublicOverviewToDashboardData(overview) {
     },
   };
 
-  const topMovers = (overview.highlights || []).slice(0, 3).map((entry, idx) => ({
-    id: `public-mover-${idx + 1}`,
-    name: entry.value || "Portfolio Item",
-    changePercent7d: safeNumber(6 - idx * 2, 0),
-    valueLabel: "Public estimate",
-  }));
+  const topMovers = (overview.highlights || []).slice(0, 3).map((entry, idx) => {
+    const mockCurrentValue = 200 - idx * 50;
+    const changePercent = safeNumber(6 - idx * 2, 0);
+    return {
+      id: `public-mover-${idx + 1}`,
+      name: entry.value || "Portfolio Item",
+      changePercent7d: changePercent,
+      dollarImpact: Math.round(mockCurrentValue * (changePercent / 100)),
+    };
+  });
 
   return {
     commandCenter: {

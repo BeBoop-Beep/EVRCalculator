@@ -32,7 +32,7 @@ export default function SectionSearchBar({
         onChange={handleChange}
         disabled={isLoading}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-input)] px-4 py-2.5 pl-10 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50"
+        className="h-10 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-4 pl-10 pr-10 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50"
       />
       <svg
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-secondary)]"

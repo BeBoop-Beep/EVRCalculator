@@ -72,12 +72,30 @@ export interface PublicProfileTabItem {
   exact?: boolean;
 }
 
-export interface PublicFeaturedItem {
+export interface PublicShowcaseAsset {
   id: string;
   name: string;
   context: string;
   valueLabel: string;
   imageUrl: string | null;
+  slotKey: "topConviction" | "biggestGainer" | "spotlight";
+  category: string;
+  categoryIcon: string;
+  slotMode: "computed" | "manual";
+  isUserSelected?: boolean;
+  usedFallback?: boolean;
+  spotlightFallbackSource?: string | null;
+  hasPerformanceData?: boolean;
+}
+
+// Backward-compatible aliases for older naming.
+export type PublicFeaturedItem = PublicShowcaseAsset;
+export type PublicShowcaseItem = PublicShowcaseAsset;
+
+export interface PublicShowcaseSlots {
+  topConviction: PublicShowcaseAsset | null;
+  biggestGainer: PublicShowcaseAsset | null;
+  spotlight: PublicShowcaseAsset | null;
 }
 
 export interface PublicPortfolioStat {
@@ -110,7 +128,7 @@ export interface PublicRecentActivityItem {
 }
 
 export interface PublicProfileOverviewModel {
-  featuredItems: PublicFeaturedItem[];
+  showcase: PublicShowcaseSlots;
   snapshotStats: PublicPortfolioStat[];
   performance: PublicPortfolioPerformance;
   highlights: PublicPortfolioHighlight[];

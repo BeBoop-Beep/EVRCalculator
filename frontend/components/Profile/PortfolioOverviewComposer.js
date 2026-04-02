@@ -23,6 +23,9 @@ export default function PortfolioOverviewComposer({
   selectedRange,
   onRangeChange,
   mode = "owner",
+  onAddCard = () => {},
+  onAddSealedProduct = () => {},
+  onImportCollection = () => {},
 }) {
   const isOwnerMode = mode === "owner";
   const analysisTitle = isOwnerMode ? "Portfolio Intelligence" : "Portfolio Analysis";
@@ -61,13 +64,18 @@ export default function PortfolioOverviewComposer({
 
           {/* Insights Sidebar */}
           <aside className="space-y-3 xl:pt-0.5">
-            {isOwnerMode && (
-              <MyCollectionQuickActions compact />
-            )}
             <PortfolioInsightsSidebar 
               insightsData={dashboardData?.insights}
-              mode={mode}
+              selectedRange={selectedRange}
             />
+            {isOwnerMode && (
+              <MyCollectionQuickActions
+                compact
+                onAddCard={onAddCard}
+                onAddSealedProduct={onAddSealedProduct}
+                onImportCollection={onImportCollection}
+              />
+            )}
           </aside>
         </div>
       </section>

@@ -53,7 +53,7 @@ export default function Header() {
 
   const isTopNavActive = (path) => pathname === path || pathname.startsWith(`${path}/`);
   const isTcgsRouteActive = isTopNavActive('/TCGs');
-  const isMyCollectionRouteActive = isTopNavActive('/my-collection') || isTopNavActive('/dashboard');
+  const isMyCollectionRouteActive = isTopNavActive('/my-portfolio') || isTopNavActive('/dashboard');
   const publicProfileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}` : "/profile";
 
   const handleHeaderSearch = (query) => {
@@ -258,7 +258,7 @@ export default function Header() {
                   aria-expanded={isCollectionDropdownOpen}
                   aria-haspopup="menu"
                 >
-                  My Collection
+                  My Portfolio
                   <svg
                     viewBox="0 0 20 20"
                     fill="none"
@@ -270,19 +270,19 @@ export default function Header() {
                 </button>
                 {isCollectionDropdownOpen && (
                   <div className={`${navDropPanel} ${navDropPanelCompact} left-1/2 -translate-x-1/2`}>
-                    <Link href="/my-collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-portfolio" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Overview
                     </Link>
-                    <Link href="/my-collection/collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-portfolio/collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Collection
                     </Link>
-                    <Link href="/my-collection/binder" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-portfolio/binder" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Binder
                     </Link>
-                    <Link href="/my-collection/shelf" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-portfolio/shelf" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Shelf
                     </Link>
-                    <Link href="/my-collection/wishlist" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
+                    <Link href="/my-portfolio/wishlist" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Wishlist
                     </Link>
                   </div>
@@ -322,7 +322,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setIsUserDropdownOpen((prev) => !prev)}
-                    className={`${navDropTrigger} ${navDropPanelAccount} justify-between ${(isTopNavActive('/profile') || isTopNavActive('/u') || isTopNavActive('/my-collection') || isTopNavActive('/account-settings') || isUserDropdownOpen) ? navDropTriggerOpen : navDropTriggerClosed}`}
+                    className={`${navDropTrigger} ${navDropPanelAccount} justify-between ${(isTopNavActive('/profile') || isTopNavActive('/u') || isTopNavActive('/my-portfolio') || isTopNavActive('/account-settings') || isUserDropdownOpen) ? navDropTriggerOpen : navDropTriggerClosed}`}
                     aria-expanded={isUserDropdownOpen}
                     aria-haspopup="menu"
                   >
@@ -398,21 +398,21 @@ export default function Header() {
                 </Link>
               </div>
 
-              <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">MY COLLECTION</div>
+              <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">MY PORTFOLIO</div>
               <div className="border-y border-[var(--border-subtle)]">
-                <Link href="/my-collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-portfolio" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Overview
                 </Link>
-                <Link href="/my-collection/collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-portfolio/collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Collection
                 </Link>
-                <Link href="/my-collection/binder" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-portfolio/binder" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Binder
                 </Link>
-                <Link href="/my-collection/shelf" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-portfolio/shelf" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Shelf
                 </Link>
-                <Link href="/my-collection/wishlist" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/my-portfolio/wishlist" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Wishlist
                 </Link>
               </div>
@@ -435,8 +435,8 @@ export default function Header() {
                     <Link href={publicProfileHref} className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                       Public Profile
                     </Link>
-                    <Link href="/my-collection" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                      My Collection
+                    <Link href="/my-portfolio" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      My Portfolio
                     </Link>
                     <Link href="/account-settings" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                       Account Settings

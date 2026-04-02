@@ -7,7 +7,7 @@ export interface PortfolioMover {
   id: string;
   name: string;
   changePercent7d: number;
-  valueLabel: string;
+  dollarImpact?: number;
 }
 
 export interface AllocationSlice {

@@ -1,6 +1,4 @@
-import RoutePageShell from "@/components/Profile/RoutePageShell";
 import PublicWishlistDisplay from "@/components/Profile/PublicWishlistDisplay";
-import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
 // Mock data generator for wishlist items
 function generateMockWishlistItems(username) {
@@ -40,19 +38,12 @@ function generateMockWishlistItems(username) {
 
 export default async function PublicWishlistPage({ params }) {
   const { username } = await params;
-  const { identity } = await getCachedPublicRouteContextByUsername(username || "");
-  const ownerLabel = identity.displayName || identity.username;
 
   // Generate mock wishlist items
   const wishlistItems = generateMockWishlistItems(username);
 
   return (
-    <RoutePageShell
-      eyebrow="Public Wishlist"
-      title={`${ownerLabel}'s Wishlist`}
-      subtitle="Cards and items this collector is actively seeking."
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Info Panel */}
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-4">
           <p className="text-sm text-[var(--text-secondary)]">
@@ -74,7 +65,6 @@ export default async function PublicWishlistPage({ params }) {
             Wishlists help collectors track items they want to acquire. High priority items indicate active searches, while medium and low priorities show longer-term goals.
           </p>
         </div>
-      </div>
-    </RoutePageShell>
+    </div>
   );
 }
