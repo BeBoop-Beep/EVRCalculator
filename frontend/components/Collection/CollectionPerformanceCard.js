@@ -25,8 +25,9 @@ export default function CollectionPerformanceCard({
   tcg = "All",
   valueHistory = null,
   onRangeChange = null,
-  totalItems = 0,
   totalValue = "$0",
+  investedValue = null,
+  showSummaryMetrics = true,
 }) {
   const [selectedRange, setSelectedRange] = useState(initialRange);
 
@@ -40,8 +41,43 @@ export default function CollectionPerformanceCard({
     return getCollectionValueData(selectedRange, tcg, valueHistory);
   }, [selectedRange, tcg, valueHistory]);
 
-  const performancePercent = performanceData.changePercent || 0;
-  const isPositive = performancePercent >= 0;
+  const parseCurrencyLabel = (value) => {
+    const numeric = Number(String(value || "").replace(/[^\d.-]/g, ""));
+    return Number.isFinite(numeric) ? numeric : 0;
+  };
+
+  const currentValue = parseCurrencyLabel(totalValue) || performanceData.currentValue || 0;
+  const parsedInvested = Number(
+    typeof investedValue === "string"
+      ? String(investedValue).replace(/[^\d.-]/g, "")
+      : investedValue
+  );
+  const resolvedInvested = Number.isFinite(parsedInvested) && parsedInvested > 0
+    ? parsedInvested
+    : Math.max(0, currentValue - (performanceData.changeDollar || 0));
+  const profitLoss = currentValue - resolvedInvested;
+  const roiPercent = resolvedInvested > 0
+    ? ((currentValue - resolvedInvested) / resolvedInvested) * 100
+    : 0;
+
+  const currencyFormatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+
+  const formatSignedCurrency = (value) => {
+    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+    return `${sign}${currencyFormatter.format(Math.abs(value))}`;
+  };
+
+  const formatSignedPercent = (value) => {
+    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+    return `${sign}${Math.abs(value).toFixed(2)}%`;
+  };
+
+  const profitClass = profitLoss >= 0 ? "text-[var(--metric-positive)]" : "text-[var(--metric-negative)]";
+  const roiClass = roiPercent >= 0 ? "text-[var(--metric-positive)]" : "text-[var(--metric-negative)]";
 
   return (
     <section className="dashboard-panel flex flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4 sm:p-5">
@@ -69,39 +105,28 @@ export default function CollectionPerformanceCard({
       </div>
 
       {/* Integrated Metrics Footer */}
-      <div className="border-t border-[var(--border-subtle)] pt-4">
-        <div className="grid grid-cols-3 gap-3">
-          {/* Total Items */}
-          <div className="text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Total Items
-            </p>
-            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
-              {totalItems}
-            </p>
-          </div>
-
-          {/* Total Value */}
-          <div className="text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Total Value
-            </p>
-            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
-              {totalValue}
-            </p>
-          </div>
-
-          {/* Performance % */}
-          <div className="text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Performance
-            </p>
-            <p className={`mt-2 text-lg font-semibold ${isPositive ? "text-[var(--metric-positive)]" : "text-[var(--metric-negative)]"}`}>
-              {isPositive ? "+" : ""}{performancePercent.toFixed(2)}%
-            </p>
+      {showSummaryMetrics ? (
+        <div className="border-t border-[var(--border-subtle)] pt-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Collection Value</p>
+              <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(currentValue)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Collection Invested</p>
+              <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(resolvedInvested)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Collection Profit/Loss</p>
+              <p className={`mt-2 text-lg font-semibold ${profitClass}`}>{formatSignedCurrency(profitLoss)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Collection ROI</p>
+              <p className={`mt-2 text-lg font-semibold ${roiClass}`}>{formatSignedPercent(roiPercent)}</p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

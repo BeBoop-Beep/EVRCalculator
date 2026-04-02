@@ -16,7 +16,7 @@ export default function PublicProfileTabs({ items, profileBaseHref }) {
     <StandardizedTabsNav
       items={tabs}
       ariaLabel="Public profile sections"
-      className="mt-4"
+      className="mt-6"
     />
   );
 }

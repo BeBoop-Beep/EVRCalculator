@@ -11,6 +11,7 @@ export interface PortfolioMetricCard {
 
 export interface PortfolioCommandCenterData {
   totalValue: number;
+  investedValue?: number;
   change24hPercent: number;
   change7dPercent: number;
   cardsCount: number;

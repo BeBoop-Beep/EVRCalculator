@@ -31,7 +31,9 @@ export default async function PublicProfileOverviewPage({ params }) {
         </section>
       ) : null}
 
-      <PublicPortfolioOverviewComposer dashboardData={dashboardData} />
+      <section>
+        <PublicPortfolioOverviewComposer dashboardData={dashboardData} />
+      </section>
 
       <PublicFeaturedItemsSection showcase={overview.showcase} username={username || ""} />
       

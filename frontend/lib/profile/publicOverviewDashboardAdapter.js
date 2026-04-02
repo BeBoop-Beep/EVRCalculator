@@ -90,6 +90,7 @@ export function mapPublicOverviewToDashboardData(overview) {
   return {
     commandCenter: {
       totalValue,
+      investedValue: Math.round(totalValue * 0.84),
       change24hPercent: 0.91,
       change7dPercent: 4.38,
       cardsCount,

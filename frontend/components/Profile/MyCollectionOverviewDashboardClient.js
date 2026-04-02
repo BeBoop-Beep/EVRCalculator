@@ -10,6 +10,7 @@ import { buildCollectionAssetShowcaseSlots } from "@/lib/profile/featuredItemsMo
 const DASHBOARD_DATA = {
   commandCenter: {
     totalValue: 18245.87,
+    investedValue: 14980.0,
     change24hPercent: 0.91,
     change7dPercent: 4.38,
     cardsCount: 428,
@@ -67,6 +68,40 @@ export default function MyCollectionOverviewDashboardClient({
     [collectionItems, spotlightAssetId, selectedRange],
   );
 
+  const performanceHighlights = useMemo(() => {
+    const parseCurrentPrice = (item) => {
+      const rawValue = item?.valueLabel ?? item?.estimated_value ?? 0;
+      const numeric = Number(String(rawValue).replace(/[^\d.-]/g, ""));
+      return Number.isFinite(numeric) ? numeric : 0;
+    };
+
+    const candidates = collectionItems
+      .map((item) => {
+        const purchasePrice = Number(item?.purchase_price);
+        if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) return null;
+
+        const currentPrice = parseCurrentPrice(item);
+        const changePercent = ((currentPrice - purchasePrice) / purchasePrice) * 100;
+
+        return {
+          id: item?.id,
+          name: item?.name || "Unknown item",
+          changePercent,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.changePercent - a.changePercent);
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    return {
+      bestPerformer: candidates[0],
+      worstPerformer: candidates[candidates.length - 1],
+    };
+  }, [collectionItems]);
+
   const handleSpotlightEdit = () => {
     router.push("/account-settings#spotlight-asset");
   };
@@ -116,6 +151,7 @@ export default function MyCollectionOverviewDashboardClient({
         dashboardData={DASHBOARD_DATA}
         selectedRange={selectedRange}
         onRangeChange={setSelectedRange}
+        performanceHighlights={performanceHighlights}
         mode="owner"
         onAddCard={handleAddCard}
         onAddSealedProduct={handleAddSealedProduct}

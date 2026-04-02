@@ -24,12 +24,21 @@ function calculateCollectionStats(items) {
     const val = parseCurrencyValue(item.valueLabel);
     return sum + val;
   }, 0);
+  const investedValue = items.reduce((sum, item) => {
+    const parsedCostBasis = Number(item?.cost_basis);
+    const currentValue = parseCurrencyValue(item.valueLabel);
+    const base = Number.isFinite(parsedCostBasis) && parsedCostBasis > 0
+      ? parsedCostBasis
+      : currentValue * 0.84;
+    return sum + base;
+  }, 0);
 
   const sealedItems = items.filter((item) => item.productType || !item.cardNumber);
 
   return {
     totalItems: items.length,
     totalValue: `$${totalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    investedValue: `$${investedValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     sealedCount: sealedItems.length,
     config: {
       itemsLabel: "Total Items",
@@ -50,6 +59,7 @@ const MOCK_ITEMS = [
     condition: "Near Mint",
     imageUrl: null,
     valueLabel: "$45.50",
+    cost_basis: 32.25,
     isFoil: false,
   },
   {
@@ -62,6 +72,7 @@ const MOCK_ITEMS = [
     condition: "Mint",
     imageUrl: null,
     valueLabel: "$120.00",
+    cost_basis: 79,
     isFoil: true,
   },
   {
@@ -74,6 +85,7 @@ const MOCK_ITEMS = [
     condition: "Sealed",
     imageUrl: null,
     valueLabel: "$89.99",
+    cost_basis: 150,
   },
   {
     id: "4",
@@ -85,6 +97,7 @@ const MOCK_ITEMS = [
     condition: "Lightly Played",
     imageUrl: null,
     valueLabel: "$15.00",
+    cost_basis: 11,
   },
 ];
 
@@ -161,6 +174,7 @@ export default function MyCollectionPage() {
   }, [searchQuery, activeFilters, sortBy, tcgFilteredItems]);
 
   const isEmpty = filteredAndSortedItems.length === 0 && !isLoading;
+  const filteredStats = useMemo(() => calculateCollectionStats(filteredAndSortedItems), [filteredAndSortedItems]);
   const handleSetAssetSpotlight = (asset) => {
     if (!asset?.id) return;
     router.push(`/account-settings?spotlightAssetId=${encodeURIComponent(String(asset.id))}#spotlight-asset`);
@@ -215,14 +229,15 @@ export default function MyCollectionPage() {
         viewMode={viewMode}
         variant="detailed"
         showStats={false}
-        stats={calculateCollectionStats(filteredAndSortedItems)}
+        stats={filteredStats}
         contentAfterHeader={(
           <CollectionPerformanceCard
             initialRange={timeRange}
             tcg={activeTCGs.length === 1 ? activeTCGs[0] : "All"}
             onRangeChange={setTimeRange}
             totalItems={MOCK_ITEMS.length}
-            totalValue={`$${MOCK_ITEMS.reduce((sum, item) => sum + parseCurrencyValue(item.valueLabel), 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            totalValue={filteredStats.totalValue}
+            investedValue={filteredStats.investedValue}
           />
         )}
         leadingFilterControls={(

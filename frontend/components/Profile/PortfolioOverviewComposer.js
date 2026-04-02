@@ -22,6 +22,7 @@ export default function PortfolioOverviewComposer({
   dashboardData,
   selectedRange,
   onRangeChange,
+  performanceHighlights = null,
   mode = "owner",
   onAddCard = () => {},
   onAddSealedProduct = () => {},
@@ -34,51 +35,55 @@ export default function PortfolioOverviewComposer({
     : "View portfolio performance, top performers, and asset allocation.";
 
   return (
-    <section className="space-y-5">
-      {/* Command Center / Snapshot Hero */}
-      <PortfolioCommandCenter 
-        dashboardData={dashboardData} 
-        selectedRange={selectedRange}
-        onRangeChange={onRangeChange}
-        mode={mode}
-      />
+    <section className="space-y-6">
+      <div className="space-y-6">
+        {/* Command Center / Snapshot Hero */}
+        <PortfolioCommandCenter
+          dashboardData={dashboardData}
+          selectedRange={selectedRange}
+          onRangeChange={onRangeChange}
+          mode={mode}
+        />
 
-      {/* Analytics Dashboard: Performance Chart + Insights Sidebar */}
-      <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5 lg:p-6">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{analysisTitle}</p>
-          <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">Performance and Insights</h3>
-          <p className="mt-1 text-xs text-[var(--text-secondary)] sm:text-sm">{analysisSubtitle}</p>
-        </div>
-
-        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-stretch xl:gap-5">
-          {/* Performance Chart */}
-          <div className="h-full">
-            <PortfolioPerformanceCanvas
-              performanceData={dashboardData?.performance}
-              selectedRange={selectedRange}
-              onRangeChange={onRangeChange}
-              mode={mode}
-            />
+        {/* Analytics Dashboard: Performance Chart + Insights Sidebar */}
+        <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4 sm:p-5 lg:p-6">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{analysisTitle}</p>
+            <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">Performance and Insights</h3>
+            <p className="mt-1 text-xs text-[var(--text-secondary)] sm:text-sm">{analysisSubtitle}</p>
           </div>
 
-          {/* Insights Sidebar */}
-          <aside className="space-y-3 xl:pt-0.5">
-            <PortfolioInsightsSidebar 
-              insightsData={dashboardData?.insights}
-              selectedRange={selectedRange}
-            />
-            {isOwnerMode && (
-              <MyCollectionQuickActions
-                compact
-                onAddCard={onAddCard}
-                onAddSealedProduct={onAddSealedProduct}
-                onImportCollection={onImportCollection}
+          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-stretch xl:gap-5">
+            {/* Performance Chart */}
+            <div className="h-full">
+              <PortfolioPerformanceCanvas
+                performanceData={dashboardData?.performance}
+                selectedRange={selectedRange}
+                onRangeChange={onRangeChange}
+                investedValue={dashboardData?.commandCenter?.investedValue}
+                performanceHighlights={performanceHighlights}
+                mode={mode}
               />
-            )}
-          </aside>
-        </div>
-      </section>
+            </div>
+
+            {/* Insights Sidebar */}
+            <aside className="space-y-3 xl:pt-0.5">
+              <PortfolioInsightsSidebar
+                insightsData={dashboardData?.insights}
+                selectedRange={selectedRange}
+              />
+              {isOwnerMode && (
+                <MyCollectionQuickActions
+                  compact
+                  onAddCard={onAddCard}
+                  onAddSealedProduct={onAddSealedProduct}
+                  onImportCollection={onImportCollection}
+                />
+              )}
+            </aside>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }

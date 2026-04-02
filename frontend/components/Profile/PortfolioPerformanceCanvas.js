@@ -81,6 +81,8 @@ export default function PortfolioPerformanceCanvas({
   performanceData, 
   selectedRange = "7D", 
   onRangeChange,
+  investedValue = null,
+  performanceHighlights = null,
   mode = "owner",
 }) {
   const isOwnerMode = mode === "owner";
@@ -91,6 +93,23 @@ export default function PortfolioPerformanceCanvas({
   }));
 
   const deltaClassName = perf.changePercent >= 0 ? "metric-positive" : "metric-negative";
+  const parsedInvestedValue = Number(investedValue);
+  const resolvedInvestedValue = Number.isFinite(parsedInvestedValue) && parsedInvestedValue > 0
+    ? parsedInvestedValue
+    : Math.max(0, perf.currentValue - perf.changeDollar);
+  const profitLossValue = perf.currentValue - resolvedInvestedValue;
+  const roiPercent = resolvedInvestedValue > 0
+    ? ((perf.currentValue - resolvedInvestedValue) / resolvedInvestedValue) * 100
+    : 0;
+  const profitLossClass = profitLossValue >= 0 ? "metric-positive" : "metric-negative";
+  const roiClass = roiPercent >= 0 ? "metric-positive" : "metric-negative";
+
+  const formatSignedCurrency = (value) => {
+    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+    return `${sign}${currencyFormatter.format(Math.abs(value))}`;
+  };
+  const bestPerformer = performanceHighlights?.bestPerformer || null;
+  const worstPerformer = performanceHighlights?.worstPerformer || null;
 
   return (
     <section className="dashboard-panel flex h-full min-h-[31rem] flex-col rounded-2xl border border-[var(--border-subtle)] p-5 sm:p-6">
@@ -159,6 +178,51 @@ export default function PortfolioPerformanceCanvas({
             />
           </AreaChart>
         </ResponsiveContainer>
+      </div>
+
+      <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Portfolio Value</p>
+            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(perf.currentValue)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Invested Value</p>
+            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(resolvedInvestedValue)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Profit/Loss</p>
+            <p className={`mt-1.5 text-lg font-semibold ${profitLossClass}`}>{formatSignedCurrency(profitLossValue)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">ROI %</p>
+            <p className={`mt-1.5 text-lg font-semibold ${roiClass}`}>{formatPercent(roiPercent)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl bg-[var(--surface-page)] p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Best Performer</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {bestPerformer?.name || "No qualifying items"}
+            </p>
+            <p className="mt-1 text-lg font-semibold metric-positive">
+              {bestPerformer ? formatPercent(bestPerformer.changePercent) : "-"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[var(--surface-page)] p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Worst Performer</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+              {worstPerformer?.name || "No qualifying items"}
+            </p>
+            <p className="mt-1 text-lg font-semibold metric-negative">
+              {worstPerformer ? formatPercent(worstPerformer.changePercent) : "-"}
+            </p>
+          </div>
+        </div>
       </div>
     </section>
   );

@@ -183,11 +183,20 @@ function stripPortfolioFields(entry) {
 
 export function buildCollectionStats(items) {
   const totalValue = items.reduce((sum, item) => sum + parseCurrencyValue(item.valueLabel), 0);
+  const investedValue = items.reduce((sum, item) => {
+    const parsedCostBasis = Number(item?.cost_basis);
+    const currentValue = parseCurrencyValue(item.valueLabel);
+    const base = Number.isFinite(parsedCostBasis) && parsedCostBasis > 0
+      ? parsedCostBasis
+      : currentValue * 0.84;
+    return sum + base;
+  }, 0);
   const sealedItems = items.filter((item) => item.productType || !item.cardNumber);
 
   return {
     totalItems: items.length,
     totalValue: `$${totalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    investedValue: `$${investedValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     sealedCount: sealedItems.length,
     config: {
       itemsLabel: "Total Items",

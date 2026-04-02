@@ -158,6 +158,8 @@ export default function PublicCollectionViewWrapper({
         onRangeChange={setSelectedRange}
         totalItems={stats.totalItems || items.length}
         totalValue={stats.totalValue || "$0"}
+        investedValue={stats.investedValue || null}
+        showSummaryMetrics={false}
       />
 
       {/* Main Collection Grid Section */}

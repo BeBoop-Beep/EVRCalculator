@@ -81,19 +81,13 @@ export default function PortfolioCommandCenter({
   const isFresh = freshnessLabel.toLowerCase() === "fresh";
 
   return (
-    <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5">
-      {/* Section header */}
+    <section className="rounded-2xl bg-[var(--surface-panel)] p-6 shadow-sm">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-            {isOwnerMode ? "Portfolio Analytics" : "Portfolio Overview"}
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
-            {isOwnerMode ? "Command Center" : "Portfolio Summary"}
-          </h2>
-        </div>
+        <p className="text-sm font-medium uppercase tracking-wide text-[var(--text-secondary)]">
+          Portfolio Summary
+        </p>
         {isOwnerMode && (
-          <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
+          <div className="rounded-full bg-[var(--surface-page)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
             {formatRelativeSync(data.lastSyncedAt)}
           </div>
         )}
@@ -102,7 +96,7 @@ export default function PortfolioCommandCenter({
       {/* Primary row */}
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Hero: Total Portfolio Value */}
-        <div className="dashboard-panel flex flex-col rounded-2xl border border-[var(--brand)]/20 p-5">
+        <div className="flex flex-col rounded-2xl bg-[var(--surface-page)] p-5">
           <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-secondary)]/80">Total Portfolio Value</p>
           <p className="mt-3 text-[2.75rem] font-extrabold leading-none tracking-tight text-[var(--text-primary)]">
             {currencyFormatter.format(data.totalValue)}
@@ -135,7 +129,7 @@ export default function PortfolioCommandCenter({
         </div>
 
         {/* Performance card reflecting shared dashboard range */}
-        <div className="dashboard-panel flex flex-col rounded-2xl border border-[var(--border-subtle)] p-5">
+        <div className="flex flex-col rounded-2xl bg-[var(--surface-page)] p-5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Performance</p>
             <OverviewRangeToggle
@@ -161,18 +155,21 @@ export default function PortfolioCommandCenter({
           label="Cards"
           value={numberFormatter.format(data.cardsCount)}
           subValue="Singles tracked"
+          className="border-transparent bg-[var(--surface-page)]"
           compact
         />
         <ProfileStatCard
           label="Sealed"
           value={numberFormatter.format(data.sealedCount)}
           subValue="Products held"
+          className="border-transparent bg-[var(--surface-page)]"
           compact
         />
         <ProfileStatCard
           label="Wishlist"
           value={numberFormatter.format(data.wishlistCount)}
           subValue="Acquisition targets"
+          className="border-transparent bg-[var(--surface-page)]"
           compact
         />
         {isOwnerMode ? (
@@ -183,6 +180,7 @@ export default function PortfolioCommandCenter({
             valueClassName="text-[1.5rem] font-medium text-[var(--text-secondary)]"
             badge="Sync"
             badgeTone="neutral"
+            className="border-transparent bg-[var(--surface-page)]"
             compact
           />
         ) : (
@@ -193,6 +191,7 @@ export default function PortfolioCommandCenter({
             valueClassName="text-[1.35rem] font-medium text-[var(--text-secondary)]"
             badge="Read only"
             badgeTone="neutral"
+            className="border-transparent bg-[var(--surface-page)]"
             compact
           />
         )}

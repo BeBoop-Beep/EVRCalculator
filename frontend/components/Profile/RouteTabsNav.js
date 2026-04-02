@@ -7,7 +7,7 @@ export default function RouteTabsNav({ items, ariaLabel }) {
     <StandardizedTabsNav
       items={items}
       ariaLabel={ariaLabel}
-      className="mt-4"
+      className="mt-6"
     />
   );
 }
