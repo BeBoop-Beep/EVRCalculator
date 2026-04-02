@@ -2,8 +2,7 @@
 
 import PortfolioCommandCenter from "@/components/Profile/PortfolioCommandCenter";
 import PortfolioPerformanceCanvas from "@/components/Profile/PortfolioPerformanceCanvas";
-import PortfolioInsightsSidebar from "@/components/Profile/PortfolioInsightsSidebar";
-import MyCollectionQuickActions from "@/components/Profile/MyCollectionQuickActions";
+import PortfolioSignalsRail from "@/components/Profile/PortfolioSignalsRail";
 
 /**
  * Unified Portfolio Overview Composer
@@ -23,63 +22,39 @@ export default function PortfolioOverviewComposer({
   selectedRange,
   onRangeChange,
   performanceHighlights = null,
+  portfolioSignals = null,
   mode = "owner",
-  onAddCard = () => {},
-  onAddSealedProduct = () => {},
-  onImportCollection = () => {},
 }) {
-  const isOwnerMode = mode === "owner";
-  const analysisTitle = isOwnerMode ? "Portfolio Intelligence" : "Portfolio Analysis";
-  const analysisSubtitle = isOwnerMode
-    ? "Track portfolio trajectory with high-signal movers, allocation context, and quick owner actions."
-    : "View portfolio performance, top performers, and asset allocation.";
-
   return (
-    <section className="space-y-6">
-      <div className="space-y-6">
+    <section className="space-y-7">
+      <div className="space-y-7">
         {/* Command Center / Snapshot Hero */}
         <PortfolioCommandCenter
           dashboardData={dashboardData}
-          selectedRange={selectedRange}
-          onRangeChange={onRangeChange}
           mode={mode}
         />
 
-        {/* Analytics Dashboard: Performance Chart + Insights Sidebar */}
-        <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4 sm:p-5 lg:p-6">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{analysisTitle}</p>
-            <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">Performance and Insights</h3>
-            <p className="mt-1 text-xs text-[var(--text-secondary)] sm:text-sm">{analysisSubtitle}</p>
-          </div>
-
-          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-stretch xl:gap-5">
+        {/* Dominant flagship analytics surface */}
+        <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 sm:p-4 lg:p-5">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)] xl:items-stretch xl:gap-4">
             {/* Performance Chart */}
             <div className="h-full">
               <PortfolioPerformanceCanvas
                 performanceData={dashboardData?.performance}
                 selectedRange={selectedRange}
                 onRangeChange={onRangeChange}
-                investedValue={dashboardData?.commandCenter?.investedValue}
-                performanceHighlights={performanceHighlights}
                 mode={mode}
               />
             </div>
 
-            {/* Insights Sidebar */}
-            <aside className="space-y-3 xl:pt-0.5">
-              <PortfolioInsightsSidebar
-                insightsData={dashboardData?.insights}
+            {/* Utility Rail */}
+            <aside className="space-y-2.5 xl:pt-1">
+              <PortfolioSignalsRail
+                performanceHighlights={performanceHighlights}
                 selectedRange={selectedRange}
+                portfolioSignals={portfolioSignals}
+                signalsData={dashboardData?.insights}
               />
-              {isOwnerMode && (
-                <MyCollectionQuickActions
-                  compact
-                  onAddCard={onAddCard}
-                  onAddSealedProduct={onAddSealedProduct}
-                  onImportCollection={onImportCollection}
-                />
-              )}
             </aside>
           </div>
         </section>

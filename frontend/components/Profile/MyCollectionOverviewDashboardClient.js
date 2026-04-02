@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
 import PortfolioOverviewComposer from "@/components/Profile/PortfolioOverviewComposer";
-import CollectionFeaturedHighlight from "@/components/Profile/CollectionFeaturedHighlight";
-import { buildCollectionAssetShowcaseSlots } from "@/lib/profile/featuredItemsModel";
 
 const DASHBOARD_DATA = {
   commandCenter: {
@@ -54,27 +51,16 @@ const DASHBOARD_DATA = {
 
 export default function MyCollectionOverviewDashboardClient({
   collectionItems = [],
-  initialSpotlightAssetId = null,
 }) {
-  const router = useRouter();
   const [selectedRange, setSelectedRange] = useState("7D");
-  const spotlightAssetId = initialSpotlightAssetId;
 
-  const showcase = useMemo(
-    () => buildCollectionAssetShowcaseSlots(collectionItems, {
-      spotlightAssetId,
-      activePeriodLabel: selectedRange,
-    }),
-    [collectionItems, spotlightAssetId, selectedRange],
-  );
+  const parseCurrentPrice = (item) => {
+    const rawValue = item?.valueLabel ?? item?.estimated_value ?? 0;
+    const numeric = Number(String(rawValue).replace(/[^\d.-]/g, ""));
+    return Number.isFinite(numeric) ? numeric : 0;
+  };
 
   const performanceHighlights = useMemo(() => {
-    const parseCurrentPrice = (item) => {
-      const rawValue = item?.valueLabel ?? item?.estimated_value ?? 0;
-      const numeric = Number(String(rawValue).replace(/[^\d.-]/g, ""));
-      return Number.isFinite(numeric) ? numeric : 0;
-    };
-
     const candidates = collectionItems
       .map((item) => {
         const purchasePrice = Number(item?.purchase_price);
@@ -102,69 +88,98 @@ export default function MyCollectionOverviewDashboardClient({
     };
   }, [collectionItems]);
 
-  const handleSpotlightEdit = () => {
-    router.push("/account-settings#spotlight-asset");
-  };
+  const portfolioSignals = useMemo(() => {
+    const assets = collectionItems
+      .map((item) => {
+        const unitValue = parseCurrentPrice(item);
+        const quantity = Number(item?.quantity);
+        const resolvedQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+        const marketValue = unitValue * resolvedQuantity;
 
-  const handleAddCard = () => {
-    router.push("/cards");
-  };
+        return {
+          id: item?.id,
+          marketValue,
+          isSealed: item?.collectible_type === "sealed_product" || Boolean(item?.productType),
+          isSlab: Boolean(item?.gradingLabel),
+        };
+      })
+      .filter((asset) => asset.marketValue > 0);
 
-  const handleAddSealedProduct = () => {
-    router.push("/products");
-  };
+    const totalValue = assets.reduce((sum, asset) => sum + asset.marketValue, 0);
+    const bucketValues = {
+      Cards: 0,
+      Sealed: 0,
+      Slabs: 0,
+    };
 
-  const handleImportCollection = () => {
-    router.push("/my-portfolio");
-  };
-
-  useEffect(() => {
-    const isTypingTarget = (element) => {
-      if (!element || !(element instanceof HTMLElement)) return false;
-
-      const tagName = element.tagName?.toLowerCase();
-      if (tagName === "input" || tagName === "textarea") {
-        return true;
+    assets.forEach((asset) => {
+      if (asset.isSealed) {
+        bucketValues.Sealed += asset.marketValue;
+        return;
       }
 
-      return element.isContentEditable || Boolean(element.closest("[contenteditable='true']"));
+      if (asset.isSlab) {
+        bucketValues.Slabs += asset.marketValue;
+        return;
+      }
+
+      bucketValues.Cards += asset.marketValue;
+    });
+
+    const activeBuckets = Object.entries(bucketValues).filter(([, value]) => value > 0);
+    const rawPercentages = activeBuckets.map(([label, value]) => ({
+      label,
+      value,
+      rawPercent: totalValue > 0 ? (value / totalValue) * 100 : 0,
+    }));
+
+    const roundedPercentages = rawPercentages.map((entry) => ({
+      ...entry,
+      basePercent: Math.floor(entry.rawPercent),
+      remainder: entry.rawPercent - Math.floor(entry.rawPercent),
+    }));
+
+    let remainingPercent = Math.max(0, 100 - roundedPercentages.reduce((sum, entry) => sum + entry.basePercent, 0));
+
+    roundedPercentages
+      .sort((a, b) => b.remainder - a.remainder)
+      .forEach((entry) => {
+        if (remainingPercent <= 0) return;
+        entry.basePercent += 1;
+        remainingPercent -= 1;
+      });
+
+    const allocationRows = roundedPercentages
+      .sort((a, b) => b.value - a.value)
+      .map((entry, index) => ({
+        id: `allocation-${index}-${entry.label.toLowerCase()}`,
+        label: entry.label,
+        percent: entry.basePercent,
+      }));
+
+    const topThreeValue = assets
+      .slice()
+      .sort((a, b) => b.marketValue - a.marketValue)
+      .slice(0, 3)
+      .reduce((sum, asset) => sum + asset.marketValue, 0);
+
+    const concentrationPercent = totalValue > 0 ? Math.round((topThreeValue / totalValue) * 100) : 0;
+
+    return {
+      allocationRows,
+      concentrationPercent,
     };
-
-    const handleKeyDown = (event) => {
-      if (event.defaultPrevented || event.repeat) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (String(event.key).toLowerCase() !== "a") return;
-      if (isTypingTarget(document.activeElement)) return;
-
-      event.preventDefault();
-      handleAddCard();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [collectionItems]);
 
   return (
-    <section className="space-y-5">
-      {/* Portfolio Analytics - PRIMARY DATA FOCUS */}
+    <section>
       <PortfolioOverviewComposer
         dashboardData={DASHBOARD_DATA}
         selectedRange={selectedRange}
         onRangeChange={setSelectedRange}
         performanceHighlights={performanceHighlights}
+        portfolioSignals={portfolioSignals}
         mode="owner"
-        onAddCard={handleAddCard}
-        onAddSealedProduct={handleAddSealedProduct}
-        onImportCollection={handleImportCollection}
-      />
-
-      {/* Showcase Slots - SECONDARY UTILITY */}
-      <CollectionFeaturedHighlight
-        showcase={showcase}
-        mode="owner"
-        title="Portfolio Showcase"
-        subtitle="Top Conviction Hold and Biggest Gainer are computed from current portfolio data. Spotlight stays owner-controlled."
-        onSpotlightEdit={handleSpotlightEdit}
       />
     </section>
   );

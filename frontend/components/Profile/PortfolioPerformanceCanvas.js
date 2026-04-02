@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import {
   Area,
   AreaChart,
@@ -42,6 +44,10 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 function formatPercent(percent) {
+  if (typeof percent !== "number" || Number.isNaN(percent)) {
+    return "—";
+  }
+
   const absolute = Math.abs(percent).toFixed(2);
   const sign = percent > 0 ? "+" : percent < 0 ? "-" : "";
   return `${sign}${absolute}%`;
@@ -81,41 +87,61 @@ export default function PortfolioPerformanceCanvas({
   performanceData, 
   selectedRange = "7D", 
   onRangeChange,
-  investedValue = null,
-  performanceHighlights = null,
   mode = "owner",
 }) {
-  const isOwnerMode = mode === "owner";
-  const perf = getPerformanceRangeData(selectedRange, performanceData);
-  const chartData = perf.points.map((point, index) => ({
-    ...point,
-    isFinalPoint: index === perf.points.length - 1,
-  }));
+  const perf = useMemo(
+    () => getPerformanceRangeData(selectedRange, performanceData),
+    [selectedRange, performanceData]
+  );
+  const chartData = useMemo(
+    () => perf.points.map((point, index) => ({
+      ...point,
+      isFinalPoint: index === perf.points.length - 1,
+    })),
+    [perf.points]
+  );
 
-  const deltaClassName = perf.changePercent >= 0 ? "metric-positive" : "metric-negative";
-  const parsedInvestedValue = Number(investedValue);
-  const resolvedInvestedValue = Number.isFinite(parsedInvestedValue) && parsedInvestedValue > 0
-    ? parsedInvestedValue
-    : Math.max(0, perf.currentValue - perf.changeDollar);
-  const profitLossValue = perf.currentValue - resolvedInvestedValue;
-  const roiPercent = resolvedInvestedValue > 0
-    ? ((perf.currentValue - resolvedInvestedValue) / resolvedInvestedValue) * 100
-    : 0;
-  const profitLossClass = profitLossValue >= 0 ? "metric-positive" : "metric-negative";
-  const roiClass = roiPercent >= 0 ? "metric-positive" : "metric-negative";
+  const rangeMetrics = useMemo(() => {
+    const values = perf.points
+      .map((point) => Number(point?.totalValue))
+      .filter((value) => Number.isFinite(value));
+
+    if (values.length === 0) {
+      return {
+        currentValue: 0,
+        periodChange: 0,
+        periodRoi: null,
+        periodHigh: 0,
+      };
+    }
+
+    const startValue = values[0];
+    const endValue = values[values.length - 1];
+    const highValue = Math.max(...values);
+
+    return {
+      currentValue: endValue,
+      periodChange: endValue - startValue,
+      periodRoi: startValue > 0 ? ((endValue - startValue) / startValue) * 100 : null,
+      periodHigh: highValue,
+    };
+  }, [perf.points]);
+
+  const periodChangeClass = rangeMetrics.periodChange >= 0 ? "metric-positive" : "metric-negative";
+  const periodRoiClass = (rangeMetrics.periodRoi ?? 0) >= 0 ? "metric-positive" : "metric-negative";
 
   const formatSignedCurrency = (value) => {
     const sign = value > 0 ? "+" : value < 0 ? "-" : "";
     return `${sign}${currencyFormatter.format(Math.abs(value))}`;
   };
-  const bestPerformer = performanceHighlights?.bestPerformer || null;
-  const worstPerformer = performanceHighlights?.worstPerformer || null;
+  const isOwnerMode = mode === "owner";
 
   return (
-    <section className="dashboard-panel flex h-full min-h-[31rem] flex-col rounded-2xl border border-[var(--border-subtle)] p-5 sm:p-6">
+    <section className="flex h-full min-h-[36rem] flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-5 sm:p-6 lg:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Performance</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">{isOwnerMode ? perf.helper : "Performance trend over selected timeframe."}</p>
         </div>
         <OverviewRangeToggle
           selectedRange={selectedRange}
@@ -124,23 +150,7 @@ export default function PortfolioPerformanceCanvas({
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Value</p>
-          <p className="mt-1 text-[2rem] font-bold leading-none text-[var(--text-primary)] sm:text-[2.35rem]">
-            {currencyFormatter.format(perf.currentValue)}
-          </p>
-          <p className={`mt-1.5 text-sm font-semibold ${deltaClassName}`}>{formatPercent(perf.changePercent)}</p>
-        </div>
-        <div className="max-w-[16rem] text-left sm:text-right">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-            {isOwnerMode ? "Signal" : "Public Signal"}
-          </p>
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">{perf.helper}</p>
-        </div>
-      </div>
-
-      <div className="mt-5 min-h-[20rem] flex-1">
+      <div className="mt-6 min-h-[25rem] flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
             <defs>
@@ -180,47 +190,24 @@ export default function PortfolioPerformanceCanvas({
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 border-t border-[var(--border-subtle)] pt-4">
+        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Based on active range</p>
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Portfolio Value</p>
-            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(perf.currentValue)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Invested Value</p>
-            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(resolvedInvestedValue)}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Value</p>
+            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(rangeMetrics.currentValue)}</p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Profit/Loss</p>
-            <p className={`mt-1.5 text-lg font-semibold ${profitLossClass}`}>{formatSignedCurrency(profitLossValue)}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Period Change</p>
+            <p className={`mt-1.5 text-lg font-semibold ${periodChangeClass}`}>{formatSignedCurrency(rangeMetrics.periodChange)}</p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">ROI %</p>
-            <p className={`mt-1.5 text-lg font-semibold ${roiClass}`}>{formatPercent(roiPercent)}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Period ROI</p>
+            <p className={`mt-1.5 text-lg font-semibold ${periodRoiClass}`}>{formatPercent(rangeMetrics.periodRoi)}</p>
           </div>
-        </div>
-      </div>
-
-      <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl bg-[var(--surface-page)] p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Best Performer</p>
-            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-              {bestPerformer?.name || "No qualifying items"}
-            </p>
-            <p className="mt-1 text-lg font-semibold metric-positive">
-              {bestPerformer ? formatPercent(bestPerformer.changePercent) : "-"}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-[var(--surface-page)] p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Worst Performer</p>
-            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-              {worstPerformer?.name || "No qualifying items"}
-            </p>
-            <p className="mt-1 text-lg font-semibold metric-negative">
-              {worstPerformer ? formatPercent(worstPerformer.changePercent) : "-"}
-            </p>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Period High</p>
+            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(rangeMetrics.periodHigh)}</p>
           </div>
         </div>
       </div>
