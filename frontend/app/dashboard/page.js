@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthContext";
 
 export default function Dashboard() {
   const [customer, setCustomer] = useState(null);
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   const router = useRouter();
+  const { logout } = useAuth();
 
   // Fetch customer details
   const fetchCustomerDetails = useCallback(async () => {
@@ -43,23 +45,8 @@ export default function Dashboard() {
     fetchCustomerDetails();
   }, [fetchCustomerDetails]);
 
-  // Logout function
-  const handleLogout = async () => {
-    try {
-      const response = await fetch("/api/logout", {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        console.log("Logout successful");
-        router.push("/login"); // Redirect to login page
-      } else {
-        console.log("Logout failed");
-      }
-    } catch (error) {
-      console.error("Error during logout:", error);
-    }
-  };
+  // Logout delegates to AuthContext so all auth state (Header, context) clears together.
+  const handleLogout = () => logout();
 
   // Update customer details
   const handleSubmit = async (field) => {

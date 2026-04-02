@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthContext";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [infoMessage, setInfoMessage] = useState("");
   const [isResending, setIsResending] = useState(false);
   const router = useRouter();
+  const { refreshUser } = useAuth();
 
   const handleLogin = async () => {
     try {
@@ -26,7 +28,8 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        // Since token is handled by the server (set in cookies), no need to store it on frontend
+        // Hydrate AuthContext so Header reflects the new session without a full page reload.
+        await refreshUser();
         router.push("/profile"); // Redirect to profile after login
       } else {
         const errorData = await response.json();
@@ -65,27 +68,6 @@ export default function LoginPage() {
       setError("An error occurred while resending confirmation email.");
     } finally {
       setIsResending(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      const response = await fetch("/api/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Ensure cookies are sent and received automatically
-      });
-
-      if (response.ok) {
-        router.push("/login"); // Redirect to login page after logout
-      } else {
-        setError("Logout failed");
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-      setError("An error occurred during logout.");
     }
   };
 

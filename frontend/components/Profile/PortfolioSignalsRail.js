@@ -25,16 +25,28 @@ function AllocationCard({ rows = [] }) {
   return (
     <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/70 px-3.5 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Portfolio Allocation</p>
-      <div className="mt-2.5 space-y-2">
+      <div className="mt-2.5">
         {rows.length === 0 ? (
           <p className="text-sm text-[var(--text-secondary)]">No allocation data available.</p>
         ) : (
-          rows.map((row) => (
-            <div key={row.id || row.label} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-[var(--text-primary)]">{row.label}</span>
-              <span className="text-sm font-semibold text-[var(--text-primary)]">{row.percent}%</span>
-            </div>
-          ))
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-2 px-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Category</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-right text-[var(--text-secondary)]">Number</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-right text-[var(--text-secondary)]">Share</span>
+
+            {rows.flatMap((row) => {
+              const countValue = Number.isFinite(Number(row?.count)) ? Number(row.count) : null;
+              const rowKey = row.id || row.label;
+
+              return [
+                <span key={`${rowKey}-label`} className="min-w-0 truncate text-sm text-[var(--text-primary)]">{row.label}</span>,
+                <span key={`${rowKey}-count`} className="text-sm font-semibold text-right tabular-nums text-[var(--text-primary)]">
+                  {countValue === null ? "--" : countValue.toLocaleString("en-US")}
+                </span>,
+                <span key={`${rowKey}-percent`} className="text-sm font-semibold text-right tabular-nums text-[var(--text-primary)]">{row.percent}%</span>,
+              ];
+            })}
+          </div>
         )}
       </div>
     </article>
@@ -75,6 +87,7 @@ function mapFallbackAllocationRows(signalsData) {
       id: row.id || `fallback-allocation-${index}`,
       label: row.label,
       percent: Math.round(Number(row.valuePercent)),
+      count: Number.isFinite(Number(row?.count)) ? Number(row.count) : null,
     }));
 }
 

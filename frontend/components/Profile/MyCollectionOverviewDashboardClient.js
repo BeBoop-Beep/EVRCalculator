@@ -111,19 +111,27 @@ export default function MyCollectionOverviewDashboardClient({
       Sealed: 0,
       Slabs: 0,
     };
+    const bucketCounts = {
+      Cards: 0,
+      Sealed: 0,
+      Slabs: 0,
+    };
 
     assets.forEach((asset) => {
       if (asset.isSealed) {
         bucketValues.Sealed += asset.marketValue;
+        bucketCounts.Sealed += 1;
         return;
       }
 
       if (asset.isSlab) {
         bucketValues.Slabs += asset.marketValue;
+        bucketCounts.Slabs += 1;
         return;
       }
 
       bucketValues.Cards += asset.marketValue;
+      bucketCounts.Cards += 1;
     });
 
     const activeBuckets = Object.entries(bucketValues).filter(([, value]) => value > 0);
@@ -155,6 +163,7 @@ export default function MyCollectionOverviewDashboardClient({
         id: `allocation-${index}-${entry.label.toLowerCase()}`,
         label: entry.label,
         percent: entry.basePercent,
+        count: bucketCounts[entry.label] || 0,
       }));
 
     const topThreeValue = assets

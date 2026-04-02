@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation for routing
 import SearchBar from "@/components/Search/SearchBar";
 import Image from "next/image";
+import { useAuth } from "@/components/AuthContext";
 
 function getCleanText(value) {
   if (typeof value !== "string") return null;
@@ -22,9 +23,13 @@ function getPreferredAccountLabel(user) {
 }
 
 export default function Header() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Track authentication state
-  const [accountLabel, setAccountLabel] = useState(null); // Track the account label shown in the header
-  const [accountUsername, setAccountUsername] = useState(null);
+  // Auth state derives from AuthContext — single source of truth.
+  // Header no longer polls /api/auth/me independently on every navigation.
+  const { user, logout } = useAuth();
+  const isAuthenticated = !!user;
+  const accountLabel = getPreferredAccountLabel(user);
+  const accountUsername = getCleanText(user?.username);
+
   const [isClient, setIsClient] = useState(false); // Track if the component is rendered on the client
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -62,66 +67,14 @@ export default function Header() {
   };
 
   const handleLogout = () => {
-    const logoutUser = async () => {
-      try {
-        await fetch('/api/logout', {
-          method: 'POST',
-          credentials: 'include',
-        });
-      } catch (error) {
-        // Continue local cleanup even if API logout fails.
-      }
-
-      setIsAuthenticated(false);
-      setAccountLabel(null);
-      setAccountUsername(null);
-      setIsMobileMenuOpen(false);
-      setIsUserDropdownOpen(false);
-      router.push('/login');
-    };
-
-    logoutUser();
+    setIsMobileMenuOpen(false);
+    setIsUserDropdownOpen(false);
+    logout();
   };
 
   useEffect(() => {
     setIsClient(true); // Set isClient to true on client-side rendering
   }, []);
-
-  useEffect(() => {
-    if (!isClient) return; // Wait for client-side rendering
-
-    // Function to check authentication status
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
-
-        if (res.ok) {
-          const customer = await res.json();
-          const username = getCleanText(customer?.user?.username);
-          setIsAuthenticated(true);
-          setAccountLabel(getPreferredAccountLabel(customer.user));
-          setAccountUsername(username);
-        } else {
-          setIsAuthenticated(false);
-          setAccountLabel(null);
-          setAccountUsername(null);
-        }
-      } catch (error) {
-        setIsAuthenticated(false);
-        setAccountLabel(null);
-        setAccountUsername(null);
-      }
-    };
-
-    // Check if we're on the login or signup page, or need to check authentication
-    if (pathname === '/login' || pathname === '/signup') {
-      setIsAuthenticated(false); // Set to false on login/signup pages
-    } else {
-      checkAuth(); // Perform the authentication check for other pages
-    }
-  }, [pathname, isClient]); // Dependency on pathname and isClient
 
   useEffect(() => {
     setIsMobileMenuOpen(false);

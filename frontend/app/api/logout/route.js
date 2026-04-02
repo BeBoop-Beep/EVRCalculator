@@ -1,30 +1,18 @@
 import { NextResponse } from "next/server";
-import { createSupabaseAnonClient } from "@/lib/supabaseServer";
 
 export async function POST() {
-  try {
-    // Best-effort auth cleanup on Supabase side.
-    const anonClient = createSupabaseAnonClient();
-    await anonClient.auth.signOut();
-  } catch (error) {
-    // Continue local logout even if remote sign-out is unavailable.
-  }
-
   const response = NextResponse.json({ message: "Logged out" }, { status: 200 });
 
+  // Clear the token cookie using the exact same path it was set with on login (path="/").
+  // A second cookies.set() with a different path would overwrite this in Next.js
+  // ResponseCookies (Map-keyed by name), leaving the original cookie alive — so we only
+  // call this once.
   response.cookies.set("token", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     expires: new Date(0),
+    maxAge: 0,
     path: "/",
-    sameSite: "strict",
-  });
-
-  response.cookies.set("token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    expires: new Date(0),
-    path: "/api",
     sameSite: "strict",
   });
 
