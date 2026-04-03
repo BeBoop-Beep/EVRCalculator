@@ -47,7 +47,7 @@ export default async function PublicWishlistPage({ params }) {
         {/* Info Panel */}
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-4">
           <p className="text-sm text-[var(--text-secondary)]">
-            This wishlist shows items the collector is seeking to add to their portfolio. Items are prioritized to show what they're most actively hunting for.
+            This wishlist shows items the collector is seeking to add to their portfolio. Items are prioritized to show what they&apos;re most actively hunting for.
           </p>
         </div>
 

@@ -36,6 +36,8 @@ export default function CollectionBrowserCard({
   emptyStateTitle = "No items yet",
   emptyStateDesc = "Start building your collection.",
   showAdvancedFilters = true,
+  hideControls = false,
+  searchPlaceholder = null,
 }) {
   // Separate type filter from advanced filters
   const typeFilter = config.filters?.find((f) => f.id === "type");
@@ -81,7 +83,7 @@ export default function CollectionBrowserCard({
           </div>
         </div>
 
-        {config.supportsFilters && typeFilter && (
+        {!hideControls && config.supportsFilters && typeFilter && (
           <div className="space-y-3">
             {/* LAYER 1: Type Filter Chips */}
             <TypeFilterChips
@@ -93,19 +95,23 @@ export default function CollectionBrowserCard({
           </div>
         )}
 
-        {(config.supportsSearch || config.supportsSorting || config.supportsViewToggle || showAddAction) && (
+        {!hideControls && (config.supportsSearch || config.supportsSorting || config.supportsViewToggle || showAddAction) && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {config.supportsSearch && (
               <div className="flex-1">
                 <SectionSearchBar
-                  placeholder={`Search ${config.title.toLowerCase()}...`}
+                  placeholder={searchPlaceholder || `Search ${config.title.toLowerCase()}...`}
                   onSearch={onSearch}
                   isLoading={isLoading}
                 />
               </div>
             )}
 
+            {leadingFilterControls ? <div className="w-full sm:hidden">{leadingFilterControls}</div> : null}
+
             <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+              {leadingFilterControls ? <div className="hidden sm:block">{leadingFilterControls}</div> : null}
+
               {config.supportsSorting && (
                 <SectionSortControl
                   sortOptions={config.sortOptions}
@@ -136,7 +142,7 @@ export default function CollectionBrowserCard({
         )}
 
         {/* LAYER 3: Advanced Filters Panel */}
-        {showAdvancedFilters && config.supportsFilters && advancedFilters.length > 0 && (
+        {!hideControls && showAdvancedFilters && config.supportsFilters && advancedFilters.length > 0 && (
           <AdvancedFiltersPanel
             filters={advancedFilters}
             activeFilters={activeFilters}

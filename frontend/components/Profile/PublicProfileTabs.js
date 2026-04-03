@@ -2,7 +2,7 @@
 
 import StandardizedTabsNav from "@/components/Profile/StandardizedTabsNav";
 
-export default function PublicProfileTabs({ items, profileBaseHref }) {
+export default function PublicProfileTabs({ items, profileBaseHref, className = "mt-6" }) {
   const tabs = items || [
     { label: "Overview", href: profileBaseHref, exact: true },
     { label: "Wishlist", href: `${profileBaseHref}/wishlist` },
@@ -13,7 +13,7 @@ export default function PublicProfileTabs({ items, profileBaseHref }) {
     <StandardizedTabsNav
       items={tabs}
       ariaLabel="Public profile sections"
-      className="mt-6"
+      className={className}
     />
   );
 }

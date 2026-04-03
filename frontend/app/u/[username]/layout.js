@@ -1,5 +1,5 @@
 import PublicProfileHeader from "@/components/Profile/PublicProfileHeader";
-import PublicProfileTabs from "@/components/Profile/PublicProfileTabs";
+import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
 export default async function PublicProfileLayout({ children, params }) {
@@ -32,15 +32,9 @@ export default async function PublicProfileLayout({ children, params }) {
               }
             />
 
-            <PublicProfileTabs
-              profileBaseHref={identity.profileHref}
-              items={[
-                { label: "Overview", href: identity.profileHref, exact: true },
-                { label: "Wishlist", href: `${identity.profileHref}/wishlist` },
-                { label: "Activity", href: `${identity.profileHref}/activity` },
-              ]}
-            />
-            {children}
+            <PublicProfileLocalScaffold profileBaseHref={identity.profileHref}>
+              {children}
+            </PublicProfileLocalScaffold>
           </div>
         </section>
       </div>

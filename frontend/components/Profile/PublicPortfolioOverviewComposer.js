@@ -18,6 +18,8 @@ import PortfolioOverviewComposer from "@/components/Profile/PortfolioOverviewCom
  */
 export default function PublicPortfolioOverviewComposer({
   dashboardData,
+  performanceHighlights = null,
+  portfolioSignals = null,
 }) {
   const [selectedRange, setSelectedRange] = useState("7D");
 
@@ -26,6 +28,8 @@ export default function PublicPortfolioOverviewComposer({
       dashboardData={dashboardData}
       selectedRange={selectedRange}
       onRangeChange={setSelectedRange}
+      performanceHighlights={performanceHighlights}
+      portfolioSignals={portfolioSignals}
       mode="public"
     />
   );

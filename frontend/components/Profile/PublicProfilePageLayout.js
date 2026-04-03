@@ -30,7 +30,7 @@ export default function PublicProfilePageLayout({ profile, children, isLoading =
       <div className="space-y-8 p-6 md:p-8">
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-12 text-center">
           <p className="text-lg font-semibold text-[var(--text-primary)]">Profile not found</p>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">The profile you're looking for doesn't exist or is private.</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">The profile you&apos;re looking for doesn&apos;t exist or is private.</p>
         </div>
       </div>
     );

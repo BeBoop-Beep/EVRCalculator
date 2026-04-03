@@ -65,30 +65,89 @@ export default function PublicCollectionViewWrapper({
   stats = {},
   username = "",
   showPerformanceCard = true,
+  localNavToolState = null,
+  localNavControlsActive = false,
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(localNavToolState?.q || "");
   const [activeFilters, setActiveFilters] = useState({});
-  const [sortBy, setSortBy] = useState(publicCollectionConfig.defaultSort);
-  const [viewMode, setViewMode] = useState("continuous");
+  const [sortBy, setSortBy] = useState(localNavToolState?.sort || publicCollectionConfig.defaultSort);
+  const [viewMode, setViewMode] = useState(localNavToolState?.view || "continuous");
   const [activeTCGs, setActiveTCGs] = useState(["All"]);
   const [selectedRange, setSelectedRange] = useState("7D");
   const availableTCGs = useMemo(() => getAvailableTCGs(items), [items]);
 
+  const resolvedSearchQuery = localNavControlsActive ? String(localNavToolState?.q || "") : searchQuery;
+  const resolvedSortBy = localNavControlsActive
+    ? String(localNavToolState?.sort || publicCollectionConfig.defaultSort)
+    : sortBy;
+  const resolvedViewMode = localNavControlsActive ? String(localNavToolState?.view || "continuous") : viewMode;
+
+  const resolvedActiveFilters = useMemo(() => {
+    if (!localNavControlsActive) return activeFilters;
+
+    const filters = {};
+    if (localNavToolState?.type) {
+      filters.type = [localNavToolState.type];
+    }
+    if (localNavToolState?.condition) {
+      filters.condition = [localNavToolState.condition];
+    }
+    return filters;
+  }, [activeFilters, localNavControlsActive, localNavToolState]);
+
+  const resolvedActiveTCGs = useMemo(() => {
+    if (!localNavControlsActive) return activeTCGs;
+    return localNavToolState?.tcg ? [localNavToolState.tcg] : ["All"];
+  }, [activeTCGs, localNavControlsActive, localNavToolState]);
+
+  const handleSearchChange = (query) => {
+    if (localNavControlsActive) return;
+    setSearchQuery(query);
+  };
+
+  const handleFiltersChange = (filters) => {
+    if (localNavControlsActive) return;
+    setActiveFilters(filters);
+  };
+
+  const handleSortChange = (sortId) => {
+    if (localNavControlsActive) return;
+    setSortBy(sortId);
+  };
+
+  const handleViewChange = (nextView) => {
+    if (localNavControlsActive) return;
+    setViewMode(nextView);
+  };
+
+  const normalizeCondition = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    const map = {
+      "mint": ["mint"],
+      "near-mint": ["near mint", "nm"],
+      "lightly-played": ["lightly played", "lp"],
+      "moderately-played": ["moderately played", "mp"],
+      "heavily-played": ["heavily played", "hp"],
+      "sealed": ["sealed"],
+    };
+    return map[normalized] || [];
+  };
+
   const tcgFilteredItems = useMemo(() => {
-    if (!activeTCGs || activeTCGs.length === 0 || activeTCGs.includes("All")) {
+    if (!resolvedActiveTCGs || resolvedActiveTCGs.length === 0 || resolvedActiveTCGs.includes("All")) {
       return items;
     }
 
     return items.filter((item) => {
-      return activeTCGs.some((tcg) => filterCollectionByTCG([item], tcg).length > 0);
+      return resolvedActiveTCGs.some((tcg) => filterCollectionByTCG([item], tcg).length > 0);
     });
-  }, [items, activeTCGs]);
+  }, [items, resolvedActiveTCGs]);
 
   const filteredAndSortedItems = useMemo(() => {
     let result = [...tcgFilteredItems];
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (resolvedSearchQuery.trim()) {
+      const query = resolvedSearchQuery.toLowerCase();
       result = result.filter(
         (item) =>
           item.name?.toLowerCase().includes(query)
@@ -96,15 +155,23 @@ export default function PublicCollectionViewWrapper({
       );
     }
 
-    if (activeFilters.type && activeFilters.type.length > 0) {
+    if (resolvedActiveFilters.type && resolvedActiveFilters.type.length > 0) {
       result = result.filter((item) => {
-        if (activeFilters.type.includes("cards")) return item.cardNumber;
-        if (activeFilters.type.includes("sealed")) return item.productType;
-        return false;
+        const matchesCards = resolvedActiveFilters.type.includes("cards") && Boolean(item.cardNumber);
+        const matchesSealed = resolvedActiveFilters.type.includes("sealed") && Boolean(item.productType);
+        const matchesMerch = resolvedActiveFilters.type.includes("merchandise") && item.collectible_type === "merchandise";
+        return matchesCards || matchesSealed || matchesMerch;
       });
     }
 
-    switch (sortBy) {
+    if (resolvedActiveFilters.condition && resolvedActiveFilters.condition.length > 0) {
+      const acceptedConditions = normalizeCondition(resolvedActiveFilters.condition[0]);
+      if (acceptedConditions.length > 0) {
+        result = result.filter((item) => acceptedConditions.includes(String(item.condition || "").toLowerCase()));
+      }
+    }
+
+    switch (resolvedSortBy) {
       case "value-desc":
         result.sort((a, b) => parseCurrencyValue(b.valueLabel) - parseCurrencyValue(a.valueLabel));
         break;
@@ -122,26 +189,28 @@ export default function PublicCollectionViewWrapper({
     }
 
     return result;
-  }, [tcgFilteredItems, searchQuery, activeFilters, sortBy]);
+  }, [tcgFilteredItems, resolvedSearchQuery, resolvedActiveFilters, resolvedSortBy]);
 
   const activeTCGSelections = useMemo(
     () =>
-      activeTCGs
+      resolvedActiveTCGs
         .filter((tcg) => tcg !== "All")
         .map((tcg) => ({
           id: `public-tcg-${tcg}`,
           label: `TCG: ${tcg}`,
           onRemove: () => {
+            if (localNavControlsActive) return;
             setActiveTCGs((prev) => {
               const next = prev.filter((value) => value !== tcg && value !== "All");
               return next.length > 0 ? next : ["All"];
             });
           },
         })),
-    [activeTCGs]
+    [resolvedActiveTCGs, localNavControlsActive]
   );
 
   const handleClearAllFilters = () => {
+    if (localNavControlsActive) return;
     setActiveTCGs(["All"]);
   };
 
@@ -157,7 +226,7 @@ export default function PublicCollectionViewWrapper({
       {showPerformanceCard && (
         <CollectionPerformanceCard
           initialRange={selectedRange}
-          tcg={activeTCGs.length === 1 ? activeTCGs[0] : "All"}
+          tcg={resolvedActiveTCGs.length === 1 ? resolvedActiveTCGs[0] : "All"}
           onRangeChange={setSelectedRange}
           totalItems={stats.totalItems || items.length}
           totalValue={stats.totalValue || "$0"}
@@ -172,26 +241,32 @@ export default function PublicCollectionViewWrapper({
         items={filteredAndSortedItems}
         isLoading={false}
         isEmpty={isEmpty}
-        onSearch={setSearchQuery}
-        onFiltersChange={setActiveFilters}
-        onViewChange={setViewMode}
-        viewMode={viewMode}
+        onSearch={handleSearchChange}
+        onFiltersChange={handleFiltersChange}
+        onSortChange={handleSortChange}
+        onViewChange={handleViewChange}
+        viewMode={resolvedViewMode}
         variant="detailed"
         showStats={false}
         stats={stats}
         showHeader={false}
-        leadingFilterControls={(
+        leadingFilterControls={localNavControlsActive ? null : (
           <CollectionScopeFilter
             options={availableTCGs}
-            selectedValues={activeTCGs}
+            selectedValues={resolvedActiveTCGs}
             onTCGChange={setActiveTCGs}
           />
         )}
+        activeFilters={resolvedActiveFilters}
+        selectedType={resolvedActiveFilters.type?.[0] || "all"}
         extraActiveSelections={activeTCGSelections}
         onClearAllFilters={handleClearAllFilters}
         getItemHref={buildPublicCollectionItemHref}
         emptyStateTitle="No shared collection items"
         emptyStateDesc="This collector hasn't shared any collection items yet."
+        hideBrowserControls={localNavControlsActive}
+        searchPlaceholder="Search this collection"
+        showAdvancedFilters={!localNavControlsActive}
       />
     </>
   );

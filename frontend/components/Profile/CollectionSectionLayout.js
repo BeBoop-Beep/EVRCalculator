@@ -51,6 +51,8 @@ export default function CollectionSectionLayout({
   activeFilters = null,
   onTypeFilterChange = null,
   showAdvancedFilters = true,
+  hideBrowserControls = false,
+  searchPlaceholder = null,
 }) {
   const [internalActiveFilters, setInternalActiveFilters] = useState({});
   const [internalSelectedType, setInternalSelectedType] = useState("all");
@@ -202,6 +204,8 @@ export default function CollectionSectionLayout({
             emptyStateTitle={emptyStateTitle}
             emptyStateDesc={emptyStateDesc}
             showAdvancedFilters={showAdvancedFilters}
+            hideControls={hideBrowserControls}
+            searchPlaceholder={searchPlaceholder}
           />
         </div>
       </div>
