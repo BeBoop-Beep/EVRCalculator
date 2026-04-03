@@ -23,27 +23,27 @@ function PerformerCard({ label, performer, toneClassName = "text-[var(--text-sec
 
 function AllocationCard({ rows = [] }) {
   return (
-    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/70 px-3.5 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Portfolio Allocation</p>
-      <div className="mt-2.5">
+    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/75 px-4 py-3.5 shadow-[0_8px_28px_rgba(0,0,0,0.22)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Portfolio Allocation</p>
+      <div className="mt-3">
         {rows.length === 0 ? (
           <p className="text-sm text-[var(--text-secondary)]">No allocation data available.</p>
         ) : (
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-2 px-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Category</span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-right text-[var(--text-secondary)]">Number</span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-right text-[var(--text-secondary)]">Share</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3.5 gap-y-2.5 px-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Category</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-right text-[var(--text-secondary)]">Count</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-right text-[var(--text-secondary)]">Share</span>
 
             {rows.flatMap((row) => {
-              const countValue = Number.isFinite(Number(row?.count)) ? Number(row.count) : null;
               const rowKey = row.id || row.label;
+              const countValue = Number.isFinite(Number(row?.count)) ? Number(row.count) : null;
 
               return [
-                <span key={`${rowKey}-label`} className="min-w-0 truncate text-sm text-[var(--text-primary)]">{row.label}</span>,
+                <span key={`${rowKey}-label`} className="min-w-0 truncate text-sm font-medium text-[var(--text-primary)]">{row.label}</span>,
                 <span key={`${rowKey}-count`} className="text-sm font-semibold text-right tabular-nums text-[var(--text-primary)]">
                   {countValue === null ? "--" : countValue.toLocaleString("en-US")}
                 </span>,
-                <span key={`${rowKey}-percent`} className="text-sm font-semibold text-right tabular-nums text-[var(--text-primary)]">{row.percent}%</span>,
+                <span key={`${rowKey}-percent`} className="text-base font-semibold text-right tabular-nums text-[var(--text-primary)]">{row.percent}%</span>,
               ];
             })}
           </div>
@@ -107,25 +107,26 @@ export default function PortfolioSignalsRail({
     : parseConcentrationFromText(signalsData?.concentrationText);
 
   return (
-    <section className="space-y-3">
-      <div className="px-1">
+    <section className="flex h-full flex-1 flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-3.5 sm:p-4">
+      <div className="mb-3 px-0.5">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Signals</p>
       </div>
-
-      <PerformerCard
-        label="Best Performer"
-        performer={bestPerformer}
-        toneClassName="metric-positive"
-        selectedRange={selectedRange}
-      />
-      <PerformerCard
-        label="Worst Performer"
-        performer={worstPerformer}
-        toneClassName="metric-negative"
-        selectedRange={selectedRange}
-      />
-      <AllocationCard rows={allocationRows} />
-      <ConcentrationCard concentrationPercent={concentrationPercent} />
+      <div className="space-y-3">
+        <AllocationCard rows={allocationRows} />
+        <PerformerCard
+          label="Best Performer"
+          performer={bestPerformer}
+          toneClassName="metric-positive"
+          selectedRange={selectedRange}
+        />
+        <PerformerCard
+          label="Worst Performer"
+          performer={worstPerformer}
+          toneClassName="metric-negative"
+          selectedRange={selectedRange}
+        />
+        <ConcentrationCard concentrationPercent={concentrationPercent} />
+      </div>
     </section>
   );
 }

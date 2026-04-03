@@ -1,12 +1,13 @@
 "use client";
 
 import SectionSearchBar from "@/components/Profile/SectionSearchBar";
-import SectionFilterBar from "@/components/Profile/SectionFilterBar";
 import SectionSortControl from "@/components/Profile/SectionSortControl";
 import SectionViewToggle from "@/components/Profile/SectionViewToggle";
 import CollectionAddActionMenu from "@/components/Profile/CollectionAddActionMenu";
 import SectionEmptyState from "@/components/Profile/SectionEmptyState";
 import SharedCollectionGrid from "@/components/Profile/SharedCollectionGrid";
+import TypeFilterChips from "@/components/Profile/TypeFilterChips";
+import AdvancedFiltersPanel from "@/components/Profile/AdvancedFiltersPanel";
 
 export default function CollectionBrowserCard({
   config,
@@ -19,7 +20,9 @@ export default function CollectionBrowserCard({
   onFilterChange = () => {},
   onSortChange = () => {},
   onViewChange = () => {},
+  onTypeFilterChange = () => {},
   activeFilters = {},
+  selectedType = "all",
   leadingFilterControls = null,
   extraActiveSelections = [],
   onClearAllFilters = null,
@@ -32,7 +35,41 @@ export default function CollectionBrowserCard({
   onImportCollection = () => {},
   emptyStateTitle = "No items yet",
   emptyStateDesc = "Start building your collection.",
+  showAdvancedFilters = true,
 }) {
+  // Separate type filter from advanced filters
+  const typeFilter = config.filters?.find((f) => f.id === "type");
+  const advancedFilters = config.filters?.filter((f) => f.id !== "type") || [];
+
+  const typeOptionsById = new Map(
+    (typeFilter?.options || []).map((option) => [option.id, option])
+  );
+  const availableTypes = ["all", "cards", "sealed", "merchandise"]
+    .map((typeId) => {
+      if (typeId === "all") {
+        return { id: "all", label: "All" };
+      }
+
+      const option = typeOptionsById.get(typeId);
+      if (option) {
+        return option;
+      }
+
+      if (!typeFilter) {
+        return {
+          id: typeId,
+          label: typeId === "cards"
+            ? "Cards"
+            : typeId === "sealed"
+              ? "Sealed"
+              : "Merchandise",
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+
   return (
     <section className="dashboard-panel rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-6">
       <div className="space-y-6">
@@ -43,6 +80,18 @@ export default function CollectionBrowserCard({
             </p>
           </div>
         </div>
+
+        {config.supportsFilters && typeFilter && (
+          <div className="space-y-3">
+            {/* LAYER 1: Type Filter Chips */}
+            <TypeFilterChips
+              selectedType={selectedType}
+              onTypeChange={onTypeFilterChange}
+              isLoading={isLoading}
+              availableTypes={availableTypes}
+            />
+          </div>
+        )}
 
         {(config.supportsSearch || config.supportsSorting || config.supportsViewToggle || showAddAction) && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -86,18 +135,15 @@ export default function CollectionBrowserCard({
           </div>
         )}
 
-        {config.supportsFilters && config.filters.length > 0 && (
-          <div className="mt-4">
-            <SectionFilterBar
-              filters={config.filters}
-              activeFilters={activeFilters}
-              onFilterChange={onFilterChange}
-              isLoading={isLoading}
-              leadingControls={leadingFilterControls}
-              extraActiveSelections={extraActiveSelections}
-              onClearAll={onClearAllFilters}
-            />
-          </div>
+        {/* LAYER 3: Advanced Filters Panel */}
+        {showAdvancedFilters && config.supportsFilters && advancedFilters.length > 0 && (
+          <AdvancedFiltersPanel
+            filters={advancedFilters}
+            activeFilters={activeFilters}
+            onFilterChange={onFilterChange}
+            onClearAll={onClearAllFilters}
+            isLoading={isLoading}
+          />
         )}
 
         <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">

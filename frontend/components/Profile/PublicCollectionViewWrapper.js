@@ -63,6 +63,8 @@ const publicCollectionConfig = {
 export default function PublicCollectionViewWrapper({
   items = [],
   stats = {},
+  username = "",
+  showPerformanceCard = true,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
@@ -152,15 +154,17 @@ export default function PublicCollectionViewWrapper({
   return (
     <>
       {/* Collection Performance Card */}
-      <CollectionPerformanceCard
-        initialRange={selectedRange}
-        tcg={activeTCGs.length === 1 ? activeTCGs[0] : "All"}
-        onRangeChange={setSelectedRange}
-        totalItems={stats.totalItems || items.length}
-        totalValue={stats.totalValue || "$0"}
-        investedValue={stats.investedValue || null}
-        showSummaryMetrics={false}
-      />
+      {showPerformanceCard && (
+        <CollectionPerformanceCard
+          initialRange={selectedRange}
+          tcg={activeTCGs.length === 1 ? activeTCGs[0] : "All"}
+          onRangeChange={setSelectedRange}
+          totalItems={stats.totalItems || items.length}
+          totalValue={stats.totalValue || "$0"}
+          investedValue={stats.investedValue || null}
+          showSummaryMetrics={false}
+        />
+      )}
 
       {/* Main Collection Grid Section */}
       <CollectionSectionLayout

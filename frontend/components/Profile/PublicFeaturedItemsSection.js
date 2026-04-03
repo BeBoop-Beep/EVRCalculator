@@ -1,5 +1,4 @@
 import CollectionFeaturedHighlight from "@/components/Profile/CollectionFeaturedHighlight";
-
 export default function PublicFeaturedItemsSection({ showcase = null, username = "" }) {
   return (
     <CollectionFeaturedHighlight

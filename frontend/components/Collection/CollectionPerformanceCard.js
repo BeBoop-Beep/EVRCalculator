@@ -22,6 +22,7 @@ import { getCollectionValueData } from "@/lib/profile/collectionValueHistory";
  */
 export default function CollectionPerformanceCard({
   initialRange = "7D",
+  selectedRange = null,
   tcg = "All",
   valueHistory = null,
   onRangeChange = null,
@@ -29,17 +30,20 @@ export default function CollectionPerformanceCard({
   investedValue = null,
   showSummaryMetrics = true,
 }) {
-  const [selectedRange, setSelectedRange] = useState(initialRange);
+  const [internalSelectedRange, setInternalSelectedRange] = useState(initialRange);
+  const resolvedSelectedRange = selectedRange ?? internalSelectedRange;
 
   const handleRangeChange = (newRange) => {
-    setSelectedRange(newRange);
+    if (selectedRange === null) {
+      setInternalSelectedRange(newRange);
+    }
     onRangeChange?.(newRange);
   };
 
   // Compute performance data for the selected range
   const performanceData = useMemo(() => {
-    return getCollectionValueData(selectedRange, tcg, valueHistory);
-  }, [selectedRange, tcg, valueHistory]);
+    return getCollectionValueData(resolvedSelectedRange, tcg, valueHistory);
+  }, [resolvedSelectedRange, tcg, valueHistory]);
 
   const parseCurrencyLabel = (value) => {
     const numeric = Number(String(value || "").replace(/[^\d.-]/g, ""));
@@ -89,7 +93,7 @@ export default function CollectionPerformanceCard({
           </p>
         </div>
         <OverviewRangeToggle
-          selectedRange={selectedRange}
+          selectedRange={resolvedSelectedRange}
           onRangeChange={handleRangeChange}
           ariaLabel="Collection performance time range"
         />
@@ -98,7 +102,7 @@ export default function CollectionPerformanceCard({
       {/* Chart Area */}
       <div className="mt-4 mb-4">
         <CollectionValueChart
-          selectedRange={selectedRange}
+          selectedRange={resolvedSelectedRange}
           tcg={tcg}
           valueHistory={valueHistory}
         />

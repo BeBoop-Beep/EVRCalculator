@@ -36,9 +36,6 @@ export default async function PublicProfileLayout({ children, params }) {
               profileBaseHref={identity.profileHref}
               items={[
                 { label: "Overview", href: identity.profileHref, exact: true },
-                { label: "Collection", href: `${identity.profileHref}/collection` },
-                { label: "Binder", href: `${identity.profileHref}/binder` },
-                { label: "Shelf", href: `${identity.profileHref}/shelf` },
                 { label: "Wishlist", href: `${identity.profileHref}/wishlist` },
                 { label: "Activity", href: `${identity.profileHref}/activity` },
               ]}

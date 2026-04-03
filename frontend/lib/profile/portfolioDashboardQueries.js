@@ -24,6 +24,18 @@ const DEFAULT_DASHBOARD_DATA = {
       { dateLabel: "Mar 30", totalValue: 18170 },
       { dateLabel: "Mar 31", totalValue: 18245 },
     ],
+    rangeSeries: {
+      LT: {
+        points: [
+          { dateLabel: "2022", totalValue: 9420 },
+          { dateLabel: "2023", totalValue: 11680 },
+          { dateLabel: "2024", totalValue: 13970 },
+          { dateLabel: "2025", totalValue: 16480 },
+          { dateLabel: "Now", totalValue: 18245 },
+        ],
+        helper: "Performance since portfolio inception",
+      },
+    },
   },
   insights: {
     topMovers: [
@@ -101,11 +113,15 @@ export async function getCurrentUserPortfolioDashboardData() {
     select: "snapshot_date,total_value,change_24h_percent,change_7d_percent,cards_count,sealed_count,wishlist_count,last_synced_at,freshness_label",
     filters: [{ column: "user_id", value: user.id }],
     orderBy: { column: "snapshot_date", ascending: true },
-    limit: 30,
   });
 
   if (!snapshotResult.error && snapshotResult.data.length > 0) {
     connectedTables.push("portfolio_daily_snapshots");
+    const lifetimePoints = snapshotResult.data.map((row) => ({
+      dateLabel: new Date(row.snapshot_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" }),
+      totalValue: toNumber(row.total_value),
+    }));
+
     const points = snapshotResult.data.slice(-7).map((row) => ({
       dateLabel: new Date(row.snapshot_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
       totalValue: toNumber(row.total_value),
@@ -199,6 +215,14 @@ export async function getCurrentUserPortfolioDashboardData() {
         performance: {
           periodLabel: "Last 7 days",
           points: points.length ? points : DEFAULT_DASHBOARD_DATA.performance.points,
+          rangeSeries: {
+            LT: {
+              points: lifetimePoints.length
+                ? lifetimePoints
+                : (DEFAULT_DASHBOARD_DATA.performance.rangeSeries?.LT?.points || []),
+              helper: "Performance since portfolio inception",
+            },
+          },
         },
         insights: {
           topMovers: movers,

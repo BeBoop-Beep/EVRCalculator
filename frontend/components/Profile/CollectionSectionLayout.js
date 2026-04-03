@@ -46,10 +46,18 @@ export default function CollectionSectionLayout({
   onAddCard = () => {},
   onAddSealedProduct = () => {},
   onImportCollection = () => {},
+  leftSidebar = null,
+  selectedType = null,
+  activeFilters = null,
+  onTypeFilterChange = null,
+  showAdvancedFilters = true,
 }) {
-  const [activeFilters, setActiveFilters] = useState({});
+  const [internalActiveFilters, setInternalActiveFilters] = useState({});
+  const [internalSelectedType, setInternalSelectedType] = useState("all");
   const initialView = viewMode || config.defaultView || "continuous";
   const [view, setView] = useState(config.supportsViewToggle ? initialView : "continuous");
+  const resolvedActiveFilters = activeFilters ?? internalActiveFilters;
+  const resolvedSelectedType = selectedType ?? internalSelectedType;
 
   // Handle search
   const handleSearch = (query) => {
@@ -58,16 +66,19 @@ export default function CollectionSectionLayout({
 
   // Handle filter changes
   const handleFilterChange = (filterId, values) => {
-    setActiveFilters((prevFilters) => {
-      const newFilters = { ...prevFilters };
-      if (values && values.length > 0) {
-        newFilters[filterId] = values;
-      } else {
-        delete newFilters[filterId];
-      }
-      onFiltersChange(newFilters);
-      return newFilters;
-    });
+    const sourceFilters = activeFilters !== null ? resolvedActiveFilters : internalActiveFilters;
+    const newFilters = { ...sourceFilters };
+    if (values && values.length > 0) {
+      newFilters[filterId] = values;
+    } else {
+      delete newFilters[filterId];
+    }
+
+    if (activeFilters === null) {
+      setInternalActiveFilters(newFilters);
+    }
+
+    onFiltersChange(newFilters);
   };
 
   // Handle sort changes
@@ -83,11 +94,32 @@ export default function CollectionSectionLayout({
     }
   };
 
+  // Handle type filter change
+  const handleTypeFilterChange = (typeId) => {
+    if (selectedType === null) {
+      setInternalSelectedType(typeId);
+    }
+    onTypeFilterChange?.(typeId);
+  };
+
+  // Handle clear all filters (including type)
+  const handleClearAllFilters = () => {
+    if (activeFilters === null) {
+      setInternalActiveFilters({});
+    }
+    if (selectedType === null) {
+      setInternalSelectedType("all");
+    }
+    onFiltersChange({});
+    onTypeFilterChange?.("all");
+    onClearAllFilters?.();
+  };
+
   const activeFilterCount = useMemo(
     () =>
-      Object.values(activeFilters).reduce((sum, value) => sum + (value?.length || 0), 0)
+      Object.values(resolvedActiveFilters || {}).reduce((sum, value) => sum + (value?.length || 0), 0)
       + (extraActiveSelections?.length || 0),
-    [activeFilters, extraActiveSelections]
+    [resolvedActiveFilters, extraActiveSelections]
   );
 
   useEffect(() => {
@@ -140,31 +172,39 @@ export default function CollectionSectionLayout({
         />
       ) : null}
 
-      <CollectionBrowserCard
-        config={config}
-        items={items}
-        isLoading={isLoading}
-        isEmpty={isEmpty}
-        view={view}
-        activeFilterCount={activeFilterCount}
-        onSearch={handleSearch}
-        onFilterChange={handleFilterChange}
-        onSortChange={handleSortChange}
-        onViewChange={handleViewChange}
-        activeFilters={activeFilters}
-        leadingFilterControls={leadingFilterControls}
-        extraActiveSelections={extraActiveSelections}
-        onClearAllFilters={onClearAllFilters}
-        variant={variant}
-        getItemHref={getItemHref}
-        onSetAssetSpotlight={onSetAssetSpotlight}
-        showAddAction={showAddAction}
-        onAddCard={onAddCard}
-        onAddSealedProduct={onAddSealedProduct}
-        onImportCollection={onImportCollection}
-        emptyStateTitle={emptyStateTitle}
-        emptyStateDesc={emptyStateDesc}
-      />
+      <div className={leftSidebar ? "grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]" : ""}>
+        {leftSidebar ? <div className="min-w-0">{leftSidebar}</div> : null}
+        <div className="min-w-0">
+          <CollectionBrowserCard
+            config={config}
+            items={items}
+            isLoading={isLoading}
+            isEmpty={isEmpty}
+            view={view}
+            activeFilterCount={activeFilterCount}
+            onSearch={handleSearch}
+            onFilterChange={handleFilterChange}
+            onTypeFilterChange={handleTypeFilterChange}
+            onSortChange={handleSortChange}
+            onViewChange={handleViewChange}
+            activeFilters={resolvedActiveFilters}
+            selectedType={resolvedSelectedType}
+            leadingFilterControls={leadingFilterControls}
+            extraActiveSelections={extraActiveSelections}
+            onClearAllFilters={handleClearAllFilters}
+            variant={variant}
+            getItemHref={getItemHref}
+            onSetAssetSpotlight={onSetAssetSpotlight}
+            showAddAction={showAddAction}
+            onAddCard={onAddCard}
+            onAddSealedProduct={onAddSealedProduct}
+            onImportCollection={onImportCollection}
+            emptyStateTitle={emptyStateTitle}
+            emptyStateDesc={emptyStateDesc}
+            showAdvancedFilters={showAdvancedFilters}
+          />
+        </div>
+      </div>
     </section>
   );
 }

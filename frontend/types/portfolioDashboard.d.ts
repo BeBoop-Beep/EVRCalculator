@@ -3,6 +3,23 @@ export interface PortfolioPerformancePoint {
   totalValue: number;
 }
 
+export interface PortfolioRangeSeries {
+  points: PortfolioPerformancePoint[];
+  helper?: string;
+  investedValue?: number;
+  totalInvested?: number;
+  totalProfit?: number;
+  roiPercent?: number;
+  changeDollar?: number;
+  changePercent?: number;
+}
+
+export interface PortfolioPerformanceData {
+  periodLabel?: string;
+  points?: PortfolioPerformancePoint[];
+  rangeSeries?: Partial<Record<"7D" | "1M" | "6M" | "1Y" | "LT", PortfolioRangeSeries>>;
+}
+
 export interface PortfolioMover {
   id: string;
   name: string;

@@ -28,6 +28,18 @@ const DASHBOARD_DATA = {
       { dateLabel: "Mar 30", totalValue: 18170 },
       { dateLabel: "Mar 31", totalValue: 18245 },
     ],
+    rangeSeries: {
+      LT: {
+        points: [
+          { dateLabel: "2022", totalValue: 9420 },
+          { dateLabel: "2023", totalValue: 11680 },
+          { dateLabel: "2024", totalValue: 13970 },
+          { dateLabel: "2025", totalValue: 16480 },
+          { dateLabel: "Now", totalValue: 18245 },
+        ],
+        helper: "Performance since portfolio inception",
+      },
+    },
   },
   insights: {
     topMovers: [
@@ -53,6 +65,22 @@ export default function MyCollectionOverviewDashboardClient({
   collectionItems = [],
 }) {
   const [selectedRange, setSelectedRange] = useState("7D");
+
+  const getAllocationBucket = (item) => {
+    if (item?.collectible_type === "sealed_product" || item?.productType) {
+      return "Sealed";
+    }
+
+    if (item?.collectible_type === "merchandise") {
+      return "Merchandise";
+    }
+
+    if (item?.gradingLabel) {
+      return "Slabs";
+    }
+
+    return "Cards";
+  };
 
   const parseCurrentPrice = (item) => {
     const rawValue = item?.valueLabel ?? item?.estimated_value ?? 0;
@@ -99,8 +127,7 @@ export default function MyCollectionOverviewDashboardClient({
         return {
           id: item?.id,
           marketValue,
-          isSealed: item?.collectible_type === "sealed_product" || Boolean(item?.productType),
-          isSlab: Boolean(item?.gradingLabel),
+          bucket: getAllocationBucket(item),
         };
       })
       .filter((asset) => asset.marketValue > 0);
@@ -109,29 +136,19 @@ export default function MyCollectionOverviewDashboardClient({
     const bucketValues = {
       Cards: 0,
       Sealed: 0,
+      Merchandise: 0,
       Slabs: 0,
     };
     const bucketCounts = {
       Cards: 0,
       Sealed: 0,
+      Merchandise: 0,
       Slabs: 0,
     };
 
     assets.forEach((asset) => {
-      if (asset.isSealed) {
-        bucketValues.Sealed += asset.marketValue;
-        bucketCounts.Sealed += 1;
-        return;
-      }
-
-      if (asset.isSlab) {
-        bucketValues.Slabs += asset.marketValue;
-        bucketCounts.Slabs += 1;
-        return;
-      }
-
-      bucketValues.Cards += asset.marketValue;
-      bucketCounts.Cards += 1;
+      bucketValues[asset.bucket] += asset.marketValue;
+      bucketCounts[asset.bucket] += 1;
     });
 
     const activeBuckets = Object.entries(bucketValues).filter(([, value]) => value > 0);

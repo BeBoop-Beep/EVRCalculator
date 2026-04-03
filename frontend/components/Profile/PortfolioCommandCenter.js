@@ -77,13 +77,14 @@ function getLatestPortfolioValue(performanceData) {
  * @component
  * @param {Object} props
  * @param {Object} props.dashboardData - Dashboard data shape
- * @param {"owner" | "public"} [props.mode="owner"] - Rendering mode
+ * @param {"owner" | "private" | "public"} [props.mode="owner"] - Rendering mode
  */
 export default function PortfolioCommandCenter({ 
   dashboardData, 
   mode = "owner",
 }) {
-  const isOwnerMode = mode === "owner";
+  const isPublicMode = mode === "public";
+  const isPrivateMode = !isPublicMode;
   const data = dashboardData?.commandCenter || MOCK_COMMAND_CENTER_DATA;
   const totalValue = Number.isFinite(Number(data.totalValue))
     ? Number(data.totalValue)
@@ -109,38 +110,43 @@ export default function PortfolioCommandCenter({
       value: currencyFormatter.format(totalValue),
       tone: "text-[var(--text-primary)]",
     },
-    {
-      key: "roi",
-      label: "Lifetime ROI",
-      value: formatPercent(roiPercent),
-      tone: roiTone,
-    },
-    {
-      key: "invested",
-      label: "Total Invested",
-      value: currencyFormatter.format(investedValue),
-      tone: "text-[var(--text-primary)]",
-    },
-    {
-      key: "profit",
-      label: "Total Profit",
-      value: formatSignedCurrency(profitLossValue),
-      tone: profitLossTone,
-    },
   ];
+
+  if (isPrivateMode) {
+    kpiCards.push(
+      {
+        key: "roi",
+        label: "Lifetime ROI",
+        value: formatPercent(roiPercent),
+        tone: roiTone,
+      },
+      {
+        key: "invested",
+        label: "Total Invested",
+        value: currencyFormatter.format(investedValue),
+        tone: "text-[var(--text-primary)]",
+      },
+      {
+        key: "profit",
+        label: "Total Profit",
+        value: formatSignedCurrency(profitLossValue),
+        tone: profitLossTone,
+      }
+    );
+  }
 
   return (
     <section className="space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Summary</p>
-        {isOwnerMode && (
+        {isPrivateMode && (
           <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
             {formatRelativeSync(data.lastSyncedAt)}
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <div className={`grid grid-cols-1 gap-2.5 sm:grid-cols-2 ${isPrivateMode ? "lg:grid-cols-4" : "lg:grid-cols-1"}`}>
         {kpiCards.map((metric) => (
           <article
             key={metric.key}

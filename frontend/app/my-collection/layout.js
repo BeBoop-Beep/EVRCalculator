@@ -8,8 +8,6 @@ import RouteTabsNav from "@/components/Profile/RouteTabsNav";
 const myCollectionTabs = [
   { label: "Overview", href: "/my-portfolio", exact: true },
   { label: "Collection", href: "/my-portfolio/collection" },
-  { label: "Binder", href: "/my-portfolio/binder" },
-  { label: "Shelf", href: "/my-portfolio/shelf" },
   { label: "Wishlist", href: "/my-portfolio/wishlist" },
 ];
 

@@ -38,7 +38,7 @@ export function buildMyCollectionEntryRoute(entry, tab) {
 }
 
 export function buildPublicCollectionListRoute(username) {
-  return `/u/${encodeURIComponent(String(username || ""))}/collection`;
+  return `/u/${encodeURIComponent(String(username || ""))}`;
 }
 
 export function buildShowcaseAssetHref({ asset, mode = "public", username = "" }) {

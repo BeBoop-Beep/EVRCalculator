@@ -6,6 +6,93 @@
 
 export const COLLECTION_TIME_RANGES = ["7D", "30D", "90D", "1Y", "All"];
 
+const RANGE_TEMPLATES = {
+  "7D": ["Mar 24", "Mar 25", "Mar 26", "Mar 27", "Mar 28", "Mar 29", "Mar 30", "Mar 31"],
+  "30D": ["Mar 02", "Mar 08", "Mar 15", "Mar 22", "Mar 31"],
+  "90D": ["Jan", "Feb", "Mar"],
+  "1Y": ["Q2 25", "Q3 25", "Q4 25", "Q1 26"],
+  All: ["6mo ago", "3mo ago", "1mo ago", "Now"],
+};
+
+const RANGE_GROWTH_WEIGHTS = {
+  "7D": 0.18,
+  "30D": 0.35,
+  "90D": 0.55,
+  "1Y": 0.78,
+  All: 1,
+};
+
+const RANGE_PROGRESSIONS = {
+  "7D": [0, 0.22, 0.41, 0.34, 0.63, 0.79, 0.88, 1],
+  "30D": [0, 0.24, 0.48, 0.74, 1],
+  "90D": [0, 0.46, 1],
+  "1Y": [0, 0.28, 0.61, 1],
+  All: [0, 0.25, 0.62, 1],
+};
+
+function parseNumericValue(value) {
+  const numeric = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function getItemQuantity(item) {
+  const quantity = Number(item?.quantity);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+}
+
+function getItemCurrentValue(item) {
+  return parseNumericValue(item?.valueLabel ?? item?.estimated_value) * getItemQuantity(item);
+}
+
+function getItemInvestedValue(item) {
+  const explicitCostBasis = Number(item?.cost_basis ?? item?.purchase_price);
+  if (Number.isFinite(explicitCostBasis) && explicitCostBasis > 0) {
+    return explicitCostBasis * getItemQuantity(item);
+  }
+
+  const currentValue = getItemCurrentValue(item);
+  return currentValue > 0 ? currentValue * 0.84 : 0;
+}
+
+function buildRangeSeries(rangeKey, currentValue, investedValue, itemCount) {
+  const labels = RANGE_TEMPLATES[rangeKey] || RANGE_TEMPLATES["7D"];
+  const growthWeight = RANGE_GROWTH_WEIGHTS[rangeKey] ?? RANGE_GROWTH_WEIGHTS["7D"];
+  const progressions = RANGE_PROGRESSIONS[rangeKey] || RANGE_PROGRESSIONS["7D"];
+  const totalGain = currentValue - investedValue;
+  const startValue = Math.max(0, currentValue - (totalGain * growthWeight));
+  const curveAmplitude = Math.min(currentValue * 0.035, Math.max(12, itemCount * 9));
+
+  return labels.map((dateLabel, index) => {
+    const progress = progressions[index] ?? (labels.length === 1 ? 1 : index / (labels.length - 1));
+    const phase = labels.length === 1 ? 0 : index / (labels.length - 1);
+    const oscillation = Math.sin(phase * Math.PI * 2) * curveAmplitude * (1 - progress) * 0.35;
+    const totalValue = Math.max(0, Math.round(startValue + ((currentValue - startValue) * progress) + oscillation));
+
+    return {
+      dateLabel,
+      totalValue,
+    };
+  });
+}
+
+function resolveCustomCollectionPoints(collectionData, selectedRange) {
+  if (!collectionData) return null;
+
+  if (Array.isArray(collectionData?.points)) {
+    return collectionData.points;
+  }
+
+  if (Array.isArray(collectionData?.ranges?.[selectedRange])) {
+    return collectionData.ranges[selectedRange];
+  }
+
+  if (Array.isArray(collectionData?.[selectedRange])) {
+    return collectionData[selectedRange];
+  }
+
+  return null;
+}
+
 /**
  * Generate mock collection value history
  * In production, this would come from your backend API
@@ -93,6 +180,19 @@ function generateCollectionHistory(tcg = "All", timeRange = "7D") {
   return baseValues[tcgKey][rangeKey];
 }
 
+export function buildCollectionValueHistoryFromItems(items = []) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const currentValue = safeItems.reduce((sum, item) => sum + getItemCurrentValue(item), 0);
+  const investedValue = safeItems.reduce((sum, item) => sum + getItemInvestedValue(item), 0);
+
+  return {
+    ranges: COLLECTION_TIME_RANGES.reduce((accumulator, rangeKey) => ({
+      ...accumulator,
+      [rangeKey]: buildRangeSeries(rangeKey, currentValue, investedValue, safeItems.length),
+    }), {}),
+  };
+}
+
 /**
  * Get collection value data for a specific TCG and time range
  * @param {string} selectedRange - Time range (7D, 30D, 90D, 1Y, All)
@@ -105,7 +205,7 @@ export function getCollectionValueData(selectedRange, tcg = "All", collectionDat
   const validTCG = tcg || "All";
 
   // Use provided data or generate mock data
-  const points = collectionData?.points || generateCollectionHistory(validTCG, validRange);
+  const points = resolveCustomCollectionPoints(collectionData, validRange) || generateCollectionHistory(validTCG, validRange);
 
   const currentValue = points[points.length - 1]?.totalValue || 0;
   const startValue = points[0]?.totalValue || 0;

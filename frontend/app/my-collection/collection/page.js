@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CollectionSectionLayout from "@/components/Profile/CollectionSectionLayout";
-import CollectionPerformanceCard from "@/components/Collection/CollectionPerformanceCard";
-import CollectionScopeFilter from "@/components/Collection/CollectionScopeFilter";
+import CollectionAnalyticsSurface from "@/components/Collection/CollectionAnalyticsSurface";
+import GlobalFilterPanel from "@/components/Profile/GlobalFilterPanel";
 import { getSectionConfig } from "@/config/collectionSectionConfig";
 import { buildMyCollectionEntryRoute } from "@/lib/profile/collectionRoutes";
 import { filterCollectionByTCG, getAvailableTCGs } from "@/lib/profile/collectionValueHistory";
@@ -17,6 +17,41 @@ function parseCurrencyValue(valueLabel) {
 
 function buildMyCollectionItemHref(item) {
   return buildMyCollectionEntryRoute(item);
+}
+
+function getAssetTypeForItem(item) {
+  if (item?.collectible_type === "card" || item?.cardNumber) return "cards";
+  if (item?.collectible_type === "sealed_product" || item?.productType) return "sealed";
+  if (item?.collectible_type === "merchandise") return "merchandise";
+  return "cards";
+}
+
+function deriveEraFromItem(item) {
+  const source = `${item?.release || ""} ${item?.set || ""}`.toLowerCase();
+
+  if (!source.trim()) return "Unknown Era";
+  if (source.includes("scarlet") || source.includes("violet") || /\bsv\b/.test(source)) {
+    return "Scarlet & Violet Era";
+  }
+  if (source.includes("sword") || source.includes("shield") || /\bswsh\b/.test(source)) {
+    return "Sword & Shield Era";
+  }
+  if (source.includes("sun") || source.includes("moon")) {
+    return "Sun & Moon Era";
+  }
+  if (source.includes("base set") || source.includes("jungle") || source.includes("fossil") || source.includes("neo")) {
+    return "Vintage Era";
+  }
+
+  return "Other Era";
+}
+
+function getBinderLabel(item) {
+  return item?.binder || item?.binderName || item?.binder_id || item?.binderId || null;
+}
+
+function getResolvedBinderLabel(item) {
+  return getBinderLabel(item) || "Unassigned";
 }
 
 function calculateCollectionStats(items) {
@@ -101,105 +136,199 @@ const MOCK_ITEMS = [
   },
 ];
 
+const INITIAL_GLOBAL_FILTERS = {
+  tcg: ["All"],
+  set: [],
+  assetType: "all",
+  condition: [],
+  era: [],
+  binder: [],
+};
+
 export default function MyCollectionPage() {
   const router = useRouter();
   const config = getSectionConfig("collection");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState({});
+  const [globalFilters, setGlobalFilters] = useState(INITIAL_GLOBAL_FILTERS);
   const [sortBy, setSortBy] = useState(config.defaultSort);
   const [viewMode, setViewMode] = useState("continuous");
-  const [activeTCGs, setActiveTCGs] = useState(["All"]);
-  const [timeRange, setTimeRange] = useState("7D");
 
   const availableTCGs = useMemo(() => getAvailableTCGs(MOCK_ITEMS), []);
+  const filterOptions = useMemo(() => {
+    const typeFilter = config.filters?.find((filter) => filter.id === "type");
+    const binderOptions = Array.from(new Set(MOCK_ITEMS.map((item) => getResolvedBinderLabel(item)))).sort((a, b) => a.localeCompare(b));
 
-  // Filter by TCG first, then apply other filters
-  const tcgFilteredItems = useMemo(() => {
-    if (!activeTCGs || activeTCGs.length === 0 || activeTCGs.includes("All")) {
-      return MOCK_ITEMS;
+    return {
+      tcg: availableTCGs,
+      set: Array.from(new Set(MOCK_ITEMS.map((item) => item.set).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+      assetType: [
+        { value: "all", label: "All" },
+        ...(typeFilter?.options || []).map((option) => ({
+          value: option.id,
+          label: option.label,
+        })),
+      ],
+      condition: Array.from(new Set(MOCK_ITEMS.map((item) => item.condition).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+      era: Array.from(new Set(MOCK_ITEMS.map((item) => deriveEraFromItem(item)).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+      binder: binderOptions,
+    };
+  }, [availableTCGs, config.filters]);
+
+  const handleGlobalFilterChange = (key, value) => {
+    setGlobalFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleTypeChipChange = (typeId) => {
+    setGlobalFilters((prev) => ({
+      ...prev,
+      assetType: typeId || "all",
+    }));
+  };
+
+  const handleClearAllFilters = () => {
+    setGlobalFilters(INITIAL_GLOBAL_FILTERS);
+  };
+
+  const analyticsFilteredItems = useMemo(() => {
+    let result = [...MOCK_ITEMS];
+
+    if (globalFilters.tcg && globalFilters.tcg.length > 0 && !globalFilters.tcg.includes("All")) {
+      result = result.filter((item) =>
+        globalFilters.tcg.some((tcg) => filterCollectionByTCG([item], tcg).length > 0)
+      );
     }
 
-    return MOCK_ITEMS.filter((item) => {
-      return activeTCGs.some((tcg) => filterCollectionByTCG([item], tcg).length > 0);
-    });
-  }, [activeTCGs]);
+    if (globalFilters.set && globalFilters.set.length > 0) {
+      result = result.filter((item) => globalFilters.set.includes(item.set));
+    }
 
-  const filteredAndSortedItems = useMemo(() => {
-    let result = [...tcgFilteredItems];
+    if (globalFilters.assetType && globalFilters.assetType !== "all") {
+      result = result.filter((item) => getAssetTypeForItem(item) === globalFilters.assetType);
+    }
+
+    if (globalFilters.condition && globalFilters.condition.length > 0) {
+      result = result.filter((item) => item.condition && globalFilters.condition.includes(item.condition));
+    }
+
+    if (globalFilters.era && globalFilters.era.length > 0) {
+      result = result.filter((item) => globalFilters.era.includes(deriveEraFromItem(item)));
+    }
+
+    if (globalFilters.binder && globalFilters.binder.length > 0) {
+      result = result.filter((item) => {
+        const binderLabel = getResolvedBinderLabel(item);
+        return globalFilters.binder.includes(binderLabel);
+      });
+    }
+
+    return result;
+  }, [globalFilters]);
+
+  const gridDisplayItems = useMemo(() => {
+    const result = [...analyticsFilteredItems];
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(
+      const searched = result.filter(
         (item) =>
           item.name.toLowerCase().includes(query) ||
           (item.set && item.set.toLowerCase().includes(query))
       );
-    }
-
-    if (activeFilters.type && activeFilters.type.length > 0) {
-      result = result.filter((item) => {
-        if (activeFilters.type.includes("cards")) return item.cardNumber;
-        if (activeFilters.type.includes("sealed")) return item.productType;
-        return false;
+      return searched.sort((a, b) => {
+        switch (sortBy) {
+          case "value-desc":
+            return parseCurrencyValue(b.valueLabel) - parseCurrencyValue(a.valueLabel);
+          case "value-asc":
+            return parseCurrencyValue(a.valueLabel) - parseCurrencyValue(b.valueLabel);
+          case "name-asc":
+            return a.name.localeCompare(b.name);
+          case "name-desc":
+            return b.name.localeCompare(a.name);
+          default:
+            return 0;
+        }
       });
     }
 
-    switch (sortBy) {
-      case "value-desc":
-        result.sort((a, b) => {
-          const aVal = parseCurrencyValue(a.valueLabel);
-          const bVal = parseCurrencyValue(b.valueLabel);
-          return bVal - aVal;
-        });
-        break;
-      case "value-asc":
-        result.sort((a, b) => {
-          const aVal = parseCurrencyValue(a.valueLabel);
-          const bVal = parseCurrencyValue(b.valueLabel);
-          return aVal - bVal;
-        });
-        break;
-      case "name-asc":
-        result.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case "name-desc":
-        result.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      default:
-        break;
-    }
+    return result.sort((a, b) => {
+      switch (sortBy) {
+        case "value-desc":
+          return parseCurrencyValue(b.valueLabel) - parseCurrencyValue(a.valueLabel);
+        case "value-asc":
+          return parseCurrencyValue(a.valueLabel) - parseCurrencyValue(b.valueLabel);
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        default:
+          return 0;
+      }
+    });
+  }, [analyticsFilteredItems, searchQuery, sortBy]);
 
-    return result;
-  }, [searchQuery, activeFilters, sortBy, tcgFilteredItems]);
-
-  const isEmpty = filteredAndSortedItems.length === 0 && !isLoading;
-  const filteredStats = useMemo(() => calculateCollectionStats(filteredAndSortedItems), [filteredAndSortedItems]);
+  const isEmpty = gridDisplayItems.length === 0 && !isLoading;
+  const analyticsStats = useMemo(() => calculateCollectionStats(analyticsFilteredItems), [analyticsFilteredItems]);
   const handleSetAssetSpotlight = (asset) => {
     if (!asset?.id) return;
     router.push(`/account-settings?spotlightAssetId=${encodeURIComponent(String(asset.id))}#spotlight-asset`);
   };
 
-  const activeTCGSelections = useMemo(
-    () =>
-      activeTCGs
-        .filter((tcg) => tcg !== "All")
-        .map((tcg) => ({
+  const globalActiveSelections = useMemo(() => {
+    const selections = [];
+
+    globalFilters.tcg
+      .filter((tcg) => tcg !== "All")
+      .forEach((tcg) => {
+        selections.push({
           id: `tcg-${tcg}`,
           label: `TCG: ${tcg}`,
           onRemove: () => {
-            setActiveTCGs((prev) => {
-              const next = prev.filter((value) => value !== tcg && value !== "All");
-              return next.length > 0 ? next : ["All"];
+            setGlobalFilters((prev) => {
+              const nextValues = prev.tcg.filter((value) => value !== tcg && value !== "All");
+              return {
+                ...prev,
+                tcg: nextValues.length > 0 ? nextValues : ["All"],
+              };
             });
           },
-        })),
-    [activeTCGs]
-  );
+        });
+      });
 
-  const handleClearAllFilters = () => {
-    setActiveTCGs(["All"]);
-  };
+    ["set", "condition", "era", "binder"].forEach((key) => {
+      (globalFilters[key] || []).forEach((value) => {
+        selections.push({
+          id: `${key}-${value}`,
+          label: `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`,
+          onRemove: () => {
+            setGlobalFilters((prev) => ({
+              ...prev,
+              [key]: (prev[key] || []).filter((entry) => entry !== value),
+            }));
+          },
+        });
+      });
+    });
+
+    if (globalFilters.assetType && globalFilters.assetType !== "all") {
+      const selectedAssetType = filterOptions.assetType.find((option) => option.value === globalFilters.assetType);
+      selections.push({
+        id: `assetType-${globalFilters.assetType}`,
+        label: `Asset Type: ${selectedAssetType?.label || globalFilters.assetType}`,
+        onRemove: () => {
+          setGlobalFilters((prev) => ({
+            ...prev,
+            assetType: "all",
+          }));
+        },
+      });
+    }
+
+    return selections;
+  }, [globalFilters, filterOptions.assetType]);
 
   const handleAddCard = () => {
     router.push("/cards");
@@ -218,36 +347,39 @@ export default function MyCollectionPage() {
       {/* Main Collection Section */}
       <CollectionSectionLayout
         config={config}
-        items={filteredAndSortedItems}
+        items={gridDisplayItems}
         isLoading={isLoading}
         isEmpty={isEmpty}
         onSearch={setSearchQuery}
-        onFiltersChange={setActiveFilters}
+        onFiltersChange={() => {}}
+        onTypeFilterChange={handleTypeChipChange}
+        selectedType={globalFilters.assetType}
+        activeFilters={{}}
         onSortChange={setSortBy}
         onViewChange={setViewMode}
         showHeader={false}
         viewMode={viewMode}
         variant="detailed"
+        showAdvancedFilters={false}
         showStats={false}
-        stats={filteredStats}
+        stats={analyticsStats}
+        leftSidebar={(
+          <GlobalFilterPanel
+            filters={globalFilters}
+            options={filterOptions}
+            onFilterChange={handleGlobalFilterChange}
+            onClearAll={handleClearAllFilters}
+            isLoading={isLoading}
+          />
+        )}
         contentAfterHeader={(
-          <CollectionPerformanceCard
-            initialRange={timeRange}
-            tcg={activeTCGs.length === 1 ? activeTCGs[0] : "All"}
-            onRangeChange={setTimeRange}
-            totalItems={MOCK_ITEMS.length}
-            totalValue={filteredStats.totalValue}
-            investedValue={filteredStats.investedValue}
+          <CollectionAnalyticsSurface
+            items={analyticsFilteredItems}
+            totalValue={analyticsStats.totalValue}
+            investedValue={analyticsStats.investedValue}
           />
         )}
-        leadingFilterControls={(
-          <CollectionScopeFilter
-            options={availableTCGs}
-            selectedValues={activeTCGs}
-            onTCGChange={setActiveTCGs}
-          />
-        )}
-        extraActiveSelections={activeTCGSelections}
+        extraActiveSelections={globalActiveSelections}
         onClearAllFilters={handleClearAllFilters}
         getItemHref={buildMyCollectionItemHref}
         onSetAssetSpotlight={handleSetAssetSpotlight}

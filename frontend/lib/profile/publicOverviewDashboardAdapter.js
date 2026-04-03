@@ -57,6 +57,9 @@ export function mapPublicOverviewToDashboardData(overview) {
   const wishlistCount = parseNumberFromLabel(wishlistStat?.value, 0);
 
   const performancePoints = buildRangePoints(totalValue, overview.performance?.points || []);
+  const lifetimePoints = performancePoints.length
+    ? performancePoints
+    : buildLabeledSeries(totalValue, ["2022", "2023", "2024", "2025", "Now"], [0.58, 0.69, 0.81, 0.92, 1]);
   const rangeSeries = {
     "7D": {
       points: performancePoints,
@@ -73,6 +76,10 @@ export function mapPublicOverviewToDashboardData(overview) {
     "1Y": {
       points: buildLabeledSeries(totalValue, ["Q2", "Q3", "Q4", "Q1", "Now"], [0.68, 0.75, 0.84, 0.93, 1]),
       helper: overview.performance?.returnLabel || "One-year public performance trend.",
+    },
+    LT: {
+      points: lifetimePoints,
+      helper: overview.performance?.returnLabel || "Performance since portfolio inception.",
     },
   };
 

@@ -229,12 +229,6 @@ export default function Header() {
                     <Link href="/my-portfolio/collection" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Collection
                     </Link>
-                    <Link href="/my-portfolio/binder" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
-                      Binder
-                    </Link>
-                    <Link href="/my-portfolio/shelf" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
-                      Shelf
-                    </Link>
                     <Link href="/my-portfolio/wishlist" className={navDropItem} onClick={() => setIsCollectionDropdownOpen(false)}>
                       Wishlist
                     </Link>
@@ -358,12 +352,6 @@ export default function Header() {
                 </Link>
                 <Link href="/my-portfolio/collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Collection
-                </Link>
-                <Link href="/my-portfolio/binder" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Binder
-                </Link>
-                <Link href="/my-portfolio/shelf" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Shelf
                 </Link>
                 <Link href="/my-portfolio/wishlist" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   Wishlist

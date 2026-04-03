@@ -1,6 +1,5 @@
 "use client";
 
-import PortfolioCommandCenter from "@/components/Profile/PortfolioCommandCenter";
 import PortfolioPerformanceCanvas from "@/components/Profile/PortfolioPerformanceCanvas";
 import PortfolioSignalsRail from "@/components/Profile/PortfolioSignalsRail";
 
@@ -25,15 +24,11 @@ export default function PortfolioOverviewComposer({
   portfolioSignals = null,
   mode = "owner",
 }) {
+  const resolvedMode = mode === "public" ? "public" : "owner";
+
   return (
     <section className="space-y-7">
       <div className="space-y-7">
-        {/* Command Center / Snapshot Hero */}
-        <PortfolioCommandCenter
-          dashboardData={dashboardData}
-          mode={mode}
-        />
-
         {/* Dominant flagship analytics surface */}
         <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 sm:p-4 lg:p-5">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)] xl:items-stretch xl:gap-4">
@@ -41,9 +36,10 @@ export default function PortfolioOverviewComposer({
             <div className="h-full">
               <PortfolioPerformanceCanvas
                 performanceData={dashboardData?.performance}
+                commandCenterData={dashboardData?.commandCenter}
                 selectedRange={selectedRange}
                 onRangeChange={onRangeChange}
-                mode={mode}
+                mode={resolvedMode}
               />
             </div>
 

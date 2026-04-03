@@ -94,7 +94,7 @@ export default function CollectionValueChart({
     <div className="flex h-full min-h-[20rem] flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4 sm:p-5">
       <div className="min-h-[15rem] flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
             <defs>
               <linearGradient id="collectionAreaGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.48} />
@@ -120,8 +120,7 @@ export default function CollectionValueChart({
               tickLine={false}
               axisLine={false}
               tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-              width={48}
-              dx={-4}
+              width={60}
             />
             <Tooltip content={<CustomTooltip />} />
             <Area

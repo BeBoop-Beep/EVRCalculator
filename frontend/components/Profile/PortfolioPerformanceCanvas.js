@@ -14,8 +14,11 @@ import {
 
 import {
   getPerformanceRangeData,
+  getPerformanceRangeMetrics,
+  getPrivatePerformanceMetrics,
 } from "@/lib/profile/portfolioPerformanceRange";
 import OverviewRangeToggle from "@/components/Profile/OverviewRangeToggle";
+import PortfolioMetricsRow from "@/components/Profile/PortfolioMetricsRow";
 
 /** @typedef {import("@/types/portfolioDashboard").PortfolioPerformancePoint} PortfolioPerformancePoint */
 
@@ -24,6 +27,26 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0,
 });
+
+function formatPercent(percent) {
+  if (typeof percent !== "number" || Number.isNaN(percent)) {
+    return "-";
+  }
+
+  const absolute = Math.abs(percent).toFixed(2);
+  const sign = percent > 0 ? "+" : percent < 0 ? "-" : "";
+  return `${sign}${absolute}%`;
+}
+
+function formatSignedCurrency(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "-";
+  }
+
+  const sign = numericValue > 0 ? "+" : numericValue < 0 ? "-" : "";
+  return `${sign}${currencyFormatter.format(Math.abs(numericValue))}`;
+}
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload || payload.length === 0) {
@@ -41,16 +64,6 @@ function CustomTooltip({ active, payload, label }) {
       <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{currencyFormatter.format(value)}</p>
     </div>
   );
-}
-
-function formatPercent(percent) {
-  if (typeof percent !== "number" || Number.isNaN(percent)) {
-    return "—";
-  }
-
-  const absolute = Math.abs(percent).toFixed(2);
-  const sign = percent > 0 ? "+" : percent < 0 ? "-" : "";
-  return `${sign}${absolute}%`;
 }
 
 function FinalPointDot({ cx, cy, payload }) {
@@ -81,10 +94,11 @@ function FinalPointDot({ cx, cy, payload }) {
  * @param {Object} props.performanceData - Performance data with points array and metadata
  * @param {string} [props.selectedRange="7D"] - Currently selected time range (7D, 1M, 6M, 1Y)
  * @param {Function} props.onRangeChange - Callback when time range is changed
- * @param {"owner" | "public"} [props.mode="owner"] - Rendering mode (not visually different, but available for future mode-specific logic)
+ * @param {"owner" | "private" | "public"} [props.mode="owner"] - Rendering mode
  */
 export default function PortfolioPerformanceCanvas({ 
   performanceData, 
+  commandCenterData,
   selectedRange = "7D", 
   onRangeChange,
   mode = "owner",
@@ -102,57 +116,55 @@ export default function PortfolioPerformanceCanvas({
   );
 
   const rangeMetrics = useMemo(() => {
-    const values = perf.points
-      .map((point) => Number(point?.totalValue))
-      .filter((value) => Number.isFinite(value));
-
-    if (values.length === 0) {
-      return {
-        currentValue: 0,
-        periodChange: 0,
-        periodRoi: null,
-        periodHigh: 0,
-      };
-    }
-
-    const startValue = values[0];
-    const endValue = values[values.length - 1];
-    const highValue = Math.max(...values);
-
-    return {
-      currentValue: endValue,
-      periodChange: endValue - startValue,
-      periodRoi: startValue > 0 ? ((endValue - startValue) / startValue) * 100 : null,
-      periodHigh: highValue,
-    };
+    return getPerformanceRangeMetrics(perf.points);
   }, [perf.points]);
 
-  const periodChangeClass = rangeMetrics.periodChange >= 0 ? "metric-positive" : "metric-negative";
-  const periodRoiClass = (rangeMetrics.periodRoi ?? 0) >= 0 ? "metric-positive" : "metric-negative";
+  const privateMetrics = useMemo(() => {
+    return getPrivatePerformanceMetrics({
+      selectedRange,
+      performanceData,
+      rangeMetrics,
+      currentValue: Number(commandCenterData?.totalValue),
+      fallbackInvestedValue: Number(commandCenterData?.investedValue),
+    });
+  }, [selectedRange, performanceData, rangeMetrics, commandCenterData]);
 
-  const formatSignedCurrency = (value) => {
-    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
-    return `${sign}${currencyFormatter.format(Math.abs(value))}`;
-  };
-  const isOwnerMode = mode === "owner";
+  const isPublicMode = mode === "public";
+  const isOwnerMode = !isPublicMode;
+  const deltaToneClass = rangeMetrics.periodChange >= 0 ? "metric-positive" : "metric-negative";
 
   return (
     <section className="flex h-full min-h-[36rem] flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-5 sm:p-6 lg:p-7">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Portfolio Performance</p>
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">{isOwnerMode ? perf.helper : "Performance trend over selected timeframe."}</p>
+          <div className="mt-4">
+            <p className="text-[clamp(1.85rem,5.4vw,2.7rem)] font-semibold leading-none text-[var(--text-primary)]">
+              {currencyFormatter.format(rangeMetrics.currentValue)}
+            </p>
+            <p className={`mt-2 text-sm font-semibold ${deltaToneClass}`}>
+              {formatSignedCurrency(rangeMetrics.periodChange)} ({formatPercent(rangeMetrics.periodRoi)}) {selectedRange}
+            </p>
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+              Current portfolio value
+            </p>
+          </div>
         </div>
-        <OverviewRangeToggle
-          selectedRange={selectedRange}
-          onRangeChange={onRangeChange}
-          ariaLabel="Portfolio performance time range"
-        />
+        <div className="flex w-fit flex-col items-center text-center">
+          <OverviewRangeToggle
+            selectedRange={selectedRange}
+            onRangeChange={onRangeChange}
+            ariaLabel="Portfolio performance time range"
+          />
+        </div>
       </div>
 
       <div className="mt-6 min-h-[25rem] flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+          <AreaChart
+            data={chartData}
+            margin={{ top: 8, right: 12, left: -16, bottom: 0 }}
+          >
             <defs>
               <linearGradient id="portfolioAreaGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.48} />
@@ -190,27 +202,43 @@ export default function PortfolioPerformanceCanvas({
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-6 border-t border-[var(--border-subtle)] pt-4">
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Based on active range</p>
-        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Value</p>
-            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(rangeMetrics.currentValue)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Period Change</p>
-            <p className={`mt-1.5 text-lg font-semibold ${periodChangeClass}`}>{formatSignedCurrency(rangeMetrics.periodChange)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Period ROI</p>
-            <p className={`mt-1.5 text-lg font-semibold ${periodRoiClass}`}>{formatPercent(rangeMetrics.periodRoi)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Period High</p>
-            <p className="mt-1.5 text-lg font-semibold text-[var(--text-primary)]">{currencyFormatter.format(rangeMetrics.periodHigh)}</p>
-          </div>
+      <PortfolioMetricsRow
+        metrics={rangeMetrics}
+        title="Supporting range detail"
+        showCurrentValue={false}
+      />
+
+      {isOwnerMode ? (
+        <div className="mt-6 border-t border-[var(--border-subtle)] pt-0">
+          <PortfolioMetricsRow
+            metrics={rangeMetrics}
+            title={selectedRange === "LT" ? "Private metrics (lifetime basis)" : `Private metrics (${selectedRange} basis)`}
+            containerClassName="mt-4"
+            showCurrentValue={false}
+            includeDelta={false}
+            includeRangeExtremes={false}
+            extraMetrics={[
+              {
+                key: "private-lifetime-roi",
+                label: "Lifetime ROI",
+                value: formatPercent(privateMetrics.lifetimeRoi),
+                toneClassName: (privateMetrics.lifetimeRoi ?? 0) >= 0 ? "metric-positive" : "metric-negative",
+              },
+              {
+                key: "private-total-invested",
+                label: "Total Invested",
+                value: currencyFormatter.format(privateMetrics.totalInvested),
+              },
+              {
+                key: "private-total-profit",
+                label: "Total Profit",
+                value: formatSignedCurrency(privateMetrics.totalProfit),
+                toneClassName: privateMetrics.totalProfit >= 0 ? "metric-positive" : "metric-negative",
+              },
+            ]}
+          />
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

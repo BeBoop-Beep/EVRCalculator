@@ -5,9 +5,6 @@ export default function PublicProfileHero({ identity, avatarUrl }) {
   const subtitle = identity.subtitle || identity.secondaryHandle;
   const publicTabs = [
     { label: "Overview", href: profileBaseHref, exact: true },
-    { label: "Collection", href: `${profileBaseHref}/collection` },
-    { label: "Binder", href: `${profileBaseHref}/binder` },
-    { label: "Shelf", href: `${profileBaseHref}/shelf` },
     { label: "Wishlist", href: `${profileBaseHref}/wishlist` },
     { label: "Activity", href: `${profileBaseHref}/activity` },
   ];
