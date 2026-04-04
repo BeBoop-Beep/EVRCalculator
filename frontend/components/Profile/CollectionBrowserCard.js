@@ -164,7 +164,7 @@ export default function CollectionBrowserCard({
                 </span>
               ) : null}
             </div>
-            <p className="text-xs text-[var(--text-secondary)]">
+            <p className="text-xs text-[var(--text-tertiary)]">
               {view === "binder" ? "Binder mode" : "Continuous scroll"}
             </p>
           </div>

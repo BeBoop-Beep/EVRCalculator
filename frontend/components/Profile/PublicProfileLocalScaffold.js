@@ -66,7 +66,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
-          className="h-[18px] w-[18px]"
+          className="h-5 w-5"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.85"
@@ -75,9 +75,6 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
         >
           <rect x="4.25" y="4" width="10.5" height="14" rx="2" />
           <rect x="9.25" y="6" width="10.5" height="14" rx="2" />
-          <rect x="11.5" y="9.25" width="6" height="4.1" rx="0.9" />
-          <path d="M11.5 16.3h6" />
-          <path d="M11.5 18h3.9" />
         </svg>
       ),
     },
@@ -88,7 +85,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
-          className="h-[18px] w-[18px]"
+          className="h-5 w-5"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.85"
@@ -111,7 +108,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
-          className="h-[18px] w-[18px]"
+          className="h-5 w-5"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.85"
@@ -129,7 +126,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
-          className="h-[18px] w-[18px]"
+          className="h-5 w-5"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.85"
@@ -209,7 +206,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
 
   const handleOpenCollectionTools = () => {
     if (isCollectionSection) {
-      setIsToolsOpen(true);
+      setIsToolsOpen((open) => !open);
       return;
     }
 
@@ -279,7 +276,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
         <button
           type="button"
           onClick={() => (isDesktop ? setDesktopFiltersOpen((open) => !open) : setMobileFiltersOpen((open) => !open))}
-          className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+          className="w-full rounded-lg border border-brand bg-brand px-3 py-2 text-left text-xs font-medium text-white transition-colors hover:border-brand-dark hover:bg-brand-dark"
           aria-expanded={isFilterPanelOpen}
         >
           {isFilterPanelOpen ? "Hide filters for this collection" : "Filter this collection"}
@@ -358,9 +355,9 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="lg:grid lg:grid-cols-[15.25rem_minmax(0,1fr)] lg:items-start lg:gap-4">
-        <aside className="hidden lg:block">
-          <div className="sticky top-[calc(var(--app-header-offset,4.5rem)+0.75rem)] space-y-4">
+      <div className="xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start">
+        <aside className="hidden xl:block xl:self-stretch xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4">
+          <div className="sticky top-[calc(var(--app-header-offset,4rem)+2rem)] space-y-4">
             <nav aria-label="Public profile sections" className="px-1">
               <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
                 Sections
@@ -396,11 +393,66 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
           </div>
         </aside>
 
-        <div className="min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
-          {desktopHeader ? <div className="mb-6 hidden lg:block">{desktopHeader}</div> : null}
-          {children}
+        <div className="min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-0 xl:flex xl:justify-center xl:transform xl:-translate-x-[130px]">
+          <div className="lg:w-full lg:max-w-7xl lg:px-6">
+            <div className="hidden xl:block xl:rounded-3xl xl:border xl:border-[var(--border-subtle)] xl:bg-[var(--surface-page)]/70 xl:p-4 2xl:p-5">
+              {desktopHeader ? <div className="mb-6">{desktopHeader}</div> : null}
+              {children}
+            </div>
+            {isCollectionSection ? (
+              <div className="hidden lg:flex xl:hidden items-center mb-3">
+                <button
+                  type="button"
+                  onClick={() => setIsToolsOpen((open) => !open)}
+                  aria-expanded={isToolsOpen}
+                  aria-controls={mobileToolsPanelId}
+                  className="inline-flex items-center gap-2.5 rounded-xl border border-brand bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:border-brand-dark hover:bg-brand-dark"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 7h16" />
+                    <path d="M7 12h10" />
+                    <path d="M10 17h4" />
+                  </svg>
+                  Filters &amp; Tools
+                </button>
+              </div>
+            ) : null}
+            <div className="px-6 pt-3 xl:hidden">{children}</div>
+          </div>
         </div>
       </div>
+
+      {isCollectionSection && isToolsOpen ? (
+        <div
+          id={mobileToolsPanelId}
+          role="region"
+          aria-label="Collection tools panel"
+          className="xl:hidden fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:bottom-4 z-40 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 shadow-lg"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Collection tools</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Search and filter this collection for this public profile only.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsToolsOpen(false)}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)]"
+              aria-label="Close tools panel"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-3 border-t border-[var(--border-subtle)] pt-3">
+            {renderCollectionTools("mobile")}
+          </div>
+        </div>
+      ) : null}
 
       <div className="lg:hidden">
         <button
@@ -410,8 +462,8 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
           title="Open tools for this collection"
           aria-controls={mobileToolsPanelId}
           aria-expanded={isCollectionSection && isToolsOpen}
-          className="fixed right-4 z-40 inline-flex h-14 min-h-[56px] w-14 min-w-[56px] items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] text-[var(--text-primary)] shadow-[0_14px_28px_rgba(0,0,0,0.42)] backdrop-blur transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          style={{ bottom: "calc(6.25rem + env(safe-area-inset-bottom))" }}
+          className="fixed right-4 z-40 inline-flex h-14 min-h-[56px] w-14 min-w-[56px] items-center justify-center rounded-full border border-brand bg-brand text-white shadow-[0_14px_28px_rgba(0,0,0,0.42)] backdrop-blur transition hover:border-brand-dark hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          style={{ bottom: "calc(7.5rem + env(safe-area-inset-bottom))" }}
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 7h16" />
@@ -419,36 +471,6 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
             <path d="M10 17h4" />
           </svg>
         </button>
-
-        {isCollectionSection && isToolsOpen ? (
-          <div
-            id={mobileToolsPanelId}
-            role="region"
-            aria-label="Collection tools panel"
-            className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 shadow-lg"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Collection tools</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                  Search and filter this collection for this public profile only.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsToolsOpen(false)}
-                className="rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)]"
-                aria-label="Close tools panel"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-3 border-t border-[var(--border-subtle)] pt-3">
-              {renderCollectionTools("mobile")}
-            </div>
-          </div>
-        ) : null}
 
         <nav
           aria-label="Public profile navigation"
@@ -466,13 +488,15 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
                   aria-label={`Open ${item.label} section`}
                   aria-current={isActive ? "page" : undefined}
                   className={[
-                    "flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors",
+                    "flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
                     isActive
                       ? "text-[var(--accent)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
                   ].join(" ")}
                 >
-                  {item.icon}
+                  <span className={["transition-transform duration-150 ease-out", isActive ? "scale-110" : "scale-100"].join(" ")}>
+                    {item.icon}
+                  </span>
                   <span>{item.label}</span>
                 </Link>
               );

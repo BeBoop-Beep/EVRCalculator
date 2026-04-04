@@ -1,3 +1,7 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 export default function PublicProfileHeader({
   identity,
   avatarUrl,
@@ -5,11 +9,14 @@ export default function PublicProfileHeader({
   favoriteTcg,
   joinDateLabel,
   visibility,
+  collectionMetrics,
 }) {
+  const pathname = usePathname();
+  const isCollectionRoute = Boolean(pathname?.includes("/collection"));
   const subtitle = identity.subtitle || identity.handle;
 
   return (
-    <section className="page-hero-panel overflow-hidden rounded-2xl p-4 sm:p-8">
+    <section className="page-hero-panel overflow-hidden rounded-2xl px-4 py-5 sm:px-8 sm:py-5">
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
         <div className="flex items-start gap-4 sm:gap-5">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border-subtle)] bg-brand text-xl font-semibold text-white shadow-[0_0_0_2px_rgba(255,255,255,0.06)] sm:h-20 sm:w-20 sm:text-2xl">
@@ -29,19 +36,50 @@ export default function PublicProfileHeader({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 sm:grid sm:gap-2 sm:grid-cols-3 lg:w-[28rem]">
-          <MetaPill label="Favorite TCG" shortLabel="TCG" value={favoriteTcg} />
-          <MetaPill label="Joined" shortLabel="Joined" value={joinDateLabel} />
-          <MetaPill label="Visibility" shortLabel="Visibility" value={visibility} />
-        </div>
+        {isCollectionRoute && collectionMetrics ? (
+          <div className="w-full space-y-2 sm:mx-auto sm:max-w-[28rem] lg:mx-0 lg:w-[28rem]">
+            <PortfolioValueCell value={collectionMetrics.portfolioValue} />
+            <div className="grid grid-cols-3 gap-2">
+              <MetricCell label="Cards" value={collectionMetrics.cards} />
+              <MetricCell label="Sealed" value={collectionMetrics.sealed} />
+              <MetricCell label="Graded" value={collectionMetrics.graded} />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap justify-center gap-1.5 sm:mx-auto sm:grid sm:w-full sm:max-w-[28rem] sm:grid-cols-3 sm:justify-items-center sm:gap-2 lg:mx-0 lg:w-[28rem] lg:justify-items-stretch">
+            <MetaPill label="Favorite TCG" shortLabel="TCG" value={favoriteTcg} />
+            <MetaPill label="Joined" shortLabel="Joined" value={joinDateLabel} />
+            <MetaPill label="Visibility" shortLabel="Visibility" value={visibility} />
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
+function PortfolioValueCell({ value }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-center">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Portfolio Value</p>
+      <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-emerald-400">+$604 (+12.77%) 7D</p>
+      <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">D curve score</p>
+    </div>
+  );
+}
+
+function MetricCell({ label, value }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-2 py-2 text-center">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-semibold text-[var(--text-primary)]">{value}</p>
+    </div>
+  );
+}
+
 function MetaPill({ label, shortLabel, value }) {
   return (
-    <div className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1.5 sm:block sm:rounded-xl sm:px-3 sm:py-2">
+    <div className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-2 py-1.5 text-center sm:block sm:w-full sm:rounded-xl sm:px-3 sm:py-2">
       <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] sm:hidden">{shortLabel}</p>
       <p className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)] sm:block">{label}</p>
       <p className="truncate text-xs font-medium text-[var(--text-primary)] sm:mt-1 sm:text-sm">{value}</p>

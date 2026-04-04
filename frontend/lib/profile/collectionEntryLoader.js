@@ -192,12 +192,16 @@ export function buildCollectionStats(items) {
     return sum + base;
   }, 0);
   const sealedItems = items.filter((item) => item.productType || !item.cardNumber);
+  const cardItems = items.filter((item) => item.cardNumber && !item.productType);
+  const gradedItems = items.filter((item) => Boolean(item.gradingLabel));
 
   return {
     totalItems: items.length,
     totalValue: `$${totalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     investedValue: `$${investedValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     sealedCount: sealedItems.length,
+    cardsCount: cardItems.length,
+    gradedCount: gradedItems.length,
     config: {
       itemsLabel: "Total Items",
       valueLabel: "Collection Value",
