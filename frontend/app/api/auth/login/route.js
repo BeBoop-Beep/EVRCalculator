@@ -1,0 +1,73 @@
+// /app/api/auth/login/route.js
+import { sign } from "jsonwebtoken";
+import { NextResponse } from "next/server";
+import { createSupabaseAnonClient, createSupabaseAdminClient } from "@/lib/supabaseServer";
+
+export async function POST(req) {
+  try {
+    const { email, password } = await req.json();
+
+    if (!email || !password) {
+      return NextResponse.json({ message: "Email and password are required." }, { status: 400 });
+    }
+
+    const anonClient = createSupabaseAnonClient();
+    const adminClient = createSupabaseAdminClient();
+
+    const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError || !signInData?.user) {
+      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+    }
+
+    const user = signInData.user;
+
+    const { data: profile, error: profileError } = await adminClient
+      .from("users")
+      .select("username, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Error fetching customer profile:", profileError);
+    }
+
+    const userName = profile?.username || user.user_metadata?.username || user.user_metadata?.name || "";
+
+    const token = sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: userName,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    const response = NextResponse.json(
+      {
+        id: user.id,
+        email: user.email,
+        name: userName,
+        token,
+      },
+      { status: 200 }
+    );
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24,
+      path: "/",
+    });
+
+    return response;
+
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}

@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark surface ladder: header (darkest) -> page -> panel -> hover */
+  --surface-header: #050b15;
+  --surface-page: #09101b;
+  --surface-panel: #101b2d;
+  --surface-hero-top: #131d34;
+  --surface-hero-bottom: #0f182c;
+  --surface-hover: #18223f;
+  --surface-primary: var(--surface-page);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --text-primary: #e8eef7;
+  --text-secondary: rgba(232, 238, 247, 0.72);
+  --brand: #059669;
+  --brand-dark: #047857;
+  --brand-active: #065F46;
+  --brand-light: #A7F3D0;
+  --accent: #FACC15;
+  --accent-dark: #EAB308;
+  --success: #059669;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --neutral: #94A3B8;
+  --app-header-offset: 64px;
+  --transition-default: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 100ms ease-in-out;
+}
+
+[data-theme="light"] {
+  --surface-header: #ffffff;
+  --surface-page: #f8fafc;
+  --surface-panel: #ffffff;
+  --surface-hero-top: #ffffff;
+  --surface-hero-bottom: #f3f7fc;
+  --surface-hover: rgba(2, 6, 23, 0.05);
+  --border-subtle: rgba(15, 23, 42, 0.09);
+  --text-primary: #0f172a;
+  --text-secondary: rgba(15, 23, 42, 0.72);
+  --surface-primary: var(--surface-page);
+  --accent: #ca8a04;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+/* Ensure body starts fully visible by default */
+body {
+  font-family: var(--font-sans), 'Segoe UI', sans-serif;
+  font-weight: 450;
+  letter-spacing: -0.01em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--surface-page);
+  color: var(--text-primary);
+  opacity: 1;
+  transition: opacity 0.75s ease-in-out;
+  margin: 0;
+  padding: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-sans), 'Segoe UI', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+/* Before JavaScript runs, the page will have full opacity */
+body.fade-out {
+  opacity: 0;  
+}
+
+/* Focus ring styling for inputs */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
+  transition: var(--transition-default);
+}
+
+/* Smooth transitions for interactive elements */
+button,
+a,
+input,
+textarea,
+select {
+  transition: var(--transition-default);
+}
+
+.dashboard-panel {
+  background-color: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  transition: background-color 150ms ease;
+}
+
+.dashboard-panel:hover {
+  background-color: var(--surface-hover);
+}
+
+.page-hero-panel {
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-panel);
+}
+
+.dashboard-container {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.metric-label {
+  opacity: 0.65;
+}
+
+.metric-value {
+  opacity: 1;
+}
+
+/* Chart and metric styling helpers */
+.metric-positive {
+  color: var(--success);
+}
+
+.metric-negative {
+  color: var(--danger);
+}
+
+.metric-neutral {
+  color: var(--neutral);
+}
+
+.brand-text {
+  color: var(--brand);
+}
+
+.brand-bg {
+  background-color: var(--brand);
+}
+
+.accent-text {
+  color: var(--accent);
+}
+
+.accent-bg {
+  background-color: var(--accent);
+}
+
+
+/* Use a different font for the header */
+header {
+  font-family: var(--font-sans), 'Segoe UI', sans-serif;
+}
+
+/* Default logo container without hover */
+.logo-container .logo {
+  transition: transform 0.3s ease-in-out; /* Smooth zoom effect */
+}
+
+/* On hover, apply zoom effect directly on the logo */
+.logo-container:hover .logo img {
+  transform: scale(1.1); /* Zoom-in effect */
+}
+
+
+link[rel="icon"] {
+  width: 48px;
+  height: 48px;
+}
+
+@keyframes zoom-in {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.1); /* Slight zoom effect */
+  }
+}
+
+.animate-zoom-in {
+  animation: zoom-in 5s ease-in-out infinite alternate; /* Slow, smooth zoom */
+}
+
+/* Smooth pulse for live metrics */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdown-enter {
+  transform-origin: top center;
+  animation: dropdown-enter 120ms ease-out;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropdown-enter {
+    animation: none;
+  }
+}
+
+/* For page-level sticky controls that should sit below the global sticky header. */
+.page-sticky-bar {
+  position: sticky;
+  top: var(--app-header-offset, 64px);
+  z-index: 30;
+}
+
