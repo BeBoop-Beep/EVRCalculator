@@ -5,15 +5,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.repositories.sealed_repository import insert_sealed_product, get_sealed_product_by_name_and_set, insert_sealed_products_batch
-from db.repositories.sealed_product_prices_repository import insert_sealed_product_price, insert_sealed_product_prices_batch
-from db.services.batch_processor import BatchProcessor
-from db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
+from backend.db.repositories.sealed_repository import insert_sealed_product, get_sealed_product_by_name_and_set, insert_sealed_products_batch
+from backend.db.repositories.sealed_product_prices_repository import insert_sealed_product_price, insert_sealed_product_prices_batch
+from backend.db.services.batch_processor import BatchProcessor
+from backend.db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
 
 class SealedProductsService(BatchProcessor):
     """
     Service layer for sealed product business logic.
-    Orchestrates writes to sealed_products and sealed_product_prices tables.
+    Orchestrates writes to sealed_products and sealed_product_price_observations tables.
     Uses multiprocessing for parallel batch processing.
     """
     
@@ -283,7 +283,7 @@ class SealedProductsService(BatchProcessor):
         
         This method orchestrates:
         1. Insert sealed product into 'sealed_products' table (in threads)
-        2. Insert pricing data into 'sealed_product_prices' table for historical tracking (in threads)
+        2. Insert pricing data into 'sealed_product_price_observations' table for historical tracking (in threads)
         
         Args:
             set_id: UUID of the set these products belong to

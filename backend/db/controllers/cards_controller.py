@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.services.cards_service import CardsService
+from backend.db.services.cards_service import CardsService
 
 class CardsController:
     """Controller for card-related operations"""

@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
-from db.services.orchestrators.pokemon_tcg_orchestrator import PokemonTCGOrchestrator
+from backend.db.services.orchestrators.pokemon_tcg_orchestrator import PokemonTCGOrchestrator
 
 class TCGOrchestrator:
     """

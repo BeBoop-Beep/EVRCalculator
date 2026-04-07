@@ -4,7 +4,7 @@ import os
 # Add path to import services
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.services.ingest_service import IngestService
+from backend.db.services.ingest_service import IngestService
 from constants.products.product_schemas import TYPE_SCHEMAS
 
 class IngestController:

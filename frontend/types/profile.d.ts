@@ -32,6 +32,13 @@ export interface ProfileResponse {
   profile: UserProfileRow;
 }
 
+export interface PublicCollectionSummary {
+  portfolio_value: number | null;
+  cards_count: number | null;
+  sealed_count: number | null;
+  graded_count: number | null;
+}
+
 export interface PublicUserProfile {
   id: string;
   username: string | null;
@@ -39,6 +46,12 @@ export interface PublicUserProfile {
   avatar_url: string | null;
   bio: string | null;
   is_profile_public: boolean | null;
+  location: string | null;
+  favorite_tcg_id: number | string | null;
+  favorite_tcg_name: string | null;
+  created_at: string | null;
+  collection_summary: PublicCollectionSummary | null;
+  collection_summary_warning: string | null;
 }
 
 export interface PublicProfileResponse {

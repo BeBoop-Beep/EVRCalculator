@@ -2,7 +2,7 @@ from ...clients.tcgplayer_client import TCGPlayerClient
 from ...parsers.tcgplayer_parser import TCGPlayerParser
 from ..dto_builders.tcgplayer_dto_builder import TCGPlayerDTOBuilder
 from ...exporters.excel_writer import save_to_excel
-from db.controllers.ingest_controller import IngestController
+from backend.db.controllers.ingest_controller import IngestController
 import json
 import sys
 import os

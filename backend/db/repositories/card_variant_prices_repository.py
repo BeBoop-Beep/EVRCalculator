@@ -1,13 +1,35 @@
-from ..clients.supabase_client import SUPABASE_URL, SUPABASE_KEY
-from supabase import create_client
-from postgrest.exceptions import APIError
+import base64
+import json
+import logging
 from typing import Dict, Any, Optional, List
+
+from postgrest.exceptions import APIError
+from supabase import create_client
+
+from ..clients.supabase_client import SUPABASE_URL, SUPABASE_KEY
 import time
+
+
+def _jwt_role(key: str) -> str:
+    """Decode the JWT payload segment to extract the 'role' claim (service_role vs anon)."""
+    try:
+        parts = key.split(".")
+        if len(parts) == 3:
+            payload = parts[1]
+            payload += "=" * (-len(payload) % 4)  # fix padding
+            decoded = json.loads(base64.b64decode(payload))
+            return decoded.get("role", "unknown")
+    except Exception:
+        pass
+    return "unknown"
+
+
+logger = logging.getLogger(__name__)
 
 
 def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
     """
-    Insert a price row into `card_variant_prices`.
+    Insert a price row into `card_variant_price_observations`.
     
     Args:
         price_row: Should include card_variant_id, condition_id, market_price, 
@@ -29,7 +51,7 @@ def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
         try:
             # Create a fresh client for each attempt to avoid schema cache issues
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = fresh_client.table("card_variant_prices").insert(price_row).execute()
+            res = fresh_client.table("card_variant_price_observations").insert(price_row).execute()
             
             if res is None:
                 raise RuntimeError("Insert card variant price returned no response object")
@@ -79,18 +101,35 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     Returns:
         The most recent price record, or None if not found
     """
+    key_role = _jwt_role(SUPABASE_KEY)
+    logger.warning(
+        "[portfolio-debug] card price lookup start | url=%s | key_role=%s | card_variant_id=%s | condition_id=%s | source=card_market_usd_latest",
+        SUPABASE_URL,
+        key_role,
+        card_variant_id,
+        condition_id,
+    )
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     res = (
-        fresh_client.table("card_variant_prices")
+        fresh_client.table("card_market_usd_latest")
         .select("*")
-        .eq("card_variant_id", card_variant_id)
+        .eq("variant_id", card_variant_id)
         .eq("condition_id", condition_id)
-        .order("captured_at", desc=True)
-        .limit(1)
         .maybe_single()
         .execute()
     )
-    return res.data if res and res.data else None
+    row = res.data if res and res.data else None
+    logger.warning(
+        "[portfolio-debug] card price lookup result | card_variant_id=%s | condition_id=%s | found=%s | market_price=%s | row_keys=%s | raw_res_data=%s | raw_res_count=%s",
+        card_variant_id,
+        condition_id,
+        bool(row),
+        row.get("market_price") if isinstance(row, dict) else None,
+        sorted(row.keys()) if isinstance(row, dict) else None,
+        res.data if res else "NO_RES",
+        getattr(res, "count", "N/A"),
+    )
+    return row
 
 
 def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[int]:
@@ -115,7 +154,7 @@ def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[i
     for attempt in range(max_retries):
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = fresh_client.table("card_variant_prices").insert(price_rows).execute()
+            res = fresh_client.table("card_variant_price_observations").insert(price_rows).execute()
             
             if res is None:
                 raise RuntimeError("Batch insert prices returned no response object")

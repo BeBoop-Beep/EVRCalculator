@@ -1,6 +1,8 @@
+// Profile data queries; delegates collection summary fetching to publicCollectionSummaryAccessor.
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
 import { normalizeUsernameForRoute } from "@/lib/profile/publicIdentity";
+import { getPublicCollectionSummaryByUsername } from "@/lib/profile/publicCollectionSummaryAccessor";
 
 const PROFILE_SELECT_FIELDS = [
   "id",
@@ -151,7 +153,7 @@ export async function getCurrentAuthenticatedUserProfile() {
  * Gets a public profile by route username.
  * Returns not found when profile is private.
  * @param {string} usernameParam
- * @returns {Promise<ProfileDataResult<Pick<UserProfileRow, "id" | "username" | "display_name" | "avatar_url" | "bio" | "is_profile_public" | "location" | "favorite_tcg_id" | "created_at"> | null>>}
+ * @returns {Promise<ProfileDataResult<Pick<UserProfileRow, "id" | "username" | "display_name" | "avatar_url" | "bio" | "is_profile_public" | "location" | "favorite_tcg_id" | "created_at"> & { favorite_tcg_name: string | null; collection_summary: { portfolio_value: number | null; cards_count: number | null; sealed_count: number | null; graded_count: number | null; } | null; collection_summary_warning: string | null } | null>>}
  */
 export async function getPublicProfileByUsername(usernameParam) {
   const username = normalizeUsernameForRoute(usernameParam);
@@ -196,10 +198,14 @@ export async function getPublicProfileByUsername(usernameParam) {
     favorite_tcg_name = favoriteTcgResult.data?.name || null;
   }
 
+  const summaryResult = await getPublicCollectionSummaryByUsername(profile.username || username);
+
   return {
     data: {
       ...profile,
       favorite_tcg_name,
+      collection_summary: summaryResult.data,
+      collection_summary_warning: summaryResult.warning,
     },
     error: null,
   };

@@ -1,21 +1,64 @@
+// Presentation layout: consumes precomputed summary data from publicProfileServer; keep display-only logic here.
 import PublicProfileHeader from "@/components/Profile/PublicProfileHeader";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
-import { buildCollectionStats, getPublicCollectionEntries } from "@/lib/profile/collectionEntryLoader";
+
+function normalizeSummaryMetricValue(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+
+  return value;
+}
+
+function formatCurrencyOrUnknown(value) {
+  const normalizedValue = normalizeSummaryMetricValue(value);
+  if (normalizedValue === null) {
+    return "N/A";
+  }
+
+  const parsed = Number(normalizedValue);
+  if (!Number.isFinite(parsed)) {
+    return "N/A";
+  }
+
+  return `$${parsed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatCountOrUnknown(value) {
+  const normalizedValue = normalizeSummaryMetricValue(value);
+  if (normalizedValue === null) {
+    return "N/A";
+  }
+
+  const parsed = Number(normalizedValue);
+  if (!Number.isFinite(parsed)) {
+    return "N/A";
+  }
+
+  return parsed.toLocaleString("en-US");
+}
 
 export default async function PublicProfileLayout({ children, params }) {
   const { username } = await params;
-  const [{ publicProfile, identity }, publicItems] = await Promise.all([
-    getCachedPublicRouteContextByUsername(username || ""),
-    getPublicCollectionEntries(username || ""),
-  ]);
-  const stats = buildCollectionStats(publicItems);
+  const { publicProfile, identity } = await getCachedPublicRouteContextByUsername(username || "");
+  const summary = publicProfile?.collection_summary || null;
   const collectionMetrics = {
-    portfolioValue: stats.totalValue,
-    cards: stats.cardsCount,
-    sealed: stats.sealedCount,
-    graded: stats.gradedCount,
+    portfolioValue: formatCurrencyOrUnknown(summary?.portfolio_value),
+    cards: formatCountOrUnknown(summary?.cards_count),
+    sealed: formatCountOrUnknown(summary?.sealed_count),
+    graded: formatCountOrUnknown(summary?.graded_count),
   };
+
+  if (publicProfile?.collection_summary_warning) {
+    console.error(publicProfile.collection_summary_warning);
+  }
+
   const joinDateLabel = publicProfile?.created_at
     ? new Date(publicProfile.created_at).toLocaleDateString("en-US", {
         year: "numeric",

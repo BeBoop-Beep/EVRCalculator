@@ -9,9 +9,9 @@ import time
 TABLE_ALLOWED_FIELDS = {
     'cards': {'set_id', 'name', 'rarity', 'card_number'},
     'card_variants': {'card_id', 'printing_type', 'special_type', 'edition'},
-    'card_variant_prices': {'card_variant_id', 'condition_id', 'market_price', 'low_price'},
+    'card_variant_price_observations': {'card_variant_id', 'condition_id', 'market_price', 'low_price'},
     'sealed_products': {'set_id', 'product_type', 'name'},
-    'sealed_product_prices': {'sealed_product_id', 'market_price', 'low_price'},
+    'sealed_product_price_observations': {'sealed_product_id', 'market_price', 'low_price'},
 }
 
 def _filter_row_fields(table_name: str, row: Dict[str, Any]) -> Dict[str, Any]:

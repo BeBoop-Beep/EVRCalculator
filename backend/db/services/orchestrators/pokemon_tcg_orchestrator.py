@@ -3,10 +3,10 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
-from db.controllers.sets_controller import SetsController
-from db.controllers.cards_controller import CardsController
-from db.controllers.prices_controller import PricesController
-from db.controllers.sealed_products_controller import SealedProductsController
+from backend.db.controllers.sets_controller import SetsController
+from backend.db.controllers.cards_controller import CardsController
+from backend.db.controllers.prices_controller import PricesController
+from backend.db.controllers.sealed_products_controller import SealedProductsController
 
 class PokemonTCGOrchestrator:
     """

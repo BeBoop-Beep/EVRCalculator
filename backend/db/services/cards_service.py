@@ -5,17 +5,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
-from db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
-from db.repositories.card_variant_prices_repository import insert_card_variant_price, insert_card_variant_prices_batch
-from db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
-from db.services.batch_processor import BatchProcessor
-from db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
+from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
+from backend.db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
+from backend.db.repositories.card_variant_prices_repository import insert_card_variant_price, insert_card_variant_prices_batch
+from backend.db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
+from backend.db.services.batch_processor import BatchProcessor
+from backend.db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
 
 class CardsService(BatchProcessor):
     """
     Service layer for card business logic.
-    Orchestrates writes across cards, card_variants, and card_variant_prices tables.
+    Orchestrates writes across cards, card_variants, and card_variant_price_observations tables.
     Uses multiprocessing for parallel batch processing.
     """
     
@@ -393,7 +393,7 @@ class CardsService(BatchProcessor):
         This method orchestrates the complete flow:
         1. Insert card into 'cards' table
         2. For each unique variant of the card, insert into 'card_variants' table
-        3. For each variant, insert price data into 'card_variant_prices' table
+        3. For each variant, insert price data into 'card_variant_price_observations' table
         
         Args:
             set_id: UUID of the set these cards belong to

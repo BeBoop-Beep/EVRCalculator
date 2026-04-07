@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.services.sets_service import SetsService
+from backend.db.services.sets_service import SetsService
 
 class SetsController:
     """Controller for set operations - routes to service layer"""
