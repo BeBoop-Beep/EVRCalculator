@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -64,7 +65,17 @@ class CardsService(BatchProcessor):
             raise ValueError(f"Condition '{condition_name}' not found in database. Available: {available}")
         
         return conditions_map[condition_name]
-    
+
+    @staticmethod
+    def _normalize_base_card_name(name: str) -> str:
+        """
+        Strip trailing card-number suffix from a product name.
+        e.g. "Black Belt's Training - 096/131" -> "Black Belt's Training"
+        """
+        if not name:
+            return name
+        return re.sub(r'\s*-\s*\d+/\d+\s*$', '', name).strip()
+
     def _extract_variant_info(self, card):
         """
         Extract variant information from card data.
@@ -421,16 +432,27 @@ class CardsService(BatchProcessor):
         
         # Group cards by unique identifier to avoid duplicates
         # Include rarity in the key because different rarities of the same card are different cards
+        # Canonical name normalization is applied here to strip any trailing " - NNN/YYY" suffix
+        # that may have leaked through upstream parsing paths.
         cards_by_key = {}
         for card in cards:
-            key = (card.get('name'), card.get('card_number'), card.get('rarity'))
+            raw_name = card.get('name') or ''
+            canonical_name = self._normalize_base_card_name(raw_name)
+            if raw_name != canonical_name:
+                print(f"[DEBUG] Name normalized: '{raw_name}' → '{canonical_name}' (card_number={card.get('card_number')})")
+            key = (canonical_name, card.get('card_number'), card.get('rarity'))
             if key not in cards_by_key:
                 cards_by_key[key] = []
             cards_by_key[key].append(card)
-        
-        # Fetch all existing cards for this set once to avoid repeated DB calls
+
+        # Fetch all existing cards for this set once to avoid repeated DB calls.
+        # Normalize DB names too so that any previously-ingested dirty rows
+        # (name still containing the card-number suffix) are matched correctly.
         existing_cards = get_all_cards_for_set(set_id)
-        existing_cards_set = {(card['name'], card['card_number'], card['rarity']): card['id'] for card in existing_cards}
+        existing_cards_set = {
+            (self._normalize_base_card_name(card['name']), card['card_number'], card['rarity']): card['id']
+            for card in existing_cards
+        }
         
         # Build a list of new cards to insert (checking against both DB and incoming payload)
         new_cards_to_insert = []
@@ -443,7 +465,7 @@ class CardsService(BatchProcessor):
             # Skip if it already exists in DB
             if card_key in existing_cards_set:
                 card_key_to_id[card_key] = existing_cards_set[card_key]
-                print(f"[INFO]  Card already exists: {name} (ID: {existing_cards_set[card_key]})")
+                print(f"[INFO]  [CARD REUSED] canonical_name='{name}' card_number='{card_number}' → ID={existing_cards_set[card_key]}")
                 continue
             
             # Skip if we've already added this to the new_cards_to_insert list
@@ -472,7 +494,7 @@ class CardsService(BatchProcessor):
                 for i, card_data in enumerate(new_cards_to_insert):
                     card_key = (card_data['name'], card_data['card_number'], card_data['rarity'])
                     card_key_to_id[card_key] = card_ids[i]
-                    print(f"[OK] Inserted card: {card_data['name']} (ID: {card_ids[i]})")
+                    print(f"[OK]  [CARD INSERTED] canonical_name='{card_data['name']}' card_number='{card_data['card_number']}' → new ID={card_ids[i]}")
             except Exception as e:
                 error_msg = f"Failed to batch insert cards: {e}"
                 print(f"[ERROR] {error_msg}")

@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
 from postgrest.exceptions import APIError
@@ -27,6 +28,33 @@ def _jwt_role(key: str) -> str:
 logger = logging.getLogger(__name__)
 
 
+def _parse_captured_at(value: Any) -> datetime:
+    """Parse captured_at value into a timezone-aware UTC datetime."""
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str) and value:
+        # Handle both ISO with Z and naive ISO strings.
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        dt = datetime.now(timezone.utc)
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _normalize_price_row(price_row: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a price row before insert."""
+    normalized = dict(price_row)
+    captured_at_dt = _parse_captured_at(normalized.get("captured_at"))
+
+    normalized["captured_at"] = captured_at_dt.isoformat()
+    normalized["source"] = normalized.get("source") or "UNKNOWN"
+    normalized["currency"] = normalized.get("currency") or "USD"
+
+    return normalized
+
+
 def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
     """
     Insert a price row into `card_variant_price_observations`.
@@ -41,7 +69,7 @@ def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
     Raises:
         RuntimeError: If insertion fails
     """
-    print(f"[DEBUG] Inserting price with data: {price_row}")
+    normalized_row = _normalize_price_row(price_row)
     
     # Retry mechanism for schema cache issues
     max_retries = 3
@@ -51,7 +79,11 @@ def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
         try:
             # Create a fresh client for each attempt to avoid schema cache issues
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = fresh_client.table("card_variant_price_observations").insert(price_row).execute()
+            res = (
+                fresh_client.table("card_variant_price_observations")
+                .insert(normalized_row)
+                .execute()
+            )
             
             if res is None:
                 raise RuntimeError("Insert card variant price returned no response object")
@@ -147,6 +179,8 @@ def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[i
     """
     if not price_rows:
         return []
+
+    normalized_rows = [_normalize_price_row(row) for row in price_rows]
     
     max_retries = 3
     last_error = None
@@ -154,7 +188,11 @@ def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[i
     for attempt in range(max_retries):
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = fresh_client.table("card_variant_price_observations").insert(price_rows).execute()
+            res = (
+                fresh_client.table("card_variant_price_observations")
+                .insert(normalized_rows)
+                .execute()
+            )
             
             if res is None:
                 raise RuntimeError("Batch insert prices returned no response object")
