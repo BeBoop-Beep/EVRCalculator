@@ -51,6 +51,34 @@ export default function SharedCollectionGrid({
     };
   }, [items, viewMode, currentPage]);
 
+  useEffect(() => {
+    const inputIds = (items || []).map((item) => String(item?.id || "")).filter(Boolean);
+    const displayIds = (displayItems || []).map((item) => String(item?.id || "")).filter(Boolean);
+    const duplicateInputIds = inputIds.filter((id, index) => inputIds.indexOf(id) !== index);
+    const duplicateDisplayIds = displayIds.filter((id, index) => displayIds.indexOf(id) !== index);
+    const droppedIds = inputIds.filter((id) => !displayIds.includes(id));
+
+    console.info("[public-collection-lifecycle] grid_render", {
+      viewMode,
+      variant,
+      inputCount: items.length,
+      displayCount: displayItems.length,
+      totalPages,
+      currentPage,
+      inputIds,
+      displayIds,
+      duplicateInputIds,
+      duplicateDisplayIds,
+      droppedIds,
+      reactKeys: displayIds,
+      displayItemMeta: displayItems.map((item) => ({
+        id: String(item?.id || ""),
+        type: String(item?.collectible_type || ""),
+        name: String(item?.name || ""),
+      })),
+    });
+  }, [currentPage, displayItems, items, totalPages, variant, viewMode]);
+
   // Loading state
   if (isLoading) {
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CollectionSectionLayout from "@/components/Profile/CollectionSectionLayout";
 import CollectionPerformanceCard from "@/components/Collection/CollectionPerformanceCard";
 import CollectionScopeFilter from "@/components/Collection/CollectionScopeFilter";
@@ -139,7 +139,14 @@ export default function PublicCollectionViewWrapper({
     }
 
     return items.filter((item) => {
-      return resolvedActiveTCGs.some((tcg) => filterCollectionByTCG([item], tcg).length > 0);
+      return resolvedActiveTCGs.some((tcg) => {
+        const hasSetMetadata = Boolean(String(item?.set || "").trim());
+        if (!hasSetMetadata) {
+          // Keep unknown-set entries (commonly graded/sealed metadata gaps) so filters do not hide valid tiles.
+          return true;
+        }
+        return filterCollectionByTCG([item], tcg).length > 0;
+      });
     });
   }, [items, resolvedActiveTCGs]);
 
@@ -190,6 +197,44 @@ export default function PublicCollectionViewWrapper({
 
     return result;
   }, [tcgFilteredItems, resolvedSearchQuery, resolvedActiveFilters, resolvedSortBy]);
+
+  useEffect(() => {
+    const incomingIds = items.map((item) => String(item?.id || "")).filter(Boolean);
+    const renderedIds = filteredAndSortedItems.map((item) => String(item?.id || "")).filter(Boolean);
+    const missingIds = incomingIds.filter((id) => !renderedIds.includes(id));
+    const duplicateRenderedIds = renderedIds.filter((id, index) => renderedIds.indexOf(id) !== index);
+
+    console.info("[public-collection-lifecycle] wrapper_pipeline", {
+      username,
+      incomingCount: items.length,
+      tcgFilteredCount: tcgFilteredItems.length,
+      renderedCount: filteredAndSortedItems.length,
+      incomingIds,
+      renderedIds,
+      missingIds,
+      duplicateRenderedIds,
+      activeTCGs: resolvedActiveTCGs,
+      activeFilters: resolvedActiveFilters,
+      resolvedSearchQuery,
+      resolvedSortBy,
+      resolvedViewMode,
+      renderedItemMeta: filteredAndSortedItems.map((item) => ({
+        id: String(item?.id || ""),
+        type: String(item?.collectible_type || ""),
+        name: String(item?.name || ""),
+      })),
+    });
+  }, [
+    filteredAndSortedItems,
+    items,
+    resolvedActiveFilters,
+    resolvedActiveTCGs,
+    resolvedSearchQuery,
+    resolvedSortBy,
+    resolvedViewMode,
+    tcgFilteredItems,
+    username,
+  ]);
 
   const activeTCGSelections = useMemo(
     () =>

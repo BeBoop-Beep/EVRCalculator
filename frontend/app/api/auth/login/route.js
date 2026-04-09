@@ -1,73 +1,66 @@
-// /app/api/auth/login/route.js
-import { sign } from "jsonwebtoken";
 import { NextResponse } from "next/server";
-import { createSupabaseAnonClient, createSupabaseAdminClient } from "@/lib/supabaseServer";
+
+function getBackendBaseUrl() {
+  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+}
+
+function buildProxyHeaders(request) {
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+
+  const cookieHeader = request.headers.get("cookie");
+  if (cookieHeader) {
+    headers.cookie = cookieHeader;
+  }
+
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    headers.authorization = authorization;
+  }
+
+  return headers;
+}
 
 export async function POST(req) {
   try {
-    const { email, password } = await req.json();
-
-    if (!email || !password) {
-      return NextResponse.json({ message: "Email and password are required." }, { status: 400 });
-    }
-
-    const anonClient = createSupabaseAnonClient();
-    const adminClient = createSupabaseAdminClient();
-
-    const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({
-      email,
-      password,
+    const body = await req.json();
+    const proxyResponse = await fetch(`${getBackendBaseUrl()}/auth/login`, {
+      method: "POST",
+      headers: buildProxyHeaders(req),
+      body: JSON.stringify(body),
+      credentials: "include",
+      cache: "no-store",
     });
 
-    if (signInError || !signInData?.user) {
-      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+    const payload = await proxyResponse.json().catch(() => ({}));
+    const response = NextResponse.json(payload, { status: proxyResponse.status });
+
+    if (proxyResponse.ok && payload?.token) {
+      response.cookies.set("token", payload.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24,
+        path: "/",
+      });
     }
-
-    const user = signInData.user;
-
-    const { data: profile, error: profileError } = await adminClient
-      .from("users")
-      .select("username, email")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("Error fetching customer profile:", profileError);
-    }
-
-    const userName = profile?.username || user.user_metadata?.username || user.user_metadata?.name || "";
-
-    const token = sign(
-      {
-        id: user.id,
-        email: user.email,
-        name: userName,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
-
-    const response = NextResponse.json(
-      {
-        id: user.id,
-        email: user.email,
-        name: userName,
-        token,
-      },
-      { status: 200 }
-    );
-    response.cookies.set("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24,
-      path: "/",
-    });
 
     return response;
-
   } catch (error) {
     console.error(error);
+
+    if (error instanceof TypeError && String(error.message || "").toLowerCase().includes("fetch failed")) {
+      return NextResponse.json(
+        {
+          message: "Backend auth service is unavailable. Ensure the Python backend is running and BACKEND_API_BASE_URL is correct.",
+          backend_url: getBackendBaseUrl(),
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }

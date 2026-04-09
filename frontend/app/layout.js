@@ -15,8 +15,9 @@ export const metadata = {
   description: "Your go-to Pokémon TCG store!",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/favicon-180x180.png",
+    icon: [{ url: "/inDex.png", type: "image/png" }],
+    shortcut: ["/inDex.png"],
+    apple: [{ url: "/inDex.png", type: "image/png" }]
   },
 };
 

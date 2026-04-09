@@ -1,5 +1,6 @@
-import { verify } from "jsonwebtoken";
 import { cookies } from "next/headers";
+
+const API_URL = process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000";
 
 export async function getAuthenticatedUserFromCookies() {
   const cookieStore = await cookies();
@@ -10,9 +11,25 @@ export async function getAuthenticatedUserFromCookies() {
   }
 
   try {
-    const user = verify(token, process.env.JWT_SECRET);
-    return { user, error: null, status: 200 };
+    const response = await fetch(`${API_URL}/auth/me`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.user) {
+      return {
+        user: null,
+        error: data?.message || "Invalid or expired token",
+        status: response.status || 401,
+      };
+    }
+
+    return { user: data.user, error: null, status: 200 };
   } catch (error) {
-    return { user: null, error: "Invalid or expired token", status: 401 };
+    return { user: null, error: "Auth service unavailable", status: 500 };
   }
 }

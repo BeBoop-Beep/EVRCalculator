@@ -48,6 +48,7 @@ export default async function PublicProfileLayout({ children, params }) {
   const { username } = await params;
   const { publicProfile, identity } = await getCachedPublicRouteContextByUsername(username || "");
   const summary = publicProfile?.collection_summary || null;
+
   const collectionMetrics = {
     portfolioValue: formatCurrencyOrUnknown(summary?.portfolio_value),
     cards: formatCountOrUnknown(summary?.cards_count),

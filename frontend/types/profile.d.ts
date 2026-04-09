@@ -39,6 +39,29 @@ export interface PublicCollectionSummary {
   graded_count: number | null;
 }
 
+export interface CollectionItemDTO {
+  id: string;
+  collectible_type: "card" | "sealed_product" | "graded_card" | "merchandise";
+  collectible_id: number | string | null;
+  quantity: number;
+  name: string;
+  set_name: string | null;
+  card_number: string | null;
+  rarity: string | null;
+  condition: string | null;
+  printing_type: string | null;
+  edition: string | null;
+  special_type: string | null;
+  estimated_value: number;
+  image_url: string;
+  image_large_url: string;
+}
+
+export interface PublicCollectionSummaryResponse {
+  collection_summary: PublicCollectionSummary;
+  collection_items?: CollectionItemDTO[];
+}
+
 export interface PublicUserProfile {
   id: string;
   username: string | null;

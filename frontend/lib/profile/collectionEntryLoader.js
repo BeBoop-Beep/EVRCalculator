@@ -1,6 +1,172 @@
 import { cache } from "react";
 import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
+function toTrimmedString(value) {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function toNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toCurrencyLabel(value) {
+  const numeric = toNumber(value, 0);
+  return `$${numeric.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function buildApiUrl(path) {
+  if (typeof window !== "undefined") {
+    return path;
+  }
+
+  const fallbackBaseUrl = process.env.NEXT_PUBLIC_BASE_URL
+    || process.env.NEXT_PUBLIC_API_URL
+    || "http://localhost:3000";
+  const baseUrl = fallbackBaseUrl.endsWith("/") ? fallbackBaseUrl : `${fallbackBaseUrl}/`;
+  return new URL(path.startsWith("/") ? path.slice(1) : path, baseUrl).toString();
+}
+
+async function getCookieHeader() {
+  if (typeof window !== "undefined") {
+    return null;
+  }
+
+  try {
+    const { headers } = await import("next/headers");
+    const requestHeaders = await headers();
+    return requestHeaders.get("cookie");
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCollectionPayload(path) {
+  console.info("[public-collection-loader] fetch_start", { path });
+  const cookieHeader = await getCookieHeader();
+  const requestHeaders = {
+    Accept: "application/json",
+  };
+
+  if (cookieHeader) {
+    requestHeaders.cookie = cookieHeader;
+  }
+
+  const response = await fetch(buildApiUrl(path), {
+    method: "GET",
+    headers: requestHeaders,
+    cache: "no-store",
+    credentials: "include",
+  });
+
+  console.info("[public-collection-loader] fetch_response", {
+    path,
+    status: response.status,
+    ok: response.ok,
+    correlationId: response.headers.get("x-correlation-id") || null,
+  });
+
+  if (!response.ok) {
+    const error = new Error(`Collection request failed (${response.status})`);
+    error.status = response.status;
+    error.path = path;
+    throw error;
+  }
+
+  return response.json();
+}
+
+function mapBackendCollectionItemToView(item, isPublic) {
+  const collectibleType = item?.collectible_type || "card";
+  const setName = toTrimmedString(item?.set_name) || "Unknown Set";
+  const name = toTrimmedString(item?.name) || "Unknown Item";
+  const rarity = toTrimmedString(item?.rarity);
+  const printingType = toTrimmedString(item?.printing_type);
+  const condition = toTrimmedString(item?.condition);
+
+  const imageUrl =
+    toTrimmedString(item?.image_url)
+    || toTrimmedString(item?.imageUrl)
+    || toTrimmedString(item?.image?.small)
+    || null;
+  const imageLargeUrl =
+    toTrimmedString(item?.image_large_url)
+    || toTrimmedString(item?.imageLargeUrl)
+    || toTrimmedString(item?.image?.large)
+    || null;
+  const estimatedValue = toNumber(item?.estimated_value, 0);
+  const valueLabel = toCurrencyLabel(estimatedValue);
+
+  const mapped = {
+    id: String(item?.id || ""),
+    collectible_type: collectibleType,
+    collectible_id: item?.collectible_id,
+    quantity: toNumber(item?.quantity, 0),
+    name,
+    set: setName,
+    cardNumber: item?.card_number || null,
+    condition: condition || null,
+    imageUrl,
+    imageLargeUrl,
+    valueLabel,
+    estimated_value: valueLabel,
+    isFoil: printingType.toLowerCase().includes("holo"),
+    rarity: rarity || null,
+    gradingLabel: collectibleType === "graded_card" ? condition || null : null,
+    productType: collectibleType === "sealed_product" ? (toTrimmedString(item?.special_type) || "Sealed Product") : null,
+    context: `${setName} • ${rarity || condition || "Collectible"}`,
+  };
+
+  if (isPublic) {
+    return mapped;
+  }
+
+  return {
+    ...mapped,
+    user_id: item?.user_id || null,
+    purchase_price: toNumber(item?.purchase_price, 0),
+    cost_basis: toNumber(item?.cost_basis, 0),
+    roi: toNumber(item?.roi, 0),
+    unrealized_gain: toNumber(item?.unrealized_gain, 0),
+    acquisition_date: item?.acquisition_date || null,
+    fees_taxes: toNumber(item?.fees_taxes, 0),
+    notes: item?.notes || null,
+  };
+}
+
+async function fetchPrivateCollectionEntriesFromApi() {
+  const payload = await fetchCollectionPayload("/api/my-collection/dashboard?include_collection_items=1");
+  const items = Array.isArray(payload?.collection_items) ? payload.collection_items : [];
+  return items.map((item) => mapBackendCollectionItemToView(item, false));
+}
+
+async function fetchPublicCollectionEntriesFromApi(username) {
+  const encodedUsername = encodeURIComponent(String(username || "").trim());
+  const payload = await fetchCollectionPayload(`/api/public-profile/${encodedUsername}/collection-summary?include_collection_items=1`);
+  const items = Array.isArray(payload?.collection_items) ? payload.collection_items : [];
+  console.info("[public-collection-loader] raw_items", {
+    username: String(username || "").trim(),
+    rawCount: items.length,
+    byType: items.reduce((acc, item) => {
+      const key = String(item?.collectible_type || "unknown");
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {}),
+    itemMeta: items.map((item) => ({
+      id: String(item?.id || ""),
+      type: String(item?.collectible_type || ""),
+      collectibleId: String(item?.collectible_id || ""),
+    })),
+  });
+  const mappedItems = items.map((item) => mapBackendCollectionItemToView(item, true));
+  console.info("[public-collection-loader] transformed_items", {
+    username: String(username || "").trim(),
+    transformedCount: mappedItems.length,
+  });
+  return mappedItems;
+}
+
 function seededFloat(seed) {
   const x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
@@ -211,12 +377,49 @@ export function buildCollectionStats(items) {
 }
 
 export const getPrivateCollectionEntries = cache(async function getPrivateCollectionEntries() {
-  return createPrivateCollectionItems();
+  try {
+    const items = await fetchPrivateCollectionEntriesFromApi();
+    return items;
+  } catch {
+    return [];
+  }
 });
 
-export const getPublicCollectionEntries = cache(async function getPublicCollectionEntries(username) {
-  return createPublicCollectionItems(username, 16).map(stripPortfolioFields);
+const getPublicCollectionEntriesPerRequest = cache(async function getPublicCollectionEntriesPerRequest(usernameParam) {
+  const username = String(usernameParam || "").trim();
+  try {
+    const items = await fetchPublicCollectionEntriesFromApi(username);
+    const sanitizedItems = items.map(stripPortfolioFields);
+    const idList = sanitizedItems.map((item) => String(item?.id || "")).filter(Boolean);
+    const duplicateIds = idList.filter((id, index) => idList.indexOf(id) !== index);
+
+    console.info("[public-collection-lifecycle] loader_to_page", {
+      username,
+      count: sanitizedItems.length,
+      ids: idList,
+      duplicateIds,
+      itemMeta: sanitizedItems.map((item) => ({
+        id: String(item?.id || ""),
+        type: String(item?.collectible_type || ""),
+        name: String(item?.name || ""),
+      })),
+    });
+
+    return sanitizedItems;
+  } catch (error) {
+    console.error("[public-collection-loader] fetch_failed", {
+      username,
+      message: error instanceof Error ? error.message : String(error),
+      status: error?.status || null,
+      path: error?.path || null,
+    });
+    throw error;
+  }
 });
+
+export async function getPublicCollectionEntries(username) {
+  return getPublicCollectionEntriesPerRequest(String(username || "").trim());
+}
 
 export const getPrivateCollectionEntryById = cache(async function getPrivateCollectionEntryById(entryId) {
   const entries = await getPrivateCollectionEntries();
