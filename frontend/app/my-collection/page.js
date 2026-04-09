@@ -1,16 +1,18 @@
 import MyCollectionOverviewDashboardClient from "@/components/Profile/MyCollectionOverviewDashboardClient";
 import MyCollectionPortfolioTasks from "@/components/Profile/MyCollectionPortfolioTasks";
 import MyCollectionOperationalIntelligence from "@/components/Profile/MyCollectionOperationalIntelligence";
-import { getPrivateCollectionEntries } from "@/lib/profile/collectionEntryLoader";
+import { getCurrentUserPortfolioDashboardData } from "@/lib/profile/portfolioDashboardQueries";
 
 export default async function MyCollectionOverviewPage() {
-  const collectionItems = await getPrivateCollectionEntries();
+  // Guardrail: owner overview must stay on dashboard snapshot data and avoid include_collection_items=1.
+  const dashboardResult = await getCurrentUserPortfolioDashboardData();
+  const dashboardData = dashboardResult.error ? null : (dashboardResult.data || null);
 
   return (
     <section className="space-y-6">
-      <MyCollectionOverviewDashboardClient collectionItems={collectionItems} />
+      <MyCollectionOverviewDashboardClient dashboardData={dashboardData} />
       <MyCollectionOperationalIntelligence />
-      <MyCollectionPortfolioTasks collectionItems={collectionItems} />
+      <MyCollectionPortfolioTasks collectionItems={[]} />
     </section>
   );
 }

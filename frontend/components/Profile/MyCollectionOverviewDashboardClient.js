@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import PortfolioOverviewComposer from "@/components/Profile/PortfolioOverviewComposer";
 
@@ -62,149 +62,18 @@ const DASHBOARD_DATA = {
 };
 
 export default function MyCollectionOverviewDashboardClient({
-  collectionItems = [],
+  dashboardData = null,
 }) {
   const [selectedRange, setSelectedRange] = useState("7D");
-
-  const getAllocationBucket = (item) => {
-    if (item?.collectible_type === "sealed_product" || item?.productType) {
-      return "Sealed";
-    }
-
-    if (item?.collectible_type === "merchandise") {
-      return "Merchandise";
-    }
-
-    if (item?.gradingLabel) {
-      return "Slabs";
-    }
-
-    return "Cards";
-  };
-
-  const parseCurrentPrice = (item) => {
-    const rawValue = item?.valueLabel ?? item?.estimated_value ?? 0;
-    const numeric = Number(String(rawValue).replace(/[^\d.-]/g, ""));
-    return Number.isFinite(numeric) ? numeric : 0;
-  };
-
-  const performanceHighlights = useMemo(() => {
-    const candidates = collectionItems
-      .map((item) => {
-        const purchasePrice = Number(item?.purchase_price);
-        if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) return null;
-
-        const currentPrice = parseCurrentPrice(item);
-        const changePercent = ((currentPrice - purchasePrice) / purchasePrice) * 100;
-
-        return {
-          id: item?.id,
-          name: item?.name || "Unknown item",
-          changePercent,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.changePercent - a.changePercent);
-
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    return {
-      bestPerformer: candidates[0],
-      worstPerformer: candidates[candidates.length - 1],
-    };
-  }, [collectionItems]);
-
-  const portfolioSignals = useMemo(() => {
-    const assets = collectionItems
-      .map((item) => {
-        const unitValue = parseCurrentPrice(item);
-        const quantity = Number(item?.quantity);
-        const resolvedQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
-        const marketValue = unitValue * resolvedQuantity;
-
-        return {
-          id: item?.id,
-          marketValue,
-          bucket: getAllocationBucket(item),
-        };
-      })
-      .filter((asset) => asset.marketValue > 0);
-
-    const totalValue = assets.reduce((sum, asset) => sum + asset.marketValue, 0);
-    const bucketValues = {
-      Cards: 0,
-      Sealed: 0,
-      Merchandise: 0,
-      Slabs: 0,
-    };
-    const bucketCounts = {
-      Cards: 0,
-      Sealed: 0,
-      Merchandise: 0,
-      Slabs: 0,
-    };
-
-    assets.forEach((asset) => {
-      bucketValues[asset.bucket] += asset.marketValue;
-      bucketCounts[asset.bucket] += 1;
-    });
-
-    const activeBuckets = Object.entries(bucketValues).filter(([, value]) => value > 0);
-    const rawPercentages = activeBuckets.map(([label, value]) => ({
-      label,
-      value,
-      rawPercent: totalValue > 0 ? (value / totalValue) * 100 : 0,
-    }));
-
-    const roundedPercentages = rawPercentages.map((entry) => ({
-      ...entry,
-      basePercent: Math.floor(entry.rawPercent),
-      remainder: entry.rawPercent - Math.floor(entry.rawPercent),
-    }));
-
-    let remainingPercent = Math.max(0, 100 - roundedPercentages.reduce((sum, entry) => sum + entry.basePercent, 0));
-
-    roundedPercentages
-      .sort((a, b) => b.remainder - a.remainder)
-      .forEach((entry) => {
-        if (remainingPercent <= 0) return;
-        entry.basePercent += 1;
-        remainingPercent -= 1;
-      });
-
-    const allocationRows = roundedPercentages
-      .sort((a, b) => b.value - a.value)
-      .map((entry, index) => ({
-        id: `allocation-${index}-${entry.label.toLowerCase()}`,
-        label: entry.label,
-        percent: entry.basePercent,
-        count: bucketCounts[entry.label] || 0,
-      }));
-
-    const topThreeValue = assets
-      .slice()
-      .sort((a, b) => b.marketValue - a.marketValue)
-      .slice(0, 3)
-      .reduce((sum, asset) => sum + asset.marketValue, 0);
-
-    const concentrationPercent = totalValue > 0 ? Math.round((topThreeValue / totalValue) * 100) : 0;
-
-    return {
-      allocationRows,
-      concentrationPercent,
-    };
-  }, [collectionItems]);
 
   return (
     <section>
       <PortfolioOverviewComposer
-        dashboardData={DASHBOARD_DATA}
+        dashboardData={dashboardData || DASHBOARD_DATA}
         selectedRange={selectedRange}
         onRangeChange={setSelectedRange}
-        performanceHighlights={performanceHighlights}
-        portfolioSignals={portfolioSignals}
+        performanceHighlights={null}
+        portfolioSignals={null}
         mode="owner"
       />
     </section>

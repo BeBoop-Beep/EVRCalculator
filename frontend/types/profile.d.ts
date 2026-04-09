@@ -37,6 +37,18 @@ export interface PublicCollectionSummary {
   cards_count: number | null;
   sealed_count: number | null;
   graded_count: number | null;
+  portfolio_delta_1d: number | null;
+  portfolio_delta_7d: number | null;
+  portfolio_delta_3m: number | null;
+  portfolio_delta_6m: number | null;
+  portfolio_delta_1y: number | null;
+  portfolio_delta_lifetime: number | null;
+  portfolio_delta_pct_1d: number | null;
+  portfolio_delta_pct_7d: number | null;
+  portfolio_delta_pct_3m: number | null;
+  portfolio_delta_pct_6m: number | null;
+  portfolio_delta_pct_1y: number | null;
+  portfolio_delta_pct_lifetime: number | null;
 }
 
 export interface CollectionItemDTO {

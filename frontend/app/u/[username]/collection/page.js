@@ -1,6 +1,5 @@
 import PublicCollectionViewWrapper from "@/components/Profile/PublicCollectionViewWrapper";
 import { buildCollectionStats, getPublicCollectionEntries } from "@/lib/profile/collectionEntryLoader";
-import { getCachedPublicProfileByUsername } from "@/lib/profile/publicProfileServer";
 
 const ALLOWED_SORTS = new Set(["recent", "value-desc", "value-asc", "name-asc", "name-desc"]);
 const ALLOWED_VIEWS = new Set(["continuous", "binder"]);
@@ -23,55 +22,36 @@ function readParamValue(searchParams, key) {
 }
 
 export default async function PublicProfileCollectionPage({ params, searchParams }) {
+  const pageStartedAt = Date.now();
   const { username } = await params;
   const resolvedSearchParams = (await searchParams) || {};
   const normalizedUsername = username || "";
 
-  let publicProfile = null;
-  let publicProfileFetchError = null;
   let publicCollectionAssets = [];
   let publicCollectionFetchError = null;
 
   try {
-    publicProfile = await getCachedPublicProfileByUsername(normalizedUsername);
+    // Guardrail: collection route should not serially block on a separate public profile fetch.
+    publicCollectionAssets = await getPublicCollectionEntries(normalizedUsername);
   } catch (error) {
-    publicProfileFetchError = error;
-    console.error("[public-collection-page] profile_fetch_failed", {
+    publicCollectionFetchError = error;
+    console.error("[public-collection-page] collection_fetch_failed", {
       username: normalizedUsername,
       message: error instanceof Error ? error.message : String(error),
       status: error?.status || null,
-      code: error?.code || null,
     });
   }
 
-  if (!publicProfileFetchError && publicProfile) {
-    try {
-      publicCollectionAssets = await getPublicCollectionEntries(normalizedUsername);
-    } catch (error) {
-      publicCollectionFetchError = error;
-      console.error("[public-collection-page] collection_fetch_failed", {
-        username: normalizedUsername,
-        message: error instanceof Error ? error.message : String(error),
-        status: error?.status || null,
-      });
-    }
-  }
-
   const collectionStats = buildCollectionStats(publicCollectionAssets);
-  const canRenderPublicCollection = Boolean(publicProfile);
+  const canRenderPublicCollection = !publicCollectionFetchError;
 
   console.info("[public-collection-lifecycle] page_props", {
     username: normalizedUsername,
-    hasPublicProfile: Boolean(publicProfile),
-    profileFetchError: publicProfileFetchError ? (publicProfileFetchError.message || String(publicProfileFetchError)) : null,
+    hasPublicProfile: null,
+    profileFetchError: null,
     collectionFetchError: publicCollectionFetchError ? (publicCollectionFetchError.message || String(publicCollectionFetchError)) : null,
     count: publicCollectionAssets.length,
-    ids: publicCollectionAssets.map((item) => String(item?.id || "")).filter(Boolean),
-    itemMeta: publicCollectionAssets.map((item) => ({
-      id: String(item?.id || ""),
-      type: String(item?.collectible_type || ""),
-      name: String(item?.name || ""),
-    })),
+    sampleIds: publicCollectionAssets.map((item) => String(item?.id || "")).filter(Boolean).slice(0, 10),
   });
 
   const q = readParamValue(resolvedSearchParams, "q");
@@ -90,27 +70,20 @@ export default async function PublicProfileCollectionPage({ params, searchParams
     tcg: tcg || "",
   };
 
+  console.info("[public-collection-lifecycle] page_timing", {
+    username: normalizedUsername,
+    pageRenderPrepMs: Date.now() - pageStartedAt,
+    hasPublicProfile: null,
+    collectionCount: publicCollectionAssets.length,
+  });
+
   return (
     <div className="space-y-6">
-      {publicProfileFetchError ? (
-        <section className="dashboard-panel rounded-2xl border border-red-500/30 bg-red-500/10 p-5 sm:p-6">
-          <p className="text-base font-semibold text-[var(--text-primary)]">Public profile failed to load</p>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            Upstream profile fetch failed. This is not treated as an empty/unavailable profile.
-          </p>
-        </section>
-      ) : !canRenderPublicCollection ? (
+      {!canRenderPublicCollection ? (
         <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-5 sm:p-6">
           <p className="text-base font-semibold text-[var(--text-primary)]">Public profile is unavailable</p>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">
             This collector has not shared enough public data yet. The public root is reserved for profile-safe collection, showcase, and insight surfaces.
-          </p>
-        </section>
-      ) : publicCollectionFetchError ? (
-        <section className="dashboard-panel rounded-2xl border border-red-500/30 bg-red-500/10 p-5 sm:p-6">
-          <p className="text-base font-semibold text-[var(--text-primary)]">Public collection failed to load</p>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            Collection fetch failed upstream and is surfaced explicitly instead of being shown as empty.
           </p>
         </section>
       ) : (
@@ -121,6 +94,7 @@ export default async function PublicProfileCollectionPage({ params, searchParams
           showPerformanceCard={false}
           localNavToolState={localToolState}
           localNavControlsActive
+          serverPreparedAt={Date.now()}
         />
       )}
     </div>

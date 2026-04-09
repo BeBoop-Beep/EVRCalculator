@@ -5,6 +5,7 @@ import os
 from base64 import b64encode
 from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError, loads
+from time import perf_counter
 from typing import Any, Dict, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -422,6 +423,7 @@ def get_me(
     correlation_id: Optional[str] = None,
     token_source: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], int]:
+    started_at = perf_counter()
     logger.info(
         "auth_me.trace correlation_id=%s token_source=%s token_present=%s",
         correlation_id,
@@ -513,6 +515,15 @@ def get_me(
         user.get("id"),
         user.get("username"),
         user.get("display_name"),
+    )
+
+    logger.info(
+        "auth_me.timing correlation_id=%s token_source=%s path=%s payload_size_bytes=%s elapsed_ms=%.2f",
+        correlation_id,
+        token_source or "unknown",
+        "/auth/me",
+        len(str(user).encode("utf-8")),
+        (perf_counter() - started_at) * 1000,
     )
 
     return {"user": user}, 200
@@ -616,8 +627,13 @@ def get_products() -> Tuple[Dict[str, Any], int]:
             .order("created_at", desc=True)
             .execute()
         )
-    except Exception:
-        return {"message": "Failed to fetch products"}, 500
+    except Exception as exc:
+        logger.exception("get_products: query failed for public.products")
+        return {
+            "message": "Failed to fetch products",
+            "code": "PRODUCTS_QUERY_FAILED",
+            "details": str(exc),
+        }, 500
 
     products = getattr(result, "data", None)
     if not isinstance(products, list):
@@ -736,6 +752,7 @@ def get_public_profile(
     viewer_token: Optional[str],
     correlation_id: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], int]:
+    total_started_at = perf_counter()
     requested_username = str(username_param or "").strip()
     normalized_username = normalize_public_username(requested_username)
     if not normalized_username:
@@ -752,7 +769,9 @@ def get_public_profile(
     if token_user and token_user.get("id"):
         viewer_user_id = str(token_user.get("id"))
 
+    username_resolution_started_at = perf_counter()
     user, trace = resolve_public_user_by_username(normalized_username, correlation_id=correlation_id)
+    username_resolution_elapsed_ms = (perf_counter() - username_resolution_started_at) * 1000
     if trace.get("reason") == "LOOKUP_EXCEPTION":
         return {"message": "Unable to fetch public profile"}, 500
 
@@ -767,6 +786,7 @@ def get_public_profile(
         )
         return {"message": "Public profile not found", "code": "PROFILE_NOT_FOUND"}, 404
 
+    profile_row_started_at = perf_counter()
     try:
         result = (
             supabase.table("users")
@@ -778,6 +798,7 @@ def get_public_profile(
         profile = normalize_profile_username(_first_row(result))
     except Exception:
         return {"message": "Unable to fetch public profile"}, 500
+    profile_row_elapsed_ms = (perf_counter() - profile_row_started_at) * 1000
 
     if not profile:
         logger.warning(
@@ -806,6 +827,7 @@ def get_public_profile(
     favorite_tcg_name = None
     favorite_tcg_id = profile.get("favorite_tcg_id")
 
+    favorite_tcg_started_at = perf_counter()
     if favorite_tcg_id:
         try:
             tcg_result = (
@@ -819,13 +841,18 @@ def get_public_profile(
             favorite_tcg_name = tcg.get("name") if tcg else None
         except Exception:
             favorite_tcg_name = None
+    favorite_tcg_elapsed_ms = (perf_counter() - favorite_tcg_started_at) * 1000
 
+    summary_started_at = perf_counter()
     summary_payload, summary_error = get_public_collection_data_by_username(
         username=str(profile.get("username") or normalized_username),
         include_collection_items=False,
         viewer_user_id=viewer_user_id,
         correlation_id=correlation_id,
+        resolved_public_user=user,
+        resolved_trace=trace,
     )
+    summary_elapsed_ms = (perf_counter() - summary_started_at) * 1000
 
     collection_summary = None
     collection_summary_warning = None
@@ -842,7 +869,7 @@ def get_public_profile(
     }
 
     logger.info(
-        "public_profile.trace correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s row_found=true resolved_user_id=%s resolved_username=%s display_name=%s",
+        "public_profile.trace correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s row_found=true resolved_user_id=%s resolved_username=%s display_name=%s path_used=%s payload_size_bytes=%s username_resolution_ms=%.2f profile_row_ms=%.2f favorite_tcg_ms=%.2f summary_ms=%.2f total_ms=%.2f",
         correlation_id,
         requested_username,
         normalized_username,
@@ -850,6 +877,13 @@ def get_public_profile(
         profile.get("id"),
         profile.get("username"),
         profile.get("display_name"),
+        "summary_snapshot",
+        len(str(profile_payload).encode("utf-8")),
+        username_resolution_elapsed_ms,
+        profile_row_elapsed_ms,
+        favorite_tcg_elapsed_ms,
+        summary_elapsed_ms,
+        (perf_counter() - total_started_at) * 1000,
     )
 
     return {

@@ -6,6 +6,7 @@ import { getPublicProfileIdentity } from "@/lib/profile/publicIdentity";
 
 const getPublicProfileByUsernamePerRequest = cache(async function getPublicProfileByUsernamePerRequest(usernameParam) {
   const username = String(usernameParam || "").trim();
+  const startedAt = Date.now();
   console.info("[public-profile-server] cache_bypass fetch_start", {
     username,
   });
@@ -18,6 +19,7 @@ const getPublicProfileByUsernamePerRequest = cache(async function getPublicProfi
       status,
       code: result.error.code || null,
       message: result.error.message || "Request failed",
+      elapsedMs: Date.now() - startedAt,
       cacheAction: "skip_error_result",
     });
 
@@ -35,6 +37,7 @@ const getPublicProfileByUsernamePerRequest = cache(async function getPublicProfi
     username,
     hasDisplayName: Boolean(result.data?.display_name),
     hasCollectionSummary: Boolean(result.data?.collection_summary),
+    elapsedMs: Date.now() - startedAt,
     cacheAction: "bypass",
   });
   return result.data;

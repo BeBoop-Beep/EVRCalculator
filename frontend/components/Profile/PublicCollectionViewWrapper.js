@@ -67,6 +67,7 @@ export default function PublicCollectionViewWrapper({
   showPerformanceCard = true,
   localNavToolState = null,
   localNavControlsActive = false,
+  serverPreparedAt = null,
 }) {
   const [searchQuery, setSearchQuery] = useState(localNavToolState?.q || "");
   const [activeFilters, setActiveFilters] = useState({});
@@ -197,6 +198,14 @@ export default function PublicCollectionViewWrapper({
 
     return result;
   }, [tcgFilteredItems, resolvedSearchQuery, resolvedActiveFilters, resolvedSortBy]);
+
+  useEffect(() => {
+    console.info("[public-collection-lifecycle] client_mount", {
+      username,
+      hydrationDelayMs: typeof serverPreparedAt === "number" ? Date.now() - serverPreparedAt : null,
+      itemCount: items.length,
+    });
+  }, [items.length, serverPreparedAt, username]);
 
   useEffect(() => {
     const incomingIds = items.map((item) => String(item?.id || "")).filter(Boolean);

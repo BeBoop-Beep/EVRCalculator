@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from ..clients.supabase_client import supabase
@@ -9,6 +9,13 @@ from .sealed_product_prices_repository import get_latest_price as get_latest_sea
 
 
 logger = logging.getLogger(__name__)
+
+SUMMARY_SELECT_COLUMNS = (
+    "user_id,portfolio_value,cards_count,sealed_count,graded_count,"
+    "portfolio_delta_1d,portfolio_delta_7d,portfolio_delta_3m,portfolio_delta_6m,portfolio_delta_1y,portfolio_delta_lifetime,"
+    "portfolio_delta_pct_1d,portfolio_delta_pct_7d,portfolio_delta_pct_3m,portfolio_delta_pct_6m,portfolio_delta_pct_1y,portfolio_delta_pct_lifetime,"
+    "computed_at,is_stale"
+)
 
 
 def _extract_price(value: Any) -> float:
@@ -220,6 +227,96 @@ def _safe_fetch_rows(table_name: str, select_candidates: List[str], user_id: UUI
         )
 
     return []
+
+
+def load_user_collection_summary_snapshot(user_id: UUID) -> Optional[Dict[str, Any]]:
+    """Load the precomputed summary row for a user from public.user_collection_summary."""
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+
+    response = (
+        supabase.table("user_collection_summary")
+        .select(SUMMARY_SELECT_COLUMNS)
+        .eq("user_id", str(user_id))
+        .limit(1)
+        .execute()
+    )
+
+    rows = response.data if response and response.data else []
+    if not rows:
+        return None
+
+    row = rows[0]
+    return row if isinstance(row, dict) else None
+
+
+def upsert_user_collection_summary(user_id: UUID, summary_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Persist a user's summary row and return the upserted row."""
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+
+    payload = {
+        "user_id": str(user_id),
+        "portfolio_value": summary_payload.get("portfolio_value", 0.0),
+        "cards_count": summary_payload.get("cards_count", 0),
+        "sealed_count": summary_payload.get("sealed_count", 0),
+        "graded_count": summary_payload.get("graded_count", 0),
+    }
+
+    response = (
+        supabase.table("user_collection_summary")
+        .upsert(payload, on_conflict="user_id")
+        .execute()
+    )
+
+    rows = response.data if response and response.data else []
+    if rows and isinstance(rows[0], dict):
+        return rows[0]
+
+    # Fallback read keeps the write path stable even if upsert response payload changes.
+    refreshed = load_user_collection_summary_snapshot(user_id)
+    if isinstance(refreshed, dict):
+        return refreshed
+    raise RuntimeError(f"Summary upsert completed but no row was returned for user_id={user_id}")
+
+
+def snapshot_user_portfolio_history(user_id: UUID) -> None:
+    """Execute DB function that writes/updates one daily history snapshot for a user."""
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+    supabase.rpc("snapshot_user_portfolio_history", {"p_user_id": str(user_id)}).execute()
+
+
+def refresh_user_collection_deltas(user_id: Optional[UUID] = None) -> None:
+    """Execute DB function to refresh portfolio delta fields in user_collection_summary."""
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+
+    payload: Dict[str, Any] = {"p_user_id": str(user_id)} if user_id else {}
+    supabase.rpc("refresh_user_collection_deltas", payload).execute()
+
+
+def snapshot_all_user_portfolio_history() -> None:
+    """Execute DB function that snapshots daily history for all users."""
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+    supabase.rpc("snapshot_all_user_portfolio_history").execute()
+
+
+def has_stale_user_collection_summary_rows() -> bool:
+    """Return True when at least one summary row is marked stale."""
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+
+    response = (
+        supabase.table("user_collection_summary")
+        .select("user_id")
+        .eq("is_stale", True)
+        .limit(1)
+        .execute()
+    )
+    rows = response.data if response and response.data else []
+    return bool(rows)
 
 
 def load_user_collection_for_summary(user_id: UUID) -> Dict[str, List[Dict[str, Any]]]:

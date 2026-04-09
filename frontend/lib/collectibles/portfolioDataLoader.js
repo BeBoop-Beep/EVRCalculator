@@ -21,7 +21,9 @@ function calculateHoldingDurationDays(acquisitionDate) {
 }
 
 export async function getOwnedEntryPortfolioPageData(entryId) {
+  const startedAt = Date.now();
   const auth = await getAuthenticatedUserFromCookies();
+  // Guardrail: detail pages must resolve through single-entry endpoints, not collection-wide loaders.
   const entry = await getPrivateCollectionEntryById(entryId);
 
   if (!entry) {
@@ -39,8 +41,17 @@ export async function getOwnedEntryPortfolioPageData(entryId) {
   const canViewPortfolio = Boolean(viewerId) && String(viewerId) === String(ownerId);
 
   const marketBundle = entry.collectible_type === "sealed_product"
-    ? await getSealedProductMarketPageData(entry.collectible_id)
-    : await getCardMarketPageData(entry.collectible_id);
+    ? await getSealedProductMarketPageData(entry.collectible_id, { entry })
+    : await getCardMarketPageData(entry.collectible_id, { entry });
+
+  console.info("[portfolioDataLoader] owner_entry_page_data", {
+    route: "portfolioDataLoader.getOwnedEntryPortfolioPageData",
+    entryId: String(entryId || ""),
+    collectibleType: entry.collectible_type,
+    pathUsed: "entry_detail_endpoint",
+    includeCollectionItems: false,
+    elapsedMs: Date.now() - startedAt,
+  });
 
   return {
     found: true,
@@ -74,8 +85,17 @@ export async function getOwnedEntryPortfolioPageData(entryId) {
 }
 
 export async function getPublicCollectionRedirectCollectible(username, entryId) {
+  const startedAt = Date.now();
   const publicEntry = await getPublicCollectionEntryById(username, entryId);
   if (!publicEntry) return null;
+  console.info("[portfolioDataLoader] public_entry_redirect", {
+    route: "portfolioDataLoader.getPublicCollectionRedirectCollectible",
+    username: String(username || ""),
+    entryId: String(entryId || ""),
+    pathUsed: "entry_detail_endpoint",
+    includeCollectionItems: false,
+    elapsedMs: Date.now() - startedAt,
+  });
   return {
     collectible_type: publicEntry.collectible_type,
     collectible_id: publicEntry.collectible_id,

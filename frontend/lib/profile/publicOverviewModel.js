@@ -44,8 +44,15 @@ export function buildPublicOverviewModel({ publicProfile, username, collectionAs
   }
 
   const seed = makeSeed(publicProfile?.username || username);
-  const collectionValue = 3200 + (seed % 3400);
-  const trackedItems = 120 + (seed % 480);
+  const summary = publicProfile?.collection_summary || {};
+  const collectionValue = Number.isFinite(Number(summary?.portfolio_value))
+    ? Number(summary.portfolio_value)
+    : 3200 + (seed % 3400);
+  const trackedItems = Number.isFinite(Number(summary?.cards_count))
+    ? Number(summary.cards_count)
+    : 120 + (seed % 480);
+  const sealedCount = Number.isFinite(Number(summary?.sealed_count)) ? Number(summary.sealed_count) : 0;
+  const gradedCount = Number.isFinite(Number(summary?.graded_count)) ? Number(summary.graded_count) : 0;
   const wishlistCount = 12 + (seed % 70);
   const favoriteTcg = publicProfile?.favorite_tcg_name || "Pokemon";
   const showcase = buildCollectionAssetShowcaseSlots(collectionAssets, {
@@ -64,8 +71,8 @@ export function buildPublicOverviewModel({ publicProfile, username, collectionAs
       {
         id: "snapshot-items",
         label: "Items Tracked",
-        value: trackedItems.toLocaleString("en-US"),
-        helpText: "Singles and sealed products",
+        value: (trackedItems + sealedCount + gradedCount).toLocaleString("en-US"),
+        helpText: "Public-safe cards, sealed, and graded counts",
       },
       {
         id: "snapshot-category",

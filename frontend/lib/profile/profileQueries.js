@@ -1,4 +1,6 @@
 // Profile data queries backed by backend API endpoints.
+import "server-only";
+
 import { headers } from "next/headers";
 import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
 import { normalizeUsernameForRoute } from "@/lib/profile/publicIdentity";
@@ -30,6 +32,7 @@ async function buildBackendHeaders() {
   const requestHeaders = {
     Accept: "application/json",
     "Content-Type": "application/json",
+    "x-correlation-id": crypto.randomUUID(),
   };
 
   try {
@@ -52,10 +55,21 @@ async function buildBackendHeaders() {
 }
 
 async function fetchBackend(path, options = {}) {
-  const { method = "GET", body = undefined } = options;
+  const { method = "GET", body = undefined, traceLabel = "backend_request" } = options;
+  const startedAt = Date.now();
+  const requestHeaders = await buildBackendHeaders();
+  const correlationId = requestHeaders["x-correlation-id"];
+
+  console.info("[profile-backend-fetch] start", {
+    traceLabel,
+    path,
+    method,
+    correlationId,
+  });
+
   const response = await fetch(buildBackendUrl(path), {
     method,
-    headers: await buildBackendHeaders(),
+    headers: requestHeaders,
     credentials: "include",
     cache: "no-store",
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -67,6 +81,16 @@ async function fetchBackend(path, options = {}) {
   } catch {
     payload = null;
   }
+
+  console.info("[profile-backend-fetch] end", {
+    traceLabel,
+    path,
+    method,
+    correlationId,
+    status: response.status,
+    ok: response.ok,
+    elapsedMs: Date.now() - startedAt,
+  });
 
   if (!response.ok) {
     return {
@@ -116,7 +140,7 @@ async function getFavoriteTcgById(favoriteTcgId) {
  * @returns {Promise<ProfileDataResult<UserProfileRow | null>>}
  */
 export async function getCurrentAuthenticatedUserProfile() {
-  const result = await fetchBackend("/profile/me");
+  const result = await fetchBackend("/profile/me", { traceLabel: "profile_me" });
   if (result.error) {
     return { data: null, error: result.error };
   }
@@ -131,11 +155,13 @@ export async function getCurrentAuthenticatedUserProfile() {
  * Gets a public profile by route username.
  * Returns not found when profile is private.
  * @param {string} usernameParam
- * @returns {Promise<ProfileDataResult<Pick<UserProfileRow, "id" | "username" | "display_name" | "avatar_url" | "bio" | "is_profile_public" | "location" | "favorite_tcg_id" | "created_at"> & { favorite_tcg_name: string | null; collection_summary: { portfolio_value: number | null; cards_count: number | null; sealed_count: number | null; graded_count: number | null; } | null; collection_summary_warning: string | null } | null>>}
+ * @returns {Promise<ProfileDataResult<Pick<UserProfileRow, "id" | "username" | "display_name" | "avatar_url" | "bio" | "is_profile_public" | "location" | "favorite_tcg_id" | "created_at"> & { favorite_tcg_name: string | null; collection_summary: { portfolio_value: number | null; cards_count: number | null; sealed_count: number | null; graded_count: number | null; portfolio_delta_1d: number | null; portfolio_delta_7d: number | null; portfolio_delta_3m: number | null; portfolio_delta_6m: number | null; portfolio_delta_1y: number | null; portfolio_delta_lifetime: number | null; portfolio_delta_pct_1d: number | null; portfolio_delta_pct_7d: number | null; portfolio_delta_pct_3m: number | null; portfolio_delta_pct_6m: number | null; portfolio_delta_pct_1y: number | null; portfolio_delta_pct_lifetime: number | null; } | null; collection_summary_warning: string | null } | null>>}
  */
 export async function getPublicProfileByUsername(usernameParam) {
   const username = normalizeUsernameForRoute(usernameParam);
-  const result = await fetchBackend(`/profile/public/${encodeURIComponent(username)}`);
+  const result = await fetchBackend(`/profile/public/${encodeURIComponent(username)}`, {
+    traceLabel: "public_profile",
+  });
   if (result.error) {
     return { data: null, error: result.error };
   }
@@ -146,12 +172,44 @@ export async function getPublicProfileByUsername(usernameParam) {
   };
 }
 
+export async function getPublicCollectionByUsername(
+  usernameParam,
+  { includeCollectionItems = false, limit = null, offset = null } = {}
+) {
+  const username = normalizeUsernameForRoute(usernameParam);
+  const searchParams = new URLSearchParams();
+  if (includeCollectionItems) {
+    searchParams.set("include_collection_items", "1");
+  }
+  if (Number.isFinite(Number(limit)) && Number(limit) > 0) {
+    searchParams.set("limit", String(limit));
+  }
+  if (Number.isFinite(Number(offset)) && Number(offset) >= 0) {
+    searchParams.set("offset", String(offset));
+  }
+
+  const suffix = searchParams.toString();
+  const path = `/collection/items/public/${encodeURIComponent(username)}${suffix ? `?${suffix}` : ""}`;
+  const result = await fetchBackend(path, {
+    traceLabel: includeCollectionItems ? "public_collection_items" : "public_collection_summary",
+  });
+
+  if (result.error) {
+    return { data: null, error: result.error };
+  }
+
+  return {
+    data: result.data || null,
+    error: null,
+  };
+}
+
 /**
  * Returns selector options from public.tcgs ordered by name.
  * @returns {Promise<ProfileDataResult<TcgOption[]>>}
  */
 export async function getTcgOptions() {
-  const result = await fetchBackend("/profile/tcgs");
+  const result = await fetchBackend("/profile/tcgs", { traceLabel: "profile_tcgs" });
   if (result.error) {
     return {
       data: [],
@@ -176,6 +234,7 @@ export async function updateCurrentUserProfile(payload) {
   const result = await fetchBackend("/profile/me", {
     method: "PUT",
     body: payload,
+    traceLabel: "profile_me_update",
   });
 
   if (result.error) {

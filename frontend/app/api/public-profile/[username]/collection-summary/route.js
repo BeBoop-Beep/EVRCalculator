@@ -31,20 +31,14 @@ async function buildProxyHeaders(request) {
 
 function summarizeCollectionPayload(payload) {
   const items = Array.isArray(payload?.collection_items) ? payload.collection_items : [];
-  const itemMeta = items.map((item) => ({
-    id: String(item?.id || ""),
-    type: String(item?.collectible_type || ""),
-    collectibleId: String(item?.collectible_id || ""),
-  }));
-  const byType = itemMeta.reduce((acc, item) => {
-    const key = item.type || "unknown";
+  const byType = items.reduce((acc, item) => {
+    const key = String(item?.collectible_type || "unknown");
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
   return {
     count: items.length,
     byType,
-    itemMeta,
   };
 }
 
@@ -83,11 +77,11 @@ export async function GET(req, { params }) {
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
   const backendCorrelationId = proxyResponse.headers.get("x-correlation-id") || correlationId;
 
-  let payloadSummary = { count: null, byType: {}, itemMeta: [] };
+  let payloadSummary = { count: null, byType: {} };
   try {
     payloadSummary = summarizeCollectionPayload(JSON.parse(payload));
   } catch {
-    payloadSummary = { count: null, byType: {}, itemMeta: [] };
+    payloadSummary = { count: null, byType: {} };
   }
 
   console.info("[public-collection-proxy] response", {
@@ -97,7 +91,7 @@ export async function GET(req, { params }) {
     ok: proxyResponse.ok,
     count: payloadSummary.count,
     byType: payloadSummary.byType,
-    itemMeta: payloadSummary.itemMeta,
+    payloadSizeBytes: Buffer.byteLength(payload, "utf8"),
   });
 
   return new NextResponse(payload, {

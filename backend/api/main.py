@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from time import perf_counter
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
@@ -13,9 +14,15 @@ from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from pydantic import BaseModel  # type: ignore[reportMissingImports]
 
 from backend.db.services.collection_portfolio_service import (
+    get_collection_entry_detail_for_user_id,
     get_collection_items_for_user_id,
     get_current_user_portfolio_dashboard_data,
+    get_public_collection_entry_by_username_and_item_id,
     get_public_collection_data_by_username,
+)
+from backend.db.services.collection_summary_service import (
+    refresh_user_summary_with_history_and_deltas,
+    run_daily_portfolio_reconciliation_all_users,
 )
 from backend.db.services.frontend_proxy_service import (
     get_current_profile,
@@ -110,6 +117,10 @@ def _resolve_correlation_id(incoming_value: Optional[str]) -> str:
     return normalized or str(uuid4())
 
 
+def _as_http_500_with_detail(error_message: str) -> HTTPException:
+    return HTTPException(status_code=500, detail=error_message)
+
+
 @app.get("/collection/dashboard")
 def get_collection_dashboard(
     include_collection_items: Optional[str] = Query(default=None),
@@ -130,26 +141,136 @@ def get_collection_dashboard(
     }
 
 
+@app.post("/collection/summary/refresh")
+def refresh_collection_summary(
+    user_id: Optional[str] = Query(default=None),
+    x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+):
+    """Recompute and return user summary with portfolio snapshot/delta refresh.
+
+    Orchestration insertion note:
+    - Route/controller: backend/api/main.py::refresh_collection_summary
+    - Service orchestration: backend/db/services/collection_summary_service.py::refresh_user_summary_with_history_and_deltas
+    - Repository/DB access: backend/db/repositories/user_collection_summary_repository.py
+    """
+    resolved_user_id = _require_user_id(user_id_query=user_id, user_id_header=x_user_id)
+
+    try:
+        refreshed_summary = refresh_user_summary_with_history_and_deltas(resolved_user_id)
+    except RuntimeError as exc:
+        raise _as_http_500_with_detail(str(exc)) from exc
+    except Exception as exc:
+        logger.exception(
+            "collection_summary.refresh_endpoint unexpected_failure user_id=%s error_type=%s",
+            resolved_user_id,
+            type(exc).__name__,
+        )
+        raise _as_http_500_with_detail("Failed to refresh collection summary") from exc
+
+    return {"collection_summary": refreshed_summary}
+
+
+@app.post("/jobs/portfolio/daily-reconciliation")
+def run_portfolio_daily_reconciliation_job():
+    """Backend-invokable entry point for scheduler/cron daily reconciliation."""
+    try:
+        result = run_daily_portfolio_reconciliation_all_users()
+    except RuntimeError as exc:
+        raise _as_http_500_with_detail(str(exc)) from exc
+    except Exception as exc:
+        logger.exception(
+            "collection_summary.daily_reconciliation_endpoint unexpected_failure error_type=%s",
+            type(exc).__name__,
+        )
+        raise _as_http_500_with_detail("Failed to run daily portfolio reconciliation") from exc
+
+    return result
+
+
 @app.get("/collection/items")
 def get_collection_items(
     user_id: Optional[str] = Query(default=None),
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    include_private_fields: bool = Query(default=False),
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    x_correlation_id: Optional[str] = Header(default=None, alias="x-correlation-id"),
 ):
+    endpoint_started_at = perf_counter()
     resolved_user_id = _require_user_id(user_id_query=user_id, user_id_header=x_user_id)
-    items = get_collection_items_for_user_id(resolved_user_id, include_private_fields=True)
-    return {
+    correlation_id = _resolve_correlation_id(x_correlation_id)
+    items = get_collection_items_for_user_id(
+        resolved_user_id,
+        include_private_fields=include_private_fields,
+        limit=limit,
+        offset=offset,
+        correlation_id=correlation_id,
+    )
+    payload = {
         "collection_items": items,
     }
+    response = JSONResponse(content=payload, status_code=200)
+    response.headers["x-correlation-id"] = correlation_id
+    logger.info(
+        "collection_items.endpoint correlation_id=%s user_id=%s include_private_fields=%s path_used=%s item_count=%s payload_size_bytes=%s limit=%s offset=%s endpoint_ms=%.2f",
+        correlation_id,
+        resolved_user_id,
+        include_private_fields,
+        "full_assembly_bounded",
+        len(items),
+        len(str(payload).encode("utf-8")),
+        limit,
+        offset,
+        (perf_counter() - endpoint_started_at) * 1000,
+    )
+    return response
+
+
+@app.get("/collection/entries/{entry_id}")
+def get_collection_entry_detail(
+    entry_id: str,
+    user_id: Optional[str] = Query(default=None),
+    x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    x_correlation_id: Optional[str] = Header(default=None, alias="x-correlation-id"),
+):
+    endpoint_started_at = perf_counter()
+    resolved_user_id = _require_user_id(user_id_query=user_id, user_id_header=x_user_id)
+    correlation_id = _resolve_correlation_id(x_correlation_id)
+    entry = get_collection_entry_detail_for_user_id(
+        user_id=resolved_user_id,
+        entry_id=entry_id,
+        include_private_fields=True,
+        correlation_id=correlation_id,
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="Collection entry not found.")
+
+    payload = {"entry": entry}
+    response = JSONResponse(content=payload, status_code=200)
+    response.headers["x-correlation-id"] = correlation_id
+    logger.info(
+        "collection_entry.endpoint correlation_id=%s user_id=%s entry_id=%s collectible_type=%s payload_size_bytes=%s endpoint_ms=%.2f",
+        correlation_id,
+        resolved_user_id,
+        entry_id,
+        entry.get("collectible_type"),
+        len(str(payload).encode("utf-8")),
+        (perf_counter() - endpoint_started_at) * 1000,
+    )
+    return response
 
 
 @app.get("/collection/items/public/{username}")
 def get_public_collection_items(
     username: str,
     include_collection_items: Optional[str] = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     user_id: Optional[str] = Query(default=None),
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
     x_correlation_id: Optional[str] = Header(default=None, alias="x-correlation-id"),
 ):
+    endpoint_started_at = perf_counter()
     include_items = _is_truthy(include_collection_items)
     viewer_user_id = (x_user_id or user_id or "").strip() or None
     correlation_id = _resolve_correlation_id(x_correlation_id)
@@ -159,6 +280,8 @@ def get_public_collection_items(
         include_collection_items=include_items,
         viewer_user_id=viewer_user_id,
         correlation_id=correlation_id,
+        limit=limit,
+        offset=offset,
     )
 
     if error == "Invalid username.":
@@ -171,6 +294,53 @@ def get_public_collection_items(
 
     response = JSONResponse(content=payload, status_code=200)
     response.headers["x-correlation-id"] = correlation_id
+    logger.info(
+        "public_collection.endpoint correlation_id=%s username=%s include_items=%s endpoint_ms=%.2f",
+        correlation_id,
+        username,
+        include_items,
+        (perf_counter() - endpoint_started_at) * 1000,
+    )
+    return response
+
+
+@app.get("/collection/items/public/{username}/entry/{item_id}")
+def get_public_collection_entry(
+    username: str,
+    item_id: str,
+    user_id: Optional[str] = Query(default=None),
+    x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    x_correlation_id: Optional[str] = Header(default=None, alias="x-correlation-id"),
+):
+    endpoint_started_at = perf_counter()
+    correlation_id = _resolve_correlation_id(x_correlation_id)
+    viewer_user_id = (x_user_id or user_id or "").strip() or None
+    entry, error = get_public_collection_entry_by_username_and_item_id(
+        username=username,
+        item_id=item_id,
+        viewer_user_id=viewer_user_id,
+        correlation_id=correlation_id,
+    )
+
+    if error == "User not found.":
+        raise HTTPException(status_code=404, detail=error)
+    if error == "Collection entry not found.":
+        raise HTTPException(status_code=404, detail=error)
+    if entry is None:
+        raise HTTPException(status_code=500, detail="Failed to load public collection entry.")
+
+    payload = {"entry": entry}
+    response = JSONResponse(content=payload, status_code=200)
+    response.headers["x-correlation-id"] = correlation_id
+    logger.info(
+        "public_collection_entry.endpoint correlation_id=%s username=%s item_id=%s collectible_type=%s payload_size_bytes=%s endpoint_ms=%.2f",
+        correlation_id,
+        username,
+        item_id,
+        entry.get("collectible_type"),
+        len(str(payload).encode("utf-8")),
+        (perf_counter() - endpoint_started_at) * 1000,
+    )
     return response
 
 
@@ -338,6 +508,7 @@ def profile_public_get(
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
     x_correlation_id: Optional[str] = Header(default=None, alias="x-correlation-id"),
 ):
+    endpoint_started_at = perf_counter()
     correlation_id = _resolve_correlation_id(x_correlation_id)
     payload, status = get_public_profile(
         username,
@@ -346,6 +517,13 @@ def profile_public_get(
     )
     response = JSONResponse(content=payload, status_code=status)
     response.headers["x-correlation-id"] = correlation_id
+    logger.info(
+        "public_profile.endpoint correlation_id=%s username=%s status=%s endpoint_ms=%.2f",
+        correlation_id,
+        username,
+        status,
+        (perf_counter() - endpoint_started_at) * 1000,
+    )
     return response
 
 

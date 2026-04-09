@@ -1,6 +1,6 @@
 // Server-only accessor that fetches from /api/public-profile/[username]/collection-summary. Not the route itself.
 import "server-only";
-import { headers } from "next/headers";
+import { getPublicCollectionByUsername } from "@/lib/profile/profileQueries";
 
 /** @typedef {import("@/types/profile").PublicCollectionSummary} PublicCollectionSummary */
 
@@ -14,49 +14,48 @@ function toNullableFiniteNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** @param {string} username */
-function getPublicCollectionSummaryEndpointPath(username) {
-  return `/api/public-profile/${encodeURIComponent(username)}/collection-summary`;
-}
-
-/** @param {string} username */
-async function buildPublicCollectionSummaryUrl(username) {
-  const endpointPath = getPublicCollectionSummaryEndpointPath(username);
-
-  try {
-    const requestHeaders = await headers();
-    const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
-
-    if (host) {
-      const protocolHint = requestHeaders.get("x-forwarded-proto");
-      const protocol = protocolHint || (host.includes("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-      return `${protocol}://${host}${endpointPath}`;
-    }
-  } catch {
-    // Continue to fallback resolution when not in a request-bound context.
-  }
-
-  const fallbackBaseUrl = process.env.NEXT_PUBLIC_BASE_URL
-    || process.env.NEXT_PUBLIC_API_URL
-    || "http://localhost:3000";
-  const baseUrl = fallbackBaseUrl.endsWith("/") ? fallbackBaseUrl : `${fallbackBaseUrl}/`;
-
-  return new URL(endpointPath.slice(1), baseUrl).toString();
-}
-
 /** @param {unknown} value */
 function normalizeCollectionSummary(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
 
-  const summary = /** @type {{ portfolio_value?: unknown; cards_count?: unknown; sealed_count?: unknown; graded_count?: unknown }} */ (value);
+  const summary = /** @type {{
+    portfolio_value?: unknown;
+    cards_count?: unknown;
+    sealed_count?: unknown;
+    graded_count?: unknown;
+    portfolio_delta_1d?: unknown;
+    portfolio_delta_7d?: unknown;
+    portfolio_delta_3m?: unknown;
+    portfolio_delta_6m?: unknown;
+    portfolio_delta_1y?: unknown;
+    portfolio_delta_lifetime?: unknown;
+    portfolio_delta_pct_1d?: unknown;
+    portfolio_delta_pct_7d?: unknown;
+    portfolio_delta_pct_3m?: unknown;
+    portfolio_delta_pct_6m?: unknown;
+    portfolio_delta_pct_1y?: unknown;
+    portfolio_delta_pct_lifetime?: unknown;
+  }} */ (value);
 
   return {
     portfolio_value: toNullableFiniteNumber(summary.portfolio_value),
     cards_count: toNullableFiniteNumber(summary.cards_count),
     sealed_count: toNullableFiniteNumber(summary.sealed_count),
     graded_count: toNullableFiniteNumber(summary.graded_count),
+    portfolio_delta_1d: toNullableFiniteNumber(summary.portfolio_delta_1d),
+    portfolio_delta_7d: toNullableFiniteNumber(summary.portfolio_delta_7d),
+    portfolio_delta_3m: toNullableFiniteNumber(summary.portfolio_delta_3m),
+    portfolio_delta_6m: toNullableFiniteNumber(summary.portfolio_delta_6m),
+    portfolio_delta_1y: toNullableFiniteNumber(summary.portfolio_delta_1y),
+    portfolio_delta_lifetime: toNullableFiniteNumber(summary.portfolio_delta_lifetime),
+    portfolio_delta_pct_1d: toNullableFiniteNumber(summary.portfolio_delta_pct_1d),
+    portfolio_delta_pct_7d: toNullableFiniteNumber(summary.portfolio_delta_pct_7d),
+    portfolio_delta_pct_3m: toNullableFiniteNumber(summary.portfolio_delta_pct_3m),
+    portfolio_delta_pct_6m: toNullableFiniteNumber(summary.portfolio_delta_pct_6m),
+    portfolio_delta_pct_1y: toNullableFiniteNumber(summary.portfolio_delta_pct_1y),
+    portfolio_delta_pct_lifetime: toNullableFiniteNumber(summary.portfolio_delta_pct_lifetime),
   };
 }
 
@@ -92,26 +91,21 @@ export async function getPublicCollectionSummaryByUsername(username) {
     };
   }
 
-  const requestUrl = await buildPublicCollectionSummaryUrl(normalizedUsername);
+  const startedAt = Date.now();
 
   try {
-    const response = await fetch(requestUrl, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
+    const response = await getPublicCollectionByUsername(normalizedUsername, {
+      includeCollectionItems: false,
     });
 
-    if (!response.ok) {
+    if (response.error) {
       return {
         data: null,
-        warning: `Collection summary request failed for ${normalizedUsername}: ${response.status} ${response.statusText}`.trim(),
+        warning: `Collection summary request failed for ${normalizedUsername}: ${response.error.status} ${response.error.message}`.trim(),
       };
     }
 
-    const payload = await response.json();
-    const summary = extractCollectionSummary(payload);
+    const summary = extractCollectionSummary(response.data || {});
 
     if (!summary) {
       return {
@@ -131,5 +125,12 @@ export async function getPublicCollectionSummaryByUsername(username) {
       data: null,
       warning: `Collection summary request failed for ${normalizedUsername}: ${message}`,
     };
+  } finally {
+    console.info("[publicCollectionSummaryAccessor] request_end", {
+      username: normalizedUsername,
+      pathUsed: "summary_snapshot",
+      includeCollectionItems: false,
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 }
