@@ -4,6 +4,7 @@ import json
 import random
 import re
 import time
+import unicodedata
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -17,6 +18,19 @@ DEFAULT_REPORT_PATH = Path("backend/constants/tcg/pokemon/pokemon_set_bootstrap_
 DEFAULT_RESOLUTION_REPORT_PATH = Path("backend/constants/tcg/pokemon/pokemon_tcgplayer_resolution_report.json")
 DEFAULT_READINESS_REPORT_PATH = Path("backend/constants/tcg/pokemon/pokemon_set_readiness_after_tcgplayer_resolution.json")
 DEFAULT_CACHE_PATH = Path("backend/constants/tcg/pokemon/tcgplayer_resolution_cache.json")
+
+CONFIG_PATH_COMPAT_MAP: Dict[str, str] = {
+    # Locked reference-era compatibility: bootstrap keys differ from local filenames.
+    "scarletAndViolet": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndVioletBase.py",
+    "151": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndViolet151.py",
+    "scarletAndVioletEnergies": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndVioletBase.py",
+    "scarletAndVioletBlackStarPromos": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndVioletBase.py",
+}
+
+MANUAL_CONFIRMED_SET_ID_OVERRIDES: Dict[str, int] = {
+    # Confirmed valid mapping from targeted research.
+    "heartgoldAndSoulSilver": 1402,
+}
 
 TCGPLAYER_SEARCH_URL = "https://mp-search-api.tcgplayer.com/v1/search/request"
 
@@ -133,8 +147,20 @@ class ThrottledRequester:
 
 def normalize_name(value: str) -> str:
     value = (value or "").strip().lower()
+    value = unicodedata.normalize("NFKD", value)
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = value.replace("—", "-").replace("–", "-")
+    value = value.replace("’", "'").replace("‘", "'")
     value = value.replace("&", " and ")
     value = re.sub(r"[^a-z0-9]+", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    return value
+
+
+def normalize_for_family(value: str) -> str:
+    value = normalize_name(value)
+    # Family checks should ignore common glue words to avoid punctuation-format false negatives.
+    value = re.sub(r"\b(set|collection|the|tcg|pokemon)\b", " ", value)
     value = re.sub(r"\s+", " ", value).strip()
     return value
 
@@ -147,6 +173,51 @@ def clean_tcg_set_name(value: str) -> str:
 
 def token_set(value: str) -> set:
     return set(normalize_name(value).split())
+
+
+def promo_era_token(value: str) -> Optional[str]:
+    norm = normalize_for_family(value)
+    era_patterns = [
+        ("wotc", ["wizards"]),
+        ("bw", ["black and white", "bw"]),
+        ("dp", ["diamond and pearl", "dp"]),
+        ("hgss", ["heartgold soulsilver", "hgss"]),
+        ("nintendo", ["nintendo"]),
+        ("sm", ["sun and moon", "sm"]),
+        ("sv", ["scarlet and violet", "sv"]),
+        ("swsh", ["sword and shield", "swsh"]),
+        ("xy", ["xy"]),
+    ]
+    for token, patterns in era_patterns:
+        if any(pat in norm for pat in patterns):
+            return token
+    return None
+
+
+def is_promo_family(value: str) -> bool:
+    norm = normalize_for_family(value)
+    return "promo" in norm
+
+
+def is_trainer_kit_family(value: str) -> bool:
+    norm = normalize_for_family(value)
+    return "trainer kit" in norm
+
+
+def resolve_config_file_path(row: Dict[str, Any]) -> Path:
+    raw_path = row.get("local_config_file_path") or ""
+    config_file = Path(raw_path)
+    if config_file.exists():
+        return config_file
+
+    canonical = row.get("canonical_key") or ""
+    mapped = CONFIG_PATH_COMPAT_MAP.get(canonical)
+    if mapped:
+        mapped_path = Path(mapped)
+        if mapped_path.exists():
+            return mapped_path
+
+    return config_file
 
 
 def token_overlap_score(a: str, b: str) -> float:
@@ -328,9 +399,23 @@ def validate_candidate_set_id(
     expected_set_name: str,
 ) -> Tuple[Optional[int], float, str]:
     body = build_search_body(query_set_name=set_name_filter, size=24)
-    payload = safe_post_search(requester, query=search_query, body=body, cache=query_cache)
-    results = (payload.get("results") or [{}])[0]
-    items = results.get("results") or []
+    candidate_queries = [
+        search_query,
+        normalize_name(search_query),
+        set_name_filter,
+        clean_tcg_set_name(set_name_filter),
+    ]
+
+    items: List[Dict[str, Any]] = []
+    for query in candidate_queries:
+        query = (query or "").strip()
+        if not query:
+            continue
+        payload = safe_post_search(requester, query=query, body=body, cache=query_cache)
+        results = (payload.get("results") or [{}])[0]
+        items = results.get("results") or []
+        if items:
+            break
 
     if not items:
         return None, 0.0, "Validation returned no product results"
@@ -346,17 +431,46 @@ def validate_candidate_set_id(
     dominant_set_names = [name for name, sid in zip(set_names, set_ids) if sid == dominant_set_id]
     dominant_name = dominant_set_names[0] if dominant_set_names else ""
 
-    overlap = token_overlap_score(clean_tcg_set_name(dominant_name), expected_set_name)
-    name_match = normalize_name(clean_tcg_set_name(dominant_name)) == normalize_name(expected_set_name)
+    clean_dominant_name = clean_tcg_set_name(dominant_name)
+    overlap = token_overlap_score(clean_dominant_name, expected_set_name)
+    name_match = normalize_name(clean_dominant_name) == normalize_name(expected_set_name)
 
     confidence = (0.6 * same_id_ratio) + (0.4 * overlap)
     if name_match:
         confidence = max(confidence, 0.95)
 
+    targeted_rule_note = ""
+    if same_id_ratio >= 0.90:
+        expected_family_norm = normalize_for_family(expected_set_name)
+        dominant_family_norm = normalize_for_family(clean_dominant_name)
+
+        # Punctuation/Unicode normalization-safe acceptance for near-equivalent names.
+        if overlap >= 0.65 and (
+            expected_family_norm in dominant_family_norm
+            or dominant_family_norm in expected_family_norm
+        ):
+            confidence = max(confidence, 0.92)
+            targeted_rule_note = "normalized-equivalence acceptance"
+
+        # Promo-family acceptance only when era-consistent.
+        if is_promo_family(expected_set_name) and is_promo_family(clean_dominant_name):
+            expected_era = promo_era_token(expected_set_name)
+            dominant_era = promo_era_token(clean_dominant_name)
+            if expected_era and dominant_era and expected_era == dominant_era and overlap >= 0.55:
+                confidence = max(confidence, 0.92)
+                targeted_rule_note = "promo-family era-consistent acceptance"
+
+        # Trainer kit family often combines two local variants under one TCGplayer set.
+        if is_trainer_kit_family(expected_set_name) and is_trainer_kit_family(clean_dominant_name) and overlap >= 0.55:
+            confidence = max(confidence, 0.92)
+            targeted_rule_note = "trainer-kit family acceptance"
+
     note = (
         f"dominant_set_id={dominant_set_id}, same_id_ratio={same_id_ratio:.2f}, "
         f"overlap={overlap:.2f}, dominant_name='{dominant_name}'"
     )
+    if targeted_rule_note:
+        note = f"{note}; {targeted_rule_note}"
     return dominant_set_id, confidence, note
 
 
@@ -398,7 +512,7 @@ def resolve_single_set(
     cache: ResolverCache,
     query_cache: Dict[str, Any],
 ) -> Dict[str, Any]:
-    config_file = Path(row["local_config_file_path"])
+    config_file = resolve_config_file_path(row)
     if not config_file.exists():
         return {
             "resolution_status": "unresolved",
@@ -437,6 +551,45 @@ def resolve_single_set(
 
     target_set_name = row.get("set_name") or existing.set_name or row.get("canonical_key") or ""
     row_cache_key = cache_key_for_row(row, target_set_name)
+
+    manual_override_set_id = MANUAL_CONFIRMED_SET_ID_OVERRIDES.get(row.get("canonical_key") or "")
+    if manual_override_set_id:
+        resolved_card_url, resolved_sealed_url = build_priceguide_urls(manual_override_set_id)
+        wrote_changes = False
+        patched_text = py_text
+        if not existing.card_details_url:
+            patched_text, changed = replace_assignment_line(patched_text, "CARD_DETAILS_URL", repr(resolved_card_url))
+            wrote_changes = wrote_changes or changed
+        if not existing.sealed_details_url:
+            patched_text, changed = replace_assignment_line(patched_text, "SEALED_DETAILS_URL", repr(resolved_sealed_url))
+            wrote_changes = wrote_changes or changed
+
+        if apply_changes and wrote_changes and patched_text != py_text:
+            config_file.write_text(patched_text, encoding="utf-8", newline="\n")
+
+        set_cache = cache.data.setdefault("set_resolutions", {})
+        set_cache[row_cache_key] = {
+            "set_id": manual_override_set_id,
+            "confidence": 1.0,
+            "validation_notes": "manual confirmed override",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        cache.dirty = True
+
+        return {
+            "resolution_status": "resolved_automatically",
+            "confidence": 1.0,
+            "validation_notes": "manual confirmed override",
+            "wrote_changes": wrote_changes and apply_changes,
+            "manual_review_required": False,
+            "resolved_card_details_url": existing.card_details_url or resolved_card_url,
+            "resolved_sealed_details_url": existing.sealed_details_url or resolved_sealed_url,
+            "resolved_price_endpoints_count": existing.price_endpoints_count,
+            "existing_card_details_url": existing.card_details_url,
+            "existing_sealed_details_url": existing.sealed_details_url,
+            "existing_price_endpoints_count": existing.price_endpoints_count,
+            "notes": f"Resolved from manual override setId={manual_override_set_id}",
+        }
 
     cached_resolution = (cache.data.get("set_resolutions") or {}).get(row_cache_key)
     if cached_resolution and isinstance(cached_resolution, dict):
