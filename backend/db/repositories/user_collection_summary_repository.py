@@ -417,3 +417,114 @@ def load_user_collection_for_summary(user_id: UUID) -> Dict[str, List[Dict[str, 
         "user_sealed_product_holdings": sealed_payload,
         "user_graded_card_holdings": graded_payload,
     }
+
+
+def run_nightly_portfolio_refresh(current_date: Optional[str] = None) -> None:
+    """Execute DB function for nightly portfolio refresh across all users.
+    
+    This orchestrates a full portfolio refresh and history snapshot cycle.
+    Intended to be called once nightly around 3:00 AM.
+    
+    Args:
+        current_date: Optional ISO date string (YYYY-MM-DD). If not provided, uses today's date.
+        
+    Raises:
+        RuntimeError: If DB function call fails
+    """
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+    
+    payload: Dict[str, Any] = {}
+    if current_date:
+        payload["p_current_date"] = current_date
+    
+    try:
+        supabase.rpc("run_nightly_portfolio_refresh", payload).execute()
+        logger.info("repository: run_nightly_portfolio_refresh executed successfully")
+    except Exception as exc:
+        logger.exception(
+            "repository: run_nightly_portfolio_refresh failed error_type=%s error=%s",
+            type(exc).__name__,
+            exc,
+        )
+        raise RuntimeError("Failed to execute nightly portfolio refresh") from exc
+
+
+def refresh_user_collection_summary_live(user_id: UUID) -> None:
+    """Immediately refresh a user's summary (live/active refresh path).
+    
+    This is called after holdings changes to ensure summary is fresh immediately,
+    without waiting for nightly batch job.
+    
+    Args:
+        user_id: UUID of the user whose summary to refresh
+        
+    Raises:
+        RuntimeError: If DB function call fails
+    """
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+    
+    try:
+        supabase.rpc("refresh_user_collection_summary_live", {"p_user_id": str(user_id)}).execute()
+        logger.info("repository: refresh_user_collection_summary_live user_id=%s executed successfully", user_id)
+    except Exception as exc:
+        logger.exception(
+            "repository: refresh_user_collection_summary_live user_id=%s failed error_type=%s error=%s",
+            user_id,
+            type(exc).__name__,
+            exc,
+        )
+        raise RuntimeError(f"Failed to refresh summary live for user {user_id}") from exc
+
+
+def ensure_fresh_user_collection_summary(user_id: UUID) -> None:
+    """Ensure user collection summary is fresh before returning it.
+    
+    This is a safety net called before dashboard/summary reads to guarantee freshness.
+    If summary is marked stale, it triggers a refresh immediately.
+    
+    Args:
+        user_id: UUID of the user
+        
+    Raises:
+        RuntimeError: If DB function call fails
+    """
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+    
+    try:
+        supabase.rpc("ensure_fresh_user_collection_summary", {"p_user_id": str(user_id)}).execute()
+        logger.info("repository: ensure_fresh_user_collection_summary user_id=%s executed successfully", user_id)
+    except Exception as exc:
+        logger.exception(
+            "repository: ensure_fresh_user_collection_summary user_id=%s failed error_type=%s error=%s",
+            user_id,
+            type(exc).__name__,
+            exc,
+        )
+        raise RuntimeError(f"Failed to ensure fresh summary for user {user_id}") from exc
+
+
+def refresh_all_stale_user_collection_summaries() -> None:
+    """Refresh all user summaries that are marked as stale.
+    
+    This is used in stale-marking workflows to batch-refresh users after events
+    like price ingestion that mark summaries stale.
+    
+    Raises:
+        RuntimeError: If DB function call fails
+    """
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+    
+    try:
+        supabase.rpc("refresh_all_stale_user_collection_summaries", {}).execute()
+        logger.info("repository: refresh_all_stale_user_collection_summaries executed successfully")
+    except Exception as exc:
+        logger.exception(
+            "repository: refresh_all_stale_user_collection_summaries failed error_type=%s error=%s",
+            type(exc).__name__,
+            exc,
+        )
+        raise RuntimeError("Failed to refresh all stale user collection summaries") from exc

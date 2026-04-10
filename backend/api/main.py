@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissing
 from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from pydantic import BaseModel  # type: ignore[reportMissingImports]
 
+from backend.db.services.collection_freshness_service import (
+    ensure_fresh_user_collection_summary,
+)
 from backend.db.services.collection_portfolio_service import (
     get_collection_entry_detail_for_user_id,
     get_collection_items_for_user_id,
@@ -41,7 +44,34 @@ from backend.db.services.frontend_proxy_service import (
 )
 
 
-app = FastAPI(title="EVR Collection API")
+openapi_tags = [
+    {
+        "name": "Auth",
+        "description": "Identity, authentication, and session access endpoints.",
+    },
+    {
+        "name": "Collection Dashboard",
+        "description": "Aggregate portfolio and showcase summary endpoints for dashboard surfaces.",
+    },
+    {
+        "name": "Collection Items",
+        "description": "Collection browser grid and entry detail endpoints for private and public views.",
+    },
+    {
+        "name": "Portfolio Jobs",
+        "description": "Operational portfolio maintenance job endpoints.",
+    },
+    {
+        "name": "Health",
+        "description": "Service monitoring and health check endpoints.",
+    },
+]
+
+
+app = FastAPI(
+    title="EVR Collection API",
+    openapi_tags=openapi_tags,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +82,34 @@ app.add_middleware(
 )
 
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+def _startup_event() -> None:
+    """Initialize background scheduler on API startup."""
+    try:
+        from backend.jobs.scheduler_service import initialize_scheduler
+        
+        initialize_scheduler()
+        logger.info("api_main: background scheduler initialized on startup")
+    except Exception as exc:
+        logger.warning(
+            "api_main: failed to initialize background scheduler error=%s (nightly jobs will not run unless triggered manually)",
+            exc,
+        )
+        # Don't fail startup - the REST API should still work
+
+
+@app.on_event("shutdown")
+def _shutdown_event() -> None:
+    """Stop background scheduler on API shutdown."""
+    try:
+        from backend.jobs.scheduler_service import stop_scheduler
+        
+        stop_scheduler()
+        logger.info("api_main: background scheduler stopped")
+    except Exception as exc:
+        logger.warning("api_main: error stopping scheduler error=%s", exc)
 
 
 class LoginRequest(BaseModel):
@@ -121,7 +179,15 @@ def _as_http_500_with_detail(error_message: str) -> HTTPException:
     return HTTPException(status_code=500, detail=error_message)
 
 
-@app.get("/collection/dashboard")
+@app.get(
+    "/collection/dashboard",
+    tags=["Collection Dashboard"],
+    summary="Get Collection Dashboard",
+    description=(
+        "Returns aggregate portfolio and showcase summary data for the dashboard/header surfaces. "
+        "This endpoint is for summary metrics and is not the collection item grid feed."
+    ),
+)
 def get_collection_dashboard(
     include_collection_items: Optional[str] = Query(default=None),
     user_id: Optional[str] = Query(default=None),
@@ -129,6 +195,17 @@ def get_collection_dashboard(
 ):
     resolved_user_id = _require_user_id(user_id_query=user_id, user_id_header=x_user_id)
     include_items = _is_truthy(include_collection_items)
+
+    # Freshness safety net: ensure summary is not stale before returning
+    try:
+        ensure_fresh_user_collection_summary(resolved_user_id)
+    except Exception as exc:
+        logger.warning(
+            "collection_dashboard.freshness_check failed user_id=%s error=%s (continuing with potentially stale data)",
+            resolved_user_id,
+            exc,
+        )
+        # Don't fail the endpoint if freshness check fails - just continue with potentially stale summary
 
     dashboard_payload = get_current_user_portfolio_dashboard_data(resolved_user_id)
     if not include_items:
@@ -141,7 +218,15 @@ def get_collection_dashboard(
     }
 
 
-@app.post("/collection/summary/refresh")
+@app.post(
+    "/collection/summary/refresh",
+    tags=["Collection Dashboard"],
+    summary="Refresh Collection Dashboard Summary",
+    description=(
+        "Recomputes and returns refreshed aggregate collection summary data for dashboard/showcase metrics. "
+        "This is a summary refresh endpoint, not an item-level grid endpoint."
+    ),
+)
 def refresh_collection_summary(
     user_id: Optional[str] = Query(default=None),
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
@@ -170,7 +255,15 @@ def refresh_collection_summary(
     return {"collection_summary": refreshed_summary}
 
 
-@app.post("/jobs/portfolio/daily-reconciliation")
+@app.post(
+    "/jobs/portfolio/daily-reconciliation",
+    tags=["Portfolio Jobs"],
+    summary="Run Portfolio Daily Reconciliation Job",
+    description=(
+        "Runs portfolio reconciliation maintenance across users for operational/system workflows. "
+        "This endpoint is for background/admin job execution, not normal interactive browsing."
+    ),
+)
 def run_portfolio_daily_reconciliation_job():
     """Backend-invokable entry point for scheduler/cron daily reconciliation."""
     try:
@@ -187,7 +280,15 @@ def run_portfolio_daily_reconciliation_job():
     return result
 
 
-@app.get("/collection/items")
+@app.get(
+    "/collection/items",
+    tags=["Collection Items"],
+    summary="Get Private Collection Items",
+    description=(
+        "Returns the authenticated user's private collection browser items/grid data, including item-level rows. "
+        "This endpoint is for item listings and not dashboard aggregate metrics."
+    ),
+)
 def get_collection_items(
     user_id: Optional[str] = Query(default=None),
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
@@ -226,7 +327,15 @@ def get_collection_items(
     return response
 
 
-@app.get("/collection/entries/{entry_id}")
+@app.get(
+    "/collection/entries/{entry_id}",
+    tags=["Collection Items"],
+    summary="Get Collection Entry Detail",
+    description=(
+        "Returns detail for a specific authenticated collection entry/item. "
+        "This is an item detail endpoint and not a dashboard summary endpoint."
+    ),
+)
 def get_collection_entry_detail(
     entry_id: str,
     user_id: Optional[str] = Query(default=None),
@@ -260,7 +369,15 @@ def get_collection_entry_detail(
     return response
 
 
-@app.get("/collection/items/public/{username}")
+@app.get(
+    "/collection/items/public/{username}",
+    tags=["Collection Items"],
+    summary="Get Public Collection Items",
+    description=(
+        "Returns public showcase collection browser items/grid rows for a profile username. "
+        "This endpoint powers public item listings, not aggregate dashboard summaries."
+    ),
+)
 def get_public_collection_items(
     username: str,
     include_collection_items: Optional[str] = Query(default=None),
@@ -304,7 +421,15 @@ def get_public_collection_items(
     return response
 
 
-@app.get("/collection/items/public/{username}/entry/{item_id}")
+@app.get(
+    "/collection/items/public/{username}/entry/{item_id}",
+    tags=["Collection Items"],
+    summary="Get Public Collection Entry Detail",
+    description=(
+        "Returns public detail for a single collection item entry by username and item id. "
+        "This is an item detail endpoint and not a dashboard endpoint."
+    ),
+)
 def get_public_collection_entry(
     username: str,
     item_id: str,
@@ -344,12 +469,22 @@ def get_public_collection_entry(
     return response
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["Health"],
+    summary="Get Service Health",
+    description="Service health/monitoring endpoint used for readiness and basic operational checks.",
+)
 def health_check():
     return {"status": "ok"}
 
 
-@app.get("/auth/me")
+@app.get(
+    "/auth/me",
+    tags=["Auth"],
+    summary="Get Current Authenticated User",
+    description="Returns identity/session context for the current authenticated user.",
+)
 def auth_me(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
@@ -374,7 +509,12 @@ def auth_me(
     return response
 
 
-@app.post("/auth/login")
+@app.post(
+    "/auth/login",
+    tags=["Auth"],
+    summary="Login",
+    description="Authenticates a user and returns login/session payload data for app sign-in flows.",
+)
 async def auth_login(payload: LoginRequest):
     logger.info("/auth/login: started, env_presence=%s", _auth_env_presence())
     logger.info("/auth/login: request body parsed successfully")
@@ -394,7 +534,12 @@ async def auth_login(payload: LoginRequest):
         return JSONResponse(content={"message": "Unexpected server error"}, status_code=500)
 
 
-@app.post("/auth/login-legacy")
+@app.post(
+    "/auth/login-legacy",
+    tags=["Auth"],
+    summary="Login (Legacy)",
+    description="Authenticates a user via the legacy login pathway for compatibility scenarios.",
+)
 async def auth_login_legacy(payload: LoginRequest):
     logger.info("/auth/login-legacy: started, env_presence=%s", _auth_env_presence())
     logger.info("/auth/login-legacy: request body parsed successfully")
@@ -414,7 +559,12 @@ async def auth_login_legacy(payload: LoginRequest):
         return JSONResponse(content={"message": "Unexpected server error"}, status_code=500)
 
 
-@app.post("/auth/signup")
+@app.post(
+    "/auth/signup",
+    tags=["Auth"],
+    summary="Signup",
+    description="Creates a new user account for authentication and session onboarding flows.",
+)
 async def auth_signup(payload: SignupRequest):
     logger.info("/auth/signup: started, env_presence=%s", _auth_env_presence())
     logger.info("/auth/signup: request body parsed successfully")
@@ -427,7 +577,12 @@ async def auth_signup(payload: SignupRequest):
         return JSONResponse(content={"message": "Unexpected server error"}, status_code=500)
 
 
-@app.post("/auth/resend-confirmation")
+@app.post(
+    "/auth/resend-confirmation",
+    tags=["Auth"],
+    summary="Resend Confirmation Email",
+    description="Resends account confirmation email for authentication/account activation workflows.",
+)
 async def auth_resend_confirmation(payload: ResendConfirmationRequest):
     logger.info("/auth/resend-confirmation: started")
 
@@ -439,7 +594,10 @@ async def auth_resend_confirmation(payload: ResendConfirmationRequest):
         return JSONResponse(content={"message": "Unexpected server error"}, status_code=500)
 
 
-@app.put("/customer/update")
+@app.put(
+    "/customer/update",
+    description="Updates authenticated customer profile information.",
+)
 async def customer_update(
     request: Request,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
@@ -450,7 +608,10 @@ async def customer_update(
     return JSONResponse(content=payload, status_code=status)
 
 
-@app.put("/customer/update-password")
+@app.put(
+    "/customer/update-password",
+    description="Updates the authenticated customer's password.",
+)
 async def customer_update_password(
     request: Request,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
@@ -465,19 +626,28 @@ async def customer_update_password(
     return JSONResponse(content=payload, status_code=status)
 
 
-@app.get("/products")
+@app.get(
+    "/products",
+    description="Retrieves product catalog data for browsing surfaces.",
+)
 def products_get():
     payload, status = get_products()
     return JSONResponse(content=payload, status_code=status)
 
 
-@app.get("/integrations/ebay/search")
+@app.get(
+    "/integrations/ebay/search",
+    description="Searches eBay listings via integration endpoint for marketplace lookup.",
+)
 def ebay_search_get(query: Optional[str] = Query(default=None)):
     payload, status = search_ebay_items(query)
     return JSONResponse(content=payload, status_code=status)
 
 
-@app.get("/profile/me")
+@app.get(
+    "/profile/me",
+    description="Returns the authenticated user's profile data.",
+)
 def profile_me(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
@@ -491,7 +661,10 @@ def profile_me(
     return JSONResponse(content=payload, status_code=status)
 
 
-@app.put("/profile/me")
+@app.put(
+    "/profile/me",
+    description="Updates the authenticated user's profile settings.",
+)
 def profile_me_update(
     payload: Dict[str, Any] = Body(default={}),
     authorization: Optional[str] = Header(default=None, alias="authorization"),
@@ -501,7 +674,10 @@ def profile_me_update(
     return JSONResponse(content=response_payload, status_code=status)
 
 
-@app.get("/profile/public/{username}")
+@app.get(
+    "/profile/public/{username}",
+    description="Returns public profile data for the specified username.",
+)
 def profile_public_get(
     username: str,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
@@ -527,7 +703,10 @@ def profile_public_get(
     return response
 
 
-@app.get("/profile/tcgs")
+@app.get(
+    "/profile/tcgs",
+    description="Returns available TCG options for profile and collection selection UI.",
+)
 def profile_tcgs_get():
     payload, status = get_tcg_options()
     return JSONResponse(content=payload, status_code=status)

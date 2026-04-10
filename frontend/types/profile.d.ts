@@ -60,11 +60,13 @@ export interface CollectionItemDTO {
   set_name: string | null;
   card_number: string | null;
   rarity: string | null;
+  condition_id?: string | null;
   condition: string | null;
   printing_type: string | null;
   edition: string | null;
   special_type: string | null;
-  estimated_value: number;
+  market_price?: number | null;
+  estimated_value: number | null;
   image_url: string;
   image_large_url: string;
   image_type?: "card" | "graded_base_card" | "sealed" | "fallback";
