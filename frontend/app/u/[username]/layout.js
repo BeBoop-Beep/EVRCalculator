@@ -51,6 +51,8 @@ export default async function PublicProfileLayout({ children, params }) {
 
   const collectionMetrics = {
     portfolioValue: formatCurrencyOrUnknown(summary?.portfolio_value),
+    portfolioDelta1d: normalizeSummaryMetricValue(summary?.portfolio_delta_1d),
+    portfolioDeltaPct1d: normalizeSummaryMetricValue(summary?.portfolio_delta_pct_1d),
     cards: formatCountOrUnknown(summary?.cards_count),
     sealed: formatCountOrUnknown(summary?.sealed_count),
     graded: formatCountOrUnknown(summary?.graded_count),

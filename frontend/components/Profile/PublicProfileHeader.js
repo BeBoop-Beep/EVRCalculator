@@ -38,7 +38,11 @@ export default function PublicProfileHeader({
 
         {isCollectionRoute && collectionMetrics ? (
           <div className="w-full space-y-2 sm:mx-auto sm:max-w-[28rem] lg:mx-0 lg:w-[28rem]">
-            <PortfolioValueCell value={collectionMetrics.portfolioValue} />
+            <PortfolioValueCell
+              value={collectionMetrics.portfolioValue}
+              delta1d={collectionMetrics.portfolioDelta1d}
+              deltaPct1d={collectionMetrics.portfolioDeltaPct1d}
+            />
             <div className="grid grid-cols-3 gap-2">
               <MetricCell label="Cards" value={collectionMetrics.cards} />
               <MetricCell label="Sealed" value={collectionMetrics.sealed} />
@@ -57,13 +61,71 @@ export default function PublicProfileHeader({
   );
 }
 
-function PortfolioValueCell({ value }) {
+function toFiniteNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatSignedCurrencyDelta(value) {
+  const parsed = toFiniteNumberOrNull(value);
+  const amount = Math.abs(parsed ?? 0);
+  const formattedAmount = `$${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+  if ((parsed ?? 0) > 0) {
+    return `+${formattedAmount}`;
+  }
+
+  if ((parsed ?? 0) < 0) {
+    return `-${formattedAmount}`;
+  }
+
+  return formattedAmount;
+}
+
+function formatDeltaPercent(value) {
+  const parsed = toFiniteNumberOrNull(value);
+
+  if (parsed === null) {
+    return "—";
+  }
+
+  const sign = parsed > 0 ? "+" : parsed < 0 ? "-" : "";
+  return `${sign}${Math.abs(parsed).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
+}
+
+function getDeltaToneClass(value) {
+  const parsed = toFiniteNumberOrNull(value) ?? 0;
+
+  if (parsed > 0) {
+    return "text-emerald-400";
+  }
+
+  if (parsed < 0) {
+    return "text-rose-400";
+  }
+
+  return "text-[var(--text-secondary)]";
+}
+
+function PortfolioValueCell({ value, delta1d, deltaPct1d }) {
+  const deltaLabel = `${formatSignedCurrencyDelta(delta1d)} (${formatDeltaPercent(deltaPct1d)}) 1D`;
+  const deltaToneClass = getDeltaToneClass(delta1d);
+
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-center">
       <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Portfolio Value</p>
       <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-      <p className="mt-1 text-xs font-semibold text-emerald-400">+$604 (+12.77%) 7D</p>
-      <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">D curve score</p>
+      <p className={`mt-1 text-xs font-semibold ${deltaToneClass}`}>{deltaLabel}</p>
     </div>
   );
 }

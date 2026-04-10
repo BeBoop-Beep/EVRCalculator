@@ -154,17 +154,102 @@ def _unique_values(values: Iterable[Any]) -> List[Any]:
     return unique
 
 
-def _resolve_card_like_images(
-    variant_small: Any,
-    variant_large: Any,
-    card_small: Any,
-    card_large: Any,
+def _first_non_empty(*values: Any) -> Optional[str]:
+    for value in values:
+        normalized = _to_trimmed_string(value)
+        if normalized:
+            return normalized
+    return None
+
+
+def _resolve_legacy_large_image_url(
+    primary_large: Any,
+    primary_small: Any,
+    secondary_large: Any = None,
+    secondary_small: Any = None,
+) -> str:
+    return (
+        _first_non_empty(primary_large, secondary_large, primary_small, secondary_small)
+        or DEFAULT_COLLECTION_IMAGE_PATH
+    )
+
+
+def resolve_display_image(
+    collectible_type: str,
+    *,
+    variant_large: Any = None,
+    variant_small: Any = None,
+    card_large: Any = None,
+    card_small: Any = None,
+    sealed_large: Any = None,
+    sealed_small: Any = None,
 ) -> Dict[str, str]:
-    resolved_small = _to_trimmed_string(variant_small) or _to_trimmed_string(card_small) or DEFAULT_COLLECTION_IMAGE_PATH
-    resolved_large = _to_trimmed_string(variant_large) or _to_trimmed_string(card_large) or DEFAULT_COLLECTION_IMAGE_PATH
+    if collectible_type == "card":
+        resolved_variant = _first_non_empty(variant_large, variant_small)
+        if resolved_variant:
+            return {
+                "image_url": resolved_variant,
+                "image_type": "card",
+                "image_source": "card_variant",
+                "source_confidence": "high",
+            }
+
+        resolved_card = _first_non_empty(card_large, card_small)
+        if resolved_card:
+            return {
+                "image_url": resolved_card,
+                "image_type": "card",
+                "image_source": "card",
+                "source_confidence": "high",
+            }
+
+        return {
+            "image_url": DEFAULT_COLLECTION_IMAGE_PATH,
+            "image_type": "card",
+            "image_source": "fallback",
+            "source_confidence": "low",
+        }
+
+    if collectible_type == "graded_card":
+        resolved_variant = _first_non_empty(variant_large, variant_small)
+        if resolved_variant:
+            return {
+                "image_url": resolved_variant,
+                "image_type": "graded_base_card",
+                "image_source": "graded_linked_card_variant",
+                "source_confidence": "medium",
+            }
+
+        resolved_card = _first_non_empty(card_large, card_small)
+        if resolved_card:
+            return {
+                "image_url": resolved_card,
+                "image_type": "graded_base_card",
+                "image_source": "graded_linked_card",
+                "source_confidence": "medium",
+            }
+
+        return {
+            "image_url": DEFAULT_COLLECTION_IMAGE_PATH,
+            "image_type": "graded_base_card",
+            "image_source": "fallback",
+            "source_confidence": "low",
+        }
+
+    resolved_sealed = _first_non_empty(sealed_large, sealed_small)
+    if resolved_sealed:
+        return {
+            "image_url": resolved_sealed,
+            "image_type": "sealed",
+            "image_source": "sealed_product",
+            "source_confidence": "high",
+        }
+
     return {
-        "image_url": resolved_small,
-        "image_large_url": resolved_large,
+        "image_url": DEFAULT_COLLECTION_IMAGE_PATH,
+        "image_type": "fallback",
+        "image_source": "fallback",
+        "source_confidence": "low",
     }
 
 
@@ -485,6 +570,32 @@ def get_collection_summary_and_items_for_user_id(
         else []
     )
 
+    graded_query_started_at = perf_counter()
+    graded_variant_rows = (
+        _select_with_fallback(
+            table="graded_card_variants",
+            select_candidates=[
+                "id,card_variant_id,card_id,grade,grading_company",
+                "id,card_variant_id,card_id,grade",
+                "id,card_variant_id,card_id",
+                "id,card_variant_id,grade,grading_company",
+                "id,card_variant_id,grade",
+                "id,card_variant_id",
+            ],
+            filters=[("in", "id", graded_variant_ids)],
+            correlation_id=correlation_id,
+            trace_label="graded_variant_rows",
+            db_client=client,
+        )
+        if graded_variant_ids
+        else []
+    )
+    graded_query_elapsed_ms = (perf_counter() - graded_query_started_at) * 1000
+
+    all_card_variant_ids = _unique_values(
+        [*card_variant_ids, *(row.get("card_variant_id") for row in graded_variant_rows)]
+    )
+
     card_variant_rows = (
         _select_with_fallback(
             table="card_variants",
@@ -492,16 +603,16 @@ def get_collection_summary_and_items_for_user_id(
                 "id,card_id,printing_type,special_type,edition,image_small_url,image_large_url",
                 "id,card_id,printing_type,special_type,edition",
             ],
-            filters=[("in", "id", card_variant_ids)],
+            filters=[("in", "id", all_card_variant_ids)],
             correlation_id=correlation_id,
             trace_label="card_variant_rows",
             db_client=client,
         )
-        if card_variant_ids
+        if all_card_variant_ids
         else []
     )
 
-    linked_card_ids = _unique_values(row.get("card_id") for row in card_variant_rows)
+    linked_card_ids = _unique_values([*(row.get("card_id") for row in card_variant_rows), *(row.get("card_id") for row in graded_variant_rows)])
     card_rows = (
         _select_with_fallback(
             table="cards",
@@ -518,25 +629,6 @@ def get_collection_summary_and_items_for_user_id(
         else []
     )
     cards_query_elapsed_ms = (perf_counter() - cards_query_started_at) * 1000
-
-    graded_query_started_at = perf_counter()
-    graded_variant_rows = (
-        _select_with_fallback(
-            table="graded_card_variants",
-            select_candidates=[
-                "id,card_variant_id,grade,grading_company",
-                "id,card_variant_id,grade",
-                "id,card_variant_id",
-            ],
-            filters=[("in", "id", graded_variant_ids)],
-            correlation_id=correlation_id,
-            trace_label="graded_variant_rows",
-            db_client=client,
-        )
-        if graded_variant_ids
-        else []
-    )
-    graded_query_elapsed_ms = (perf_counter() - graded_query_started_at) * 1000
 
     sealed_query_started_at = perf_counter()
     sealed_rows = (
@@ -604,11 +696,18 @@ def get_collection_summary_and_items_for_user_id(
         market_price = _get_card_market_price(card_price_map, holding.get("card_variant_id"), holding.get("condition_id"))
         estimated_value = quantity * market_price
 
-        images = _resolve_card_like_images(
-            variant_small=variant.get("image_small_url") if variant else None,
+        display_image = resolve_display_image(
+            "card",
             variant_large=variant.get("image_large_url") if variant else None,
-            card_small=card.get("image_small_url") if card else None,
+            variant_small=variant.get("image_small_url") if variant else None,
             card_large=card.get("image_large_url") if card else None,
+            card_small=card.get("image_small_url") if card else None,
+        )
+        legacy_large_image_url = _resolve_legacy_large_image_url(
+            primary_large=variant.get("image_large_url") if variant else None,
+            primary_small=variant.get("image_small_url") if variant else None,
+            secondary_large=card.get("image_large_url") if card else None,
+            secondary_small=card.get("image_small_url") if card else None,
         )
 
         base_item: Dict[str, Any] = {
@@ -625,8 +724,11 @@ def get_collection_summary_and_items_for_user_id(
             "edition": _to_optional_string(variant.get("edition") if variant else None),
             "special_type": _to_optional_string(variant.get("special_type") if variant else None),
             "estimated_value": estimated_value,
-            "image_url": images["image_url"],
-            "image_large_url": images["image_large_url"],
+            "image_url": display_image["image_url"],
+            "image_large_url": legacy_large_image_url,
+            "image_type": display_image["image_type"],
+            "image_source": display_image["image_source"],
+            "source_confidence": display_image["source_confidence"],
         }
 
         if include_private_fields:
@@ -652,11 +754,14 @@ def get_collection_summary_and_items_for_user_id(
         set_row = set_map.get(str(sealed.get("set_id"))) if sealed and sealed.get("set_id") is not None else None
         market_price = _to_number(sealed_price_map.get(str(holding.get("sealed_product_id"))), 0.0)
         estimated_value = quantity * market_price
-        images = _resolve_card_like_images(
-            variant_small=sealed.get("image_small_url") if sealed else None,
-            variant_large=sealed.get("image_large_url") if sealed else None,
-            card_small=None,
-            card_large=None,
+        display_image = resolve_display_image(
+            "sealed_product",
+            sealed_large=sealed.get("image_large_url") if sealed else None,
+            sealed_small=sealed.get("image_small_url") if sealed else None,
+        )
+        legacy_large_image_url = _resolve_legacy_large_image_url(
+            primary_large=sealed.get("image_large_url") if sealed else None,
+            primary_small=sealed.get("image_small_url") if sealed else None,
         )
 
         base_item = {
@@ -673,8 +778,11 @@ def get_collection_summary_and_items_for_user_id(
             "edition": None,
             "special_type": _to_optional_string(sealed.get("product_type") if sealed else None),
             "estimated_value": estimated_value,
-            "image_url": images["image_url"],
-            "image_large_url": images["image_large_url"],
+            "image_url": display_image["image_url"],
+            "image_large_url": legacy_large_image_url,
+            "image_type": display_image["image_type"],
+            "image_source": display_image["image_source"],
+            "source_confidence": display_image["source_confidence"],
         }
 
         if include_private_fields:
@@ -698,15 +806,27 @@ def get_collection_summary_and_items_for_user_id(
         quantity = max(0.0, _to_number(holding.get("quantity"), 0.0))
         graded_variant = graded_variant_map.get(str(holding.get("graded_card_variant_id")))
         variant = card_variant_map.get(str(graded_variant.get("card_variant_id"))) if graded_variant else None
-        card = card_map.get(str(variant.get("card_id"))) if variant else None
+        card_id = None
+        if variant and variant.get("card_id") is not None:
+            card_id = variant.get("card_id")
+        elif graded_variant and graded_variant.get("card_id") is not None:
+            card_id = graded_variant.get("card_id")
+        card = card_map.get(str(card_id)) if card_id is not None else None
         set_row = set_map.get(str(card.get("set_id"))) if card and card.get("set_id") is not None else None
         market_price = _to_number(graded_price_map.get(str(holding.get("graded_card_variant_id"))), 0.0)
         estimated_value = quantity * market_price
-        images = _resolve_card_like_images(
-            variant_small=variant.get("image_small_url") if variant else None,
+        display_image = resolve_display_image(
+            "graded_card",
             variant_large=variant.get("image_large_url") if variant else None,
-            card_small=card.get("image_small_url") if card else None,
+            variant_small=variant.get("image_small_url") if variant else None,
             card_large=card.get("image_large_url") if card else None,
+            card_small=card.get("image_small_url") if card else None,
+        )
+        legacy_large_image_url = _resolve_legacy_large_image_url(
+            primary_large=variant.get("image_large_url") if variant else None,
+            primary_small=variant.get("image_small_url") if variant else None,
+            secondary_large=card.get("image_large_url") if card else None,
+            secondary_small=card.get("image_small_url") if card else None,
         )
 
         grade_value = graded_variant.get("grade") if graded_variant else None
@@ -726,8 +846,11 @@ def get_collection_summary_and_items_for_user_id(
             "edition": _to_optional_string(variant.get("edition") if variant else None),
             "special_type": _to_optional_string(variant.get("special_type") if variant else None),
             "estimated_value": estimated_value,
-            "image_url": images["image_url"],
-            "image_large_url": images["image_large_url"],
+            "image_url": display_image["image_url"],
+            "image_large_url": legacy_large_image_url,
+            "image_type": display_image["image_type"],
+            "image_source": display_image["image_source"],
+            "source_confidence": display_image["source_confidence"],
         }
 
         if include_private_fields:
@@ -903,11 +1026,18 @@ def get_collection_entry_detail_for_user_id(
         estimated_value = _get_card_market_price(card_market_lookup, holding.get("card_variant_id"), holding.get("condition_id")) * max(
             0.0, _to_number(holding.get("quantity"), 0.0)
         )
-        images = _resolve_card_like_images(
-            variant_small=variant.get("image_small_url"),
+        display_image = resolve_display_image(
+            "card",
             variant_large=variant.get("image_large_url"),
-            card_small=card.get("image_small_url"),
+            variant_small=variant.get("image_small_url"),
             card_large=card.get("image_large_url"),
+            card_small=card.get("image_small_url"),
+        )
+        legacy_large_image_url = _resolve_legacy_large_image_url(
+            primary_large=variant.get("image_large_url"),
+            primary_small=variant.get("image_small_url"),
+            secondary_large=card.get("image_large_url"),
+            secondary_small=card.get("image_small_url"),
         )
         entry: Dict[str, Any] = {
             "id": str(holding.get("id") or ""),
@@ -923,8 +1053,11 @@ def get_collection_entry_detail_for_user_id(
             "edition": _to_optional_string(variant.get("edition")),
             "special_type": _to_optional_string(variant.get("special_type")),
             "estimated_value": estimated_value,
-            "image_url": images["image_url"],
-            "image_large_url": images["image_large_url"],
+            "image_url": display_image["image_url"],
+            "image_large_url": legacy_large_image_url,
+            "image_type": display_image["image_type"],
+            "image_source": display_image["image_source"],
+            "source_confidence": display_image["source_confidence"],
         }
         if include_private_fields:
             entry.update(
@@ -997,11 +1130,14 @@ def get_collection_entry_detail_for_user_id(
         estimated_value = _to_number(market_lookup.get(str(holding.get("sealed_product_id"))), 0.0) * max(
             0.0, _to_number(holding.get("quantity"), 0.0)
         )
-        images = _resolve_card_like_images(
-            variant_small=sealed.get("image_small_url"),
-            variant_large=sealed.get("image_large_url"),
-            card_small=None,
-            card_large=None,
+        display_image = resolve_display_image(
+            "sealed_product",
+            sealed_large=sealed.get("image_large_url"),
+            sealed_small=sealed.get("image_small_url"),
+        )
+        legacy_large_image_url = _resolve_legacy_large_image_url(
+            primary_large=sealed.get("image_large_url"),
+            primary_small=sealed.get("image_small_url"),
         )
         entry = {
             "id": str(holding.get("id") or ""),
@@ -1017,8 +1153,11 @@ def get_collection_entry_detail_for_user_id(
             "edition": None,
             "special_type": _to_optional_string(sealed.get("product_type")),
             "estimated_value": estimated_value,
-            "image_url": images["image_url"],
-            "image_large_url": images["image_large_url"],
+            "image_url": display_image["image_url"],
+            "image_large_url": legacy_large_image_url,
+            "image_type": display_image["image_type"],
+            "image_source": display_image["image_source"],
+            "source_confidence": display_image["source_confidence"],
         }
         if include_private_fields:
             entry.update(
@@ -1061,7 +1200,7 @@ def get_collection_entry_detail_for_user_id(
         holding = graded_rows[0]
         graded_variant_rows = _select_with_fallback(
             table="graded_card_variants",
-            select_candidates=["id,card_variant_id,grade", "id,card_variant_id"],
+            select_candidates=["id,card_variant_id,card_id,grade", "id,card_variant_id,card_id", "id,card_variant_id"],
             filters=[("eq", "id", holding.get("graded_card_variant_id"))],
             limit=1,
             correlation_id=correlation_id,
@@ -1079,15 +1218,16 @@ def get_collection_entry_detail_for_user_id(
             db_client=client,
         )
         variant = variant_rows[0] if variant_rows else {}
+        resolved_card_id = variant.get("card_id") if variant.get("card_id") is not None else graded_variant.get("card_id")
         card_rows_join = _select_with_fallback(
             table="cards",
             select_candidates=["id,name,rarity,card_number,set_id,image_small_url,image_large_url", "id,name,set_id"],
-            filters=[("eq", "id", variant.get("card_id"))],
+            filters=[("eq", "id", resolved_card_id)],
             limit=1,
             correlation_id=correlation_id,
             trace_label="entry_graded_card",
             db_client=client,
-        )
+        ) if resolved_card_id is not None else []
         card = card_rows_join[0] if card_rows_join else {}
         set_rows = _select_with_fallback(
             table="sets",
@@ -1111,11 +1251,18 @@ def get_collection_entry_detail_for_user_id(
         estimated_value = _to_number(market_lookup.get(str(holding.get("graded_card_variant_id"))), 0.0) * max(
             0.0, _to_number(holding.get("quantity"), 0.0)
         )
-        images = _resolve_card_like_images(
-            variant_small=variant.get("image_small_url"),
+        display_image = resolve_display_image(
+            "graded_card",
             variant_large=variant.get("image_large_url"),
-            card_small=card.get("image_small_url"),
+            variant_small=variant.get("image_small_url"),
             card_large=card.get("image_large_url"),
+            card_small=card.get("image_small_url"),
+        )
+        legacy_large_image_url = _resolve_legacy_large_image_url(
+            primary_large=variant.get("image_large_url"),
+            primary_small=variant.get("image_small_url"),
+            secondary_large=card.get("image_large_url"),
+            secondary_small=card.get("image_small_url"),
         )
         grade_value = graded_variant.get("grade")
         entry = {
@@ -1132,8 +1279,11 @@ def get_collection_entry_detail_for_user_id(
             "edition": _to_optional_string(variant.get("edition")),
             "special_type": _to_optional_string(variant.get("special_type")),
             "estimated_value": estimated_value,
-            "image_url": images["image_url"],
-            "image_large_url": images["image_large_url"],
+            "image_url": display_image["image_url"],
+            "image_large_url": legacy_large_image_url,
+            "image_type": display_image["image_type"],
+            "image_source": display_image["image_source"],
+            "source_confidence": display_image["source_confidence"],
         }
         if include_private_fields:
             entry.update(

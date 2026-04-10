@@ -67,6 +67,9 @@ export interface CollectionItemDTO {
   estimated_value: number;
   image_url: string;
   image_large_url: string;
+  image_type?: "card" | "graded_base_card" | "sealed" | "fallback";
+  image_source?: "card_variant" | "card" | "graded_linked_card_variant" | "graded_linked_card" | "sealed_product" | "fallback";
+  source_confidence?: "high" | "medium" | "low";
 }
 
 export interface PublicCollectionSummaryResponse {
