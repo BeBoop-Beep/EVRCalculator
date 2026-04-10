@@ -30,6 +30,45 @@ CONFIG_PATH_COMPAT_MAP: Dict[str, str] = {
 MANUAL_CONFIRMED_SET_ID_OVERRIDES: Dict[str, int] = {
     # Confirmed valid mapping from targeted research.
     "heartgoldAndSoulSilver": 1402,
+    # Era-consistent naming corrections confirmed from resolver report (same_id_ratio=1.00).
+    # TCGplayer uses a different label format; set_ids are unambiguous from validation data.
+    "base": 604,                      # "Base" -> "Base Set" on TCGplayer
+    "hsUnleashed": 1399,              # "HS\u2014Unleashed" -> "Unleashed" on TCGplayer
+    "hsUndaunted": 1403,              # "HS\u2014Undaunted" -> "Undaunted" on TCGplayer
+    "hsTriumphant": 1381,             # "HS\u2014Triumphant" -> "Triumphant" on TCGplayer
+    "breakthrough": 1661,             # "BREAKthrough" -> "XY - BREAKthrough" on TCGplayer
+    "breakpoint": 1701,               # "BREAKpoint" -> "XY - BREAKpoint" on TCGplayer
+    "flashfire": 1464,                # "Flashfire" -> "XY - Flashfire" on TCGplayer
+    "bwBlackStarPromos": 1407,        # "BW Black Star Promos" -> "Black and White Promos"
+    "hgssBlackStarPromos": 1453,      # "HGSS Black Star Promos" -> "HGSS Promos"
+    "nintendoBlackStarPromos": 1423,  # "Nintendo Black Star Promos" -> "Nintendo Promos"
+    "smBlackStarPromos": 1861,        # "SM Black Star Promos" -> "SM Promos"
+    "swordAndShield": 2585,           # "Sword & Shield" -> "SWSH01: Sword & Shield Base Set"
+    "pokMonRumble": 1433,             # "Pokemon Rumble" -> "Rumble" on TCGplayer
+}
+
+# Forced TCGplayer setName search labels for sets where global aggregation returns the wrong
+# candidate. Used in place of the normal aggregation-based candidate selection.
+# Only applied when the canonical_key matches and the set has not been manually confirmed.
+EXCEPTION_SEARCH_LABELS: Dict[str, str] = {
+    # XY era base set (TCGplayer may call it "XY Base Set" rather than plain "XY").
+    "xy": "XY Base Set",
+    # XY Evolutions: global aggregation incorrectly returns Prismatic Evolutions.
+    "evolutions": "XY - Evolutions",
+    # Sun & Moon base set: TCGplayer uses abbreviated era label "SM Base Set".
+    "sunAndMoon": "SM Base Set",
+    # Promo sets: TCGplayer drops "Black Star" and shortens era acronyms.
+    # Pattern confirmed from HGSS->HGSS Promos, SM->SM Promos, and BW->Black and White Promos.
+    "wizardsBlackStarPromos": "WotC Promos",
+    "dpBlackStarPromos": "DP Promos",
+    # SWSH promos: try full era name following BW pattern (Black and White Promos).
+    "swshBlackStarPromos": "Sword & Shield Promos",
+    "xyBlackStarPromos": "XY Promos",
+    # McDonald's 2021: 25th anniversary specific label.
+    "mcdonaldSCollection2021": "McDonald's 25th Anniversary Promos",
+    # Futsal and Best of Game: low-confidence; will stay manual if no exact match.
+    "pokMonFutsalCollection": "Pokémon Futsal Collection",
+    "bestOfGame": "Best of Game Promos",
 }
 
 TCGPLAYER_SEARCH_URL = "https://mp-search-api.tcgplayer.com/v1/search/request"
@@ -178,7 +217,7 @@ def token_set(value: str) -> set:
 def promo_era_token(value: str) -> Optional[str]:
     norm = normalize_for_family(value)
     era_patterns = [
-        ("wotc", ["wizards"]),
+        ("wotc", ["wizards", "wotc"]),
         ("bw", ["black and white", "bw"]),
         ("dp", ["diamond and pearl", "dp"]),
         ("hgss", ["heartgold soulsilver", "hgss"]),
@@ -397,6 +436,7 @@ def validate_candidate_set_id(
     search_query: str,
     set_name_filter: str,
     expected_set_name: str,
+    exception_label: Optional[str] = None,
 ) -> Tuple[Optional[int], float, str]:
     body = build_search_body(query_set_name=set_name_filter, size=24)
     candidate_queries = [
@@ -456,7 +496,7 @@ def validate_candidate_set_id(
         if is_promo_family(expected_set_name) and is_promo_family(clean_dominant_name):
             expected_era = promo_era_token(expected_set_name)
             dominant_era = promo_era_token(clean_dominant_name)
-            if expected_era and dominant_era and expected_era == dominant_era and overlap >= 0.55:
+            if expected_era and dominant_era and expected_era == dominant_era and overlap >= 0.45:
                 confidence = max(confidence, 0.92)
                 targeted_rule_note = "promo-family era-consistent acceptance"
 
@@ -464,6 +504,14 @@ def validate_candidate_set_id(
         if is_trainer_kit_family(expected_set_name) and is_trainer_kit_family(clean_dominant_name) and overlap >= 0.55:
             confidence = max(confidence, 0.92)
             targeted_rule_note = "trainer-kit family acceptance"
+
+        # Exception-label deterministic acceptance: if we searched with a known forced label and
+        # TCGplayer returned that exact label as the dominant result, accept it.
+        if exception_label and not targeted_rule_note:
+            clean_exception = clean_tcg_set_name(exception_label)
+            if normalize_name(clean_dominant_name) == normalize_name(clean_exception):
+                confidence = max(confidence, 0.92)
+                targeted_rule_note = "exception-label deterministic acceptance"
 
     note = (
         f"dominant_set_id={dominant_set_id}, same_id_ratio={same_id_ratio:.2f}, "
@@ -625,38 +673,48 @@ def resolve_single_set(
                 "notes": f"Resolved from cache setId={cached_set_id}",
             }
 
+    canonical_key = row.get("canonical_key") or ""
+    exception_label = EXCEPTION_SEARCH_LABELS.get(canonical_key)
+
     best_candidate_name: Optional[str] = None
     best_candidate_score = 0.0
     best_candidate_note = ""
 
-    candidate_name, score, note = pick_candidate_set_name(global_set_aggregations, target_set_name)
-    if candidate_name and score > best_candidate_score:
-        best_candidate_name = candidate_name
-        best_candidate_score = score
-        best_candidate_note = f"global_aggregation {note}"
+    if exception_label:
+        # Bypass aggregation: go directly to validation with the known forced TCGplayer label.
+        print(f"[resolver] exception label override for '{target_set_name}': '{exception_label}'")
+        best_candidate_name = exception_label
+        best_candidate_score = 0.5  # placeholder; real score is set during validation
+        best_candidate_note = f"exception_label='{exception_label}'"
+    else:
+        candidate_name, score, note = pick_candidate_set_name(global_set_aggregations, target_set_name)
+        if candidate_name and score > best_candidate_score:
+            best_candidate_name = candidate_name
+            best_candidate_score = score
+            best_candidate_note = f"global_aggregation {note}"
 
-    if best_candidate_score < 1.0:
-        staged_queries = [
-            target_set_name,
-            normalize_name(target_set_name),
-            f"pokemon {target_set_name}",
-            row.get("canonical_key") or "",
-        ]
-        for query in staged_queries:
-            query = (query or "").strip()
-            if not query:
-                continue
-            body = build_search_body(size=0)
-            payload = safe_post_search(requester, query=query, body=body, cache=query_cache)
-            results = (payload.get("results") or [{}])[0]
-            aggregations = (results.get("aggregations") or {}).get("setName") or []
-            candidate_name, score, note = pick_candidate_set_name(aggregations, target_set_name)
-            if candidate_name and score > best_candidate_score:
-                best_candidate_name = candidate_name
-                best_candidate_score = score
-                best_candidate_note = f"stage_query='{query}' {note}"
-            if score >= 1.0:
-                break
+        if best_candidate_score < 1.0:
+            staged_queries = [
+                target_set_name,
+                normalize_name(target_set_name),
+                f"pokemon {target_set_name}",
+                canonical_key,
+            ]
+            for query in staged_queries:
+                query = (query or "").strip()
+                if not query:
+                    continue
+                body = build_search_body(size=0)
+                payload = safe_post_search(requester, query=query, body=body, cache=query_cache)
+                results = (payload.get("results") or [{}])[0]
+                aggregations = (results.get("aggregations") or {}).get("setName") or []
+                candidate_name, score, note = pick_candidate_set_name(aggregations, target_set_name)
+                if candidate_name and score > best_candidate_score:
+                    best_candidate_name = candidate_name
+                    best_candidate_score = score
+                    best_candidate_note = f"stage_query='{query}' {note}"
+                if score >= 1.0:
+                    break
 
     if not best_candidate_name:
         return {
@@ -680,6 +738,7 @@ def resolve_single_set(
         search_query=target_set_name,
         set_name_filter=best_candidate_name,
         expected_set_name=target_set_name,
+        exception_label=exception_label,
     )
 
     if not set_id or confidence < min_confidence:

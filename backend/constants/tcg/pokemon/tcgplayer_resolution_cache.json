@@ -191,6 +191,114 @@
       "confidence": 0.92,
       "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1815, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Steam Siege'; normalized-equivalence acceptance",
       "updated_at": "2026-04-10T22:28:21.528528+00:00"
+    },
+    "base": {
+      "set_id": 604,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:49.152600+00:00"
+    },
+    "bwBlackStarPromos": {
+      "set_id": 1407,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:51.177529+00:00"
+    },
+    "hgssBlackStarPromos": {
+      "set_id": 1453,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.718236+00:00"
+    },
+    "hsUnleashed": {
+      "set_id": 1399,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.719030+00:00"
+    },
+    "hsUndaunted": {
+      "set_id": 1403,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.719423+00:00"
+    },
+    "hsTriumphant": {
+      "set_id": 1381,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.719811+00:00"
+    },
+    "nintendoBlackStarPromos": {
+      "set_id": 1423,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.720145+00:00"
+    },
+    "pokMonRumble": {
+      "set_id": 1433,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:53.886597+00:00"
+    },
+    "smBlackStarPromos": {
+      "set_id": 1861,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:04.266022+00:00"
+    },
+    "swordAndShield": {
+      "set_id": 2585,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:07.194259+00:00"
+    },
+    "flashfire": {
+      "set_id": 1464,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:10.464963+00:00"
+    },
+    "breakthrough": {
+      "set_id": 1661,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:10.466160+00:00"
+    },
+    "breakpoint": {
+      "set_id": 1701,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:10.466444+00:00"
+    },
+    "evolutions": {
+      "set_id": 1842,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='XY - Evolutions'; dominant_set_id=1842, same_id_ratio=1.00, overlap=0.50, dominant_name='XY - Evolutions'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:45:11.770781+00:00"
+    },
+    "sunAndMoon": {
+      "set_id": 1863,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='SM Base Set'; dominant_set_id=1863, same_id_ratio=1.00, overlap=0.00, dominant_name='SM Base Set'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:48:33.596728+00:00"
+    },
+    "xyBlackStarPromos": {
+      "set_id": 1451,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='XY Promos'; dominant_set_id=1451, same_id_ratio=1.00, overlap=0.50, dominant_name='XY Promos'; promo-family era-consistent acceptance",
+      "updated_at": "2026-04-10T22:48:36.684223+00:00"
+    },
+    "xy": {
+      "set_id": 1387,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='XY Base Set'; dominant_set_id=1387, same_id_ratio=1.00, overlap=0.33, dominant_name='XY Base Set'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:48:38.728897+00:00"
+    },
+    "mcdonaldSCollection2021": {
+      "set_id": 2782,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='McDonald's 25th Anniversary Promos'; dominant_set_id=2782, same_id_ratio=1.00, overlap=0.40, dominant_name='McDonald's 25th Anniversary Promos'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:51:37.876457+00:00"
     }
   }
 }

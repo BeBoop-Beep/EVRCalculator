@@ -5,17 +5,17 @@
     "sets_inspected": 158,
     "sets_in_resolution_queue": 59,
     "sets_already_ready_before": 99,
-    "sets_ready_after": 131,
-    "sets_newly_resolved": 32,
-    "sets_with_file_writes": 32,
+    "sets_ready_after": 149,
+    "sets_newly_resolved": 50,
+    "sets_with_file_writes": 1,
     "status_counts": {
-      "validation_failed": 23,
-      "resolved_automatically": 32,
-      "already_ready": 4
+      "already_ready": 53,
+      "validation_failed": 5,
+      "resolved_automatically": 1
     },
     "total_sets_inspected": 158,
-    "ready_for_daily_scrape": 131,
-    "not_ready": 27
+    "ready_for_daily_scrape": 149,
+    "not_ready": 9
   },
   "sets": [
     {
@@ -28,10 +28,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -124,10 +124,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -860,10 +860,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -892,10 +892,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -908,10 +908,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -924,10 +924,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -1084,10 +1084,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -1148,10 +1148,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -1308,10 +1308,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -1612,10 +1612,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -1628,10 +1628,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -1916,10 +1916,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -2300,10 +2300,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -2332,10 +2332,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -2348,10 +2348,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -2460,10 +2460,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -2476,10 +2476,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     },
     {
@@ -2540,10 +2540,10 @@
       "exists_locally": true,
       "generated_now": true,
       "preexisting_partial_work": false,
-      "has_card_details_url": false,
-      "has_sealed_details_url": false,
+      "has_card_details_url": true,
+      "has_sealed_details_url": true,
       "has_price_endpoints": false,
-      "ready_for_daily_scrape": false,
+      "ready_for_daily_scrape": true,
       "notes": "Generated missing set config stub."
     }
   ]
