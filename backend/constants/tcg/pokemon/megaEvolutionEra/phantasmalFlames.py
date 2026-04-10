@@ -12,8 +12,8 @@ class SetPhantasmalFlamesConfig(BaseSetConfig):
     LOGO_IMAGE_URL = 'https://images.pokemontcg.io/me2/logo.png'
 
     # TODO: Populate scrape targets once TCGplayer set links are resolved.
-    CARD_DETAILS_URL = None
-    SEALED_DETAILS_URL = None
+    CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/24448/cards/?rows=5000&productTypeID=1'
+    SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/24448/cards/?rows=5000&productTypeID=25'
     PRICE_ENDPOINTS = {}
 
     # TODO: Add set-specific pull rate mappings when data is available.

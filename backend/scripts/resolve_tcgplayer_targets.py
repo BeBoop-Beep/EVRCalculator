@@ -1,8 +1,12 @@
 import argparse
+import hashlib
 import json
+import random
 import re
 import time
+from collections import deque
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -12,8 +16,19 @@ import requests
 DEFAULT_REPORT_PATH = Path("backend/constants/tcg/pokemon/pokemon_set_bootstrap_report.json")
 DEFAULT_RESOLUTION_REPORT_PATH = Path("backend/constants/tcg/pokemon/pokemon_tcgplayer_resolution_report.json")
 DEFAULT_READINESS_REPORT_PATH = Path("backend/constants/tcg/pokemon/pokemon_set_readiness_after_tcgplayer_resolution.json")
+DEFAULT_CACHE_PATH = Path("backend/constants/tcg/pokemon/tcgplayer_resolution_cache.json")
 
 TCGPLAYER_SEARCH_URL = "https://mp-search-api.tcgplayer.com/v1/search/request"
+
+MAX_REQUESTS_PER_SECOND = 1
+MAX_REQUESTS_PER_MINUTE = 30
+MAX_RETRIES = 3
+BACKOFF_SECONDS = 2
+TIMEOUT = 10
+MIN_THROTTLE_DELAY = 0.8
+MAX_THROTTLE_DELAY = 1.6
+RATE_LIMIT_PAUSE_MIN = 30
+RATE_LIMIT_PAUSE_MAX = 60
 
 
 @dataclass
@@ -22,6 +37,98 @@ class ConfigTargets:
     sealed_details_url: Optional[str]
     price_endpoints_count: int
     set_name: Optional[str]
+
+
+@dataclass
+class ResolverCache:
+    path: Path
+    data: Dict[str, Any]
+    dirty: bool = False
+
+
+class ThrottledRequester:
+    """
+    Single-threaded request gateway for all outbound resolver traffic.
+    """
+
+    def __init__(self, session: requests.Session):
+        self.session = session
+        self.last_request_ts = 0.0
+        self.minute_window: deque = deque()
+
+    def _enforce_minute_window(self) -> None:
+        now = time.time()
+        while self.minute_window and now - self.minute_window[0] >= 60:
+            self.minute_window.popleft()
+
+        if len(self.minute_window) >= MAX_REQUESTS_PER_MINUTE:
+            wait_seconds = max(60 - (now - self.minute_window[0]), 0)
+            print(f"[resolver] minute cap reached ({MAX_REQUESTS_PER_MINUTE}/min), pausing {wait_seconds:.1f}s")
+            if wait_seconds > 0:
+                time.sleep(wait_seconds)
+            now = time.time()
+            while self.minute_window and now - self.minute_window[0] >= 60:
+                self.minute_window.popleft()
+
+    def _throttle(self, request_label: str) -> None:
+        self._enforce_minute_window()
+
+        now = time.time()
+        elapsed = now - self.last_request_ts if self.last_request_ts else 10.0
+        jitter_delay = random.uniform(MIN_THROTTLE_DELAY, MAX_THROTTLE_DELAY)
+        required_delay = max(jitter_delay, max((1.0 / MAX_REQUESTS_PER_SECOND) - elapsed, 0.0))
+
+        if required_delay > 0:
+            time.sleep(required_delay)
+
+        self.last_request_ts = time.time()
+        self.minute_window.append(self.last_request_ts)
+        print(f"[resolver] throttled request: {request_label}")
+
+    def safe_request(self, method: str, url: str, request_label: str, **kwargs: Any) -> Optional[requests.Response]:
+        timeout = kwargs.pop("timeout", TIMEOUT)
+
+        for attempt in range(1, MAX_RETRIES + 1):
+            self._throttle(request_label)
+            try:
+                response = self.session.request(method=method, url=url, timeout=timeout, **kwargs)
+
+                if response.status_code == 429 or "rate limit" in response.text.lower():
+                    pause_seconds = random.uniform(RATE_LIMIT_PAUSE_MIN, RATE_LIMIT_PAUSE_MAX)
+                    print(
+                        f"[resolver] rate-limit detected ({response.status_code}); "
+                        f"pause {pause_seconds:.1f}s before retry"
+                    )
+                    time.sleep(pause_seconds)
+                    if attempt < MAX_RETRIES:
+                        print(f"[resolver] retry attempt {attempt + 1} after 429")
+                        continue
+                    return None
+
+                if 500 <= response.status_code <= 599:
+                    if attempt < MAX_RETRIES:
+                        backoff = BACKOFF_SECONDS * attempt
+                        print(
+                            f"[resolver] retry attempt {attempt + 1} after {response.status_code}; "
+                            f"backoff {backoff}s"
+                        )
+                        time.sleep(backoff)
+                        continue
+                    return None
+
+                return response
+            except requests.RequestException as exc:
+                if attempt < MAX_RETRIES:
+                    backoff = BACKOFF_SECONDS * attempt
+                    print(
+                        f"[resolver] retry attempt {attempt + 1} after connection error: {exc}; "
+                        f"backoff {backoff}s"
+                    )
+                    time.sleep(backoff)
+                    continue
+                return None
+
+        return None
 
 
 def normalize_name(value: str) -> str:
@@ -89,6 +196,41 @@ def parse_existing_targets(py_text: str) -> ConfigTargets:
     )
 
 
+def load_cache(path: Path) -> ResolverCache:
+    if path.exists():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                parsed.setdefault("set_resolutions", {})
+                return ResolverCache(path=path, data=parsed)
+        except json.JSONDecodeError:
+            pass
+
+    return ResolverCache(path=path, data={"set_resolutions": {}})
+
+
+def save_cache(cache: ResolverCache) -> None:
+    if not cache.dirty:
+        return
+    cache.path.parent.mkdir(parents=True, exist_ok=True)
+    cache.path.write_text(json.dumps(cache.data, indent=2), encoding="utf-8", newline="\n")
+    print(f"[resolver] cache write: {cache.path}")
+    cache.dirty = False
+
+
+def cache_key_for_row(row: Dict[str, Any], set_name: str) -> str:
+    canonical = row.get("canonical_key") or ""
+    if canonical:
+        return canonical
+    return normalize_name(set_name)
+
+
+def search_cache_key(query: str, body: Dict[str, Any]) -> str:
+    body_serialized = json.dumps(body, sort_keys=True)
+    body_hash = hashlib.sha256(body_serialized.encode("utf-8")).hexdigest()
+    return f"q={query}|body={body_hash}"
+
+
 def build_search_body(query_set_name: Optional[str] = None, size: int = 24) -> Dict[str, Any]:
     term_filters: Dict[str, Any] = {
         "productLineName": ["Pokemon"],
@@ -117,27 +259,32 @@ def build_search_body(query_set_name: Optional[str] = None, size: int = 24) -> D
     }
 
 
-def fetch_global_set_aggregations(session: requests.Session) -> List[Dict[str, Any]]:
+def fetch_global_set_aggregations(requester: ThrottledRequester, query_cache: Dict[str, Any]) -> List[Dict[str, Any]]:
     body = build_search_body(size=0)
-    payload = safe_post_search(session=session, query="", body=body)
+    payload = safe_post_search(requester=requester, query="", body=body, cache=query_cache)
     results = (payload.get("results") or [{}])[0]
     return (results.get("aggregations") or {}).get("setName") or []
 
 
-def safe_post_search(session: requests.Session, query: str, body: Dict[str, Any], retries: int = 3) -> Dict[str, Any]:
+def safe_post_search(requester: ThrottledRequester, query: str, body: Dict[str, Any], cache: Dict[str, Any]) -> Dict[str, Any]:
+    key = search_cache_key(query=query, body=body)
+    if key in cache:
+        return cache[key]
+
     params = {"q": query, "isList": "true"}
-    for attempt in range(retries):
-        try:
-            response = session.post(TCGPLAYER_SEARCH_URL, params=params, json=body, timeout=30)
-            if response.status_code == 200:
-                return response.json()
-            if response.status_code in (429, 500, 502, 503, 504):
-                time.sleep(0.5 * (attempt + 1))
-                continue
-            return {}
-        except requests.RequestException:
-            time.sleep(0.5 * (attempt + 1))
-    return {}
+    response = requester.safe_request(
+        method="POST",
+        url=TCGPLAYER_SEARCH_URL,
+        request_label="tcgplayer search",
+        params=params,
+        json=body,
+    )
+    if not response or response.status_code != 200:
+        return {}
+
+    payload = response.json()
+    cache[key] = payload
+    return payload
 
 
 def pick_candidate_set_name(aggregations: List[Dict[str, Any]], target_name: str) -> Tuple[Optional[str], float, str]:
@@ -174,13 +321,14 @@ def pick_candidate_set_name(aggregations: List[Dict[str, Any]], target_name: str
 
 
 def validate_candidate_set_id(
-    session: requests.Session,
+    requester: ThrottledRequester,
+    query_cache: Dict[str, Any],
     search_query: str,
     set_name_filter: str,
     expected_set_name: str,
 ) -> Tuple[Optional[int], float, str]:
     body = build_search_body(query_set_name=set_name_filter, size=24)
-    payload = safe_post_search(session, query=search_query, body=body)
+    payload = safe_post_search(requester, query=search_query, body=body, cache=query_cache)
     results = (payload.get("results") or [{}])[0]
     items = results.get("results") or []
 
@@ -242,11 +390,13 @@ def summarize_readiness(rows: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def resolve_single_set(
-    session: requests.Session,
+    requester: ThrottledRequester,
     row: Dict[str, Any],
     apply_changes: bool,
     min_confidence: float,
     global_set_aggregations: List[Dict[str, Any]],
+    cache: ResolverCache,
+    query_cache: Dict[str, Any],
 ) -> Dict[str, Any]:
     config_file = Path(row["local_config_file_path"])
     if not config_file.exists():
@@ -286,6 +436,42 @@ def resolve_single_set(
         }
 
     target_set_name = row.get("set_name") or existing.set_name or row.get("canonical_key") or ""
+    row_cache_key = cache_key_for_row(row, target_set_name)
+
+    cached_resolution = (cache.data.get("set_resolutions") or {}).get(row_cache_key)
+    if cached_resolution and isinstance(cached_resolution, dict):
+        cached_set_id = cached_resolution.get("set_id")
+        if isinstance(cached_set_id, int):
+            print(f"[resolver] cache hit for set: {target_set_name}")
+            resolved_card_url, resolved_sealed_url = build_priceguide_urls(cached_set_id)
+
+            wrote_changes = False
+            patched_text = py_text
+            if not existing.card_details_url:
+                patched_text, changed = replace_assignment_line(patched_text, "CARD_DETAILS_URL", repr(resolved_card_url))
+                wrote_changes = wrote_changes or changed
+            if not existing.sealed_details_url:
+                patched_text, changed = replace_assignment_line(patched_text, "SEALED_DETAILS_URL", repr(resolved_sealed_url))
+                wrote_changes = wrote_changes or changed
+
+            if apply_changes and wrote_changes and patched_text != py_text:
+                config_file.write_text(patched_text, encoding="utf-8", newline="\n")
+
+            return {
+                "resolution_status": "resolved_automatically",
+                "confidence": round(float(cached_resolution.get("confidence", 1.0)), 3),
+                "validation_notes": cached_resolution.get("validation_notes", "resolved from cache"),
+                "wrote_changes": wrote_changes and apply_changes,
+                "manual_review_required": False,
+                "resolved_card_details_url": existing.card_details_url or resolved_card_url,
+                "resolved_sealed_details_url": existing.sealed_details_url or resolved_sealed_url,
+                "resolved_price_endpoints_count": existing.price_endpoints_count,
+                "existing_card_details_url": existing.card_details_url,
+                "existing_sealed_details_url": existing.sealed_details_url,
+                "existing_price_endpoints_count": existing.price_endpoints_count,
+                "notes": f"Resolved from cache setId={cached_set_id}",
+            }
+
     best_candidate_name: Optional[str] = None
     best_candidate_score = 0.0
     best_candidate_note = ""
@@ -308,7 +494,7 @@ def resolve_single_set(
             if not query:
                 continue
             body = build_search_body(size=0)
-            payload = safe_post_search(session, query=query, body=body)
+            payload = safe_post_search(requester, query=query, body=body, cache=query_cache)
             results = (payload.get("results") or [{}])[0]
             aggregations = (results.get("aggregations") or {}).get("setName") or []
             candidate_name, score, note = pick_candidate_set_name(aggregations, target_set_name)
@@ -336,7 +522,8 @@ def resolve_single_set(
         }
 
     set_id, confidence, validation_note = validate_candidate_set_id(
-        session=session,
+        requester=requester,
+        query_cache=query_cache,
         search_query=target_set_name,
         set_name_filter=best_candidate_name,
         expected_set_name=target_set_name,
@@ -373,6 +560,16 @@ def resolve_single_set(
     if apply_changes and wrote_changes and patched_text != py_text:
         config_file.write_text(patched_text, encoding="utf-8", newline="\n")
 
+    set_cache = cache.data.setdefault("set_resolutions", {})
+    set_cache[row_cache_key] = {
+        "set_id": set_id,
+        "confidence": round(confidence, 3),
+        "validation_notes": f"{best_candidate_note}; {validation_note}",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    cache.dirty = True
+    print(f"[resolver] cache write for set: {target_set_name}")
+
     status = "resolved_automatically"
     if (existing.card_details_url and not existing.sealed_details_url) or (existing.sealed_details_url and not existing.card_details_url):
         status = "partially_resolved"
@@ -401,6 +598,7 @@ def main() -> int:
     parser.add_argument("--max-sets", type=int, default=0, help="Optional cap on sets processed from unresolved queue")
     parser.add_argument("--resolution-report", default=str(DEFAULT_RESOLUTION_REPORT_PATH), help="Output resolution report path")
     parser.add_argument("--readiness-report", default=str(DEFAULT_READINESS_REPORT_PATH), help="Output readiness summary report path")
+    parser.add_argument("--cache-path", default=str(DEFAULT_CACHE_PATH), help="Persistent resolver cache file path")
     args = parser.parse_args()
 
     report_path = Path(args.report)
@@ -416,7 +614,6 @@ def main() -> int:
         if (not row.get("ready_for_daily_scrape"))
         or (not row.get("has_card_details_url"))
         or (not row.get("has_sealed_details_url"))
-        or (not row.get("has_price_endpoints"))
     ]
 
     session = requests.Session()
@@ -427,13 +624,17 @@ def main() -> int:
         "Referer": "https://www.tcgplayer.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     })
+    requester = ThrottledRequester(session=session)
+
+    cache = load_cache(Path(args.cache_path))
+    query_cache: Dict[str, Any] = {}
 
     before_ready = sum(1 for row in sets if row.get("ready_for_daily_scrape"))
 
     if args.max_sets and args.max_sets > 0:
         unresolved_queue = unresolved_queue[: args.max_sets]
 
-    global_set_aggregations = fetch_global_set_aggregations(session)
+    global_set_aggregations = fetch_global_set_aggregations(requester, query_cache)
 
     resolution_rows: List[Dict[str, Any]] = []
     status_counts: Dict[str, int] = {}
@@ -441,11 +642,13 @@ def main() -> int:
 
     for row in unresolved_queue:
         resolution = resolve_single_set(
-            session=session,
+            requester=requester,
             row=row,
             apply_changes=args.apply,
             min_confidence=args.min_confidence,
             global_set_aggregations=global_set_aggregations,
+            cache=cache,
+            query_cache=query_cache,
         )
 
         status = resolution["resolution_status"]
@@ -534,6 +737,7 @@ def main() -> int:
     readiness_report_path = Path(args.readiness_report)
     resolution_report_path.write_text(json.dumps(resolution_report, indent=2), encoding="utf-8", newline="\n")
     readiness_report_path.write_text(json.dumps(readiness_report, indent=2), encoding="utf-8", newline="\n")
+    save_cache(cache)
 
     print(f"[TCGPLAYER-RESOLVE] sets_inspected={len(sets)}")
     print(f"[TCGPLAYER-RESOLVE] queue={len(unresolved_queue)}")
