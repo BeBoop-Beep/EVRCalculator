@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetPaldeaEvolvedConfig(BaseSetConfig):
     SET_NAME = "Paldea Evolved"
     SET_ABBREVIATION = "PAL"
+    SET_ID = 'sv2'
+    RELEASE_DATE = '2023/06/09'
+    PRINTED_TOTAL = 193
+    TOTAL = 279
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv2/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv2/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23120/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23120/cards/?rows=5000&productTypeID=25"

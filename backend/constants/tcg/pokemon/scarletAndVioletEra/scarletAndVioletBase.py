@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetScarletAndVioletBaseConfig(BaseSetConfig):
     SET_NAME = "Scarlet and Violet Base Set"
     SET_ABBREVIATION = "SVI"
+    SET_ID = 'sv1'
+    RELEASE_DATE = '2023/03/31'
+    PRINTED_TOTAL = 198
+    TOTAL = 258
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv1/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv1/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/22873/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/22873/cards/?rows=5000&productTypeID=25"

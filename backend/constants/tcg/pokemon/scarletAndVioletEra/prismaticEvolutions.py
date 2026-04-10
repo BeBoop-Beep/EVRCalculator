@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetPrismaticEvolutionsConfig(BaseSetConfig):
     SET_NAME = "Prismatic Evolutions"
     SET_ABBREVIATION = "PRE"
+    SET_ID = 'sv8pt5'
+    RELEASE_DATE = '2025/01/17'
+    PRINTED_TOTAL = 131
+    TOTAL = 180
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv8pt5/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv8pt5/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23821/cards/?rows=5000&productTypeID=25"

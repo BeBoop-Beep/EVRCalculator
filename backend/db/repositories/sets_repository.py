@@ -21,3 +21,28 @@ def insert_set(set_data: dict):
     if result is None:
         raise RuntimeError("Insert set returned no response object")
     return result.data if result.data else None
+
+
+def insert_sets(set_rows: list[dict]):
+    """Insert many set rows in one request and return inserted payloads."""
+    if not set_rows:
+        return []
+
+    result = supabase.table("sets").insert(set_rows).execute()
+    if result is None:
+        raise RuntimeError("Bulk insert sets returned no response object")
+    return result.data if result.data else None
+
+
+def get_sets_by_tcg_id(tcg_id: str):
+    """Return all sets for a TCG."""
+    response = supabase.table("sets").select("*").eq("tcg_id", tcg_id).execute()
+    return response.data if response and response.data else []
+
+
+def update_set_by_id(set_id: str, set_data: dict):
+    """Update one set row and return the updated payload."""
+    response = supabase.table("sets").update(set_data).eq("id", set_id).execute()
+    if response is None:
+        raise RuntimeError("Update set returned no response object")
+    return response.data if response.data else None

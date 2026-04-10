@@ -1,0 +1,1712 @@
+{
+  "summary": {
+    "apply_changes": true,
+    "sets_fetched_from_api": 172,
+    "local_set_files_inspected": 170,
+    "files_updated": 16,
+    "fields_filled": 0,
+    "unresolved_sets": 0
+  },
+  "results": [
+    {
+      "era": "baseWotcEra",
+      "canonical_key": "base",
+      "set_name": "Base",
+      "file_path": "backend/constants/tcg/pokemon/baseWotcEra/base.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "base1",
+      "notes": ""
+    },
+    {
+      "era": "baseWotcEra",
+      "canonical_key": "baseSet2",
+      "set_name": "Base Set 2",
+      "file_path": "backend/constants/tcg/pokemon/baseWotcEra/baseSet2.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "base4",
+      "notes": ""
+    },
+    {
+      "era": "baseWotcEra",
+      "canonical_key": "fossil",
+      "set_name": "Fossil",
+      "file_path": "backend/constants/tcg/pokemon/baseWotcEra/fossil.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "base3",
+      "notes": ""
+    },
+    {
+      "era": "baseWotcEra",
+      "canonical_key": "jungle",
+      "set_name": "Jungle",
+      "file_path": "backend/constants/tcg/pokemon/baseWotcEra/jungle.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "base2",
+      "notes": ""
+    },
+    {
+      "era": "baseWotcEra",
+      "canonical_key": "teamRocket",
+      "set_name": "Team Rocket",
+      "file_path": "backend/constants/tcg/pokemon/baseWotcEra/teamRocket.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "base5",
+      "notes": ""
+    },
+    {
+      "era": "baseWotcEra",
+      "canonical_key": "wizardsBlackStarPromos",
+      "set_name": "Wizards Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/baseWotcEra/wizardsBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "basep",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "blackAndWhite",
+      "set_name": "Black & White",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/blackAndWhite.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw1",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "boundariesCrossed",
+      "set_name": "Boundaries Crossed",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/boundariesCrossed.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw7",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "bwBlackStarPromos",
+      "set_name": "BW Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/bwBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bwp",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "darkExplorers",
+      "set_name": "Dark Explorers",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/darkExplorers.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw5",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "dragonsExalted",
+      "set_name": "Dragons Exalted",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/dragonsExalted.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw6",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "dragonVault",
+      "set_name": "Dragon Vault",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/dragonVault.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dv1",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "emergingPowers",
+      "set_name": "Emerging Powers",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/emergingPowers.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw2",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "legendaryTreasures",
+      "set_name": "Legendary Treasures",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/legendaryTreasures.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw11",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "nextDestinies",
+      "set_name": "Next Destinies",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/nextDestinies.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw4",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "nobleVictories",
+      "set_name": "Noble Victories",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/nobleVictories.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw3",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "plasmaBlast",
+      "set_name": "Plasma Blast",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/plasmaBlast.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw10",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "plasmaFreeze",
+      "set_name": "Plasma Freeze",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/plasmaFreeze.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw9",
+      "notes": ""
+    },
+    {
+      "era": "blackAndWhiteEra",
+      "canonical_key": "plasmaStorm",
+      "set_name": "Plasma Storm",
+      "file_path": "backend/constants/tcg/pokemon/blackAndWhiteEra/plasmaStorm.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bw8",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "diamondAndPearl",
+      "set_name": "Diamond & Pearl",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/diamondAndPearl.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dp1",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "dpBlackStarPromos",
+      "set_name": "DP Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/dpBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dpp",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "greatEncounters",
+      "set_name": "Great Encounters",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/greatEncounters.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dp4",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "legendsAwakened",
+      "set_name": "Legends Awakened",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/legendsAwakened.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dp6",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "majesticDawn",
+      "set_name": "Majestic Dawn",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/majesticDawn.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dp5",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "mysteriousTreasures",
+      "set_name": "Mysterious Treasures",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/mysteriousTreasures.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dp2",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "secretWonders",
+      "set_name": "Secret Wonders",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/secretWonders.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dp3",
+      "notes": ""
+    },
+    {
+      "era": "diamondAndPearlEra",
+      "canonical_key": "stormfront",
+      "set_name": "Stormfront",
+      "file_path": "backend/constants/tcg/pokemon/diamondAndPearlEra/stormfront.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dp7",
+      "notes": ""
+    },
+    {
+      "era": "eCardEra",
+      "canonical_key": "aquapolis",
+      "set_name": "Aquapolis",
+      "file_path": "backend/constants/tcg/pokemon/eCardEra/aquapolis.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ecard2",
+      "notes": ""
+    },
+    {
+      "era": "eCardEra",
+      "canonical_key": "expeditionBaseSet",
+      "set_name": "Expedition Base Set",
+      "file_path": "backend/constants/tcg/pokemon/eCardEra/expeditionBaseSet.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ecard1",
+      "notes": ""
+    },
+    {
+      "era": "eCardEra",
+      "canonical_key": "skyridge",
+      "set_name": "Skyridge",
+      "file_path": "backend/constants/tcg/pokemon/eCardEra/skyridge.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ecard3",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "crystalGuardians",
+      "set_name": "Crystal Guardians",
+      "file_path": "backend/constants/tcg/pokemon/exEra/crystalGuardians.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex14",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "deltaSpecies",
+      "set_name": "Delta Species",
+      "file_path": "backend/constants/tcg/pokemon/exEra/deltaSpecies.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex11",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "deoxys",
+      "set_name": "Deoxys",
+      "file_path": "backend/constants/tcg/pokemon/exEra/deoxys.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex8",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "dragon",
+      "set_name": "Dragon",
+      "file_path": "backend/constants/tcg/pokemon/exEra/dragon.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex3",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "dragonFrontiers",
+      "set_name": "Dragon Frontiers",
+      "file_path": "backend/constants/tcg/pokemon/exEra/dragonFrontiers.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex15",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "emerald",
+      "set_name": "Emerald",
+      "file_path": "backend/constants/tcg/pokemon/exEra/emerald.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex9",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "exTrainerKit2Minun",
+      "set_name": "EX Trainer Kit 2 Minun",
+      "file_path": "backend/constants/tcg/pokemon/exEra/exTrainerKit2Minun.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "tk2b",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "exTrainerKit2Plusle",
+      "set_name": "EX Trainer Kit 2 Plusle",
+      "file_path": "backend/constants/tcg/pokemon/exEra/exTrainerKit2Plusle.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "tk2a",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "exTrainerKitLatias",
+      "set_name": "EX Trainer Kit Latias",
+      "file_path": "backend/constants/tcg/pokemon/exEra/exTrainerKitLatias.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "tk1a",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "exTrainerKitLatios",
+      "set_name": "EX Trainer Kit Latios",
+      "file_path": "backend/constants/tcg/pokemon/exEra/exTrainerKitLatios.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "tk1b",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "fireredAndLeafGreen",
+      "set_name": "FireRed & LeafGreen",
+      "file_path": "backend/constants/tcg/pokemon/exEra/fireredAndLeafGreen.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex6",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "hiddenLegends",
+      "set_name": "Hidden Legends",
+      "file_path": "backend/constants/tcg/pokemon/exEra/hiddenLegends.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex5",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "holonPhantoms",
+      "set_name": "Holon Phantoms",
+      "file_path": "backend/constants/tcg/pokemon/exEra/holonPhantoms.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex13",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "legendMaker",
+      "set_name": "Legend Maker",
+      "file_path": "backend/constants/tcg/pokemon/exEra/legendMaker.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex12",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "powerKeepers",
+      "set_name": "Power Keepers",
+      "file_path": "backend/constants/tcg/pokemon/exEra/powerKeepers.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex16",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "rubyAndSapphire",
+      "set_name": "Ruby & Sapphire",
+      "file_path": "backend/constants/tcg/pokemon/exEra/rubyAndSapphire.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex1",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "sandstorm",
+      "set_name": "Sandstorm",
+      "file_path": "backend/constants/tcg/pokemon/exEra/sandstorm.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex2",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "teamMagmaVsTeamAqua",
+      "set_name": "Team Magma vs Team Aqua",
+      "file_path": "backend/constants/tcg/pokemon/exEra/teamMagmaVsTeamAqua.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex4",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "teamRocketReturns",
+      "set_name": "Team Rocket Returns",
+      "file_path": "backend/constants/tcg/pokemon/exEra/teamRocketReturns.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex7",
+      "notes": ""
+    },
+    {
+      "era": "exEra",
+      "canonical_key": "unseenForces",
+      "set_name": "Unseen Forces",
+      "file_path": "backend/constants/tcg/pokemon/exEra/unseenForces.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ex10",
+      "notes": ""
+    },
+    {
+      "era": "gymEra",
+      "canonical_key": "gymChallenge",
+      "set_name": "Gym Challenge",
+      "file_path": "backend/constants/tcg/pokemon/gymEra/gymChallenge.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "gym2",
+      "notes": ""
+    },
+    {
+      "era": "gymEra",
+      "canonical_key": "gymHeroes",
+      "set_name": "Gym Heroes",
+      "file_path": "backend/constants/tcg/pokemon/gymEra/gymHeroes.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "gym1",
+      "notes": ""
+    },
+    {
+      "era": "heartGoldAndSoulSilverEra",
+      "canonical_key": "callOfLegends",
+      "set_name": "Call of Legends",
+      "file_path": "backend/constants/tcg/pokemon/heartGoldAndSoulSilverEra/callOfLegends.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "col1",
+      "notes": ""
+    },
+    {
+      "era": "heartGoldAndSoulSilverEra",
+      "canonical_key": "heartgoldAndSoulSilver",
+      "set_name": "HeartGold & SoulSilver",
+      "file_path": "backend/constants/tcg/pokemon/heartGoldAndSoulSilverEra/heartgoldAndSoulSilver.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "hgss1",
+      "notes": ""
+    },
+    {
+      "era": "heartGoldAndSoulSilverEra",
+      "canonical_key": "hgssBlackStarPromos",
+      "set_name": "HGSS Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/heartGoldAndSoulSilverEra/hgssBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "hsp",
+      "notes": ""
+    },
+    {
+      "era": "heartGoldAndSoulSilverEra",
+      "canonical_key": "hsTriumphant",
+      "set_name": "HS\u2014Triumphant",
+      "file_path": "backend/constants/tcg/pokemon/heartGoldAndSoulSilverEra/hsTriumphant.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "hgss4",
+      "notes": ""
+    },
+    {
+      "era": "heartGoldAndSoulSilverEra",
+      "canonical_key": "hsUndaunted",
+      "set_name": "HS\u2014Undaunted",
+      "file_path": "backend/constants/tcg/pokemon/heartGoldAndSoulSilverEra/hsUndaunted.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "hgss3",
+      "notes": ""
+    },
+    {
+      "era": "heartGoldAndSoulSilverEra",
+      "canonical_key": "hsUnleashed",
+      "set_name": "HS\u2014Unleashed",
+      "file_path": "backend/constants/tcg/pokemon/heartGoldAndSoulSilverEra/hsUnleashed.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "hgss2",
+      "notes": ""
+    },
+    {
+      "era": "megaEvolutionEra",
+      "canonical_key": "ascendedHeroes",
+      "set_name": "Ascended Heroes",
+      "file_path": "backend/constants/tcg/pokemon/megaEvolutionEra/ascendedHeroes.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "me2pt5",
+      "notes": ""
+    },
+    {
+      "era": "megaEvolutionEra",
+      "canonical_key": "megaEvolution",
+      "set_name": "Mega Evolution",
+      "file_path": "backend/constants/tcg/pokemon/megaEvolutionEra/megaEvolution.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "me1",
+      "notes": ""
+    },
+    {
+      "era": "megaEvolutionEra",
+      "canonical_key": "perfectOrder",
+      "set_name": "Perfect Order",
+      "file_path": "backend/constants/tcg/pokemon/megaEvolutionEra/perfectOrder.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "me3",
+      "notes": ""
+    },
+    {
+      "era": "megaEvolutionEra",
+      "canonical_key": "phantasmalFlames",
+      "set_name": "Phantasmal Flames",
+      "file_path": "backend/constants/tcg/pokemon/megaEvolutionEra/phantasmalFlames.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "me2",
+      "notes": ""
+    },
+    {
+      "era": "neoEra",
+      "canonical_key": "neoDestiny",
+      "set_name": "Neo Destiny",
+      "file_path": "backend/constants/tcg/pokemon/neoEra/neoDestiny.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "neo4",
+      "notes": ""
+    },
+    {
+      "era": "neoEra",
+      "canonical_key": "neoDiscovery",
+      "set_name": "Neo Discovery",
+      "file_path": "backend/constants/tcg/pokemon/neoEra/neoDiscovery.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "neo2",
+      "notes": ""
+    },
+    {
+      "era": "neoEra",
+      "canonical_key": "neoGenesis",
+      "set_name": "Neo Genesis",
+      "file_path": "backend/constants/tcg/pokemon/neoEra/neoGenesis.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "neo1",
+      "notes": ""
+    },
+    {
+      "era": "neoEra",
+      "canonical_key": "neoRevelation",
+      "set_name": "Neo Revelation",
+      "file_path": "backend/constants/tcg/pokemon/neoEra/neoRevelation.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "neo3",
+      "notes": ""
+    },
+    {
+      "era": "npEra",
+      "canonical_key": "nintendoBlackStarPromos",
+      "set_name": "Nintendo Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/npEra/nintendoBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "np",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "bestOfGame",
+      "set_name": "Best of Game",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/bestOfGame.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "bp",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "legendaryCollection",
+      "set_name": "Legendary Collection",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/legendaryCollection.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "base6",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2011",
+      "set_name": "McDonald's Collection 2011",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2011.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd11",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2012",
+      "set_name": "McDonald's Collection 2012",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2012.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd12",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2014",
+      "set_name": "McDonald's Collection 2014",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2014.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd14",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2015",
+      "set_name": "McDonald's Collection 2015",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2015.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd15",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2016",
+      "set_name": "McDonald's Collection 2016",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2016.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd16",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2017",
+      "set_name": "McDonald's Collection 2017",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2017.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd17",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2018",
+      "set_name": "McDonald's Collection 2018",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2018.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd18",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2019",
+      "set_name": "McDonald's Collection 2019",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2019.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd19",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2021",
+      "set_name": "McDonald's Collection 2021",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2021.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd21",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSCollection2022",
+      "set_name": "McDonald's Collection 2022",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSCollection2022.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "mcd22",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "pokMonFutsalCollection",
+      "set_name": "Pok\u00e9mon Futsal Collection",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/pokMonFutsalCollection.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "fut20",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "pokMonRumble",
+      "set_name": "Pok\u00e9mon Rumble",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/pokMonRumble.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "ru1",
+      "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "southernIslands",
+      "set_name": "Southern Islands",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/southernIslands.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "si1",
+      "notes": ""
+    },
+    {
+      "era": "platinumEra",
+      "canonical_key": "arceus",
+      "set_name": "Arceus",
+      "file_path": "backend/constants/tcg/pokemon/platinumEra/arceus.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pl4",
+      "notes": ""
+    },
+    {
+      "era": "platinumEra",
+      "canonical_key": "platinum",
+      "set_name": "Platinum",
+      "file_path": "backend/constants/tcg/pokemon/platinumEra/platinum.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pl1",
+      "notes": ""
+    },
+    {
+      "era": "platinumEra",
+      "canonical_key": "risingRivals",
+      "set_name": "Rising Rivals",
+      "file_path": "backend/constants/tcg/pokemon/platinumEra/risingRivals.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pl2",
+      "notes": ""
+    },
+    {
+      "era": "platinumEra",
+      "canonical_key": "supremeVictors",
+      "set_name": "Supreme Victors",
+      "file_path": "backend/constants/tcg/pokemon/platinumEra/supremeVictors.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pl3",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries1",
+      "set_name": "POP Series 1",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries1.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop1",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries2",
+      "set_name": "POP Series 2",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries2.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop2",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries3",
+      "set_name": "POP Series 3",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries3.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop3",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries4",
+      "set_name": "POP Series 4",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries4.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop4",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries5",
+      "set_name": "POP Series 5",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries5.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop5",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries6",
+      "set_name": "POP Series 6",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries6.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop6",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries7",
+      "set_name": "POP Series 7",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries7.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop7",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries8",
+      "set_name": "POP Series 8",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries8.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop8",
+      "notes": ""
+    },
+    {
+      "era": "popEra",
+      "canonical_key": "popSeries9",
+      "set_name": "POP Series 9",
+      "file_path": "backend/constants/tcg/pokemon/popEra/popSeries9.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pop9",
+      "notes": ""
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "blackBolt",
+      "set_name": "Black Bolt",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/blackBolt.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "zsv10pt5",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "destinedRivals",
+      "set_name": "Destined Rivals",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/destinedRivals.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv10",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "journeyTogether",
+      "set_name": "Journey Together",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/journeyTogether.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv9",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "obsidianFlames",
+      "set_name": "Obsidian Flames",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/obsidianFlames.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv3",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "paldeaEvolved",
+      "set_name": "Paldea Evolved",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/paldeaEvolved.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv2",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "paldeanFates",
+      "set_name": "Paldean Fates",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/paldeanFates.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv4pt5",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "paradoxRift",
+      "set_name": "Paradox Rift",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/paradoxRift.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv4",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "prismaticEvolutions",
+      "set_name": "Prismatic Evolutions",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/prismaticEvolutions.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv8pt5",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "scarletAndViolet151",
+      "set_name": "Scarlet and Violet 151",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndViolet151.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv3pt5",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "scarletAndVioletBase",
+      "set_name": "Scarlet and Violet Base Set",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndVioletBase.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv1",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "shroudedFable",
+      "set_name": "Shrouded Fable",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/shroudedFable.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv6pt5",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "stellarCrown",
+      "set_name": "Stellar Crown",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/stellarCrown.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv7",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "surgingSparks",
+      "set_name": "Surging Sparks",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/surgingSparks.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv8",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "temporalForces",
+      "set_name": "Temporal Forces",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/temporalForces.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv5",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "twilightMasquerade",
+      "set_name": "Twilight Masquerade",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/twilightMasquerade.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "sv6",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "scarletAndVioletEra",
+      "canonical_key": "whiteFlare",
+      "set_name": "White Flare",
+      "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/whiteFlare.py",
+      "status": "formatted",
+      "updated_fields": [],
+      "api_set_id": "rsv10pt5",
+      "notes": "spacing normalized"
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "burningShadows",
+      "set_name": "Burning Shadows",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/burningShadows.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm3",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "celestialStorm",
+      "set_name": "Celestial Storm",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/celestialStorm.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm7",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "cosmicEclipse",
+      "set_name": "Cosmic Eclipse",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/cosmicEclipse.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm12",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "crimsonInvasion",
+      "set_name": "Crimson Invasion",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/crimsonInvasion.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm4",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "detectivePikachu",
+      "set_name": "Detective Pikachu",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/detectivePikachu.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "det1",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "dragonMajesty",
+      "set_name": "Dragon Majesty",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/dragonMajesty.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm75",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "forbiddenLight",
+      "set_name": "Forbidden Light",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/forbiddenLight.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm6",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "guardiansRising",
+      "set_name": "Guardians Rising",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/guardiansRising.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm2",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "hiddenFates",
+      "set_name": "Hidden Fates",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/hiddenFates.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm115",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "hiddenFatesShinyVault",
+      "set_name": "Hidden Fates Shiny Vault",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/hiddenFatesShinyVault.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sma",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "lostThunder",
+      "set_name": "Lost Thunder",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/lostThunder.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm8",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "shiningLegends",
+      "set_name": "Shining Legends",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/shiningLegends.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm35",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "smBlackStarPromos",
+      "set_name": "SM Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/smBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "smp",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "sunAndMoon",
+      "set_name": "Sun & Moon",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/sunAndMoon.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm1",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "teamUp",
+      "set_name": "Team Up",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/teamUp.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm9",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "ultraPrism",
+      "set_name": "Ultra Prism",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/ultraPrism.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm5",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "unbrokenBonds",
+      "set_name": "Unbroken Bonds",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/unbrokenBonds.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm10",
+      "notes": ""
+    },
+    {
+      "era": "sunAndMoonEra",
+      "canonical_key": "unifiedMinds",
+      "set_name": "Unified Minds",
+      "file_path": "backend/constants/tcg/pokemon/sunAndMoonEra/unifiedMinds.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "sm11",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "astralRadiance",
+      "set_name": "Astral Radiance",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/astralRadiance.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh10",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "astralRadianceTrainerGallery",
+      "set_name": "Astral Radiance Trainer Gallery",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/astralRadianceTrainerGallery.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh10tg",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "battleStyles",
+      "set_name": "Battle Styles",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/battleStyles.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh5",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "brilliantStars",
+      "set_name": "Brilliant Stars",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/brilliantStars.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh9",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "brilliantStarsTrainerGallery",
+      "set_name": "Brilliant Stars Trainer Gallery",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/brilliantStarsTrainerGallery.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh9tg",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "celebrations",
+      "set_name": "Celebrations",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/celebrations.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "cel25",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "celebrationsClassicCollection",
+      "set_name": "Celebrations: Classic Collection",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/celebrationsClassicCollection.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "cel25c",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "championSPath",
+      "set_name": "Champion's Path",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/championSPath.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh35",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "chillingReign",
+      "set_name": "Chilling Reign",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/chillingReign.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh6",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "crownZenith",
+      "set_name": "Crown Zenith",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/crownZenith.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh12pt5",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "crownZenithGalarianGallery",
+      "set_name": "Crown Zenith Galarian Gallery",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/crownZenithGalarianGallery.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh12pt5gg",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "darknessAblaze",
+      "set_name": "Darkness Ablaze",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/darknessAblaze.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh3",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "evolvingSkies",
+      "set_name": "Evolving Skies",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/evolvingSkies.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh7",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "fusionStrike",
+      "set_name": "Fusion Strike",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/fusionStrike.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh8",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "lostOrigin",
+      "set_name": "Lost Origin",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/lostOrigin.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh11",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "lostOriginTrainerGallery",
+      "set_name": "Lost Origin Trainer Gallery",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/lostOriginTrainerGallery.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh11tg",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "pokMonGO",
+      "set_name": "Pok\u00e9mon GO",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/pokMonGO.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "pgo",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "rebelClash",
+      "set_name": "Rebel Clash",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/rebelClash.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh2",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "shiningFates",
+      "set_name": "Shining Fates",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/shiningFates.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh45",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "shiningFatesShinyVault",
+      "set_name": "Shining Fates Shiny Vault",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/shiningFatesShinyVault.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh45sv",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "silverTempest",
+      "set_name": "Silver Tempest",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/silverTempest.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh12",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "silverTempestTrainerGallery",
+      "set_name": "Silver Tempest Trainer Gallery",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/silverTempestTrainerGallery.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh12tg",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "swordAndShield",
+      "set_name": "Sword & Shield",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/swordAndShield.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh1",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "swshBlackStarPromos",
+      "set_name": "SWSH Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/swshBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swshp",
+      "notes": ""
+    },
+    {
+      "era": "swordAndShieldEra",
+      "canonical_key": "vividVoltage",
+      "set_name": "Vivid Voltage",
+      "file_path": "backend/constants/tcg/pokemon/swordAndShieldEra/vividVoltage.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "swsh4",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "ancientOrigins",
+      "set_name": "Ancient Origins",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/ancientOrigins.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy7",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "breakpoint",
+      "set_name": "BREAKpoint",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/breakpoint.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy9",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "breakthrough",
+      "set_name": "BREAKthrough",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/breakthrough.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy8",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "doubleCrisis",
+      "set_name": "Double Crisis",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/doubleCrisis.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "dc1",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "evolutions",
+      "set_name": "Evolutions",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/evolutions.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy12",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "fatesCollide",
+      "set_name": "Fates Collide",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/fatesCollide.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy10",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "flashfire",
+      "set_name": "Flashfire",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/flashfire.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy2",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "furiousFists",
+      "set_name": "Furious Fists",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/furiousFists.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy3",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "generations",
+      "set_name": "Generations",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/generations.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "g1",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "kalosStarterSet",
+      "set_name": "Kalos Starter Set",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/kalosStarterSet.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy0",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "phantomForces",
+      "set_name": "Phantom Forces",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/phantomForces.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy4",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "primalClash",
+      "set_name": "Primal Clash",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/primalClash.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy5",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "roaringSkies",
+      "set_name": "Roaring Skies",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/roaringSkies.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy6",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "steamSiege",
+      "set_name": "Steam Siege",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/steamSiege.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy11",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "xy",
+      "set_name": "XY",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/xy.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xy1",
+      "notes": ""
+    },
+    {
+      "era": "xyEra",
+      "canonical_key": "xyBlackStarPromos",
+      "set_name": "XY Black Star Promos",
+      "file_path": "backend/constants/tcg/pokemon/xyEra/xyBlackStarPromos.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "xyp",
+      "notes": ""
+    }
+  ]
+}

@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetTwilightMasqueradeConfig(BaseSetConfig):
     SET_NAME = "Twilight Masquerade"
     SET_ABBREVIATION = "TWM"
+    SET_ID = 'sv6'
+    RELEASE_DATE = '2024/05/24'
+    PRINTED_TOTAL = 167
+    TOTAL = 226
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv6/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv6/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=1"
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23473/cards/?rows=5000&productTypeID=25"

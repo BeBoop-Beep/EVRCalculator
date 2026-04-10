@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetJourneyTogetherConfig(BaseSetConfig):
     SET_NAME = "Journey Together"
     SET_ABBREVIATION = "JTG"
+    SET_ID = 'sv9'
+    RELEASE_DATE = '2025/03/28'
+    PRINTED_TOTAL = 159
+    TOTAL = 190
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv9/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv9/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24073/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/24073/cards/?rows=5000&productTypeID=25"

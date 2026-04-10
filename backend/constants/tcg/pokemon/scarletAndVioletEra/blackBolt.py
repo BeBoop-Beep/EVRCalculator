@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetBlackBoltConfig(BaseSetConfig):
     SET_NAME = "Black Bolt"
     SET_ABBREVIATION = "BLK"
+    SET_ID = 'zsv10pt5'
+    RELEASE_DATE = '2025/07/18'
+    PRINTED_TOTAL = 86
+    TOTAL = 172
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/zsv10pt5/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/zsv10pt5/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24325/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL = "https://infinite-api.tcgplayer.com/priceguide/set/24325/cards/?rows=5000&productTypeID=25"

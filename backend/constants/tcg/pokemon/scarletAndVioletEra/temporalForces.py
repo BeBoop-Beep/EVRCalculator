@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetTemporalForcesConfig(BaseSetConfig):
     SET_NAME = "Temporal Forces"
     SET_ABBREVIATION = "TEF"
+    SET_ID = 'sv5'
+    RELEASE_DATE = '2024/03/22'
+    PRINTED_TOTAL = 162
+    TOTAL = 218
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv5/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv5/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23381/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23381/cards/?rows=5000&productTypeID=25"

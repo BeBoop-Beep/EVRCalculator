@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetParadoxRiftConfig(BaseSetConfig):
     SET_NAME = "Paradox Rift"
     SET_ABBREVIATION = "PAR"
+    SET_ID = 'sv4'
+    RELEASE_DATE = '2023/11/03'
+    PRINTED_TOTAL = 182
+    TOTAL = 266
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv4/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv4/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23286/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23286/cards/?rows=5000&productTypeID=25"

@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetDestinedRivalsConfig(BaseSetConfig):
     SET_NAME = "Destined Rivals"
     SET_ABBREVIATION = "DRI"
+    SET_ID = 'sv10'
+    RELEASE_DATE = '2025/05/30'
+    PRINTED_TOTAL = 182
+    TOTAL = 244
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv10/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv10/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24269/cards/?rows=5000&productTypeID=1"
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/24269/cards/?rows=5000&productTypeID=25"
