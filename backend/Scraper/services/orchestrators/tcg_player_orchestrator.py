@@ -56,6 +56,7 @@ class TCGScraper:
                     print("[OK] Database ingestion successful")
                     print(f"\n[SUMMARY] Ingestion Summary:")
                     if 'summary' in result:
+                        payload['_ingestion_efficiency'] = result['summary']
                         for key, value in result['summary'].items():
                             print(f"   {key}: {value}")
                 else:

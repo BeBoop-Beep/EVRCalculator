@@ -1,5 +1,6 @@
+from typing import List, Dict, Any, Optional
+
 from ..clients.supabase_client import supabase
-from typing import Dict, List
 
 def get_set_by_name(name: str):
     return supabase.table("sets").select("*").eq("name", name).single().execute()
@@ -8,7 +9,7 @@ def get_set_id_by_name(name: str):
     res = get_set_by_name(name)
     return res.data["id"] if res and res.data else None
 
-def insert_set(set_data: dict):
+def insert_set(set_data: Dict[str, Any]):
     """
     Insert a new set into the database
     
@@ -24,7 +25,7 @@ def insert_set(set_data: dict):
     return result.data if result.data else None
 
 
-def insert_sets(set_rows: List[Dict]):
+def insert_sets(set_rows: List[Dict[str, Any]]):
     """Insert many set rows in one request and return inserted payloads."""
     if not set_rows:
         return []
@@ -41,7 +42,7 @@ def get_sets_by_tcg_id(tcg_id: str):
     return response.data if response and response.data else []
 
 
-def update_set_by_id(set_id: str, set_data: dict):
+def update_set_by_id(set_id: str, set_data: Dict[str, Any]):
     """Update one set row and return the updated payload."""
     response = supabase.table("sets").update(set_data).eq("id", set_id).execute()
     if response is None:
@@ -49,7 +50,7 @@ def update_set_by_id(set_id: str, set_data: dict):
     return response.data if response.data else None
 
 
-def get_scrape_ready_sets_by_tcg_id(tcg_id: str) -> List[Dict]:
+def get_scrape_ready_sets_by_tcg_id(tcg_id: str) -> List[Dict[str, Any]]:
     """Return scrape-ready sets for a TCG, ordered by release_date then name."""
     response = (
         supabase.table("sets")

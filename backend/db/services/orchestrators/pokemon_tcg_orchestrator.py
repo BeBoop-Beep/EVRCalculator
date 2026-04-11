@@ -90,6 +90,29 @@ class PokemonTCGOrchestrator:
                     raise
             
             print(f"\n[OK] Pokemon TCG ingestion complete!")
+            cards_eff = result['details'].get('cards', {}).get('ingestion_efficiency', {})
+            sealed_eff = result['details'].get('sealed_products', {}).get('ingestion_efficiency', {})
+
+            total_attempted_rows = int(cards_eff.get('attempted_rows', 0)) + int(sealed_eff.get('attempted_rows', 0))
+            total_inserted_rows = int(cards_eff.get('inserted_rows', 0)) + int(sealed_eff.get('inserted_rows', 0))
+            total_skipped_duplicates = int(cards_eff.get('skipped_duplicates', 0)) + int(sealed_eff.get('skipped_duplicates', 0))
+            total_db_batch_operations = int(cards_eff.get('db_batch_operations', 0)) + int(sealed_eff.get('db_batch_operations', 0))
+
+            estimated_write_reduction_ratio = (
+                round((total_skipped_duplicates / total_attempted_rows), 4)
+                if total_attempted_rows
+                else 0.0
+            )
+
+            result['summary'] = {
+                'price_rows_attempted': total_attempted_rows,
+                'price_rows_inserted': total_inserted_rows,
+                'price_rows_skipped_duplicates': total_skipped_duplicates,
+                'price_db_batch_operations': total_db_batch_operations,
+                'estimated_write_reduction_ratio': estimated_write_reduction_ratio,
+                'cards': cards_eff,
+                'sealed_products': sealed_eff,
+            }
             return result
             
         except Exception as e:

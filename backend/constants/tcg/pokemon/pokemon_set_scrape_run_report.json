@@ -1,678 +1,1340 @@
 {
-  "generated_at_utc": "2026-04-11T00:22:54.373086+00:00",
-  "mode": "dry_run",
+  "generated_at_utc": "2026-04-11T15:15:21.302553+00:00",
+  "completed_at_utc": "2026-04-11T15:54:48.923689+00:00",
+  "mode": "apply",
   "era_filter": null,
   "set_filter": null,
   "limit": null,
+  "db_ingestion_enabled": true,
   "sets_selected": 165,
-  "sets_attempted": 0,
-  "sets_succeeded": 0,
+  "sets_attempted": 165,
+  "sets_succeeded": 165,
   "sets_failed": 0,
   "sets_skipped_no_config": 0,
   "skipped_no_config": [],
   "sets_era_filtered": 0,
-  "elapsed_seconds": 0,
+  "elapsed_seconds": 2367.62,
   "retry_heavy_sets": [],
   "results": [
     {
       "canonical_key": "base",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 505,
+      "sealed_scraped": 3,
+      "error": null
     },
     {
       "canonical_key": "jungle",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 640,
+      "sealed_scraped": 4,
+      "error": null
     },
     {
       "canonical_key": "fossil",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 620,
+      "sealed_scraped": 4,
+      "error": null
     },
     {
       "canonical_key": "baseSet2",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 650,
+      "sealed_scraped": 3,
+      "error": null
     },
     {
       "canonical_key": "teamRocket",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 830,
+      "sealed_scraped": 4,
+      "error": null
     },
     {
       "canonical_key": "gymHeroes",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1280,
+      "sealed_scraped": 2,
+      "error": null
     },
     {
       "canonical_key": "gymChallenge",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1277,
+      "sealed_scraped": 3,
+      "error": null
     },
     {
       "canonical_key": "neoGenesis",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1093,
+      "sealed_scraped": 2,
+      "error": null
     },
     {
       "canonical_key": "neoDiscovery",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 694,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "southernIslands",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 90,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "neoRevelation",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 623,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "neoDestiny",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 997,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "legendaryCollection",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1035,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "expeditionBaseSet",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 505,
+      "sealed_scraped": 3,
+      "error": null
     },
     {
       "canonical_key": "aquapolis",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1548,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "skyridge",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1144,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "rubyAndSapphire",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1025,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "sandstorm",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 916,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "nintendoBlackStarPromos",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 284,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "dragon",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 911,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "teamMagmaVsTeamAqua",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 840,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "exTrainerKitLatias",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 89,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "exTrainerKitLatios",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 89,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "hiddenLegends",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 900,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "fireredAndLeafGreen",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1131,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "popSeries1",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 113,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "teamRocketReturns",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 956,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "deoxys",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1028,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "emerald",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 916,
+      "sealed_scraped": 3,
+      "error": null
     },
     {
       "canonical_key": "popSeries2",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 113,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "unseenForces",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1148,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "deltaSpecies",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1052,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "legendMaker",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 837,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "exTrainerKit2Minun",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 104,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "exTrainerKit2Plusle",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 104,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "popSeries3",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 105,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "holonPhantoms",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1005,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "crystalGuardians",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 928,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "popSeries4",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 97,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "dragonFrontiers",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 926,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "powerKeepers",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 961,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "popSeries5",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 103,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "diamondAndPearl",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1218,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "mysteriousTreasures",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1193,
+      "sealed_scraped": 2,
+      "error": null
     },
     {
       "canonical_key": "popSeries6",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 116,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "secretWonders",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1245,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "greatEncounters",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 962,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "popSeries7",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 111,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "majesticDawn",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 889,
+      "sealed_scraped": 3,
+      "error": null
     },
     {
       "canonical_key": "legendsAwakened",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1295,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "popSeries8",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 141,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "stormfront",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 938,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "platinum",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1194,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "popSeries9",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 110,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "risingRivals",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1032,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "supremeVictors",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1330,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "arceus",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 960,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "pokMonRumble",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 70,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "heartgoldAndSoulSilver",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1084,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "hgssBlackStarPromos",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 143,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "hsUnleashed",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 813,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "hsUndaunted",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 788,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "hsTriumphant",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 885,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "callOfLegends",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 910,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "bwBlackStarPromos",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 492,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "blackAndWhite",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 974,
+      "sealed_scraped": 3,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2011",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 60,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "emergingPowers",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 814,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "nobleVictories",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 817,
+      "sealed_scraped": 2,
+      "error": null
     },
     {
       "canonical_key": "nextDestinies",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 848,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "darkExplorers",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 866,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2012",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 60,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "dragonsExalted",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1053,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "dragonVault",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 105,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "boundariesCrossed",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1173,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "plasmaStorm",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1098,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "plasmaFreeze",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 981,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "plasmaBlast",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 862,
+      "sealed_scraped": 2,
+      "error": null
     },
     {
       "canonical_key": "xyBlackStarPromos",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1105,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "legendaryTreasures",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 971,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "kalosStarterSet",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 247,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "xy",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1215,
+      "sealed_scraped": 4,
+      "error": null
     },
     {
       "canonical_key": "flashfire",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 869,
+      "sealed_scraped": 5,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2014",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 60,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "furiousFists",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 936,
+      "sealed_scraped": 11,
+      "error": null
     },
     {
       "canonical_key": "phantomForces",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 982,
+      "sealed_scraped": 5,
+      "error": null
     },
     {
       "canonical_key": "primalClash",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1337,
+      "sealed_scraped": 8,
+      "error": null
     },
     {
       "canonical_key": "doubleCrisis",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 319,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "roaringSkies",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 911,
+      "sealed_scraped": 9,
+      "error": null
     },
     {
       "canonical_key": "ancientOrigins",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 802,
+      "sealed_scraped": 8,
+      "error": null
     },
     {
       "canonical_key": "breakthrough",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1323,
+      "sealed_scraped": 13,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2015",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 60,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "breakpoint",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 960,
+      "sealed_scraped": 8,
+      "error": null
     },
     {
       "canonical_key": "generations",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 698,
+      "sealed_scraped": 14,
+      "error": null
     },
     {
       "canonical_key": "fatesCollide",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 997,
+      "sealed_scraped": 12,
+      "error": null
     },
     {
       "canonical_key": "steamSiege",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 941,
+      "sealed_scraped": 16,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2016",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 33,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "evolutions",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 947,
+      "sealed_scraped": 18,
+      "error": null
     },
     {
       "canonical_key": "smBlackStarPromos",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1360,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "sunAndMoon",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1288,
+      "sealed_scraped": 19,
+      "error": null
     },
     {
       "canonical_key": "guardiansRising",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1173,
+      "sealed_scraped": 27,
+      "error": null
     },
     {
       "canonical_key": "burningShadows",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1128,
+      "sealed_scraped": 18,
+      "error": null
     },
     {
       "canonical_key": "shiningLegends",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 548,
+      "sealed_scraped": 9,
+      "error": null
     },
     {
       "canonical_key": "crimsonInvasion",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 850,
+      "sealed_scraped": 18,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2017",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 60,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "ultraPrism",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1142,
+      "sealed_scraped": 15,
+      "error": null
     },
     {
       "canonical_key": "forbiddenLight",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 976,
+      "sealed_scraped": 9,
+      "error": null
     },
     {
       "canonical_key": "celestialStorm",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1155,
+      "sealed_scraped": 13,
+      "error": null
     },
     {
       "canonical_key": "dragonMajesty",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 507,
+      "sealed_scraped": 5,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2018",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 60,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "lostThunder",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1536,
+      "sealed_scraped": 10,
+      "error": null
     },
     {
       "canonical_key": "teamUp",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1340,
+      "sealed_scraped": 17,
+      "error": null
     },
     {
       "canonical_key": "detectivePikachu",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 90,
+      "sealed_scraped": 12,
+      "error": null
     },
     {
       "canonical_key": "unbrokenBonds",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1508,
+      "sealed_scraped": 16,
+      "error": null
     },
     {
       "canonical_key": "unifiedMinds",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1587,
+      "sealed_scraped": 18,
+      "error": null
     },
     {
       "canonical_key": "hiddenFates",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 454,
+      "sealed_scraped": 17,
+      "error": null
     },
     {
       "canonical_key": "hiddenFatesShinyVault",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 357,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2019",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 60,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "cosmicEclipse",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1640,
+      "sealed_scraped": 13,
+      "error": null
     },
     {
       "canonical_key": "swordAndShield",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1425,
+      "sealed_scraped": 30,
+      "error": null
     },
     {
       "canonical_key": "rebelClash",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1217,
+      "sealed_scraped": 20,
+      "error": null
     },
     {
       "canonical_key": "darknessAblaze",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1220,
+      "sealed_scraped": 19,
+      "error": null
     },
     {
       "canonical_key": "championSPath",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 430,
+      "sealed_scraped": 17,
+      "error": null
     },
     {
       "canonical_key": "vividVoltage",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1223,
+      "sealed_scraped": 23,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2021",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 249,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "shiningFates",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 440,
+      "sealed_scraped": 28,
+      "error": null
     },
     {
       "canonical_key": "shiningFatesShinyVault",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 485,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "battleStyles",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1072,
+      "sealed_scraped": 25,
+      "error": null
     },
     {
       "canonical_key": "chillingReign",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1305,
+      "sealed_scraped": 23,
+      "error": null
     },
     {
       "canonical_key": "evolvingSkies",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1336,
+      "sealed_scraped": 30,
+      "error": null
     },
     {
       "canonical_key": "celebrations",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 125,
+      "sealed_scraped": 32,
+      "error": null
     },
     {
       "canonical_key": "celebrationsClassicCollection",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 121,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "fusionStrike",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1730,
+      "sealed_scraped": 30,
+      "error": null
     },
     {
       "canonical_key": "brilliantStars",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1151,
+      "sealed_scraped": 23,
+      "error": null
     },
     {
       "canonical_key": "brilliantStarsTrainerGallery",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 147,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "astralRadiance",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1267,
+      "sealed_scraped": 21,
+      "error": null
     },
     {
       "canonical_key": "astralRadianceTrainerGallery",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 144,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "pokMonGO",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 606,
+      "sealed_scraped": 35,
+      "error": null
     },
     {
       "canonical_key": "mcdonaldSCollection2022",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 75,
+      "sealed_scraped": 1,
+      "error": null
     },
     {
       "canonical_key": "lostOrigin",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1272,
+      "sealed_scraped": 36,
+      "error": null
     },
     {
       "canonical_key": "lostOriginTrainerGallery",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 144,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "silverTempest",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1268,
+      "sealed_scraped": 26,
+      "error": null
     },
     {
       "canonical_key": "silverTempestTrainerGallery",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 143,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "crownZenith",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 947,
+      "sealed_scraped": 40,
+      "error": null
     },
     {
       "canonical_key": "crownZenithGalarianGallery",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 338,
+      "sealed_scraped": 0,
+      "error": null
     },
     {
       "canonical_key": "scarletAndVioletBase",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1539,
+      "sealed_scraped": 25,
+      "error": null
     },
     {
       "canonical_key": "paldeaEvolved",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1537,
+      "sealed_scraped": 24,
+      "error": null
     },
     {
       "canonical_key": "obsidianFlames",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1299,
+      "sealed_scraped": 22,
+      "error": null
     },
     {
       "canonical_key": "scarletAndViolet151",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1305,
+      "sealed_scraped": 31,
+      "error": null
     },
     {
       "canonical_key": "paradoxRift",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1427,
+      "sealed_scraped": 27,
+      "error": null
     },
     {
       "canonical_key": "paldeanFates",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1058,
+      "sealed_scraped": 34,
+      "error": null
     },
     {
       "canonical_key": "temporalForces",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1096,
+      "sealed_scraped": 26,
+      "error": null
     },
     {
       "canonical_key": "twilightMasquerade",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1149,
+      "sealed_scraped": 24,
+      "error": null
     },
     {
       "canonical_key": "shroudedFable",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 491,
+      "sealed_scraped": 20,
+      "error": null
     },
     {
       "canonical_key": "stellarCrown",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 877,
+      "sealed_scraped": 22,
+      "error": null
     },
     {
       "canonical_key": "surgingSparks",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1232,
+      "sealed_scraped": 25,
+      "error": null
     },
     {
       "canonical_key": "prismaticEvolutions",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1429,
+      "sealed_scraped": 39,
+      "error": null
     },
     {
       "canonical_key": "journeyTogether",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 980,
+      "sealed_scraped": 26,
+      "error": null
     },
     {
       "canonical_key": "destinedRivals",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1310,
+      "sealed_scraped": 25,
+      "error": null
     },
     {
       "canonical_key": "blackBolt",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1107,
+      "sealed_scraped": 26,
+      "error": null
     },
     {
       "canonical_key": "whiteFlare",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1096,
+      "sealed_scraped": 11,
+      "error": null
     },
     {
       "canonical_key": "megaEvolution",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 901,
+      "sealed_scraped": 32,
+      "error": null
     },
     {
       "canonical_key": "phantasmalFlames",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 607,
+      "sealed_scraped": 22,
+      "error": null
     },
     {
       "canonical_key": "ascendedHeroes",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 1497,
+      "sealed_scraped": 28,
+      "error": null
     },
     {
       "canonical_key": "perfectOrder",
-      "status": "dry_run"
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 450,
+      "sealed_scraped": 19,
+      "error": null
     }
   ]
 }

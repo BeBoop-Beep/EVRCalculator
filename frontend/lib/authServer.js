@@ -1,14 +1,34 @@
 import { cache } from "react";
-import { cookies, headers } from "next/headers";
 
 const API_URL = process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000";
+
+async function getRequestHeadersStore() {
+  try {
+    const mod = await import("next/headers");
+    return await mod.headers();
+  } catch {
+    return null;
+  }
+}
+
+async function getCookiesStore() {
+  try {
+    const mod = await import("next/headers");
+    return await mod.cookies();
+  } catch {
+    return null;
+  }
+}
 
 const getRequestMeta = cache(async function getRequestMeta() {
   let correlationId = "";
   let incomingHeaderCorrelationId = null;
 
   try {
-    const requestHeaders = await headers();
+    const requestHeaders = await getRequestHeadersStore();
+    if (!requestHeaders) {
+      throw new Error("headers unavailable");
+    }
     incomingHeaderCorrelationId = requestHeaders.get("x-correlation-id");
     correlationId = String(incomingHeaderCorrelationId || "").trim() || crypto.randomUUID();
   } catch {
@@ -24,7 +44,18 @@ const getRequestMeta = cache(async function getRequestMeta() {
 const resolveAuthenticatedUserFromCookiesPerRequest = cache(async function resolveAuthenticatedUserFromCookiesPerRequest() {
   const startedAt = Date.now();
   const { correlationId } = await getRequestMeta();
-  const cookieStore = await cookies();
+  const cookieStore = await getCookiesStore();
+  if (!cookieStore) {
+    return {
+      user: null,
+      error: "Not authenticated",
+      status: 401,
+      correlationId,
+      authResolution: "fresh",
+      servedCount: 0,
+      elapsedMs: Date.now() - startedAt,
+    };
+  }
   const token = cookieStore.get("token")?.value;
 
   if (!token) {

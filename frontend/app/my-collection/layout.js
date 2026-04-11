@@ -1,57 +1,69 @@
-"use client";
+import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 
-import { useRouter } from "next/navigation";
+const ownerSectionItems = [
+  { label: "Collection", href: "/my-collection/collection", exact: true },
+  { label: "Cards", href: "/my-collection/cards" },
+  { label: "Products", href: "/my-collection/products" },
+  { label: "Wishlist", href: "/my-collection/wishlist" },
+];
 
-import MyCollectionQuickActions from "@/components/Profile/MyCollectionQuickActions";
-import RouteTabsNav from "@/components/Profile/RouteTabsNav";
-
-const myCollectionTabs = [
-  { label: "Overview", href: "/my-portfolio", exact: true },
-  { label: "Collection", href: "/my-portfolio/collection" },
-  { label: "Wishlist", href: "/my-portfolio/wishlist" },
+const ownerMobileNavItems = [
+  {
+    label: "Collection",
+    href: "/my-collection/collection",
+    exact: true,
+    icon: (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4.25" y="4" width="10.5" height="14" rx="2" />
+        <rect x="9.25" y="6" width="10.5" height="14" rx="2" />
+      </svg>
+    ),
+  },
+  {
+    label: "Cards",
+    href: "/my-collection/cards",
+    icon: (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="5" y="4.5" width="14" height="15" rx="2" />
+        <path d="M8.5 8.2h7" />
+        <path d="M8.5 12h7" />
+        <path d="M8.5 15.8h4.5" />
+      </svg>
+    ),
+  },
+  {
+    label: "Products",
+    href: "/my-collection/products",
+    icon: (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 8.2 12 4l8 4.2" />
+        <path d="M4 8.2V16l8 4 8-4V8.2" />
+        <path d="M12 12v8" />
+      </svg>
+    ),
+  },
+  {
+    label: "Wishlist",
+    href: "/my-collection/wishlist",
+    icon: (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 19.3s-6-3.6-7.9-6.9a4.7 4.7 0 0 1 7.9-4.8 4.7 4.7 0 0 1 7.9 4.8c-1.9 3.3-7.9 6.9-7.9 6.9Z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function MyCollectionLayout({ children }) {
-  const router = useRouter();
-
-  const handleAddCard = () => {
-    router.push("/cards");
-  };
-
-  const handleAddSealedProduct = () => {
-    router.push("/products");
-  };
-
-  const handleImportCollection = () => {
-    router.push("/my-portfolio");
-  };
-
   return (
-    <main className="w-full">
-      <div className="mx-auto w-full max-w-7xl px-6 py-8">
-        <section className="dashboard-container rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/70 p-4 sm:p-5">
-          <div className="space-y-6">
-            <section className="page-hero-panel rounded-2xl px-6 py-8 sm:px-8">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Private Workspace</p>
-                  <h1 className="mt-1 text-[28px] font-bold text-[var(--text-primary)]">My Portfolio</h1>
-                  <p className="mt-2 text-sm text-[var(--text-secondary)]">Owner-only tools for building, importing, and managing your collection.</p>
-                </div>
-
-                <MyCollectionQuickActions
-                  heroCluster
-                  onAddCard={handleAddCard}
-                  onAddSealedProduct={handleAddSealedProduct}
-                  onImportCollection={handleImportCollection}
-                />
-              </div>
-            </section>
-            <RouteTabsNav items={myCollectionTabs} ariaLabel="My Portfolio sections" />
-            {children}
-          </div>
-        </section>
-      </div>
+    <main className="w-full pb-8 pt-4 lg:py-8">
+      <PublicProfileLocalScaffold
+        profileBaseHref="/my-collection"
+        mode="owner"
+        sectionItems={ownerSectionItems}
+        mobileNavItems={ownerMobileNavItems}
+      >
+        {children}
+      </PublicProfileLocalScaffold>
     </main>
   );
 }

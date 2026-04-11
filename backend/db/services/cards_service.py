@@ -8,7 +8,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
 from backend.db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
-from backend.db.repositories.card_variant_prices_repository import insert_card_variant_price, insert_card_variant_prices_batch
+from backend.db.repositories.card_variant_prices_repository import (
+    insert_card_variant_price,
+    insert_card_variant_prices_batch,
+    insert_card_variant_prices_batch_with_stats,
+)
 from backend.db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
 from backend.db.services.batch_processor import BatchProcessor
 from backend.db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
@@ -204,8 +208,7 @@ class CardsService(BatchProcessor):
         Returns:
             Number of prices successfully inserted
         """
-        inserted_ids = insert_card_variant_prices_batch(price_batch)
-        return len(inserted_ids)
+        return insert_card_variant_prices_batch_with_stats(price_batch)
     
     def _prepare_card_data(self, card_key, card_id, card_list):
         """
@@ -426,6 +429,10 @@ class CardsService(BatchProcessor):
             'inserted_cards': 0,
             'inserted_variants': 0,
             'inserted_prices': 0,
+            'price_rows_attempted': 0,
+            'price_rows_skipped_duplicates': 0,
+            'price_rows_updated': 0,
+            'price_batch_operations': 0,
             'failed': 0,
             'errors': []
         }
@@ -542,6 +549,24 @@ class CardsService(BatchProcessor):
         all_errors.extend(phase_3_errors)
         
         results['errors'].extend(all_errors)
+
+        attempted_price_rows = results.get('price_rows_attempted', 0)
+        inserted_price_rows = results.get('inserted_prices', 0)
+        skipped_duplicates = results.get('price_rows_skipped_duplicates', 0)
+        write_reduction_ratio = (
+            round((skipped_duplicates / attempted_price_rows), 4)
+            if attempted_price_rows
+            else 0.0
+        )
+        results['ingestion_efficiency'] = {
+            'table': 'card_variant_price_observations',
+            'attempted_rows': attempted_price_rows,
+            'inserted_rows': inserted_price_rows,
+            'updated_rows': results.get('price_rows_updated', 0),
+            'skipped_duplicates': skipped_duplicates,
+            'db_batch_operations': results.get('price_batch_operations', 0),
+            'estimated_write_reduction_ratio': write_reduction_ratio,
+        }
         
         print(f"[INFO] All batch processing and shipping complete. Inserted {results['inserted_variants']} variants, {results['inserted_prices']} prices")
         

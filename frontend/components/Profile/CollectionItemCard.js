@@ -16,6 +16,9 @@ export default function CollectionItemCard({
   onClick = null,
   onSetAsSpotlight = null,
   className = "",
+  // Owner-only quantity controls — absent on public routes
+  onQuantityMutate = null, // (item, action) => void
+  isMutating = false,
 }) {
   const isPlaceholder = !item.imageUrl;
   const supportsSpotlightAction = typeof onSetAsSpotlight === "function";
@@ -113,6 +116,43 @@ export default function CollectionItemCard({
                 <p className="pt-1.5 text-sm font-semibold text-[var(--text-primary)]">
                   {item.valueLabel}
                 </p>
+              )}
+              {/* Owner-only quantity strip */}
+              {typeof onQuantityMutate === "function" && (
+                <div
+                  className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-2 mt-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="text-xs text-[var(--text-secondary)]">
+                    ×{item.quantity ?? 1}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      aria-label="Decrease quantity"
+                      disabled={isMutating}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuantityMutate(item, "decrement");
+                      }}
+                      className={`flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--surface-hover)] text-sm font-bold text-[var(--text-primary)] transition-opacity sm:h-7 sm:w-7 ${isMutating ? "cursor-not-allowed opacity-40" : "hover:border-[var(--accent)] active:scale-95"}`}
+                    >
+                      −
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Increase quantity"
+                      disabled={isMutating}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuantityMutate(item, "increment");
+                      }}
+                      className={`flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--surface-hover)] text-sm font-bold text-[var(--text-primary)] transition-opacity sm:h-7 sm:w-7 ${isMutating ? "cursor-not-allowed opacity-40" : "hover:border-[var(--accent)] active:scale-95"}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

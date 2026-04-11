@@ -1,11 +1,4 @@
 import { cache } from "react";
-import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
-import { getPublicCollectionByUsername } from "@/lib/profile/profileQueries";
-import {
-  getCurrentUserCollectionEntryById,
-  getCurrentUserCollectionItems,
-  getPublicCollectionEntryByUsernameAndItemId,
-} from "@/lib/profile/portfolioDashboardQueries";
 
 function toTrimmedString(value) {
   if (typeof value !== "string") return "";
@@ -22,6 +15,56 @@ function toCurrencyLabel(value) {
   return `$${numeric.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function buildApiUrl(path) {
+  if (typeof window !== "undefined") {
+    return path;
+  }
+
+  const fallbackBaseUrl = process.env.NEXT_PUBLIC_BASE_URL
+    || process.env.NEXT_PUBLIC_API_URL
+    || "http://localhost:3000";
+  const baseUrl = fallbackBaseUrl.endsWith("/") ? fallbackBaseUrl : `${fallbackBaseUrl}/`;
+  return new URL(path.startsWith("/") ? path.slice(1) : path, baseUrl).toString();
+}
+
+async function getCookieHeader() {
+  if (typeof window !== "undefined") {
+    return null;
+  }
+
+  try {
+    const { headers } = await import("next/headers");
+    const requestHeaders = await headers();
+    return requestHeaders.get("cookie");
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCollectionPayload(path) {
+  const cookieHeader = await getCookieHeader();
+  const requestHeaders = {
+    Accept: "application/json",
+  };
+
+  if (cookieHeader) {
+    requestHeaders.cookie = cookieHeader;
+  }
+
+  const response = await fetch(buildApiUrl(path), {
+    method: "GET",
+    headers: requestHeaders,
+    cache: "no-store",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Collection request failed (${response.status})`);
+  }
+
+  return response.json();
+}
+
 function mapBackendCollectionItemToView(item, isPublic) {
   const collectibleType = item?.collectible_type || "card";
   const setName = toTrimmedString(item?.set_name) || "Unknown Set";
@@ -30,16 +73,8 @@ function mapBackendCollectionItemToView(item, isPublic) {
   const printingType = toTrimmedString(item?.printing_type);
   const condition = toTrimmedString(item?.condition);
 
-  const imageUrl =
-    toTrimmedString(item?.image_url)
-    || toTrimmedString(item?.imageUrl)
-    || toTrimmedString(item?.image?.small)
-    || null;
-  const imageLargeUrl =
-    toTrimmedString(item?.image_large_url)
-    || toTrimmedString(item?.imageLargeUrl)
-    || toTrimmedString(item?.image?.large)
-    || null;
+  const imageUrl = toTrimmedString(item?.image_url) || null;
+  const imageLargeUrl = toTrimmedString(item?.image_large_url) || null;
   const estimatedValue = toNumber(item?.estimated_value, 0);
   const valueLabel = toCurrencyLabel(estimatedValue);
 
@@ -81,64 +116,16 @@ function mapBackendCollectionItemToView(item, isPublic) {
 }
 
 async function fetchPrivateCollectionEntriesFromApi() {
-  const startedAt = Date.now();
-  const result = await getCurrentUserCollectionItems();
-  if (result.error) {
-    const error = new Error(result.error.message || "Collection request failed");
-    error.status = result.error.status || 500;
-    throw error;
-  }
-
-  const items = Array.isArray(result.data) ? result.data : [];
-  console.info("[private-collection-loader] fetch_end", {
-    route: "collectionEntryLoader.fetchPrivateCollectionEntriesFromApi",
-    pathUsed: "full_assembly_bounded",
-    includeCollectionItems: true,
-    itemCount: items.length,
-    payloadSizeBytes: JSON.stringify(items).length,
-    elapsedMs: Date.now() - startedAt,
-  });
+  const payload = await fetchCollectionPayload("/api/my-collection/dashboard?include_collection_items=1");
+  const items = Array.isArray(payload?.collection_items) ? payload.collection_items : [];
   return items.map((item) => mapBackendCollectionItemToView(item, false));
 }
 
 async function fetchPublicCollectionEntriesFromApi(username) {
-  const startedAt = Date.now();
-  const payloadResult = await getPublicCollectionByUsername(username, {
-    includeCollectionItems: true,
-    limit: 200,
-    offset: 0,
-  });
-  if (payloadResult.error) {
-    const error = new Error(payloadResult.error.message || "Collection request failed");
-    error.status = payloadResult.error.status || 500;
-    error.path = `/collection/items/public/${encodeURIComponent(String(username || "").trim())}`;
-    throw error;
-  }
-
-  const payload = payloadResult.data || {};
+  const encodedUsername = encodeURIComponent(String(username || "").trim());
+  const payload = await fetchCollectionPayload(`/api/public-profile/${encodedUsername}/collection-summary?include_collection_items=1`);
   const items = Array.isArray(payload?.collection_items) ? payload.collection_items : [];
-  console.info("[public-collection-loader] fetch_end", {
-    username: String(username || "").trim(),
-    pathUsed: "full_assembly_bounded",
-    includeCollectionItems: true,
-    itemCount: items.length,
-    payloadSizeBytes: JSON.stringify(items).length,
-    elapsedMs: Date.now() - startedAt,
-    summaryPresent: Boolean(payload?.collection_summary),
-    byType: items.reduce((acc, item) => {
-      const key = String(item?.collectible_type || "unknown");
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {}),
-  });
-  const transformStartedAt = Date.now();
-  const mappedItems = items.map((item) => mapBackendCollectionItemToView(item, true));
-  console.info("[public-collection-loader] transformed_items", {
-    username: String(username || "").trim(),
-    transformedCount: mappedItems.length,
-    transformElapsedMs: Date.now() - transformStartedAt,
-  });
-  return mappedItems;
+  return items.map((item) => mapBackendCollectionItemToView(item, true));
 }
 
 function seededFloat(seed) {
@@ -359,74 +346,28 @@ export const getPrivateCollectionEntries = cache(async function getPrivateCollec
   }
 });
 
-const getPublicCollectionEntriesPerRequest = cache(async function getPublicCollectionEntriesPerRequest(usernameParam) {
-  const username = String(usernameParam || "").trim();
+export const getPublicCollectionEntries = cache(async function getPublicCollectionEntries(username) {
   try {
     const items = await fetchPublicCollectionEntriesFromApi(username);
-    const sanitizedItems = items.map(stripPortfolioFields);
-    const idList = sanitizedItems.map((item) => String(item?.id || "")).filter(Boolean);
-    const duplicateIds = idList.filter((id, index) => idList.indexOf(id) !== index);
-
-    console.info("[public-collection-lifecycle] loader_to_page", {
-      username,
-      count: sanitizedItems.length,
-      duplicateIds,
-      sampleIds: idList.slice(0, 10),
-    });
-
-    return sanitizedItems;
-  } catch (error) {
-    console.error("[public-collection-loader] fetch_failed", {
-      username,
-      message: error instanceof Error ? error.message : String(error),
-      status: error?.status || null,
-      path: error?.path || null,
-    });
-    throw error;
+    return items.map(stripPortfolioFields);
+  } catch {
+    return [];
   }
 });
 
-export async function getPublicCollectionEntries(username) {
-  return getPublicCollectionEntriesPerRequest(String(username || "").trim());
-}
-
 export const getPrivateCollectionEntryById = cache(async function getPrivateCollectionEntryById(entryId) {
-  const startedAt = Date.now();
-  const result = await getCurrentUserCollectionEntryById(entryId);
-  if (result.error || !result.data) {
-    return null;
-  }
-
-  console.info("[collection-entry-loader] owner_entry_detail", {
-    route: "collectionEntryLoader.getPrivateCollectionEntryById",
-    entryId: String(entryId || ""),
-    collectibleType: result.data?.collectible_type || null,
-    pathUsed: "entry_detail_endpoint",
-    elapsedMs: Date.now() - startedAt,
-  });
-  return mapBackendCollectionItemToView(result.data, false);
+  const entries = await getPrivateCollectionEntries();
+  return entries.find((entry) => String(entry.id) === String(entryId)) || null;
 });
 
 export const getPublicCollectionEntryById = cache(async function getPublicCollectionEntryById(username, entryId) {
-  const startedAt = Date.now();
-  const result = await getPublicCollectionEntryByUsernameAndItemId(username, entryId);
-  if (result.error || !result.data) {
-    return null;
-  }
-
-  console.info("[collection-entry-loader] public_entry_detail", {
-    route: "collectionEntryLoader.getPublicCollectionEntryById",
-    username: String(username || "").trim(),
-    entryId: String(entryId || ""),
-    collectibleType: result.data?.collectible_type || null,
-    pathUsed: "entry_detail_endpoint",
-    elapsedMs: Date.now() - startedAt,
-  });
-  return stripPortfolioFields(mapBackendCollectionItemToView(result.data, true));
+  const entries = await getPublicCollectionEntries(username);
+  return entries.find((entry) => String(entry.id) === String(entryId)) || null;
 });
 
 export async function getCollectionEntryDetailById({ mode, entryId, username = "" }) {
   if (mode === "public") {
+    const { getCachedPublicRouteContextByUsername } = await import("@/lib/profile/publicProfileServer");
     const [items, context] = await Promise.all([
       getPublicCollectionEntries(username),
       getCachedPublicRouteContextByUsername(username || ""),

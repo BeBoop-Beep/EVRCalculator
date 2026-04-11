@@ -6,7 +6,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from backend.db.repositories.sealed_repository import insert_sealed_product, get_sealed_product_by_name_and_set, insert_sealed_products_batch
-from backend.db.repositories.sealed_product_prices_repository import insert_sealed_product_price, insert_sealed_product_prices_batch
+from backend.db.repositories.sealed_product_prices_repository import (
+    insert_sealed_product_price,
+    insert_sealed_product_prices_batch,
+    insert_sealed_product_prices_batch_with_stats,
+)
 from backend.db.services.batch_processor import BatchProcessor
 from backend.db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
 
@@ -167,8 +171,7 @@ class SealedProductsService(BatchProcessor):
         Returns:
             Number of prices successfully inserted
         """
-        inserted_ids = insert_sealed_product_prices_batch(price_batch)
-        return len(inserted_ids)
+        return insert_sealed_product_prices_batch_with_stats(price_batch)
     
     def _database_writer_thread_sealed(self, work_partition, results_queue, write_lock, writer_id):
         """
@@ -303,6 +306,10 @@ class SealedProductsService(BatchProcessor):
         results = {
             'inserted_products': 0,
             'inserted_prices': 0,
+            'price_rows_attempted': 0,
+            'price_rows_skipped_duplicates': 0,
+            'price_rows_updated': 0,
+            'price_batch_operations': 0,
             'failed': 0,
             'errors': []
         }
@@ -344,6 +351,24 @@ class SealedProductsService(BatchProcessor):
         all_errors.extend(phase_3_errors)
         
         results['errors'].extend(all_errors)
+
+        attempted_price_rows = results.get('price_rows_attempted', 0)
+        inserted_price_rows = results.get('inserted_prices', 0)
+        skipped_duplicates = results.get('price_rows_skipped_duplicates', 0)
+        write_reduction_ratio = (
+            round((skipped_duplicates / attempted_price_rows), 4)
+            if attempted_price_rows
+            else 0.0
+        )
+        results['ingestion_efficiency'] = {
+            'table': 'sealed_product_price_observations',
+            'attempted_rows': attempted_price_rows,
+            'inserted_rows': inserted_price_rows,
+            'updated_rows': results.get('price_rows_updated', 0),
+            'skipped_duplicates': skipped_duplicates,
+            'db_batch_operations': results.get('price_batch_operations', 0),
+            'estimated_write_reduction_ratio': write_reduction_ratio,
+        }
         
         print(f"[INFO] Sequential batch writing complete. Inserted {results['inserted_products']} products, {results['inserted_prices']} prices")
         

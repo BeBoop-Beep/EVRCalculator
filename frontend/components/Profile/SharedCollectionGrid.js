@@ -25,6 +25,9 @@ export default function SharedCollectionGrid({
   className = "",
   getItemHref = null,
   onSetAssetSpotlight = null,
+  // Owner-only — absent on public routes
+  onQuantityMutate = null,  // (item, action) => void
+  pendingItemIds = null,    // Set<string> | null
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const router = useRouter();
@@ -109,6 +112,7 @@ export default function SharedCollectionGrid({
 
   const renderCard = (item) => {
     const href = resolveItemHref(item);
+    const isMutating = pendingItemIds instanceof Set && pendingItemIds.has(String(item.id));
     return (
       <CollectionItemCard
         key={item.id}
@@ -116,6 +120,8 @@ export default function SharedCollectionGrid({
         variant={variant}
         onClick={href ? () => router.push(href) : null}
         onSetAsSpotlight={onSetAssetSpotlight ? () => onSetAssetSpotlight(item) : null}
+        onQuantityMutate={onQuantityMutate || null}
+        isMutating={isMutating}
       />
     );
   };
