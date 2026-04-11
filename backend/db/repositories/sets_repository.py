@@ -46,3 +46,17 @@ def update_set_by_id(set_id: str, set_data: dict):
     if response is None:
         raise RuntimeError("Update set returned no response object")
     return response.data if response.data else None
+
+
+def get_scrape_ready_sets_by_tcg_id(tcg_id: str) -> list[dict]:
+    """Return scrape-ready sets for a TCG, ordered by release_date then name."""
+    response = (
+        supabase.table("sets")
+        .select("id, name, canonical_key, card_details_url, sealed_details_url, release_date, era_id")
+        .eq("tcg_id", tcg_id)
+        .eq("ready_for_daily_scrape", True)
+        .order("release_date")
+        .order("name")
+        .execute()
+    )
+    return response.data if response and response.data else []
