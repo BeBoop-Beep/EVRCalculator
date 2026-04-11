@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-10T23:55:08.422762+00:00",
+  "generated_at_utc": "2026-04-11T00:22:54.373086+00:00",
   "mode": "dry_run",
   "era_filter": null,
   "set_filter": null,
@@ -15,295 +15,7 @@
   "retry_heavy_sets": [],
   "results": [
     {
-      "canonical_key": "ancientOrigins",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "aquapolis",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "arceus",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "ascendedHeroes",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "astralRadiance",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "astralRadianceTrainerGallery",
-      "status": "dry_run"
-    },
-    {
       "canonical_key": "base",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "baseSet2",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "battleStyles",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "blackAndWhite",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "blackBolt",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "boundariesCrossed",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "breakpoint",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "breakthrough",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "brilliantStars",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "brilliantStarsTrainerGallery",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "burningShadows",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "bwBlackStarPromos",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "callOfLegends",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "celebrations",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "celebrationsClassicCollection",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "celestialStorm",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "championSPath",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "chillingReign",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "cosmicEclipse",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "crimsonInvasion",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "crownZenith",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "crownZenithGalarianGallery",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "crystalGuardians",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "darkExplorers",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "darknessAblaze",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "deltaSpecies",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "deoxys",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "destinedRivals",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "detectivePikachu",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "diamondAndPearl",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "doubleCrisis",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "dragon",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "dragonFrontiers",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "dragonMajesty",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "dragonVault",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "dragonsExalted",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "emerald",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "emergingPowers",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "evolutions",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "evolvingSkies",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "exTrainerKit2Minun",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "exTrainerKit2Plusle",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "exTrainerKitLatias",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "exTrainerKitLatios",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "expeditionBaseSet",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "fatesCollide",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "fireredAndLeafGreen",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "flashfire",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "forbiddenLight",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "fossil",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "furiousFists",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "fusionStrike",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "generations",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "greatEncounters",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "guardiansRising",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "gymChallenge",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "gymHeroes",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "heartgoldAndSoulSilver",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "hgssBlackStarPromos",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "hiddenFates",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "hiddenFatesShinyVault",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "hiddenLegends",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "holonPhantoms",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "hsTriumphant",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "hsUndaunted",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "hsUnleashed",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "journeyTogether",
       "status": "dry_run"
     },
     {
@@ -311,95 +23,23 @@
       "status": "dry_run"
     },
     {
-      "canonical_key": "kalosStarterSet",
+      "canonical_key": "fossil",
       "status": "dry_run"
     },
     {
-      "canonical_key": "legendMaker",
+      "canonical_key": "baseSet2",
       "status": "dry_run"
     },
     {
-      "canonical_key": "legendaryCollection",
+      "canonical_key": "teamRocket",
       "status": "dry_run"
     },
     {
-      "canonical_key": "legendaryTreasures",
+      "canonical_key": "gymHeroes",
       "status": "dry_run"
     },
     {
-      "canonical_key": "legendsAwakened",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "lostOrigin",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "lostOriginTrainerGallery",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "lostThunder",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "majesticDawn",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2011",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2012",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2014",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2015",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2016",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2017",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2018",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2019",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2021",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mcdonaldSCollection2022",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "megaEvolution",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "mysteriousTreasures",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "neoDestiny",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "neoDiscovery",
+      "canonical_key": "gymChallenge",
       "status": "dry_run"
     },
     {
@@ -407,131 +47,35 @@
       "status": "dry_run"
     },
     {
+      "canonical_key": "neoDiscovery",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "southernIslands",
+      "status": "dry_run"
+    },
+    {
       "canonical_key": "neoRevelation",
       "status": "dry_run"
     },
     {
-      "canonical_key": "nextDestinies",
+      "canonical_key": "neoDestiny",
       "status": "dry_run"
     },
     {
-      "canonical_key": "nintendoBlackStarPromos",
+      "canonical_key": "legendaryCollection",
       "status": "dry_run"
     },
     {
-      "canonical_key": "nobleVictories",
+      "canonical_key": "expeditionBaseSet",
       "status": "dry_run"
     },
     {
-      "canonical_key": "obsidianFlames",
+      "canonical_key": "aquapolis",
       "status": "dry_run"
     },
     {
-      "canonical_key": "paldeaEvolved",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "paldeanFates",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "paradoxRift",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "perfectOrder",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "phantasmalFlames",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "phantomForces",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "plasmaBlast",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "plasmaFreeze",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "plasmaStorm",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "platinum",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "pokMonGO",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "pokMonRumble",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries1",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries2",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries3",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries4",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries5",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries6",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries7",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries8",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "popSeries9",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "powerKeepers",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "primalClash",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "prismaticEvolutions",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "rebelClash",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "risingRivals",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "roaringSkies",
+      "canonical_key": "skyridge",
       "status": "dry_run"
     },
     {
@@ -543,79 +87,11 @@
       "status": "dry_run"
     },
     {
-      "canonical_key": "scarletAndViolet151",
+      "canonical_key": "nintendoBlackStarPromos",
       "status": "dry_run"
     },
     {
-      "canonical_key": "scarletAndVioletBase",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "secretWonders",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "shiningFates",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "shiningFatesShinyVault",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "shiningLegends",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "shroudedFable",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "silverTempest",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "silverTempestTrainerGallery",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "skyridge",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "smBlackStarPromos",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "southernIslands",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "steamSiege",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "stellarCrown",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "stormfront",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "sunAndMoon",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "supremeVictors",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "surgingSparks",
-      "status": "dry_run"
-    },
-    {
-      "canonical_key": "swordAndShield",
+      "canonical_key": "dragon",
       "status": "dry_run"
     },
     {
@@ -623,7 +99,23 @@
       "status": "dry_run"
     },
     {
-      "canonical_key": "teamRocket",
+      "canonical_key": "exTrainerKitLatias",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "exTrainerKitLatios",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "hiddenLegends",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "fireredAndLeafGreen",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries1",
       "status": "dry_run"
     },
     {
@@ -631,19 +123,347 @@
       "status": "dry_run"
     },
     {
-      "canonical_key": "teamUp",
+      "canonical_key": "deoxys",
       "status": "dry_run"
     },
     {
-      "canonical_key": "temporalForces",
+      "canonical_key": "emerald",
       "status": "dry_run"
     },
     {
-      "canonical_key": "twilightMasquerade",
+      "canonical_key": "popSeries2",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "unseenForces",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "deltaSpecies",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "legendMaker",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "exTrainerKit2Minun",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "exTrainerKit2Plusle",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries3",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "holonPhantoms",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "crystalGuardians",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries4",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "dragonFrontiers",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "powerKeepers",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries5",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "diamondAndPearl",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mysteriousTreasures",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries6",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "secretWonders",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "greatEncounters",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries7",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "majesticDawn",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "legendsAwakened",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries8",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "stormfront",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "platinum",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "popSeries9",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "risingRivals",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "supremeVictors",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "arceus",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "pokMonRumble",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "heartgoldAndSoulSilver",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "hgssBlackStarPromos",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "hsUnleashed",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "hsUndaunted",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "hsTriumphant",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "callOfLegends",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "bwBlackStarPromos",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "blackAndWhite",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2011",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "emergingPowers",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "nobleVictories",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "nextDestinies",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "darkExplorers",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2012",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "dragonsExalted",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "dragonVault",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "boundariesCrossed",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "plasmaStorm",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "plasmaFreeze",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "plasmaBlast",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "xyBlackStarPromos",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "legendaryTreasures",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "kalosStarterSet",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "xy",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "flashfire",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2014",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "furiousFists",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "phantomForces",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "primalClash",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "doubleCrisis",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "roaringSkies",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "ancientOrigins",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "breakthrough",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2015",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "breakpoint",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "generations",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "fatesCollide",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "steamSiege",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2016",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "evolutions",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "smBlackStarPromos",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "sunAndMoon",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "guardiansRising",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "burningShadows",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "shiningLegends",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "crimsonInvasion",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2017",
       "status": "dry_run"
     },
     {
       "canonical_key": "ultraPrism",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "forbiddenLight",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "celestialStorm",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "dragonMajesty",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2018",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "lostThunder",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "teamUp",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "detectivePikachu",
       "status": "dry_run"
     },
     {
@@ -655,7 +475,35 @@
       "status": "dry_run"
     },
     {
-      "canonical_key": "unseenForces",
+      "canonical_key": "hiddenFates",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "hiddenFatesShinyVault",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2019",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "cosmicEclipse",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "swordAndShield",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "rebelClash",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "darknessAblaze",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "championSPath",
       "status": "dry_run"
     },
     {
@@ -663,15 +511,167 @@
       "status": "dry_run"
     },
     {
+      "canonical_key": "mcdonaldSCollection2021",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "shiningFates",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "shiningFatesShinyVault",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "battleStyles",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "chillingReign",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "evolvingSkies",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "celebrations",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "celebrationsClassicCollection",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "fusionStrike",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "brilliantStars",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "brilliantStarsTrainerGallery",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "astralRadiance",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "astralRadianceTrainerGallery",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "pokMonGO",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2022",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "lostOrigin",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "lostOriginTrainerGallery",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "silverTempest",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "silverTempestTrainerGallery",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "crownZenith",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "crownZenithGalarianGallery",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "scarletAndVioletBase",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "paldeaEvolved",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "obsidianFlames",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "scarletAndViolet151",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "paradoxRift",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "paldeanFates",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "temporalForces",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "twilightMasquerade",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "shroudedFable",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "stellarCrown",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "surgingSparks",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "prismaticEvolutions",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "journeyTogether",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "destinedRivals",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "blackBolt",
+      "status": "dry_run"
+    },
+    {
       "canonical_key": "whiteFlare",
       "status": "dry_run"
     },
     {
-      "canonical_key": "xy",
+      "canonical_key": "megaEvolution",
       "status": "dry_run"
     },
     {
-      "canonical_key": "xyBlackStarPromos",
+      "canonical_key": "phantasmalFlames",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "ascendedHeroes",
+      "status": "dry_run"
+    },
+    {
+      "canonical_key": "perfectOrder",
       "status": "dry_run"
     }
   ]

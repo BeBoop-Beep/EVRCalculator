@@ -1,4 +1,5 @@
 from ..clients.supabase_client import supabase
+from typing import Dict, List
 
 def get_set_by_name(name: str):
     return supabase.table("sets").select("*").eq("name", name).single().execute()
@@ -23,7 +24,7 @@ def insert_set(set_data: dict):
     return result.data if result.data else None
 
 
-def insert_sets(set_rows: list[dict]):
+def insert_sets(set_rows: List[Dict]):
     """Insert many set rows in one request and return inserted payloads."""
     if not set_rows:
         return []
@@ -48,7 +49,7 @@ def update_set_by_id(set_id: str, set_data: dict):
     return response.data if response.data else None
 
 
-def get_scrape_ready_sets_by_tcg_id(tcg_id: str) -> list[dict]:
+def get_scrape_ready_sets_by_tcg_id(tcg_id: str) -> List[Dict]:
     """Return scrape-ready sets for a TCG, ordered by release_date then name."""
     response = (
         supabase.table("sets")
