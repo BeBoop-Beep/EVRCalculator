@@ -1,0 +1,21 @@
+{
+  "name": "inDex",
+  "short_name": "inDex",
+  "description": "Your go-to Pokemon TCG store!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/inDex.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

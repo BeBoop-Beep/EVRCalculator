@@ -1,0 +1,304 @@
+{
+  "set_resolutions": {
+    "expeditionBaseSet": {
+      "set_id": 604,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=604, same_id_ratio=1.00, overlap=0.67, dominant_name='Base Set'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:18:58.027681+00:00"
+    },
+    "exTrainerKitLatias": {
+      "set_id": 1543,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.400; dominant_set_id=1543, same_id_ratio=1.00, overlap=0.57, dominant_name='EX Trainer Kit 1: Latias & Latios'; trainer-kit family acceptance",
+      "updated_at": "2026-04-10T22:19:23.219489+00:00"
+    },
+    "exTrainerKitLatios": {
+      "set_id": 1543,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.400; dominant_set_id=1543, same_id_ratio=1.00, overlap=0.57, dominant_name='EX Trainer Kit 1: Latias & Latios'; trainer-kit family acceptance",
+      "updated_at": "2026-04-10T22:19:31.005011+00:00"
+    },
+    "exTrainerKit2Minun": {
+      "set_id": 1542,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.500; dominant_set_id=1542, same_id_ratio=1.00, overlap=0.71, dominant_name='EX Trainer Kit 2: Plusle & Minun'; trainer-kit family acceptance",
+      "updated_at": "2026-04-10T22:19:38.443306+00:00"
+    },
+    "exTrainerKit2Plusle": {
+      "set_id": 1542,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.800; dominant_set_id=1542, same_id_ratio=1.00, overlap=0.71, dominant_name='EX Trainer Kit 2: Plusle & Minun'; trainer-kit family acceptance",
+      "updated_at": "2026-04-10T22:19:44.783412+00:00"
+    },
+    "heartgoldAndSoulSilver": {
+      "set_id": 1402,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:19:56.384098+00:00"
+    },
+    "mcdonaldSCollection2011": {
+      "set_id": 1401,
+      "confidence": 0.9,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.525; dominant_set_id=1401, same_id_ratio=1.00, overlap=0.75, dominant_name='McDonald's Promos 2011'",
+      "updated_at": "2026-04-10T22:21:42.594995+00:00"
+    },
+    "mcdonaldSCollection2014": {
+      "set_id": 1692,
+      "confidence": 0.9,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.525; dominant_set_id=1692, same_id_ratio=1.00, overlap=0.75, dominant_name='McDonald's Promos 2014'",
+      "updated_at": "2026-04-10T22:21:52.966207+00:00"
+    },
+    "mcdonaldSCollection2015": {
+      "set_id": 1694,
+      "confidence": 0.9,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.525; dominant_set_id=1694, same_id_ratio=1.00, overlap=0.75, dominant_name='McDonald's Promos 2015'",
+      "updated_at": "2026-04-10T22:22:04.164511+00:00"
+    },
+    "mcdonaldSCollection2016": {
+      "set_id": 3087,
+      "confidence": 0.9,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.525; dominant_set_id=3087, same_id_ratio=1.00, overlap=0.75, dominant_name='McDonald's Promos 2016'",
+      "updated_at": "2026-04-10T22:22:24.425518+00:00"
+    },
+    "mcdonaldSCollection2017": {
+      "set_id": 2148,
+      "confidence": 0.9,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.525; dominant_set_id=2148, same_id_ratio=1.00, overlap=0.75, dominant_name='McDonald's Promos 2017'",
+      "updated_at": "2026-04-10T22:22:41.565281+00:00"
+    },
+    "mcdonaldSCollection2018": {
+      "set_id": 2364,
+      "confidence": 0.9,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.525; dominant_set_id=2364, same_id_ratio=1.00, overlap=0.75, dominant_name='McDonald's Promos 2018'",
+      "updated_at": "2026-04-10T22:22:53.374935+00:00"
+    },
+    "mcdonaldSCollection2019": {
+      "set_id": 2555,
+      "confidence": 0.9,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.525; dominant_set_id=2555, same_id_ratio=1.00, overlap=0.75, dominant_name='McDonald's Promos 2019'",
+      "updated_at": "2026-04-10T22:23:04.503525+00:00"
+    },
+    "guardiansRising": {
+      "set_id": 1919,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1919, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Guardians Rising'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:24:05.794295+00:00"
+    },
+    "burningShadows": {
+      "set_id": 1957,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1957, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Burning Shadows'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:24:12.987812+00:00"
+    },
+    "crimsonInvasion": {
+      "set_id": 2071,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2071, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Crimson Invasion'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:24:28.878579+00:00"
+    },
+    "ultraPrism": {
+      "set_id": 2178,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2178, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Ultra Prism'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:24:43.265888+00:00"
+    },
+    "forbiddenLight": {
+      "set_id": 2209,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2209, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Forbidden Light'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:24:51.268854+00:00"
+    },
+    "celestialStorm": {
+      "set_id": 2278,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2278, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Celestial Storm'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:24:59.310167+00:00"
+    },
+    "lostThunder": {
+      "set_id": 2328,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2328, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Lost Thunder'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:25:07.036865+00:00"
+    },
+    "teamUp": {
+      "set_id": 2377,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2377, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Team Up'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:25:14.436337+00:00"
+    },
+    "unbrokenBonds": {
+      "set_id": 2420,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2420, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Unbroken Bonds'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:25:30.543660+00:00"
+    },
+    "unifiedMinds": {
+      "set_id": 2464,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2464, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Unified Minds'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:25:59.629750+00:00"
+    },
+    "cosmicEclipse": {
+      "set_id": 2534,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=2534, same_id_ratio=1.00, overlap=0.67, dominant_name='SM - Cosmic Eclipse'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:26:07.358558+00:00"
+    },
+    "pokMonGO": {
+      "set_id": 3064,
+      "confidence": 1.0,
+      "validation_notes": "global_aggregation Exact normalized set-name match; dominant_set_id=3064, same_id_ratio=1.00, overlap=1.00, dominant_name='Pokemon GO'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:26:23.258361+00:00"
+    },
+    "furiousFists": {
+      "set_id": 1481,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1481, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Furious Fists'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:27:06.671356+00:00"
+    },
+    "phantomForces": {
+      "set_id": 1494,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1494, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Phantom Forces'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:27:14.544405+00:00"
+    },
+    "primalClash": {
+      "set_id": 1509,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1509, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Primal Clash'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:27:23.000059+00:00"
+    },
+    "roaringSkies": {
+      "set_id": 1534,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1534, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Roaring Skies'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:27:31.854874+00:00"
+    },
+    "ancientOrigins": {
+      "set_id": 1576,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1576, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Ancient Origins'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:27:38.556511+00:00"
+    },
+    "fatesCollide": {
+      "set_id": 1780,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1780, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Fates Collide'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:28:12.602950+00:00"
+    },
+    "steamSiege": {
+      "set_id": 1815,
+      "confidence": 0.92,
+      "validation_notes": "global_aggregation Best normalized overlap score=0.767; dominant_set_id=1815, same_id_ratio=1.00, overlap=0.67, dominant_name='XY - Steam Siege'; normalized-equivalence acceptance",
+      "updated_at": "2026-04-10T22:28:21.528528+00:00"
+    },
+    "base": {
+      "set_id": 604,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:49.152600+00:00"
+    },
+    "bwBlackStarPromos": {
+      "set_id": 1407,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:51.177529+00:00"
+    },
+    "hgssBlackStarPromos": {
+      "set_id": 1453,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.718236+00:00"
+    },
+    "hsUnleashed": {
+      "set_id": 1399,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.719030+00:00"
+    },
+    "hsUndaunted": {
+      "set_id": 1403,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.719423+00:00"
+    },
+    "hsTriumphant": {
+      "set_id": 1381,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.719811+00:00"
+    },
+    "nintendoBlackStarPromos": {
+      "set_id": 1423,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:52.720145+00:00"
+    },
+    "pokMonRumble": {
+      "set_id": 1433,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:44:53.886597+00:00"
+    },
+    "smBlackStarPromos": {
+      "set_id": 1861,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:04.266022+00:00"
+    },
+    "swordAndShield": {
+      "set_id": 2585,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:07.194259+00:00"
+    },
+    "flashfire": {
+      "set_id": 1464,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:10.464963+00:00"
+    },
+    "breakthrough": {
+      "set_id": 1661,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:10.466160+00:00"
+    },
+    "breakpoint": {
+      "set_id": 1701,
+      "confidence": 1.0,
+      "validation_notes": "manual confirmed override",
+      "updated_at": "2026-04-10T22:45:10.466444+00:00"
+    },
+    "evolutions": {
+      "set_id": 1842,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='XY - Evolutions'; dominant_set_id=1842, same_id_ratio=1.00, overlap=0.50, dominant_name='XY - Evolutions'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:45:11.770781+00:00"
+    },
+    "sunAndMoon": {
+      "set_id": 1863,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='SM Base Set'; dominant_set_id=1863, same_id_ratio=1.00, overlap=0.00, dominant_name='SM Base Set'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:48:33.596728+00:00"
+    },
+    "xyBlackStarPromos": {
+      "set_id": 1451,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='XY Promos'; dominant_set_id=1451, same_id_ratio=1.00, overlap=0.50, dominant_name='XY Promos'; promo-family era-consistent acceptance",
+      "updated_at": "2026-04-10T22:48:36.684223+00:00"
+    },
+    "xy": {
+      "set_id": 1387,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='XY Base Set'; dominant_set_id=1387, same_id_ratio=1.00, overlap=0.33, dominant_name='XY Base Set'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:48:38.728897+00:00"
+    },
+    "mcdonaldSCollection2021": {
+      "set_id": 2782,
+      "confidence": 0.92,
+      "validation_notes": "exception_label='McDonald's 25th Anniversary Promos'; dominant_set_id=2782, same_id_ratio=1.00, overlap=0.40, dominant_name='McDonald's 25th Anniversary Promos'; exception-label deterministic acceptance",
+      "updated_at": "2026-04-10T22:51:37.876457+00:00"
+    }
+  }
+}

@@ -1,0 +1,1527 @@
+{
+  "summary": {
+    "generated_at_utc": "2026-04-10T23:41:59.260735+00:00",
+    "apply_changes": false,
+    "tcg_id": "b2e55c39-b4f7-4dcf-a98e-e1afc5df94f8",
+    "eras_discovered": 17,
+    "eras_inserted": 0,
+    "eras_updated": 0,
+    "eras_skipped": 17,
+    "sets_discovered": 170,
+    "sets_inserted": 0,
+    "sets_updated": 0,
+    "sets_skipped": 170,
+    "total_scrape_ready_sets_from_constants": 165,
+    "total_scrape_ready_sets_in_db": 165,
+    "total_sets_with_card_details_urls": 165,
+    "total_sets_with_sealed_details_urls": 165,
+    "conflict_count": 0
+  },
+  "missing_optional_metadata": {
+    "missing_release_date": 0,
+    "missing_abbreviation": 25,
+    "missing_set_type": 170,
+    "missing_set_code": 170,
+    "missing_pokemon_api_set_id": 0,
+    "missing_symbol_image_url": 0,
+    "missing_logo_image_url": 0,
+    "missing_card_details_url": 5,
+    "missing_sealed_details_url": 5
+  },
+  "verification": {
+    "missing_era_canonical_keys": [],
+    "missing_set_canonical_keys": [],
+    "duplicate_era_canonical_keys": [],
+    "duplicate_set_canonical_keys": [],
+    "mismatched_set_era_links": [],
+    "pokemon_tcg_id_consistent": true,
+    "synced_tcg_ids": [
+      "b2e55c39-b4f7-4dcf-a98e-e1afc5df94f8"
+    ],
+    "scrape_ready_count_matches_constants": true
+  },
+  "conflicts": [],
+  "eras": [
+    {
+      "canonical_key": "baseWotcEra",
+      "name": "Base/WOTC",
+      "action": "skipped",
+      "row_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+      "changes": []
+    },
+    {
+      "canonical_key": "blackAndWhiteEra",
+      "name": "Black and White",
+      "action": "skipped",
+      "row_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+      "changes": []
+    },
+    {
+      "canonical_key": "diamondAndPearlEra",
+      "name": "Diamond and Pearl",
+      "action": "skipped",
+      "row_id": "89a73e3f-f781-46f4-9f29-82645f2718bd",
+      "changes": []
+    },
+    {
+      "canonical_key": "eCardEra",
+      "name": "E-Card",
+      "action": "skipped",
+      "row_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "changes": []
+    },
+    {
+      "canonical_key": "exEra",
+      "name": "EX",
+      "action": "skipped",
+      "row_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+      "changes": []
+    },
+    {
+      "canonical_key": "gymEra",
+      "name": "Gym",
+      "action": "skipped",
+      "row_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "changes": []
+    },
+    {
+      "canonical_key": "heartGoldAndSoulSilverEra",
+      "name": "HeartGold and SoulSilver",
+      "action": "skipped",
+      "row_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "changes": []
+    },
+    {
+      "canonical_key": "megaEvolutionEra",
+      "name": "Mega Evolution",
+      "action": "skipped",
+      "row_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "changes": []
+    },
+    {
+      "canonical_key": "neoEra",
+      "name": "Neo",
+      "action": "skipped",
+      "row_id": "56975efd-b21b-41cd-b062-e89baf035ff5",
+      "changes": []
+    },
+    {
+      "canonical_key": "npEra",
+      "name": "NP",
+      "action": "skipped",
+      "row_id": "798fec5b-4e8c-4bc1-bbd1-bdacf5e7105c",
+      "changes": []
+    },
+    {
+      "canonical_key": "otherEra",
+      "name": "Other",
+      "action": "skipped",
+      "row_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "changes": []
+    },
+    {
+      "canonical_key": "platinumEra",
+      "name": "Platinum",
+      "action": "skipped",
+      "row_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "changes": []
+    },
+    {
+      "canonical_key": "popEra",
+      "name": "POP",
+      "action": "skipped",
+      "row_id": "8f575aef-76ce-4efa-a36e-de86184d1008",
+      "changes": []
+    },
+    {
+      "canonical_key": "scarletAndVioletEra",
+      "name": "Scarlet and Violet",
+      "action": "skipped",
+      "row_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "changes": []
+    },
+    {
+      "canonical_key": "sunAndMoonEra",
+      "name": "Sun and Moon",
+      "action": "skipped",
+      "row_id": "4102f46b-ac7a-407b-b93f-d573c67a58e9",
+      "changes": []
+    },
+    {
+      "canonical_key": "swordAndShieldEra",
+      "name": "Sword and Shield",
+      "action": "skipped",
+      "row_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "changes": []
+    },
+    {
+      "canonical_key": "xyEra",
+      "name": "XY",
+      "action": "skipped",
+      "row_id": "0b75485f-c5b5-47d2-9ae9-a2bbdb3c8c5b",
+      "changes": []
+    }
+  ],
+  "sets": [
+    {
+      "canonical_key": "base",
+      "name": "Base",
+      "action": "skipped",
+      "row_id": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "baseSet2",
+      "name": "Base Set 2",
+      "action": "skipped",
+      "row_id": "6c82fb37-b9b9-4961-a528-12556bd15417",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "fossil",
+      "name": "Fossil",
+      "action": "skipped",
+      "row_id": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "jungle",
+      "name": "Jungle",
+      "action": "skipped",
+      "row_id": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "teamRocket",
+      "name": "Team Rocket",
+      "action": "skipped",
+      "row_id": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "wizardsBlackStarPromos",
+      "name": "Wizards Black Star Promos",
+      "action": "skipped",
+      "row_id": "7a2814b3-1153-4b1a-a0b2-2a0725258214",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "blackAndWhite",
+      "name": "Black & White",
+      "action": "skipped",
+      "row_id": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "boundariesCrossed",
+      "name": "Boundaries Crossed",
+      "action": "skipped",
+      "row_id": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "bwBlackStarPromos",
+      "name": "BW Black Star Promos",
+      "action": "skipped",
+      "row_id": "6cfb0c2c-0758-4b54-89b6-e1dd00771fa6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "darkExplorers",
+      "name": "Dark Explorers",
+      "action": "skipped",
+      "row_id": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "dragonsExalted",
+      "name": "Dragons Exalted",
+      "action": "skipped",
+      "row_id": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "dragonVault",
+      "name": "Dragon Vault",
+      "action": "skipped",
+      "row_id": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "emergingPowers",
+      "name": "Emerging Powers",
+      "action": "skipped",
+      "row_id": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "legendaryTreasures",
+      "name": "Legendary Treasures",
+      "action": "skipped",
+      "row_id": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "nextDestinies",
+      "name": "Next Destinies",
+      "action": "skipped",
+      "row_id": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "nobleVictories",
+      "name": "Noble Victories",
+      "action": "skipped",
+      "row_id": "5361a918-eb23-447e-a00e-e21493bc4320",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "plasmaBlast",
+      "name": "Plasma Blast",
+      "action": "skipped",
+      "row_id": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "plasmaFreeze",
+      "name": "Plasma Freeze",
+      "action": "skipped",
+      "row_id": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "plasmaStorm",
+      "name": "Plasma Storm",
+      "action": "skipped",
+      "row_id": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "diamondAndPearl",
+      "name": "Diamond & Pearl",
+      "action": "skipped",
+      "row_id": "7a1b8de0-331f-4635-8512-b737da431f7d",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "dpBlackStarPromos",
+      "name": "DP Black Star Promos",
+      "action": "skipped",
+      "row_id": "e7370b09-d1ba-41e4-b5b9-bb999c9628af",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "greatEncounters",
+      "name": "Great Encounters",
+      "action": "skipped",
+      "row_id": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "legendsAwakened",
+      "name": "Legends Awakened",
+      "action": "skipped",
+      "row_id": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "majesticDawn",
+      "name": "Majestic Dawn",
+      "action": "skipped",
+      "row_id": "bd54a027-2b93-4cfb-b118-687bd0481def",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mysteriousTreasures",
+      "name": "Mysterious Treasures",
+      "action": "skipped",
+      "row_id": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "secretWonders",
+      "name": "Secret Wonders",
+      "action": "skipped",
+      "row_id": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "stormfront",
+      "name": "Stormfront",
+      "action": "skipped",
+      "row_id": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "aquapolis",
+      "name": "Aquapolis",
+      "action": "skipped",
+      "row_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "expeditionBaseSet",
+      "name": "Expedition Base Set",
+      "action": "skipped",
+      "row_id": "7ceb2e94-7968-4394-95cb-742b01804974",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "skyridge",
+      "name": "Skyridge",
+      "action": "skipped",
+      "row_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "crystalGuardians",
+      "name": "Crystal Guardians",
+      "action": "skipped",
+      "row_id": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "deltaSpecies",
+      "name": "Delta Species",
+      "action": "skipped",
+      "row_id": "1b3250bb-f123-47d8-b090-499e5879eda7",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "deoxys",
+      "name": "Deoxys",
+      "action": "skipped",
+      "row_id": "388dd649-960b-4fd8-a8df-e56b3730972e",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "dragon",
+      "name": "Dragon",
+      "action": "skipped",
+      "row_id": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "dragonFrontiers",
+      "name": "Dragon Frontiers",
+      "action": "skipped",
+      "row_id": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "emerald",
+      "name": "Emerald",
+      "action": "skipped",
+      "row_id": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "exTrainerKit2Minun",
+      "name": "EX Trainer Kit 2 Minun",
+      "action": "skipped",
+      "row_id": "ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "exTrainerKit2Plusle",
+      "name": "EX Trainer Kit 2 Plusle",
+      "action": "skipped",
+      "row_id": "7a845016-3a12-4b14-abf6-9afd07984bbd",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "exTrainerKitLatias",
+      "name": "EX Trainer Kit Latias",
+      "action": "skipped",
+      "row_id": "3b9f2e5c-3b1c-43ae-83c6-c89b208e7175",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "exTrainerKitLatios",
+      "name": "EX Trainer Kit Latios",
+      "action": "skipped",
+      "row_id": "8d87b580-01fb-4a17-912c-200b5455ead7",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "fireredAndLeafGreen",
+      "name": "FireRed & LeafGreen",
+      "action": "skipped",
+      "row_id": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "hiddenLegends",
+      "name": "Hidden Legends",
+      "action": "skipped",
+      "row_id": "846787ce-2e12-4dab-b941-886f95cd16f8",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "holonPhantoms",
+      "name": "Holon Phantoms",
+      "action": "skipped",
+      "row_id": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "legendMaker",
+      "name": "Legend Maker",
+      "action": "skipped",
+      "row_id": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "powerKeepers",
+      "name": "Power Keepers",
+      "action": "skipped",
+      "row_id": "30396643-190c-416d-92a4-e8414c8b4980",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "rubyAndSapphire",
+      "name": "Ruby & Sapphire",
+      "action": "skipped",
+      "row_id": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "sandstorm",
+      "name": "Sandstorm",
+      "action": "skipped",
+      "row_id": "27f3eb48-9964-4a3f-9861-a434ae244697",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "teamMagmaVsTeamAqua",
+      "name": "Team Magma vs Team Aqua",
+      "action": "skipped",
+      "row_id": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "teamRocketReturns",
+      "name": "Team Rocket Returns",
+      "action": "skipped",
+      "row_id": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "unseenForces",
+      "name": "Unseen Forces",
+      "action": "skipped",
+      "row_id": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "gymChallenge",
+      "name": "Gym Challenge",
+      "action": "skipped",
+      "row_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "gymHeroes",
+      "name": "Gym Heroes",
+      "action": "skipped",
+      "row_id": "537d3312-9622-4015-9ef2-66e16a27287c",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "callOfLegends",
+      "name": "Call of Legends",
+      "action": "skipped",
+      "row_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "heartgoldAndSoulSilver",
+      "name": "HeartGold & SoulSilver",
+      "action": "skipped",
+      "row_id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "hgssBlackStarPromos",
+      "name": "HGSS Black Star Promos",
+      "action": "skipped",
+      "row_id": "bbea2ee9-6be2-44bd-b14e-b4a8b9c858de",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "hsTriumphant",
+      "name": "HS\u2014Triumphant",
+      "action": "skipped",
+      "row_id": "965b3000-c483-4110-bb21-ff5ffe120564",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "hsUndaunted",
+      "name": "HS\u2014Undaunted",
+      "action": "skipped",
+      "row_id": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "hsUnleashed",
+      "name": "HS\u2014Unleashed",
+      "action": "skipped",
+      "row_id": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "ascendedHeroes",
+      "name": "Ascended Heroes",
+      "action": "skipped",
+      "row_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "megaEvolution",
+      "name": "Mega Evolution",
+      "action": "skipped",
+      "row_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "perfectOrder",
+      "name": "Perfect Order",
+      "action": "skipped",
+      "row_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "phantasmalFlames",
+      "name": "Phantasmal Flames",
+      "action": "skipped",
+      "row_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "neoDestiny",
+      "name": "Neo Destiny",
+      "action": "skipped",
+      "row_id": "42a3740d-4778-4857-9c28-e116f34b51f3",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "neoDiscovery",
+      "name": "Neo Discovery",
+      "action": "skipped",
+      "row_id": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "neoGenesis",
+      "name": "Neo Genesis",
+      "action": "skipped",
+      "row_id": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "neoRevelation",
+      "name": "Neo Revelation",
+      "action": "skipped",
+      "row_id": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "nintendoBlackStarPromos",
+      "name": "Nintendo Black Star Promos",
+      "action": "skipped",
+      "row_id": "78c7f000-9a9e-45ca-8233-8f36030f6019",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "bestOfGame",
+      "name": "Best of Game",
+      "action": "skipped",
+      "row_id": "e5c150bd-9a74-4bd3-a0a4-68e0508b7ba6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "legendaryCollection",
+      "name": "Legendary Collection",
+      "action": "skipped",
+      "row_id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2011",
+      "name": "McDonald's Collection 2011",
+      "action": "skipped",
+      "row_id": "7705c538-c6c1-4846-8efc-4bf4650f92e0",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2012",
+      "name": "McDonald's Collection 2012",
+      "action": "skipped",
+      "row_id": "262dcb31-b7af-423e-8b11-2b7ba469ff72",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2014",
+      "name": "McDonald's Collection 2014",
+      "action": "skipped",
+      "row_id": "27077ea7-cd5d-4ba7-ae66-e905e780f0fd",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2015",
+      "name": "McDonald's Collection 2015",
+      "action": "skipped",
+      "row_id": "74043b01-c2d0-49ad-a86e-404b7579aa83",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2016",
+      "name": "McDonald's Collection 2016",
+      "action": "skipped",
+      "row_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2017",
+      "name": "McDonald's Collection 2017",
+      "action": "skipped",
+      "row_id": "950b9e19-eb8d-41bd-995f-01bdf98103b3",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2018",
+      "name": "McDonald's Collection 2018",
+      "action": "skipped",
+      "row_id": "2fed4a27-a176-4d60-a92a-3c8b15f81dfb",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2019",
+      "name": "McDonald's Collection 2019",
+      "action": "skipped",
+      "row_id": "9a59b345-59b0-4fc1-a4a3-5f79cb6f2310",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2021",
+      "name": "McDonald's Collection 2021",
+      "action": "skipped",
+      "row_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "mcdonaldSCollection2022",
+      "name": "McDonald's Collection 2022",
+      "action": "skipped",
+      "row_id": "250f0404-e380-42e7-9aec-385ca8290ad4",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "pokMonFutsalCollection",
+      "name": "Pok\u00e9mon Futsal Collection",
+      "action": "skipped",
+      "row_id": "e9063738-f85d-4e2c-8cbe-9a5dc98883e9",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "pokMonRumble",
+      "name": "Pok\u00e9mon Rumble",
+      "action": "skipped",
+      "row_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "southernIslands",
+      "name": "Southern Islands",
+      "action": "skipped",
+      "row_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "arceus",
+      "name": "Arceus",
+      "action": "skipped",
+      "row_id": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "platinum",
+      "name": "Platinum",
+      "action": "skipped",
+      "row_id": "98301e8a-8aa3-43d8-a85b-908883264721",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "risingRivals",
+      "name": "Rising Rivals",
+      "action": "skipped",
+      "row_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "supremeVictors",
+      "name": "Supreme Victors",
+      "action": "skipped",
+      "row_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries1",
+      "name": "POP Series 1",
+      "action": "skipped",
+      "row_id": "549f2297-a03b-4276-ad96-ad41a8bcef8f",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries2",
+      "name": "POP Series 2",
+      "action": "skipped",
+      "row_id": "a91d2dfa-fd33-44ff-ac12-f221b833a2e2",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries3",
+      "name": "POP Series 3",
+      "action": "skipped",
+      "row_id": "92575c0d-fac2-42ff-86f3-fb81f7452188",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries4",
+      "name": "POP Series 4",
+      "action": "skipped",
+      "row_id": "62aaa567-d5a7-4d0c-b1b0-1fde562c0081",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries5",
+      "name": "POP Series 5",
+      "action": "skipped",
+      "row_id": "1c6a8735-af2a-475b-b230-5bd18f827b06",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries6",
+      "name": "POP Series 6",
+      "action": "skipped",
+      "row_id": "9e777620-7479-41c4-84fb-17d2aea123bb",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries7",
+      "name": "POP Series 7",
+      "action": "skipped",
+      "row_id": "2d477c9a-bb2c-42aa-ae25-7cd4ca0f2a4a",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries8",
+      "name": "POP Series 8",
+      "action": "skipped",
+      "row_id": "ba05227c-b7eb-4428-9e8e-ae70b52fe89f",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "popSeries9",
+      "name": "POP Series 9",
+      "action": "skipped",
+      "row_id": "9d282514-6b63-48cd-bc25-9ce330632cd3",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "blackBolt",
+      "name": "Black Bolt",
+      "action": "skipped",
+      "row_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "destinedRivals",
+      "name": "Destined Rivals",
+      "action": "skipped",
+      "row_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "journeyTogether",
+      "name": "Journey Together",
+      "action": "skipped",
+      "row_id": "142d3869-9d39-48b6-a810-751af2aac748",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "obsidianFlames",
+      "name": "Obsidian Flames",
+      "action": "skipped",
+      "row_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "paldeaEvolved",
+      "name": "Paldea Evolved",
+      "action": "skipped",
+      "row_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "paldeanFates",
+      "name": "Paldean Fates",
+      "action": "skipped",
+      "row_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "paradoxRift",
+      "name": "Paradox Rift",
+      "action": "skipped",
+      "row_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "prismaticEvolutions",
+      "name": "Prismatic Evolutions",
+      "action": "skipped",
+      "row_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "scarletAndViolet151",
+      "name": "Scarlet and Violet 151",
+      "action": "skipped",
+      "row_id": "d001d563-988b-4f8e-904f-acb926748e22",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "scarletAndVioletBase",
+      "name": "Scarlet and Violet Base Set",
+      "action": "skipped",
+      "row_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "shroudedFable",
+      "name": "Shrouded Fable",
+      "action": "skipped",
+      "row_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "stellarCrown",
+      "name": "Stellar Crown",
+      "action": "skipped",
+      "row_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "surgingSparks",
+      "name": "Surging Sparks",
+      "action": "skipped",
+      "row_id": "f59f25a2-d3da-4100-a918-901271a99925",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "temporalForces",
+      "name": "Temporal Forces",
+      "action": "skipped",
+      "row_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "twilightMasquerade",
+      "name": "Twilight Masquerade",
+      "action": "skipped",
+      "row_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "whiteFlare",
+      "name": "White Flare",
+      "action": "skipped",
+      "row_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "burningShadows",
+      "name": "Burning Shadows",
+      "action": "skipped",
+      "row_id": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "celestialStorm",
+      "name": "Celestial Storm",
+      "action": "skipped",
+      "row_id": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "cosmicEclipse",
+      "name": "Cosmic Eclipse",
+      "action": "skipped",
+      "row_id": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "crimsonInvasion",
+      "name": "Crimson Invasion",
+      "action": "skipped",
+      "row_id": "212383a2-ed84-4a5e-af37-50814247a437",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "detectivePikachu",
+      "name": "Detective Pikachu",
+      "action": "skipped",
+      "row_id": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "dragonMajesty",
+      "name": "Dragon Majesty",
+      "action": "skipped",
+      "row_id": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "forbiddenLight",
+      "name": "Forbidden Light",
+      "action": "skipped",
+      "row_id": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "guardiansRising",
+      "name": "Guardians Rising",
+      "action": "skipped",
+      "row_id": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "hiddenFates",
+      "name": "Hidden Fates",
+      "action": "skipped",
+      "row_id": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "hiddenFatesShinyVault",
+      "name": "Hidden Fates Shiny Vault",
+      "action": "skipped",
+      "row_id": "528c1630-0565-427c-98a3-0ad3d85da32e",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "lostThunder",
+      "name": "Lost Thunder",
+      "action": "skipped",
+      "row_id": "7c998bc2-6073-4461-8873-64d1b3e78930",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "shiningLegends",
+      "name": "Shining Legends",
+      "action": "skipped",
+      "row_id": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "smBlackStarPromos",
+      "name": "SM Black Star Promos",
+      "action": "skipped",
+      "row_id": "0a49ab45-80d7-47e3-be40-425e254d2ff2",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "sunAndMoon",
+      "name": "Sun & Moon",
+      "action": "skipped",
+      "row_id": "8938c853-2282-46d8-ba44-87584fa2c168",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "teamUp",
+      "name": "Team Up",
+      "action": "skipped",
+      "row_id": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "ultraPrism",
+      "name": "Ultra Prism",
+      "action": "skipped",
+      "row_id": "8158d0ae-0255-48f0-b189-d134035b72b0",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "unbrokenBonds",
+      "name": "Unbroken Bonds",
+      "action": "skipped",
+      "row_id": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "unifiedMinds",
+      "name": "Unified Minds",
+      "action": "skipped",
+      "row_id": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "astralRadiance",
+      "name": "Astral Radiance",
+      "action": "skipped",
+      "row_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "astralRadianceTrainerGallery",
+      "name": "Astral Radiance Trainer Gallery",
+      "action": "skipped",
+      "row_id": "01b45c4b-c606-41f7-9669-0137cd4aafaf",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "battleStyles",
+      "name": "Battle Styles",
+      "action": "skipped",
+      "row_id": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "brilliantStars",
+      "name": "Brilliant Stars",
+      "action": "skipped",
+      "row_id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "brilliantStarsTrainerGallery",
+      "name": "Brilliant Stars Trainer Gallery",
+      "action": "skipped",
+      "row_id": "7b44aba2-0e04-4b04-a1c7-9b6273daf3d5",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "celebrations",
+      "name": "Celebrations",
+      "action": "skipped",
+      "row_id": "be7c981b-c55e-4f60-a1b8-be922531452d",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "celebrationsClassicCollection",
+      "name": "Celebrations: Classic Collection",
+      "action": "skipped",
+      "row_id": "09f1674c-26c5-40df-8d52-4ce823c7c2fb",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "championSPath",
+      "name": "Champion's Path",
+      "action": "skipped",
+      "row_id": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "chillingReign",
+      "name": "Chilling Reign",
+      "action": "skipped",
+      "row_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "crownZenith",
+      "name": "Crown Zenith",
+      "action": "skipped",
+      "row_id": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "crownZenithGalarianGallery",
+      "name": "Crown Zenith Galarian Gallery",
+      "action": "skipped",
+      "row_id": "532d2ad5-32b3-434d-9772-2159fcdfbd5b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "darknessAblaze",
+      "name": "Darkness Ablaze",
+      "action": "skipped",
+      "row_id": "3836457c-77dc-44b0-a72f-779b6dd78884",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "evolvingSkies",
+      "name": "Evolving Skies",
+      "action": "skipped",
+      "row_id": "93212749-ce0e-498e-975e-7d947a3448ce",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "fusionStrike",
+      "name": "Fusion Strike",
+      "action": "skipped",
+      "row_id": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "lostOrigin",
+      "name": "Lost Origin",
+      "action": "skipped",
+      "row_id": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "lostOriginTrainerGallery",
+      "name": "Lost Origin Trainer Gallery",
+      "action": "skipped",
+      "row_id": "fc711667-a178-41c9-afbc-7e7d88bfe593",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "pokMonGO",
+      "name": "Pok\u00e9mon GO",
+      "action": "skipped",
+      "row_id": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "rebelClash",
+      "name": "Rebel Clash",
+      "action": "skipped",
+      "row_id": "759c09f8-8a1b-4212-be89-66088afa6893",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "shiningFates",
+      "name": "Shining Fates",
+      "action": "skipped",
+      "row_id": "03764ded-825a-45c0-8b15-ce100cff9552",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "shiningFatesShinyVault",
+      "name": "Shining Fates Shiny Vault",
+      "action": "skipped",
+      "row_id": "f93ca977-cfc9-4d06-a62a-f9dcf9afbfb8",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "silverTempest",
+      "name": "Silver Tempest",
+      "action": "skipped",
+      "row_id": "2d6ec108-70b2-4698-a21a-1af39828004f",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "silverTempestTrainerGallery",
+      "name": "Silver Tempest Trainer Gallery",
+      "action": "skipped",
+      "row_id": "1f5a156b-2335-4803-a82c-803976263e8b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "swordAndShield",
+      "name": "Sword & Shield",
+      "action": "skipped",
+      "row_id": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "swshBlackStarPromos",
+      "name": "SWSH Black Star Promos",
+      "action": "skipped",
+      "row_id": "a8e71483-9883-4e9c-b0ce-1ef5049c9ed0",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "vividVoltage",
+      "name": "Vivid Voltage",
+      "action": "skipped",
+      "row_id": "26fedb88-87d7-487a-9f01-528d603c682e",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "ancientOrigins",
+      "name": "Ancient Origins",
+      "action": "skipped",
+      "row_id": "3f3c7677-b876-4353-821e-6bdd610fd683",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "breakpoint",
+      "name": "BREAKpoint",
+      "action": "skipped",
+      "row_id": "4de777b3-396e-4f19-9d78-c054b296bedb",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "breakthrough",
+      "name": "BREAKthrough",
+      "action": "skipped",
+      "row_id": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "doubleCrisis",
+      "name": "Double Crisis",
+      "action": "skipped",
+      "row_id": "806b7046-4fd5-4259-be17-54b28381f034",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "evolutions",
+      "name": "Evolutions",
+      "action": "skipped",
+      "row_id": "75cc9ef9-1099-4e47-8d09-17f416606865",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "fatesCollide",
+      "name": "Fates Collide",
+      "action": "skipped",
+      "row_id": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "flashfire",
+      "name": "Flashfire",
+      "action": "skipped",
+      "row_id": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "furiousFists",
+      "name": "Furious Fists",
+      "action": "skipped",
+      "row_id": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "generations",
+      "name": "Generations",
+      "action": "skipped",
+      "row_id": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "kalosStarterSet",
+      "name": "Kalos Starter Set",
+      "action": "skipped",
+      "row_id": "f133524e-50e2-4238-91db-393770680c9b",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "phantomForces",
+      "name": "Phantom Forces",
+      "action": "skipped",
+      "row_id": "d38ee646-382d-45c0-9463-e9302aa2471a",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "primalClash",
+      "name": "Primal Clash",
+      "action": "skipped",
+      "row_id": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "roaringSkies",
+      "name": "Roaring Skies",
+      "action": "skipped",
+      "row_id": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "steamSiege",
+      "name": "Steam Siege",
+      "action": "skipped",
+      "row_id": "69d6d1be-f610-421b-b29c-c3348fe19518",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "xy",
+      "name": "XY",
+      "action": "skipped",
+      "row_id": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+      "changes": [],
+      "reason": null
+    },
+    {
+      "canonical_key": "xyBlackStarPromos",
+      "name": "XY Black Star Promos",
+      "action": "skipped",
+      "row_id": "0b8ebcec-2b4e-4a77-9923-ffc4be6514c5",
+      "changes": [],
+      "reason": null
+    }
+  ]
+}
