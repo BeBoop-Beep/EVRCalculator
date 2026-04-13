@@ -1,11 +1,11 @@
 {
-  "generated_at_utc": "2026-04-12T16:48:45.660310+00:00",
-  "completed_at_utc": "2026-04-12T16:49:46.929256+00:00",
+  "generated_at_utc": "2026-04-12T18:00:33.099553+00:00",
+  "completed_at_utc": "2026-04-12T18:00:47.015227+00:00",
   "mode": "apply",
   "era_filter": "scarletAndVioletEra",
   "set_filter": null,
   "limit": 3,
-  "db_ingestion_enabled": true,
+  "db_ingestion_enabled": false,
   "shuffle_within_date": false,
   "sets_selected": 3,
   "sets_attempted": 3,
@@ -15,7 +15,7 @@
   "skipped_no_config": [],
   "sets_era_filtered": 149,
   "deduped_targets_removed": 0,
-  "elapsed_seconds": 61.27,
+  "elapsed_seconds": 13.92,
   "retry_heavy_sets": [],
   "results": [
     {

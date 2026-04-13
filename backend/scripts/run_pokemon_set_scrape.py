@@ -896,6 +896,26 @@ def main() -> int:
             indent=2,
         )
     )
+
+    # Send pending alerts (apply mode only, non-fatal)
+    if args.run:
+        try:
+            from backend.alerts.dispatcher import send_pending_alerts
+            alert_summary = send_pending_alerts()
+            if alert_summary.get("failed_count", 0) > 0:
+                logger.warning(
+                    "%s alert dispatch completed with failures: sent=%d failed=%d",
+                    RUNNER_TAG,
+                    alert_summary.get("sent_count", 0),
+                    alert_summary.get("failed_count", 0),
+                )
+        except ImportError:
+            logger.debug("%s alert dispatcher not available, skipping", RUNNER_TAG)
+        except ValueError as exc:
+            logger.warning("%s alert dispatcher config error: %s", RUNNER_TAG, exc)
+        except Exception as exc:
+            logger.exception("%s alert dispatcher failed, but scraper completed: %s", RUNNER_TAG, exc)
+
     return 0
 
 
