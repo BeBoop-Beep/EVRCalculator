@@ -25,6 +25,9 @@ export default function SharedCollectionGrid({
   className = "",
   getItemHref = null,
   onSetAssetSpotlight = null,
+  // Owner-only — absent on public routes
+  onQuantityMutate = null,  // (item, action) => void
+  pendingItemIds = null,    // Set<string> | null
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const router = useRouter();
@@ -50,6 +53,34 @@ export default function SharedCollectionGrid({
       totalPages: 1,
     };
   }, [items, viewMode, currentPage]);
+
+  useEffect(() => {
+    const inputIds = (items || []).map((item) => String(item?.id || "")).filter(Boolean);
+    const displayIds = (displayItems || []).map((item) => String(item?.id || "")).filter(Boolean);
+    const duplicateInputIds = inputIds.filter((id, index) => inputIds.indexOf(id) !== index);
+    const duplicateDisplayIds = displayIds.filter((id, index) => displayIds.indexOf(id) !== index);
+    const droppedIds = inputIds.filter((id) => !displayIds.includes(id));
+
+    console.info("[public-collection-lifecycle] grid_render", {
+      viewMode,
+      variant,
+      inputCount: items.length,
+      displayCount: displayItems.length,
+      totalPages,
+      currentPage,
+      inputIds,
+      displayIds,
+      duplicateInputIds,
+      duplicateDisplayIds,
+      droppedIds,
+      reactKeys: displayIds,
+      displayItemMeta: displayItems.map((item) => ({
+        id: String(item?.id || ""),
+        type: String(item?.collectible_type || ""),
+        name: String(item?.name || ""),
+      })),
+    });
+  }, [currentPage, displayItems, items, totalPages, variant, viewMode]);
 
   // Loading state
   if (isLoading) {
@@ -81,6 +112,7 @@ export default function SharedCollectionGrid({
 
   const renderCard = (item) => {
     const href = resolveItemHref(item);
+    const isMutating = pendingItemIds instanceof Set && pendingItemIds.has(String(item.id));
     return (
       <CollectionItemCard
         key={item.id}
@@ -88,6 +120,8 @@ export default function SharedCollectionGrid({
         variant={variant}
         onClick={href ? () => router.push(href) : null}
         onSetAsSpotlight={onSetAssetSpotlight ? () => onSetAssetSpotlight(item) : null}
+        onQuantityMutate={onQuantityMutate || null}
+        isMutating={isMutating}
       />
     );
   };

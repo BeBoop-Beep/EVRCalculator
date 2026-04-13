@@ -6,9 +6,9 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(base_dir)
 sys.path.append(os.path.join(base_dir, 'Expected Value and Cost Ratio Calculator Pokemon'))
 
-from calculations.packCalcsRefractored import calculate_pack_stats
-from simulations import calculate_pack_simulations
-from calculations.evrEtb import calculate_etb_metrics
+from backend.calculations.packCalcsRefractored import calculate_pack_stats
+from backend.simulations import calculate_pack_simulations
+from backend.calculations.evrEtb import calculate_etb_metrics
 from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
 
 

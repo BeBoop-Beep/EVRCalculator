@@ -1,10 +1,10 @@
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from Scraper.services.orchestrators.tcg_player_orchestrator import TCGScraper  # Import the class, not the module
-from Scraper.config.get_set_config import get_config_for_set
+from backend.Scraper.services.orchestrators.tcg_player_orchestrator import TCGScraper  # Import the class, not the module
+from backend.Scraper.config.get_set_config import get_config_for_set
 
 def main():
     # # Step 1: Scrape and gather HTML Doc  # #

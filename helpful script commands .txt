@@ -1,0 +1,11 @@
+uvicorn backend auth run
+d:/EVRCalculator/backend/.venv/Scripts/python.exe -m uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+api local host:
+http://localhost:8000/docs#/
+
+run data scrape all
+python backend/scripts/run_pokemon_set_scrape.py --run
+
+run data scrape era 
+python backend/scripts/run_pokemon_set_scrape.py --run --era scarletAndVioletEra

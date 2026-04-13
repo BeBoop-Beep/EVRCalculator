@@ -3,6 +3,13 @@ from .baseConfig import BaseSetConfig
 class SetWhiteFlareConfig(BaseSetConfig):
     SET_NAME = "White Flare"
     SET_ABBREVIATION = "WHT"
+    SET_ID = 'rsv10pt5'
+    RELEASE_DATE = '2025/07/18'
+    PRINTED_TOTAL = 86
+    TOTAL = 173
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/rsv10pt5/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/rsv10pt5/logo.png'
+
     
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/24326/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL = "https://infinite-api.tcgplayer.com/priceguide/set/24326/cards/?rows=5000&productTypeID=25"

@@ -3,9 +3,9 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.repositories.sets_repository import get_set_by_name, insert_set
-from db.repositories.eras_repository import get_era_id_by_name
-from db.repositories.tcgs_repository import get_tcg_id_by_name
+from backend.db.repositories.sets_repository import get_set_by_name, insert_set
+from backend.db.repositories.eras_repository import get_era_id_by_name
+from backend.db.repositories.tcgs_repository import get_tcg_id_by_name
 from datetime import datetime
 
 class SetsService:

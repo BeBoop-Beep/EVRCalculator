@@ -53,6 +53,9 @@ export default function CollectionSectionLayout({
   showAdvancedFilters = true,
   hideBrowserControls = false,
   searchPlaceholder = null,
+  // Owner-only
+  onQuantityMutate = null,
+  pendingItemIds = null,
 }) {
   const [internalActiveFilters, setInternalActiveFilters] = useState({});
   const [internalSelectedType, setInternalSelectedType] = useState("all");
@@ -206,6 +209,8 @@ export default function CollectionSectionLayout({
             showAdvancedFilters={showAdvancedFilters}
             hideControls={hideBrowserControls}
             searchPlaceholder={searchPlaceholder}
+            onQuantityMutate={onQuantityMutate}
+            pendingItemIds={pendingItemIds}
           />
         </div>
       </div>

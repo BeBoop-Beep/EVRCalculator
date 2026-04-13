@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.services.sealed_products_service import SealedProductsService
+from backend.db.services.sealed_products_service import SealedProductsService
 
 class SealedProductsController:
     """Controller for receiving and validating sealed product ingestion requests"""

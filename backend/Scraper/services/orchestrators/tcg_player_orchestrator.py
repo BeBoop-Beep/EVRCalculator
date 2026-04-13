@@ -2,7 +2,8 @@ from ...clients.tcgplayer_client import TCGPlayerClient
 from ...parsers.tcgplayer_parser import TCGPlayerParser
 from ..dto_builders.tcgplayer_dto_builder import TCGPlayerDTOBuilder
 from ...exporters.excel_writer import save_to_excel
-from db.controllers.ingest_controller import IngestController
+from backend.db.controllers.ingest_controller import IngestController
+import copy
 import json
 import sys
 import os
@@ -16,6 +17,8 @@ class TCGScraper:
         self.client = TCGPlayerClient()
         self.dto_builder = TCGPlayerDTOBuilder()
         self.enable_db_ingestion = enable_db_ingestion
+        self._parsed_cards_cache = {}
+        self._parsed_sealed_cache = {}
         if enable_db_ingestion:
             self.ingest_controller = IngestController()
     
@@ -27,8 +30,19 @@ class TCGScraper:
        
         # Step 2: Parse data
         parser = TCGPlayerParser(config.PULL_RATE_MAPPING)
-        card_dicts = parser.parse_cards(raw_data)
-        sealed_dicts = parser.parse_sealed_products(config, self.client)
+        card_cache_key = (config.CARD_DETAILS_URL, config.SET_NAME)
+        if card_cache_key in self._parsed_cards_cache:
+            card_dicts = copy.deepcopy(self._parsed_cards_cache[card_cache_key])
+        else:
+            card_dicts = parser.parse_cards(raw_data)
+            self._parsed_cards_cache[card_cache_key] = copy.deepcopy(card_dicts)
+
+        sealed_cache_key = (config.SEALED_DETAILS_URL, config.SET_NAME)
+        if sealed_cache_key in self._parsed_sealed_cache:
+            sealed_dicts = copy.deepcopy(self._parsed_sealed_cache[sealed_cache_key])
+        else:
+            sealed_dicts = parser.parse_sealed_products(config, self.client)
+            self._parsed_sealed_cache[sealed_cache_key] = copy.deepcopy(sealed_dicts)
 
         # Step 3: Build DTO
         dto = self.dto_builder.build(config, card_dicts, sealed_dicts)
@@ -56,6 +70,7 @@ class TCGScraper:
                     print("[OK] Database ingestion successful")
                     print(f"\n[SUMMARY] Ingestion Summary:")
                     if 'summary' in result:
+                        payload['_ingestion_efficiency'] = result['summary']
                         for key, value in result['summary'].items():
                             print(f"   {key}: {value}")
                 else:
@@ -70,4 +85,7 @@ class TCGScraper:
         # save_to_excel(card_dicts, sealed_dicts, excel_path)
         
         return payload
+
+    def get_request_metrics(self):
+        return self.client.get_metrics()
 

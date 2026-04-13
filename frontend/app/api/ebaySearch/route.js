@@ -1,62 +1,47 @@
-import { NextResponse } from 'next/server';
-import axios from 'axios';
+import { NextResponse } from "next/server";
+
+function getBackendBaseUrl() {
+  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+}
+
+function buildProxyHeaders(request) {
+  const headers = {
+    Accept: "application/json",
+  };
+
+  const cookieHeader = request.headers.get("cookie");
+  if (cookieHeader) {
+    headers.cookie = cookieHeader;
+  }
+
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    headers.authorization = authorization;
+  }
+
+  return headers;
+}
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get('query');
+  const backendUrl = new URL(`${getBackendBaseUrl()}/integrations/ebay/search`);
+  request.nextUrl.searchParams.forEach((value, key) => {
+    backendUrl.searchParams.append(key, value);
+  });
 
-  if (!query) {
-    return NextResponse.json({ error: 'Query is required' }, { status: 400 });
-  }
+  const proxyResponse = await fetch(backendUrl.toString(), {
+    method: "GET",
+    headers: buildProxyHeaders(request),
+    credentials: "include",
+    cache: "no-store",
+  });
 
-  try {
-    // Log the credentials for debugging
-    console.log('EBAY_CLIENT_ID:', process.env.EBAY_CLIENT_ID);
-    console.log('EBAY_CLIENT_SECRET:', process.env.EBAY_CLIENT_SECRET);
+  const payload = await proxyResponse.text();
+  const contentType = proxyResponse.headers.get("content-type") || "application/json";
 
-    // Step 1: Get eBay OAuth App Token
-    const authResponse = await axios.post(
-      'https://api.ebay.com/identity/v1/oauth2/token',
-      'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope',
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: `Basic ${Buffer.from(
-            `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
-          ).toString('base64')}`,
-        },
-      }
-    );
-
-    const accessToken = authResponse.data.access_token;
-
-    // Step 2: Call eBay Browse API
-    const searchResponse = await axios.get(
-      `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(
-        query
-      )}&limit=10`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    // Step 3: Process the results
-    const results = searchResponse.data.itemSummaries.map((item) => ({
-      title: item.title,
-      price: item.price.value,
-      image: item.image?.imageUrl || '', // Handle cases where image is missing
-      platform: 'eBay',
-    }));
-
-    // Step 4: Return the results to the frontend
-    return NextResponse.json({ results });
-  } catch (error) {
-    console.error('Error fetching data from eBay:', error.response?.data || error.message);
-    return NextResponse.json(
-      { error: 'Failed to fetch data', details: error.response?.data || error.message },
-      { status: 500 }
-    );
-  }
+  return new NextResponse(payload, {
+    status: proxyResponse.status,
+    headers: {
+      "content-type": contentType,
+    },
+  });
 }

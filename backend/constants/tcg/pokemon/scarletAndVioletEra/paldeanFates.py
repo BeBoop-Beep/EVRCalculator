@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetPaldeanFatesConfig(BaseSetConfig):
     SET_NAME = "Paldean Fates"
     SET_ABBREVIATION = "PAF"
+    SET_ID = 'sv4pt5'
+    RELEASE_DATE = '2024/01/26'
+    PRINTED_TOTAL = 91
+    TOTAL = 245
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv4pt5/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv4pt5/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23353/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23353/cards/?rows=5000&productTypeID=25"

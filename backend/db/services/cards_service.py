@@ -1,21 +1,26 @@
 import sys
 import os
+import re
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
-from db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
-from db.repositories.card_variant_prices_repository import insert_card_variant_price, insert_card_variant_prices_batch
-from db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
-from db.services.batch_processor import BatchProcessor
-from db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
+from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
+from backend.db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
+from backend.db.repositories.card_variant_prices_repository import (
+    insert_card_variant_price,
+    insert_card_variant_prices_batch,
+    insert_card_variant_prices_batch_with_stats,
+)
+from backend.db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
+from backend.db.services.batch_processor import BatchProcessor
+from backend.db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
 
 class CardsService(BatchProcessor):
     """
     Service layer for card business logic.
-    Orchestrates writes across cards, card_variants, and card_variant_prices tables.
+    Orchestrates writes across cards, card_variants, and card_variant_price_observations tables.
     Uses multiprocessing for parallel batch processing.
     """
     
@@ -64,7 +69,17 @@ class CardsService(BatchProcessor):
             raise ValueError(f"Condition '{condition_name}' not found in database. Available: {available}")
         
         return conditions_map[condition_name]
-    
+
+    @staticmethod
+    def _normalize_base_card_name(name: str) -> str:
+        """
+        Strip trailing card-number suffix from a product name.
+        e.g. "Black Belt's Training - 096/131" -> "Black Belt's Training"
+        """
+        if not name:
+            return name
+        return re.sub(r'\s*-\s*\d+/\d+\s*$', '', name).strip()
+
     def _extract_variant_info(self, card):
         """
         Extract variant information from card data.
@@ -193,8 +208,7 @@ class CardsService(BatchProcessor):
         Returns:
             Number of prices successfully inserted
         """
-        inserted_ids = insert_card_variant_prices_batch(price_batch)
-        return len(inserted_ids)
+        return insert_card_variant_prices_batch_with_stats(price_batch)
     
     def _prepare_card_data(self, card_key, card_id, card_list):
         """
@@ -393,7 +407,7 @@ class CardsService(BatchProcessor):
         This method orchestrates the complete flow:
         1. Insert card into 'cards' table
         2. For each unique variant of the card, insert into 'card_variants' table
-        3. For each variant, insert price data into 'card_variant_prices' table
+        3. For each variant, insert price data into 'card_variant_price_observations' table
         
         Args:
             set_id: UUID of the set these cards belong to
@@ -415,22 +429,37 @@ class CardsService(BatchProcessor):
             'inserted_cards': 0,
             'inserted_variants': 0,
             'inserted_prices': 0,
+            'price_rows_attempted': 0,
+            'price_rows_skipped_duplicates': 0,
+            'price_rows_updated': 0,
+            'price_batch_operations': 0,
             'failed': 0,
             'errors': []
         }
         
         # Group cards by unique identifier to avoid duplicates
         # Include rarity in the key because different rarities of the same card are different cards
+        # Canonical name normalization is applied here to strip any trailing " - NNN/YYY" suffix
+        # that may have leaked through upstream parsing paths.
         cards_by_key = {}
         for card in cards:
-            key = (card.get('name'), card.get('card_number'), card.get('rarity'))
+            raw_name = card.get('name') or ''
+            canonical_name = self._normalize_base_card_name(raw_name)
+            if raw_name != canonical_name:
+                print(f"[DEBUG] Name normalized: '{raw_name}' → '{canonical_name}' (card_number={card.get('card_number')})")
+            key = (canonical_name, card.get('card_number'), card.get('rarity'))
             if key not in cards_by_key:
                 cards_by_key[key] = []
             cards_by_key[key].append(card)
-        
-        # Fetch all existing cards for this set once to avoid repeated DB calls
+
+        # Fetch all existing cards for this set once to avoid repeated DB calls.
+        # Normalize DB names too so that any previously-ingested dirty rows
+        # (name still containing the card-number suffix) are matched correctly.
         existing_cards = get_all_cards_for_set(set_id)
-        existing_cards_set = {(card['name'], card['card_number'], card['rarity']): card['id'] for card in existing_cards}
+        existing_cards_set = {
+            (self._normalize_base_card_name(card['name']), card['card_number'], card['rarity']): card['id']
+            for card in existing_cards
+        }
         
         # Build a list of new cards to insert (checking against both DB and incoming payload)
         new_cards_to_insert = []
@@ -443,7 +472,7 @@ class CardsService(BatchProcessor):
             # Skip if it already exists in DB
             if card_key in existing_cards_set:
                 card_key_to_id[card_key] = existing_cards_set[card_key]
-                print(f"[INFO]  Card already exists: {name} (ID: {existing_cards_set[card_key]})")
+                print(f"[INFO]  [CARD REUSED] canonical_name='{name}' card_number='{card_number}' → ID={existing_cards_set[card_key]}")
                 continue
             
             # Skip if we've already added this to the new_cards_to_insert list
@@ -472,7 +501,7 @@ class CardsService(BatchProcessor):
                 for i, card_data in enumerate(new_cards_to_insert):
                     card_key = (card_data['name'], card_data['card_number'], card_data['rarity'])
                     card_key_to_id[card_key] = card_ids[i]
-                    print(f"[OK] Inserted card: {card_data['name']} (ID: {card_ids[i]})")
+                    print(f"[OK]  [CARD INSERTED] canonical_name='{card_data['name']}' card_number='{card_data['card_number']}' → new ID={card_ids[i]}")
             except Exception as e:
                 error_msg = f"Failed to batch insert cards: {e}"
                 print(f"[ERROR] {error_msg}")
@@ -520,6 +549,24 @@ class CardsService(BatchProcessor):
         all_errors.extend(phase_3_errors)
         
         results['errors'].extend(all_errors)
+
+        attempted_price_rows = results.get('price_rows_attempted', 0)
+        inserted_price_rows = results.get('inserted_prices', 0)
+        skipped_duplicates = results.get('price_rows_skipped_duplicates', 0)
+        write_reduction_ratio = (
+            round((skipped_duplicates / attempted_price_rows), 4)
+            if attempted_price_rows
+            else 0.0
+        )
+        results['ingestion_efficiency'] = {
+            'table': 'card_variant_price_observations',
+            'attempted_rows': attempted_price_rows,
+            'inserted_rows': inserted_price_rows,
+            'updated_rows': results.get('price_rows_updated', 0),
+            'skipped_duplicates': skipped_duplicates,
+            'db_batch_operations': results.get('price_batch_operations', 0),
+            'estimated_write_reduction_ratio': write_reduction_ratio,
+        }
         
         print(f"[INFO] All batch processing and shipping complete. Inserted {results['inserted_variants']} variants, {results['inserted_prices']} prices")
         

@@ -25,6 +25,7 @@ def insert_card_variant(card_variant_row: Dict[str, Any]) -> int:
     for attempt in range(max_retries):
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            print(f"[DEBUG] insert_card_variant -> card_variants | card_id={card_variant_row.get('card_id')} printing_type={card_variant_row.get('printing_type')} special_type={card_variant_row.get('special_type')} edition={card_variant_row.get('edition')}")
             res = fresh_client.table("card_variants").insert(card_variant_row).execute()
             if res is None:
                 raise RuntimeError("Insert card variant returned no response object")
@@ -79,12 +80,17 @@ def get_card_variant_by_card_and_type(
         .eq("card_id", card_id)
         .eq("printing_type", printing_type)
     )
-    
-    if special_type:
+
+    if special_type is not None:
         query = query.eq("special_type", special_type)
-    if edition:
+    else:
+        query = query.is_("special_type", "null")
+
+    if edition is not None:
         query = query.eq("edition", edition)
-    
+    else:
+        query = query.is_("edition", "null")
+
     res = query.maybe_single().execute()
     return res.data if res and res.data else None
 
@@ -101,6 +107,106 @@ def get_card_variants_by_card_id(card_id: int) -> List[Dict[str, Any]]:
     """
     res = supabase.table("card_variants").select("*").eq("card_id", card_id).execute()
     return res.data if res and res.data else []
+
+
+def get_card_variants_by_card_ids(card_ids: List[int]) -> List[Dict[str, Any]]:
+    """Retrieve all card variants for a list of card IDs."""
+    if not card_ids:
+        return []
+
+    res = (
+        supabase.table("card_variants")
+        .select("id, card_id, pokemon_tcg_api_id")
+        .in_("card_id", card_ids)
+        .execute()
+    )
+    return res.data if res and res.data else []
+
+
+def update_card_variant_image_sync_fields(card_id: str, update_fields: Dict[str, Any]) -> Dict[str, Any]:
+    """Update card image sync fields for a single card variant."""
+    payload = {
+        key: value
+        for key, value in update_fields.items()
+        if key in {"pokemon_tcg_api_id", "image_small_url", "image_large_url", "image_last_synced_at"}
+        and value is not None
+    }
+
+    if not payload:
+        raise ValueError("No non-null card variant sync fields were provided")
+
+    max_retries = 3
+    last_error = None
+
+    for attempt in range(max_retries):
+        try:
+            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            res = (
+                fresh_client.table("card_variants")
+                .update(payload)
+                .eq("id", card_id)
+                .execute()
+            )
+            if res is None:
+                raise RuntimeError("Update card variant returned no response object")
+            updated = res.data
+            if not updated:
+                raise RuntimeError(f"Update returned no data for card_id={card_id}")
+            return updated[0]
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            duplicate_api_id_conflict = (
+                "23505" in error_msg
+                and "card_variants_pokemon_tcg_api_id_key" in error_msg
+                and "pokemon_tcg_api_id" in payload
+            )
+
+            if duplicate_api_id_conflict:
+                fallback_payload = {k: v for k, v in payload.items() if k != "pokemon_tcg_api_id"}
+                if fallback_payload:
+                    try:
+                        fallback_res = (
+                            fresh_client.table("card_variants")
+                            .update(fallback_payload)
+                            .eq("id", card_id)
+                            .execute()
+                        )
+                        if fallback_res and fallback_res.data:
+                            return fallback_res.data[0]
+                    except Exception:
+                        # Fall through to the regular error path below.
+                        pass
+
+            if "schema cache" in error_msg.lower() and attempt < max_retries - 1:
+                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
+                time.sleep(1)
+                continue
+            raise RuntimeError(f"Failed to update card variant sync fields: {error_msg}")
+        except RuntimeError as e:
+            last_error = str(e)
+            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise
+
+    raise RuntimeError(f"Failed to update card variant after {max_retries} retries: {last_error}")
+
+
+def update_card_variant_image_sync_fields_batch(updates: List[Dict[str, Any]]) -> int:
+    """Apply card image sync field updates sequentially and return the number of updated rows."""
+    updated_count = 0
+
+    for update in updates:
+        card_id = update.get("card_id")
+        if not card_id:
+            raise ValueError("Each card sync update must include card_id")
+
+        payload = {key: value for key, value in update.items() if key != "card_id"}
+        update_card_variant_image_sync_fields(card_id, payload)
+        updated_count += 1
+
+    return updated_count
 
 
 def insert_card_variants_batch(card_variants: List[Dict[str, Any]]) -> List[int]:
@@ -125,6 +231,7 @@ def insert_card_variants_batch(card_variants: List[Dict[str, Any]]) -> List[int]
     for attempt in range(max_retries):
         try:
             fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            print(f"[DEBUG] insert_card_variants_batch -> card_variants | count={len(card_variants)}")
             res = fresh_client.table("card_variants").insert(card_variants).execute()
             
             if res is None:

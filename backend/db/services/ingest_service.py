@@ -4,7 +4,7 @@ import os
 # Add path to import controllers and orchestrators
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.services.orchestrators.tcg_orchestrator import TCGOrchestrator
+from backend.db.services.orchestrators.tcg_orchestrator import TCGOrchestrator
 
 class IngestService:
     """

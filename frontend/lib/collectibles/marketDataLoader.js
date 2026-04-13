@@ -57,9 +57,10 @@ export function assertNoPortfolioFields(payload, sourceLabel) {
   }
 }
 
-export async function getCardMarketPageData(cardId) {
-  const entries = await getPrivateCollectionEntries();
-  const fromEntry = entries.find((entry) => entry.collectible_type === "card" && String(entry.collectible_id) === String(cardId));
+export async function getCardMarketPageData(cardId, options = {}) {
+  const entryContext = options?.entry || null;
+  const entries = entryContext ? [] : await getPrivateCollectionEntries();
+  const fromEntry = entryContext || entries.find((entry) => entry.collectible_type === "card" && String(entry.collectible_id) === String(cardId));
   const seed = stableSeed(cardId);
 
   const metadata = {
@@ -80,9 +81,10 @@ export async function getCardMarketPageData(cardId) {
   return sanitizeMarketOnly(payload);
 }
 
-export async function getSealedProductMarketPageData(productId) {
-  const entries = await getPrivateCollectionEntries();
-  const fromEntry = entries.find(
+export async function getSealedProductMarketPageData(productId, options = {}) {
+  const entryContext = options?.entry || null;
+  const entries = entryContext ? [] : await getPrivateCollectionEntries();
+  const fromEntry = entryContext || entries.find(
     (entry) => entry.collectible_type === "sealed_product" && String(entry.collectible_id) === String(productId)
   );
   const seed = stableSeed(productId);

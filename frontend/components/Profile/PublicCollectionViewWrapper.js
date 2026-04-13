@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CollectionSectionLayout from "@/components/Profile/CollectionSectionLayout";
 import CollectionPerformanceCard from "@/components/Collection/CollectionPerformanceCard";
 import CollectionScopeFilter from "@/components/Collection/CollectionScopeFilter";
-import { buildPublicCollectibleRouteFromEntry } from "@/lib/profile/collectionRoutes";
+import { buildMyCollectionEntryRoute, buildPublicCollectibleRouteFromEntry } from "@/lib/profile/collectionRoutes";
 import { filterCollectionByTCG, getAvailableTCGs } from "@/lib/profile/collectionValueHistory";
 
 function parseCurrencyValue(valueLabel) {
@@ -64,10 +64,15 @@ export default function PublicCollectionViewWrapper({
   items = [],
   stats = {},
   username = "",
+  mode = "public", // "public" | "owner"
   showPerformanceCard = true,
   localNavToolState = null,
   localNavControlsActive = false,
+  serverPreparedAt = null,
+  onQuantityMutate = null,
+  pendingItemIds = null,
 }) {
+  const isOwnerMode = mode === "owner";
   const [searchQuery, setSearchQuery] = useState(localNavToolState?.q || "");
   const [activeFilters, setActiveFilters] = useState({});
   const [sortBy, setSortBy] = useState(localNavToolState?.sort || publicCollectionConfig.defaultSort);
@@ -139,7 +144,14 @@ export default function PublicCollectionViewWrapper({
     }
 
     return items.filter((item) => {
-      return resolvedActiveTCGs.some((tcg) => filterCollectionByTCG([item], tcg).length > 0);
+      return resolvedActiveTCGs.some((tcg) => {
+        const hasSetMetadata = Boolean(String(item?.set || "").trim());
+        if (!hasSetMetadata) {
+          // Keep unknown-set entries (commonly graded/sealed metadata gaps) so filters do not hide valid tiles.
+          return true;
+        }
+        return filterCollectionByTCG([item], tcg).length > 0;
+      });
     });
   }, [items, resolvedActiveTCGs]);
 
@@ -191,6 +203,52 @@ export default function PublicCollectionViewWrapper({
     return result;
   }, [tcgFilteredItems, resolvedSearchQuery, resolvedActiveFilters, resolvedSortBy]);
 
+  useEffect(() => {
+    console.info("[public-collection-lifecycle] client_mount", {
+      username,
+      hydrationDelayMs: typeof serverPreparedAt === "number" ? Date.now() - serverPreparedAt : null,
+      itemCount: items.length,
+    });
+  }, [items.length, serverPreparedAt, username]);
+
+  useEffect(() => {
+    const incomingIds = items.map((item) => String(item?.id || "")).filter(Boolean);
+    const renderedIds = filteredAndSortedItems.map((item) => String(item?.id || "")).filter(Boolean);
+    const missingIds = incomingIds.filter((id) => !renderedIds.includes(id));
+    const duplicateRenderedIds = renderedIds.filter((id, index) => renderedIds.indexOf(id) !== index);
+
+    console.info("[public-collection-lifecycle] wrapper_pipeline", {
+      username,
+      incomingCount: items.length,
+      tcgFilteredCount: tcgFilteredItems.length,
+      renderedCount: filteredAndSortedItems.length,
+      incomingIds,
+      renderedIds,
+      missingIds,
+      duplicateRenderedIds,
+      activeTCGs: resolvedActiveTCGs,
+      activeFilters: resolvedActiveFilters,
+      resolvedSearchQuery,
+      resolvedSortBy,
+      resolvedViewMode,
+      renderedItemMeta: filteredAndSortedItems.map((item) => ({
+        id: String(item?.id || ""),
+        type: String(item?.collectible_type || ""),
+        name: String(item?.name || ""),
+      })),
+    });
+  }, [
+    filteredAndSortedItems,
+    items,
+    resolvedActiveFilters,
+    resolvedActiveTCGs,
+    resolvedSearchQuery,
+    resolvedSortBy,
+    resolvedViewMode,
+    tcgFilteredItems,
+    username,
+  ]);
+
   const activeTCGSelections = useMemo(
     () =>
       resolvedActiveTCGs
@@ -216,14 +274,17 @@ export default function PublicCollectionViewWrapper({
 
   const isEmpty = filteredAndSortedItems.length === 0;
 
-  const buildPublicCollectionItemHref = (item) => {
+  const buildCollectionItemHref = (item) => {
+    if (isOwnerMode) {
+      return buildMyCollectionEntryRoute(item);
+    }
     return buildPublicCollectibleRouteFromEntry(item);
   };
 
   return (
     <>
       {/* Collection Performance Card */}
-      {showPerformanceCard && (
+      {!isOwnerMode && showPerformanceCard && (
         <CollectionPerformanceCard
           initialRange={selectedRange}
           tcg={resolvedActiveTCGs.length === 1 ? resolvedActiveTCGs[0] : "All"}
@@ -261,12 +322,18 @@ export default function PublicCollectionViewWrapper({
         selectedType={resolvedActiveFilters.type?.[0] || "all"}
         extraActiveSelections={activeTCGSelections}
         onClearAllFilters={handleClearAllFilters}
-        getItemHref={buildPublicCollectionItemHref}
-        emptyStateTitle="No shared collection items"
-        emptyStateDesc="This collector hasn't shared any collection items yet."
+        getItemHref={buildCollectionItemHref}
+        emptyStateTitle={isOwnerMode ? "No collection items yet" : "No shared collection items"}
+        emptyStateDesc={
+          isOwnerMode
+            ? "Start by adding cards, sealed products, or other items to your collection."
+            : "This collector hasn't shared any collection items yet."
+        }
         hideBrowserControls={localNavControlsActive}
         searchPlaceholder="Search this collection"
         showAdvancedFilters={!localNavControlsActive}
+        onQuantityMutate={isOwnerMode ? onQuantityMutate : null}
+        pendingItemIds={isOwnerMode ? pendingItemIds : null}
       />
     </>
   );

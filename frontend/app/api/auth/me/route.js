@@ -1,41 +1,111 @@
 // /app/api/auth/me/route.js
-import { verify } from "jsonwebtoken";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 
-export async function GET(req) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+function getBackendBaseUrl() {
+  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+}
 
-  if (!token) {
-    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+function buildProxyHeaders(request) {
+  const headers = {
+    Accept: "application/json",
+  };
+
+  const cookieHeader = request.headers.get("cookie");
+  if (cookieHeader) {
+    headers.cookie = cookieHeader;
   }
 
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    headers.authorization = authorization;
+  }
+
+  return headers;
+}
+
+export async function GET(req) {
+  const routeStartedAt = Date.now();
+  const correlationId = req.headers.get("x-correlation-id") || crypto.randomUUID();
   try {
-    const tokenUser = verify(token, process.env.JWT_SECRET);
-    const adminClient = createSupabaseAdminClient();
+    const backendUrl = `${getBackendBaseUrl()}/auth/me`;
+    const hasCookieHeader = Boolean(req.headers.get("cookie"));
+    const hasAuthorizationHeader = Boolean(req.headers.get("authorization"));
+    console.info("[auth/me proxy] inbound", {
+      correlationId,
+      route: "/api/auth/me",
+      hasCookieHeader,
+      hasAuthorizationHeader,
+      backendUrl,
+    });
 
-    const { data: profile } = await adminClient
-      .from("users")
-      .select("id, username, display_name")
-      .eq("id", tokenUser.id)
-      .maybeSingle();
+    const backendStartedAt = Date.now();
+    const proxyResponse = await fetch(backendUrl, {
+      method: "GET",
+      headers: {
+        ...buildProxyHeaders(req),
+        "x-correlation-id": correlationId,
+      },
+      credentials: "include",
+      cache: "no-store",
+    });
 
-    const user = {
-      ...tokenUser,
-      username: profile?.username ?? tokenUser.username ?? null,
-      display_name: profile?.display_name ?? null,
-    };
+    console.info("[auth/me proxy] outbound", {
+      correlationId,
+      route: "/api/auth/me",
+      status: proxyResponse.status,
+      ok: proxyResponse.ok,
+      backendElapsedMs: Date.now() - backendStartedAt,
+    });
 
-    return NextResponse.json({ user }, { status: 200 });
+    const payload = await proxyResponse.text();
+    const contentType = proxyResponse.headers.get("content-type") || "application/json";
+    const payloadSizeBytes = Buffer.byteLength(payload, "utf8");
+
+    console.info("[auth/me proxy] complete", {
+      correlationId,
+      route: "/api/auth/me",
+      status: proxyResponse.status,
+      payloadSizeBytes,
+      totalElapsedMs: Date.now() - routeStartedAt,
+    });
+
+    return new NextResponse(payload, {
+      status: proxyResponse.status,
+      headers: {
+        "content-type": contentType,
+        "x-correlation-id": correlationId,
+      },
+    });
   } catch (error) {
-    console.error("Invalid token", error);
-
-    if (error.name === "TokenExpiredError") {
-      return NextResponse.json({ message: "Token expired" }, { status: 401 });
+    console.error("[auth/me proxy] failed", {
+      correlationId,
+      route: "/api/auth/me",
+      message: error instanceof Error ? error.message : String(error),
+      totalElapsedMs: Date.now() - routeStartedAt,
+    });
+    if (error instanceof TypeError && String(error.message || "").toLowerCase().includes("fetch failed")) {
+      return NextResponse.json(
+        {
+          message: "Backend auth service is unavailable. Ensure the Python backend is running and BACKEND_API_BASE_URL is correct.",
+          backend_url: getBackendBaseUrl(),
+        },
+        {
+          status: 503,
+          headers: {
+            "x-correlation-id": correlationId,
+          },
+        }
+      );
     }
 
-    return NextResponse.json({ message: "Invalid token" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Server error" },
+      {
+        status: 500,
+        headers: {
+          "x-correlation-id": correlationId,
+        },
+      }
+    );
   }
 }

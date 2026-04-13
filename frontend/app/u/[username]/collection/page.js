@@ -1,6 +1,5 @@
 import PublicCollectionViewWrapper from "@/components/Profile/PublicCollectionViewWrapper";
 import { buildCollectionStats, getPublicCollectionEntries } from "@/lib/profile/collectionEntryLoader";
-import { getCachedPublicProfileByUsername } from "@/lib/profile/publicProfileServer";
 
 const ALLOWED_SORTS = new Set(["recent", "value-desc", "value-asc", "name-asc", "name-desc"]);
 const ALLOWED_VIEWS = new Set(["continuous", "binder"]);
@@ -23,14 +22,37 @@ function readParamValue(searchParams, key) {
 }
 
 export default async function PublicProfileCollectionPage({ params, searchParams }) {
+  const pageStartedAt = Date.now();
   const { username } = await params;
   const resolvedSearchParams = (await searchParams) || {};
   const normalizedUsername = username || "";
 
-  const publicProfile = await getCachedPublicProfileByUsername(normalizedUsername);
-  const publicCollectionAssets = await getPublicCollectionEntries(normalizedUsername);
+  let publicCollectionAssets = [];
+  let publicCollectionFetchError = null;
+
+  try {
+    // Guardrail: collection route should not serially block on a separate public profile fetch.
+    publicCollectionAssets = await getPublicCollectionEntries(normalizedUsername);
+  } catch (error) {
+    publicCollectionFetchError = error;
+    console.error("[public-collection-page] collection_fetch_failed", {
+      username: normalizedUsername,
+      message: error instanceof Error ? error.message : String(error),
+      status: error?.status || null,
+    });
+  }
+
   const collectionStats = buildCollectionStats(publicCollectionAssets);
-  const canRenderPublicCollection = Boolean(publicProfile);
+  const canRenderPublicCollection = !publicCollectionFetchError;
+
+  console.info("[public-collection-lifecycle] page_props", {
+    username: normalizedUsername,
+    hasPublicProfile: null,
+    profileFetchError: null,
+    collectionFetchError: publicCollectionFetchError ? (publicCollectionFetchError.message || String(publicCollectionFetchError)) : null,
+    count: publicCollectionAssets.length,
+    sampleIds: publicCollectionAssets.map((item) => String(item?.id || "")).filter(Boolean).slice(0, 10),
+  });
 
   const q = readParamValue(resolvedSearchParams, "q");
   const sort = readParamValue(resolvedSearchParams, "sort");
@@ -47,6 +69,13 @@ export default async function PublicProfileCollectionPage({ params, searchParams
     condition: ALLOWED_CONDITIONS.has(condition) ? condition : "",
     tcg: tcg || "",
   };
+
+  console.info("[public-collection-lifecycle] page_timing", {
+    username: normalizedUsername,
+    pageRenderPrepMs: Date.now() - pageStartedAt,
+    hasPublicProfile: null,
+    collectionCount: publicCollectionAssets.length,
+  });
 
   return (
     <div className="space-y-6">
@@ -65,6 +94,7 @@ export default async function PublicProfileCollectionPage({ params, searchParams
           showPerformanceCard={false}
           localNavToolState={localToolState}
           localNavControlsActive
+          serverPreparedAt={Date.now()}
         />
       )}
     </div>

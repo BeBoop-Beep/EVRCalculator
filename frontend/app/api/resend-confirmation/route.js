@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createSupabaseAnonClient } from "@/lib/supabaseServer";
+
+const API_URL = process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000";
 
 export async function POST(req) {
   const { email } = await req.json();
@@ -10,23 +11,25 @@ export async function POST(req) {
   }
 
   try {
-    const anonClient = createSupabaseAnonClient();
-    const { error } = await anonClient.auth.resend({
-      type: "signup",
-      email: normalizedEmail,
+    const backendResponse = await fetch(`${API_URL}/auth/resend-confirmation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: normalizedEmail,
+      }),
     });
+    const data = await backendResponse.json().catch(() => ({}));
 
-    if (error) {
+    if (!backendResponse.ok) {
       return NextResponse.json(
-        { message: error.message || "Unable to resend confirmation email." },
-        { status: 400 }
+        { message: data?.message || "Unable to resend confirmation email." },
+        { status: backendResponse.status || 400 }
       );
     }
 
-    return NextResponse.json(
-      { message: "Confirmation email sent. Please check your inbox and spam folder." },
-      { status: 200 }
-    );
+    return NextResponse.json(data, { status: backendResponse.status });
   } catch (error) {
     return NextResponse.json(
       { message: "Server error while resending confirmation email." },

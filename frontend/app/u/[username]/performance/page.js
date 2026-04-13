@@ -1,5 +1,4 @@
 import PublicPortfolioOverviewComposer from "@/components/Profile/PublicPortfolioOverviewComposer";
-import { getPublicCollectionEntries } from "@/lib/profile/collectionEntryLoader";
 import { mapPublicOverviewToDashboardData } from "@/lib/profile/publicOverviewDashboardAdapter";
 import { buildPublicOverviewModel } from "@/lib/profile/publicOverviewModel";
 import { getCachedPublicProfileByUsername } from "@/lib/profile/publicProfileServer";
@@ -143,13 +142,12 @@ function buildPublicPortfolioSignals(items = []) {
 }
 
 export default async function PublicPerformancePage({ params }) {
+  const pageStartedAt = Date.now();
   const { username } = await params;
   const normalizedUsername = String(username || "").trim();
 
-  const [publicProfile, publicCollectionAssets] = await Promise.all([
-    getCachedPublicProfileByUsername(normalizedUsername),
-    getPublicCollectionEntries(normalizedUsername),
-  ]);
+  // Guardrail: performance overview must not request public collection items.
+  const publicProfile = await getCachedPublicProfileByUsername(normalizedUsername);
 
   if (!publicProfile) {
     return (
@@ -165,11 +163,19 @@ export default async function PublicPerformancePage({ params }) {
   const overview = buildPublicOverviewModel({
     publicProfile,
     username: normalizedUsername,
-    collectionAssets: publicCollectionAssets,
+    collectionAssets: [],
   });
   const dashboardData = mapPublicOverviewToDashboardData(overview);
-  const performanceHighlights = buildPublicPerformanceHighlights(publicCollectionAssets);
-  const portfolioSignals = buildPublicPortfolioSignals(publicCollectionAssets);
+  const performanceHighlights = null;
+  const portfolioSignals = null;
+
+  console.info("[public-performance-page] render_ready", {
+    username: normalizedUsername,
+    pathUsed: "summary_snapshot",
+    includeCollectionItems: false,
+    hasCollectionSummary: Boolean(publicProfile?.collection_summary),
+    elapsedMs: Date.now() - pageStartedAt,
+  });
 
   return (
     <div className="space-y-4">

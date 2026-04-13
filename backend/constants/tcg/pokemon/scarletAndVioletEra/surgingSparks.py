@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetSurgingSparksConfig(BaseSetConfig):
     SET_NAME = "Surging Sparks"
     SET_ABBREVIATION = "SSP"
+    SET_ID = 'sv8'
+    RELEASE_DATE = '2024/11/08'
+    PRINTED_TOTAL = 191
+    TOTAL = 252
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv8/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv8/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23651/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23651/cards/?rows=5000&productTypeID=25"

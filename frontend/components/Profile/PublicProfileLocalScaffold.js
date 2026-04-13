@@ -39,7 +39,14 @@ const COLLECTION_TCG_OPTIONS = [
   { id: "Pokemon", label: "Pokemon" },
 ];
 
-export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHeader = null, children }) {
+export default function PublicProfileLocalScaffold({
+  profileBaseHref,
+  desktopHeader = null,
+  children,
+  mode = "public",
+  sectionItems: sectionItemsOverride = null,
+  mobileNavItems: mobileNavItemsOverride = null,
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,7 +55,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
   const [desktopFiltersOpen, setDesktopFiltersOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState("");
-  const sectionItems = [
+  const sectionItems = sectionItemsOverride || [
     { label: "Collection", href: `${profileBaseHref}/collection`, exact: true },
     { label: "Performance", href: `${profileBaseHref}/performance` },
     { label: "Wishlist", href: `${profileBaseHref}/wishlist` },
@@ -57,7 +64,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
 
   const collectionHref = `${profileBaseHref}/collection`;
 
-  const mobileNavItems = [
+  const mobileNavItems = mobileNavItemsOverride || [
     {
       label: "Collection",
       href: `${profileBaseHref}/collection`,
@@ -358,7 +365,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
       <div className="xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start">
         <aside className="hidden xl:block xl:self-stretch xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4">
           <div className="sticky top-[calc(var(--app-header-offset,4rem)+2rem)] space-y-4">
-            <nav aria-label="Public profile sections" className="px-1">
+            <nav aria-label={mode === "owner" ? "Owner collection sections" : "Public profile sections"} className="px-1">
               <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
                 Sections
               </p>
@@ -433,7 +440,9 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">Collection tools</p>
               <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Search and filter this collection for this public profile only.
+                {mode === "owner"
+                  ? "Search and filter your collection with owner tools."
+                  : "Search and filter this collection for this public profile only."}
               </p>
             </div>
             <button
@@ -473,7 +482,7 @@ export default function PublicProfileLocalScaffold({ profileBaseHref, desktopHea
         </button>
 
         <nav
-          aria-label="Public profile navigation"
+          aria-label={mode === "owner" ? "Owner collection navigation" : "Public profile navigation"}
           className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur"
           style={{ paddingBottom: "max(0.65rem, env(safe-area-inset-bottom))" }}
         >

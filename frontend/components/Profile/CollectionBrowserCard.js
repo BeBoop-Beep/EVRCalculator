@@ -38,6 +38,9 @@ export default function CollectionBrowserCard({
   showAdvancedFilters = true,
   hideControls = false,
   searchPlaceholder = null,
+  // Owner-only
+  onQuantityMutate = null,
+  pendingItemIds = null,
 }) {
   // Separate type filter from advanced filters
   const typeFilter = config.filters?.find((f) => f.id === "type");
@@ -181,6 +184,8 @@ export default function CollectionBrowserCard({
                 emptyMessage={emptyStateDesc}
                 getItemHref={getItemHref}
                 onSetAssetSpotlight={onSetAssetSpotlight}
+                onQuantityMutate={onQuantityMutate}
+                pendingItemIds={pendingItemIds}
               />
             )}
           </div>

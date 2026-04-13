@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetObsidianFlamesConfig(BaseSetConfig):
     SET_NAME = "Obsidian Flames"
     SET_ABBREVIATION = "OBF"
+    SET_ID = 'sv3'
+    RELEASE_DATE = '2023/08/11'
+    PRINTED_TOTAL = 197
+    TOTAL = 230
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv3/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv3/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23228/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23228/cards/?rows=5000&productTypeID=25"

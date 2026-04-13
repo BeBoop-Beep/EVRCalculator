@@ -3,6 +3,12 @@ from .baseConfig import BaseSetConfig
 class SetStellarCrownConfig(BaseSetConfig):
     SET_NAME = "Stellar Crown"
     SET_ABBREVIATION = "SCR"
+    SET_ID = 'sv7'
+    RELEASE_DATE = '2024/09/13'
+    PRINTED_TOTAL = 142
+    TOTAL = 175
+    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/sv7/symbol.png'
+    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/sv7/logo.png'
 
     CARD_DETAILS_URL= "https://infinite-api.tcgplayer.com/priceguide/set/23537/cards/?rows=5000&productTypeID=1" 
     SEALED_DETAILS_URL="https://infinite-api.tcgplayer.com/priceguide/set/23537/cards/?rows=5000&productTypeID=25"

@@ -59,7 +59,7 @@ export default function Header() {
   const isTopNavActive = (path) => pathname === path || pathname.startsWith(`${path}/`);
   const isTcgsRouteActive = isTopNavActive('/TCGs');
   const isMyCollectionRouteActive = isTopNavActive('/my-portfolio') || isTopNavActive('/dashboard');
-  const publicProfileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}` : "/profile";
+  const publicProfileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile";
 
   const handleHeaderSearch = (query) => {
     if (!query) return;

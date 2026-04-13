@@ -32,6 +32,53 @@ export interface ProfileResponse {
   profile: UserProfileRow;
 }
 
+export interface PublicCollectionSummary {
+  portfolio_value: number | null;
+  cards_count: number | null;
+  sealed_count: number | null;
+  graded_count: number | null;
+  portfolio_delta_1d: number | null;
+  portfolio_delta_7d: number | null;
+  portfolio_delta_3m: number | null;
+  portfolio_delta_6m: number | null;
+  portfolio_delta_1y: number | null;
+  portfolio_delta_lifetime: number | null;
+  portfolio_delta_pct_1d: number | null;
+  portfolio_delta_pct_7d: number | null;
+  portfolio_delta_pct_3m: number | null;
+  portfolio_delta_pct_6m: number | null;
+  portfolio_delta_pct_1y: number | null;
+  portfolio_delta_pct_lifetime: number | null;
+}
+
+export interface CollectionItemDTO {
+  id: string;
+  collectible_type: "card" | "sealed_product" | "graded_card" | "merchandise";
+  collectible_id: number | string | null;
+  quantity: number;
+  name: string;
+  set_name: string | null;
+  card_number: string | null;
+  rarity: string | null;
+  condition_id?: string | null;
+  condition: string | null;
+  printing_type: string | null;
+  edition: string | null;
+  special_type: string | null;
+  market_price?: number | null;
+  estimated_value: number | null;
+  image_url: string;
+  image_large_url: string;
+  image_type?: "card" | "graded_base_card" | "sealed" | "fallback";
+  image_source?: "card_variant" | "card" | "graded_linked_card_variant" | "graded_linked_card" | "sealed_product" | "fallback";
+  source_confidence?: "high" | "medium" | "low";
+}
+
+export interface PublicCollectionSummaryResponse {
+  collection_summary: PublicCollectionSummary;
+  collection_items?: CollectionItemDTO[];
+}
+
 export interface PublicUserProfile {
   id: string;
   username: string | null;
@@ -39,6 +86,12 @@ export interface PublicUserProfile {
   avatar_url: string | null;
   bio: string | null;
   is_profile_public: boolean | null;
+  location: string | null;
+  favorite_tcg_id: number | string | null;
+  favorite_tcg_name: string | null;
+  created_at: string | null;
+  collection_summary: PublicCollectionSummary | null;
+  collection_summary_warning: string | null;
 }
 
 export interface PublicProfileResponse {

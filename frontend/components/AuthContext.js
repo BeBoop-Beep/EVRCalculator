@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // Track the user state
+export function AuthProvider({ children, initialUser = null }) {
+  const [user, setUser] = useState(initialUser); // Track the user state
   const router = useRouter();
 
   // Re-usable auth fetch: resolves the current session from the httpOnly token cookie.
@@ -30,8 +30,16 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
+    if (!initialUser) {
+      refreshUser();
+      return;
+    }
+
+    console.info("[AuthContext] hydration_auth_reuse", {
+      authResolution: "reused_server_state",
+      hasInitialUser: Boolean(initialUser?.id),
+    });
+  }, [initialUser, refreshUser]);
 
   const login = async (email, password) => {
     try {
