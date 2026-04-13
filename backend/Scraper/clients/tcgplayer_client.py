@@ -3,6 +3,7 @@ import json
 import os
 import random
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
@@ -41,12 +42,14 @@ class TCGPlayerClient:
             self.request_delay_max = self.request_delay_min
 
         self.max_requests_per_run = int(os.getenv("MAX_HTTP_REQUESTS_PER_RUN", "20000"))
-        self.max_request_retries = int(os.getenv("HTTP_MAX_RETRIES", "4"))
-        self.timeout_seconds = int(os.getenv("HTTP_TIMEOUT_SECONDS", "20"))
+        self.max_request_retries = int(os.getenv("HTTP_MAX_RETRIES", "3"))
+        self.connect_timeout_seconds = float(os.getenv("HTTP_CONNECT_TIMEOUT_SECONDS", "8"))
+        self.read_timeout_seconds = float(os.getenv("HTTP_READ_TIMEOUT_SECONDS", "20"))
         self.base_backoff_seconds = float(os.getenv("HTTP_BACKOFF_BASE_SECONDS", "2.0"))
         self.max_consecutive_rate_limits = int(os.getenv("MAX_CONSECUTIVE_RATE_LIMITS", "8"))
+        self.max_request_cache_entries = int(os.getenv("HTTP_RESPONSE_CACHE_MAX_ENTRIES", "256"))
 
-        self._request_cache: Dict[str, Any] = {}
+        self._request_cache: "OrderedDict[str, Any]" = OrderedDict()
         self._helper_seen_today: Dict[Tuple[str, str], bool] = {}
         self._today_utc = datetime.now(timezone.utc).date().isoformat()
         self._consecutive_rate_limit_events = 0
@@ -116,20 +119,30 @@ class TCGPlayerClient:
     def _record_rate_limit_event(self, reason: str, attempt: int, url: str) -> None:
         self.metrics["rate_limit_events"] += 1
         self._consecutive_rate_limit_events += 1
-        print(
-            f"[scraper-http] rate-limit/challenge event reason={reason} attempt={attempt} url={url}"
-        )
+        if self._consecutive_rate_limit_events == 1 or self._consecutive_rate_limit_events % 3 == 0:
+            print(
+                f"[scraper-http] rate-limit/challenge event reason={reason} "
+                f"attempt={attempt} url={url} "
+                f"streak={self._consecutive_rate_limit_events}"
+            )
         if self._consecutive_rate_limit_events >= self.max_consecutive_rate_limits:
             self.metrics["aborted_due_to_rate_limit"] = True
             raise SustainedRateLimitError(
                 "Sustained rate-limit/challenge responses detected; aborting run early"
             )
 
+    def _cache_response(self, request_key: str, parsed: Dict[str, Any]) -> None:
+        self._request_cache[request_key] = parsed
+        self._request_cache.move_to_end(request_key)
+        while len(self._request_cache) > self.max_request_cache_entries:
+            self._request_cache.popitem(last=False)
+
     def _request_json(self, method: str, url: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         request_key = self._request_key(method, url, payload)
         is_helper_request = self._is_helper_or_metadata_url(url)
 
         if request_key in self._request_cache:
+            self._request_cache.move_to_end(request_key)
             self.metrics["http_requests_cache_hits"] += 1
             self.metrics["http_requests_skipped_redundant"] += 1
             if is_helper_request:
@@ -151,7 +164,7 @@ class TCGPlayerClient:
                     method=method.upper(),
                     url=url,
                     json=payload,
-                    timeout=self.timeout_seconds,
+                    timeout=(self.connect_timeout_seconds, self.read_timeout_seconds),
                 )
 
                 if response.status_code in (429, 503):
@@ -169,7 +182,7 @@ class TCGPlayerClient:
                     raise requests.HTTPError(f"HTTP {response.status_code}")
 
                 parsed = response.json()
-                self._request_cache[request_key] = parsed
+                self._cache_response(request_key, parsed)
                 self._consecutive_rate_limit_events = 0
                 if is_helper_request:
                     self._helper_seen_today[(self._today_utc, request_key)] = True

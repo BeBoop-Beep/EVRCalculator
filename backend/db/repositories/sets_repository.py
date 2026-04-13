@@ -2,6 +2,10 @@ from typing import List, Dict, Any, Optional
 
 from ..clients.supabase_client import supabase
 
+def get_set_by_id(set_id: str) -> Optional[Dict[str, Any]]:
+    response = supabase.table("sets").select("*").eq("id", set_id).single().execute()
+    return response.data if response and response.data else None
+
 def get_set_by_name(name: str):
     return supabase.table("sets").select("*").eq("name", name).single().execute()
 

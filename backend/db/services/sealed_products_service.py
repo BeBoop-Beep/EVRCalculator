@@ -122,26 +122,24 @@ class SealedProductsService(BatchProcessor):
                 # Check local cache first
                 if cache_key in product_cache:
                     sealed_product_id = product_cache[cache_key]
-                    if item_index % 25 == 0:
+                    if item_index % 100 == 0:
                         print(f"[Batch {batch_id}] [CACHE] Using cached product (ID: {sealed_product_id})")
                 else:
                     # Check DB
                     existing_product = get_sealed_product_by_name_and_set(product_name, set_id)
                     if existing_product:
                         sealed_product_id = existing_product['id']
-                        print(f"[Batch {batch_id}] [DB] Product exists (ID: {sealed_product_id})")
                     else:
                         # Insert new product
                         sealed_product_id = insert_sealed_product(product_data)
                         batch_result['inserted_products'] += 1
-                        print(f"[Batch {batch_id}] [OK] Inserted product (ID: {sealed_product_id})")
                     
                     product_cache[cache_key] = sealed_product_id
                 
                 # Collect prices for this product to ship after batch completes
                 if not price_data:
                     items_without_prices += 1
-                    if item_index % 25 == 0 or items_without_prices <= 3:
+                    if item_index % 100 == 0 or items_without_prices <= 2:
                         print(f"[Batch {batch_id}] [WARNING] Product {item_index} ({product_name}) has NO price")
                 else:
                     price_data['sealed_product_id'] = sealed_product_id

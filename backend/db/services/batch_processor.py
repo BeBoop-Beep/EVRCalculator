@@ -28,6 +28,11 @@ class BatchProcessor(ABC):
     PRICE_BATCH_SIZE = 500
     PROCESS_TIMEOUT = 300  # 5 minutes
     USE_MULTIPROCESSING = True  # Set to False to skip multiprocessing and use sequential processing
+
+    def _resolve_max_workers(self):
+        hard_cap = int(os.getenv("SCRAPER_MAX_CONCURRENCY", "5"))
+        requested = int(getattr(self, "MAX_WORKERS", 1) or 1)
+        return max(1, min(requested, hard_cap))
     
     def divide_work_into_batches(self, work_items, batch_size=None):
         """
@@ -83,27 +88,33 @@ class BatchProcessor(ABC):
             return batch_results, all_errors
         
         # Parallel multiprocessing
-        print(f"\n[INFO] Processing {len(batches)} batches in parallel with {self.MAX_WORKERS} workers...")
+        max_workers = self._resolve_max_workers()
+        print(f"\n[INFO] Processing {len(batches)} batches in parallel with {max_workers} workers...")
         
-        # Prepare batch data
-        batch_data_list = [
-            prepare_batch_data_fn(batch, batch_id)
-            for batch_id, batch in enumerate(batches)
-        ]
-        
-        with ProcessPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = {}
-            
-            # Submit all batches
-            for batch_id, batch_data in enumerate(batch_data_list):
-                future = executor.submit(self._process_batch_worker, batch_data, batch_id)
-                futures[future] = batch_id
-            
-            # Collect results as they complete
-            for future in as_completed(futures):
-                batch_id = futures[future]
+            next_batch_id = 0
+
+            def _submit_next_batch():
+                nonlocal next_batch_id
+                if next_batch_id >= len(batches):
+                    return False
+                batch = batches[next_batch_id]
+                batch_data = prepare_batch_data_fn(batch, next_batch_id)
+                future = executor.submit(self._process_batch_worker, batch_data, next_batch_id)
+                futures[future] = next_batch_id
+                next_batch_id += 1
+                return True
+
+            # Keep only a small in-flight window to prevent task fan-out memory pressure.
+            while len(futures) < max_workers and _submit_next_batch():
+                pass
+
+            while futures:
+                done_future = next(as_completed(futures))
+                batch_id = futures.pop(done_future)
                 try:
-                    batch_result = future.result(timeout=self.PROCESS_TIMEOUT)
+                    batch_result = done_future.result(timeout=self.PROCESS_TIMEOUT)
                     batch_results.append(batch_result)
                     print(f"[INFO] Batch {batch_id} processing complete")
                 except TimeoutError:
@@ -114,6 +125,8 @@ class BatchProcessor(ABC):
                     error_msg = f"Batch {batch_id} processing failed: {e}"
                     print(f"[ERROR] {error_msg}")
                     all_errors.append(error_msg)
+
+                _submit_next_batch()
         
         return batch_results, all_errors
     
@@ -191,7 +204,7 @@ class BatchProcessor(ABC):
                         warning_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Expected {batch_expected} but only {batch_shipped} inserted (LOSS: {batch_expected - batch_shipped})"
                         print(warning_msg)
                         all_errors.append(warning_msg)
-                    else:
+                    elif sub_batch_idx == 0 or sub_batch_idx % 5 == 0:
                         print(f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Shipped {batch_shipped} prices ✓")
                         
                 except Exception as e:

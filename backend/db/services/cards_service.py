@@ -153,7 +153,7 @@ class CardsService(BatchProcessor):
                 # Check local cache first
                 if variant_key in variant_cache:
                     variant_id = variant_cache[variant_key]
-                    if item_index % 50 == 0:
+                    if item_index % 200 == 0:
                         print(f"[Batch {batch_id}] [CACHE] Using cached variant (ID: {variant_id})")
                 else:
                     # Check DB
@@ -165,19 +165,17 @@ class CardsService(BatchProcessor):
                     )
                     if existing_variant:
                         variant_id = existing_variant['id']
-                        print(f"[Batch {batch_id}] [DB] Variant exists (ID: {variant_id})")
                     else:
                         # Insert new variant
                         variant_id = insert_card_variant(variant_data)
                         batch_result['inserted_variants'] += 1
-                        print(f"[Batch {batch_id}] [OK] Inserted variant (ID: {variant_id})")
                     
                     variant_cache[variant_key] = variant_id
                 
                 # Collect prices for this variant to ship after batch completes
                 if not price_data_list:
                     items_without_prices += 1
-                    if item_index % 50 == 0 or items_without_prices <= 5:
+                    if item_index % 200 == 0 or items_without_prices <= 3:
                         print(f"[Batch {batch_id}] [WARNING] Item {item_index} ({card_key[0]}) has NO prices to ship")
                 
                 for price in price_data_list:
@@ -398,7 +396,7 @@ class CardsService(BatchProcessor):
                 results_queue.put(('ERROR', str(e)))
         
         
-        return work_items, errors
+        return prices_inserted, variants_inserted
     
     def insert_cards_with_variants_and_prices(self, set_id, cards):
         """
