@@ -3,6 +3,7 @@ Shared data preparation orchestration for all services.
 Handles the generic ThreadPoolExecutor pattern for parallel data prep (Phase 1).
 """
 
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -31,9 +32,15 @@ class DataPreparationOrchestrator:
         work_items = []
         all_errors = []
         
-        print(f"\n[INFO] Phase 1: Preparing {len(items)} items in parallel...")
+        hard_cap = int(os.getenv("SCRAPER_MAX_CONCURRENCY", "5"))
+        resolved_pool_size = max(1, min(thread_pool_size, hard_cap))
+
+        print(
+            f"\n[INFO] Phase 1: Preparing {len(items)} items in parallel "
+            f"(workers={resolved_pool_size})..."
+        )
         
-        with ThreadPoolExecutor(max_workers=thread_pool_size) as executor:
+        with ThreadPoolExecutor(max_workers=resolved_pool_size) as executor:
             futures = {}
             
             # Submit all preparation tasks

@@ -3,6 +3,7 @@ from ...parsers.tcgplayer_parser import TCGPlayerParser
 from ..dto_builders.tcgplayer_dto_builder import TCGPlayerDTOBuilder
 from ...exporters.excel_writer import save_to_excel
 from backend.db.controllers.ingest_controller import IngestController
+from collections import OrderedDict
 import copy
 import json
 import sys
@@ -17,10 +18,17 @@ class TCGScraper:
         self.client = TCGPlayerClient()
         self.dto_builder = TCGPlayerDTOBuilder()
         self.enable_db_ingestion = enable_db_ingestion
-        self._parsed_cards_cache = {}
-        self._parsed_sealed_cache = {}
+        self.max_parsed_cache_entries = int(os.getenv("PARSED_CACHE_MAX_ENTRIES", "2"))
+        self._parsed_cards_cache = OrderedDict()
+        self._parsed_sealed_cache = OrderedDict()
         if enable_db_ingestion:
             self.ingest_controller = IngestController()
+
+    def _cache_parsed(self, cache, key, value):
+        cache[key] = copy.deepcopy(value)
+        cache.move_to_end(key)
+        while len(cache) > self.max_parsed_cache_entries:
+            cache.popitem(last=False)
     
     def scrape(self, config, excel_path):
         """Main scraping workflow"""
@@ -32,17 +40,19 @@ class TCGScraper:
         parser = TCGPlayerParser(config.PULL_RATE_MAPPING)
         card_cache_key = (config.CARD_DETAILS_URL, config.SET_NAME)
         if card_cache_key in self._parsed_cards_cache:
+            self._parsed_cards_cache.move_to_end(card_cache_key)
             card_dicts = copy.deepcopy(self._parsed_cards_cache[card_cache_key])
         else:
             card_dicts = parser.parse_cards(raw_data)
-            self._parsed_cards_cache[card_cache_key] = copy.deepcopy(card_dicts)
+            self._cache_parsed(self._parsed_cards_cache, card_cache_key, card_dicts)
 
         sealed_cache_key = (config.SEALED_DETAILS_URL, config.SET_NAME)
         if sealed_cache_key in self._parsed_sealed_cache:
+            self._parsed_sealed_cache.move_to_end(sealed_cache_key)
             sealed_dicts = copy.deepcopy(self._parsed_sealed_cache[sealed_cache_key])
         else:
             sealed_dicts = parser.parse_sealed_products(config, self.client)
-            self._parsed_sealed_cache[sealed_cache_key] = copy.deepcopy(sealed_dicts)
+            self._cache_parsed(self._parsed_sealed_cache, sealed_cache_key, sealed_dicts)
 
         # Step 3: Build DTO
         dto = self.dto_builder.build(config, card_dicts, sealed_dicts)
