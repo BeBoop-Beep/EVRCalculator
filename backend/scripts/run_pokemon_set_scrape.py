@@ -34,6 +34,7 @@ import random
 import socket
 import sys
 import time
+import tracemalloc
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -72,6 +73,17 @@ BACKOFF_BASE_SECONDS = 2.0
 RATE_LIMIT_PAUSE_SECONDS = 8.0
 MAX_RETRIES = 3
 SCRAPER_ENABLED_ENV = "SCRAPER_ENABLED"
+MEMORY_LOG_INTERVAL_ENV = "SCRAPER_MEMORY_LOG_EVERY_SETS"
+
+SAFE_DEFAULT_ENV: Dict[str, str] = {
+    "PYTHONUNBUFFERED": "1",
+    "SCRAPER_MAX_CONCURRENCY": "5",
+    "HTTP_CONNECT_TIMEOUT_SECONDS": "8",
+    "HTTP_READ_TIMEOUT_SECONDS": "20",
+    "HTTP_MAX_RETRIES": "3",
+    "HTTP_RESPONSE_CACHE_MAX_ENTRIES": "256",
+    "PARSED_CACHE_MAX_ENTRIES": "2",
+}
 
 # ---------------------------------------------------------------------------
 # Scrape diagnostics job identifiers
@@ -95,6 +107,30 @@ def _get_host() -> str:
 def _load_backend_env() -> None:
     env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
     load_dotenv(env_path, override=False)
+
+
+def _apply_safe_runtime_defaults() -> None:
+    for key, value in SAFE_DEFAULT_ENV.items():
+        os.environ.setdefault(key, value)
+
+
+def _maybe_log_memory_progress(index: int, total: int, canonical_key: str) -> None:
+    interval = max(1, int(os.getenv(MEMORY_LOG_INTERVAL_ENV, "5")))
+    if index % interval != 0 and index != total:
+        return
+    if not tracemalloc.is_tracing():
+        return
+
+    current_bytes, peak_bytes = tracemalloc.get_traced_memory()
+    logger.info(
+        "%s memory checkpoint after %s (%d/%d): current=%.1fMB peak=%.1fMB",
+        RUNNER_TAG,
+        canonical_key,
+        index,
+        total,
+        current_bytes / (1024 * 1024),
+        peak_bytes / (1024 * 1024),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +418,9 @@ def run_scraper(
     )
     from backend.Scraper.services.orchestrators.tcg_player_orchestrator import TCGScraper
 
+    if not tracemalloc.is_tracing():
+        tracemalloc.start()
+
     started_at = datetime.now(timezone.utc)
 
     # 1. Fetch targets from DB
@@ -633,6 +672,8 @@ def run_scraper(
             else:
                 failed += 1
 
+            _maybe_log_memory_progress(index=index, total=total, canonical_key=canonical_key)
+
             # Throttle between sets; no pause needed after the final set
             if index < total:
                 _jitter_sleep()
@@ -865,6 +906,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _build_parser().parse_args()
     _load_backend_env()
+    _apply_safe_runtime_defaults()
 
     report = run_scraper(
         dry_run=not args.run,

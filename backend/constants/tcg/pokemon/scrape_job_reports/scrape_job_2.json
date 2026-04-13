@@ -1,0 +1,41 @@
+{
+  "generated_at_utc": "2026-04-13T17:37:23.215902+00:00",
+  "completed_at_utc": "2026-04-13T17:37:34.536373+00:00",
+  "mode": "apply",
+  "era_filter": null,
+  "set_filter": "jungle",
+  "limit": 1,
+  "db_ingestion_enabled": true,
+  "shuffle_within_date": false,
+  "sets_selected": 1,
+  "sets_attempted": 1,
+  "sets_succeeded": 1,
+  "sets_failed": 0,
+  "sets_skipped_no_config": 0,
+  "skipped_no_config": [],
+  "sets_era_filtered": 0,
+  "deduped_targets_removed": 0,
+  "elapsed_seconds": 11.32,
+  "retry_heavy_sets": [],
+  "results": [
+    {
+      "canonical_key": "jungle",
+      "status": "success",
+      "attempt": 1,
+      "cards_scraped": 640,
+      "sealed_scraped": 4,
+      "error": null
+    }
+  ],
+  "http_requests_total": 2,
+  "http_requests_cache_hits": 0,
+  "http_requests_cache_misses": 2,
+  "http_requests_skipped_redundant": 0,
+  "rate_limit_events": 0,
+  "retry_count_total": 0,
+  "aborted_due_to_request_cap": false,
+  "aborted_due_to_rate_limit": false,
+  "kill_switch_enabled": true,
+  "run_aborted_early": false,
+  "run_abort_reason": null
+}
