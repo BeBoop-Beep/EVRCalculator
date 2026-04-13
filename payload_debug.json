@@ -1090,7 +1090,7 @@
         "printing": "Normal",
         "pull_rate": 74.0,
         "prices": {
-          "market": 0.12
+          "market": 0.14
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -2280,7 +2280,7 @@
         "printing": "Normal",
         "pull_rate": 92.0,
         "prices": {
-          "market": 0.1
+          "market": 0.12
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -2756,7 +2756,7 @@
         "printing": "Holofoil",
         "pull_rate": 181.0,
         "prices": {
-          "market": 20.08
+          "market": 20.01
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -3288,7 +3288,7 @@
         "printing": "Normal",
         "pull_rate": 92.0,
         "prices": {
-          "market": 0.17
+          "market": 0.16
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -3722,7 +3722,7 @@
         "printing": "Normal",
         "pull_rate": 74.0,
         "prices": {
-          "market": 0.06
+          "market": 0.07
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -5332,7 +5332,7 @@
         "printing": "Reverse Holofoil",
         "pull_rate": 92.0,
         "prices": {
-          "market": 0.28
+          "market": 0.27
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -8090,7 +8090,7 @@
         "printing": "Holofoil",
         "pull_rate": 158.0,
         "prices": {
-          "market": 8.72
+          "market": 8.84
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -10344,7 +10344,7 @@
         "printing": "Normal",
         "pull_rate": 74.0,
         "prices": {
-          "market": 0.13
+          "market": 0.12
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -11380,7 +11380,7 @@
         "printing": "Holofoil",
         "pull_rate": 158.0,
         "prices": {
-          "market": 3.93
+          "market": 3.9
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -13788,7 +13788,7 @@
         "printing": "Normal",
         "pull_rate": 74.0,
         "prices": {
-          "market": 0.1
+          "market": 0.09
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -13998,7 +13998,7 @@
         "printing": "Holofoil",
         "pull_rate": 158.0,
         "prices": {
-          "market": 15.72
+          "market": 15.97
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -14306,7 +14306,7 @@
         "printing": "Normal",
         "pull_rate": 74.0,
         "prices": {
-          "market": 0.12
+          "market": 0.11
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -14684,7 +14684,7 @@
         "printing": "Normal",
         "pull_rate": 92.0,
         "prices": {
-          "market": 0.14
+          "market": 0.13
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -17134,7 +17134,7 @@
         "printing": "Reverse Holofoil",
         "pull_rate": 74.0,
         "prices": {
-          "market": 1.57
+          "market": 1.54
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -17330,7 +17330,7 @@
         "printing": "Holofoil",
         "pull_rate": 158.0,
         "prices": {
-          "market": 1.88
+          "market": 1.85
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -17596,7 +17596,7 @@
         "printing": "Holofoil",
         "pull_rate": 181.0,
         "prices": {
-          "market": 1.23
+          "market": 1.24
         },
         "source": "TCGPlayer",
         "currency": "USD"
@@ -18030,7 +18030,7 @@
         "printing": "Normal",
         "pull_rate": 74.0,
         "prices": {
-          "market": 0.06
+          "market": 0.07
         },
         "source": "TCGPlayer",
         "currency": "USD"
