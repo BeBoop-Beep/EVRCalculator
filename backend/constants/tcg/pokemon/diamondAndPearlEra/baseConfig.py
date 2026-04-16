@@ -1,6 +1,7 @@
 from types import MappingProxyType
+from ..sharedBaseConfig import BaseSetConfig as SharedBaseSetConfig
 
-class BaseSetConfig:
+class BaseSetConfig(SharedBaseSetConfig):
     COLLECTION = "TCG"
     TCG = "Pokemon"
     ERA = "Diamond and Pearl"

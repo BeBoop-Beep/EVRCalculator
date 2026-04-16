@@ -1,34 +1,19 @@
-from types import MappingProxyType
-from ..sharedBaseConfig import BaseSetConfig as SharedBaseSetConfig
-
-class BaseSetConfig(SharedBaseSetConfig):
+class BaseSetConfig:
     COLLECTION = "TCG"
     TCG = "Pokemon"
-    ERA = "Gym"
-
-    RARITY_MAPPING = MappingProxyType({
-        "common": "common",
-        "uncommon": "uncommon",
-        "rare": "rare",
-        "holo rare": "hits",
-        "rare holo": "hits",
-        "ultra rare": "hits",
-        "double rare": "hits",
-        "illustration rare": "hits",
-        "special illustration rare": "hits",
-        "secret rare": "hits",
-    })
+    # Shared root base stays era-neutral; era identity is owned by era-specific base configs.
+    ERA = ""
 
     GOD_PACK_CONFIG = {
         "enabled": False,
         "pull_rate": 0,
-        "strategy": {}
+        "strategy": {},
     }
 
     DEMI_GOD_PACK_CONFIG = {
         "enabled": False,
         "pull_rate": 0,
-        "strategy": {}
+        "strategy": {},
     }
 
     SLOTS_PER_RARITY = {
@@ -45,3 +30,7 @@ class BaseSetConfig(SharedBaseSetConfig):
             if not hasattr(cls, attr):
                 raise ValueError(f"{cls.__name__} missing required attribute: {attr}")
 
+    @classmethod
+    def get_pack_state_overrides(cls):
+        """Optional set-level delta over era defaults for V2 pack-state modeling."""
+        return {}

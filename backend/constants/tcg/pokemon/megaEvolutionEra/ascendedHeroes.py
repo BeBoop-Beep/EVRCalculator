@@ -1,4 +1,7 @@
 from .baseConfig import BaseSetConfig
+from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+    get_ascended_heroes_pack_state_overrides,
+)
 
 class SetAscendedHeroesConfig(BaseSetConfig):
     SET_NAME = 'Ascended Heroes'
@@ -18,3 +21,7 @@ class SetAscendedHeroesConfig(BaseSetConfig):
 
     # TODO: Add set-specific pull rate mappings when data is available.
     PULL_RATE_MAPPING = {}
+
+    @classmethod
+    def get_pack_state_overrides(cls):
+        return get_ascended_heroes_pack_state_overrides()

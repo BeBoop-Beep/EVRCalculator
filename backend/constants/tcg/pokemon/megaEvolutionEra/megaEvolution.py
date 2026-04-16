@@ -1,4 +1,7 @@
 from .baseConfig import BaseSetConfig
+from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+    get_mega_evolution_pack_state_overrides,
+)
 
 class SetMegaEvolutionConfig(BaseSetConfig):
     SET_NAME = 'Mega Evolution'
@@ -18,3 +21,7 @@ class SetMegaEvolutionConfig(BaseSetConfig):
 
     # TODO: Add set-specific pull rate mappings when data is available.
     PULL_RATE_MAPPING = {}
+
+    @classmethod
+    def get_pack_state_overrides(cls):
+        return get_mega_evolution_pack_state_overrides()
