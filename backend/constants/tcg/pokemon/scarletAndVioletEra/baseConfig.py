@@ -45,7 +45,7 @@ class BaseSetConfig(SharedBaseSetConfig):
     }
 
     # Backwards-safe gate: V1 remains the default simulation engine.
-    USE_MONTE_CARLO_V2 = False
+    USE_MONTE_CARLO_V2 = True
 
     @classmethod
     def get_rarity_pack_multiplier(cls):

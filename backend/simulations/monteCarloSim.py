@@ -167,9 +167,12 @@ def print_simulation_summary(sim_results, n_simulations=100000):
     print()
 
     print("\n=== Pull Summary by Rarity (All Slots) ===")
+    print("(avg value is derived from exact sampled totals; shown with higher precision for auditability)")
     for rarity, count in pull_counts.items():
         total_val = value_totals[rarity]
         avg_val = total_val / count if count else 0
-        print(f"{rarity:30s} | pulled: {count:7d} | avg value: ${avg_val:.2f} | total EV: ${total_val:.2f}")
+        print(
+            f"{rarity:30s} | pulled: {count:7d} | avg value: ${avg_val:.6f} | total sampled value: ${total_val:.2f}"
+        )
 
     print()

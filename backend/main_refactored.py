@@ -3,13 +3,65 @@ import difflib
 import os
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(base_dir)
-sys.path.append(os.path.join(base_dir, 'Expected Value and Cost Ratio Calculator Pokemon'))
+repo_root = os.path.dirname(base_dir)
+
+# Ensure package imports work whether this file is run as a module or script path.
+if repo_root not in sys.path:
+    sys.path.append(repo_root)
+if base_dir not in sys.path:
+    sys.path.append(base_dir)
+legacy_calc_dir = os.path.join(base_dir, 'Expected Value and Cost Ratio Calculator Pokemon')
+if legacy_calc_dir not in sys.path:
+    sys.path.append(legacy_calc_dir)
 
 from backend.calculations.packCalcsRefractored import calculate_pack_stats
 from backend.simulations import calculate_pack_simulations
 from backend.calculations.evrEtb import calculate_etb_metrics
+from backend.calculations.evr import compute_all_derived_metrics, print_derived_metrics_summary
 from constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_CONFIG_MAP, SET_ALIAS_MAP
+
+
+def resolve_excel_path(repo_root, folder_name):
+    base_excel_dir = os.path.join(repo_root, 'data', 'excelDocs')
+    existing_dirs = {
+        d.lower(): d
+        for d in os.listdir(base_excel_dir)
+        if os.path.isdir(os.path.join(base_excel_dir, d))
+    }
+
+    candidates = [folder_name]
+    if folder_name.endswith('s'):
+        candidates.append(folder_name[:-1])
+    else:
+        candidates.append(f"{folder_name}s")
+
+    if 'Evolutions' in folder_name:
+        candidates.append(folder_name.replace('Evolutions', 'Evolution'))
+    if 'Evolution' in folder_name:
+        candidates.append(folder_name.replace('Evolution', 'Evolutions'))
+
+    # De-duplicate while preserving order.
+    seen = set()
+    ordered_candidates = []
+    for candidate in candidates:
+        if candidate and candidate not in seen:
+            ordered_candidates.append(candidate)
+            seen.add(candidate)
+
+    for candidate in ordered_candidates:
+        exact_path = os.path.join(base_excel_dir, candidate, 'pokemon_data.xlsx')
+        if os.path.exists(exact_path):
+            return exact_path
+
+        resolved_folder = existing_dirs.get(candidate.lower())
+        if resolved_folder:
+            resolved_path = os.path.join(base_excel_dir, resolved_folder, 'pokemon_data.xlsx')
+            if os.path.exists(resolved_path):
+                return resolved_path
+
+    raise FileNotFoundError(
+        f"Could not find pokemon_data.xlsx for '{folder_name}'. Tried: {ordered_candidates}"
+    )
 
 
 def main():
@@ -48,7 +100,7 @@ def main():
         print(config.SET_NAME, ", ", config.CARD_DETAILS_URL)
         repo_root = os.path.dirname(os.path.abspath(__file__))
         repo_root = os.path.dirname(repo_root)
-        excel_path = os.path.join(repo_root, 'data', 'excelDocs', folder_name, 'pokemon_data.xlsx')
+        excel_path = resolve_excel_path(repo_root, folder_name)
 
         # # Step 2: Calculate EVR Per Pack # #
         print("\n Calculating EVR..")
@@ -64,6 +116,17 @@ def main():
             "opening_pack_roi": pack_metrics['opening_pack_roi'],
             "opening_pack_roi_percent": pack_metrics['opening_pack_roi_percent'],
         })
+
+        # # Step 2b: Derived decision metrics # #
+        derived = compute_all_derived_metrics(
+            sim_results.get("values", []),
+            pack_price,
+            card_ev_contributions=results.get("hit_ev_contributions"),
+            total_pack_ev=pack_metrics.get('total_ev'),
+            hit_ev=results.get("hit_ev"),
+            hit_cards_count=len(results.get("hit_ev_contributions", {})) if results.get("hit_ev_contributions") else None,
+        )
+        print_derived_metrics_summary(derived)
        
 
         # # Step 3: Calculate ETB EV # #
@@ -75,7 +138,7 @@ def main():
         # etb_metrics = calculate_etb_metrics(file_path, 9, total_ev)
 
         # append_summary_to_existing_excel(file_path, summary_data, results, sim_results, top_10_hits)
-    except ValueError as e:
+    except (ValueError, FileNotFoundError) as e:
         print(e)
 
     print("\nOperation completed successfully!")

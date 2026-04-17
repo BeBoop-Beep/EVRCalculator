@@ -3,9 +3,8 @@ Derive pack-state probabilities from set config slot probability tables.
 
 Architecture overview
 ---------------------
-Rather than manually entering per-state probabilities (which were scaffolding, not
-sourced truth), this module computes them algorithmically from the researched slot
-probability inputs that already live in each set config.
+This module derives pack-state probabilities algorithmically from researched slot
+probability inputs that live in each set config.
 
 Core logic (multiply-then-add)
 -------------------------------
@@ -14,9 +13,8 @@ For each raw slot combination (rare_slot × reverse_1 × reverse_2):
   1. **Multiply** across slots to get the raw combination probability:
          p_combination = p(rare_out) × p(r1_out) × p(r2_out)
 
-  2. **Coerce** the raw combination through the same constraint rules used by the
-     live simulation engine (Rules 1–5 from monteCarloSimV2), yielding a legal
-     slot-outcome triple.
+  2. **Coerce** the raw combination through centralized pack-state coercion
+     rules, yielding a legal slot-outcome triple.
 
   3. **Name** the coerced triple via a reverse lookup of the registered state_outcomes
      registry.  If no registered name exists the state is auto-named from the rarity
@@ -29,8 +27,8 @@ For each raw slot combination (rare_slot × reverse_1 × reverse_2):
 The resulting p[state] map sums to exactly 1.0 (within float precision) because
 every raw combination probability is accounted for in exactly one resulting state.
 
-Coercion rules (mirrored from monteCarloSimV2._coerce_slot_outcomes)
-----------------------------------------------------------------------
+Coercion rules (centralized in packStateCoercion.coerce_slot_outcomes)
+------------------------------------------------------------------------
 Rule 1 – Exclusive singleton: if ANY exclusive hit appears, keep only that one
          (priority: reverse_2 > rare > reverse_1).
 Rule 2 – IR / exclusive incompatibility: IR and any exclusive cannot coexist.
@@ -39,8 +37,9 @@ Rule 4 – At most max_major_hits (primary + exclusive) major hits.
 Rule 5 – At most max_non_regular_hits total non-regular hits; demote bonus/primary
          hits in a defined priority order.
 
-Note: this logic is intentionally kept in sync with monteCarloSimV2.  A future
-cleanup pass could extract the coercion rules into a shared utility.
+Coercion logic is centrally owned by the shared pack-state coercion utility.
+Both derivation and simulation paths use the same shared coercion implementation.
+This removes the earlier drift risk from duplicated coercion logic.
 """
 
 from __future__ import annotations
@@ -62,10 +61,6 @@ from .packStateCoercion import (
 _BASELINE_RARE = "rare"
 _BASELINE_REVERSE = "regular reverse"
 
-
-# ---------------------------------------------------------------------------
-# Internal helpers that mirror monteCarloSimV2 helpers (no circular import)
-# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # State naming helpers

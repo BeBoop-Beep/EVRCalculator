@@ -7,9 +7,11 @@ import pytest
 from backend.constants.tcg.pokemon.scarletAndVioletEra.prismaticEvolutions import (
     SetPrismaticEvolutionsConfig,
 )
+from backend.simulations.monteCarloSim import print_simulation_summary
 from backend.simulations.monteCarloSim import run_simulation
 from backend.simulations.monteCarloSimV2 import (
     make_simulate_pack_fn_v2,
+    print_simulation_summary_v2,
     resolve_slot_outcomes_from_state,
     run_simulation_v2,
     sample_cards_for_slot_outcomes,
@@ -312,6 +314,11 @@ def test_sample_cards_for_slot_outcomes_samples_from_eligible_pools(pools):
     assert rarity_counts["double rare"] == 1
     assert rarity_counts["regular reverse"] == 1
     assert rarity_counts["illustration rare"] == 1
+    # Commons and uncommons must now appear in rarity tracking.
+    assert rarity_counts["common"] == 4
+    assert rarity_counts["uncommon"] == 3
+    assert rarity_values["common"] > 0
+    assert rarity_values["uncommon"] > 0
 
 
 def test_run_simulation_v2_uses_single_simulated_pack_set():
@@ -523,6 +530,110 @@ def test_normal_pack_invariants_and_tracker_alignment(pools):
         assert rarity_counts[rarity] == count
         assert pytest.approx(per_rarity_values[rarity], abs=1e-9) == rarity_values[rarity]
 
+    # Commons and uncommons from normal packs must now appear in the rarity summary.
+    assert rarity_counts["common"] == len(normal_logs) * DummySVConfig.SLOTS_PER_RARITY["common"]
+    assert rarity_counts["uncommon"] == len(normal_logs) * DummySVConfig.SLOTS_PER_RARITY["uncommon"]
+    assert rarity_values["common"] > 0
+    assert rarity_values["uncommon"] > 0
+
+
+def test_sample_cards_for_slot_outcomes_tracks_common_uncommon_rarity_counts():
+    """Commons and uncommons from a normal pack are counted and valued exactly once.
+
+    Uses uniform-price pools so expected totals are deterministic regardless of
+    which specific rows the RNG selects (sampling with replacement, all prices equal).
+    """
+    # All commons priced identically -> regardless of which 4 are drawn the total is always 4 * 0.10.
+    fixed_common = pd.DataFrame({
+        "Card Name": ["C1", "C2", "C3", "C4", "C5"],
+        "Price ($)": [0.10, 0.10, 0.10, 0.10, 0.10],
+        "Rarity": ["common"] * 5,
+    })
+    # All uncommons priced identically -> regardless of which 3 are drawn total is always 3 * 0.25.
+    fixed_uncommon = pd.DataFrame({
+        "Card Name": ["U1", "U2", "U3", "U4"],
+        "Price ($)": [0.25, 0.25, 0.25, 0.25],
+        "Rarity": ["uncommon"] * 4,
+    })
+    rare_pool = pd.DataFrame({
+        "Card Name": ["Rare X"],
+        "Price ($)": [1.00],
+        "Rarity": ["rare"],
+    })
+    reverse_pool = pd.DataFrame({
+        "Card Name": ["Rev X"],
+        "EV_Reverse": [0.35],
+    })
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    rng = np.random.default_rng(99)
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=fixed_common,
+        uncommon_cards=fixed_uncommon,
+        rare_cards=rare_pool,
+        hit_cards=pd.DataFrame(columns=["Card Name", "Price ($)", "Rarity"]),
+        reverse_pool=reverse_pool,
+        slot_outcomes={"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+        slots_per_rarity={"common": 4, "uncommon": 3, "reverse": 2, "rare": 1},
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        rng=rng,
+    )
+
+    # Counts are exact regardless of which rows were sampled.
+    assert rarity_counts["common"] == 4
+    assert rarity_counts["uncommon"] == 3
+
+    # Value totals are exact because all cards in each pool have the same price.
+    assert pytest.approx(rarity_values["common"], abs=1e-9) == 4 * 0.10
+    assert pytest.approx(rarity_values["uncommon"], abs=1e-9) == 3 * 0.25
+
+    # common/uncommon values are included in the pack total_value — not double-counted.
+    expected_common_uncommon = 4 * 0.10 + 3 * 0.25
+    assert result["total_value"] >= expected_common_uncommon  # also includes rare/reverse slots
+
+
+def test_sample_cards_for_slot_outcomes_no_double_counting_across_two_packs():
+    """Calling sample_cards_for_slot_outcomes twice accumulates counts correctly (no resets)."""
+    fixed_common = pd.DataFrame({
+        "Card Name": ["C1", "C2"],
+        "Price ($)": [0.10, 0.10],
+        "Rarity": ["common"] * 2,
+    })
+    fixed_uncommon = pd.DataFrame({
+        "Card Name": ["U1", "U2"],
+        "Price ($)": [0.20, 0.20],
+        "Rarity": ["uncommon"] * 2,
+    })
+    rare_pool = pd.DataFrame({"Card Name": ["R1"], "Price ($)": [1.0], "Rarity": ["rare"]})
+    reverse_pool = pd.DataFrame({"Card Name": ["Rev1"], "EV_Reverse": [0.30]})
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    slots = {"common": 2, "uncommon": 2, "reverse": 2, "rare": 1}
+    outcomes = {"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"}
+    kwargs = dict(
+        common_cards=fixed_common,
+        uncommon_cards=fixed_uncommon,
+        rare_cards=rare_pool,
+        hit_cards=pd.DataFrame(columns=["Card Name", "Price ($)", "Rarity"]),
+        reverse_pool=reverse_pool,
+        slot_outcomes=outcomes,
+        slots_per_rarity=slots,
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+    )
+
+    sample_cards_for_slot_outcomes(**kwargs, rng=np.random.default_rng(1))
+    sample_cards_for_slot_outcomes(**kwargs, rng=np.random.default_rng(2))
+
+    assert rarity_counts["common"] == 4   # 2 cards × 2 packs
+    assert rarity_counts["uncommon"] == 4  # 2 cards × 2 packs
+    assert pytest.approx(rarity_values["common"], abs=1e-9) == 4 * 0.10
+    assert pytest.approx(rarity_values["uncommon"], abs=1e-9) == 4 * 0.20
+
 
 def test_distribution_sanity_for_special_pack_rates(pools):
     class DistConfig(DummySVConfig):
@@ -630,3 +741,69 @@ def test_prismatic_evolutions_state_integrity(prismatic_pools):
         assert not ({"illustration rare", "special illustration rare"}.issubset(outcome_set))
         assert not ({"special illustration rare", "hyper rare"}.issubset(outcome_set))
         assert not ({"illustration rare", "hyper rare"}.issubset(outcome_set))
+
+
+def test_pull_summary_v2_prints_high_precision_avg_and_clear_total_label(capsys):
+    sim_results = {
+        "mean": 0.0,
+        "std_dev": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "percentiles": {
+            "5th": 0.0,
+            "25th": 0.0,
+            "50th (median)": 0.0,
+            "75th": 0.0,
+            "90th": 0.0,
+            "95th": 0.0,
+            "99th": 0.0,
+        },
+        "rarity_pull_counts": {"ultra rare": 3},
+        "rarity_value_totals": {"ultra rare": 1.0},
+        "pack_path_counts": {},
+        "pack_state_counts": {},
+    }
+
+    print_simulation_summary_v2(sim_results, n_simulations=3)
+    output = capsys.readouterr().out
+
+    assert "avg value: $0.333333" in output
+    assert "total sampled value: $1.00" in output
+
+
+def test_pull_summary_v1_and_v2_displayed_avg_matches_total_sampled_value(capsys):
+    sim_results = {
+        "values": [0.0, 0.0, 0.0],
+        "mean": 0.0,
+        "std_dev": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "percentiles": {
+            "5th": 0.0,
+            "25th": 0.0,
+            "50th (median)": 0.0,
+            "75th": 0.0,
+            "90th": 0.0,
+            "95th": 0.0,
+            "99th": 0.0,
+        },
+        "rarity_pull_counts": {"double rare": 3},
+        "rarity_value_totals": {"double rare": 1.0},
+    }
+
+    print_simulation_summary(sim_results, n_simulations=3)
+    out_v1 = capsys.readouterr().out
+    assert "avg value: $0.333333" in out_v1
+    assert "total sampled value: $1.00" in out_v1
+
+    print_simulation_summary_v2(
+        {
+            **sim_results,
+            "pack_path_counts": {},
+            "pack_state_counts": {},
+        },
+        n_simulations=3,
+    )
+    out_v2 = capsys.readouterr().out
+    assert "avg value: $0.333333" in out_v2
+    assert "total sampled value: $1.00" in out_v2

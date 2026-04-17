@@ -15,3 +15,6 @@ C:\Users\Owner\.ssh
 
 generate ssh key
 ssh-keygen
+
+run simulator tests
+d:/EVRCalculator/backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/simulations -vv

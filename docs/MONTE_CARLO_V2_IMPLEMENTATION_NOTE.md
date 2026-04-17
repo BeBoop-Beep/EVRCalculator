@@ -214,13 +214,16 @@ The canonical slot coercion rules now live in one shared module:
 
 `backend/simulations/utils/packStateModels/packStateCoercion.py`
 
-Both paths consume the same implementation:
+Coercion logic is centrally owned by the shared pack-state coercion utility.
+Both derivation and simulation paths use the same shared coercion implementation.
+This removes the earlier drift risk from duplicated coercion logic.
+
+Both paths consume that same implementation:
 - Derivation path (`derivePackStateProbabilities.py`)
 - Simulation path (`monteCarloSimV2.py`)
 
-This removes rule drift risk between derived probabilities and runtime state
-resolution. Future changes to coercion behavior must be made in this shared
-module, not duplicated across files.
+Future changes to coercion behavior must be made in this shared module, not
+duplicated across files.
 
 
 ## Era Normalization Strategy
@@ -276,3 +279,11 @@ module, not duplicated across files.
 - Scarlet & Violet default state probabilities remain provisional and require calibration against observed pull data.
 - Per-set official state models may differ from era defaults; PACK_STATE_MODEL should be supplied when set-specific pack composition is confirmed.
 - Special-pack fixed-card lookup currently assumes card names are present in the working DataFrame; missing names degrade tracked value/count fidelity.
+
+## Phase 5 Calibration and Validation
+- Phase 5 adds a separate, validation-oriented workflow that compares derived/simulated distributions to observed pull data.
+- Calibration artifacts are heuristic empirical suggestions, not statistically fitted truth.
+- The current blend-weight logic is a practical review aid, not a formal inference procedure.
+- Calibration artifacts do not overwrite sourced configuration truth and should not be promoted automatically.
+- Calibration outputs are generated as explicit artifacts and are never written back into sourced set config truth.
+- See `docs/PHASE_5_CALIBRATION_VALIDATION_NOTE.md` for observed-data schema, metrics, residual analysis, and export workflow.

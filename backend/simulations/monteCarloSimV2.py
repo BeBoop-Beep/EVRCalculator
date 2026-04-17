@@ -430,17 +430,28 @@ def sample_cards_for_slot_outcomes(
     rarity_value_totals: MutableMapping[str, float],
     rng: Optional[np.random.Generator] = None,
 ) -> Dict[str, object]:
-    """Sample concrete cards for fixed slot outcomes and update rarity trackers."""
+    """Sample concrete cards for fixed slot outcomes and update rarity trackers.
+
+    All sampled cards — commons, uncommons, and the three variable slots — are
+    recorded in rarity_pull_counts and rarity_value_totals so that the pull
+    summary reflects every card in the pack, not only slot-resolved hits/reverses.
+    """
     rng = _to_rng(rng)
     total_value = 0.0
 
     sampled_common = _sample_rows(common_cards, int(slots_per_rarity.get("common", 4)), rng)
-    common_value = float(pd.to_numeric(sampled_common.get("Price ($)"), errors="coerce").fillna(0).sum())
+    common_prices = pd.to_numeric(sampled_common.get("Price ($)"), errors="coerce").fillna(0)
+    common_value = float(common_prices.sum())
     total_value += common_value
+    rarity_pull_counts["common"] += len(common_prices)
+    rarity_value_totals["common"] += common_value
 
     sampled_uncommon = _sample_rows(uncommon_cards, int(slots_per_rarity.get("uncommon", 3)), rng)
-    uncommon_value = float(pd.to_numeric(sampled_uncommon.get("Price ($)"), errors="coerce").fillna(0).sum())
+    uncommon_prices = pd.to_numeric(sampled_uncommon.get("Price ($)"), errors="coerce").fillna(0)
+    uncommon_value = float(uncommon_prices.sum())
     total_value += uncommon_value
+    rarity_pull_counts["uncommon"] += len(uncommon_prices)
+    rarity_value_totals["uncommon"] += uncommon_value
 
     slot_values: Dict[str, float] = {}
     slot_cards: Dict[str, Optional[str]] = {}
@@ -675,13 +686,14 @@ def print_simulation_summary_v2(sim_results: Mapping[str, object], n_simulations
 
     print("-" * 50)
     print("\n=== Pull Summary by Rarity (All Slots) ===")
+    print("(avg value is derived from exact sampled totals; shown with higher precision for auditability)")
     pull_counts = sim_results["rarity_pull_counts"]
     value_totals = sim_results["rarity_value_totals"]
     for rarity, count in pull_counts.items():
         total_val = value_totals[rarity]
         avg_val = total_val / count if count else 0
         print(
-            f"{rarity:30s} | pulled: {count:7d} | avg value: ${avg_val:.2f} | total EV: ${total_val:.2f}"
+            f"{rarity:30s} | pulled: {count:7d} | avg value: ${avg_val:.6f} | total sampled value: ${total_val:.2f}"
         )
 
     path_counts = sim_results.get("pack_path_counts", {})
