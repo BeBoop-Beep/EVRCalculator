@@ -11,6 +11,8 @@ Key principle:
   "rares and above" or any other shortcut.
 """
 
+import pandas as pd
+
 
 def normalize_rarity_string(rarity_raw: str) -> str:
     """Normalize rarity strings for comparison.
@@ -102,57 +104,108 @@ def get_rarity_group(rarity_raw: str, config) -> str:
 
 def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
     """Filter card EV contributions into hit and non-hit pools.
-    
-    Takes a card_ev_contributions dictionary and the original dataframe,
-    and splits contributions based on the config's rarity mapping.
-    
+
+    Uses card_number (stable identity) for matching when the DataFrame has a
+    'Card Number' column with non-empty values. Falls back to card-name matching
+    only when card_number is not available.
+
+    Card name is NOT used as the primary identity key for hit classification.
+    Multiple distinct cards can share a name (e.g., two printings of 'Charizard ex'
+    at different rarities); using card_number prevents misclassification.
+
     Parameters
     ----------
     card_ev_contributions : dict
-        Mapping of {card_name: ev_value}.
+        Mapping of {card_key: ev_value} where card_key is card_number when
+        Card Number is in the DataFrame, otherwise card_name.
     df : pd.DataFrame
-        Original card dataframe with 'Card Name' and 'Rarity' columns.
+        Original card dataframe with 'Card Name', 'Rarity', and optionally
+        'Card Number' columns.
     config : BaseSetConfig
         Configuration with RARITY_MAPPING.
-    
+
     Returns
     -------
     tuple
         (hit_ev_contributions, non_hit_ev_contributions) where each is
-        a dict of {card_name: ev_value}.
-    
+        a dict of {card_key: ev_value}.
+
     Notes
     -----
-    - Card names are normalized to strip/lowercase for matching against dataframe.
-    - Cards not found in dataframe are categorized based on whether they would
-      be hits if they existed (conservative: missing cards assumed non-hit).
-    - Zero-EV cards are omitted from both result dicts.
+    - Cards with EV <= 0 are excluded from both result dicts.
+    - Unmatched cards (key not found in df) are classified as non-hit with
+      a diagnostic warning. They are NOT silently dropped.
+    - Ambiguous matches (same card_number appears multiple times in df) emit
+      a diagnostic warning and use the first matching row.
     """
     hit_contributions = {}
     non_hit_contributions = {}
-    
-    for card_name, ev_value in card_ev_contributions.items():
+
+    # Determine if we should use card_number-based matching
+    use_card_number = (
+        "Card Number" in df.columns
+        and df["Card Number"].astype(str).str.strip().replace("", pd.NA).notna().any()
+    )
+
+    if use_card_number:
+        # Build an index: card_number → first matching row's rarity
+        # Check for duplicates (same card_number appearing more than once)
+        card_number_col = df["Card Number"].astype(str).str.strip()
+        rarity_col = df["Rarity"].astype(str)
+        df_indexed = df.assign(_card_key=card_number_col)
+        duplicate_keys = df_indexed[df_indexed.duplicated(subset=["_card_key"], keep=False)]["_card_key"].unique()
+        if len(duplicate_keys) > 0:
+            print(
+                f"[IDENTITY_WARNING] Duplicate card_number entries detected in DataFrame for "
+                f"{len(duplicate_keys)} card number(s): {list(duplicate_keys)[:10]}. "
+                "Using first matching row for hit classification."
+            )
+        rarity_by_card_number = (
+            df_indexed.groupby("_card_key")["Rarity"].first().to_dict()
+        )
+    else:
+        # Legacy: build name-based index
+        print(
+            "[IDENTITY_WARNING] Using card-name-based hit classification fallback. "
+            "Same-named cards with different rarities may be misclassified. "
+            "Ensure 'Card Number' is passed through the data pipeline."
+        )
+        name_col = df["Card Name"].astype(str).str.lower().str.strip()
+        rarity_by_name = {}
+        for normalized_name, rarity in zip(name_col, df["Rarity"].astype(str)):
+            if normalized_name not in rarity_by_name:
+                rarity_by_name[normalized_name] = rarity
+
+    for card_key, ev_value in card_ev_contributions.items():
         if float(ev_value) <= 0.0:
             continue
-        
-        # Find the card's rarity in the dataframe
-        # Normalize card name for matching
-        normalized_card_name = str(card_name).strip().lower()
-        matching_rows = df[
-            df['Card Name'].astype(str).str.lower().str.strip() == normalized_card_name
-        ]
-        
-        if not matching_rows.empty:
-            # Use the first match's rarity
-            rarity_raw = matching_rows.iloc[0]['Rarity']
-            is_hit = is_hit_rarity(rarity_raw, config)
+
+        if use_card_number:
+            rarity_raw = rarity_by_card_number.get(str(card_key).strip())
+            if rarity_raw is None:
+                print(
+                    f"[IDENTITY_UNMATCHED] Card key '{card_key}' not found in DataFrame by card_number. "
+                    "Classifying as non-hit (conservative fallback). "
+                    "Check that card_number values are consistent between config and DB data."
+                )
+                non_hit_contributions[card_key] = float(ev_value)
+                continue
         else:
-            # Card not found; assume non-hit to be conservative
-            is_hit = False
-        
+            # Legacy name-based fallback
+            normalized_key = str(card_key).strip().lower()
+            rarity_raw = rarity_by_name.get(normalized_key)
+            if rarity_raw is None:
+                print(
+                    f"[IDENTITY_UNMATCHED] Card '{card_key}' not found in DataFrame by name. "
+                    "Classifying as non-hit (conservative fallback)."
+                )
+                non_hit_contributions[card_key] = float(ev_value)
+                continue
+
+        is_hit = is_hit_rarity(rarity_raw, config)
         if is_hit:
-            hit_contributions[card_name] = float(ev_value)
+            hit_contributions[card_key] = float(ev_value)
         else:
-            non_hit_contributions[card_name] = float(ev_value)
-    
+            non_hit_contributions[card_key] = float(ev_value)
+
     return hit_contributions, non_hit_contributions

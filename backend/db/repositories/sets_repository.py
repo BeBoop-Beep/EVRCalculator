@@ -2,6 +2,30 @@ from typing import List, Dict, Any, Optional
 
 from ..clients.supabase_client import supabase
 
+
+def get_set_by_canonical_key(canonical_key: str) -> Optional[Dict[str, Any]]:
+    """Return one set row by canonical key, or None when missing."""
+    response = (
+        supabase.table("sets")
+        .select("*")
+        .eq("canonical_key", canonical_key)
+        .maybe_single()
+        .execute()
+    )
+    return response.data if response and response.data else None
+
+
+def get_set_by_pokemon_api_set_id(pokemon_api_set_id: str) -> Optional[Dict[str, Any]]:
+    """Return one set row by pokemon_api_set_id, or None when missing."""
+    response = (
+        supabase.table("sets")
+        .select("*")
+        .eq("pokemon_api_set_id", pokemon_api_set_id)
+        .maybe_single()
+        .execute()
+    )
+    return response.data if response and response.data else None
+
 def get_set_by_id(set_id: str) -> Optional[Dict[str, Any]]:
     response = supabase.table("sets").select("*").eq("id", set_id).single().execute()
     return response.data if response and response.data else None

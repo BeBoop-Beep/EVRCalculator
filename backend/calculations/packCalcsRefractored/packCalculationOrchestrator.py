@@ -8,32 +8,97 @@ class PackCalculationOrchestrator(PackCalculations):
         super().__init__(config)
 
     @staticmethod
-    def build_card_ev_contributions(df: pd.DataFrame) -> dict:
+    def build_card_ev_contributions(df: pd.DataFrame) -> tuple:
         """Build card-level EV contribution map from the existing EV pipeline output.
 
-        This uses the already-computed per-card EV values and does not invent
-        new contribution logic. Duplicate card names are summed.
-        
-        Note: This returns ALL cards (both hit and non-hit). Use
-        build_hit_and_non_hit_ev_contributions() to split by rarity mapping.
+        Identity key is card_number when the 'Card Number' column is present and
+        non-empty, otherwise falls back to card name (legacy/Excel-input path).
+        Card name is NEVER the primary identity key when card_number is available.
+
+        Note: Card names are NOT the same as card identity. Multiple distinct cards
+        can share a name within a set (e.g., two printings of 'Charizard ex' at
+        different rarities). Using card_number as the key prevents these from being
+        incorrectly collapsed into a single EV bucket.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Must have columns: {"Card Name", "EV"}.
+            May optionally have: {"Card Number", "Rarity"}.
+
+        Returns
+        -------
+        tuple
+            (ev_contributions, card_display_labels) where:
+            - ev_contributions: Dict[str, float] keyed by card_number (or card_name
+              fallback), values are summed EV > 0.0
+            - card_display_labels: Dict[str, dict] mapping the same key to
+              {"card_name": str, "rarity": str, "card_number": str}
+
+        Notes
+        -----
+        - Zero-EV cards are excluded from ev_contributions.
+        - This returns ALL cards (both hit and non-hit). Use
+          build_hit_and_non_hit_ev_contributions() to split by rarity mapping.
         """
         required_columns = {"Card Name", "EV"}
         if not required_columns.issubset(df.columns):
-            return {}
+            return {}, {}
 
         ev_series = pd.to_numeric(df["EV"], errors="coerce").fillna(0.0)
-        working = pd.DataFrame(
-            {
-                "Card Name": df["Card Name"].astype(str).str.strip(),
-                "EV": ev_series,
-            }
+        has_card_number = (
+            "Card Number" in df.columns
+            and df["Card Number"].astype(str).str.strip().replace("", pd.NA).notna().any()
         )
-        grouped = working.groupby("Card Name", as_index=True)["EV"].sum()
-        return {
-            str(card_name): float(ev_value)
-            for card_name, ev_value in grouped.items()
+        has_rarity = "Rarity" in df.columns
+
+        if has_card_number:
+            working = pd.DataFrame(
+                {
+                    "card_key": df["Card Number"].astype(str).str.strip(),
+                    "Card Name": df["Card Name"].astype(str).str.strip(),
+                    "Rarity": df["Rarity"].astype(str).str.strip() if has_rarity else "",
+                    "EV": ev_series,
+                }
+            )
+        else:
+            # Legacy fallback: card_name is the key (ambiguous for same-name cards)
+            print(
+                "[IDENTITY_WARNING] 'Card Number' column not present in DataFrame. "
+                "Falling back to card name as EV contribution key. "
+                "Same-named cards with different rarities will be collapsed — "
+                "this may cause incorrect hit/non-hit classification."
+            )
+            working = pd.DataFrame(
+                {
+                    "card_key": df["Card Name"].astype(str).str.strip(),
+                    "Card Name": df["Card Name"].astype(str).str.strip(),
+                    "Rarity": df["Rarity"].astype(str).str.strip() if has_rarity else "",
+                    "EV": ev_series,
+                }
+            )
+
+        # Group EV by stable key (card_number or fallback name)
+        grouped_ev = working.groupby("card_key", as_index=True)["EV"].sum()
+        ev_contributions = {
+            str(key): float(ev_value)
+            for key, ev_value in grouped_ev.items()
             if float(ev_value) > 0.0
         }
+
+        # Build display label map: key → {card_name, rarity, card_number}
+        # Use first row per key for metadata (after groupby on key)
+        label_rows = working.drop_duplicates(subset=["card_key"])
+        card_display_labels = {}
+        for _, row in label_rows.iterrows():
+            key = str(row["card_key"])
+            card_display_labels[key] = {
+                "card_name": str(row["Card Name"]),
+                "rarity": str(row["Rarity"]),
+                "card_number": str(row["card_key"]) if has_card_number else "",
+            }
+
+        return ev_contributions, card_display_labels
 
     def build_hit_and_non_hit_ev_contributions(self, df: pd.DataFrame) -> dict:
         """Build hit-only and non-hit-only EV contribution pools using config rarity mapping.
@@ -58,7 +123,7 @@ class PackCalculationOrchestrator(PackCalculations):
         - 'total_card_ev' includes both hit and non-hit, but may differ from
           total simulated pack EV due to special pack adjustments.
         """
-        all_contributions = self.build_card_ev_contributions(df)
+        all_contributions, card_display_labels = self.build_card_ev_contributions(df)
         
         if not all_contributions:
             return {
@@ -67,6 +132,7 @@ class PackCalculationOrchestrator(PackCalculations):
                 'hit_ev': 0.0,
                 'non_hit_ev': 0.0,
                 'total_card_ev': 0.0,
+                'card_display_labels': {},
             }
         
         hit_contribs, non_hit_contribs = filter_card_ev_by_hits(
@@ -83,6 +149,7 @@ class PackCalculationOrchestrator(PackCalculations):
             'hit_ev': float(hit_ev),
             'non_hit_ev': float(non_hit_ev),
             'total_card_ev': float(total_card_ev),
+            'card_display_labels': card_display_labels,
         }
 
     def calculate_evr_calculations(self, df):
@@ -131,6 +198,7 @@ class PackCalculationOrchestrator(PackCalculations):
             "hit_ev": card_ev_split['hit_ev'],
             "non_hit_ev": card_ev_split['non_hit_ev'],
             "total_card_ev": card_ev_split['total_card_ev'],
+            "card_display_labels": card_ev_split.get('card_display_labels', {}),
             "hit_probability_percentage": hit_probability_percentage,
             "no_hit_probability_percentage": no_hit_probability_percentage,
             "total_manual_ev": total_manual_ev,
@@ -170,6 +238,7 @@ class PackCalculationOrchestrator(PackCalculations):
             "hit_ev": manual_results["hit_ev"],
             "non_hit_ev": manual_results["non_hit_ev"],
             "total_card_ev": manual_results["total_card_ev"],
+            "card_display_labels": manual_results.get("card_display_labels", {}),
             "hit_probability_percentage": manual_results["hit_probability_percentage"],
             "no_hit_probability_percentage": manual_results["no_hit_probability_percentage"],
         }

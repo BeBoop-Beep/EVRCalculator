@@ -31,7 +31,7 @@ def test_build_card_ev_contributions_uses_real_ev_column_and_groups_duplicates()
         }
     )
 
-    contributions = PackCalculationOrchestrator.build_card_ev_contributions(df)
+    contributions, labels = PackCalculationOrchestrator.build_card_ev_contributions(df)
 
     assert contributions["Card A"] == pytest.approx(0.5)
     assert contributions["Card B"] == pytest.approx(1.25)
@@ -41,7 +41,7 @@ def test_build_card_ev_contributions_uses_real_ev_column_and_groups_duplicates()
 
 def test_build_card_ev_contributions_returns_empty_when_required_columns_missing():
     df = pd.DataFrame({"Card Name": ["Card A"], "Price ($)": [10.0]})
-    contributions = PackCalculationOrchestrator.build_card_ev_contributions(df)
+    contributions, labels = PackCalculationOrchestrator.build_card_ev_contributions(df)
     assert contributions == {}
 
 # ============================================================================

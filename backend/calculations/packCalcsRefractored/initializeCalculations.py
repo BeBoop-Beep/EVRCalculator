@@ -1,6 +1,9 @@
 import pandas as pd
 import os
 
+
+CARD_NAME_WITH_NUMBER_PATTERN = r'^(?P<name>.+?)\s*-\s*(?P<number>[A-Za-z0-9.-]+/[A-Za-z0-9.-]+)\s*$'
+
 class PackEVInitializer:
     """Handles initialization and data loading for pack EV calculations"""
     
@@ -19,6 +22,10 @@ class PackEVInitializer:
 
 
     def _load_file(self, file_path):
+        if isinstance(file_path, pd.DataFrame):
+            # Keep behavior equivalent to file-based mode by working on a fresh copy.
+            return file_path.copy(deep=True)
+
         try:
             return pd.read_excel(file_path)
         except FileNotFoundError:
@@ -30,12 +37,48 @@ class PackEVInitializer:
             if col not in df.columns:
                 raise ValueError(f"Missing required column: '{col}'")
 
+    def _ensure_optional_columns(self, df):
+        if 'Special Type' not in df.columns:
+            df['Special Type'] = ''
+        else:
+            df['Special Type'] = df['Special Type'].fillna('').astype(str)
+
     def _clean_columns(self, df):
         df['Pull Rate (1/X)'] = (
             df['Pull Rate (1/X)']
             .astype(str)
             .str.replace('[$,]', '', regex=True)
             .replace('', pd.NA)
+        )
+
+    def _normalize_card_identity_columns(self, df):
+        if 'Card Name' not in df.columns:
+            return
+
+        card_names = df['Card Name'].fillna('').astype(str).str.strip()
+        extracted = card_names.str.extract(CARD_NAME_WITH_NUMBER_PATTERN)
+        combined_mask = extracted['number'].notna()
+
+        if not combined_mask.any():
+            return
+
+        if 'Card Number' not in df.columns:
+            df['Card Number'] = ''
+
+        current_numbers = df['Card Number'].fillna('').astype(str).str.strip()
+        missing_number_mask = combined_mask & current_numbers.eq('')
+
+        # Always clean combined identity from Card Name to preserve plain-name semantics.
+        df.loc[combined_mask, 'Card Name'] = extracted.loc[combined_mask, 'name'].str.strip()
+
+        # Populate Card Number only where it is currently blank.
+        df.loc[missing_number_mask, 'Card Number'] = extracted.loc[missing_number_mask, 'number'].str.strip()
+
+        cleaned_count = int(combined_mask.sum())
+        filled_count = int(missing_number_mask.sum())
+        print(
+            f"[IDENTITY_NORMALIZATION] cleaned_combined_names={cleaned_count} "
+            f"filled_missing_card_numbers={filled_count}"
         )
 
     def _derive_rarity_columns(self, df):
@@ -83,7 +126,10 @@ class PackEVInitializer:
 
     def load_and_prepare_data(self, file_path):
         df = self._load_file(file_path)
+        self._strip_column_names(df)
         self._validate_required_columns(df)
+        self._ensure_optional_columns(df)
+        self._normalize_card_identity_columns(df)
         self._clean_columns(df)
         self._derive_rarity_columns(df)
         self._convert_column_types(df)

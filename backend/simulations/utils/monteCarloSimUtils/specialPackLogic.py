@@ -1,5 +1,7 @@
 import numpy as np
 
+from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
+
 def sample_god_pack(god_cfg, df):
     strategy = god_cfg.get("strategy", {})
     strategy_type = strategy.get("type", "fixed")
@@ -8,7 +10,12 @@ def sample_god_pack(god_cfg, df):
         if "packs" in strategy:
             packs = strategy["packs"]
             chosen_pack = np.random.choice(packs)
-            trio_value = df[df["Card Name"].isin(chosen_pack["cards"])]["Price ($)"].sum()
+            resolved_rows = resolve_configured_god_pack_rows(
+                chosen_pack.get("cards", []),
+                df,
+                context_label=f"god.fixed_pack:{chosen_pack.get('name', '?')}",
+            )
+            trio_value = resolved_rows["Price ($)"].sum() if "Price ($)" in resolved_rows.columns else 0.0
             avg_common = df[df["Rarity"] == "common"]["Price ($)"].mean()
             avg_uncommon = df[df["Rarity"] == "uncommon"]["Price ($)"].mean()
             total_value = trio_value + 4 * avg_common + 3 * avg_uncommon
@@ -16,8 +23,12 @@ def sample_god_pack(god_cfg, df):
             return total_value
         elif "cards" in strategy:
             cards = strategy.get("cards", [])
-            card_values = df[df["Card Name"].isin(cards)]["Price ($)"]
-            total_value = card_values.sum()
+            resolved_rows = resolve_configured_god_pack_rows(
+                cards,
+                df,
+                context_label="god.fixed_cards",
+            )
+            total_value = resolved_rows["Price ($)"].sum() if "Price ($)" in resolved_rows.columns else 0.0
             # print("god pack: ", total_value)
             return total_value
 

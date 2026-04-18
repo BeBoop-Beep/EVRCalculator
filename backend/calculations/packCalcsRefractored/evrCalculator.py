@@ -4,6 +4,7 @@ import os
 
 from itertools import combinations_with_replacement
 from .initializeCalculations import PackEVInitializer
+from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
 
 
 class PackEVCalculator(PackEVInitializer):
@@ -29,23 +30,41 @@ class PackEVCalculator(PackEVInitializer):
         strategy_type = strategy.get("type")
 
         if strategy_type == "fixed":
+            def _resolved_total(card_specs, context_label):
+                resolved_rows = resolve_configured_god_pack_rows(
+                    card_specs,
+                    df,
+                    context_label=context_label,
+                )
+                if resolved_rows.empty or "Price ($)" not in resolved_rows.columns:
+                    return 0.0
+                return float(pd.to_numeric(resolved_rows["Price ($)"], errors="coerce").fillna(0.0).sum())
+
             if "packs" in strategy:
-                # Handle fixed packs (e.g., 151)
+                # Handle fixed packs (e.g., 151 — each pack is a named trio)
                 pack_values = []
                 for pack in strategy["packs"]:
-                    trio_value = df[df["Card Name"].isin(pack["cards"])]["Price ($)"].sum()
+                    trio_value = _resolved_total(
+                        pack.get("cards", []),
+                        context_label=f"god.fixed_pack:{pack.get('name', '?')}",
+                    )
                     avg_common = df[df["Rarity"] == "common"]["Price ($)"].mean()
                     avg_uncommon = df[df["Rarity"] == "uncommon"]["Price ($)"].mean()
                     pack_value = trio_value + 4 * avg_common + 3 * avg_uncommon
                     pack_values.append(pack_value)
+                    print(
+                        f"  God Pack '{pack.get('name', '?')}': trio=${trio_value:.2f}, "
+                        f"common_fill=${4*avg_common:.2f}, uncommon_fill=${3*avg_uncommon:.2f}, "
+                        f"total=${pack_value:.2f}"
+                    )
                 avg_pack_value = np.mean(pack_values)
                 adjusted_ev = pull_rate * avg_pack_value
                 print(f"God Pack Fixed Value With Multiple Options: ${avg_pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
                 return adjusted_ev
             elif "cards" in strategy:
-                # Handle fixed card list (original logic)
+                # Handle single fixed card list
                 cards = strategy.get("cards", [])
-                total = df[df["Card Name"].isin(cards)]["Price ($)"].sum()
+                total = _resolved_total(cards, context_label="god.fixed_cards")
                 adjusted_ev = pull_rate * total
                 print(f"God Pack Fixed Value 1 Option: ${total:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
                 return adjusted_ev

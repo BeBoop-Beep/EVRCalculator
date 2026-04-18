@@ -116,7 +116,7 @@ def get_card_variants_by_card_ids(card_ids: List[int]) -> List[Dict[str, Any]]:
 
     res = (
         supabase.table("card_variants")
-        .select("id, card_id, pokemon_tcg_api_id")
+        .select("id, card_id, pokemon_tcg_api_id, printing_type, special_type, edition")
         .in_("card_id", card_ids)
         .execute()
     )

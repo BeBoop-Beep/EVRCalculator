@@ -69,16 +69,16 @@ class SetPrismaticEvolutionsConfig(BaseSetConfig):
         "strategy": {
             "type": "fixed",
             "cards": [
-                "Eevee (Master Ball Pattern)",
-                "Eevee ex - 167/131",
-                "Vaporeon ex - 149/131",
-                "Jolteon ex - 153/131",
-                "Flareon ex - 146/131",
-                "Espeon ex - 155/131",
-                "Umbreon ex - 161/131",
-                "Glaceon ex - 150/131",
-                "Leafeon ex - 144/131",
-                "Sylveon ex - 156/131"
+                {"name": "Eevee", "number": "074/131", "rarity": "common", "special_type": "master ball"},
+                {"name": "Eevee ex", "number": "167/131", "rarity": "special illustration rare"},
+                {"name": "Vaporeon ex", "number": "149/131", "rarity": "special illustration rare"},
+                {"name": "Jolteon ex", "number": "153/131", "rarity": "special illustration rare"},
+                {"name": "Flareon ex", "number": "146/131", "rarity": "special illustration rare"},
+                {"name": "Espeon ex", "number": "155/131", "rarity": "special illustration rare"},
+                {"name": "Umbreon ex", "number": "161/131", "rarity": "special illustration rare"},
+                {"name": "Glaceon ex", "number": "150/131", "rarity": "special illustration rare"},
+                {"name": "Leafeon ex", "number": "144/131", "rarity": "special illustration rare"},
+                {"name": "Sylveon ex", "number": "156/131", "rarity": "special illustration rare"}
             ]
         }
     }

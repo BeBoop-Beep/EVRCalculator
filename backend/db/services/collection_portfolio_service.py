@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime
-import json
 import logging
-from time import perf_counter
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from uuid import UUID
 
-from backend.db.clients.supabase_client import create_service_role_client, supabase
-from backend.db.services.collection_summary_service import get_user_collection_summary_snapshot
-from backend.db.services.public_identity_service import normalize_public_username, resolve_public_user_by_username
+from backend.db.clients.supabase_client import supabase
 
 
 DEFAULT_COLLECTION_IMAGE_PATH = "/images/default_image.png"
@@ -89,69 +86,6 @@ def _to_optional_string(value: Any) -> Optional[str]:
     return normalized or None
 
 
-def _to_nullable_number(value: Any) -> Optional[float]:
-    if value is None:
-        return None
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
-        return None
-    if parsed != parsed or parsed in (float("inf"), float("-inf")):
-        return None
-    return parsed
-
-
-def _default_public_collection_summary() -> Dict[str, Any]:
-    return {
-        "portfolio_value": 0.0,
-        "cards_count": 0,
-        "sealed_count": 0,
-        "graded_count": 0,
-        "portfolio_delta_1d": 0.0,
-        "portfolio_delta_7d": 0.0,
-        "portfolio_delta_3m": 0.0,
-        "portfolio_delta_6m": 0.0,
-        "portfolio_delta_1y": 0.0,
-        "portfolio_delta_lifetime": 0.0,
-        "portfolio_delta_pct_1d": None,
-        "portfolio_delta_pct_7d": None,
-        "portfolio_delta_pct_3m": None,
-        "portfolio_delta_pct_6m": None,
-        "portfolio_delta_pct_1y": None,
-        "portfolio_delta_pct_lifetime": None,
-    }
-
-
-def _public_summary_response_from_snapshot(summary_snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    summary = _default_public_collection_summary()
-    if not isinstance(summary_snapshot, dict):
-        return summary
-
-    summary["portfolio_value"] = _to_number(summary_snapshot.get("portfolio_value"), 0.0)
-    summary["cards_count"] = max(0, int(_to_number(summary_snapshot.get("cards_count"), 0.0)))
-    summary["sealed_count"] = max(0, int(_to_number(summary_snapshot.get("sealed_count"), 0.0)))
-    summary["graded_count"] = max(0, int(_to_number(summary_snapshot.get("graded_count"), 0.0)))
-    summary["portfolio_delta_1d"] = _to_number(summary_snapshot.get("portfolio_delta_1d"), 0.0)
-    summary["portfolio_delta_7d"] = _to_number(summary_snapshot.get("portfolio_delta_7d"), 0.0)
-    summary["portfolio_delta_3m"] = _to_number(summary_snapshot.get("portfolio_delta_3m"), 0.0)
-    summary["portfolio_delta_6m"] = _to_number(summary_snapshot.get("portfolio_delta_6m"), 0.0)
-    summary["portfolio_delta_1y"] = _to_number(summary_snapshot.get("portfolio_delta_1y"), 0.0)
-    summary["portfolio_delta_lifetime"] = _to_number(summary_snapshot.get("portfolio_delta_lifetime"), 0.0)
-
-    for field_name in (
-        "portfolio_delta_pct_1d",
-        "portfolio_delta_pct_7d",
-        "portfolio_delta_pct_3m",
-        "portfolio_delta_pct_6m",
-        "portfolio_delta_pct_1y",
-        "portfolio_delta_pct_lifetime",
-    ):
-        raw_value = summary_snapshot.get(field_name)
-        summary[field_name] = _to_number(raw_value, 0.0) if raw_value is not None else None
-
-    return summary
-
-
 def _unique_values(values: Iterable[Any]) -> List[Any]:
     seen = set()
     unique: List[Any] = []
@@ -166,125 +100,17 @@ def _unique_values(values: Iterable[Any]) -> List[Any]:
     return unique
 
 
-def _first_non_empty(*values: Any) -> Optional[str]:
-    for value in values:
-        normalized = _to_trimmed_string(value)
-        if normalized:
-            return normalized
-    return None
-
-
-def _resolve_legacy_large_image_url(
-    primary_large: Any,
-    primary_small: Any,
-    secondary_large: Any = None,
-    secondary_small: Any = None,
-) -> str:
-    return (
-        _first_non_empty(primary_large, secondary_large, primary_small, secondary_small)
-        or DEFAULT_COLLECTION_IMAGE_PATH
-    )
-
-
-def _normalize_collectible_type_from_view(holding_type: Any) -> str:
-    normalized = _to_trimmed_string(holding_type).lower()
-    mapped = {
-        "card": "card",
-        "cards": "card",
-        "sealed_product": "sealed_product",
-        "sealed": "sealed_product",
-        "sealedproduct": "sealed_product",
-        "graded_card": "graded_card",
-        "graded": "graded_card",
-        "gradedcard": "graded_card",
-    }
-    return mapped.get(normalized, "card")
-
-
-def _resolve_view_image_payload(collectible_type: str, image_url: Optional[str]) -> Dict[str, str]:
-    if collectible_type == "sealed_product":
-        return resolve_display_image("sealed_product", sealed_large=image_url, sealed_small=image_url)
-    if collectible_type == "graded_card":
-        return resolve_display_image("graded_card", card_large=image_url, card_small=image_url)
-    return resolve_display_image("card", card_large=image_url, card_small=image_url)
-
-
-def resolve_display_image(
-    collectible_type: str,
-    *,
-    variant_large: Any = None,
-    variant_small: Any = None,
-    card_large: Any = None,
-    card_small: Any = None,
-    sealed_large: Any = None,
-    sealed_small: Any = None,
+def _resolve_card_like_images(
+    variant_small: Any,
+    variant_large: Any,
+    card_small: Any,
+    card_large: Any,
 ) -> Dict[str, str]:
-    if collectible_type == "card":
-        resolved_variant = _first_non_empty(variant_large, variant_small)
-        if resolved_variant:
-            return {
-                "image_url": resolved_variant,
-                "image_type": "card",
-                "image_source": "card_variant",
-                "source_confidence": "high",
-            }
-
-        resolved_card = _first_non_empty(card_large, card_small)
-        if resolved_card:
-            return {
-                "image_url": resolved_card,
-                "image_type": "card",
-                "image_source": "card",
-                "source_confidence": "high",
-            }
-
-        return {
-            "image_url": DEFAULT_COLLECTION_IMAGE_PATH,
-            "image_type": "card",
-            "image_source": "fallback",
-            "source_confidence": "low",
-        }
-
-    if collectible_type == "graded_card":
-        resolved_variant = _first_non_empty(variant_large, variant_small)
-        if resolved_variant:
-            return {
-                "image_url": resolved_variant,
-                "image_type": "graded_base_card",
-                "image_source": "graded_linked_card_variant",
-                "source_confidence": "medium",
-            }
-
-        resolved_card = _first_non_empty(card_large, card_small)
-        if resolved_card:
-            return {
-                "image_url": resolved_card,
-                "image_type": "graded_base_card",
-                "image_source": "graded_linked_card",
-                "source_confidence": "medium",
-            }
-
-        return {
-            "image_url": DEFAULT_COLLECTION_IMAGE_PATH,
-            "image_type": "graded_base_card",
-            "image_source": "fallback",
-            "source_confidence": "low",
-        }
-
-    resolved_sealed = _first_non_empty(sealed_large, sealed_small)
-    if resolved_sealed:
-        return {
-            "image_url": resolved_sealed,
-            "image_type": "sealed",
-            "image_source": "sealed_product",
-            "source_confidence": "high",
-        }
-
+    resolved_small = _to_trimmed_string(variant_small) or _to_trimmed_string(card_small) or DEFAULT_COLLECTION_IMAGE_PATH
+    resolved_large = _to_trimmed_string(variant_large) or _to_trimmed_string(card_large) or DEFAULT_COLLECTION_IMAGE_PATH
     return {
-        "image_url": DEFAULT_COLLECTION_IMAGE_PATH,
-        "image_type": "fallback",
-        "image_source": "fallback",
-        "source_confidence": "low",
+        "image_url": resolved_small,
+        "image_large_url": resolved_large,
     }
 
 
@@ -379,18 +205,12 @@ def _select_with_fallback(
     filters: Optional[List[Tuple[str, str, Any]]] = None,
     order_by: Optional[Tuple[str, bool]] = None,
     limit: Optional[int] = None,
-    offset: Optional[int] = None,
-    correlation_id: Optional[str] = None,
-    trace_label: Optional[str] = None,
-    db_client: Any = None,
 ) -> List[Dict[str, Any]]:
     filters = filters or []
-    client = db_client or supabase
 
     for select_clause in select_candidates:
-        started_at = perf_counter()
         try:
-            query = client.table(table).select(select_clause)
+            query = supabase.table(table).select(select_clause)
             for operator, column, value in filters:
                 if operator == "eq":
                     query = query.eq(column, value)
@@ -401,69 +221,14 @@ def _select_with_fallback(
                 query = query.order(order_by[0], desc=not order_by[1])
 
             if isinstance(limit, int):
-                if isinstance(offset, int) and offset >= 0:
-                    query = query.range(offset, max(offset, offset + max(limit - 1, 0)))
-                else:
-                    query = query.limit(limit)
+                query = query.limit(limit)
 
             response = query.execute()
-            rows = response.data or []
-            logger.info(
-                "public_collection.query correlation_id=%s trace_label=%s table=%s select=%s rows=%s elapsed_ms=%.2f",
-                correlation_id,
-                trace_label,
-                table,
-                select_clause,
-                len(rows),
-                (perf_counter() - started_at) * 1000,
-            )
-            return rows
-        except Exception as exc:
-            logger.warning(
-                "public_collection.query correlation_id=%s trace_label=%s table=%s select=%s error=%s elapsed_ms=%.2f",
-                correlation_id,
-                trace_label,
-                table,
-                select_clause,
-                type(exc).__name__,
-                (perf_counter() - started_at) * 1000,
-            )
+            return response.data or []
+        except Exception:
             continue
 
-    logger.warning(
-        "public_collection.query correlation_id=%s trace_label=%s table=%s rows=0 reason=ALL_SELECTS_FAILED",
-        correlation_id,
-        trace_label,
-        table,
-    )
     return []
-
-
-def _payload_size_bytes(payload: Dict[str, Any]) -> int:
-    try:
-        return len(json.dumps(payload, separators=(",", ":"), default=str).encode("utf-8"))
-    except Exception:
-        return 0
-
-
-def _summarize_collection_items(items: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
-    item_meta = [
-        {
-            "id": str(item.get("id") or ""),
-            "type": str(item.get("collectible_type") or ""),
-            "collectible_id": str(item.get("collectible_id") or ""),
-        }
-        for item in items
-    ]
-    by_type: Dict[str, int] = {}
-    for row in item_meta:
-        type_key = row.get("type") or "unknown"
-        by_type[type_key] = by_type.get(type_key, 0) + 1
-    return {
-        "count": len(item_meta),
-        "by_type": by_type,
-        "item_meta": item_meta,
-    }
 
 
 def _load_dashboard_snapshot_rows(user_id: str) -> List[Dict[str, Any]]:
@@ -481,406 +246,211 @@ def get_collection_summary_and_items_for_user_id(
     user_id: str,
     include_collection_items: bool = False,
     include_private_fields: bool = False,
-    limit: Optional[int] = None,
-    offset: int = 0,
-    correlation_id: Optional[str] = None,
-    requested_username: Optional[str] = None,
-    db_client: Any = None,
 ) -> Dict[str, Any]:
-    total_started_at = perf_counter()
-    client = db_client or create_service_role_client()
-    view_query_started_at = perf_counter()
-    view_rows = _select_with_fallback(
-        table="user_collection_items_with_market",
-        select_candidates=[
-            "holding_id,holding_type,collectible_id,quantity,name,card_number,rarity,condition_id,condition,printing_type,edition,special_type,product_type,grade_value,special_label,grading_company_name,certification_number,image_url,market_price,estimated_value,set_name,set_id,user_id",
-            "holding_id,holding_type,collectible_id,quantity,name,card_number,rarity,condition_id,condition,printing_type,edition,special_type,product_type,grade_value,special_label,grading_company_name,certification_number,image_url,market_price,estimated_value,set_name,user_id",
-            "holding_id,holding_type,collectible_id,quantity,name,card_number,rarity,condition,printing_type,edition,special_type,product_type,grade_value,special_label,grading_company_name,certification_number,image_url,market_price,estimated_value,set_name,user_id",
-            "holding_id,holding_type,collectible_id,quantity,name,card_number,rarity,condition,printing_type,edition,special_type,product_type,image_url,market_price,estimated_value,set_name,user_id",
-            "holding_id,holding_type,collectible_id,quantity,name,image_url,market_price,estimated_value,user_id",
-        ],
-        filters=[("eq", "user_id", user_id)],
-        correlation_id=correlation_id,
-        trace_label="collection_items_with_market",
-        limit=limit,
-        offset=offset,
-        db_client=client,
-    )
-    view_query_elapsed_ms = (perf_counter() - view_query_started_at) * 1000
-
-    private_fields_map: Dict[str, Dict[str, Any]] = {}
-    private_query_elapsed_ms = 0.0
-    if include_private_fields:
-        private_query_started_at = perf_counter()
-        holding_ids_by_type: Dict[str, List[str]] = {
-            "card": [],
-            "sealed_product": [],
-            "graded_card": [],
-        }
-        for row in view_rows:
-            normalized_type = _normalize_collectible_type_from_view(row.get("holding_type"))
-            holding_id = row.get("holding_id")
-            if holding_id is None:
-                continue
-            holding_ids_by_type[normalized_type].append(str(holding_id))
-
-        card_private_rows = (
-            _select_with_fallback(
-                table="user_card_holdings",
-                select_candidates=[
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain",
-                    "id,user_id,purchase_price,cost_basis",
-                    "id,user_id,purchase_price",
-                    "id,user_id",
-                    "id",
-                ],
-                filters=[("in", "id", _unique_values(holding_ids_by_type["card"]))],
-                correlation_id=correlation_id,
-                trace_label="collection_items_private_card",
-                db_client=client,
-            )
-            if holding_ids_by_type["card"]
-            else []
-        )
-        sealed_private_rows = (
-            _select_with_fallback(
-                table="user_sealed_product_holdings",
-                select_candidates=[
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain",
-                    "id,user_id,purchase_price,cost_basis",
-                    "id,user_id,purchase_price",
-                    "id,user_id",
-                    "id",
-                ],
-                filters=[("in", "id", _unique_values(holding_ids_by_type["sealed_product"]))],
-                correlation_id=correlation_id,
-                trace_label="collection_items_private_sealed",
-                db_client=client,
-            )
-            if holding_ids_by_type["sealed_product"]
-            else []
-        )
-        graded_private_rows = (
-            _select_with_fallback(
-                table="user_graded_card_holdings",
-                select_candidates=[
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date",
-                    "id,user_id,purchase_price,cost_basis,roi,unrealized_gain",
-                    "id,user_id,purchase_price,cost_basis",
-                    "id,user_id,purchase_price",
-                    "id,user_id",
-                    "id",
-                ],
-                filters=[("in", "id", _unique_values(holding_ids_by_type["graded_card"]))],
-                correlation_id=correlation_id,
-                trace_label="collection_items_private_graded",
-                db_client=client,
-            )
-            if holding_ids_by_type["graded_card"]
-            else []
-        )
-
-        for row in card_private_rows:
-            private_fields_map[f"card:{row.get('id')}"] = row
-        for row in sealed_private_rows:
-            private_fields_map[f"sealed_product:{row.get('id')}"] = row
-        for row in graded_private_rows:
-            private_fields_map[f"graded_card:{row.get('id')}"] = row
-
-        private_query_elapsed_ms = (perf_counter() - private_query_started_at) * 1000
-
-    merge_started_at = perf_counter()
-    collection_items: List[Dict[str, Any]] = []
-    cards_quantity_total = 0
-    sealed_quantity_total = 0
-    graded_quantity_total = 0
-
-    for row in view_rows:
-        collectible_type = _normalize_collectible_type_from_view(row.get("holding_type"))
-        quantity = int(max(0.0, _to_number(row.get("quantity"), 0.0)))
-
-        if collectible_type == "card":
-            cards_quantity_total += quantity
-        elif collectible_type == "sealed_product":
-            sealed_quantity_total += quantity
-        elif collectible_type == "graded_card":
-            graded_quantity_total += quantity
-
-        resolved_image_url = _to_optional_string(row.get("image_url"))
-        display_image = _resolve_view_image_payload(collectible_type, resolved_image_url)
-        legacy_large_image_url = _resolve_legacy_large_image_url(
-            primary_large=resolved_image_url,
-            primary_small=resolved_image_url,
-        )
-
-        market_price = _to_nullable_number(row.get("market_price"))
-        estimated_value = _to_nullable_number(row.get("estimated_value"))
-        if estimated_value is None and market_price is not None:
-            estimated_value = float(quantity) * market_price
-
-        condition_label = _to_optional_string(row.get("condition"))
-        if collectible_type == "sealed_product" and not condition_label:
-            condition_label = "Sealed"
-        if collectible_type == "graded_card" and not condition_label:
-            grade_value = _to_optional_string(row.get("grade_value"))
-            if grade_value:
-                condition_label = f"Grade {grade_value}"
-
-        special_type_value = _to_optional_string(row.get("special_type"))
-        if not special_type_value:
-            special_type_value = _to_optional_string(row.get("product_type"))
-
-        item: Dict[str, Any] = {
-            "id": str(row.get("holding_id") or row.get("id") or ""),
-            "collectible_type": collectible_type,
-            "collectible_id": row.get("collectible_id"),
-            "quantity": quantity,
-            "name": _to_optional_string(row.get("name"))
-            or ("Sealed Product" if collectible_type == "sealed_product" else "Unknown Card"),
-            "set_name": _to_optional_string(row.get("set_name")),
-            "card_number": _to_optional_string(row.get("card_number")),
-            "rarity": _to_optional_string(row.get("rarity")),
-            "condition_id": row.get("condition_id"),
-            "condition": condition_label,
-            "printing_type": _to_optional_string(row.get("printing_type")),
-            "edition": _to_optional_string(row.get("edition")),
-            "special_type": special_type_value,
-            "product_type": _to_optional_string(row.get("product_type")),
-            "grade_value": _to_nullable_number(row.get("grade_value")),
-            "special_label": _to_optional_string(row.get("special_label")),
-            "grading_company_name": _to_optional_string(row.get("grading_company_name")),
-            "certification_number": _to_optional_string(row.get("certification_number")),
-            "market_price": market_price,
-            "estimated_value": estimated_value,
-            "image_url": display_image["image_url"],
-            "image_large_url": legacy_large_image_url,
-            "image_type": display_image["image_type"],
-            "image_source": display_image["image_source"],
-            "source_confidence": display_image["source_confidence"],
-        }
-
-        if include_private_fields:
-            private_key = f"{collectible_type}:{item['id']}"
-            private_row = private_fields_map.get(private_key, {})
-            item.update(
-                {
-                    "user_id": private_row.get("user_id") if private_row else row.get("user_id"),
-                    "purchase_price": _to_number(private_row.get("purchase_price"), 0.0),
-                    "cost_basis": _to_number(private_row.get("cost_basis"), 0.0),
-                    "roi": _to_number(private_row.get("roi"), 0.0),
-                    "unrealized_gain": _to_number(private_row.get("unrealized_gain"), 0.0),
-                    "acquisition_date": private_row.get("acquisition_date"),
-                    "fees_taxes": _to_number(private_row.get("fees_taxes"), 0.0),
-                    "notes": _to_optional_string(private_row.get("notes")),
-                }
-            )
-
-        collection_items.append(item)
-
-    merged_summary = _summarize_collection_items(collection_items)
-    merge_elapsed_ms = (perf_counter() - merge_started_at) * 1000
-
-    logger.info(
-        "public_collection.aggregate correlation_id=%s stage=merged username=%s user_id=%s merged_total=%s by_type=%s",
-        correlation_id,
-        requested_username,
-        user_id,
-        merged_summary.get("count"),
-        merged_summary.get("by_type"),
-    )
-
-    summary = {
-        "portfolio_value": _to_number(
-            sum(
-                item_value
-                for item_value in (_to_nullable_number(item.get("estimated_value")) for item in collection_items)
-                if item_value is not None
-            ),
-            0.0,
-        ),
-        "cards_count": cards_quantity_total,
-        "sealed_count": sealed_quantity_total,
-        "graded_count": graded_quantity_total,
-    }
-
-    serializer_started_at = perf_counter()
-    response_payload = {
-        "summary": summary,
-        "collection_items": collection_items if include_collection_items else [],
-    }
-    serializer_elapsed_ms = (perf_counter() - serializer_started_at) * 1000
-
-    logger.info(
-        "public_collection.timing correlation_id=%s username=%s user_id=%s include_items=%s path_used=%s limit=%s offset=%s view_query_ms=%.2f private_query_ms=%.2f merge_ms=%.2f serializer_ms=%.2f total_ms=%.2f",
-        correlation_id,
-        requested_username,
-        user_id,
-        include_collection_items,
-        "view_assembly" if include_collection_items else "summary_only",
-        limit,
-        offset,
-        view_query_elapsed_ms,
-        private_query_elapsed_ms,
-        merge_elapsed_ms,
-        serializer_elapsed_ms,
-        (perf_counter() - total_started_at) * 1000,
-    )
-
-    if include_collection_items:
-        final_summary = _summarize_collection_items(response_payload.get("collection_items") or [])
-        logger.info(
-            "public_collection.aggregate correlation_id=%s stage=final_response username=%s user_id=%s final_total=%s by_type=%s item_meta=%s",
-            correlation_id,
-            requested_username,
-            user_id,
-            final_summary.get("count"),
-            final_summary.get("by_type"),
-            final_summary.get("item_meta"),
-        )
-
-    return response_payload
-
-
-def get_collection_items_for_user_id(
-    user_id: str,
-    include_private_fields: bool = True,
-    limit: Optional[int] = None,
-    offset: int = 0,
-    correlation_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
-    payload = get_collection_summary_and_items_for_user_id(
-        user_id=user_id,
-        include_collection_items=True,
-        include_private_fields=include_private_fields,
-        limit=limit,
-        offset=offset,
-        correlation_id=correlation_id,
-    )
-    return payload.get("collection_items", [])
-
-
-def get_collection_entry_detail_for_user_id(
-    user_id: str,
-    entry_id: str,
-    include_private_fields: bool = True,
-    correlation_id: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
-    started_at = perf_counter()
-    normalized_entry_id = str(entry_id or "").strip()
-    if not normalized_entry_id:
-        return None
-
-    client = create_service_role_client()
-
-    card_rows = _select_with_fallback(
-        table="user_card_holdings",
-        select_candidates=[
+    card_holdings_select_candidates = (
+        [
             "id,user_id,card_variant_id,condition_id,quantity,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
             "id,user_id,card_variant_id,condition_id,quantity",
-        ],
-        filters=[("eq", "id", normalized_entry_id), ("eq", "user_id", user_id)],
-        limit=1,
-        correlation_id=correlation_id,
-        trace_label="entry_lookup_card",
-        db_client=client,
+            "id,card_variant_id,condition_id,quantity",
+        ]
+        if include_private_fields
+        else ["id,card_variant_id,condition_id,quantity"]
     )
 
-    if card_rows:
-        holding = card_rows[0]
-        variant_rows = _select_with_fallback(
+    sealed_holdings_select_candidates = (
+        [
+            "id,user_id,sealed_product_id,quantity,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
+            "id,user_id,sealed_product_id,quantity",
+            "id,sealed_product_id,quantity",
+        ]
+        if include_private_fields
+        else ["id,sealed_product_id,quantity"]
+    )
+
+    graded_holdings_select_candidates = (
+        [
+            "id,user_id,graded_card_variant_id,quantity,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
+            "id,user_id,graded_card_variant_id,quantity",
+            "id,graded_card_variant_id,quantity",
+        ]
+        if include_private_fields
+        else ["id,graded_card_variant_id,quantity"]
+    )
+
+    card_holdings = _select_with_fallback(
+        table="user_card_holdings",
+        select_candidates=card_holdings_select_candidates,
+        filters=[("eq", "user_id", user_id)],
+    )
+    sealed_holdings = _select_with_fallback(
+        table="user_sealed_product_holdings",
+        select_candidates=sealed_holdings_select_candidates,
+        filters=[("eq", "user_id", user_id)],
+    )
+    graded_holdings = _select_with_fallback(
+        table="user_graded_card_holdings",
+        select_candidates=graded_holdings_select_candidates,
+        filters=[("eq", "user_id", user_id)],
+    )
+
+    card_variant_ids = _unique_values(row.get("card_variant_id") for row in card_holdings)
+    condition_ids = _unique_values(row.get("condition_id") for row in card_holdings)
+    sealed_product_ids = _unique_values(row.get("sealed_product_id") for row in sealed_holdings)
+    graded_variant_ids = _unique_values(row.get("graded_card_variant_id") for row in graded_holdings)
+
+    card_market_rows = (
+        _select_with_fallback(
+            table="card_market_usd_latest_by_condition",
+            select_candidates=["variant_id,condition_id,market_price,current_market_price,price"],
+            filters=[("in", "variant_id", card_variant_ids)],
+        )
+        if card_variant_ids
+        else []
+    )
+
+    sealed_market_rows = (
+        _select_with_fallback(
+            table="sealed_product_market_usd_latest",
+            select_candidates=["sealed_product_id,market_price,current_market_price,price"],
+            filters=[("in", "sealed_product_id", sealed_product_ids)],
+        )
+        if sealed_product_ids
+        else []
+    )
+
+    graded_market_rows = (
+        _select_with_fallback(
+            table="graded_card_market_latest",
+            select_candidates=["graded_card_variant_id,market_price,current_market_price,price"],
+            filters=[("in", "graded_card_variant_id", graded_variant_ids)],
+        )
+        if graded_variant_ids
+        else []
+    )
+
+    card_variant_rows = (
+        _select_with_fallback(
             table="card_variants",
-            select_candidates=["id,card_id,printing_type,special_type,edition,image_small_url,image_large_url", "id,card_id"],
-            filters=[("eq", "id", holding.get("card_variant_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_card_variant",
-            db_client=client,
+            select_candidates=[
+                "id,card_id,printing_type,special_type,edition,image_small_url,image_large_url",
+                "id,card_id,printing_type,special_type,edition",
+            ],
+            filters=[("in", "id", card_variant_ids)],
         )
-        variant = variant_rows[0] if variant_rows else {}
-        card_rows_join = _select_with_fallback(
+        if card_variant_ids
+        else []
+    )
+
+    linked_card_ids = _unique_values(row.get("card_id") for row in card_variant_rows)
+    card_rows = (
+        _select_with_fallback(
             table="cards",
-            select_candidates=["id,name,rarity,card_number,set_id,image_small_url,image_large_url", "id,name,set_id"],
-            filters=[("eq", "id", variant.get("card_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_card",
-            db_client=client,
+            select_candidates=[
+                "id,name,rarity,card_number,set_id,image_small_url,image_large_url",
+                "id,name,rarity,card_number,set_id",
+            ],
+            filters=[("in", "id", linked_card_ids)],
         )
-        card = card_rows_join[0] if card_rows_join else {}
-        set_rows = _select_with_fallback(
+        if linked_card_ids
+        else []
+    )
+
+    graded_variant_rows = (
+        _select_with_fallback(
+            table="graded_card_variants",
+            select_candidates=[
+                "id,card_variant_id,grade,grading_company",
+                "id,card_variant_id,grade",
+                "id,card_variant_id",
+            ],
+            filters=[("in", "id", graded_variant_ids)],
+        )
+        if graded_variant_ids
+        else []
+    )
+
+    sealed_rows = (
+        _select_with_fallback(
+            table="sealed_products",
+            select_candidates=[
+                "id,name,product_type,set_id,image_small_url,image_large_url",
+                "id,name,product_type,set_id",
+            ],
+            filters=[("in", "id", sealed_product_ids)],
+        )
+        if sealed_product_ids
+        else []
+    )
+
+    set_ids = _unique_values([*(row.get("set_id") for row in card_rows), *(row.get("set_id") for row in sealed_rows)])
+    set_rows = (
+        _select_with_fallback(
             table="sets",
             select_candidates=["id,name"],
-            filters=[("eq", "id", card.get("set_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_set",
-            db_client=client,
-        ) if card.get("set_id") else []
-        condition_rows = _select_with_fallback(
+            filters=[("in", "id", set_ids)],
+        )
+        if set_ids
+        else []
+    )
+
+    condition_rows = (
+        _select_with_fallback(
             table="conditions",
             select_candidates=["id,name"],
-            filters=[("eq", "id", holding.get("condition_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_condition",
-            db_client=client,
-        ) if holding.get("condition_id") else []
-        market_rows = _select_with_fallback(
-            table="card_market_usd_latest",
-            select_candidates=["variant_id,condition_id,market_price,current_market_price,price"],
-            filters=[("eq", "variant_id", holding.get("card_variant_id"))],
-            limit=10,
-            correlation_id=correlation_id,
-            trace_label="entry_card_market",
-            db_client=client,
+            filters=[("in", "id", condition_ids)],
         )
-        card_market_lookup = _build_price_lookup(market_rows, "variant_id", "condition_id")
-        estimated_value = _get_card_market_price(card_market_lookup, holding.get("card_variant_id"), holding.get("condition_id")) * max(
-            0.0, _to_number(holding.get("quantity"), 0.0)
+        if condition_ids
+        else []
+    )
+
+    card_variant_map = _build_row_map(card_variant_rows, "id")
+    card_map = _build_row_map(card_rows, "id")
+    sealed_map = _build_row_map(sealed_rows, "id")
+    graded_variant_map = _build_row_map(graded_variant_rows, "id")
+    set_map = _build_row_map(set_rows, "id")
+    condition_map = _build_row_map(condition_rows, "id")
+
+    card_price_map = _build_price_lookup(card_market_rows, "variant_id", "condition_id")
+    sealed_price_map = _build_price_lookup(sealed_market_rows, "sealed_product_id")
+    graded_price_map = _build_price_lookup(graded_market_rows, "graded_card_variant_id")
+
+    card_items: List[Dict[str, Any]] = []
+    for holding in card_holdings:
+        quantity = max(0.0, _to_number(holding.get("quantity"), 0.0))
+        variant = card_variant_map.get(str(holding.get("card_variant_id")))
+        card = card_map.get(str(variant.get("card_id"))) if variant else None
+        set_row = set_map.get(str(card.get("set_id"))) if card and card.get("set_id") is not None else None
+        condition = condition_map.get(str(holding.get("condition_id")))
+        market_price = _get_card_market_price(card_price_map, holding.get("card_variant_id"), holding.get("condition_id"))
+        estimated_value = quantity * market_price
+
+        images = _resolve_card_like_images(
+            variant_small=variant.get("image_small_url") if variant else None,
+            variant_large=variant.get("image_large_url") if variant else None,
+            card_small=card.get("image_small_url") if card else None,
+            card_large=card.get("image_large_url") if card else None,
         )
-        display_image = resolve_display_image(
-            "card",
-            variant_large=variant.get("image_large_url"),
-            variant_small=variant.get("image_small_url"),
-            card_large=card.get("image_large_url"),
-            card_small=card.get("image_small_url"),
-        )
-        legacy_large_image_url = _resolve_legacy_large_image_url(
-            primary_large=variant.get("image_large_url"),
-            primary_small=variant.get("image_small_url"),
-            secondary_large=card.get("image_large_url"),
-            secondary_small=card.get("image_small_url"),
-        )
-        entry: Dict[str, Any] = {
+
+        base_item: Dict[str, Any] = {
             "id": str(holding.get("id") or ""),
             "collectible_type": "card",
             "collectible_id": holding.get("card_variant_id"),
-            "quantity": int(max(0.0, _to_number(holding.get("quantity"), 0.0))),
-            "name": _to_optional_string(card.get("name")) or "Unknown Card",
-            "set_name": _to_optional_string((set_rows[0] if set_rows else {}).get("name")),
-            "card_number": _to_optional_string(card.get("card_number")),
-            "rarity": _to_optional_string(card.get("rarity")),
-            "condition": _to_optional_string((condition_rows[0] if condition_rows else {}).get("name")),
-            "printing_type": _to_optional_string(variant.get("printing_type")),
-            "edition": _to_optional_string(variant.get("edition")),
-            "special_type": _to_optional_string(variant.get("special_type")),
+            "quantity": int(quantity),
+            "name": _to_optional_string(card.get("name") if card else None) or "Unknown Card",
+            "set_name": _to_optional_string(set_row.get("name") if set_row else None),
+            "card_number": _to_optional_string(card.get("card_number") if card else None),
+            "rarity": _to_optional_string(card.get("rarity") if card else None),
+            "condition": _to_optional_string(condition.get("name") if condition else None),
+            "printing_type": _to_optional_string(variant.get("printing_type") if variant else None),
+            "edition": _to_optional_string(variant.get("edition") if variant else None),
+            "special_type": _to_optional_string(variant.get("special_type") if variant else None),
             "estimated_value": estimated_value,
-            "image_url": display_image["image_url"],
-            "image_large_url": legacy_large_image_url,
-            "image_type": display_image["image_type"],
-            "image_source": display_image["image_source"],
-            "source_confidence": display_image["source_confidence"],
+            "image_url": images["image_url"],
+            "image_large_url": images["image_large_url"],
         }
+
         if include_private_fields:
-            entry.update(
+            base_item.update(
                 {
                     "user_id": holding.get("user_id"),
                     "purchase_price": _to_number(holding.get("purchase_price"), 0.0),
@@ -892,95 +462,43 @@ def get_collection_entry_detail_for_user_id(
                     "notes": _to_optional_string(holding.get("notes")),
                 }
             )
-        logger.info(
-            "collection.entry_lookup correlation_id=%s user_id=%s entry_id=%s collectible_type=%s found=%s elapsed_ms=%.2f",
-            correlation_id,
-            user_id,
-            normalized_entry_id,
-            "card",
-            bool(entry),
-            (perf_counter() - started_at) * 1000,
-        )
-        return entry
 
-    sealed_rows = _select_with_fallback(
-        table="user_sealed_product_holdings",
-        select_candidates=[
-            "id,user_id,sealed_product_id,quantity,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
-            "id,user_id,sealed_product_id,quantity",
-        ],
-        filters=[("eq", "id", normalized_entry_id), ("eq", "user_id", user_id)],
-        limit=1,
-        correlation_id=correlation_id,
-        trace_label="entry_lookup_sealed",
-        db_client=client,
-    )
+        card_items.append(base_item)
 
-    if sealed_rows:
-        holding = sealed_rows[0]
-        sealed_join_rows = _select_with_fallback(
-            table="sealed_products",
-            select_candidates=["id,name,product_type,set_id,image_small_url,image_large_url", "id,name,product_type,set_id"],
-            filters=[("eq", "id", holding.get("sealed_product_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_sealed_product",
-            db_client=client,
+    sealed_items: List[Dict[str, Any]] = []
+    for holding in sealed_holdings:
+        quantity = max(0.0, _to_number(holding.get("quantity"), 0.0))
+        sealed = sealed_map.get(str(holding.get("sealed_product_id")))
+        set_row = set_map.get(str(sealed.get("set_id"))) if sealed and sealed.get("set_id") is not None else None
+        market_price = _to_number(sealed_price_map.get(str(holding.get("sealed_product_id"))), 0.0)
+        estimated_value = quantity * market_price
+        images = _resolve_card_like_images(
+            variant_small=sealed.get("image_small_url") if sealed else None,
+            variant_large=sealed.get("image_large_url") if sealed else None,
+            card_small=None,
+            card_large=None,
         )
-        sealed = sealed_join_rows[0] if sealed_join_rows else {}
-        set_rows = _select_with_fallback(
-            table="sets",
-            select_candidates=["id,name"],
-            filters=[("eq", "id", sealed.get("set_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_sealed_set",
-            db_client=client,
-        ) if sealed.get("set_id") else []
-        market_rows = _select_with_fallback(
-            table="sealed_product_market_usd_latest",
-            select_candidates=["sealed_product_id,market_price,current_market_price,price"],
-            filters=[("eq", "sealed_product_id", holding.get("sealed_product_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_sealed_market",
-            db_client=client,
-        )
-        market_lookup = _build_price_lookup(market_rows, "sealed_product_id")
-        estimated_value = _to_number(market_lookup.get(str(holding.get("sealed_product_id"))), 0.0) * max(
-            0.0, _to_number(holding.get("quantity"), 0.0)
-        )
-        display_image = resolve_display_image(
-            "sealed_product",
-            sealed_large=sealed.get("image_large_url"),
-            sealed_small=sealed.get("image_small_url"),
-        )
-        legacy_large_image_url = _resolve_legacy_large_image_url(
-            primary_large=sealed.get("image_large_url"),
-            primary_small=sealed.get("image_small_url"),
-        )
-        entry = {
+
+        base_item = {
             "id": str(holding.get("id") or ""),
             "collectible_type": "sealed_product",
             "collectible_id": holding.get("sealed_product_id"),
-            "quantity": int(max(0.0, _to_number(holding.get("quantity"), 0.0))),
-            "name": _to_optional_string(sealed.get("name")) or "Sealed Product",
-            "set_name": _to_optional_string((set_rows[0] if set_rows else {}).get("name")),
+            "quantity": int(quantity),
+            "name": _to_optional_string(sealed.get("name") if sealed else None) or "Sealed Product",
+            "set_name": _to_optional_string(set_row.get("name") if set_row else None),
             "card_number": None,
             "rarity": None,
             "condition": "Sealed",
             "printing_type": None,
             "edition": None,
-            "special_type": _to_optional_string(sealed.get("product_type")),
+            "special_type": _to_optional_string(sealed.get("product_type") if sealed else None),
             "estimated_value": estimated_value,
-            "image_url": display_image["image_url"],
-            "image_large_url": legacy_large_image_url,
-            "image_type": display_image["image_type"],
-            "image_source": display_image["image_source"],
-            "source_confidence": display_image["source_confidence"],
+            "image_url": images["image_url"],
+            "image_large_url": images["image_large_url"],
         }
+
         if include_private_fields:
-            entry.update(
+            base_item.update(
                 {
                     "user_id": holding.get("user_id"),
                     "purchase_price": _to_number(holding.get("purchase_price"), 0.0),
@@ -992,121 +510,48 @@ def get_collection_entry_detail_for_user_id(
                     "notes": _to_optional_string(holding.get("notes")),
                 }
             )
-        logger.info(
-            "collection.entry_lookup correlation_id=%s user_id=%s entry_id=%s collectible_type=%s found=%s elapsed_ms=%.2f",
-            correlation_id,
-            user_id,
-            normalized_entry_id,
-            "sealed_product",
-            bool(entry),
-            (perf_counter() - started_at) * 1000,
-        )
-        return entry
 
-    graded_rows = _select_with_fallback(
-        table="user_graded_card_holdings",
-        select_candidates=[
-            "id,user_id,graded_card_variant_id,quantity,purchase_price,cost_basis,roi,unrealized_gain,acquisition_date,fees_taxes,notes",
-            "id,user_id,graded_card_variant_id,quantity",
-        ],
-        filters=[("eq", "id", normalized_entry_id), ("eq", "user_id", user_id)],
-        limit=1,
-        correlation_id=correlation_id,
-        trace_label="entry_lookup_graded",
-        db_client=client,
-    )
+        sealed_items.append(base_item)
 
-    if graded_rows:
-        holding = graded_rows[0]
-        graded_variant_rows = _select_with_fallback(
-            table="graded_card_variants",
-            select_candidates=["id,card_variant_id,card_id,grade", "id,card_variant_id,card_id", "id,card_variant_id"],
-            filters=[("eq", "id", holding.get("graded_card_variant_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_graded_variant",
-            db_client=client,
+    graded_items: List[Dict[str, Any]] = []
+    for holding in graded_holdings:
+        quantity = max(0.0, _to_number(holding.get("quantity"), 0.0))
+        graded_variant = graded_variant_map.get(str(holding.get("graded_card_variant_id")))
+        variant = card_variant_map.get(str(graded_variant.get("card_variant_id"))) if graded_variant else None
+        card = card_map.get(str(variant.get("card_id"))) if variant else None
+        set_row = set_map.get(str(card.get("set_id"))) if card and card.get("set_id") is not None else None
+        market_price = _to_number(graded_price_map.get(str(holding.get("graded_card_variant_id"))), 0.0)
+        estimated_value = quantity * market_price
+        images = _resolve_card_like_images(
+            variant_small=variant.get("image_small_url") if variant else None,
+            variant_large=variant.get("image_large_url") if variant else None,
+            card_small=card.get("image_small_url") if card else None,
+            card_large=card.get("image_large_url") if card else None,
         )
-        graded_variant = graded_variant_rows[0] if graded_variant_rows else {}
-        variant_rows = _select_with_fallback(
-            table="card_variants",
-            select_candidates=["id,card_id,printing_type,special_type,edition,image_small_url,image_large_url", "id,card_id"],
-            filters=[("eq", "id", graded_variant.get("card_variant_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_graded_card_variant",
-            db_client=client,
-        )
-        variant = variant_rows[0] if variant_rows else {}
-        resolved_card_id = variant.get("card_id") if variant.get("card_id") is not None else graded_variant.get("card_id")
-        card_rows_join = _select_with_fallback(
-            table="cards",
-            select_candidates=["id,name,rarity,card_number,set_id,image_small_url,image_large_url", "id,name,set_id"],
-            filters=[("eq", "id", resolved_card_id)],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_graded_card",
-            db_client=client,
-        ) if resolved_card_id is not None else []
-        card = card_rows_join[0] if card_rows_join else {}
-        set_rows = _select_with_fallback(
-            table="sets",
-            select_candidates=["id,name"],
-            filters=[("eq", "id", card.get("set_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_graded_set",
-            db_client=client,
-        ) if card.get("set_id") else []
-        market_rows = _select_with_fallback(
-            table="graded_card_market_latest",
-            select_candidates=["graded_card_variant_id,market_price,current_market_price,price"],
-            filters=[("eq", "graded_card_variant_id", holding.get("graded_card_variant_id"))],
-            limit=1,
-            correlation_id=correlation_id,
-            trace_label="entry_graded_market",
-            db_client=client,
-        )
-        market_lookup = _build_price_lookup(market_rows, "graded_card_variant_id")
-        estimated_value = _to_number(market_lookup.get(str(holding.get("graded_card_variant_id"))), 0.0) * max(
-            0.0, _to_number(holding.get("quantity"), 0.0)
-        )
-        display_image = resolve_display_image(
-            "graded_card",
-            variant_large=variant.get("image_large_url"),
-            variant_small=variant.get("image_small_url"),
-            card_large=card.get("image_large_url"),
-            card_small=card.get("image_small_url"),
-        )
-        legacy_large_image_url = _resolve_legacy_large_image_url(
-            primary_large=variant.get("image_large_url"),
-            primary_small=variant.get("image_small_url"),
-            secondary_large=card.get("image_large_url"),
-            secondary_small=card.get("image_small_url"),
-        )
-        grade_value = graded_variant.get("grade")
-        entry = {
+
+        grade_value = graded_variant.get("grade") if graded_variant else None
+        grade_label = f"Grade {grade_value}" if grade_value not in (None, "") else None
+
+        base_item = {
             "id": str(holding.get("id") or ""),
             "collectible_type": "graded_card",
             "collectible_id": holding.get("graded_card_variant_id"),
-            "quantity": int(max(0.0, _to_number(holding.get("quantity"), 0.0))),
-            "name": _to_optional_string(card.get("name")) or "Graded Card",
-            "set_name": _to_optional_string((set_rows[0] if set_rows else {}).get("name")),
-            "card_number": _to_optional_string(card.get("card_number")),
-            "rarity": _to_optional_string(card.get("rarity")),
-            "condition": f"Grade {grade_value}" if grade_value not in (None, "") else None,
-            "printing_type": _to_optional_string(variant.get("printing_type")),
-            "edition": _to_optional_string(variant.get("edition")),
-            "special_type": _to_optional_string(variant.get("special_type")),
+            "quantity": int(quantity),
+            "name": _to_optional_string(card.get("name") if card else None) or "Graded Card",
+            "set_name": _to_optional_string(set_row.get("name") if set_row else None),
+            "card_number": _to_optional_string(card.get("card_number") if card else None),
+            "rarity": _to_optional_string(card.get("rarity") if card else None),
+            "condition": grade_label,
+            "printing_type": _to_optional_string(variant.get("printing_type") if variant else None),
+            "edition": _to_optional_string(variant.get("edition") if variant else None),
+            "special_type": _to_optional_string(variant.get("special_type") if variant else None),
             "estimated_value": estimated_value,
-            "image_url": display_image["image_url"],
-            "image_large_url": legacy_large_image_url,
-            "image_type": display_image["image_type"],
-            "image_source": display_image["image_source"],
-            "source_confidence": display_image["source_confidence"],
+            "image_url": images["image_url"],
+            "image_large_url": images["image_large_url"],
         }
+
         if include_private_fields:
-            entry.update(
+            base_item.update(
                 {
                     "user_id": holding.get("user_id"),
                     "purchase_price": _to_number(holding.get("purchase_price"), 0.0),
@@ -1118,26 +563,31 @@ def get_collection_entry_detail_for_user_id(
                     "notes": _to_optional_string(holding.get("notes")),
                 }
             )
-        logger.info(
-            "collection.entry_lookup correlation_id=%s user_id=%s entry_id=%s collectible_type=%s found=%s elapsed_ms=%.2f",
-            correlation_id,
-            user_id,
-            normalized_entry_id,
-            "graded_card",
-            bool(entry),
-            (perf_counter() - started_at) * 1000,
-        )
-        return entry
 
-    logger.info(
-        "collection.entry_lookup correlation_id=%s user_id=%s entry_id=%s collectible_type=%s found=false elapsed_ms=%.2f",
-        correlation_id,
-        user_id,
-        normalized_entry_id,
-        None,
-        (perf_counter() - started_at) * 1000,
+        graded_items.append(base_item)
+
+    collection_items = [*card_items, *sealed_items, *graded_items]
+
+    summary = {
+        "portfolio_value": _to_number(sum(_to_number(item.get("estimated_value"), 0.0) for item in collection_items), 0.0),
+        "cards_count": int(sum(max(0.0, _to_number(row.get("quantity"), 0.0)) for row in card_holdings)),
+        "sealed_count": int(sum(max(0.0, _to_number(row.get("quantity"), 0.0)) for row in sealed_holdings)),
+        "graded_count": int(sum(max(0.0, _to_number(row.get("quantity"), 0.0)) for row in graded_holdings)),
+    }
+
+    return {
+        "summary": summary,
+        "collection_items": collection_items if include_collection_items else [],
+    }
+
+
+def get_collection_items_for_user_id(user_id: str, include_private_fields: bool = True) -> List[Dict[str, Any]]:
+    payload = get_collection_summary_and_items_for_user_id(
+        user_id=user_id,
+        include_collection_items=True,
+        include_private_fields=include_private_fields,
     )
-    return None
+    return payload.get("collection_items", [])
 
 
 def get_current_user_portfolio_dashboard_data(user_id: str) -> Dict[str, Any]:
@@ -1284,184 +734,67 @@ def get_public_collection_data_by_username(
     username: str,
     include_collection_items: bool = False,
     viewer_user_id: Optional[str] = None,
-    correlation_id: Optional[str] = None,
-    limit: Optional[int] = None,
-    offset: int = 0,
-    resolved_public_user: Optional[Dict[str, Any]] = None,
-    resolved_trace: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    total_started_at = perf_counter()
-    client = create_service_role_client()
-    requested_username = _to_trimmed_string(username)
-    username_resolution_started_at = perf_counter()
-    trace = resolved_trace or {}
-    user = resolved_public_user
-    if not user:
-        user, trace = resolve_public_user_by_username(
-            requested_username,
-            correlation_id=correlation_id,
-            db_client=client,
-        )
-    else:
-        trace = {
-            "normalized_username": normalize_public_username(requested_username),
-            "lookup_strategy": "reused_profile_resolution",
-            "reason": None,
-        }
-    username_resolution_elapsed_ms = (perf_counter() - username_resolution_started_at) * 1000
-    normalized_username = trace.get("normalized_username")
+    normalized_username = _to_trimmed_string(username).lower()
     if not normalized_username:
-        logger.warning(
-            "public_collection.trace correlation_id=%s requested_username=%s normalized_username=%s first_resolves_public_profile=false row_found=false reason=INVALID_USERNAME",
-            correlation_id,
-            requested_username,
-            normalized_username,
-        )
         return None, "Invalid username."
 
+    user_rows = _select_with_fallback(
+        table="users",
+        select_candidates=["id,username,is_profile_public"],
+        filters=[("eq", "username", normalized_username)],
+        limit=1,
+    )
+
+    user = user_rows[0] if user_rows else None
     if not user or not user.get("id"):
-        logger.warning(
-            "public_collection.trace correlation_id=%s requested_username=%s normalized_username=%s first_resolves_public_profile=false lookup_strategy=%s row_found=false reason=%s",
-            correlation_id,
-            requested_username,
-            normalized_username,
-            trace.get("lookup_strategy"),
-            trace.get("reason") or "USER_NOT_FOUND",
-        )
         return None, "User not found."
 
     if user.get("is_profile_public") is False:
         if not viewer_user_id or str(viewer_user_id) != str(user.get("id")):
-            logger.warning(
-                "public_collection.trace correlation_id=%s requested_username=%s normalized_username=%s first_resolves_public_profile=false lookup_strategy=%s row_found=true resolved_user_id=%s reason=VISIBILITY_REJECT viewer_user_id=%s",
-                correlation_id,
-                requested_username,
-                normalized_username,
-                trace.get("lookup_strategy"),
-                user.get("id"),
-                viewer_user_id,
-            )
             return None, "User not found."
 
-    collection_stage_started_at = perf_counter()
-    summary_lookup_started_at = perf_counter()
-    summary_snapshot: Optional[Dict[str, Any]] = None
-    summary_lookup_fallback_used = False
+    collection_payload = get_collection_summary_and_items_for_user_id(
+        user_id=str(user.get("id")),
+        include_collection_items=include_collection_items,
+        include_private_fields=False,
+    )
+
+    summary = collection_payload.get("summary") or {
+        "portfolio_value": 0,
+        "cards_count": 0,
+        "sealed_count": 0,
+        "graded_count": 0,
+    }
+    summary_source = "collection_portfolio_service.summary"
+
     try:
-        summary_snapshot = get_user_collection_summary_snapshot(user.get("id"))
+        from backend.db.services.collection_summary_service import get_user_collection_summary
+
+        authoritative_summary = get_user_collection_summary(UUID(str(user.get("id")))).to_dict()
+        summary = authoritative_summary
+        summary_source = "collection_summary_service"
     except Exception:
-        summary_lookup_fallback_used = True
         logger.exception(
-            "public_collection.summary_lookup correlation_id=%s requested_username=%s user_id=%s row_found=false fallback_used=true reason=SUMMARY_TABLE_READ_FAILED",
-            correlation_id,
-            requested_username,
+            "[public-profile-debug] authoritative summary load failed username=%s user_id=%s",
+            normalized_username,
             user.get("id"),
         )
 
-    summary_lookup_elapsed_ms = (perf_counter() - summary_lookup_started_at) * 1000
-    if isinstance(summary_snapshot, dict) and summary_snapshot.get("row_found") is False:
-        summary_lookup_fallback_used = True
-
-    summary = _public_summary_response_from_snapshot(summary_snapshot)
-    collection_payload = None
-
-    if include_collection_items:
-        collection_payload = get_collection_summary_and_items_for_user_id(
-            user_id=str(user.get("id")),
-            include_collection_items=True,
-            include_private_fields=False,
-            limit=limit,
-            offset=offset,
-            correlation_id=correlation_id,
-            requested_username=requested_username,
-            db_client=client,
-        )
-
-    collection_stage_elapsed_ms = (perf_counter() - collection_stage_started_at) * 1000
+    logger.warning(
+        "[public-profile-debug] public collection summary username=%s source=%s portfolio_value=%s summary_keys=%s item_count=%s",
+        normalized_username,
+        summary_source,
+        summary.get("portfolio_value") if isinstance(summary, dict) else None,
+        sorted(summary.keys()) if isinstance(summary, dict) else [],
+        len(collection_payload.get("collection_items") or []),
+    )
 
     response_payload: Dict[str, Any] = {
         "collection_summary": summary,
     }
 
     if include_collection_items:
-        response_payload["collection_items"] = collection_payload.get("collection_items") if collection_payload else []
-
-    logger.info(
-        "public_collection.trace correlation_id=%s requested_username=%s normalized_username=%s first_resolves_public_profile=false lookup_strategy=%s row_found=true resolved_user_id=%s resolved_username=%s include_items=%s path_used=%s limit=%s offset=%s summary_row_found=%s summary_computed_at=%s summary_is_stale=%s summary_fallback_used=%s portfolio_value=%s cards=%s sealed=%s graded=%s collection_items=%s payload_size_bytes=%s username_resolution_ms=%.2f summary_lookup_ms=%.2f collection_stage_ms=%.2f total_ms=%.2f",
-        correlation_id,
-        requested_username,
-        normalized_username,
-        trace.get("lookup_strategy"),
-        user.get("id"),
-        user.get("username"),
-        include_collection_items,
-        "full_assembly" if include_collection_items else "summary_snapshot",
-        limit,
-        offset,
-        summary_snapshot.get("row_found") if isinstance(summary_snapshot, dict) else False,
-        summary_snapshot.get("computed_at") if isinstance(summary_snapshot, dict) else None,
-        summary_snapshot.get("is_stale") if isinstance(summary_snapshot, dict) else None,
-        summary_lookup_fallback_used,
-        summary.get("portfolio_value") if isinstance(summary, dict) else None,
-        summary.get("cards_count") if isinstance(summary, dict) else None,
-        summary.get("sealed_count") if isinstance(summary, dict) else None,
-        summary.get("graded_count") if isinstance(summary, dict) else None,
-        len(response_payload.get("collection_items") or []),
-        _payload_size_bytes(response_payload),
-        username_resolution_elapsed_ms,
-        summary_lookup_elapsed_ms,
-        collection_stage_elapsed_ms,
-        (perf_counter() - total_started_at) * 1000,
-    )
+        response_payload["collection_items"] = collection_payload.get("collection_items") or []
 
     return response_payload, None
-
-
-def get_public_collection_entry_by_username_and_item_id(
-    username: str,
-    item_id: str,
-    viewer_user_id: Optional[str] = None,
-    correlation_id: Optional[str] = None,
-) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    client = create_service_role_client()
-    requested_username = _to_trimmed_string(username)
-    user, trace = resolve_public_user_by_username(
-        requested_username,
-        correlation_id=correlation_id,
-        db_client=client,
-    )
-
-    if not user or not user.get("id"):
-        return None, "User not found."
-
-    if user.get("is_profile_public") is False:
-        if not viewer_user_id or str(viewer_user_id) != str(user.get("id")):
-            return None, "User not found."
-
-    entry = get_collection_entry_detail_for_user_id(
-        user_id=str(user.get("id")),
-        entry_id=item_id,
-        include_private_fields=False,
-        correlation_id=correlation_id,
-    )
-    if not entry:
-        logger.info(
-            "public_collection.entry_lookup correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s item_id=%s found=false",
-            correlation_id,
-            requested_username,
-            trace.get("normalized_username"),
-            trace.get("lookup_strategy"),
-            item_id,
-        )
-        return None, "Collection entry not found."
-
-    logger.info(
-        "public_collection.entry_lookup correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s item_id=%s found=true collectible_type=%s",
-        correlation_id,
-        requested_username,
-        trace.get("normalized_username"),
-        trace.get("lookup_strategy"),
-        item_id,
-        entry.get("collectible_type"),
-    )
-    return entry, None

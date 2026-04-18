@@ -218,7 +218,7 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     """
     key_role = _jwt_role(SUPABASE_KEY)
     logger.warning(
-        "[portfolio-debug] card price lookup start | url=%s | key_role=%s | card_variant_id=%s | condition_id=%s | source=card_market_usd_latest",
+        "[portfolio-debug] card price lookup start | url=%s | key_role=%s | card_variant_id=%s | condition_id=%s | source=card_market_usd_latest_by_condition",
         SUPABASE_URL,
         key_role,
         card_variant_id,
@@ -226,7 +226,7 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     )
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     res = (
-        fresh_client.table("card_market_usd_latest")
+        fresh_client.table("card_market_usd_latest_by_condition_by_condition")
         .select("*")
         .eq("variant_id", card_variant_id)
         .eq("condition_id", condition_id)
@@ -245,6 +245,22 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
         getattr(res, "count", "N/A"),
     )
     return row
+
+
+def get_latest_prices_for_variants(variant_ids: List[int], condition_id: int) -> List[Dict[str, Any]]:
+    """Return latest market rows from view for variant IDs at a single condition."""
+    if not variant_ids:
+        return []
+
+    fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    res = (
+        fresh_client.table("card_market_usd_latest_by_condition")
+        .select("*")
+        .in_("variant_id", variant_ids)
+        .eq("condition_id", condition_id)
+        .execute()
+    )
+    return res.data if res and res.data else []
 
 
 def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[int]:

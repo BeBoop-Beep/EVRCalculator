@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import numpy as np
 import pandas as pd
@@ -7,6 +7,9 @@ import pytest
 from backend.constants.tcg.pokemon.scarletAndVioletEra.prismaticEvolutions import (
     SetPrismaticEvolutionsConfig,
 )
+from backend.constants.tcg.pokemon.scarletAndVioletEra.blackBolt import SetBlackBoltConfig
+from backend.constants.tcg.pokemon.scarletAndVioletEra.scarletAndViolet151 import Set151Config
+from backend.constants.tcg.pokemon.scarletAndVioletEra.whiteFlare import SetWhiteFlareConfig
 from backend.simulations.monteCarloSim import print_simulation_summary
 from backend.simulations.monteCarloSim import run_simulation
 from backend.simulations.monteCarloSimV2 import (
@@ -179,13 +182,13 @@ def prismatic_pools():
     )
 
     # Include configured god-pack card names so fixed-card lookup never fails.
+    god_pack_cards = SetPrismaticEvolutionsConfig.GOD_PACK_CONFIG["strategy"]["cards"]
     god_cards = pd.DataFrame(
         {
-            "Card Name": SetPrismaticEvolutionsConfig.GOD_PACK_CONFIG["strategy"]["cards"],
-            "Price ($)": [10.0] * len(SetPrismaticEvolutionsConfig.GOD_PACK_CONFIG["strategy"]["cards"]),
-            "Rarity": ["special illustration rare"] * len(
-                SetPrismaticEvolutionsConfig.GOD_PACK_CONFIG["strategy"]["cards"]
-            ),
+            "Card Name": [card["name"] for card in god_pack_cards],
+            "Card Number": [card.get("number", "") for card in god_pack_cards],
+            "Price ($)": [10.0] * len(god_pack_cards),
+            "Rarity": [card["rarity"] for card in god_pack_cards],
         }
     )
 
@@ -393,6 +396,288 @@ def test_special_pack_bypass_path_skips_normal_state(pools):
     assert pack_data["state"] == "god_pack"
     assert len(rarity_counts) > 0
     assert sum(rarity_counts.values()) == len(pack_data["special_pack_rarities"])
+
+
+def test_special_pack_fixed_card_objects_preserve_resolved_rarities_and_values():
+    class StructuredGodConfig(DummySVConfig):
+        GOD_PACK_CONFIG = {
+            "enabled": True,
+            "pull_rate": 1.0,
+            "strategy": {
+                "type": "fixed",
+                "cards": [
+                    {"name": "Charmander", "number": "168/165", "rarity": "illustration rare"},
+                    {"name": "Charmeleon", "number": "169/165", "rarity": "illustration rare"},
+                    {"name": "Charizard ex", "number": "199/165", "rarity": "special illustration rare"},
+                ],
+            },
+        }
+
+    common = pd.DataFrame(
+        {
+            "Card Name": [f"Common {i}" for i in range(1, 6)],
+            "Price ($)": [0.10] * 5,
+            "Rarity": ["common"] * 5,
+            "Card Number": ["001/165", "002/165", "003/165", "004/165", "005/165"],
+        }
+    )
+    uncommon = pd.DataFrame(
+        {
+            "Card Name": [f"Uncommon {i}" for i in range(1, 5)],
+            "Price ($)": [0.20] * 4,
+            "Rarity": ["uncommon"] * 4,
+            "Card Number": ["051/165", "052/165", "053/165", "054/165"],
+        }
+    )
+    rare = pd.DataFrame(
+        {
+            "Card Name": ["Rare A"],
+            "Price ($)": [0.75],
+            "Rarity": ["rare"],
+            "Card Number": ["100/165"],
+        }
+    )
+    reverse = pd.DataFrame(
+        {
+            "Card Name": ["Reverse A"],
+            "EV_Reverse": [0.35],
+        }
+    )
+    hit = pd.DataFrame(
+        {
+            "Card Name": [
+                "Charmander",
+                "Charmeleon",
+                "Charizard ex",
+                "Charizard ex",
+            ],
+            "Card Number": ["168/165", "169/165", "199/165", "006/165"],
+            "Price ($)": [8.0, 6.0, 45.0, 5.0],
+            "Rarity": [
+                "illustration rare",
+                "illustration rare",
+                "special illustration rare",
+                "double rare",
+            ],
+        }
+    )
+    df = pd.concat([common, uncommon, rare, hit], ignore_index=True)
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    logs = []
+
+    fn = make_simulate_pack_fn_v2(
+        common_cards=common,
+        uncommon_cards=uncommon,
+        rare_cards=rare,
+        hit_cards=hit,
+        reverse_pool=reverse,
+        slots_per_rarity=StructuredGodConfig.SLOTS_PER_RARITY,
+        config=StructuredGodConfig,
+        df=df,
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        pack_logs=logs,
+        rng=np.random.default_rng(5),
+    )
+
+    value, pack_data = fn(return_pack_data=True)
+
+    assert value == pytest.approx(59.0)
+    assert pack_data["entry_path"] == "god"
+    assert pack_data["special_pack_rarities"] == [
+        "illustration rare",
+        "illustration rare",
+        "special illustration rare",
+    ]
+    assert rarity_counts["illustration rare"] == 2
+    assert rarity_counts["special illustration rare"] == 1
+    assert rarity_counts["double rare"] == 0
+    assert rarity_values["illustration rare"] == pytest.approx(14.0)
+    assert rarity_values["special illustration rare"] == pytest.approx(45.0)
+
+
+def test_actual_prismatic_fixed_config_supports_name_only_master_ball_entry_in_v2(prismatic_pools):
+    class ForcedPrismaticConfig(DummySVConfig):
+        GOD_PACK_CONFIG = {
+            "enabled": True,
+            "pull_rate": 1.0,
+            "strategy": SetPrismaticEvolutionsConfig.GOD_PACK_CONFIG["strategy"],
+        }
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    logs = []
+    fn = make_simulate_pack_fn_v2(
+        common_cards=prismatic_pools["common"],
+        uncommon_cards=prismatic_pools["uncommon"],
+        rare_cards=prismatic_pools["rare"],
+        hit_cards=prismatic_pools["hit"],
+        reverse_pool=prismatic_pools["reverse"],
+        slots_per_rarity=ForcedPrismaticConfig.SLOTS_PER_RARITY,
+        config=ForcedPrismaticConfig,
+        df=prismatic_pools["df"],
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        pack_logs=logs,
+        rng=np.random.default_rng(21),
+    )
+
+    value, pack_data = fn(return_pack_data=True)
+
+    assert value == pytest.approx(100.0)
+    assert pack_data["entry_path"] == "god"
+    assert pack_data["state"] == "god_pack"
+    assert pack_data["special_pack_rarities"].count("master ball pattern") == 1
+    assert pack_data["special_pack_rarities"].count("special illustration rare") == 9
+    assert rarity_counts["master ball pattern"] == 1
+    assert rarity_counts["special illustration rare"] == 9
+    assert sum(rarity_counts.values()) == 10
+
+
+def test_actual_151_fixed_packs_increment_god_pack_state_counts_in_v2():
+    class Forced151Config(DummySVConfig):
+        GOD_PACK_CONFIG = {
+            "enabled": True,
+            "pull_rate": 1.0,
+            "strategy": Set151Config.GOD_PACK_CONFIG["strategy"],
+        }
+
+    common = pd.DataFrame(
+        {
+            "Card Name": [f"Common {i}" for i in range(1, 6)],
+            "Price ($)": [0.10] * 5,
+            "Rarity": ["common"] * 5,
+            "Card Number": [f"00{i}/165" for i in range(1, 6)],
+        }
+    )
+    uncommon = pd.DataFrame(
+        {
+            "Card Name": [f"Uncommon {i}" for i in range(1, 5)],
+            "Price ($)": [0.20] * 4,
+            "Rarity": ["uncommon"] * 4,
+            "Card Number": [f"05{i}/165" for i in range(1, 5)],
+        }
+    )
+    hit_rows = []
+    for pack in Set151Config.GOD_PACK_CONFIG["strategy"]["packs"]:
+        for card in pack["cards"]:
+            hit_rows.append(
+                {
+                    "Card Name": card["name"],
+                    "Card Number": card["number"],
+                    "Price ($)": 8.0 if card["rarity"] == "illustration rare" else 45.0,
+                    "Rarity": card["rarity"],
+                }
+            )
+    hit = pd.DataFrame(hit_rows)
+    rare = pd.DataFrame(
+        {
+            "Card Name": ["Rare A"],
+            "Price ($)": [0.75],
+            "Rarity": ["rare"],
+            "Card Number": ["100/165"],
+        }
+    )
+    reverse = pd.DataFrame(
+        {
+            "Card Name": ["Reverse A"],
+            "EV_Reverse": [0.35],
+        }
+    )
+    df = pd.concat([common, uncommon, rare, hit], ignore_index=True)
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    logs = []
+    fn = make_simulate_pack_fn_v2(
+        common_cards=common,
+        uncommon_cards=uncommon,
+        rare_cards=rare,
+        hit_cards=hit,
+        reverse_pool=reverse,
+        slots_per_rarity=Forced151Config.SLOTS_PER_RARITY,
+        config=Forced151Config,
+        df=df,
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        pack_logs=logs,
+        rng=np.random.default_rng(33),
+    )
+
+    sim = run_simulation_v2(lambda: fn(return_pack_data=True), rarity_counts, rarity_values, n=4)
+
+    assert sim["pack_path_counts"]["god"] == 4
+    assert all(record["entry_path"] == "god" for record in logs)
+    assert all(record["state"] == "god_pack" for record in logs)
+    assert rarity_counts["common"] == 16
+    assert rarity_counts["uncommon"] == 12
+    assert rarity_counts["illustration rare"] == 8
+    assert rarity_counts["special illustration rare"] == 4
+    assert sim["mean"] == pytest.approx(62.0)
+
+
+@pytest.mark.parametrize("config_cls", [SetWhiteFlareConfig, SetBlackBoltConfig])
+def test_white_flare_and_black_bolt_still_use_random_rarity_rule_special_packs_in_v2(config_cls, pools):
+    forced_config = type(
+        f"Forced{config_cls.__name__}",
+        (DummySVConfig,),
+        {
+            "GOD_PACK_CONFIG": {
+                "enabled": True,
+                "pull_rate": 1.0,
+                "strategy": config_cls.GOD_PACK_CONFIG["strategy"],
+            }
+        },
+    )
+
+    hit = pd.DataFrame(
+        {
+            "Card Name": [f"IR {i}" for i in range(1, 4)] + ["SIR 1", "SIR 2"],
+            "Price ($)": [7.5, 7.8, 8.1, 31.0, 32.0],
+            "Rarity": [
+                "illustration rare",
+                "illustration rare",
+                "illustration rare",
+                "special illustration rare",
+                "special illustration rare",
+            ],
+        }
+    )
+    df = pd.concat([pools["common"], pools["uncommon"], pools["rare"], hit], ignore_index=True)
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    logs = []
+    fn = make_simulate_pack_fn_v2(
+        common_cards=pools["common"],
+        uncommon_cards=pools["uncommon"],
+        rare_cards=pools["rare"],
+        hit_cards=hit,
+        reverse_pool=pools["reverse"],
+        slots_per_rarity=forced_config.SLOTS_PER_RARITY,
+        config=forced_config,
+        df=df,
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        pack_logs=logs,
+        rng=np.random.default_rng(44),
+    )
+
+    value, pack_data = fn(return_pack_data=True)
+
+    assert value > 0
+    assert pack_data["entry_path"] == "god"
+    assert pack_data["state"] == "god_pack"
+    assert Counter(pack_data["special_pack_rarities"]) == {
+        "illustration rare": 9,
+        "special illustration rare": 1,
+    }
+    assert rarity_counts["illustration rare"] == 9
+    assert rarity_counts["special illustration rare"] == 1
+    assert rarity_counts["common"] == 0
+    assert rarity_counts["uncommon"] == 0
 
 
 def test_demi_god_pack_updates_rarity_tracking(pools):

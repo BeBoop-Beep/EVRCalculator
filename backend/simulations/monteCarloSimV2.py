@@ -18,6 +18,7 @@ from .utils.packStateModels.packStateCoercion import (
     normalize_rarity,
     validate_unique_state_outcome_shapes,
 )
+from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
 
 
 PackState = Dict[str, object]
@@ -296,6 +297,23 @@ def _sample_rows_with_rarity(
     return rarities, values
 
 
+def _resolved_rows_to_rarities_and_values(
+    rows: pd.DataFrame,
+    *,
+    value_col: str,
+    rarity_col: str = "Rarity",
+) -> Tuple[List[str], List[float]]:
+    if rows.empty or value_col not in rows.columns:
+        return [], []
+
+    values = pd.to_numeric(rows[value_col], errors="coerce").fillna(0.0).astype(float).tolist()
+    if rarity_col in rows.columns:
+        rarities = [_normalize_rarity(v) for v in rows[rarity_col].fillna("unknown").astype(str).tolist()]
+    else:
+        rarities = ["unknown" for _ in values]
+    return rarities, values
+
+
 def _sample_special_pack_details(
     *,
     entry_path: str,
@@ -312,11 +330,13 @@ def _sample_special_pack_details(
 
     if entry_path == "god":
         if strategy_type == "fixed":
-            cards: List[str] = []
+            cards: List[object] = []
+            context_label = "god.fixed_cards"
             if "packs" in strategy and strategy["packs"]:
                 packs = strategy["packs"]
                 selected_pack = packs[int(rng.integers(0, len(packs)))]
                 cards = selected_pack.get("cards", [])
+                context_label = f"god.fixed_pack:{selected_pack.get('name', '?')}"
                 c_rarities, c_values = _sample_rows_with_rarity(
                     common_cards, 4, rng, "Price ($)", default_rarity="common"
                 )
@@ -329,12 +349,14 @@ def _sample_special_pack_details(
                 cards = strategy.get("cards", [])
 
             if cards:
-                selected_rows = df[df["Card Name"].isin(cards)]
+                selected_rows = resolve_configured_god_pack_rows(
+                    cards,
+                    df,
+                    context_label=context_label,
+                )
                 if not selected_rows.empty:
-                    hit_rarities, hit_values = _sample_rows_with_rarity(
+                    hit_rarities, hit_values = _resolved_rows_to_rarities_and_values(
                         selected_rows,
-                        n=len(selected_rows),
-                        rng=rng,
                         value_col="Price ($)",
                     )
                     rarities.extend(hit_rarities)
