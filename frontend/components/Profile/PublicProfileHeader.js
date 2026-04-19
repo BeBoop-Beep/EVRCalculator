@@ -72,6 +72,9 @@ function toFiniteNumberOrNull(value) {
 
 function formatSignedCurrencyDelta(value) {
   const parsed = toFiniteNumberOrNull(value);
+  if (parsed === null) {
+    return "—";
+  }
   const amount = Math.abs(parsed ?? 0);
   const formattedAmount = `$${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -118,7 +121,12 @@ function getDeltaToneClass(value) {
 }
 
 function PortfolioValueCell({ value, delta1d, deltaPct1d }) {
-  const deltaLabel = `${formatSignedCurrencyDelta(delta1d)} (${formatDeltaPercent(deltaPct1d)}) 1D`;
+  const deltaValueLabel = formatSignedCurrencyDelta(delta1d);
+  const deltaPctLabel = formatDeltaPercent(deltaPct1d);
+  const deltaLabel =
+    deltaValueLabel === "—" && deltaPctLabel === "—"
+      ? "—"
+      : `${deltaValueLabel} (${deltaPctLabel}) 1D`;
   const deltaToneClass = getDeltaToneClass(delta1d);
 
   return (

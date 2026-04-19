@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import jwt
@@ -29,21 +28,6 @@ EDITABLE_PROFILE_FIELDS = {
 }
 
 logger = logging.getLogger(__name__)
-
-_PROFILE_TRACE_LOG_PATH = Path(__file__).resolve().parents[2] / "profile_me_trace.log"
-
-
-def _profile_me_trace(message: str, *args: Any) -> None:
-    rendered = message % args if args else message
-    logger.warning(rendered)
-    try:
-        timestamp = datetime.now(timezone.utc).isoformat()
-        _PROFILE_TRACE_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _PROFILE_TRACE_LOG_PATH.open("a", encoding="utf-8") as trace_file:
-            trace_file.write(f"{timestamp} {rendered}\n")
-    except Exception:
-        # Keep tracing best-effort and never impact request flow.
-        pass
 
 
 def _first_row(result: Any) -> Optional[Dict[str, Any]]:
@@ -121,12 +105,6 @@ def get_profile_by_user_id(user_id: str, email: Optional[str] = None) -> Tuple[O
 
     profile = None
 
-    _profile_me_trace(
-        "[PROFILE_ME_TRACE] lookup_start user_id=%s email=%s",
-        normalized_user_id,
-        normalized_email,
-    )
-
     if normalized_user_id:
         result = (
             supabase.table("users")
@@ -136,17 +114,10 @@ def get_profile_by_user_id(user_id: str, email: Optional[str] = None) -> Tuple[O
             .execute()
         )
         profile = _first_row(result)
-        _profile_me_trace(
-            "[PROFILE_ME_TRACE] primary_lookup_by_id ran=true row_found=%s",
-            bool(profile),
-        )
-    else:
-        _profile_me_trace("[PROFILE_ME_TRACE] primary_lookup_by_id ran=false row_found=false")
 
     # Some legacy tokens may carry an id that does not match users.id.
     # Fall back to token email so profile fields still resolve.
     if not profile and normalized_email:
-        _profile_me_trace("[PROFILE_ME_TRACE] fallback_lookup_by_email ran=true")
         result = (
             supabase.table("users")
             .select(PROFILE_SELECT_FIELDS)
@@ -155,12 +126,6 @@ def get_profile_by_user_id(user_id: str, email: Optional[str] = None) -> Tuple[O
             .execute()
         )
         profile = _first_row(result)
-        _profile_me_trace(
-            "[PROFILE_ME_TRACE] fallback_lookup_by_email row_found=%s",
-            bool(profile),
-        )
-    elif not profile:
-        _profile_me_trace("[PROFILE_ME_TRACE] fallback_lookup_by_email ran=false row_found=false")
 
     if not profile:
         return None, "Profile not found"
@@ -619,30 +584,20 @@ def get_current_profile(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
 
     user_id = str(token_user.get("id") or "").strip()
     token_email = token_user.get("email") if isinstance(token_user.get("email"), str) else None
-    _profile_me_trace(
-        "[PROFILE_ME_TRACE] token_values user_id=%s email=%s",
-        user_id,
-        token_email,
-    )
     if not user_id:
-        _profile_me_trace("[PROFILE_ME_TRACE] response_branch=AUTH_REQUIRED")
         return {"message": "Not authenticated", "code": "AUTH_REQUIRED"}, 401
 
     try:
         profile, profile_error = get_profile_by_user_id(user_id, token_email)
     except Exception:
-        logger.exception("[PROFILE_ME_TRACE] response_branch=UNABLE_TO_FETCH_PROFILE_EXCEPTION")
-        _profile_me_trace("[PROFILE_ME_TRACE] response_branch=UNABLE_TO_FETCH_PROFILE_EXCEPTION")
+        logger.exception("Unable to fetch profile")
         return {"message": "Unable to fetch profile"}, 500
 
     if profile_error:
         if profile_error == "Profile not found":
-            _profile_me_trace("[PROFILE_ME_TRACE] response_branch=PROFILE_NOT_FOUND")
             return {"message": profile_error, "code": "PROFILE_NOT_FOUND"}, 404
-        _profile_me_trace("[PROFILE_ME_TRACE] response_branch=UNABLE_TO_FETCH_PROFILE")
         return {"message": "Unable to fetch profile"}, 500
 
-    _profile_me_trace("[PROFILE_ME_TRACE] response_branch=SUCCESS")
     return {"profile": profile}, 200
 
 

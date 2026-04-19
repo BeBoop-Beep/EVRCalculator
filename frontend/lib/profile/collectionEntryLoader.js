@@ -73,8 +73,8 @@ function mapBackendCollectionItemToView(item, isPublic) {
   const printingType = toTrimmedString(item?.printing_type);
   const condition = toTrimmedString(item?.condition);
 
-  const imageUrl = toTrimmedString(item?.image_url) || null;
-  const imageLargeUrl = toTrimmedString(item?.image_large_url) || null;
+  const imageUrl = toTrimmedString(item?.image_url) || toTrimmedString(item?.image_large_url) || null;
+  const imageLargeUrl = toTrimmedString(item?.image_large_url) || toTrimmedString(item?.image_url) || null;
   const estimatedValue = toNumber(item?.estimated_value, 0);
   const valueLabel = toCurrencyLabel(estimatedValue);
 

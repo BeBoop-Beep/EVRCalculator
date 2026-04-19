@@ -306,6 +306,156 @@ def _select_with_fallback(
     return []
 
 
+def _normalize_collectible_type(value: Any) -> str:
+    token = _to_trimmed_string(value).lower()
+    if token in {"sealed", "sealed_product"}:
+        return "sealed_product"
+    if token in {"graded", "graded_card"}:
+        return "graded_card"
+    if token in {"card", "raw_card", "single"}:
+        return "card"
+    if token:
+        return token
+    return "card"
+
+
+def _resolve_collectible_id_from_market_row(row: Dict[str, Any], collectible_type: str) -> Any:
+    if row.get("collectible_id") is not None:
+        return row.get("collectible_id")
+
+    if collectible_type == "sealed_product":
+        return row.get("sealed_product_id") or row.get("product_id")
+
+    if collectible_type == "graded_card":
+        return row.get("graded_card_variant_id") or row.get("graded_variant_id")
+
+    return row.get("card_variant_id") or row.get("variant_id") or row.get("card_id")
+
+
+def _first_row_value(row: Dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in row and row.get(key) is not None:
+            return row.get(key)
+    return None
+
+
+def _load_collection_items_from_market_view(user_id: str) -> List[Dict[str, Any]]:
+    logger.warning(
+        "[public-profile-debug] market-view load start user_id=%s",
+        user_id,
+    )
+
+    rows = _select_with_fallback(
+        table="user_collection_items_with_market",
+        select_candidates=[
+            "*",
+            "holding_id,holding_type,collectible_id,quantity,name,set_name,card_number,rarity,condition,condition_id,printing_type,edition,special_type,special_label,product_type,market_price,estimated_value,image_url,user_id,set_id",
+            "holding_id,holding_type,collectible_id,quantity,name,set_name,card_number,rarity,condition,printing_type,special_type,product_type,market_price,estimated_value,image_url,user_id",
+            "holding_id,holding_type,collectible_id,quantity,name,set_name,card_number,condition,market_price,estimated_value,image_url,user_id",
+        ],
+        filters=[("eq", "user_id", user_id)],
+    )
+
+    logger.warning(
+        "[public-profile-debug] market-view load result user_id=%s row_count=%s sample_keys=%s",
+        user_id,
+        len(rows),
+        sorted(rows[0].keys()) if rows and isinstance(rows[0], dict) else [],
+    )
+
+    items: List[Dict[str, Any]] = []
+    for row in rows:
+        collectible_type = _normalize_collectible_type(
+            _first_row_value(row, "holding_type", "collectible_type", "type")
+        )
+        quantity = int(max(0.0, _to_number(_first_row_value(row, "quantity", "qty"), 0.0)))
+        market_price = _extract_market_price(row)
+
+        estimated_value_raw = _first_row_value(row, "estimated_value", "total_value", "market_value")
+        estimated_value = (
+            _to_number(estimated_value_raw, 0.0)
+            if estimated_value_raw is not None
+            else _to_number(quantity * market_price, 0.0)
+        )
+
+        image_url = (
+            _to_trimmed_string(
+                _first_row_value(
+                    row,
+                    "image_url",
+                    "graded_image_url",
+                    "card_image_url",
+                    "product_image_url",
+                    "image_small_url",
+                )
+            )
+            or _to_trimmed_string(_first_row_value(row, "image_large_url", "graded_image_large_url", "card_image_large_url"))
+            or DEFAULT_COLLECTION_IMAGE_PATH
+        )
+        image_large_url = (
+            _to_trimmed_string(_first_row_value(row, "image_large_url", "graded_image_large_url", "card_image_large_url"))
+            or image_url
+        )
+
+        items.append(
+            {
+                "id": str(_first_row_value(row, "holding_id", "id", "item_id") or ""),
+                "collectible_type": collectible_type,
+                "collectible_id": _resolve_collectible_id_from_market_row(row, collectible_type),
+                "quantity": quantity,
+                "name": _to_optional_string(_first_row_value(row, "name", "display_name", "card_name", "product_name")) or "Unknown Item",
+                "set_name": _to_optional_string(_first_row_value(row, "set_name", "set", "set_display_name")),
+                "card_number": _to_optional_string(_first_row_value(row, "card_number", "number")),
+                "rarity": _to_optional_string(_first_row_value(row, "rarity", "rarity_name")),
+                "condition": _to_optional_string(_first_row_value(row, "condition", "condition_name", "grade_label", "grade")),
+                "printing_type": _to_optional_string(_first_row_value(row, "printing_type", "print_type")),
+                "edition": _to_optional_string(_first_row_value(row, "edition")),
+                "special_type": _to_optional_string(_first_row_value(row, "special_type", "product_type")),
+                "market_price": market_price,
+                "estimated_value": estimated_value,
+                "image_url": image_url,
+                "image_large_url": image_large_url,
+                "image_type": _to_optional_string(_first_row_value(row, "image_type")),
+                "image_source": _to_optional_string(_first_row_value(row, "image_source")),
+                "source_confidence": _to_optional_string(_first_row_value(row, "source_confidence")),
+            }
+        )
+
+    return items
+
+
+def _unavailable_public_summary() -> Dict[str, Any]:
+    return {
+        "portfolio_value": None,
+        "cards_count": None,
+        "sealed_count": None,
+        "graded_count": None,
+        "portfolio_delta_1d": None,
+        "portfolio_delta_7d": None,
+        "portfolio_delta_3m": None,
+        "portfolio_delta_6m": None,
+        "portfolio_delta_1y": None,
+        "portfolio_delta_lifetime": None,
+        "portfolio_delta_pct_1d": None,
+        "portfolio_delta_pct_7d": None,
+        "portfolio_delta_pct_3m": None,
+        "portfolio_delta_pct_6m": None,
+        "portfolio_delta_pct_1y": None,
+        "portfolio_delta_pct_lifetime": None,
+        "computed_at": None,
+        "is_stale": True,
+        "row_found": False,
+    }
+
+
+def _normalize_public_summary_snapshot(snapshot_summary: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = _unavailable_public_summary()
+    for key in normalized.keys():
+        if key in snapshot_summary:
+            normalized[key] = snapshot_summary.get(key)
+    return normalized
+
+
 def _load_dashboard_snapshot_rows(user_id: str) -> List[Dict[str, Any]]:
     return _select_with_fallback(
         table="portfolio_daily_snapshots",
@@ -856,40 +1006,78 @@ def get_public_collection_data_by_username(
         if not viewer_user_id or str(viewer_user_id) != str(user.get("id")):
             return None, "User not found."
 
-    collection_payload = get_collection_summary_and_items_for_user_id(
-        user_id=str(user.get("id")),
-        include_collection_items=include_collection_items,
-        include_private_fields=False,
-    )
-
-    summary = collection_payload.get("summary") or {
-        "portfolio_value": 0,
-        "cards_count": 0,
-        "sealed_count": 0,
-        "graded_count": 0,
-    }
-    summary_source = "collection_portfolio_service.summary"
+    resolved_user_id = str(user.get("id"))
+    collection_items = _load_collection_items_from_market_view(resolved_user_id) if include_collection_items else []
+    collection_items_source = "user_collection_items_with_market"
+    summary = _unavailable_public_summary()
+    summary_source = "collection_summary_service.snapshot"
 
     try:
-        from backend.db.services.collection_summary_service import get_user_collection_summary
+        from backend.db.services.collection_summary_service import get_user_collection_summary_snapshot
 
-        authoritative_summary = get_user_collection_summary(UUID(str(user.get("id")))).to_dict()
-        summary = authoritative_summary
-        summary_source = "collection_summary_service"
+        snapshot_summary = get_user_collection_summary_snapshot(UUID(str(user.get("id"))))
+        if isinstance(snapshot_summary, dict) and snapshot_summary.get("row_found"):
+            summary = _normalize_public_summary_snapshot(snapshot_summary)
+        else:
+            summary = _unavailable_public_summary()
     except Exception:
         logger.exception(
-            "[public-profile-debug] authoritative summary load failed username=%s user_id=%s",
+            "[public-profile-debug] public summary snapshot load failed username=%s user_id=%s",
             requested_username,
-            user.get("id"),
+            resolved_user_id,
         )
+        summary = _unavailable_public_summary()
+
+    summary_indicates_holdings = any(
+        _to_number(summary.get(key), 0.0) > 0.0
+        for key in ("cards_count", "sealed_count", "graded_count")
+    ) if isinstance(summary, dict) else False
+
+    if include_collection_items and not collection_items and summary_indicates_holdings:
+        logger.warning(
+            "[public-profile-debug] public items fallback start username=%s user_id=%s market_view_count=0 summary_counts={cards:%s,sealed:%s,graded:%s}",
+            requested_username,
+            resolved_user_id,
+            summary.get("cards_count") if isinstance(summary, dict) else None,
+            summary.get("sealed_count") if isinstance(summary, dict) else None,
+            summary.get("graded_count") if isinstance(summary, dict) else None,
+        )
+        try:
+            fallback_payload = get_collection_summary_and_items_for_user_id(
+                user_id=resolved_user_id,
+                include_collection_items=True,
+                include_private_fields=False,
+            )
+            fallback_items = (
+                fallback_payload.get("collection_items", [])
+                if isinstance(fallback_payload, dict)
+                else []
+            )
+            if fallback_items:
+                collection_items = fallback_items
+                collection_items_source = "fallback.get_collection_summary_and_items_for_user_id"
+            logger.warning(
+                "[public-profile-debug] public items fallback result username=%s user_id=%s fallback_count=%s applied=%s",
+                requested_username,
+                resolved_user_id,
+                len(fallback_items),
+                bool(fallback_items),
+            )
+        except Exception:
+            logger.exception(
+                "[public-profile-debug] public items fallback failed username=%s user_id=%s",
+                requested_username,
+                resolved_user_id,
+            )
 
     logger.warning(
-        "[public-profile-debug] public collection summary username=%s source=%s portfolio_value=%s summary_keys=%s item_count=%s",
+        "[public-profile-debug] public collection summary username=%s source=%s items_source=%s portfolio_value=%s summary_keys=%s item_count=%s",
         requested_username,
         summary_source,
+        collection_items_source,
         summary.get("portfolio_value") if isinstance(summary, dict) else None,
         sorted(summary.keys()) if isinstance(summary, dict) else [],
-        len(collection_payload.get("collection_items") or []),
+        len(collection_items),
     )
 
     if isinstance(trace, dict):
@@ -906,6 +1094,6 @@ def get_public_collection_data_by_username(
     }
 
     if include_collection_items:
-        response_payload["collection_items"] = collection_payload.get("collection_items") or []
+        response_payload["collection_items"] = collection_items
 
     return response_payload, None
