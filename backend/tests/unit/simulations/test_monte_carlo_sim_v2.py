@@ -78,7 +78,7 @@ def pools():
     reverse = pd.DataFrame(
         {
             "Card Name": ["Reverse A", "Reverse B", "Reverse C", "Reverse D"],
-            "EV_Reverse": [0.35, 0.40, 0.28, 0.32],
+            "Reverse Variant Price ($)": [0.35, 0.40, 0.28, 0.32],
         }
     )
     hit = pd.DataFrame(
@@ -152,7 +152,7 @@ def prismatic_pools():
     reverse = pd.DataFrame(
         {
             "Card Name": ["Reverse 1", "Reverse 2", "Reverse 3", "Reverse 4"],
-            "EV_Reverse": [0.35, 0.28, 0.31, 0.45],
+            "Reverse Variant Price ($)": [0.35, 0.28, 0.31, 0.45],
         }
     )
     hit = pd.DataFrame(
@@ -189,6 +189,7 @@ def prismatic_pools():
             "Card Number": [card.get("number", "") for card in god_pack_cards],
             "Price ($)": [10.0] * len(god_pack_cards),
             "Rarity": [card["rarity"] for card in god_pack_cards],
+            "Special Type": [card.get("special_type", "") for card in god_pack_cards],
         }
     )
 
@@ -440,7 +441,7 @@ def test_special_pack_fixed_card_objects_preserve_resolved_rarities_and_values()
     reverse = pd.DataFrame(
         {
             "Card Name": ["Reverse A"],
-            "EV_Reverse": [0.35],
+            "Reverse Variant Price ($)": [0.35],
         }
     )
     hit = pd.DataFrame(
@@ -529,9 +530,9 @@ def test_actual_prismatic_fixed_config_supports_name_only_master_ball_entry_in_v
     assert value == pytest.approx(100.0)
     assert pack_data["entry_path"] == "god"
     assert pack_data["state"] == "god_pack"
-    assert pack_data["special_pack_rarities"].count("master ball pattern") == 1
+    assert pack_data["special_pack_rarities"].count("common") == 1
     assert pack_data["special_pack_rarities"].count("special illustration rare") == 9
-    assert rarity_counts["master ball pattern"] == 1
+    assert rarity_counts["common"] == 1
     assert rarity_counts["special illustration rare"] == 9
     assert sum(rarity_counts.values()) == 10
 
@@ -583,7 +584,7 @@ def test_actual_151_fixed_packs_increment_god_pack_state_counts_in_v2():
     reverse = pd.DataFrame(
         {
             "Card Name": ["Reverse A"],
-            "EV_Reverse": [0.35],
+            "Reverse Variant Price ($)": [0.35],
         }
     )
     df = pd.concat([common, uncommon, rare, hit], ignore_index=True)
@@ -847,7 +848,7 @@ def test_sample_cards_for_slot_outcomes_tracks_common_uncommon_rarity_counts():
     })
     reverse_pool = pd.DataFrame({
         "Card Name": ["Rev X"],
-        "EV_Reverse": [0.35],
+        "Reverse Variant Price ($)": [0.35],
     })
 
     rarity_counts = defaultdict(int)
@@ -893,7 +894,7 @@ def test_sample_cards_for_slot_outcomes_no_double_counting_across_two_packs():
         "Rarity": ["uncommon"] * 2,
     })
     rare_pool = pd.DataFrame({"Card Name": ["R1"], "Price ($)": [1.0], "Rarity": ["rare"]})
-    reverse_pool = pd.DataFrame({"Card Name": ["Rev1"], "EV_Reverse": [0.30]})
+    reverse_pool = pd.DataFrame({"Card Name": ["Rev1"], "Reverse Variant Price ($)": [0.30]})
 
     rarity_counts = defaultdict(int)
     rarity_values = defaultdict(float)
@@ -918,6 +919,170 @@ def test_sample_cards_for_slot_outcomes_no_double_counting_across_two_packs():
     assert rarity_counts["uncommon"] == 4  # 2 cards × 2 packs
     assert pytest.approx(rarity_values["common"], abs=1e-9) == 4 * 0.10
     assert pytest.approx(rarity_values["uncommon"], abs=1e-9) == 4 * 0.20
+
+
+def test_sample_cards_for_slot_outcomes_uses_raw_reverse_prices_not_ev_reverse():
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=pd.DataFrame({"Card Name": [], "Price ($)": [], "Rarity": []}),
+        uncommon_cards=pd.DataFrame({"Card Name": [], "Price ($)": [], "Rarity": []}),
+        rare_cards=pd.DataFrame({"Card Name": ["Rare A"], "Price ($)": [1.0], "Rarity": ["rare"]}),
+        hit_cards=pd.DataFrame(columns=["Card Name", "Price ($)", "Rarity"]),
+        reverse_pool=pd.DataFrame(
+            {
+                "Card Name": ["Reverse A"],
+                "Reverse Variant Price ($)": [0.35],
+                "EV_Reverse": [999.0],
+            }
+        ),
+        slot_outcomes={"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+        slots_per_rarity={"common": 0, "uncommon": 0, "reverse": 2, "rare": 1},
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        rng=np.random.default_rng(11),
+    )
+
+    assert result["slot_values"]["reverse_1"] == pytest.approx(0.35)
+    assert result["slot_values"]["reverse_2"] == pytest.approx(0.35)
+    assert rarity_values["regular reverse"] == pytest.approx(0.70)
+
+
+def test_sample_cards_for_slot_outcomes_regular_reverse_does_not_require_ev_reverse_column():
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=pd.DataFrame({"Card Name": [], "Price ($)": [], "Rarity": []}),
+        uncommon_cards=pd.DataFrame({"Card Name": [], "Price ($)": [], "Rarity": []}),
+        rare_cards=pd.DataFrame({"Card Name": ["Rare A"], "Price ($)": [1.0], "Rarity": ["rare"]}),
+        hit_cards=pd.DataFrame(columns=["Card Name", "Price ($)", "Rarity"]),
+        reverse_pool=pd.DataFrame(
+            {
+                "Card Name": ["Reverse A"],
+                "Reverse Variant Price ($)": [0.42],
+            }
+        ),
+        slot_outcomes={"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+        slots_per_rarity={"common": 0, "uncommon": 0, "reverse": 2, "rare": 1},
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        rng=np.random.default_rng(111),
+    )
+
+    assert result["slot_values"]["reverse_1"] == pytest.approx(0.42)
+    assert result["slot_values"]["reverse_2"] == pytest.approx(0.42)
+    assert rarity_counts["regular reverse"] == 2
+    assert rarity_values["regular reverse"] == pytest.approx(0.84)
+
+
+def test_reverse_column_contract_does_not_change_non_reverse_slot_sampling():
+    common_cards = pd.DataFrame({"Card Name": ["Common A"], "Price ($)": [0.10], "Rarity": ["common"]})
+    uncommon_cards = pd.DataFrame({"Card Name": ["Uncommon A"], "Price ($)": [0.20], "Rarity": ["uncommon"]})
+    rare_cards = pd.DataFrame({"Card Name": ["Rare A"], "Price ($)": [1.25], "Rarity": ["rare"]})
+    hit_cards = pd.DataFrame(columns=["Card Name", "Price ($)", "Rarity"])
+    slot_outcomes = {"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"}
+    slots_per_rarity = {"common": 1, "uncommon": 1, "reverse": 2, "rare": 1}
+
+    with_ev_reverse = pd.DataFrame(
+        {
+            "Card Name": ["Reverse A"],
+            "Reverse Variant Price ($)": [0.35],
+            "EV_Reverse": [999.0],
+        }
+    )
+    without_ev_reverse = pd.DataFrame(
+        {
+            "Card Name": ["Reverse A"],
+            "Reverse Variant Price ($)": [0.35],
+        }
+    )
+
+    counts_with = defaultdict(int)
+    values_with = defaultdict(float)
+    counts_without = defaultdict(int)
+    values_without = defaultdict(float)
+
+    result_with = sample_cards_for_slot_outcomes(
+        common_cards=common_cards,
+        uncommon_cards=uncommon_cards,
+        rare_cards=rare_cards,
+        hit_cards=hit_cards,
+        reverse_pool=with_ev_reverse,
+        slot_outcomes=slot_outcomes,
+        slots_per_rarity=slots_per_rarity,
+        rarity_pull_counts=counts_with,
+        rarity_value_totals=values_with,
+        rng=np.random.default_rng(5),
+    )
+    result_without = sample_cards_for_slot_outcomes(
+        common_cards=common_cards,
+        uncommon_cards=uncommon_cards,
+        rare_cards=rare_cards,
+        hit_cards=hit_cards,
+        reverse_pool=without_ev_reverse,
+        slot_outcomes=slot_outcomes,
+        slots_per_rarity=slots_per_rarity,
+        rarity_pull_counts=counts_without,
+        rarity_value_totals=values_without,
+        rng=np.random.default_rng(5),
+    )
+
+    assert result_with["slot_cards"]["rare"] == "Rare A"
+    assert result_without["slot_cards"]["rare"] == "Rare A"
+    assert result_with["slot_values"]["rare"] == pytest.approx(1.25)
+    assert result_without["slot_values"]["rare"] == pytest.approx(1.25)
+    assert result_with["common_count"] == result_without["common_count"] == 1
+    assert result_with["uncommon_count"] == result_without["uncommon_count"] == 1
+    assert result_with["total_value"] == pytest.approx(result_without["total_value"])
+
+
+def test_regular_reverse_simulation_path_still_works_for_representative_v2_set(pools):
+    class RegularReverseOnlyConfig(DummySVConfig):
+        PACK_STATE_MODEL = {
+            "state_probabilities": {"baseline": 1.0},
+            "state_outcomes": {
+                "baseline": {
+                    "rare": "rare",
+                    "reverse_1": "regular reverse",
+                    "reverse_2": "regular reverse",
+                }
+            },
+        }
+        GOD_PACK_CONFIG = {"enabled": False, "pull_rate": 0.0, "strategy": {}}
+        DEMI_GOD_PACK_CONFIG = {"enabled": False, "pull_rate": 0.0, "strategy": {}}
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    logs = []
+
+    fn = make_simulate_pack_fn_v2(
+        common_cards=pools["common"],
+        uncommon_cards=pools["uncommon"],
+        rare_cards=pools["rare"],
+        hit_cards=pools["hit"],
+        reverse_pool=pools["reverse"],
+        slots_per_rarity=RegularReverseOnlyConfig.SLOTS_PER_RARITY,
+        config=RegularReverseOnlyConfig,
+        df=pools["df"],
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        pack_logs=logs,
+        rng=np.random.default_rng(17),
+    )
+
+    sim = run_simulation_v2(lambda: fn(return_pack_data=True), rarity_counts, rarity_values, n=120)
+    reverse_names = set(pools["reverse"]["Card Name"])
+
+    assert sim["pack_path_counts"].get("normal") == 120
+    assert sim["pack_state_counts"].get("baseline") == 120
+    assert rarity_counts["regular reverse"] == 240
+    assert rarity_values["regular reverse"] > 0
+    assert all(record["slot_outcomes"]["reverse_1"] == "regular reverse" for record in logs)
+    assert all(record["slot_outcomes"]["reverse_2"] == "regular reverse" for record in logs)
+    assert all(record["slot_cards"]["reverse_1"] in reverse_names for record in logs)
+    assert all(record["slot_cards"]["reverse_2"] in reverse_names for record in logs)
 
 
 def test_distribution_sanity_for_special_pack_rates(pools):
@@ -1037,7 +1202,7 @@ def test_pull_summary_v2_prints_high_precision_avg_and_clear_total_label(capsys)
         "percentiles": {
             "5th": 0.0,
             "25th": 0.0,
-            "50th (median)": 0.0,
+            "50th": 0.0,
             "75th": 0.0,
             "90th": 0.0,
             "95th": 0.0,
@@ -1054,6 +1219,29 @@ def test_pull_summary_v2_prints_high_precision_avg_and_clear_total_label(capsys)
 
     assert "avg value: $0.333333" in output
     assert "total sampled value: $1.00" in output
+    assert "50th (median)" in output
+
+
+def test_print_simulation_summary_v2_handles_single_percentile_section(capsys):
+    sim_results = {
+        "mean": 5.0,
+        "std_dev": 0.0,
+        "min": 5.0,
+        "max": 5.0,
+        "percentiles": {
+            "50th": 5.0,
+        },
+        "rarity_pull_counts": {"rare": 1},
+        "rarity_value_totals": {"rare": 5.0},
+        "pack_path_counts": {"normal": 1},
+        "pack_state_counts": {"baseline": 1},
+    }
+
+    print_simulation_summary_v2(sim_results, n_simulations=1)
+    output = capsys.readouterr().out
+
+    assert "Percentiles:" in output
+    assert "50th (median):       $5.00" in output
 
 
 def test_pull_summary_v1_and_v2_displayed_avg_matches_total_sampled_value(capsys):
@@ -1066,7 +1254,7 @@ def test_pull_summary_v1_and_v2_displayed_avg_matches_total_sampled_value(capsys
         "percentiles": {
             "5th": 0.0,
             "25th": 0.0,
-            "50th (median)": 0.0,
+            "50th": 0.0,
             "75th": 0.0,
             "90th": 0.0,
             "95th": 0.0,
@@ -1080,6 +1268,7 @@ def test_pull_summary_v1_and_v2_displayed_avg_matches_total_sampled_value(capsys
     out_v1 = capsys.readouterr().out
     assert "avg value: $0.333333" in out_v1
     assert "total sampled value: $1.00" in out_v1
+    assert "50th (median)" in out_v1
 
     print_simulation_summary_v2(
         {
@@ -1092,3 +1281,4 @@ def test_pull_summary_v1_and_v2_displayed_avg_matches_total_sampled_value(capsys
     out_v2 = capsys.readouterr().out
     assert "avg value: $0.333333" in out_v2
     assert "total sampled value: $1.00" in out_v2
+    assert "50th (median)" in out_v2

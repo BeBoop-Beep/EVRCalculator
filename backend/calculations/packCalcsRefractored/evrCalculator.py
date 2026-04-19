@@ -4,6 +4,10 @@ import os
 
 from itertools import combinations_with_replacement
 from .initializeCalculations import PackEVInitializer
+from backend.calculations.utils.reverse_pool import (
+    build_reverse_eligible_pool,
+    get_regular_reverse_probability,
+)
 from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
 
 
@@ -175,44 +179,26 @@ class PackEVCalculator(PackEVInitializer):
     
     def calculate_reverse_ev_for_slot(self, df, slot_name):
         """Calculate reverse EV contribution from a single reverse slot"""
-        ev_slot_total = 0
-        
-        if 'Reverse Variant Price ($)' not in df.columns:
-            return ev_slot_total
-        
         # Get slot configuration
-        if slot_name not in self.config.REVERSE_SLOT_PROBABILITIES:
-            return ev_slot_total
-        
-        slot_config = self.config.REVERSE_SLOT_PROBABILITIES[slot_name]
-        regular_reverse_prob = slot_config.get("regular reverse", 0)
-        
+        reverse_slot_probabilities = getattr(self.config, 'REVERSE_SLOT_PROBABILITIES', {})
+        if slot_name not in reverse_slot_probabilities:
+            return 0.0
+
+        slot_config = reverse_slot_probabilities.get(slot_name, {})
+        regular_reverse_prob = get_regular_reverse_probability(slot_name, slot_config)
+
         if regular_reverse_prob == 0:
-            return ev_slot_total
-        
-        # Cards eligible for regular reverse treatment (exclude special cards)
-        is_eligible_for_reverse = ~df['Rarity'].isin(['Illustration Rare', 'Special Illustration Rare'])
-        
-        # Also exclude special pattern cards from reverse calculation
-        pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
-        is_eligible_for_reverse = is_eligible_for_reverse & ~pattern_mask
-        
-        eligible_df = df[is_eligible_for_reverse & df['Reverse Variant Price ($)'].notna()].copy()
-        
-        if not eligible_df.empty:
-            total_eligible_cards = len(eligible_df)
-            
-            # Each card's probability of appearing as reverse in this slot
-            individual_prob_this_slot = regular_reverse_prob / total_eligible_cards
-            
-            # Calculate EV contribution from this slot
-            slot_ev_contribution = (
-                eligible_df['Reverse Variant Price ($)'].fillna(0) * individual_prob_this_slot
-            ).sum()
-            
-            ev_slot_total = slot_ev_contribution
-        
-        return ev_slot_total
+            return 0.0
+
+        reverse_pool = build_reverse_eligible_pool(self.config, df)
+        if reverse_pool.empty:
+            raise ValueError(
+                f"Reverse slot '{slot_name}' has regular reverse probability {regular_reverse_prob} "
+                "but the eligible reverse pool is empty."
+            )
+
+        mean_reverse_price = float(reverse_pool['Reverse Variant Price ($)'].mean())
+        return regular_reverse_prob * mean_reverse_price
 
     def calculate_reverse_ev(self, df):
         """Calculate total EV for reverse holo variants across all reverse slots"""

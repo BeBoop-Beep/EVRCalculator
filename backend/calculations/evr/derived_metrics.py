@@ -320,7 +320,9 @@ def compute_chase_dependency_metrics(
     if not card_ev_contributions:
         result: Dict[str, Any] = {
             "n_cards": 0,
+            "cards_tracked": 0,
             "total_ev": 0.0,
+            "total_card_ev": 0.0,
             "top1_ev_share": None,
             "top3_ev_share": None,
             "top5_ev_share": None,
@@ -355,7 +357,9 @@ def compute_chase_dependency_metrics(
 
     result = {
         "n_cards": n_cards,
+        "cards_tracked": n_cards,
         "total_ev": total_ev,
+        "total_card_ev": total_ev,
         **shares,
     }
     if return_ranked_cards:
@@ -1167,11 +1171,6 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
     print(f"  Std Dev:                      {_fmt_dollar(pm.get('std_dev'))}")
     cv = pm.get("coefficient_of_variation")
     print(f"  Coefficient of Variation:     {_fmt_float(cv)}")
-    print()
-    print("  Percentiles:")
-    for label, key in (("5th", "p05"), ("25th", "p25"), ("50th", "p50"),
-                       ("75th", "p75"), ("95th", "p95"), ("99th", "p99")):
-        print(f"    {label:4s}:  {_fmt_dollar(pm.get(key))}")
     print(f"  Tail Value (p05):             {_fmt_dollar(pm.get('tail_value_p05'))}")
 
     # --- EV Composition ---

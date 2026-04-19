@@ -44,6 +44,18 @@ class BaseSetConfig(SharedBaseSetConfig):
         "rare": 1,
     }
 
+    PRODUCT_VARIANT_RULES = {
+        **SharedBaseSetConfig.PRODUCT_VARIANT_RULES,
+        "etb": {
+            "standard": {
+                "packs_per_product": 9,
+            },
+            "pokemon_center": {
+                "packs_per_product": 11,
+            },
+        },
+    }
+
     # Backwards-safe gate: V1 remains the default simulation engine.
     USE_MONTE_CARLO_V2 = True
 

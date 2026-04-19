@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 
 
 CARD_NAME_WITH_NUMBER_PATTERN = r'^(?P<name>.+?)\s*-\s*(?P<number>[A-Za-z0-9.-]+/[A-Za-z0-9.-]+)\s*$'
@@ -21,15 +20,14 @@ class PackEVInitializer:
         self.reverse_multiplier = slot1_rr + slot2_rr
 
 
-    def _load_file(self, file_path):
-        if isinstance(file_path, pd.DataFrame):
-            # Keep behavior equivalent to file-based mode by working on a fresh copy.
-            return file_path.copy(deep=True)
+    def _load_dataframe(self, calculation_input):
+        if not isinstance(calculation_input, pd.DataFrame):
+            raise TypeError(
+                "Active backend EV calculations only support pandas DataFrame input. "
+                "Spreadsheet and file-path inputs are not supported."
+            )
 
-        try:
-            return pd.read_excel(file_path)
-        except FileNotFoundError:
-            return pd.read_csv(file_path)
+        return calculation_input.copy(deep=True)
 
     def _validate_required_columns(self, df):
         required_cols = ['Rarity', 'Price ($)', 'Pull Rate (1/X)', 'Pack Price']
@@ -97,14 +95,6 @@ class PackEVInitializer:
         return pd.to_numeric(df["Pack Price"].iloc[0], errors='coerce')
 
     def _calculate_ev_columns(self, df):
-        if "EV_Reverse" not in df.columns:
-            if "Reverse Variant Price ($)" in df.columns:
-                df["EV_Reverse"] = df["Reverse Variant Price ($)"]
-            elif "Price ($)" in df.columns:
-                df["EV_Reverse"] = df["Price ($)"]
-            else:
-                df["EV_Reverse"] = 0.0
-
         df['Effective_Pull_Rate'] = df.apply(
             lambda row: self.calculate_effective_pull_rate(
                 row['rarity_group'], 
@@ -115,7 +105,6 @@ class PackEVInitializer:
         )
 
         df['EV'] = df['Price ($)'] / df['Effective_Pull_Rate']
-        df['EV_Reverse'] = df.get('Reverse Variant Price ($)', df['Price ($)']) * df['Effective_Pull_Rate']
 
     def _strip_column_names(self, df):
         df.columns = df.columns.str.strip()
@@ -124,8 +113,8 @@ class PackEVInitializer:
         print(f"Total cards processed: {len(df)}")
         print(df[['Card Name', 'Rarity', 'Price ($)', 'Effective_Pull_Rate', 'EV']].head(10))
 
-    def load_and_prepare_data(self, file_path):
-        df = self._load_file(file_path)
+    def load_and_prepare_data(self, calculation_input):
+        df = self._load_dataframe(calculation_input)
         self._strip_column_names(df)
         self._validate_required_columns(df)
         self._ensure_optional_columns(df)

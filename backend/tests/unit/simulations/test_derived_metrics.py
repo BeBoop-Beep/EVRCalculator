@@ -292,8 +292,17 @@ class TestChaseDependencyMetrics:
     def test_empty_contributions(self):
         result = compute_chase_dependency_metrics({})
         assert result["n_cards"] == 0
+        assert result["cards_tracked"] == 0
         assert result["total_ev"] == pytest.approx(0.0)
+        assert result["total_card_ev"] == pytest.approx(0.0)
         assert result["top1_ev_share"] is None
+
+    def test_contract_aliases_match_legacy_chase_metrics(self):
+        contribs = {"a": 5.0, "b": 3.0, "c": 2.0}
+        result = compute_chase_dependency_metrics(contribs)
+
+        assert result["cards_tracked"] == result["n_cards"]
+        assert result["total_card_ev"] == pytest.approx(result["total_ev"])
 
     def test_ranked_cards_returned_when_requested(self):
         contribs = {"a": 5.0, "b": 3.0, "c": 2.0}

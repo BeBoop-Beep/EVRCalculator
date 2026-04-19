@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Dict
@@ -19,6 +20,9 @@ from backend.db.repositories.calculation_runs_repository import (
     get_or_create_calculation_config,
 )
 from backend.db.repositories.sets_repository import get_set_by_canonical_key
+
+
+logger = logging.getLogger(__name__)
 
 
 def _require_mapping(value: Any, field_name: str) -> Mapping[str, Any]:
@@ -93,6 +97,137 @@ def _map_snapshot_prices(snapshot_key: str, raw_value: Any) -> dict[str, float]:
     }
 
 
+def _coerce_optional_float(value: Any, field_name: str) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid numeric field: {field_name}") from exc
+
+
+def _first_present(source: Mapping[str, Any], field_names: tuple[str, ...]) -> Any:
+    for field_name in field_names:
+        value = source.get(field_name)
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        return value
+    return None
+
+
+def _coerce_share_or_zero(value: Any, field_name: str, *, zero_when_empty: bool) -> float:
+    if zero_when_empty and (value is None or value == ""):
+        return 0.0
+    return _require_float(value, field_name)
+
+
+def _normalize_top_hits_rows(top_hits_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized_rows: list[dict[str, Any]] = []
+
+    for index, row in enumerate(top_hits_rows, start=1):
+        normalized_rows.append(
+            {
+                "card_id": _first_present(row, ("card_id", "Card ID", "card_number", "Card Number", "card_name", "Card Name")),
+                "card_variant_id": _first_present(
+                    row,
+                    (
+                        "card_variant_id",
+                        "Card Variant ID",
+                        "card_id",
+                        "Card ID",
+                        "card_number",
+                        "Card Number",
+                        "card_name",
+                        "Card Name",
+                    ),
+                ),
+                "rank": _first_present(row, ("rank", "Rank")) or index,
+                "card_name": _first_present(row, ("card_name", "Card Name")),
+                "rarity_bucket": _first_present(row, ("rarity_bucket", "rarity_group", "Rarity")),
+                "market_price_at_run": _first_present(row, ("market_price_at_run", "Price ($)")),
+                "effective_pull_rate": _first_present(row, ("effective_pull_rate", "Effective_Pull_Rate")),
+                "ev_contribution": _first_present(row, ("ev_contribution", "EV")),
+            }
+        )
+
+    return normalized_rows
+
+
+def _build_comparison_metrics_payload(
+    *,
+    pack_value_vs_cost_comparison: Mapping[str, Any],
+    etb_value_vs_cost_comparison: Mapping[str, Any] | None,
+    booster_box_value_vs_cost_comparison: Mapping[str, Any] | None,
+) -> dict[str, float | None]:
+    def _extract_roi(comparisons: Mapping[str, Any], comparison_key: str, field_name: str) -> float | None:
+        payload = comparisons.get(comparison_key)
+        if not isinstance(payload, Mapping):
+            raise ValueError(f"Missing required field: {field_name}")
+        return _coerce_optional_float(payload.get("roi"), field_name)
+
+    def _extract_optional_roi(
+        comparisons: Mapping[str, Any] | None,
+        comparison_key: str,
+        field_name: str,
+    ) -> float | None:
+        if not isinstance(comparisons, Mapping):
+            return None
+        payload = comparisons.get(comparison_key)
+        if not isinstance(payload, Mapping):
+            return None
+        return _coerce_optional_float(payload.get("roi"), field_name)
+
+    return {
+        "simulated_mean_pack_value_vs_pack_cost": _extract_roi(
+            pack_value_vs_cost_comparison,
+            "simulated_mean_pack_value_vs_pack_cost",
+            "simulated_mean_pack_value_vs_pack_cost",
+        ),
+        "simulated_median_pack_value_vs_pack_cost": _extract_roi(
+            pack_value_vs_cost_comparison,
+            "simulated_median_pack_value_vs_pack_cost",
+            "simulated_median_pack_value_vs_pack_cost",
+        ),
+        "calculated_expected_pack_value_vs_pack_cost": _extract_roi(
+            pack_value_vs_cost_comparison,
+            "calculated_expected_pack_value_vs_pack_cost",
+            "calculated_expected_pack_value_vs_pack_cost",
+        ),
+        "simulated_mean_etb_value_vs_etb_cost": _extract_optional_roi(
+            etb_value_vs_cost_comparison,
+            "simulated_mean_etb_value_vs_etb_cost",
+            "simulated_mean_etb_value_vs_etb_cost",
+        ),
+        "simulated_median_etb_value_vs_etb_cost": _extract_optional_roi(
+            etb_value_vs_cost_comparison,
+            "simulated_median_etb_value_vs_etb_cost",
+            "simulated_median_etb_value_vs_etb_cost",
+        ),
+        "calculated_expected_etb_value_vs_etb_cost": _extract_optional_roi(
+            etb_value_vs_cost_comparison,
+            "calculated_expected_etb_value_vs_etb_cost",
+            "calculated_expected_etb_value_vs_etb_cost",
+        ),
+        "simulated_mean_booster_box_value_vs_booster_box_cost": _extract_roi(
+            booster_box_value_vs_cost_comparison,
+            "simulated_mean_booster_box_value_vs_booster_box_cost",
+            "simulated_mean_booster_box_value_vs_booster_box_cost",
+        ),
+        "simulated_median_booster_box_value_vs_booster_box_cost": _extract_roi(
+            booster_box_value_vs_cost_comparison,
+            "simulated_median_booster_box_value_vs_booster_box_cost",
+            "simulated_median_booster_box_value_vs_booster_box_cost",
+        ),
+        "calculated_expected_booster_box_value_vs_booster_box_cost": _extract_roi(
+            booster_box_value_vs_cost_comparison,
+            "calculated_expected_booster_box_value_vs_booster_box_cost",
+            "calculated_expected_booster_box_value_vs_booster_box_cost",
+        ),
+    }
+
+
 def _build_simulation_summary_payloads(
     *,
     sim_results: Mapping[str, Any],
@@ -154,27 +289,68 @@ def _build_simulation_summary_payloads(
     return run_summary_payload, pack_summary_payload
 
 
-def persist_simulation_derived_metrics(*, run_id: Any, derived: Mapping[str, Any]) -> list[dict[str, Any]]:
-    ev_comp = _extract_required_nested_mapping(derived, "ev_composition_metrics", "derived")
-    chase = _extract_required_nested_mapping(derived, "chase_dependency_metrics", "derived")
-    index_score = _extract_required_nested_mapping(derived, "index_score", "derived")
+def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str, Any]:
+    try:
+        ev_comp = _extract_required_nested_mapping(derived, "ev_composition_metrics", "derived")
+        chase = _extract_required_nested_mapping(derived, "chase_dependency_metrics", "derived")
+        index_score = _extract_required_nested_mapping(derived, "index_score", "derived")
+        total_pack_ev = _require_float(
+            _first_present(ev_comp, ("total_pack_ev",))
+            if _first_present(ev_comp, ("total_pack_ev",)) is not None
+            else _require_float(ev_comp.get("hit_ev"), "derived.ev_composition_metrics.hit_ev")
+            + _require_float(ev_comp.get("non_hit_ev"), "derived.ev_composition_metrics.non_hit_ev"),
+            "derived.ev_composition_metrics.total_pack_ev",
+        )
+        cards_tracked = _require_int(
+            _first_present(chase, ("cards_tracked", "n_cards")),
+            "derived.chase_dependency_metrics.cards_tracked",
+        )
+        total_card_ev = _require_float(
+            _first_present(chase, ("total_card_ev", "total_ev")),
+            "derived.chase_dependency_metrics.total_card_ev",
+        )
+    except ValueError:
+        top_level_keys = sorted(derived.keys()) if isinstance(derived, Mapping) else []
+        chase_payload = derived.get("chase_dependency_metrics") if isinstance(derived, Mapping) else None
+        chase_keys = sorted(chase_payload.keys()) if isinstance(chase_payload, Mapping) else []
+        logger.exception(
+            "Derived payload normalization failed. top_level_keys=%s chase_keys=%s chase_cards_tracked=%s chase_n_cards=%s",
+            top_level_keys,
+            chase_keys,
+            chase_payload.get("cards_tracked") if isinstance(chase_payload, Mapping) else None,
+            chase_payload.get("n_cards") if isinstance(chase_payload, Mapping) else None,
+        )
+        raise
 
-    payload = {
+    return {
         "hit_ev": _require_float(ev_comp.get("hit_ev"), "derived.ev_composition_metrics.hit_ev"),
         "non_hit_ev": _require_float(ev_comp.get("non_hit_ev"), "derived.ev_composition_metrics.non_hit_ev"),
-        "hit_ev_share": _require_float(
+        "hit_ev_share": _coerce_share_or_zero(
             ev_comp.get("hit_ev_share_of_pack_ev"),
             "derived.ev_composition_metrics.hit_ev_share_of_pack_ev",
+            zero_when_empty=total_pack_ev <= 0,
         ),
         "hit_cards_tracked": _require_int(
             ev_comp.get("hit_cards_count"),
             "derived.ev_composition_metrics.hit_cards_count",
         ),
-        "cards_tracked": _require_int(chase.get("cards_tracked"), "derived.chase_dependency_metrics.cards_tracked"),
-        "total_card_ev": _require_float(chase.get("total_card_ev"), "derived.chase_dependency_metrics.total_card_ev"),
-        "top1_ev_share": _require_float(chase.get("top1_ev_share"), "derived.chase_dependency_metrics.top1_ev_share"),
-        "top3_ev_share": _require_float(chase.get("top3_ev_share"), "derived.chase_dependency_metrics.top3_ev_share"),
-        "top5_ev_share": _require_float(chase.get("top5_ev_share"), "derived.chase_dependency_metrics.top5_ev_share"),
+        "cards_tracked": cards_tracked,
+        "total_card_ev": total_card_ev,
+        "top1_ev_share": _coerce_share_or_zero(
+            chase.get("top1_ev_share"),
+            "derived.chase_dependency_metrics.top1_ev_share",
+            zero_when_empty=cards_tracked == 0 or total_card_ev <= 0,
+        ),
+        "top3_ev_share": _coerce_share_or_zero(
+            chase.get("top3_ev_share"),
+            "derived.chase_dependency_metrics.top3_ev_share",
+            zero_when_empty=cards_tracked == 0 or total_card_ev <= 0,
+        ),
+        "top5_ev_share": _coerce_share_or_zero(
+            chase.get("top5_ev_share"),
+            "derived.chase_dependency_metrics.top5_ev_share",
+            zero_when_empty=cards_tracked == 0 or total_card_ev <= 0,
+        ),
         "index_score": _require_float(index_score.get("ind_ex_score_v1"), "derived.index_score.ind_ex_score_v1"),
         "profit_component": _require_float(
             index_score.get("prob_profit_component"),
@@ -190,6 +366,14 @@ def persist_simulation_derived_metrics(*, run_id: Any, derived: Mapping[str, Any
         ),
     }
 
+
+def persist_simulation_derived_metrics(*, run_id: Any, derived: Mapping[str, Any]) -> list[dict[str, Any]]:
+    payload = _build_flat_derived_metrics_payload(derived)
+    logger.debug(
+        "Persisting simulation derived metrics payload for run_id=%s with keys=%s",
+        run_id,
+        sorted(payload.keys()),
+    )
     return create_simulation_derived_metrics(run_id, payload)
 
 
@@ -200,6 +384,9 @@ def persist_parent_run_with_price_snapshots(
     set_name: str,
     input_mode: str,
     price_inputs: Dict[str, Any],
+    pack_value_vs_cost_comparison: Dict[str, Any],
+    etb_value_vs_cost_comparison: Dict[str, Any] | None,
+    booster_box_value_vs_cost_comparison: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Persist config, one parent run, and run-level price snapshots."""
     set_row = get_set_by_canonical_key(canonical_key)
@@ -220,6 +407,18 @@ def persist_parent_run_with_price_snapshots(
     )
 
     config_row = get_or_create_calculation_config(config_hash, config_payload)
+    comparison_metrics_payload = _build_comparison_metrics_payload(
+        pack_value_vs_cost_comparison=_require_mapping(
+            pack_value_vs_cost_comparison,
+            "pack_value_vs_cost_comparison",
+        ),
+        etb_value_vs_cost_comparison=etb_value_vs_cost_comparison,
+        booster_box_value_vs_cost_comparison=_require_mapping(
+            booster_box_value_vs_cost_comparison,
+            "booster_box_value_vs_cost_comparison",
+        ),
+    )
+
     run_row = create_parent_calculation_run(
         config_row["id"],
         target_type,
@@ -227,11 +426,12 @@ def persist_parent_run_with_price_snapshots(
         valuation_method,
         notes,
         engine_version,
+        comparison_metrics_payload,
     )
 
     snapshot_count = 0
     captured_at = datetime.now(timezone.utc).date().isoformat()
-    for snapshot_key in ("pack", "etb", "etb_promo", "booster_box"):
+    for snapshot_key in ("pack", "booster_box"):
         raw_price = price_inputs.get(snapshot_key)
         if raw_price is None:
             continue
@@ -279,6 +479,16 @@ def persist_simulation_outputs(
     percentile_rows = create_simulation_percentiles(run_id, sim_results_map)
     pull_summary_rows = create_simulation_pull_summary(run_id, sim_results_map)
     state_count_rows = create_simulation_state_counts(run_id, sim_results_map)
+    chase_payload = derived_map.get("chase_dependency_metrics") if isinstance(derived_map, Mapping) else None
+    logger.info(
+        "Derived pre-persist shape for run_id=%s: top_level_keys=%s chase_keys=%s chase_cards_tracked=%s chase_n_cards=%s",
+        run_id,
+        sorted(derived_map.keys()) if isinstance(derived_map, Mapping) else [],
+        sorted(chase_payload.keys()) if isinstance(chase_payload, Mapping) else [],
+        chase_payload.get("cards_tracked") if isinstance(chase_payload, Mapping) else None,
+        chase_payload.get("n_cards") if isinstance(chase_payload, Mapping) else None,
+    )
+
     derived_metric_rows = persist_simulation_derived_metrics(run_id=run_id, derived=derived_map)
 
     return {
@@ -329,15 +539,45 @@ def _to_records(value: Any) -> list[dict[str, Any]]:
     return []
 
 
+def _normalize_simulation_input_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "card_id": _first_present(row, ("card_id", "Card ID", "card_number", "Card Number")),
+            "card_variant_id": _first_present(
+                row,
+                ("card_variant_id", "Card Variant ID", "card_id", "Card ID", "card_number", "Card Number"),
+            ),
+            "condition_id": _first_present(row, ("condition_id", "Condition ID")),
+            "card_name": _first_present(row, ("card_name", "Card Name")),
+            "rarity_bucket": _first_present(row, ("rarity_bucket", "rarity_group", "rarity_raw", "Rarity")),
+            "price_source": _first_present(row, ("price_source",)),
+            "price_used": _first_present(row, ("price_used", "Price ($)")),
+            "captured_at": _first_present(row, ("captured_at",)),
+            "effective_pull_rate": _first_present(row, ("effective_pull_rate", "Effective_Pull_Rate")),
+            "ev_contribution": _first_present(row, ("ev_contribution", "EV")),
+        }
+        for row in rows
+    ]
+
+
 def _resolve_simulation_input_snapshot(calculation_input: Any, config: Any) -> list[dict[str, Any]]:
+    def _missing_ev_fields(mapped_rows: list[dict[str, Any]]) -> bool:
+        for row in mapped_rows:
+            if row.get("effective_pull_rate") in (None, "") or row.get("ev_contribution") in (None, ""):
+                return True
+        return False
+
     if hasattr(calculation_input, "columns") and hasattr(calculation_input, "to_dict"):
-        return list(calculation_input.to_dict(orient="records"))
+        raw_rows = list(calculation_input.to_dict(orient="records"))
+        mapped_rows = _normalize_simulation_input_rows(raw_rows)
+        if not _missing_ev_fields(mapped_rows):
+            return mapped_rows
 
     from backend.calculations.packCalcsRefractored import PackCalculationOrchestrator
 
     orchestrator = PackCalculationOrchestrator(config)
     normalized_df, _ = orchestrator.load_and_prepare_data(calculation_input)
-    return list(normalized_df.to_dict(orient="records"))
+    return _normalize_simulation_input_rows(list(normalized_df.to_dict(orient="records")))
 
 
 def persist_simulation_inputs(
@@ -348,7 +588,7 @@ def persist_simulation_inputs(
     config: Any,
 ) -> Dict[str, Any]:
     """Persist top-hit rows and normalized input-card rows for the run."""
-    top_hits_rows = _to_records(top_10_hits)
+    top_hits_rows = _normalize_top_hits_rows(_to_records(top_10_hits))
     input_rows = _resolve_simulation_input_snapshot(calculation_input, config)
 
     _require_records_fields(
@@ -381,6 +621,18 @@ def persist_simulation_inputs(
         ],
         "simulation_input_cards",
     )
+
+    if top_hits_rows:
+        logger.debug(
+            "TEMP DEBUG persist_simulation_inputs top_hits normalized sample run_id=%s row=%s",
+            run_id,
+            top_hits_rows[0],
+        )
+    else:
+        logger.debug(
+            "TEMP DEBUG persist_simulation_inputs top_hits normalized empty run_id=%s",
+            run_id,
+        )
 
     top_hits_inserted = create_simulation_top_hits(run_id, top_hits_rows)
     input_cards_inserted = create_simulation_input_cards(run_id, input_rows)

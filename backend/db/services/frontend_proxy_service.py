@@ -2,25 +2,16 @@ from __future__ import annotations
 
 import logging
 import os
-from base64 import b64encode
 from datetime import datetime, timedelta, timezone
-from json import JSONDecodeError, loads
-from time import perf_counter
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-from backend.db.clients.supabase_client import create_service_role_client, reset_service_role_auth, supabase
+from backend.db.clients.supabase_client import supabase
 from backend.db.services.collection_portfolio_service import get_public_collection_data_by_username
-from backend.db.services.public_identity_service import (
-    normalize_profile_username,
-    normalize_public_username,
-    resolve_public_user_by_username,
-)
+from backend.db.services.public_identity_service import normalize_profile_username, resolve_public_user_by_username
 
 PROFILE_SELECT_FIELDS = (
     "id, email, username, display_name, bio, avatar_url, location, "
@@ -39,9 +30,20 @@ EDITABLE_PROFILE_FIELDS = {
 
 logger = logging.getLogger(__name__)
 
+_PROFILE_TRACE_LOG_PATH = Path(__file__).resolve().parents[2] / "profile_me_trace.log"
 
-def _create_auth_client():
-    return create_service_role_client()
+
+def _profile_me_trace(message: str, *args: Any) -> None:
+    rendered = message % args if args else message
+    logger.warning(rendered)
+    try:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        _PROFILE_TRACE_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _PROFILE_TRACE_LOG_PATH.open("a", encoding="utf-8") as trace_file:
+            trace_file.write(f"{timestamp} {rendered}\n")
+    except Exception:
+        # Keep tracing best-effort and never impact request flow.
+        pass
 
 
 def _first_row(result: Any) -> Optional[Dict[str, Any]]:
@@ -57,21 +59,6 @@ def _normalize_email(email: Any) -> str:
     if not isinstance(email, str):
         return ""
     return email.strip().lower()
-
-
-def _derive_username_candidate(username_hint: Any, normalized_email: str, user_id: str) -> str:
-    candidate = normalize_public_username(username_hint)
-    if candidate:
-        return candidate
-
-    if normalized_email and "@" in normalized_email:
-        local_part = normalized_email.split("@", 1)[0]
-        candidate = normalize_public_username(local_part)
-        if candidate:
-            return candidate
-
-    suffix = str(user_id or "").strip().replace("-", "")[:8]
-    return f"collector-{suffix}" if suffix else "collector"
 
 
 def _as_nullable_trimmed_string(value: Any) -> Optional[str] | Any:
@@ -128,16 +115,17 @@ def decode_token(token: Optional[str]) -> Tuple[Optional[Dict[str, Any]], Option
         return None, ({"message": "Invalid token"}, 401)
 
 
-def get_profile_by_user_id(
-    user_id: str,
-    email: Optional[str] = None,
-    username_hint: Optional[str] = None,
-) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    reset_service_role_auth()
+def get_profile_by_user_id(user_id: str, email: Optional[str] = None) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     normalized_user_id = str(user_id or "").strip()
     normalized_email = _normalize_email(email) if isinstance(email, str) else ""
 
     profile = None
+
+    _profile_me_trace(
+        "[PROFILE_ME_TRACE] lookup_start user_id=%s email=%s",
+        normalized_user_id,
+        normalized_email,
+    )
 
     if normalized_user_id:
         result = (
@@ -148,10 +136,17 @@ def get_profile_by_user_id(
             .execute()
         )
         profile = _first_row(result)
+        _profile_me_trace(
+            "[PROFILE_ME_TRACE] primary_lookup_by_id ran=true row_found=%s",
+            bool(profile),
+        )
+    else:
+        _profile_me_trace("[PROFILE_ME_TRACE] primary_lookup_by_id ran=false row_found=false")
 
     # Some legacy tokens may carry an id that does not match users.id.
     # Fall back to token email so profile fields still resolve.
     if not profile and normalized_email:
+        _profile_me_trace("[PROFILE_ME_TRACE] fallback_lookup_by_email ran=true")
         result = (
             supabase.table("users")
             .select(PROFILE_SELECT_FIELDS)
@@ -160,37 +155,15 @@ def get_profile_by_user_id(
             .execute()
         )
         profile = _first_row(result)
-
-    # If the profile row was removed or never created, rebuild a minimal row so
-    # auth identity and public profile lookups can recover.
-    if not profile and normalized_user_id and normalized_email:
-        username_candidate = _derive_username_candidate(username_hint, normalized_email, normalized_user_id)
-
-        try:
-            supabase.table("users").upsert(
-                {
-                    "id": normalized_user_id,
-                    "email": normalized_email,
-                    "username": username_candidate,
-                },
-                on_conflict="id",
-            ).execute()
-
-            result = (
-                supabase.table("users")
-                .select(PROFILE_SELECT_FIELDS)
-                .eq("id", normalized_user_id)
-                .limit(1)
-                .execute()
-            )
-            profile = _first_row(result)
-        except Exception:
-            pass
+        _profile_me_trace(
+            "[PROFILE_ME_TRACE] fallback_lookup_by_email row_found=%s",
+            bool(profile),
+        )
+    elif not profile:
+        _profile_me_trace("[PROFILE_ME_TRACE] fallback_lookup_by_email ran=false row_found=false")
 
     if not profile:
         return None, "Profile not found"
-
-    profile = normalize_profile_username(profile)
 
     favorite_tcg_id = profile.get("favorite_tcg_id")
     favorite_tcg_name = None
@@ -220,8 +193,7 @@ def login_user(email: Any, password: Any) -> Tuple[Dict[str, Any], int]:
     logger.info("login_user: attempting sign_in_with_password email_present=%s", bool(normalized_email))
 
     try:
-        auth_client = _create_auth_client()
-        auth_response = auth_client.auth.sign_in_with_password(
+        auth_response = supabase.auth.sign_in_with_password(
             {
                 "email": normalized_email,
                 "password": password,
@@ -273,8 +245,7 @@ def login_user_legacy(email: Any, password: Any) -> Tuple[Dict[str, Any], int]:
     logger.info("login_user_legacy: attempting sign_in_with_password email_present=%s", bool(normalized_email))
 
     try:
-        auth_client = _create_auth_client()
-        auth_response = auth_client.auth.sign_in_with_password(
+        auth_response = supabase.auth.sign_in_with_password(
             {
                 "email": normalized_email,
                 "password": password,
@@ -328,8 +299,7 @@ def signup_user(name: Any, email: Any, password: Any) -> Tuple[Dict[str, Any], i
     logger.info("signup_user: attempting sign_up name_present=%s email_present=%s", bool(user_name), bool(normalized_email))
 
     try:
-        auth_client = _create_auth_client()
-        auth_response = auth_client.auth.sign_up(
+        auth_response = supabase.auth.sign_up(
             {
                 "email": normalized_email,
                 "password": password,
@@ -395,136 +365,32 @@ def signup_user(name: Any, email: Any, password: Any) -> Tuple[Dict[str, Any], i
     }, 201
 
 
-def resend_confirmation_email(email: Any) -> Tuple[Dict[str, Any], int]:
-    normalized_email = _normalize_email(email)
-    if not normalized_email:
-        return {"message": "Email is required."}, 400
-
-    try:
-        auth_client = _create_auth_client()
-        auth_client.auth.resend(
-            {
-                "type": "signup",
-                "email": normalized_email,
-            }
-        )
-    except Exception as exc:
-        message = str(exc) or "Unable to resend confirmation email."
-        logger.exception("resend_confirmation_email: supabase resend failed (%s)", type(exc).__name__)
-        return {"message": message}, 400
-
-    return {
-        "message": "Confirmation email sent. Please check your inbox and spam folder."
-    }, 200
-
-
-def get_me(
-    token: Optional[str],
-    correlation_id: Optional[str] = None,
-    token_source: Optional[str] = None,
-) -> Tuple[Dict[str, Any], int]:
-    started_at = perf_counter()
-    logger.info(
-        "auth_me.trace correlation_id=%s token_source=%s token_present=%s",
-        correlation_id,
-        token_source or "unknown",
-        bool(token),
-    )
+def get_me(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
     token_user, token_error = decode_token(token)
     if token_error:
-        logger.warning(
-            "auth_me.trace correlation_id=%s token_source=%s decoded_user_id=%s decoded_email=%s row_found=false reason=%s status=%s",
-            correlation_id,
-            token_source or "unknown",
-            None,
-            None,
-            token_error[0].get("message"),
-            token_error[1],
-        )
         return token_error
 
     user_id = str(token_user.get("id") or "").strip()
     token_email = token_user.get("email") if isinstance(token_user.get("email"), str) else None
-    token_username = token_user.get("username") if isinstance(token_user.get("username"), str) else None
-    token_name = token_user.get("name") if isinstance(token_user.get("name"), str) else None
-    logger.info(
-        "auth_me.trace correlation_id=%s token_source=%s decoded_user_id=%s decoded_email=%s decoded_username=%s decoded_name=%s",
-        correlation_id,
-        token_source or "unknown",
-        user_id or None,
-        token_email,
-        token_username,
-        token_name,
-    )
     if not user_id:
         return {"message": "Invalid token"}, 401
 
-    username = token_username or token_name
-    display_name = token_user.get("display_name") if isinstance(token_user.get("display_name"), str) else None
-    profile_error = None
+    username = token_user.get("username")
+    display_name = None
 
     try:
-        profile, profile_error = get_profile_by_user_id(
-            user_id,
-            token_email,
-            username_hint=(token_username or token_name),
-        )
-        logger.info(
-            "auth_me.trace correlation_id=%s token_source=%s profile_found=%s profile_error=%s resolved_profile_id=%s resolved_username=%s resolved_display_name=%s",
-            correlation_id,
-            token_source or "unknown",
-            bool(profile),
-            profile_error,
-            profile.get("id") if isinstance(profile, dict) else None,
-            profile.get("username") if isinstance(profile, dict) else None,
-            profile.get("display_name") if isinstance(profile, dict) else None,
-        )
+        profile, _ = get_profile_by_user_id(user_id, token_email)
         if profile:
             username = profile.get("username") or username
-            display_name = profile.get("display_name") or display_name
-            token_email = profile.get("email") if isinstance(profile.get("email"), str) else token_email
+            display_name = profile.get("display_name")
     except Exception:
-        logger.exception("auth_me.trace correlation_id=%s token_source=%s profile_resolution_exception=true", correlation_id, token_source or "unknown")
-
-    if profile_error:
-        logger.warning("auth_me.trace correlation_id=%s token_source=%s profile_resolution_warning=%s", correlation_id, token_source or "unknown", profile_error)
-
-    if not username and token_email:
-        username = token_email.split("@", 1)[0]
-
-    normalized_username = normalize_public_username(username)
-    username = normalized_username or username
-
-    # Canonical identity label priority: display_name > username > empty.
-    canonical_name = display_name or username or ""
-    if not isinstance(token_user.get("name"), str) or not token_user.get("name"):
-        token_user["name"] = canonical_name
+        pass
 
     user = {
         **token_user,
-        "email": token_email,
         "username": username,
         "display_name": display_name,
-        "name": canonical_name,
     }
-
-    logger.info(
-        "auth_me.trace correlation_id=%s token_source=%s resolved_profile_id=%s username=%s display_name=%s",
-        correlation_id,
-        token_source or "unknown",
-        user.get("id"),
-        user.get("username"),
-        user.get("display_name"),
-    )
-
-    logger.info(
-        "auth_me.timing correlation_id=%s token_source=%s path=%s payload_size_bytes=%s elapsed_ms=%.2f",
-        correlation_id,
-        token_source or "unknown",
-        "/auth/me",
-        len(str(user).encode("utf-8")),
-        (perf_counter() - started_at) * 1000,
-    )
 
     return {"user": user}, 200
 
@@ -600,8 +466,7 @@ def update_customer_password(token: Optional[str], current_password: Any, new_pa
         return {"error": "Invalid token payload"}, 401
 
     try:
-        auth_client = _create_auth_client()
-        auth_client.auth.sign_in_with_password(
+        supabase.auth.sign_in_with_password(
             {
                 "email": email,
                 "password": current_password,
@@ -619,7 +484,6 @@ def update_customer_password(token: Optional[str], current_password: Any, new_pa
 
 
 def get_products() -> Tuple[Dict[str, Any], int]:
-    reset_service_role_auth()
     try:
         result = (
             supabase.table("products")
@@ -627,13 +491,8 @@ def get_products() -> Tuple[Dict[str, Any], int]:
             .order("created_at", desc=True)
             .execute()
         )
-    except Exception as exc:
-        logger.exception("get_products: query failed for public.products")
-        return {
-            "message": "Failed to fetch products",
-            "code": "PRODUCTS_QUERY_FAILED",
-            "details": str(exc),
-        }, 500
+    except Exception:
+        return {"message": "Failed to fetch products"}, 500
 
     products = getattr(result, "data", None)
     if not isinstance(products, list):
@@ -643,7 +502,6 @@ def get_products() -> Tuple[Dict[str, Any], int]:
 
 
 def get_tcg_options() -> Tuple[Dict[str, Any], int]:
-    reset_service_role_auth()
     try:
         result = (
             supabase.table("tcgs")
@@ -661,107 +519,9 @@ def get_tcg_options() -> Tuple[Dict[str, Any], int]:
     return {"tcgs": data}, 200
 
 
-def search_ebay_items(query: Any) -> Tuple[Dict[str, Any], int]:
-    normalized_query = str(query or "").strip()
-    if not normalized_query:
-        return {"error": "Query is required"}, 400
-
-    client_id = os.getenv("EBAY_CLIENT_ID")
-    client_secret = os.getenv("EBAY_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        return {"error": "eBay integration is not configured"}, 500
-
-    basic_token = b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("utf-8")
-    auth_body = "grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope".encode("utf-8")
-    auth_request = Request(
-        "https://api.ebay.com/identity/v1/oauth2/token",
-        data=auth_body,
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": f"Basic {basic_token}",
-        },
-        method="POST",
-    )
-
-    try:
-        with urlopen(auth_request, timeout=15) as response:
-            auth_payload_raw = response.read().decode("utf-8")
-    except HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace") if hasattr(exc, "read") else str(exc)
-        logger.warning("search_ebay_items: eBay auth failed status=%s", getattr(exc, "code", None))
-        return {"error": "Failed to fetch data", "details": details}, 502
-    except URLError:
-        logger.exception("search_ebay_items: eBay auth request failed")
-        return {"error": "Failed to fetch data"}, 502
-
-    try:
-        access_token = (loads(auth_payload_raw) or {}).get("access_token")
-    except (JSONDecodeError, TypeError):
-        access_token = None
-
-    if not access_token:
-        return {"error": "Failed to fetch data", "details": "Missing eBay access token"}, 502
-
-    search_query = urlencode({"q": normalized_query, "limit": 10})
-    search_request = Request(
-        f"https://api.ebay.com/buy/browse/v1/item_summary/search?{search_query}",
-        headers={"Authorization": f"Bearer {access_token}"},
-        method="GET",
-    )
-
-    try:
-        with urlopen(search_request, timeout=20) as response:
-            search_payload_raw = response.read().decode("utf-8")
-    except HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace") if hasattr(exc, "read") else str(exc)
-        logger.warning("search_ebay_items: eBay browse failed status=%s", getattr(exc, "code", None))
-        return {"error": "Failed to fetch data", "details": details}, 502
-    except URLError:
-        logger.exception("search_ebay_items: eBay browse request failed")
-        return {"error": "Failed to fetch data"}, 502
-
-    try:
-        payload = loads(search_payload_raw) or {}
-    except (JSONDecodeError, TypeError):
-        return {"error": "Failed to fetch data", "details": "Invalid eBay response"}, 502
-
-    summaries = payload.get("itemSummaries") if isinstance(payload, dict) else None
-    if not isinstance(summaries, list):
-        summaries = []
-
-    results = []
-    for item in summaries:
-        if not isinstance(item, dict):
-            continue
-        price_obj = item.get("price") if isinstance(item.get("price"), dict) else {}
-        image_obj = item.get("image") if isinstance(item.get("image"), dict) else {}
-        results.append(
-            {
-                "title": item.get("title"),
-                "price": price_obj.get("value"),
-                "image": image_obj.get("imageUrl") or "",
-                "platform": "eBay",
-            }
-        )
-
-    return {"results": results}, 200
-
-
-def get_public_profile(
-    username_param: Any,
-    viewer_token: Optional[str],
-    correlation_id: Optional[str] = None,
-) -> Tuple[Dict[str, Any], int]:
-    total_started_at = perf_counter()
-    requested_username = str(username_param or "").strip()
-    normalized_username = normalize_public_username(requested_username)
-    if not normalized_username:
-        logger.warning(
-            "public_profile.trace correlation_id=%s requested_username=%s normalized_username=%s row_found=false reason=PROFILE_NOT_FOUND",
-            correlation_id,
-            requested_username,
-            normalized_username,
-        )
+def get_public_profile(username_param: Any, viewer_token: Optional[str]) -> Tuple[Dict[str, Any], int]:
+    username = str(username_param or "").strip()
+    if not username:
         return {"message": "Unable to fetch public profile", "code": "PROFILE_NOT_FOUND"}, 404
 
     viewer_user_id = None
@@ -769,65 +529,40 @@ def get_public_profile(
     if token_user and token_user.get("id"):
         viewer_user_id = str(token_user.get("id"))
 
-    username_resolution_started_at = perf_counter()
-    user, trace = resolve_public_user_by_username(normalized_username, correlation_id=correlation_id)
-    username_resolution_elapsed_ms = (perf_counter() - username_resolution_started_at) * 1000
-    if trace.get("reason") == "LOOKUP_EXCEPTION":
-        return {"message": "Unable to fetch public profile"}, 500
-
-    if not user:
-        logger.warning(
-            "public_profile.trace correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s row_found=false reason=%s",
-            correlation_id,
-            requested_username,
-            normalized_username,
-            trace.get("lookup_strategy"),
-            trace.get("reason") or "PROFILE_NOT_FOUND",
-        )
+    public_user, public_user_trace = resolve_public_user_by_username(username)
+    if not public_user or not public_user.get("id"):
         return {"message": "Public profile not found", "code": "PROFILE_NOT_FOUND"}, 404
 
-    profile_row_started_at = perf_counter()
-    try:
-        result = (
-            supabase.table("users")
-            .select("id, username, display_name, avatar_url, bio, is_profile_public, location, favorite_tcg_id, created_at")
-            .eq("id", user.get("id"))
-            .limit(1)
-            .execute()
-        )
-        profile = normalize_profile_username(_first_row(result))
-    except Exception:
+    profile = None
+    profile_select_candidates = [
+        "id,username,display_name,avatar_url,bio,is_profile_public,location,favorite_tcg_id,created_at,view_count,profile_view_count,views_count",
+        "id,username,display_name,avatar_url,bio,is_profile_public,location,favorite_tcg_id,created_at,view_count",
+        "id,username,display_name,avatar_url,bio,is_profile_public,location,favorite_tcg_id,created_at",
+    ]
+
+    for select_clause in profile_select_candidates:
+        try:
+            result = supabase.table("users").select(select_clause).eq("id", public_user.get("id")).limit(1).execute()
+            profile = _first_row(result)
+            break
+        except Exception:
+            continue
+
+    if profile is None:
         return {"message": "Unable to fetch public profile"}, 500
-    profile_row_elapsed_ms = (perf_counter() - profile_row_started_at) * 1000
+
+    profile = normalize_profile_username(profile)
 
     if not profile:
-        logger.warning(
-            "public_profile.trace correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s row_found=true resolved_user_id=%s reason=PROFILE_ROW_NOT_FOUND",
-            correlation_id,
-            requested_username,
-            normalized_username,
-            trace.get("lookup_strategy"),
-            user.get("id"),
-        )
         return {"message": "Public profile not found", "code": "PROFILE_NOT_FOUND"}, 404
 
     if profile.get("is_profile_public") is False:
         if not viewer_user_id or str(viewer_user_id) != str(profile.get("id")):
-            logger.warning(
-                "public_profile.trace correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s row_found=true resolved_user_id=%s reason=VISIBILITY_REJECT viewer_user_id=%s",
-                correlation_id,
-                requested_username,
-                normalized_username,
-                trace.get("lookup_strategy"),
-                profile.get("id"),
-                viewer_user_id,
-            )
             return {"message": "Public profile not found", "code": "PROFILE_NOT_FOUND"}, 404
 
     favorite_tcg_name = None
     favorite_tcg_id = profile.get("favorite_tcg_id")
 
-    favorite_tcg_started_at = perf_counter()
     if favorite_tcg_id:
         try:
             tcg_result = (
@@ -841,18 +576,14 @@ def get_public_profile(
             favorite_tcg_name = tcg.get("name") if tcg else None
         except Exception:
             favorite_tcg_name = None
-    favorite_tcg_elapsed_ms = (perf_counter() - favorite_tcg_started_at) * 1000
 
-    summary_started_at = perf_counter()
     summary_payload, summary_error = get_public_collection_data_by_username(
-        username=str(profile.get("username") or normalized_username),
+        username=str(profile.get("username") or username),
         include_collection_items=False,
         viewer_user_id=viewer_user_id,
-        correlation_id=correlation_id,
-        resolved_public_user=user,
-        resolved_trace=trace,
+        resolved_public_user=public_user,
+        resolved_trace=public_user_trace,
     )
-    summary_elapsed_ms = (perf_counter() - summary_started_at) * 1000
 
     collection_summary = None
     collection_summary_warning = None
@@ -868,22 +599,12 @@ def get_public_profile(
         "collection_summary_warning": collection_summary_warning,
     }
 
-    logger.info(
-        "public_profile.trace correlation_id=%s requested_username=%s normalized_username=%s lookup_strategy=%s row_found=true resolved_user_id=%s resolved_username=%s display_name=%s path_used=%s payload_size_bytes=%s username_resolution_ms=%.2f profile_row_ms=%.2f favorite_tcg_ms=%.2f summary_ms=%.2f total_ms=%.2f",
-        correlation_id,
-        requested_username,
-        normalized_username,
-        trace.get("lookup_strategy"),
-        profile.get("id"),
-        profile.get("username"),
-        profile.get("display_name"),
-        "summary_snapshot",
-        len(str(profile_payload).encode("utf-8")),
-        username_resolution_elapsed_ms,
-        profile_row_elapsed_ms,
-        favorite_tcg_elapsed_ms,
-        summary_elapsed_ms,
-        (perf_counter() - total_started_at) * 1000,
+    logger.warning(
+        "[public-profile-debug] public profile response username=%s profile_keys=%s summary_keys=%s portfolio_value=%s",
+        username,
+        sorted(profile_payload.keys()),
+        sorted(collection_summary.keys()) if isinstance(collection_summary, dict) else [],
+        collection_summary.get("portfolio_value") if isinstance(collection_summary, dict) else None,
     )
 
     return {
@@ -898,74 +619,31 @@ def get_current_profile(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
 
     user_id = str(token_user.get("id") or "").strip()
     token_email = token_user.get("email") if isinstance(token_user.get("email"), str) else None
-    token_name = token_user.get("name") if isinstance(token_user.get("name"), str) else None
-    token_username = token_user.get("username") if isinstance(token_user.get("username"), str) else None
-    token_display_name = token_user.get("display_name") if isinstance(token_user.get("display_name"), str) else None
+    _profile_me_trace(
+        "[PROFILE_ME_TRACE] token_values user_id=%s email=%s",
+        user_id,
+        token_email,
+    )
     if not user_id:
+        _profile_me_trace("[PROFILE_ME_TRACE] response_branch=AUTH_REQUIRED")
         return {"message": "Not authenticated", "code": "AUTH_REQUIRED"}, 401
 
-    profile = None
-    profile_error = None
     try:
-        profile, profile_error = get_profile_by_user_id(
-            user_id,
-            token_email,
-            username_hint=(token_username or token_name),
-        )
+        profile, profile_error = get_profile_by_user_id(user_id, token_email)
     except Exception:
-        logger.exception("get_current_profile: unexpected exception during profile lookup")
-        profile_error = "PROFILE_LOOKUP_EXCEPTION"
-
-    if profile:
-        profile = normalize_profile_username(profile)
-        return {"profile": profile}, 200
+        logger.exception("[PROFILE_ME_TRACE] response_branch=UNABLE_TO_FETCH_PROFILE_EXCEPTION")
+        _profile_me_trace("[PROFILE_ME_TRACE] response_branch=UNABLE_TO_FETCH_PROFILE_EXCEPTION")
+        return {"message": "Unable to fetch profile"}, 500
 
     if profile_error:
-        logger.warning("get_current_profile: profile resolution warning=%s", profile_error)
-
-    # Recovery path: preserve authenticated session UX when profile row is
-    # temporarily unavailable, while keeping auth ownership on backend.
-    fallback_user_payload, fallback_status = get_me(token)
-    if fallback_status != 200:
         if profile_error == "Profile not found":
-            return {"message": "Profile not found", "code": "PROFILE_NOT_FOUND"}, 404
+            _profile_me_trace("[PROFILE_ME_TRACE] response_branch=PROFILE_NOT_FOUND")
+            return {"message": profile_error, "code": "PROFILE_NOT_FOUND"}, 404
+        _profile_me_trace("[PROFILE_ME_TRACE] response_branch=UNABLE_TO_FETCH_PROFILE")
         return {"message": "Unable to fetch profile"}, 500
 
-    fallback_user = fallback_user_payload.get("user") if isinstance(fallback_user_payload, dict) else None
-    if not isinstance(fallback_user, dict):
-        if profile_error == "Profile not found":
-            return {"message": "Profile not found", "code": "PROFILE_NOT_FOUND"}, 404
-        return {"message": "Unable to fetch profile"}, 500
-
-    fallback_username = fallback_user.get("username") if isinstance(fallback_user.get("username"), str) else token_username
-    fallback_display_name = (
-        fallback_user.get("display_name")
-        if isinstance(fallback_user.get("display_name"), str)
-        else token_display_name
-    )
-    fallback_email = fallback_user.get("email") if isinstance(fallback_user.get("email"), str) else token_email
-
-    minimal_profile = {
-        "id": user_id,
-        "email": fallback_email,
-        "username": fallback_username,
-        "display_name": fallback_display_name,
-        "bio": None,
-        "avatar_url": None,
-        "location": None,
-        "favorite_tcg_id": None,
-        "favorite_tcg_name": None,
-        "is_profile_public": None,
-        "show_portfolio_value": None,
-        "show_activity": None,
-        "created_at": None,
-        "updated_at": None,
-    }
-
-    return {
-        "profile": minimal_profile,
-        "profile_warning": "PROFILE_FROM_TOKEN_FALLBACK",
-    }, 200
+    _profile_me_trace("[PROFILE_ME_TRACE] response_branch=SUCCESS")
+    return {"profile": profile}, 200
 
 
 def update_profile(token: Optional[str], payload: Any) -> Tuple[Dict[str, Any], int]:

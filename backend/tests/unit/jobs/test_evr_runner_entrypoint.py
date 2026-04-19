@@ -50,7 +50,7 @@ def test_main_returns_nonzero_when_orchestrator_fails(
 ):
     mock_build_parser.return_value.parse_args.return_value = Namespace(
         target_set_identifier="blackBolt",
-        input_source="spreadsheet",
+        input_source="db",
         trigger="manual",
         run_label=None,
     )

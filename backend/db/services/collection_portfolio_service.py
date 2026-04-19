@@ -106,16 +106,91 @@ def _resolve_card_like_images(
     card_small: Any,
     card_large: Any,
 ) -> Dict[str, str]:
-    resolved_small = _to_trimmed_string(variant_small) or _to_trimmed_string(card_small) or DEFAULT_COLLECTION_IMAGE_PATH
-    resolved_large = _to_trimmed_string(variant_large) or _to_trimmed_string(card_large) or DEFAULT_COLLECTION_IMAGE_PATH
+    # Keep the primary image aligned with gallery/hero preference: large asset first.
+    resolved_small = (
+        _to_trimmed_string(variant_large)
+        or _to_trimmed_string(variant_small)
+        or _to_trimmed_string(card_large)
+        or _to_trimmed_string(card_small)
+        or DEFAULT_COLLECTION_IMAGE_PATH
+    )
+    resolved_large = (
+        _to_trimmed_string(variant_large)
+        or _to_trimmed_string(card_large)
+        or _to_trimmed_string(variant_small)
+        or _to_trimmed_string(card_small)
+        or DEFAULT_COLLECTION_IMAGE_PATH
+    )
     return {
         "image_url": resolved_small,
         "image_large_url": resolved_large,
     }
 
 
+def resolve_display_image(
+    collectible_type: str,
+    *,
+    variant_large: Any = None,
+    variant_small: Any = None,
+    card_large: Any = None,
+    card_small: Any = None,
+    sealed_large: Any = None,
+    sealed_small: Any = None,
+) -> Dict[str, str]:
+    if collectible_type == "sealed_product":
+        image_url = _to_trimmed_string(sealed_large) or _to_trimmed_string(sealed_small) or DEFAULT_COLLECTION_IMAGE_PATH
+        return {
+            "image_url": image_url,
+            "image_type": "sealed" if image_url != DEFAULT_COLLECTION_IMAGE_PATH else "fallback",
+            "image_source": "sealed_product" if image_url != DEFAULT_COLLECTION_IMAGE_PATH else "fallback",
+            "source_confidence": "high" if image_url != DEFAULT_COLLECTION_IMAGE_PATH else "low",
+        }
+
+    if collectible_type == "graded_card":
+        image_url = (
+            _to_trimmed_string(variant_small)
+            or _to_trimmed_string(variant_large)
+            or _to_trimmed_string(card_small)
+            or _to_trimmed_string(card_large)
+            or DEFAULT_COLLECTION_IMAGE_PATH
+        )
+        if image_url == DEFAULT_COLLECTION_IMAGE_PATH:
+            return {
+                "image_url": image_url,
+                "image_type": "graded_base_card",
+                "image_source": "fallback",
+                "source_confidence": "low",
+            }
+        return {
+            "image_url": image_url,
+            "image_type": "graded_base_card",
+            "image_source": "graded_linked_card_variant",
+            "source_confidence": "medium",
+        }
+
+    image_url = (
+        _to_trimmed_string(variant_large)
+        or _to_trimmed_string(variant_small)
+        or _to_trimmed_string(card_large)
+        or _to_trimmed_string(card_small)
+        or DEFAULT_COLLECTION_IMAGE_PATH
+    )
+    return {
+        "image_url": image_url,
+        "image_type": "card",
+        "image_source": "card_variant" if image_url != DEFAULT_COLLECTION_IMAGE_PATH else "fallback",
+        "source_confidence": "high" if image_url != DEFAULT_COLLECTION_IMAGE_PATH else "low",
+    }
+
+
 def _extract_market_price(row: Dict[str, Any]) -> float:
-    for field_name in ("market_price", "current_market_price", "price"):
+    for field_name in (
+        "market_price",
+        "current_market_price",
+        "price",
+        "latest_market_price",
+        "usd_market_price",
+    ):
         if field_name not in row:
             continue
         parsed = _to_number(row.get(field_name), 0.0)
@@ -301,7 +376,11 @@ def get_collection_summary_and_items_for_user_id(
     card_market_rows = (
         _select_with_fallback(
             table="card_market_usd_latest_by_condition",
-            select_candidates=["variant_id,condition_id,market_price,current_market_price,price"],
+            select_candidates=[
+                "variant_id,condition_id,market_price,current_market_price,price,latest_market_price,usd_market_price",
+                "variant_id,condition_id,market_price,current_market_price,price",
+                "variant_id,condition_id,market_price",
+            ],
             filters=[("in", "variant_id", card_variant_ids)],
         )
         if card_variant_ids
@@ -311,7 +390,11 @@ def get_collection_summary_and_items_for_user_id(
     sealed_market_rows = (
         _select_with_fallback(
             table="sealed_product_market_usd_latest",
-            select_candidates=["sealed_product_id,market_price,current_market_price,price"],
+            select_candidates=[
+                "sealed_product_id,market_price,current_market_price,price,latest_market_price,usd_market_price",
+                "sealed_product_id,market_price,current_market_price,price",
+                "sealed_product_id,market_price",
+            ],
             filters=[("in", "sealed_product_id", sealed_product_ids)],
         )
         if sealed_product_ids
@@ -321,7 +404,11 @@ def get_collection_summary_and_items_for_user_id(
     graded_market_rows = (
         _select_with_fallback(
             table="graded_card_market_latest",
-            select_candidates=["graded_card_variant_id,market_price,current_market_price,price"],
+            select_candidates=[
+                "graded_card_variant_id,market_price,current_market_price,price,latest_market_price,usd_market_price",
+                "graded_card_variant_id,market_price,current_market_price,price",
+                "graded_card_variant_id,market_price",
+            ],
             filters=[("in", "graded_card_variant_id", graded_variant_ids)],
         )
         if graded_variant_ids
@@ -359,7 +446,7 @@ def get_collection_summary_and_items_for_user_id(
         _select_with_fallback(
             table="graded_card_variants",
             select_candidates=[
-                "id,card_variant_id,grade,grading_company",
+                "id,card_variant_id,grade,grading_company,image_small_url,image_large_url",
                 "id,card_variant_id,grade",
                 "id,card_variant_id",
             ],
@@ -523,8 +610,10 @@ def get_collection_summary_and_items_for_user_id(
         market_price = _to_number(graded_price_map.get(str(holding.get("graded_card_variant_id"))), 0.0)
         estimated_value = quantity * market_price
         images = _resolve_card_like_images(
-            variant_small=variant.get("image_small_url") if variant else None,
-            variant_large=variant.get("image_large_url") if variant else None,
+            variant_small=(graded_variant.get("image_small_url") if graded_variant else None)
+            or (variant.get("image_small_url") if variant else None),
+            variant_large=(graded_variant.get("image_large_url") if graded_variant else None)
+            or (variant.get("image_large_url") if variant else None),
             card_small=card.get("image_small_url") if card else None,
             card_large=card.get("image_large_url") if card else None,
         )
@@ -734,19 +823,32 @@ def get_public_collection_data_by_username(
     username: str,
     include_collection_items: bool = False,
     viewer_user_id: Optional[str] = None,
+    correlation_id: Optional[str] = None,
+    resolved_public_user: Optional[Dict[str, Any]] = None,
+    resolved_trace: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    normalized_username = _to_trimmed_string(username).lower()
-    if not normalized_username:
+    requested_username = _to_trimmed_string(username)
+    if not requested_username:
         return None, "Invalid username."
 
-    user_rows = _select_with_fallback(
-        table="users",
-        select_candidates=["id,username,is_profile_public"],
-        filters=[("eq", "username", normalized_username)],
-        limit=1,
-    )
+    user = resolved_public_user
+    trace = resolved_trace
+    if not user:
+        try:
+            from backend.db.services.public_identity_service import resolve_public_user_by_username
 
-    user = user_rows[0] if user_rows else None
+            user, trace = resolve_public_user_by_username(
+                requested_username,
+                correlation_id=correlation_id,
+            )
+        except Exception:
+            logger.exception(
+                "[public-profile-debug] public user resolution failed username=%s correlation_id=%s",
+                requested_username,
+                correlation_id,
+            )
+            return None, "User not found."
+
     if not user or not user.get("id"):
         return None, "User not found."
 
@@ -777,18 +879,27 @@ def get_public_collection_data_by_username(
     except Exception:
         logger.exception(
             "[public-profile-debug] authoritative summary load failed username=%s user_id=%s",
-            normalized_username,
+            requested_username,
             user.get("id"),
         )
 
     logger.warning(
         "[public-profile-debug] public collection summary username=%s source=%s portfolio_value=%s summary_keys=%s item_count=%s",
-        normalized_username,
+        requested_username,
         summary_source,
         summary.get("portfolio_value") if isinstance(summary, dict) else None,
         sorted(summary.keys()) if isinstance(summary, dict) else [],
         len(collection_payload.get("collection_items") or []),
     )
+
+    if isinstance(trace, dict):
+        logger.warning(
+            "[public-profile-debug] public collection username resolution requested=%s normalized=%s strategy=%s row_found=%s",
+            trace.get("requested_username"),
+            trace.get("normalized_username"),
+            trace.get("lookup_strategy"),
+            trace.get("row_found"),
+        )
 
     response_payload: Dict[str, Any] = {
         "collection_summary": summary,

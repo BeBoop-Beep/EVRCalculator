@@ -1,6 +1,7 @@
 from types import MappingProxyType
 
 import pandas as pd
+import pytest
 
 from backend.calculations.packCalcsRefractored.initializeCalculations import PackEVInitializer
 from backend.calculations.packCalcsRefractored.packCalculationOrchestrator import PackCalculationOrchestrator
@@ -108,6 +109,13 @@ def test_already_normalized_rows_remain_unchanged():
     assert prepared_df.iloc[0]["Card Name"] == "Pikachu"
     assert prepared_df.iloc[0]["Card Number"] == "025/165"
     assert prepared_df.iloc[0]["Rarity"] == "rare"
+
+
+def test_active_runtime_rejects_file_path_input():
+    initializer = _InitializerUnderTest(_ConfigStub())
+
+    with pytest.raises(TypeError, match="only support pandas DataFrame input"):
+        initializer.load_and_prepare_data("d:/EVRCalculator/data/excelDocs/Dummy/pokemon_data.xlsx")
 
 
 def test_live_run_shape_with_blank_card_numbers_normalizes_to_plain_names_and_numbers():

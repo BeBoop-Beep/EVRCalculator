@@ -6,7 +6,7 @@ from backend import main_refactored
 
 @patch("builtins.input", return_value="blackBolt")
 @patch("backend.jobs.evr_runner.EVRRunOrchestrator")
-def test_main_defaults_to_spreadsheet_mode_and_delegates(
+def test_main_defaults_to_db_mode_and_delegates(
     mock_orchestrator_cls,
     _mock_input,
 ):
@@ -16,7 +16,7 @@ def test_main_defaults_to_spreadsheet_mode_and_delegates(
     mock_orchestrator_cls.assert_called_once_with()
     mock_orchestrator_cls.return_value.run.assert_called_once_with(
         target_set_identifier="blackBolt",
-        input_source="spreadsheet",
+        input_source="db",
         run_metadata={"trigger": "legacy_interactive"},
     )
 
@@ -35,6 +35,22 @@ def test_main_uses_db_mode_when_env_enabled_and_delegates(
         input_source="db",
         run_metadata={"trigger": "legacy_interactive"},
     )
+
+
+@patch("builtins.input", return_value="blackBolt")
+@patch("builtins.print")
+@patch("backend.jobs.evr_runner.EVRRunOrchestrator")
+def test_main_rejects_spreadsheet_env_override(
+    mock_orchestrator_cls,
+    mock_print,
+    _mock_input,
+):
+    with patch.dict(os.environ, {"EVR_INPUT_SOURCE": "spreadsheet"}, clear=True):
+        main_refactored.main()
+
+    mock_orchestrator_cls.assert_not_called()
+    mock_print.assert_called_once()
+    assert "only supports 'db'" in str(mock_print.call_args.args[0])
 
 
 @patch("builtins.input", return_value="blackBolt")

@@ -73,6 +73,20 @@ def test_transform_emits_expected_dataframe_shape_and_scalars():
             "pack": {"latest_price": {"market_price": 6.25}},
             "etb": {"latest_price": {"market_price": 54.99}},
             "promo": {"latest_price": {"market_price": 3.10}},
+            "booster_box": {"latest_price": {"market_price": 180.0}},
+        },
+        "sealed_variants": {
+            "etb": {
+                "standard": {"latest_price": {"market_price": 54.99}},
+                "pokemon_center": {"latest_price": {"market_price": 79.99}},
+            },
+            "promo": {
+                "standard": {"latest_price": {"market_price": 3.10}},
+                "pokemon_center": {"latest_price": {"market_price": 14.25}},
+            },
+            "booster_box": {
+                "standard": {"latest_price": {"market_price": 180.0}},
+            },
         },
     }
 
@@ -80,29 +94,42 @@ def test_transform_emits_expected_dataframe_shape_and_scalars():
     transformed = transformer.transform(payload, MockConfig())
 
     assert set(transformed.keys()) == {"card_rows", "sealed_prices", "diagnostics"}
-    assert transformed["sealed_prices"] == {
-        "pack_price": 6.25,
-        "etb_price": 54.99,
-        "etb_promo_card_price": 3.10,
+    assert transformed["sealed_prices"]["pack_price"] == 6.25
+    assert transformed["sealed_prices"]["etb_price"] == 54.99
+    assert transformed["sealed_prices"]["etb_promo_card_price"] == 3.10
+    assert transformed["sealed_prices"]["booster_box_price"] == 180.0
+    assert transformed["sealed_prices"]["etb_variants"] == {
+        "standard": {"etb_price": 54.99, "etb_promo_card_price": 3.10},
+        "pokemon_center": {"etb_price": 79.99, "etb_promo_card_price": 14.25},
     }
 
     card_rows = transformed["card_rows"]
     assert card_rows == [
         {
+            "card_id": None,
             "card_name": "Common A",
             "card_number": "",
+            "card_variant_id": 100,
+            "condition_id": None,
             "rarity": "common",
             "special_type": "",
             "market_price": 0.11,
+            "price_source": "unknown",
+            "captured_at": None,
             "pull_rate_one_in_x": 40.0,
             "reverse_market_price": 0.11,
         },
         {
+            "card_id": None,
             "card_name": "Rare A",
             "card_number": "",
+            "card_variant_id": 101,
+            "condition_id": None,
             "rarity": "rare",
             "special_type": "ex",
             "market_price": 1.35,
+            "price_source": "unknown",
+            "captured_at": None,
             "pull_rate_one_in_x": 16.0,
             "reverse_market_price": 1.35,
         },
@@ -115,13 +142,18 @@ def test_transform_emits_expected_dataframe_shape_and_scalars():
         "Card Name",
         "Card Number",
         "Rarity",
-        "Special Type",
         "Price ($)",
         "Pull Rate (1/X)",
         "Reverse Variant Price ($)",
         "Pack Price",
+        "Special Type",
         "ETB Price",
         "ETB Promo Card Price",
+        "card_id",
+        "card_variant_id",
+        "condition_id",
+        "price_source",
+        "captured_at",
     ]
 
     assert len(df) == 2
@@ -132,10 +164,16 @@ def test_transform_emits_expected_dataframe_shape_and_scalars():
     assert df["Pack Price"].tolist() == [6.25, 6.25]
     assert df["ETB Price"].tolist() == [54.99, 54.99]
     assert df["ETB Promo Card Price"].tolist() == [3.10, 3.10]
+    assert df["card_variant_id"].tolist() == [100, 101]
+    assert df["price_source"].tolist() == ["unknown", "unknown"]
 
     assert compat["pack_price"] == 6.25
     assert compat["etb_price"] == 54.99
     assert compat["etb_promo_card_price"] == 3.10
+    assert compat["booster_box_price"] == 180.0
+    assert compat["etb_variants"]["standard"]["etb_price"] == 54.99
+    assert compat["etb_variants"]["pokemon_center"]["etb_promo_card_price"] == 14.25
+    assert compat["booster_box_variants"]["standard"]["booster_box_price"] == 180.0
 
     diagnostics = transformed["diagnostics"]
     assert diagnostics["source_card_rows"] == 4

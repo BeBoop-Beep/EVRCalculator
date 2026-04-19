@@ -51,7 +51,7 @@ def pools():
     reverse = pd.DataFrame(
         {
             "Card Name": ["Reverse A", "Reverse B", "Reverse C", "Reverse D"],
-            "EV_Reverse": [0.35, 0.40, 0.28, 0.32],
+            "Reverse Variant Price ($)": [0.35, 0.40, 0.28, 0.32],
         }
     )
     hit = pd.DataFrame(

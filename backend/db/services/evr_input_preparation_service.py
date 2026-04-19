@@ -8,6 +8,8 @@ from backend.db.services.evr_input_transformer import EVRInputTransformer
 class EVRInputPreparationService:
     """Service boundary for DB-backed EVR input preparation and diagnostics."""
 
+    REQUIRED_REVERSE_PRICE_COLUMN = "Reverse Variant Price ($)"
+
     def __init__(self, repository: EVRInputRepository | None = None, transformer: EVRInputTransformer | None = None):
         self.repository = repository or EVRInputRepository()
         self.transformer = transformer or EVRInputTransformer()
@@ -54,6 +56,12 @@ class EVRInputPreparationService:
 
     def _validate_required_inputs(self, transformed_payload: Dict[str, Any], set_name: str) -> None:
         dataframe = transformed_payload["dataframe"]
+
+        if self.REQUIRED_REVERSE_PRICE_COLUMN not in dataframe.columns:
+            raise ValueError(
+                f"DB input missing required reverse price column '{self.REQUIRED_REVERSE_PRICE_COLUMN}' "
+                f"for set '{set_name}'."
+            )
 
         if transformed_payload.get("pack_price") is None:
             raise ValueError(

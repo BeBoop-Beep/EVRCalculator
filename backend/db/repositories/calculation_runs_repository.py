@@ -2,10 +2,46 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.db.clients.supabase_client import supabase
+
+
+DERIVED_METRIC_FIELDS: List[str] = [
+    "hit_ev",
+    "non_hit_ev",
+    "hit_ev_share",
+    "hit_cards_tracked",
+    "cards_tracked",
+    "total_card_ev",
+    "top1_ev_share",
+    "top3_ev_share",
+    "top5_ev_share",
+    "index_score",
+    "profit_component",
+    "stability_component",
+    "diversification_component",
+]
+
+COMPARISON_METRIC_FIELDS: List[str] = [
+    "simulated_mean_pack_value_vs_pack_cost",
+    "simulated_median_pack_value_vs_pack_cost",
+    "calculated_expected_pack_value_vs_pack_cost",
+    "simulated_mean_etb_value_vs_etb_cost",
+    "simulated_median_etb_value_vs_etb_cost",
+    "calculated_expected_etb_value_vs_etb_cost",
+    "simulated_mean_booster_box_value_vs_booster_box_cost",
+    "simulated_median_booster_box_value_vs_booster_box_cost",
+    "calculated_expected_booster_box_value_vs_booster_box_cost",
+]
+
+ETB_COMPARISON_METRIC_FIELDS = {
+    "simulated_mean_etb_value_vs_etb_cost",
+    "simulated_median_etb_value_vs_etb_cost",
+    "calculated_expected_etb_value_vs_etb_cost",
+}
 
 
 def _to_jsonable(value: Any) -> Any:
@@ -70,6 +106,46 @@ def _insert_required_payload(table_name: str, payload: Dict[str, Any], context: 
     raise RuntimeError(
         f"{context} failed for table '{table_name}': insert returned no row. payload_keys={sorted(payload.keys())}"
     )
+
+
+def _select_rows_with_candidates(
+    *,
+    table_name: str,
+    select_candidates: List[str],
+    filters: Optional[List[Tuple[str, str, Any]]] = None,
+    order_by: Optional[Tuple[str, bool]] = None,
+    limit: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    last_error: Optional[Exception] = None
+
+    for select_clause in select_candidates:
+        try:
+            query = supabase.table(table_name).select(select_clause)
+
+            for operator, column, value in filters or []:
+                if operator == "eq":
+                    query = query.eq(column, value)
+                else:
+                    raise ValueError(f"Unsupported filter operator: {operator}")
+
+            if order_by:
+                column, desc = order_by
+                query = query.order(column, desc=desc)
+            if limit:
+                query = query.limit(limit)
+
+            response = query.execute()
+            rows = response.data if response and response.data else []
+            return rows if isinstance(rows, list) else []
+        except Exception as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise RuntimeError(
+            f"Failed to query '{table_name}' with select candidates: {select_candidates}"
+        ) from last_error
+
+    return []
 
 
 def _require_present(value: Any, field_name: str) -> Any:
@@ -152,6 +228,7 @@ def create_parent_calculation_run(
     valuation_method: str,
     notes: str,
     engine_version: str,
+    comparison_metrics: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create one parent run row for a solve."""
     _require_present(config_id, "calculation_config_id")
@@ -161,16 +238,51 @@ def create_parent_calculation_run(
     _require_present(notes, "notes")
     _require_present(engine_version, "engine_version")
 
+    payload: Dict[str, Any] = {
+        "target_type": str(target_type),
+        "target_id": str(target_id),
+        "calculation_config_id": config_id,
+        "valuation_method": str(valuation_method),
+        "notes": str(notes),
+        "engine_version": str(engine_version),
+    }
+
+    if comparison_metrics is not None:
+        payload.update(
+            {
+                "simulated_mean_pack_value_vs_pack_cost": _coerce_optional_float(
+                    comparison_metrics.get("simulated_mean_pack_value_vs_pack_cost")
+                ),
+                "simulated_median_pack_value_vs_pack_cost": _coerce_optional_float(
+                    comparison_metrics.get("simulated_median_pack_value_vs_pack_cost")
+                ),
+                "calculated_expected_pack_value_vs_pack_cost": _coerce_optional_float(
+                    comparison_metrics.get("calculated_expected_pack_value_vs_pack_cost")
+                ),
+                "simulated_mean_etb_value_vs_etb_cost": _coerce_optional_float(
+                    comparison_metrics.get("simulated_mean_etb_value_vs_etb_cost")
+                ),
+                "simulated_median_etb_value_vs_etb_cost": _coerce_optional_float(
+                    comparison_metrics.get("simulated_median_etb_value_vs_etb_cost")
+                ),
+                "calculated_expected_etb_value_vs_etb_cost": _coerce_optional_float(
+                    comparison_metrics.get("calculated_expected_etb_value_vs_etb_cost")
+                ),
+                "simulated_mean_booster_box_value_vs_booster_box_cost": _coerce_optional_float(
+                    comparison_metrics.get("simulated_mean_booster_box_value_vs_booster_box_cost")
+                ),
+                "simulated_median_booster_box_value_vs_booster_box_cost": _coerce_optional_float(
+                    comparison_metrics.get("simulated_median_booster_box_value_vs_booster_box_cost")
+                ),
+                "calculated_expected_booster_box_value_vs_booster_box_cost": _coerce_optional_float(
+                    comparison_metrics.get("calculated_expected_booster_box_value_vs_booster_box_cost")
+                ),
+            }
+        )
+
     inserted = _insert_required_payload(
         "calculation_runs",
-        {
-            "target_type": str(target_type),
-            "target_id": str(target_id),
-            "calculation_config_id": config_id,
-            "valuation_method": str(valuation_method),
-            "notes": str(notes),
-            "engine_version": str(engine_version),
-        },
+        payload,
         "Parent run insert",
     )
     if not inserted.get("id"):
@@ -238,6 +350,12 @@ def _parse_percentile_rank(label: str) -> Optional[float]:
     normalized = (label or "").strip().lower()
     if not normalized:
         return None
+    match = re.match(r"^([0-9]+(?:\.[0-9]+)?)", normalized)
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
     cleaned = normalized.replace("th", "").replace("st", "").replace("nd", "").replace("rd", "")
     try:
         return float(cleaned)
@@ -660,3 +778,73 @@ def create_simulation_etb_summary(run_id: Any, etb_metrics: Mapping[str, Any]) -
         mapped,
         "Simulation ETB summary insert",
     )
+
+
+def get_latest_run_snapshot_for_target(target_type: str, target_id: str) -> Optional[Dict[str, Any]]:
+    """Return latest run snapshot with explicit comparison and derived fields.
+
+    This read path is intentionally explicit to keep backend/frontend consumers
+    resilient to schema drift while surfacing all persisted EVR comparison and
+    derived metrics.
+    """
+    run_rows = _select_rows_with_candidates(
+        table_name="calculation_runs",
+        select_candidates=[
+            "id,created_at,target_type,target_id,valuation_method,engine_version,"
+            + ",".join(COMPARISON_METRIC_FIELDS),
+            "id,created_at,target_type,target_id,valuation_method,engine_version",
+        ],
+        filters=[("eq", "target_type", str(target_type)), ("eq", "target_id", str(target_id))],
+        order_by=("created_at", True),
+        limit=1,
+    )
+    if not run_rows:
+        return None
+
+    run_row = dict(run_rows[0])
+    run_id = run_row.get("id")
+    if not run_id:
+        return None
+
+    derived_rows = _select_rows_with_candidates(
+        table_name="simulation_derived_metrics",
+        select_candidates=[
+            "calculation_run_id," + ",".join(DERIVED_METRIC_FIELDS),
+            "calculation_run_id",
+        ],
+        filters=[("eq", "calculation_run_id", run_id)],
+        limit=1,
+    )
+
+    summary_rows = _select_rows_with_candidates(
+        table_name="simulation_run_summary",
+        select_candidates=[
+            "calculation_run_id,simulation_count,pack_cost,mean_value,median_value,min_value,max_value,std_dev,"
+            "coefficient_of_variation,total_ev,net_value,roi,roi_percent,prob_profit,prob_big_hit,big_hit_threshold,"
+            "expected_loss_when_losing,median_loss_when_losing,expected_loss_per_pack,tail_value_p05",
+            "calculation_run_id,simulation_count,pack_cost,total_ev,net_value,roi,roi_percent",
+            "calculation_run_id",
+        ],
+        filters=[("eq", "calculation_run_id", run_id)],
+        limit=1,
+    )
+
+    derived_row = derived_rows[0] if derived_rows else {}
+    summary_row = summary_rows[0] if summary_rows else {}
+
+    for field in ETB_COMPARISON_METRIC_FIELDS:
+        if field in run_row:
+            run_row[field] = None
+
+    comparison_metrics: Dict[str, Any] = {
+        field: None if field in ETB_COMPARISON_METRIC_FIELDS else run_row.get(field)
+        for field in COMPARISON_METRIC_FIELDS
+    }
+    derived_metrics: Dict[str, Any] = {field: derived_row.get(field) for field in DERIVED_METRIC_FIELDS}
+
+    return {
+        "run": run_row,
+        "comparison_metrics": comparison_metrics,
+        "derived_metrics": derived_metrics,
+        "simulation_summary": summary_row,
+    }

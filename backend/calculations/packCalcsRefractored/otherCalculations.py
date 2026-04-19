@@ -3,6 +3,7 @@ import numpy as np
 import os
 
 from .evrCalculator import PackEVCalculator
+from backend.calculations.utils.reverse_pool import build_reverse_eligible_pool, get_regular_reverse_probability
 
 class PackCalculations(PackEVCalculator):
     """Complete pack EV calculator with all metrics"""
@@ -155,30 +156,31 @@ class PackCalculations(PackEVCalculator):
             Calculate variance for reverse slots with proper replacement modeling.
             Each slot is independent, within each slot we have a multinomial draw.
             """
-            if 'EV_Reverse' not in df.columns or not reverse_config:
+            if not reverse_config:
                 return 0.0
+
+            reverse_cards = build_reverse_eligible_pool(self.config, df)
             
             total_variance = 0.0
             
             for slot_name, slot_outcomes in reverse_config.items():
-                # Verify slot probabilities sum to 1
-                slot_prob_sum = sum(slot_outcomes.values())
-                if not np.isclose(slot_prob_sum, 1.0, rtol=1e-6):
-                    print(f"Warning: {slot_name} probabilities sum to {slot_prob_sum:.6f}, not 1.0")
+                regular_reverse_probability = get_regular_reverse_probability(slot_name, slot_outcomes)
                 
                 slot_variance = 0.0
                 slot_outcomes_list = []
                 
                 for outcome_type, probability in slot_outcomes.items():
                     if outcome_type == "regular reverse":
-                        # Regular reverse cards
-                        reverse_cards = df[df['EV_Reverse'] > 0]
+                        if regular_reverse_probability > 0 and reverse_cards.empty:
+                            raise ValueError(
+                                f"Reverse slot '{slot_name}' has regular reverse probability {regular_reverse_probability} "
+                                "but the eligible reverse pool is empty."
+                            )
                         if not reverse_cards.empty:
                             num_reverse = len(reverse_cards)
                             for _, card in reverse_cards.iterrows():
                                 card_prob = probability / num_reverse
-                                reverse_price = card['Reverse Variant Price ($)'] if 'Reverse Variant Price ($)' in card else card['Price ($)']
-                                slot_outcomes_list.append((card_prob, reverse_price))
+                                slot_outcomes_list.append((card_prob, card['Reverse Variant Price ($)']))
                     
                     elif outcome_type in ["illustration rare", "special illustration rare", "ace spec", "poke ball pattern", "master ball pattern"]:
                         # Special cards that can appear in reverse slot
@@ -233,7 +235,8 @@ class PackCalculations(PackEVCalculator):
             hit_cards, 
             getattr(self.config, 'RARE_SLOT_PROBABILITY', {})
         )
-        print(f"Reverse cards count: {len(df[df['EV_Reverse'] > 0])}")
+        reverse_cards = build_reverse_eligible_pool(self.config, df)
+        print(f"Reverse cards count: {len(reverse_cards)}")
 
         # 3. Reverse slots with special replacements - ALREADY CORRECT
         reverse_variance = calculate_reverse_slot_variance(

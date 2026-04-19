@@ -23,6 +23,19 @@ class BaseSetConfig:
         "rare": 1,
     }
 
+    PRODUCT_VARIANT_RULES = {
+        "etb": {
+            "standard": {
+                "packs_per_product": 9,
+            },
+        },
+        "booster_box": {
+            "standard": {
+                "packs_per_product": 36,
+            },
+        },
+    }
+
     @classmethod
     def validate(cls):
         required_attrs = ["SET_NAME", "PULL_RATE_MAPPING", "SEALED_DETAILS_URL"]

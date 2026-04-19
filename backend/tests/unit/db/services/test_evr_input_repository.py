@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from backend.db.services.evr_input_repository import EVRInputRepository
 
 
@@ -92,10 +94,26 @@ def test_load_inputs_returns_structured_payload_with_diagnostics(
         {"id": 201, "set_id": "set-1", "name": "Base Booster Pack", "product_type": "Pack"},
         {"id": 202, "set_id": "set-1", "name": "Base Elite Trainer Box", "product_type": "ETB"},
         {"id": 203, "set_id": "set-1", "name": "Base ETB Promo Card", "product_type": "Promo"},
+        {
+            "id": 204,
+            "set_id": "set-1",
+            "name": "Base Pokemon Center Elite Trainer Box",
+            "product_type": "ETB",
+        },
+        {
+            "id": 205,
+            "set_id": "set-1",
+            "name": "Base Pokemon Center ETB Promo Card",
+            "product_type": "Promo",
+        },
+        {"id": 206, "set_id": "set-1", "name": "Base Booster Box", "product_type": "Booster Box"},
     ]
     mock_get_latest_sealed_prices.return_value = [
         {"sealed_product_id": 201, "market_price": 6.0},
         {"sealed_product_id": 202, "market_price": 55.0},
+        {"sealed_product_id": 204, "market_price": 89.0},
+        {"sealed_product_id": 205, "market_price": 11.5},
+        {"sealed_product_id": 206, "market_price": 180.0},
     ]
 
     service = EVRInputRepository()
@@ -109,9 +127,69 @@ def test_load_inputs_returns_structured_payload_with_diagnostics(
     assert result["diagnostics"]["pack_price_resolution_status"] == "priced"
     assert result["diagnostics"]["etb_price_resolution_status"] == "priced"
     assert result["diagnostics"]["promo_price_resolution_status"] == "missing_price"
+    assert result["diagnostics"]["booster_box_price_resolution_status"] == "priced"
 
     assert result["sealed"]["pack"]["sealed_product"]["id"] == 201
     assert result["sealed"]["etb"]["sealed_product"]["id"] == 202
     assert result["sealed"]["promo"]["sealed_product"]["id"] == 203
+    assert result["sealed"]["booster_box"]["sealed_product"]["id"] == 206
+
+    assert result["sealed_variants"]["etb"]["standard"]["resolved"]["sealed_product"]["id"] == 202
+    assert result["sealed_variants"]["etb"]["pokemon_center"]["resolved"]["sealed_product"]["id"] == 204
+    assert result["sealed_variants"]["promo"]["standard"]["resolved"]["sealed_product"]["id"] == 203
+    assert result["sealed_variants"]["promo"]["pokemon_center"]["resolved"]["sealed_product"]["id"] == 205
+    assert result["sealed_variants"]["booster_box"]["standard"]["resolved"]["sealed_product"]["id"] == 206
+    assert result["sealed_variants"]["booster_box"]["pokemon_center"]["resolved"] is None
     assert result["cards"][0]["variants"][0]["special_type"] == "ex"
     assert result["cards"][2]["variants"][0]["special_type"] is None
+
+
+def test_resolve_pack_target_selects_only_surging_sparks_booster_pack_for_pack_price():
+    service = EVRInputRepository()
+    sealed_rows = [
+        {"id": 301, "name": "Surging Sparks Booster Pack", "product_type": "Pack"},
+        {"id": 302, "name": "Surging Sparks 3 Pack Blisters", "product_type": "Pack"},
+        {"id": 303, "name": "Surging Sparks Booster Bundle", "product_type": "Pack"},
+        {"id": 304, "name": "Surging Sparks Booster Box", "product_type": "Pack"},
+    ]
+    latest = {
+        301: {
+            "sealed_product_id": 301,
+            "market_price": 6.5,
+            "source": "TCGPlayer",
+            "captured_at": "2026-04-18T00:00:00+00:00",
+        },
+        302: {"sealed_product_id": 302, "market_price": 16.0},
+        303: {"sealed_product_id": 303, "market_price": 29.0},
+        304: {"sealed_product_id": 304, "market_price": 172.0},
+    }
+
+    resolved = service._resolve_single_sealed_target(sealed_rows, latest, "pack")
+
+    assert resolved["status"] == "priced"
+    assert resolved["resolved"]["sealed_product"]["id"] == 301
+    assert resolved["resolved"]["sealed_product"]["name"] == "Surging Sparks Booster Pack"
+    assert resolved["resolved"]["latest_price"]["sealed_product_id"] == 301
+
+
+def test_resolve_pack_target_raises_when_multiple_canonical_single_pack_rows_exist():
+    service = EVRInputRepository()
+    sealed_rows = [
+        {"id": 401, "name": "Base Booster Pack", "product_type": "Pack"},
+        {"id": 402, "name": "Base Booster Pack (Alt Listing)", "product_type": "Booster Pack"},
+    ]
+
+    with pytest.raises(ValueError, match="PACK target ambiguous"):
+        service._resolve_single_sealed_target(sealed_rows, {}, "pack")
+
+
+def test_resolve_pack_target_raises_when_no_canonical_single_pack_row_exists():
+    service = EVRInputRepository()
+    sealed_rows = [
+        {"id": 501, "name": "Base 3 Pack Blister", "product_type": "Pack"},
+        {"id": 502, "name": "Base Sleeved Booster Pack", "product_type": "Pack"},
+        {"id": 503, "name": "Base Booster Bundle", "product_type": "Bundle"},
+    ]
+
+    with pytest.raises(ValueError, match="PACK target missing canonical single booster pack row"):
+        service._resolve_single_sealed_target(sealed_rows, {}, "pack")

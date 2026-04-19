@@ -224,8 +224,28 @@ class PackCalculationOrchestrator(PackCalculations):
         # # Calculate variance and stddev
         # card_metrics = self.calculate_variance_and_stddev(df)
 
-        # Assuming df is your DataFrame with card data
-        top_10_hits = df.sort_values(by="Price ($)", ascending=False)[["Card Name", "Price ($)", "Effective_Pull_Rate"]].head(10)
+        top_10_hits = df.sort_values(by="Price ($)", ascending=False).head(10).copy()
+        top_10_hits["rank"] = range(1, len(top_10_hits) + 1)
+        top_10_hits = top_10_hits.reindex(
+            columns=[
+                "card_id",
+                "card_variant_id",
+                "rank",
+                "Card Name",
+                "rarity_group",
+                "Price ($)",
+                "Effective_Pull_Rate",
+                "EV",
+            ]
+        ).rename(
+            columns={
+                "Card Name": "card_name",
+                "rarity_group": "rarity_bucket",
+                "Price ($)": "market_price_at_run",
+                "Effective_Pull_Rate": "effective_pull_rate",
+                "EV": "ev_contribution",
+            }
+        )
         print(top_10_hits)
 
         # Compile results

@@ -35,7 +35,7 @@ def run_simulation(
         "percentiles": {
             "5th": np.percentile(results_array, 5),
             "25th": np.percentile(results_array, 25),
-            "50th (median)": np.percentile(results_array, 50),
+            "50th": np.percentile(results_array, 50),
             "75th": np.percentile(results_array, 75),
             "90th": np.percentile(results_array, 90),
             "95th": np.percentile(results_array, 95),
@@ -160,7 +160,8 @@ def print_simulation_summary(sim_results, n_simulations=100000):
 
     print("Percentiles:")
     for perc_label, perc_val in sim_results['percentiles'].items():
-        print(f"  {perc_label}:       ${perc_val:.2f}")
+        display_label = "50th (median)" if perc_label == "50th" else perc_label
+        print(f"  {display_label}:       ${perc_val:.2f}")
 
     print("-" * 50)
 

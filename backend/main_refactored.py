@@ -10,8 +10,12 @@ if repo_root not in sys.path:
 
 
 def _get_input_source() -> str:
-    input_source = os.getenv("EVR_INPUT_SOURCE", "spreadsheet").strip().lower()
-    return input_source if input_source in {"db", "spreadsheet"} else "spreadsheet"
+    input_source = os.getenv("EVR_INPUT_SOURCE", "db").strip().lower()
+    if input_source != "db":
+        raise ValueError(
+            "EVR_INPUT_SOURCE only supports 'db' in the active backend runtime."
+        )
+    return input_source
 
 
 def main() -> None:

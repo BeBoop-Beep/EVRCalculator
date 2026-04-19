@@ -483,7 +483,7 @@ def sample_cards_for_slot_outcomes(
         if slot_name == "rare" and rarity == "rare":
             value, card_name = _sample_single_value(rare_cards, "Price ($)", rng)
         elif rarity == "regular reverse":
-            value, card_name = _sample_single_value(reverse_pool, "EV_Reverse", rng)
+            value, card_name = _sample_single_value(reverse_pool, "Reverse Variant Price ($)", rng)
         else:
             eligible = hit_cards[
                 hit_cards.get("Rarity", pd.Series(dtype=str)).astype(str).str.strip().str.lower() == rarity
@@ -678,7 +678,7 @@ def run_simulation_v2(
         "percentiles": {
             "5th": float(np.percentile(results_array, 5)),
             "25th": float(np.percentile(results_array, 25)),
-            "50th (median)": float(np.percentile(results_array, 50)),
+            "50th": float(np.percentile(results_array, 50)),
             "75th": float(np.percentile(results_array, 75)),
             "90th": float(np.percentile(results_array, 90)),
             "95th": float(np.percentile(results_array, 95)),
@@ -704,7 +704,8 @@ def print_simulation_summary_v2(sim_results: Mapping[str, object], n_simulations
 
     print("Percentiles:")
     for perc_label, perc_val in sim_results["percentiles"].items():
-        print(f"  {perc_label}:       ${perc_val:.2f}")
+        display_label = "50th (median)" if perc_label == "50th" else perc_label
+        print(f"  {display_label}:       ${perc_val:.2f}")
 
     print("-" * 50)
     print("\n=== Pull Summary by Rarity (All Slots) ===")
