@@ -334,20 +334,120 @@ def test_black_bolt_and_white_flare_bwr_in_rare_slot():
 # Requirement 6: BB/WF BWR probability derived from config slot data
 # ---------------------------------------------------------------------------
 
-def test_black_bolt_bwr_probability_derived_from_rare_slot_config():
-    """black_white_rare_only probability equals P(BWR in rare slot) × P(reg slot_1) × P(reg slot_2)."""
-    from backend.constants.tcg.pokemon.scarletAndVioletEra.blackBolt import SetBlackBoltConfig as BB
+@pytest.mark.parametrize(
+    "cfg",
+    [SetBlackBoltConfig, SetWhiteFlareConfig],
+    ids=["black_bolt", "white_flare"],
+)
+def test_bwr_named_state_probability_includes_forbidden_reverse2_demotions(cfg):
+    """BB/WF BWR state includes conditional reverse_2 demotions under exclusion rules.
 
-    model = resolve_pack_state_model(BB)
+    For Black Bolt / White Flare, when rare is BWR, reverse_2 outcomes of
+    illustration rare and special illustration rare are forbidden and demoted
+    to regular reverse. Under current coercion ordering, SIR is handled by
+    exclusive-hit logic earlier, while IR contributes additional demoted mass.
+    """
+    model = resolve_pack_state_model(cfg)
+    p_bwr   = cfg.RARE_SLOT_PROBABILITY["black white rare"]
+    p_s1_reg = cfg.REVERSE_SLOT_PROBABILITIES["slot_1"].get("regular reverse", 0.0)
+    p_s1_nonreg = sum(
+        p
+        for rarity, p in cfg.REVERSE_SLOT_PROBABILITIES["slot_1"].items()
+        if rarity != "regular reverse"
+    )
+    p_s2_reg = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("regular reverse", 0.0)
+    p_s2_ir = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("illustration rare", 0.0)
 
-    p_bwr = BB.RARE_SLOT_PROBABILITY["black white rare"]
-    p_s1_reg = BB.REVERSE_SLOT_PROBABILITIES["slot_1"].get("regular reverse", 0.0)
-    p_s2_reg = BB.REVERSE_SLOT_PROBABILITIES["slot_2"].get("regular reverse", 0.0)
-
-    # BWR has no exclusive hit → no Rule 1 collapse; (bwr, reg, reg) is the only
-    # raw combination that maps to black_white_rare_only
-    expected = p_bwr * p_s1_reg * p_s2_reg
+    expected = p_bwr * (p_s1_reg * (p_s2_reg + p_s2_ir) + p_s1_nonreg * p_s2_ir)
     assert pytest.approx(expected, abs=1e-9) == model["state_probabilities"]["black_white_rare_only"]
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [SetWhiteFlareConfig],
+    ids=["white_flare"],
+)
+def test_illustration_rare_and_ultra_rare_coexistence_is_legal(cfg):
+    """ultra rare + illustration rare is a reachable legal state for White Flare.
+
+    # Confirmed legal state per SV era pack-opening review: ultra rare + illustration rare can coexist.
+    """
+    model = resolve_pack_state_model(cfg)
+
+    has_legal_combo = any(
+        slot_outcomes["rare"] == "ultra rare"
+        and slot_outcomes["reverse_2"] == "illustration rare"
+        and model["state_probabilities"].get(state_name, 0.0) > 0.0
+        for state_name, slot_outcomes in model["state_outcomes"].items()
+    )
+
+    assert has_legal_combo, (
+        "Expected at least one state with rare='ultra rare' and reverse_2='illustration rare' "
+        "but none was found in the White Flare model."
+    )
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [SetBlackBoltConfig, SetWhiteFlareConfig],
+    ids=["black_bolt", "white_flare"],
+)
+@pytest.mark.parametrize(
+    "forbidden_reverse_2",
+    ["illustration rare", "special illustration rare"],
+    ids=["ir", "sir"],
+)
+def test_bwr_conditional_exclusion_blocks_forbidden_reverse_2_outcomes(cfg, forbidden_reverse_2):
+    """Guardrail: BB/WF must not resolve to BWR with forbidden reverse_2 rarities."""
+    model = resolve_pack_state_model(cfg)
+
+    has_forbidden_resolved_state = any(
+        slot_outcomes["rare"] == "black white rare"
+        and slot_outcomes["reverse_2"] == forbidden_reverse_2
+        and model["state_probabilities"].get(state_name, 0.0) > 0.0
+        for state_name, slot_outcomes in model["state_outcomes"].items()
+    )
+
+    assert not has_forbidden_resolved_state
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [SetBlackBoltConfig, SetWhiteFlareConfig],
+    ids=["black_bolt", "white_flare"],
+)
+def test_bwr_does_not_suppress_master_ball_reverse_1_when_slot_prob_allows(cfg):
+    """Guardrail: BWR + master ball in reverse_1 remains reachable if slot probabilities allow it."""
+    model = resolve_pack_state_model(cfg)
+
+    has_reachable_bwr_master_ball = any(
+        slot_outcomes["rare"] == "black white rare"
+        and slot_outcomes["reverse_1"] == "master ball pattern"
+        and model["state_probabilities"].get(state_name, 0.0) > 0.0
+        for state_name, slot_outcomes in model["state_outcomes"].items()
+    )
+
+    assert has_reachable_bwr_master_ball
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [SetBlackBoltConfig, SetWhiteFlareConfig],
+    ids=["black_bolt", "white_flare"],
+)
+def test_non_bwr_premium_reverse2_state_remains_reachable(cfg):
+    """Guardrail: constraints should not eliminate all premium reverse_2 outcomes."""
+    model = resolve_pack_state_model(cfg)
+    premium_reverse_2 = {"illustration rare", "special illustration rare"}
+
+    has_reachable_non_bwr_premium = any(
+        slot_outcomes["rare"] != "black white rare"
+        and slot_outcomes["reverse_2"] in premium_reverse_2
+        and model["state_probabilities"].get(state_name, 0.0) > 0.0
+        for state_name, slot_outcomes in model["state_outcomes"].items()
+    )
+
+    assert has_reachable_non_bwr_premium
 
 
 # ---------------------------------------------------------------------------
@@ -603,3 +703,99 @@ def test_duplicate_state_shape_in_era_registry_fails_loudly(monkeypatch):
 
     with pytest.raises(ValueError, match="Duplicate state-outcome shape"):
         build_scarlet_and_violet_pack_state_model(NoOverride)
+
+
+def test_no_conditional_exclusions_key_keeps_expected_baseline_resolution():
+    class NoConditionalRules:
+        ERA = "Scarlet and Violet"
+        RARE_SLOT_PROBABILITY = {"rare": 1.0}
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {"regular reverse": 1.0},
+            "slot_2": {"regular reverse": 0.75, "illustration rare": 0.25},
+        }
+
+    model = resolve_pack_state_model(NoConditionalRules)
+
+    assert model["state_probabilities"] == {
+        "baseline": 0.75,
+        "ir_plus_rare": 0.25,
+    }
+    assert model["state_outcomes"]["baseline"] == {
+        "rare": "rare",
+        "reverse_1": "regular reverse",
+        "reverse_2": "regular reverse",
+    }
+    assert model["state_outcomes"]["ir_plus_rare"] == {
+        "rare": "rare",
+        "reverse_1": "regular reverse",
+        "reverse_2": "illustration rare",
+    }
+
+
+def test_empty_conditional_exclusions_matches_key_omitted_model_exactly():
+    class OmittedConditionalRules:
+        ERA = "Scarlet and Violet"
+        RARE_SLOT_PROBABILITY = {"rare": 0.6, "double rare": 0.4}
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {"regular reverse": 1.0},
+            "slot_2": {"regular reverse": 0.8, "illustration rare": 0.2},
+        }
+
+    class EmptyConditionalRules(OmittedConditionalRules):
+        @staticmethod
+        def get_pack_state_overrides():
+            return {
+                "constraints": {
+                    "conditional_slot_exclusions": [],
+                },
+            }
+
+    omitted_model = resolve_pack_state_model(OmittedConditionalRules)
+    empty_model = resolve_pack_state_model(EmptyConditionalRules)
+
+    assert empty_model["state_probabilities"] == omitted_model["state_probabilities"]
+    assert empty_model["state_outcomes"] == omitted_model["state_outcomes"]
+    omitted_constraints = {
+        k: v
+        for k, v in omitted_model["constraints"].items()
+        if k != "conditional_slot_exclusions"
+    }
+    empty_constraints = {
+        k: v
+        for k, v in empty_model["constraints"].items()
+        if k != "conditional_slot_exclusions"
+    }
+    assert empty_constraints == omitted_constraints
+    assert empty_model["constraints"].get("conditional_slot_exclusions", []) == []
+
+
+def test_prismatic_has_no_conditional_exclusions_and_named_state_behaviour_unchanged():
+    model = resolve_pack_state_model(SetPrismaticEvolutionsConfig)
+
+    assert "conditional_slot_exclusions" not in model["constraints"]
+    assert model["state_outcomes"]["pattern_plus_double_rare"] == {
+        "rare": "double rare",
+        "reverse_1": "poke ball pattern",
+        "reverse_2": "regular reverse",
+    }
+    assert model["state_outcomes"]["ace_spec_plus_double_rare"] == {
+        "rare": "double rare",
+        "reverse_1": "ace spec rare",
+        "reverse_2": "regular reverse",
+    }
+    assert model["state_probabilities"]["pattern_plus_double_rare"] > 0.0
+    assert model["state_probabilities"]["ace_spec_plus_double_rare"] > 0.0
+
+
+def test_exclusive_hits_semantics_unchanged_without_conditional_rules_present():
+    class ExclusiveOnlyNoConditional:
+        ERA = "Scarlet and Violet"
+        RARE_SLOT_PROBABILITY = {"double rare": 1.0}
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {"ace spec rare": 1.0},
+            "slot_2": {"hyper rare": 1.0},
+        }
+
+    model = resolve_pack_state_model(ExclusiveOnlyNoConditional)
+    assert set(model["state_probabilities"].keys()) == {"hyper_only"}
+    assert pytest.approx(1.0, abs=1e-12) == model["state_probabilities"]["hyper_only"]

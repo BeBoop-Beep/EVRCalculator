@@ -94,6 +94,44 @@ def _auto_name(rare: str, r1: str, r2: str) -> str:
     return "_".join(parts) if parts else "baseline"
 
 
+def _normalize_conditional_slot_exclusions(constraints: Dict) -> list[Dict[str, Dict[str, object]]]:
+    raw_rules = constraints.get("conditional_slot_exclusions", ())
+    if not isinstance(raw_rules, list):
+        return []
+
+    normalized_rules: list[Dict[str, Dict[str, object]]] = []
+    for raw_rule in raw_rules:
+        if not isinstance(raw_rule, dict):
+            continue
+
+        condition = raw_rule.get("if", {})
+        forbid = raw_rule.get("forbid", {})
+        if not isinstance(condition, dict) or not isinstance(forbid, dict):
+            continue
+
+        normalized_condition = {
+            str(slot_name): normalize_rarity(str(rarity))
+            for slot_name, rarity in condition.items()
+        }
+
+        normalized_forbid: Dict[str, object] = {}
+        for slot_name, rarities in forbid.items():
+            if isinstance(rarities, str):
+                normalized_forbid[str(slot_name)] = (normalize_rarity(rarities),)
+                continue
+            if isinstance(rarities, list):
+                normalized_forbid[str(slot_name)] = tuple(normalize_rarity(str(r)) for r in rarities)
+
+        normalized_rules.append(
+            {
+                "if": normalized_condition,
+                "forbid": normalized_forbid,
+            }
+        )
+
+    return normalized_rules
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -136,6 +174,7 @@ def derive_pack_state_probabilities_from_slots(
         "max_exclusive_hits": int(constraints.get("max_exclusive_hits", 1)),
         "max_major_hits": int(constraints.get("max_major_hits", 2)),
         "max_non_regular_hits": int(constraints.get("max_non_regular_hits", 2)),
+        "conditional_slot_exclusions": _normalize_conditional_slot_exclusions(constraints),
     }
 
     slot_1_probs = reverse_slot_probabilities.get("slot_1", {_BASELINE_REVERSE: 1.0})

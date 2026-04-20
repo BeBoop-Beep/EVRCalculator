@@ -102,6 +102,51 @@ def contains_incompatible_hits(slot_outcomes: Mapping[str, str]) -> bool:
     )
 
 
+def _apply_conditional_slot_exclusions(
+    outcomes: MutableMapping[str, str], constraints: Mapping[str, object]
+) -> None:
+    raw_rules = constraints.get("conditional_slot_exclusions", ())
+    if not isinstance(raw_rules, Sequence) or isinstance(raw_rules, (str, bytes, bytearray)):
+        return
+
+    for raw_rule in raw_rules:
+        if not isinstance(raw_rule, Mapping):
+            continue
+
+        condition = raw_rule.get("if", {})
+        forbid = raw_rule.get("forbid", {})
+        if not isinstance(condition, Mapping) or not isinstance(forbid, Mapping):
+            continue
+
+        condition_matches = True
+        for slot_name, expected_rarity in condition.items():
+            slot_key = str(slot_name)
+            if slot_key not in outcomes:
+                condition_matches = False
+                break
+            if normalize_rarity(outcomes[slot_key]) != normalize_rarity(str(expected_rarity)):
+                condition_matches = False
+                break
+
+        if not condition_matches:
+            continue
+
+        for slot_name, forbidden_rarities in forbid.items():
+            slot_key = str(slot_name)
+            if slot_key not in outcomes:
+                continue
+
+            if isinstance(forbidden_rarities, str):
+                forbidden_values = {normalize_rarity(forbidden_rarities)}
+            elif isinstance(forbidden_rarities, Sequence):
+                forbidden_values = {normalize_rarity(str(r)) for r in forbidden_rarities}
+            else:
+                continue
+
+            if normalize_rarity(outcomes[slot_key]) in forbidden_values:
+                _set_slot_to_base(outcomes, slot_key)
+
+
 def coerce_slot_outcomes(
     slot_outcomes: Mapping[str, str], constraints: Mapping[str, object]
 ) -> Dict[str, str]:
@@ -175,5 +220,8 @@ def coerce_slot_outcomes(
             _set_slot_to_base(outcomes, "rare")
             continue
         break
+
+    # Rule 6 (opt-in): Conditional per-slot exclusions.
+    _apply_conditional_slot_exclusions(outcomes, constraints)
 
     return outcomes

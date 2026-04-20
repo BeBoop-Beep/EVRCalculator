@@ -48,13 +48,7 @@ def get_prismatic_evolutions_pack_state_overrides() -> Dict[str, object]:
 def get_black_bolt_pack_state_overrides() -> Dict[str, object]:
     """Structural overrides for Black Bolt.
 
-    Black Bolt includes ``black white rare`` in the rare slot
-    (RARE_SLOT_PROBABILITY contains ``black white rare: 1/496``).  Registering
-    ``black_white_rare_only`` here gives the derivation a canonical name for
-    the (black white rare, regular reverse, regular reverse) combination.
-
-    Probability of ``black_white_rare_only`` is derived directly from:
-        RARE_SLOT_PROBABILITY["black white rare"] × p(regular in slot_1) × p(regular in slot_2)
+    Includes initial targeted conditional exclusion; pending broader manual validation.
     """
     return {
         "state_outcomes": {
@@ -64,15 +58,23 @@ def get_black_bolt_pack_state_overrides() -> Dict[str, object]:
                 "reverse_2": "regular reverse",
             },
         },
+        "constraints": {
+            "conditional_slot_exclusions": [
+                {
+                    "if": {"rare": "black white rare"},
+                    "forbid": {
+                        "reverse_2": ["illustration rare", "special illustration rare"],
+                    },
+                },
+            ],
+        },
     }
 
 
 def get_white_flare_pack_state_overrides() -> Dict[str, object]:
     """Structural overrides for White Flare.
 
-    Identical structural signature to Black Bolt: ``black white rare`` appears
-    in the rare slot.  Probability derived from the White Flare config's own
-    RARE_SLOT_PROBABILITY table.
+    Includes initial targeted conditional exclusion; pending broader manual validation.
     """
     return {
         "state_outcomes": {
@@ -81,6 +83,16 @@ def get_white_flare_pack_state_overrides() -> Dict[str, object]:
                 "reverse_1": "regular reverse",
                 "reverse_2": "regular reverse",
             },
+        },
+        "constraints": {
+            "conditional_slot_exclusions": [
+                {
+                    "if": {"rare": "black white rare"},
+                    "forbid": {
+                        "reverse_2": ["illustration rare", "special illustration rare"],
+                    },
+                },
+            ],
         },
     }
 
