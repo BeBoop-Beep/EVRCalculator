@@ -2,11 +2,25 @@ import pandas as pd
 import pytest
 
 from backend.calculations.packCalcsRefractored.evrCalculator import PackEVCalculator
+from backend.calculations.packCalcsRefractored.otherCalculations import PackCalculations
+from backend.calculations.utils.reverse_pool import build_reverse_eligible_pool
 
 
 class _MockConfig:
+    RARITY_MAPPING = {
+        'common': 'common',
+        'uncommon': 'uncommon',
+        'rare': 'rare',
+        'illustration rare': 'hits',
+        'special illustration rare': 'hits',
+        'ace spec rare': 'hits',
+        'poke ball pattern': 'hits',
+        'master ball pattern': 'hits',
+    }
     PULL_RATE_MAPPING = {}
     RARE_SLOT_PROBABILITY = {'rare': 1.0}
+    GOD_PACK_CONFIG = {'enabled': False}
+    DEMI_GOD_PACK_CONFIG = {'enabled': False}
 
     def __init__(self, reverse_slot_probabilities, reverse_eligible_rarities):
         self.REVERSE_SLOT_PROBABILITIES = reverse_slot_probabilities
@@ -141,3 +155,110 @@ def test_reverse_ev_raises_for_invalid_slot_probability_sum():
 
     with pytest.raises(ValueError, match='must sum to 1.0'):
         calculator.calculate_reverse_ev_for_slot(df, 'slot_1')
+
+
+def test_reverse_pool_excludes_pattern_overlay_rows_via_classification_key_not_card_name():
+    config = _MockConfig(
+        reverse_slot_probabilities={
+            'slot_1': {'regular reverse': 1.0},
+            'slot_2': {'regular reverse': 1.0},
+        },
+        reverse_eligible_rarities=['common', 'rare'],
+    )
+
+    df = pd.DataFrame(
+        {
+            'Card Name': ['Plain Common', 'Pattern Classified'],
+            'Rarity': ['common', 'common'],
+            'rarity_key': ['common', 'common'],
+            'classification_key': ['common', 'pokeball_pattern'],
+            'Reverse Variant Price ($)': [1.0, 99.0],
+        }
+    )
+
+    reverse_pool = build_reverse_eligible_pool(config, df)
+
+    assert list(reverse_pool['Card Name']) == ['Plain Common']
+
+
+def test_weighted_pack_variance_matches_rare_slot_hits_using_normalized_rarity_fields():
+    config = _MockConfig(
+        reverse_slot_probabilities={
+            'slot_1': {'regular reverse': 0.0, 'illustration rare': 1.0},
+            'slot_2': {'regular reverse': 0.0, 'special illustration rare': 1.0},
+        },
+        reverse_eligible_rarities=['common', 'uncommon', 'rare'],
+    )
+    config.RARE_SLOT_PROBABILITY = {'rare': 0.5, 'special_illustration_rare': 0.5}
+    calculator = PackCalculations(config)
+
+    df = pd.DataFrame(
+        {
+            'Card Name': ['Rare A', 'SIR A', 'SIR B'],
+            'Rarity': [' Rare ', 'SPECIAL ILLUSTRATION RARE', ' special illustration rare '],
+            'rarity_raw': [' rare ', 'SPECIAL ILLUSTRATION RARE', ' special illustration rare '],
+            'rarity_key': ['rare', 'special_illustration_rare', 'special_illustration_rare'],
+            'Price ($)': [0.0, 10.0, 30.0],
+            'Reverse Variant Price ($)': [1.0, 1.0, 1.0],
+            'EV': [0.0, 0.0, 0.0],
+        }
+    )
+
+    metrics = calculator.calculate_weighted_pack_variance(df, ev_totals={}, total_ev=10.0)
+
+    assert metrics['variance_breakdown']['rare'] == pytest.approx(150.0)
+
+
+def test_weighted_pack_variance_resolves_pattern_reverse_specials_from_canonical_classification_key():
+    config = _MockConfig(
+        reverse_slot_probabilities={
+            'slot_1': {'regular reverse': 0.0, 'poke ball pattern': 1.0},
+            'slot_2': {'regular reverse': 0.0, 'special illustration rare': 1.0},
+        },
+        reverse_eligible_rarities=['common', 'uncommon', 'rare'],
+    )
+    calculator = PackCalculations(config)
+
+    df = pd.DataFrame(
+        {
+            'Card Name': ['Common Filler', 'Pattern Classified A', 'Pattern Classified B'],
+            'Rarity': ['common', 'common', 'common'],
+            'rarity_raw': ['common', 'common', 'common'],
+            'rarity_key': ['common', 'common', 'common'],
+            'classification_key': ['common', 'pokeball_pattern', 'pokeball_pattern'],
+            'Price ($)': [0.25, 10.0, 30.0],
+            'Reverse Variant Price ($)': [0.5, 0.5, 0.5],
+            'EV': [0.0, 0.0, 0.0],
+        }
+    )
+
+    metrics = calculator.calculate_weighted_pack_variance(df, ev_totals={}, total_ev=20.0)
+
+    assert metrics['variance_breakdown']['reverse'] == pytest.approx(100.0)
+
+
+def test_weighted_pack_variance_matches_reverse_special_outcomes_by_rarity_key_aliases():
+    config = _MockConfig(
+        reverse_slot_probabilities={
+            'slot_1': {'regular reverse': 0.0, 'ace_spec': 1.0},
+            'slot_2': {'regular reverse': 0.0, 'illustration rare': 1.0},
+        },
+        reverse_eligible_rarities=['common', 'uncommon', 'rare'],
+    )
+    calculator = PackCalculations(config)
+
+    df = pd.DataFrame(
+        {
+            'Card Name': ['Ace Spec A', 'Ace Spec B'],
+            'Rarity': ['ACE SPEC RARE', ' ace spec rare '],
+            'rarity_raw': ['ACE SPEC RARE', ' ace spec rare '],
+            'rarity_key': ['ace_spec_rare', 'ace_spec_rare'],
+            'Price ($)': [10.0, 30.0],
+            'Reverse Variant Price ($)': [1.0, 1.0],
+            'EV': [0.0, 0.0],
+        }
+    )
+
+    metrics = calculator.calculate_weighted_pack_variance(df, ev_totals={}, total_ev=20.0)
+
+    assert metrics['variance_breakdown']['reverse'] == pytest.approx(100.0)

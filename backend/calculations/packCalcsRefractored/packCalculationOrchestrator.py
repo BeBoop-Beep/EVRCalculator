@@ -1,4 +1,5 @@
 import pandas as pd
+from typing import Optional
 
 from .otherCalculations import PackCalculations
 from ..utils.rarity_classification import filter_card_ev_by_hits
@@ -6,6 +7,69 @@ from ..utils.rarity_classification import filter_card_ev_by_hits
 class PackCalculationOrchestrator(PackCalculations):
     def __init__(self, config):
         super().__init__(config)
+
+    _PATTERN_TOTAL_KEYS = {
+        "pokeball_pattern": ("pokeball_pattern", "poke_ball_pattern", "pokeball"),
+        "master_ball_pattern": ("master_ball_pattern", "master_ball"),
+    }
+
+    @staticmethod
+    def _get_ev_total(ev_totals_by_rarity: dict, *rarity_keys: str) -> float:
+        for rarity_key in rarity_keys:
+            if rarity_key in ev_totals_by_rarity:
+                return float(ev_totals_by_rarity.get(rarity_key, 0.0))
+        return 0.0
+
+    @staticmethod
+    def _derive_total_manual_ev(
+        ev_totals_by_rarity: dict,
+        god_pack_ev_contribution: float,
+        demi_god_pack_ev_contribution: float,
+    ) -> float:
+        regular_pack_total = sum(float(total) for total in ev_totals_by_rarity.values())
+        return float(regular_pack_total + god_pack_ev_contribution + demi_god_pack_ev_contribution)
+
+    def _build_manual_summary_data(
+        self,
+        ev_totals_by_rarity: dict,
+        regular_pack_contribution: float,
+        god_pack_ev_contribution: float,
+        demi_god_pack_ev_contribution: float,
+        total_manual_ev: Optional[float] = None,
+    ) -> dict:
+        derived_total_manual_ev = self._derive_total_manual_ev(
+            ev_totals_by_rarity,
+            god_pack_ev_contribution,
+            demi_god_pack_ev_contribution,
+        )
+
+        return {
+            "ev_totals_by_rarity": ev_totals_by_rarity,
+            "ev_common_total": self._get_ev_total(ev_totals_by_rarity, 'common'),
+            "ev_uncommon_total": self._get_ev_total(ev_totals_by_rarity, 'uncommon'),
+            "ev_rare_total": self._get_ev_total(ev_totals_by_rarity, 'rare'),
+            "ev_reverse_total": self._get_ev_total(ev_totals_by_rarity, 'reverse'),
+            "ev_ace_spec_total": self._get_ev_total(ev_totals_by_rarity, 'ace_spec_rare'),
+            "ev_pokeball_total": self._get_ev_total(
+                ev_totals_by_rarity,
+                *self._PATTERN_TOTAL_KEYS["pokeball_pattern"],
+            ),
+            "ev_master_ball_total": self._get_ev_total(
+                ev_totals_by_rarity,
+                *self._PATTERN_TOTAL_KEYS["master_ball_pattern"],
+            ),
+            "ev_IR_total": self._get_ev_total(ev_totals_by_rarity, 'illustration_rare'),
+            "ev_SIR_total": self._get_ev_total(ev_totals_by_rarity, 'special_illustration_rare'),
+            "ev_double_rare_total": self._get_ev_total(ev_totals_by_rarity, 'double_rare'),
+            "ev_hyper_rare_total": self._get_ev_total(ev_totals_by_rarity, 'hyper_rare'),
+            "ev_ultra_rare_total": self._get_ev_total(ev_totals_by_rarity, 'ultra_rare'),
+            "reverse_multiplier": self.reverse_multiplier,
+            "rare_multiplier": self.rare_multiplier,
+            "regular_pack_ev_contribution": regular_pack_contribution,
+            "god_pack_ev_contribution": god_pack_ev_contribution,
+            "demi_god_pack_ev_contribution": demi_god_pack_ev_contribution,
+            "total_manual_ev": derived_total_manual_ev,
+        }
 
     @staticmethod
     def build_card_ev_contributions(df: pd.DataFrame) -> tuple:
@@ -157,41 +221,35 @@ class PackCalculationOrchestrator(PackCalculations):
         ev_reverse_total = self.calculate_reverse_ev(df)
 
         # Calculate EV totals by rarity
-        ev_totals = self.calculate_rarity_ev_totals(df, ev_reverse_total)
+        ev_totals_by_rarity = self.calculate_rarity_ev_totals(df, ev_reverse_total)
+        ev_reverse_total = self._get_ev_total(ev_totals_by_rarity, 'reverse')
 
         # Calculate hit probability
         hit_probability_percentage, no_hit_probability_percentage = self.calculate_hit_probability(df)
 
         # Calculate total EV with special pack adjustments
-        total_manual_ev, regular_pack_contribution, god_pack_ev_contribution, demi_god_pack_ev_contribution = self.calculate_total_ev(ev_totals, df)
+        upstream_total_manual_ev, regular_pack_contribution, god_pack_ev_contribution, demi_god_pack_ev_contribution = self.calculate_total_ev(ev_totals_by_rarity, df)
+        total_manual_ev = self._derive_total_manual_ev(
+            ev_totals_by_rarity,
+            god_pack_ev_contribution,
+            demi_god_pack_ev_contribution,
+        )
         
         # Build card EV contributions split into hit/non-hit pools
         card_ev_split = self.build_hit_and_non_hit_ev_contributions(df)
 
-        summary_data_for_manual_calcs = {
-            "ev_common_total": ev_totals['common'],
-            "ev_uncommon_total": ev_totals['uncommon'],
-            "ev_rare_total": ev_totals['rare'],
-            "ev_reverse_total": ev_reverse_total,
-            "ev_ace_spec_total": ev_totals['ace_spec_rare'],
-            "ev_pokeball_total": ev_totals['pokeball'],
-            "ev_master_ball_total": ev_totals['master_ball'],
-            "ev_IR_total": ev_totals['illustration_rare'],
-            "ev_SIR_total": ev_totals['special_illustration_rare'],
-            "ev_double_rare_total": ev_totals['double_rare'],
-            "ev_hyper_rare_total": ev_totals['hyper_rare'],
-            "ev_ultra_rare_total": ev_totals['ultra_rare'],
-            "reverse_multiplier": self.reverse_multiplier,
-            "rare_multiplier": self.rare_multiplier,
-            "regular_pack_ev_contribution": regular_pack_contribution,
-            "god_pack_ev_contribution": god_pack_ev_contribution,
-            "demi_god_pack_ev_contribution": demi_god_pack_ev_contribution,
-            "total_manual_ev": total_manual_ev,
-        }
+        summary_data_for_manual_calcs = self._build_manual_summary_data(
+            ev_totals_by_rarity,
+            regular_pack_contribution,
+            god_pack_ev_contribution,
+            demi_god_pack_ev_contribution,
+            upstream_total_manual_ev,
+        )
 
         return {
             "ev_reverse_total": ev_reverse_total,
-            "ev_totals": ev_totals,
+            "ev_totals_by_rarity": ev_totals_by_rarity,
+            "ev_totals": ev_totals_by_rarity,
             "card_ev_contributions": card_ev_split['hit_ev_contributions'],  # For backwards compat, use hit pool
             "hit_ev_contributions": card_ev_split['hit_ev_contributions'],
             "non_hit_ev_contributions": card_ev_split['non_hit_ev_contributions'],

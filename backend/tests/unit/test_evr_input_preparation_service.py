@@ -11,6 +11,11 @@ class Config:
     SET_NAME = "Base"
 
 
+class PrismaticConfig:
+    SET_ID = "sv8pt5"
+    SET_NAME = "Prismatic Evolutions"
+
+
 def test_prepare_for_set_emits_required_diagnostics_and_returns_transformed_payload():
     repository = Mock()
     transformer = Mock()
@@ -313,3 +318,61 @@ def test_prepare_for_set_raises_when_reverse_variant_price_column_missing():
             service.prepare_for_set(Config(), "base", "Base")
 
     assert "missing required reverse price column" in str(exc_info.value).lower()
+
+
+def test_prepare_for_set_rejects_prismatic_when_non_pattern_base_pools_are_empty():
+    repository = Mock()
+    transformer = Mock()
+
+    repository.load_inputs.return_value = {"diagnostics": {}}
+    transformer.transform.return_value = {
+        "card_rows": [],
+        "sealed_prices": {"pack_price": 5.0, "etb_price": None, "etb_promo_card_price": None},
+        "diagnostics": {"pack_price_missing": False, "rows_emitted": 3, "rows_dropped": 0},
+    }
+    transformer.to_legacy_calculator_payload.return_value = {
+        "dataframe": pd.DataFrame(
+            [
+                {
+                    "Card Name": "Common Pattern",
+                    "Card Number": "001/131",
+                    "Rarity": "common",
+                    "Special Type": "poke ball",
+                    "Price ($)": 2.0,
+                    "Pull Rate (1/X)": 302.0,
+                    "Reverse Variant Price ($)": 2.0,
+                    "Pack Price": 5.0,
+                },
+                {
+                    "Card Name": "Uncommon Pattern",
+                    "Card Number": "002/131",
+                    "Rarity": "uncommon",
+                    "Special Type": "poke ball",
+                    "Price ($)": 2.5,
+                    "Pull Rate (1/X)": 302.0,
+                    "Reverse Variant Price ($)": 2.5,
+                    "Pack Price": 5.0,
+                },
+                {
+                    "Card Name": "Rare Pattern",
+                    "Card Number": "003/131",
+                    "Rarity": "rare",
+                    "Special Type": "master ball",
+                    "Price ($)": 8.0,
+                    "Pull Rate (1/X)": 1362.0,
+                    "Reverse Variant Price ($)": 8.0,
+                    "Pack Price": 5.0,
+                },
+            ]
+        ),
+        "pack_price": 5.0,
+        "etb_price": None,
+        "etb_promo_card_price": None,
+        "diagnostics": {"pack_price_missing": False, "rows_emitted": 3, "rows_dropped": 0},
+    }
+
+    service = EVRInputPreparationService(repository=repository, transformer=transformer)
+
+    with patch("builtins.print"):
+        with pytest.raises(ValueError, match="Prismatic Evolutions input contract violated"):
+            service.prepare_for_set(PrismaticConfig(), "prismaticEvolutions", "Prismatic Evolutions")

@@ -20,6 +20,11 @@ from backend.simulations.monteCarloSimV2 import (
     sample_cards_for_slot_outcomes,
     validate_pack_state_model,
 )
+from backend.simulations.utils.extractScarletAndVioletCardGroups import extract_scarletandviolet_card_groups
+from backend.simulations.utils.simulationTokenResolver import (
+    normalize_simulation_token,
+    resolve_hit_pool_rows,
+)
 
 
 class DummySVConfig:
@@ -323,6 +328,646 @@ def test_sample_cards_for_slot_outcomes_samples_from_eligible_pools(pools):
     assert rarity_counts["uncommon"] == 3
     assert rarity_values["common"] > 0
     assert rarity_values["uncommon"] > 0
+
+
+@pytest.mark.parametrize(
+    ("raw_token", "expected"),
+    [
+        ("pokeball", "poke ball pattern"),
+        ("poke ball", "poke ball pattern"),
+        ("poke ball pattern", "poke ball pattern"),
+        ("master ball", "master ball pattern"),
+        ("masterball", "master ball pattern"),
+        ("master ball pattern", "master ball pattern"),
+    ],
+)
+def test_simulation_token_resolver_normalizes_pattern_synonyms(raw_token, expected):
+    assert normalize_simulation_token(raw_token) == expected
+
+
+def test_validation_and_sampling_resolve_state_tokens_via_classification_key():
+    class ClassificationAwareConfig(DummySVConfig):
+        PACK_STATE_MODEL = {
+            "state_probabilities": {"pattern_state": 1.0},
+            "state_outcomes": {
+                "pattern_state": {
+                    "rare": "rare",
+                    "reverse_1": "poke ball pattern",
+                    "reverse_2": "regular reverse",
+                }
+            },
+        }
+
+    common = pd.DataFrame({"Card Name": ["Common A"], "Price ($)": [0.10], "Rarity": ["common"]})
+    uncommon = pd.DataFrame({"Card Name": ["Uncommon A"], "Price ($)": [0.20], "Rarity": ["uncommon"]})
+    rare = pd.DataFrame({"Card Name": ["Rare A"], "Price ($)": [0.90], "Rarity": ["rare"]})
+    reverse = pd.DataFrame({"Card Name": ["Reverse A"], "Reverse Variant Price ($)": [0.35]})
+    hit = pd.DataFrame(
+        {
+            "Card Name": ["Pattern Classified", "Master Classified"],
+            "Price ($)": [2.20, 5.00],
+            "Rarity": ["common", "rare"],
+            "classification_key": ["pokeball_pattern", "master_ball_pattern"],
+        }
+    )
+
+    validate_pack_state_model(
+        ClassificationAwareConfig,
+        {
+            "common": common,
+            "uncommon": uncommon,
+            "rare": rare,
+            "reverse": reverse,
+            "hit": hit,
+        },
+    )
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    result = sample_cards_for_slot_outcomes(
+        common_cards=common,
+        uncommon_cards=uncommon,
+        rare_cards=rare,
+        hit_cards=hit,
+        reverse_pool=reverse,
+        slot_outcomes={"rare": "rare", "reverse_1": "poke ball pattern", "reverse_2": "regular reverse"},
+        slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        rng=np.random.default_rng(13),
+    )
+
+    assert result["slot_cards"]["reverse_1"] == "Pattern Classified"
+    assert rarity_counts["poke ball pattern"] == 1
+
+
+def test_extract_groups_keep_pattern_overlays_in_base_pools_and_pattern_hit_pool():
+    df = pd.DataFrame(
+        {
+            "Card Name": [
+                "Common Filler A",
+                "Uncommon Filler A",
+                "Rare Filler A",
+                "Poke Ball Pattern A",
+                "Master Ball Pattern A",
+                "Illustration Rare A",
+            ],
+            "Rarity": ["common", "uncommon", "rare", "common", "rare", "illustration rare"],
+            "rarity_group": ["common", "uncommon", "rare", "common", "rare", "hits"],
+            "classification_key": [
+                "common",
+                "uncommon",
+                "rare",
+                "pokeball_pattern",
+                "master_ball_pattern",
+                "illustration_rare",
+            ],
+            "Reverse Variant Price ($)": [0.15, 0.2, 0.25, 0.3, 0.4, 0.0],
+            "Price ($)": [0.1, 0.2, 0.9, 1.5, 4.5, 7.0],
+        }
+    )
+
+    groups = extract_scarletandviolet_card_groups(SetPrismaticEvolutionsConfig, df)
+    pattern_rows, resolution = resolve_hit_pool_rows(groups["hit"], "master ball", mode="pattern")
+
+    assert set(groups["common"]["Card Name"]) == {"Common Filler A", "Poke Ball Pattern A"}
+    assert set(groups["uncommon"]["Card Name"]) == {"Uncommon Filler A"}
+    assert set(groups["rare"]["Card Name"]) == {"Rare Filler A", "Master Ball Pattern A"}
+    assert set(groups["hit"]["Card Name"]) == {
+        "Poke Ball Pattern A",
+        "Master Ball Pattern A",
+        "Illustration Rare A",
+    }
+    assert resolution["requested_match_key"] == "master_ball_pattern"
+    assert set(pattern_rows["Card Name"]) == {"Master Ball Pattern A"}
+
+
+def test_rare_master_ball_overlay_stays_in_base_rare_pool_and_resolves_in_pattern_mode():
+    df = pd.DataFrame(
+        {
+            "Card Name": ["Rare Filler A", "Master Ball Pattern A"],
+            "Rarity": ["rare", "rare"],
+            "rarity_key": ["rare", "rare"],
+            "pattern_key": ["", "master_ball_pattern"],
+            "aggregation_key": ["rare", "master_ball_pattern"],
+            "rarity_group": ["rare", "rare"],
+            "Reverse Variant Price ($)": [0.25, 0.4],
+            "Price ($)": [0.9, 4.5],
+        }
+    )
+
+    groups = extract_scarletandviolet_card_groups(SetPrismaticEvolutionsConfig, df)
+    pattern_rows, resolution = resolve_hit_pool_rows(groups["hit"], "master ball pattern", mode="pattern")
+
+    assert set(groups["rare"]["Card Name"]) == {"Rare Filler A", "Master Ball Pattern A"}
+    assert resolution["requested_match_key"] == "master_ball_pattern"
+    assert set(pattern_rows["Card Name"]) == {"Master Ball Pattern A"}
+
+
+def test_baseline_state_uses_base_rarity_pool_when_rare_overlay_is_only_rare_row():
+    class BaselineOnlyConfig(DummySVConfig):
+        PACK_STATE_MODEL = {
+            "state_probabilities": {"baseline": 1.0},
+            "state_outcomes": {
+                "baseline": {
+                    "rare": "rare",
+                    "reverse_1": "regular reverse",
+                    "reverse_2": "regular reverse",
+                }
+            },
+        }
+
+    df = pd.DataFrame(
+        {
+            "Card Name": [
+                "Common A",
+                "Uncommon A",
+                "Reverse A",
+                "Master Pattern Rare",
+            ],
+            "Rarity": ["common", "uncommon", "common", "rare"],
+            "rarity_key": ["common", "uncommon", "common", "rare"],
+            "pattern_key": ["", "", "", "master_ball_pattern"],
+            "aggregation_key": ["common", "uncommon", "common", "master_ball_pattern"],
+            "rarity_group": ["common", "uncommon", "common", "rare"],
+            "Price ($)": [0.10, 0.20, 0.15, 5.00],
+            "Reverse Variant Price ($)": [0.15, 0.25, 0.35, 5.00],
+        }
+    )
+
+    groups = extract_scarletandviolet_card_groups(SetPrismaticEvolutionsConfig, df)
+
+    assert set(groups["rare"]["Card Name"]) == {"Master Pattern Rare"}
+
+    validate_pack_state_model(
+        BaselineOnlyConfig,
+        {
+            "common": groups["common"],
+            "uncommon": groups["uncommon"],
+            "rare": groups["rare"],
+            "reverse": groups["reverse"],
+            "hit": groups["hit"],
+        },
+    )
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=groups["common"],
+        uncommon_cards=groups["uncommon"],
+        rare_cards=groups["rare"],
+        hit_cards=groups["hit"],
+        reverse_pool=groups["reverse"],
+        slot_outcomes={"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+        slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+        rarity_pull_counts=defaultdict(int),
+        rarity_value_totals=defaultdict(float),
+        rng=np.random.default_rng(23),
+    )
+
+    assert result["slot_cards"]["rare"] == "Master Pattern Rare"
+
+
+def test_baseline_slots_prefer_non_pattern_base_rows_when_available():
+    common = pd.DataFrame(
+        {
+            "Card Name": ["Common Plain", "Common Pattern Overlay"],
+            "Price ($)": [0.10, 8.00],
+            "Rarity": ["common", "common"],
+            "pattern_key": ["", "pokeball_pattern"],
+        }
+    )
+    uncommon = pd.DataFrame(
+        {
+            "Card Name": ["Uncommon Plain", "Uncommon Pattern Overlay"],
+            "Price ($)": [0.20, 7.50],
+            "Rarity": ["uncommon", "uncommon"],
+            "pattern_key": ["", "pokeball_pattern"],
+        }
+    )
+    rare = pd.DataFrame(
+        {
+            "Card Name": ["Rare Plain", "Rare Pattern Overlay"],
+            "Price ($)": [1.00, 9.00],
+            "Rarity": ["rare", "rare"],
+            "pattern_key": ["", "master_ball_pattern"],
+        }
+    )
+    reverse = pd.DataFrame({"Card Name": ["Reverse A"], "Reverse Variant Price ($)": [0.35]})
+    hit = pd.DataFrame(
+        {
+            "Card Name": ["Rare Pattern Overlay"],
+            "Price ($)": [9.00],
+            "Rarity": ["rare"],
+            "pattern_key": ["master_ball_pattern"],
+        }
+    )
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    rng = np.random.default_rng(123)
+
+    for _ in range(30):
+        result = sample_cards_for_slot_outcomes(
+            common_cards=common,
+            uncommon_cards=uncommon,
+            rare_cards=rare,
+            hit_cards=hit,
+            reverse_pool=reverse,
+            slot_outcomes={"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+            slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+            rarity_pull_counts=rarity_counts,
+            rarity_value_totals=rarity_values,
+            rng=rng,
+        )
+        assert result["slot_cards"]["rare"] == "Rare Plain"
+        assert "Common Pattern Overlay" not in result["common_cards"]
+        assert "Uncommon Pattern Overlay" not in result["uncommon_cards"]
+
+
+def test_baseline_slots_prefer_non_pattern_rows_when_overlay_markers_only_in_special_type_raw():
+    common = pd.DataFrame(
+        {
+            "Card Name": ["Common Plain", "Common Overlay Raw"],
+            "Price ($)": [0.10, 8.00],
+            "Rarity": ["common", "common"],
+            "special_type_raw": ["", "poke ball"],
+        }
+    )
+    uncommon = pd.DataFrame(
+        {
+            "Card Name": ["Uncommon Plain", "Uncommon Overlay Raw"],
+            "Price ($)": [0.20, 7.50],
+            "Rarity": ["uncommon", "uncommon"],
+            "special_type_raw": ["", "poke ball"],
+        }
+    )
+    rare = pd.DataFrame(
+        {
+            "Card Name": ["Rare Plain", "Rare Overlay Raw"],
+            "Price ($)": [1.00, 9.00],
+            "Rarity": ["rare", "rare"],
+            "special_type_raw": ["", "master ball"],
+        }
+    )
+    reverse = pd.DataFrame({"Card Name": ["Reverse A"], "Reverse Variant Price ($)": [0.35]})
+    hit = pd.DataFrame(
+        {
+            "Card Name": ["Common Overlay Raw", "Rare Overlay Raw"],
+            "Price ($)": [8.00, 9.00],
+            "Rarity": ["common", "rare"],
+            "special_type_raw": ["poke ball", "master ball"],
+        }
+    )
+
+    rng = np.random.default_rng(321)
+    for _ in range(30):
+        result = sample_cards_for_slot_outcomes(
+            common_cards=common,
+            uncommon_cards=uncommon,
+            rare_cards=rare,
+            hit_cards=hit,
+            reverse_pool=reverse,
+            slot_outcomes={"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+            slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+            rarity_pull_counts=defaultdict(int),
+            rarity_value_totals=defaultdict(float),
+            rng=rng,
+        )
+        assert result["slot_cards"]["rare"] == "Rare Plain"
+        assert "Common Overlay Raw" not in result["common_cards"]
+        assert "Uncommon Overlay Raw" not in result["uncommon_cards"]
+
+
+def test_baseline_slots_fallback_to_pattern_rows_when_no_plain_rows_exist():
+    common = pd.DataFrame(
+        {
+            "Card Name": ["Common Overlay Only"],
+            "Price ($)": [6.0],
+            "Rarity": ["common"],
+            "special_type_raw": ["poke ball"],
+        }
+    )
+    uncommon = pd.DataFrame(
+        {
+            "Card Name": ["Uncommon Overlay Only"],
+            "Price ($)": [7.0],
+            "Rarity": ["uncommon"],
+            "special_type_raw": ["poke ball"],
+        }
+    )
+    rare = pd.DataFrame(
+        {
+            "Card Name": ["Rare Overlay Only"],
+            "Price ($)": [8.0],
+            "Rarity": ["rare"],
+            "special_type_raw": ["master ball"],
+        }
+    )
+    reverse = pd.DataFrame({"Card Name": ["Reverse A"], "Reverse Variant Price ($)": [0.35]})
+    hit = pd.DataFrame(columns=["Card Name", "Price ($)", "Rarity", "special_type_raw"])
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=common,
+        uncommon_cards=uncommon,
+        rare_cards=rare,
+        hit_cards=hit,
+        reverse_pool=reverse,
+        slot_outcomes={"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+        slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+        rarity_pull_counts=defaultdict(int),
+        rarity_value_totals=defaultdict(float),
+        rng=np.random.default_rng(99),
+    )
+
+    assert result["slot_cards"]["rare"] == "Rare Overlay Only"
+    assert set(result["common_cards"]) == {"Common Overlay Only"}
+    assert set(result["uncommon_cards"]) == {"Uncommon Overlay Only"}
+
+
+def test_pattern_state_sampling_resolves_from_special_type_raw_rows():
+    common = pd.DataFrame({"Card Name": ["Common A"], "Price ($)": [0.1], "Rarity": ["common"]})
+    uncommon = pd.DataFrame({"Card Name": ["Uncommon A"], "Price ($)": [0.2], "Rarity": ["uncommon"]})
+    rare = pd.DataFrame({"Card Name": ["Rare A"], "Price ($)": [1.0], "Rarity": ["rare"]})
+    reverse = pd.DataFrame({"Card Name": ["Reverse A"], "Reverse Variant Price ($)": [0.35]})
+    hit = pd.DataFrame(
+        {
+            "Card Name": ["Poke Pattern Raw", "Master Pattern Raw"],
+            "Price ($)": [1.8, 4.9],
+            "Rarity": ["common", "rare"],
+            "special_type_raw": ["poke ball", "master ball"],
+        }
+    )
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=common,
+        uncommon_cards=uncommon,
+        rare_cards=rare,
+        hit_cards=hit,
+        reverse_pool=reverse,
+        slot_outcomes={"rare": "rare", "reverse_1": "poke ball pattern", "reverse_2": "regular reverse"},
+        slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+        rarity_pull_counts=defaultdict(int),
+        rarity_value_totals=defaultdict(float),
+        rng=np.random.default_rng(101),
+    )
+
+    assert result["slot_cards"]["reverse_1"] == "Poke Pattern Raw"
+
+
+def test_prismatic_shaped_base_slot_regression_no_longer_inflates_common_uncommon_rare_averages():
+    class BaselineOnlyConfig(DummySVConfig):
+        PACK_STATE_MODEL = {
+            "state_probabilities": {"baseline": 1.0},
+            "state_outcomes": {
+                "baseline": {
+                    "rare": "rare",
+                    "reverse_1": "regular reverse",
+                    "reverse_2": "regular reverse",
+                }
+            },
+        }
+        GOD_PACK_CONFIG = {"enabled": False, "pull_rate": 0.0, "strategy": {}}
+        DEMI_GOD_PACK_CONFIG = {"enabled": False, "pull_rate": 0.0, "strategy": {}}
+
+    common_plain = pd.DataFrame(
+        {
+            "Card Name": [f"Common Plain {i}" for i in range(40)],
+            "Price ($)": [0.12] * 40,
+            "Rarity": ["common"] * 40,
+            "special_type_raw": [""] * 40,
+        }
+    )
+    common_overlay = pd.DataFrame(
+        {
+            "Card Name": [f"Common Overlay {i}" for i in range(8)],
+            "Price ($)": [6.0] * 8,
+            "Rarity": ["common"] * 8,
+            "special_type_raw": ["poke ball"] * 8,
+        }
+    )
+    uncommon_plain = pd.DataFrame(
+        {
+            "Card Name": [f"Uncommon Plain {i}" for i in range(24)],
+            "Price ($)": [0.22] * 24,
+            "Rarity": ["uncommon"] * 24,
+            "special_type_raw": [""] * 24,
+        }
+    )
+    uncommon_overlay = pd.DataFrame(
+        {
+            "Card Name": [f"Uncommon Overlay {i}" for i in range(8)],
+            "Price ($)": [9.0] * 8,
+            "Rarity": ["uncommon"] * 8,
+            "special_type_raw": ["poke ball"] * 8,
+        }
+    )
+    rare_plain = pd.DataFrame(
+        {
+            "Card Name": [f"Rare Plain {i}" for i in range(20)],
+            "Price ($)": [1.25] * 20,
+            "Rarity": ["rare"] * 20,
+            "special_type_raw": [""] * 20,
+        }
+    )
+    rare_overlay = pd.DataFrame(
+        {
+            "Card Name": [f"Rare Overlay {i}" for i in range(8)],
+            "Price ($)": [35.0] * 8,
+            "Rarity": ["rare"] * 8,
+            "special_type_raw": ["master ball"] * 8,
+        }
+    )
+
+    common = pd.concat([common_plain, common_overlay], ignore_index=True)
+    uncommon = pd.concat([uncommon_plain, uncommon_overlay], ignore_index=True)
+    rare = pd.concat([rare_plain, rare_overlay], ignore_index=True)
+    hit = pd.concat([common_overlay, uncommon_overlay, rare_overlay], ignore_index=True)
+    reverse = pd.DataFrame(
+        {
+            "Card Name": ["Reverse A", "Reverse B", "Reverse C"],
+            "Reverse Variant Price ($)": [0.30, 0.34, 0.32],
+        }
+    )
+    df = pd.concat([common, uncommon, rare, hit], ignore_index=True)
+
+    rarity_counts = defaultdict(int)
+    rarity_values = defaultdict(float)
+    fn = make_simulate_pack_fn_v2(
+        common_cards=common,
+        uncommon_cards=uncommon,
+        rare_cards=rare,
+        hit_cards=hit,
+        reverse_pool=reverse,
+        slots_per_rarity=BaselineOnlyConfig.SLOTS_PER_RARITY,
+        config=BaselineOnlyConfig,
+        df=df,
+        rarity_pull_counts=rarity_counts,
+        rarity_value_totals=rarity_values,
+        pack_logs=[],
+        rng=np.random.default_rng(222),
+    )
+
+    sim = run_simulation_v2(lambda: fn(return_pack_data=True), rarity_counts, rarity_values, n=3000)
+
+    common_avg = rarity_values["common"] / max(1, rarity_counts["common"])
+    uncommon_avg = rarity_values["uncommon"] / max(1, rarity_counts["uncommon"])
+    rare_avg = rarity_values["rare"] / max(1, rarity_counts["rare"])
+
+    assert common_avg < 0.5
+    assert uncommon_avg < 0.8
+    assert rare_avg < 3.0
+    assert float(sim["mean"]) < 8.0
+    assert float(sim["percentiles"]["50th"]) < 8.0
+
+
+def test_pattern_state_validates_and_samples_when_pool_rows_exist_only_via_classification_key():
+    class PatternOnlyConfig(DummySVConfig):
+        PACK_STATE_MODEL = {
+            "state_probabilities": {"pattern_state": 1.0},
+            "state_outcomes": {
+                "pattern_state": {
+                    "rare": "rare",
+                    "reverse_1": "master ball pattern",
+                    "reverse_2": "regular reverse",
+                }
+            },
+        }
+
+    df = pd.DataFrame(
+        {
+            "Card Name": ["Common A", "Uncommon A", "Rare A", "Reverse A", "Master Pattern Classified"],
+            "Price ($)": [0.10, 0.20, 0.90, 0.35, 5.00],
+            "Rarity": ["common", "uncommon", "rare", "common", "rare"],
+            "rarity_group": ["common", "uncommon", "rare", "common", "rare"],
+            "classification_key": ["common", "uncommon", "rare", "common", "master_ball_pattern"],
+            "Reverse Variant Price ($)": [0.15, 0.25, 0.35, 0.35, 5.00],
+        }
+    )
+
+    groups = extract_scarletandviolet_card_groups(SetPrismaticEvolutionsConfig, df)
+
+    assert set(groups["rare"]["Card Name"]) == {"Rare A", "Master Pattern Classified"}
+    assert set(groups["hit"]["Card Name"]) == {"Master Pattern Classified"}
+
+    validate_pack_state_model(
+        PatternOnlyConfig,
+        {
+            "common": groups["common"],
+            "uncommon": groups["uncommon"],
+            "rare": groups["rare"],
+            "reverse": groups["reverse"],
+            "hit": groups["hit"],
+        },
+    )
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=groups["common"],
+        uncommon_cards=groups["uncommon"],
+        rare_cards=groups["rare"],
+        hit_cards=groups["hit"],
+        reverse_pool=groups["reverse"],
+        slot_outcomes={"rare": "rare", "reverse_1": "master ball pattern", "reverse_2": "regular reverse"},
+        slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+        rarity_pull_counts=defaultdict(int),
+        rarity_value_totals=defaultdict(float),
+        rng=np.random.default_rng(17),
+    )
+
+    assert result["slot_cards"]["reverse_1"] == "Master Pattern Classified"
+
+
+def test_poke_ball_pattern_state_succeeds_when_rows_exist_only_via_special_type_classification_key():
+    class PokeBallPatternOnlyConfig(DummySVConfig):
+        PACK_STATE_MODEL = {
+            "state_probabilities": {"poke_ball_pattern_state": 1.0},
+            "state_outcomes": {
+                "poke_ball_pattern_state": {
+                    "rare": "rare",
+                    "reverse_1": "poke ball pattern",
+                    "reverse_2": "regular reverse",
+                }
+            },
+        }
+
+    df = pd.DataFrame(
+        {
+            "Card Name": [
+                "Common A",
+                "Uncommon A",
+                "Rare A",
+                "Reverse A",
+                "Poke Pattern Classified",
+            ],
+            "Price ($)": [0.10, 0.20, 0.90, 0.35, 1.80],
+            "Rarity": ["common", "uncommon", "rare", "common", "common"],
+            "Special Type": ["", "", "", "", "poke ball"],
+            "rarity_group": ["common", "uncommon", "rare", "common", "common"],
+            "classification_key": ["common", "uncommon", "rare", "common", "pokeball_pattern"],
+            "Reverse Variant Price ($)": [0.15, 0.25, 0.35, 0.35, 1.80],
+        }
+    )
+
+    groups = extract_scarletandviolet_card_groups(SetPrismaticEvolutionsConfig, df)
+
+    assert set(groups["rare"]["Card Name"]) == {"Rare A"}
+    assert set(groups["common"]["Card Name"]) == {"Common A", "Reverse A", "Poke Pattern Classified"}
+    assert set(groups["hit"]["Card Name"]) == {"Poke Pattern Classified"}
+
+    validate_pack_state_model(
+        PokeBallPatternOnlyConfig,
+        {
+            "common": groups["common"],
+            "uncommon": groups["uncommon"],
+            "rare": groups["rare"],
+            "reverse": groups["reverse"],
+            "hit": groups["hit"],
+        },
+    )
+
+    result = sample_cards_for_slot_outcomes(
+        common_cards=groups["common"],
+        uncommon_cards=groups["uncommon"],
+        rare_cards=groups["rare"],
+        hit_cards=groups["hit"],
+        reverse_pool=groups["reverse"],
+        slot_outcomes={"rare": "rare", "reverse_1": "poke ball pattern", "reverse_2": "regular reverse"},
+        slots_per_rarity=DummySVConfig.SLOTS_PER_RARITY,
+        rarity_pull_counts=defaultdict(int),
+        rarity_value_totals=defaultdict(float),
+        rng=np.random.default_rng(19),
+    )
+
+    assert result["slot_cards"]["reverse_1"] == "Poke Pattern Classified"
+
+
+def test_simulation_token_resolution_failure_reports_requested_canonical_and_available_tokens():
+    hit = pd.DataFrame(
+        {
+            "Card Name": ["Pattern Classified", "Master Classified"],
+            "Price ($)": [2.20, 5.00],
+            "Rarity": ["common", "rare"],
+            "classification_key": ["pokeball_pattern", "master_ball_pattern"],
+        }
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        sample_cards_for_slot_outcomes(
+            common_cards=pd.DataFrame({"Card Name": [], "Price ($)": [], "Rarity": []}),
+            uncommon_cards=pd.DataFrame({"Card Name": [], "Price ($)": [], "Rarity": []}),
+            rare_cards=pd.DataFrame({"Card Name": ["Rare A"], "Price ($)": [0.90], "Rarity": ["rare"]}),
+            hit_cards=hit,
+            reverse_pool=pd.DataFrame({"Card Name": ["Reverse A"], "Reverse Variant Price ($)": [0.35]}),
+            slot_outcomes={"rare": "rare", "reverse_1": "  Galaxy   Foil ", "reverse_2": "regular reverse"},
+            slots_per_rarity={"common": 0, "uncommon": 0, "reverse": 2, "rare": 1},
+            rarity_pull_counts=defaultdict(int),
+            rarity_value_totals=defaultdict(float),
+            rng=np.random.default_rng(21),
+        )
+
+    message = str(exc_info.value)
+    assert "requested token '  Galaxy   Foil '" in message
+    assert "canonical token 'galaxy foil'" in message
+    assert "'common'" in message
+    assert "'rare'" in message
 
 
 def test_run_simulation_v2_uses_single_simulated_pack_set():
@@ -768,12 +1413,6 @@ def test_normal_pack_invariants_and_tracker_alignment(pools):
         outcomes = record["slot_outcomes"]
         values = record["slot_values"]
 
-        if outcomes["reverse_2"] == "special illustration rare":
-            assert outcomes["rare"] == "rare"
-            assert outcomes["reverse_1"] == "regular reverse"
-        if outcomes["reverse_2"] == "hyper rare":
-            assert outcomes["rare"] == "rare"
-            assert outcomes["reverse_1"] == "regular reverse"
         assert not ({"illustration rare", "special illustration rare"}.issubset(set(outcomes.values())))
         assert not ({"special illustration rare", "hyper rare"}.issubset(set(outcomes.values())))
         assert not ({"illustration rare", "hyper rare"}.issubset(set(outcomes.values())))

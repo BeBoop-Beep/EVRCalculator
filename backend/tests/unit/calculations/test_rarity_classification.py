@@ -10,10 +10,15 @@ import pandas as pd
 from types import MappingProxyType
 
 from backend.calculations.utils.rarity_classification import (
+    normalize_rarity_key,
     normalize_rarity_string,
     is_hit_rarity,
     get_rarity_group,
     filter_card_ev_by_hits,
+)
+from backend.calculations.utils.special_type_normalization import (
+    derive_classification_key,
+    normalize_special_type_key,
 )
 
 
@@ -73,6 +78,44 @@ class TestNormalizeRarityString:
 
     def test_already_normalized(self):
         assert normalize_rarity_string("common") == "common"
+
+
+class TestNormalizeRarityKey:
+    def test_spaces_become_underscores(self):
+        assert normalize_rarity_key("Special Illustration Rare") == "special_illustration_rare"
+
+    def test_hyphens_and_spaces_are_normalized_consistently(self):
+        assert normalize_rarity_key("  Shiny-Ultra   Rare  ") == "shiny_ultra_rare"
+
+    def test_missing_value_returns_empty_string(self):
+        assert normalize_rarity_key(None) == ""
+
+
+class TestNormalizeSpecialTypeKey:
+    @pytest.mark.parametrize(
+        ("special_type_raw", "expected_key"),
+        [
+            ("pokeball", "pokeball_pattern"),
+            ("poke ball", "pokeball_pattern"),
+            ("poke ball pattern", "pokeball_pattern"),
+            ("master ball", "master_ball_pattern"),
+            ("masterball", "master_ball_pattern"),
+            ("master ball pattern", "master_ball_pattern"),
+        ],
+    )
+    def test_pattern_synonyms_use_canonical_keys(self, special_type_raw, expected_key):
+        assert normalize_special_type_key(special_type_raw) == expected_key
+
+    def test_unknown_special_type_still_normalizes_to_stable_key(self):
+        assert normalize_special_type_key("Galaxy Foil") == "galaxy_foil"
+
+
+class TestDeriveClassificationKey:
+    def test_recognized_pattern_special_type_overrides_rarity_key(self):
+        assert derive_classification_key("common", "pokeball_pattern") == "pokeball_pattern"
+
+    def test_non_pattern_special_type_falls_back_to_rarity_key(self):
+        assert derive_classification_key("rare", "galaxy_foil") == "rare"
 
 
 # ============================================================================

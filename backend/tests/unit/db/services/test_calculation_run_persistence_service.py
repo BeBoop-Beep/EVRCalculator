@@ -91,7 +91,7 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "top3_ev_share": "0.47",
             "top5_ev_share": "0.63",
         },
-        "index_score": {
+        "pack_score": {
             "ind_ex_score_v1": "72.4",
             "prob_profit_component": "0.71",
             "stability_component": "0.65",
@@ -116,7 +116,7 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "top1_ev_share": 0.22,
             "top3_ev_share": 0.47,
             "top5_ev_share": 0.63,
-            "index_score": 72.4,
+            "pack_score": 72.4,
             "profit_component": 0.71,
             "stability_component": 0.65,
             "diversification_component": 0.37,
@@ -149,7 +149,7 @@ def test_persist_simulation_derived_metrics_prefers_primary_chase_aliases_when_b
                 "top3_ev_share": 0.47,
                 "top5_ev_share": 0.63,
             },
-            "index_score": {
+            "pack_score": {
                 "ind_ex_score_v1": 72.4,
                 "prob_profit_component": 0.71,
                 "stability_component": 0.65,
@@ -181,7 +181,7 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "top3_ev_share": 0.47,
             "top5_ev_share": 0.63,
         },
-        "index_score": {
+        "pack_score": {
             "ind_ex_score_v1": 72.4,
             "prob_profit_component": 0.71,
             "stability_component": 0.65,
@@ -203,7 +203,7 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "top1_ev_share": 0.22,
             "top3_ev_share": 0.47,
             "top5_ev_share": 0.63,
-            "index_score": 72.4,
+            "pack_score": 72.4,
             "profit_component": 0.71,
             "stability_component": 0.65,
             "diversification_component": 0.37,
@@ -306,7 +306,7 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
                 "top3_ev_share": None,
                 "top5_ev_share": None,
             },
-            "index_score": {
+            "pack_score": {
                 "ind_ex_score_v1": 0.0,
                 "prob_profit_component": 0.0,
                 "stability_component": 0.0,
@@ -328,7 +328,7 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
             "top1_ev_share": 0.0,
             "top3_ev_share": 0.0,
             "top5_ev_share": 0.0,
-            "index_score": 0.0,
+            "pack_score": 0.0,
             "profit_component": 0.0,
             "stability_component": 0.0,
             "diversification_component": 1.0,
@@ -530,7 +530,7 @@ def test_persist_simulation_derived_metrics_raises_when_required_source_missing(
             "top3_ev_share": 0.47,
             # top5_ev_share missing on purpose
         },
-        "index_score": {
+        "pack_score": {
             "ind_ex_score_v1": 72.4,
             "prob_profit_component": 0.71,
             "stability_component": 0.65,

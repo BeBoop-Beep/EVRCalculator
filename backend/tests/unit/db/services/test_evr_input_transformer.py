@@ -311,3 +311,78 @@ def test_transform_passes_through_card_number_when_present():
     df = transformer.to_legacy_calculator_payload(transformed)["dataframe"]
     assert df["Card Number"].tolist() == ["006/165", "199/165"]
     assert df["Special Type"].tolist() == ["ex", ""]
+
+
+def test_transform_preserves_base_and_pattern_rows_for_generic_prismatic_card():
+    payload = {
+        "cards": [
+            {
+                "card_id": 1,
+                "name": "Eevee",
+                "card_number": "074/131",
+                "rarity": "Common",
+                "variants": [
+                    {
+                        "variant_id": 100,
+                        "special_type": "",
+                        "near_mint_latest": {"market_price": 0.25},
+                    },
+                    {
+                        "variant_id": 101,
+                        "special_type": "poke ball",
+                        "near_mint_latest": {"market_price": 3.50},
+                    },
+                    {
+                        "variant_id": 102,
+                        "special_type": "master ball",
+                        "near_mint_latest": {"market_price": 9.00},
+                    },
+                ],
+            }
+        ],
+        "sealed": {"pack": {"latest_price": {"market_price": 6.25}}},
+    }
+
+    transformer = EVRInputTransformer()
+    transformed = transformer.transform(payload, MockConfig())
+
+    card_rows = transformed["card_rows"]
+    assert len(card_rows) == 3
+    assert [row["special_type"] for row in card_rows] == ["", "poke ball", "master ball"]
+    assert [row["pull_rate_one_in_x"] for row in card_rows] == [40.0, 302.0, 1362.0]
+
+    df = transformer.to_legacy_calculator_payload(transformed)["dataframe"]
+    assert len(df) == 3
+    assert df["Special Type"].tolist() == ["", "poke ball", "master ball"]
+    assert df["Rarity"].tolist() == ["common", "common", "common"]
+
+
+def test_transform_synthesizes_base_row_when_generic_card_has_only_pattern_variant():
+    payload = {
+        "cards": [
+            {
+                "card_id": 2,
+                "name": "Rare Test",
+                "card_number": "010/131",
+                "rarity": "Rare",
+                "variants": [
+                    {
+                        "variant_id": 200,
+                        "special_type": "master ball",
+                        "near_mint_latest": {"market_price": 12.0},
+                    }
+                ],
+            }
+        ],
+        "sealed": {"pack": {"latest_price": {"market_price": 6.25}}},
+    }
+
+    transformer = EVRInputTransformer()
+    transformed = transformer.transform(payload, MockConfig())
+
+    card_rows = transformed["card_rows"]
+    assert len(card_rows) == 2
+    assert card_rows[0]["special_type"] == ""
+    assert card_rows[0]["pull_rate_one_in_x"] == 16.0
+    assert card_rows[1]["special_type"] == "master ball"
+    assert card_rows[1]["pull_rate_one_in_x"] == 1362.0

@@ -1,5 +1,15 @@
 import pandas as pd
 
+from ..utils.reverse_pool import normalize_reverse_classification_key
+from ..utils.rarity_classification import normalize_rarity_key
+from ..utils.special_type_normalization import (
+    RECOGNIZED_PATTERN_BUCKETS,
+    derive_aggregation_key,
+    derive_pattern_key,
+    is_recognized_pattern_special_type,
+    normalize_special_type_key,
+)
+
 
 CARD_NAME_WITH_NUMBER_PATTERN = r'^(?P<name>.+?)\s*-\s*(?P<number>[A-Za-z0-9.-]+/[A-Za-z0-9.-]+)\s*$'
 
@@ -82,6 +92,56 @@ class PackEVInitializer:
     def _derive_rarity_columns(self, df):
         df['rarity_raw'] = df['Rarity'].astype(str).str.lower().str.strip()
         df['rarity_group'] = df['rarity_raw'].map(self.config.RARITY_MAPPING)
+        df['rarity_key'] = df['Rarity'].apply(normalize_rarity_key)
+        self._warn_on_unmapped_rarities(df)
+
+    def _derive_special_type_columns(self, df):
+        df['special_type_raw'] = df['Special Type'].astype(str).str.lower().str.strip()
+        df['special_type_key'] = df['Special Type'].apply(normalize_special_type_key)
+        self._warn_on_non_pattern_special_types(df)
+
+    def _derive_aggregation_columns(self, df):
+        df['pattern_key'] = df['special_type_key'].apply(derive_pattern_key)
+        # Preserve base rarity semantics explicitly for downstream slot logic.
+        df['base_rarity_key'] = df['rarity_key']
+        df['aggregation_key'] = df.apply(
+            lambda row: derive_aggregation_key(row['rarity_key'], row['special_type_key']),
+            axis=1,
+        )
+        # classification_key remains base-rarity oriented; aggregation_key carries overlay/reporting buckets.
+        df['classification_key'] = df['base_rarity_key']
+
+    def _warn_on_unmapped_rarities(self, df):
+        has_raw_rarity = df['Rarity'].notna() & df['Rarity'].astype(str).str.strip().ne('')
+        unmapped_mask = has_raw_rarity & df['rarity_group'].isna()
+
+        if not unmapped_mask.any():
+            return
+
+        unmapped_rarities = sorted(df.loc[unmapped_mask, 'rarity_raw'].dropna().unique().tolist())
+        print(
+            f"[RARITY_WARNING] Unmapped rarities detected for {int(unmapped_mask.sum())} row(s): "
+            f"{unmapped_rarities}. Update config.RARITY_MAPPING; no fallback rarity_group was applied."
+        )
+
+    def _warn_on_non_pattern_special_types(self, df):
+        has_special_type = df['special_type_raw'].ne('')
+        non_pattern_mask = has_special_type & ~df['special_type_key'].apply(is_recognized_pattern_special_type)
+
+        if not non_pattern_mask.any():
+            return
+
+        distinct_pairs = sorted(
+            {
+                (row.special_type_raw, row.special_type_key)
+                for row in df.loc[non_pattern_mask, ['special_type_raw', 'special_type_key']].itertuples(index=False)
+            }
+        )
+        print(
+            f"[SPECIAL_TYPE_WARNING] Non-pattern special types detected for {int(non_pattern_mask.sum())} row(s): "
+            f"{distinct_pairs}. pattern_key remains empty and aggregation_key "
+            "will fall back to rarity_key for these rows."
+        )
 
     def _convert_column_types(self, df):
         df['Price ($)'] = pd.to_numeric(df['Price ($)'], errors='coerce')
@@ -94,15 +154,72 @@ class PackEVInitializer:
     def _extract_pack_price(self, df):
         return pd.to_numeric(df["Pack Price"].iloc[0], errors='coerce')
 
+    def _get_pattern_event_probabilities(self):
+        reverse_slot_probabilities = getattr(self.config, 'REVERSE_SLOT_PROBABILITIES', {})
+        pattern_event_probabilities = {pattern_key: 0.0 for pattern_key in RECOGNIZED_PATTERN_BUCKETS}
+
+        if not isinstance(reverse_slot_probabilities, dict):
+            return pattern_event_probabilities
+
+        for slot_config in reverse_slot_probabilities.values():
+            if not isinstance(slot_config, dict):
+                continue
+            for raw_key, raw_probability in slot_config.items():
+                classification_key = normalize_reverse_classification_key(str(raw_key))
+                if classification_key not in RECOGNIZED_PATTERN_BUCKETS:
+                    continue
+                probability = float(pd.to_numeric(raw_probability, errors='coerce') or 0.0)
+                if probability > 0:
+                    pattern_event_probabilities[classification_key] += probability
+
+        return pattern_event_probabilities
+
+    def _apply_pattern_overlay_pull_rate_overrides(self, df):
+        if 'pattern_key' not in df.columns:
+            return
+
+        pattern_keys = df['pattern_key'].fillna('').astype(str).str.strip()
+        if not pattern_keys.isin(RECOGNIZED_PATTERN_BUCKETS).any():
+            return
+
+        pattern_event_probabilities = self._get_pattern_event_probabilities()
+        for pattern_key in RECOGNIZED_PATTERN_BUCKETS:
+            pattern_mask = pattern_keys.eq(pattern_key)
+            pattern_count = int(pattern_mask.sum())
+            if pattern_count == 0:
+                continue
+
+            event_probability = float(pattern_event_probabilities.get(pattern_key, 0.0))
+            if event_probability <= 0.0:
+                print(
+                    f"[PATTERN_EV_WARNING] pattern_key={pattern_key} has {pattern_count} row(s) "
+                    "but no positive event probability in REVERSE_SLOT_PROBABILITIES; "
+                    "retaining row-level pull rates."
+                )
+                continue
+
+            # Pattern overlays are a single event bucket sampled over a finite pool.
+            # Per-card probability = P(any pattern event) / pattern_pool_size.
+            effective_pull_rate = pattern_count / event_probability
+            df.loc[pattern_mask, 'Effective_Pull_Rate'] = float(effective_pull_rate)
+
+            print(
+                f"[PATTERN_EV_MODEL] pattern_key={pattern_key} rows={pattern_count} "
+                f"event_probability={event_probability:.12f} "
+                f"effective_pull_rate_per_card={effective_pull_rate:.6f}"
+            )
+
     def _calculate_ev_columns(self, df):
         df['Effective_Pull_Rate'] = df.apply(
             lambda row: self.calculate_effective_pull_rate(
                 row['rarity_group'], 
                 row['Pull Rate (1/X)'],
-                row.get('Card Name', '')
+                row.get('pattern_key', '')
             ),
             axis=1
         )
+
+        self._apply_pattern_overlay_pull_rate_overrides(df)
 
         df['EV'] = df['Price ($)'] / df['Effective_Pull_Rate']
 
@@ -121,6 +238,8 @@ class PackEVInitializer:
         self._normalize_card_identity_columns(df)
         self._clean_columns(df)
         self._derive_rarity_columns(df)
+        self._derive_special_type_columns(df)
+        self._derive_aggregation_columns(df)
         self._convert_column_types(df)
         self._remove_invalid_pull_rates(df)
         pack_price = self._extract_pack_price(df)

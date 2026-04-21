@@ -24,7 +24,9 @@ class CardDTO(BaseModel):
     rarity: Optional[str]
     variant: Optional[str]
     condition: Optional[str] = None  # Card condition (Near Mint, Lightly Played, etc.)
-    printing: Optional[str] = None  # Printing type or edition info
+    printing: Optional[str] = None  # Raw printing string from TCGPlayer
+    edition: Optional[str] = None  # Parsed edition (e.g., "1st-edition", "unlimited")
+    printing_type: Optional[str] = None  # Parsed printing type (e.g., "holo", "non-holo", "reverse-holo")
     pull_rate: Optional[float]
     prices: Dict[str, Optional[float]]  # market, low, reverse, etc.
     source: Optional[str] = None  # e.g., 'TCGPlayer'

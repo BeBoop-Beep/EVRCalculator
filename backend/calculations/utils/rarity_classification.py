@@ -6,12 +6,18 @@ base-config RARITY_MAPPING, treating it as the source of truth for
 determining which cards are chase/hit cards.
 
 Key principle:
-  A card is a "hit" if and only if its raw rarity maps to 'hits'
-  according to config.RARITY_MAPPING. This is NOT hardcoded as
-  "rares and above" or any other shortcut.
+    A card is a "hit" if and only if its raw rarity maps to 'hits'
+    according to config.RARITY_MAPPING. This is NOT hardcoded as
+    "rares and above" or any other shortcut.
 """
 
+import re
+
 import pandas as pd
+
+
+RARITY_KEY_SEPARATOR_PATTERN = re.compile(r"[\s-]+")
+RARITY_KEY_DUPLICATE_SEPARATOR_PATTERN = re.compile(r"_+")
 
 
 def normalize_rarity_string(rarity_raw: str) -> str:
@@ -28,6 +34,17 @@ def normalize_rarity_string(rarity_raw: str) -> str:
         Normalized rarity (lowercase, stripped whitespace).
     """
     return str(rarity_raw).lower().strip()
+
+
+def normalize_rarity_key(rarity_raw: str) -> str:
+    """Normalize raw rarity text into a stable underscore-separated key."""
+    if pd.isna(rarity_raw):
+        return ""
+
+    normalized = normalize_rarity_string(rarity_raw)
+    normalized = RARITY_KEY_SEPARATOR_PATTERN.sub("_", normalized)
+    normalized = RARITY_KEY_DUPLICATE_SEPARATOR_PATTERN.sub("_", normalized)
+    return normalized.strip("_")
 
 
 def is_hit_rarity(rarity_raw: str, config) -> bool:
@@ -102,6 +119,21 @@ def get_rarity_group(rarity_raw: str, config) -> str:
     return config.RARITY_MAPPING.get(normalized)
 
 
+def is_hit_classification(classification_key: str) -> bool:
+    """Check whether a normalized classification key represents a recognized hit bucket."""
+    from .special_type_normalization import RECOGNIZED_PATTERN_BUCKETS
+
+    return normalize_rarity_key(classification_key) in RECOGNIZED_PATTERN_BUCKETS
+
+
+def is_hit_row(row: pd.Series, config) -> bool:
+    """Classify a card row as hit/non-hit using normalized classification first, then raw rarity."""
+    if is_hit_classification(row.get("classification_key", "")):
+        return True
+
+    return is_hit_rarity(row.get("Rarity", ""), config)
+
+
 def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
     """Filter card EV contributions into hit and non-hit pools.
 
@@ -148,10 +180,9 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
     )
 
     if use_card_number:
-        # Build an index: card_number → first matching row's rarity
+        # Build an index: card_number → first matching row's hit classification
         # Check for duplicates (same card_number appearing more than once)
         card_number_col = df["Card Number"].astype(str).str.strip()
-        rarity_col = df["Rarity"].astype(str)
         df_indexed = df.assign(_card_key=card_number_col)
         duplicate_keys = df_indexed[df_indexed.duplicated(subset=["_card_key"], keep=False)]["_card_key"].unique()
         if len(duplicate_keys) > 0:
@@ -160,9 +191,11 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
                 f"{len(duplicate_keys)} card number(s): {list(duplicate_keys)[:10]}. "
                 "Using first matching row for hit classification."
             )
-        rarity_by_card_number = (
-            df_indexed.groupby("_card_key")["Rarity"].first().to_dict()
-        )
+        first_rows_by_card_number = df_indexed.groupby("_card_key", sort=False).first()
+        hit_status_by_card_number = {
+            str(card_key): bool(is_hit_row(row, config))
+            for card_key, row in first_rows_by_card_number.iterrows()
+        }
     else:
         # Legacy: build name-based index
         print(
@@ -171,18 +204,18 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
             "Ensure 'Card Number' is passed through the data pipeline."
         )
         name_col = df["Card Name"].astype(str).str.lower().str.strip()
-        rarity_by_name = {}
-        for normalized_name, rarity in zip(name_col, df["Rarity"].astype(str)):
-            if normalized_name not in rarity_by_name:
-                rarity_by_name[normalized_name] = rarity
+        hit_status_by_name = {}
+        for normalized_name, (_, row) in zip(name_col, df.iterrows()):
+            if normalized_name not in hit_status_by_name:
+                hit_status_by_name[normalized_name] = bool(is_hit_row(row, config))
 
     for card_key, ev_value in card_ev_contributions.items():
         if float(ev_value) <= 0.0:
             continue
 
         if use_card_number:
-            rarity_raw = rarity_by_card_number.get(str(card_key).strip())
-            if rarity_raw is None:
+            is_hit = hit_status_by_card_number.get(str(card_key).strip())
+            if is_hit is None:
                 print(
                     f"[IDENTITY_UNMATCHED] Card key '{card_key}' not found in DataFrame by card_number. "
                     "Classifying as non-hit (conservative fallback). "
@@ -193,8 +226,8 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
         else:
             # Legacy name-based fallback
             normalized_key = str(card_key).strip().lower()
-            rarity_raw = rarity_by_name.get(normalized_key)
-            if rarity_raw is None:
+            is_hit = hit_status_by_name.get(normalized_key)
+            if is_hit is None:
                 print(
                     f"[IDENTITY_UNMATCHED] Card '{card_key}' not found in DataFrame by name. "
                     "Classifying as non-hit (conservative fallback)."
@@ -202,7 +235,6 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
                 non_hit_contributions[card_key] = float(ev_value)
                 continue
 
-        is_hit = is_hit_rarity(rarity_raw, config)
         if is_hit:
             hit_contributions[card_key] = float(ev_value)
         else:

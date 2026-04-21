@@ -293,7 +293,7 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
     try:
         ev_comp = _extract_required_nested_mapping(derived, "ev_composition_metrics", "derived")
         chase = _extract_required_nested_mapping(derived, "chase_dependency_metrics", "derived")
-        index_score = _extract_required_nested_mapping(derived, "index_score", "derived")
+        pack_score = _extract_required_nested_mapping(derived, "pack_score", "derived")
         total_pack_ev = _require_float(
             _first_present(ev_comp, ("total_pack_ev",))
             if _first_present(ev_comp, ("total_pack_ev",)) is not None
@@ -351,18 +351,18 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
             "derived.chase_dependency_metrics.top5_ev_share",
             zero_when_empty=cards_tracked == 0 or total_card_ev <= 0,
         ),
-        "index_score": _require_float(index_score.get("ind_ex_score_v1"), "derived.index_score.ind_ex_score_v1"),
+        "pack_score": _require_float(pack_score.get("ind_ex_score_v1"), "derived.pack_score.ind_ex_score_v1"),
         "profit_component": _require_float(
-            index_score.get("prob_profit_component"),
-            "derived.index_score.prob_profit_component",
+            pack_score.get("prob_profit_component"),
+            "derived.pack_score.prob_profit_component",
         ),
         "stability_component": _require_float(
-            index_score.get("stability_component"),
-            "derived.index_score.stability_component",
+            pack_score.get("stability_component"),
+            "derived.pack_score.stability_component",
         ),
         "diversification_component": _require_float(
-            index_score.get("diversification_component"),
-            "derived.index_score.diversification_component",
+            pack_score.get("diversification_component"),
+            "derived.pack_score.diversification_component",
         ),
     }
 

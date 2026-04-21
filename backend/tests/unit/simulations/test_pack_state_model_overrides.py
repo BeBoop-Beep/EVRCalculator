@@ -7,6 +7,7 @@ import pytest
 from backend.constants.tcg.pokemon.megaEvolutionEra.ascendedHeroes import SetAscendedHeroesConfig
 from backend.constants.tcg.pokemon.megaEvolutionEra.megaEvolution import SetMegaEvolutionConfig
 from backend.constants.tcg.pokemon.scarletAndVioletEra.blackBolt import SetBlackBoltConfig
+from backend.constants.tcg.pokemon.scarletAndVioletEra.paldeanFates import SetPaldeanFatesConfig
 from backend.constants.tcg.pokemon.scarletAndVioletEra.prismaticEvolutions import SetPrismaticEvolutionsConfig
 from backend.constants.tcg.pokemon.scarletAndVioletEra.whiteFlare import SetWhiteFlareConfig
 from backend.simulations.monteCarloSimV2 import (
@@ -16,6 +17,7 @@ from backend.simulations.monteCarloSimV2 import (
     sample_pack_state,
     validate_pack_state_model,
 )
+from backend.simulations.utils.packStateModels.packStateCoercion import coerce_slot_outcomes
 from backend.simulations.utils.packStateModels.packStateModelOrchestrator import resolve_pack_state_model
 from backend.simulations.utils.packStateModels import scarletAndVioletPackStateModel as sv_model_module
 from backend.simulations.utils.packStateModels.scarletAndVioletPackStateModel import (
@@ -278,13 +280,13 @@ def test_derived_state_probabilities_sum_to_one_for_various_configs():
 # Requirement 3: Multiple combinations collapsing into the same state are summed
 # ---------------------------------------------------------------------------
 
-def test_exclusive_hit_in_reverse_2_collapses_all_rare_combinations_into_one_state():
-    """Rule 1: any combination with SIR in reverse_2 collapses to sir_only.
+def test_hyper_hit_in_reverse_2_collapses_all_rare_combinations_into_one_state():
+    """Rule 1: any combination with hyper rare in reverse_2 collapses to hyper_only.
 
-    P(sir_only) must equal P(SIR in slot_2) × 1 × 1, because EVERY raw
-    combination (rare_out, r1_out, SIR) collapses to (rare, reg, SIR) via Rule 1.
+    P(hyper_only) must equal P(hyper rare in slot_2) × 1 × 1, because EVERY raw
+    combination (rare_out, r1_out, hyper rare) collapses to (rare, reg, hyper rare) via Rule 1.
     """
-    p_sir_slot2 = 0.04
+    p_hyper_slot2 = 0.04
 
     class _Config:
         ERA = "Scarlet and Violet"
@@ -297,15 +299,69 @@ def test_exclusive_hit_in_reverse_2_collapses_all_rare_combinations_into_one_sta
                 "regular reverse": 0.80,
             },
             "slot_2": {
-                "special illustration rare": p_sir_slot2,
-                "regular reverse": 1.0 - p_sir_slot2,
+                "hyper rare": p_hyper_slot2,
+                "regular reverse": 1.0 - p_hyper_slot2,
             },
         }
 
     model = resolve_pack_state_model(_Config)
-    # Every combination with SIR in slot_2 collapses to sir_only (Rule 1 fires)
+    # Every combination with hyper rare in slot_2 collapses to hyper_only (Rule 1 fires)
     # regardless of what is in the rare slot or slot_1
-    assert pytest.approx(p_sir_slot2, abs=1e-9) == model["state_probabilities"]["sir_only"]
+    assert pytest.approx(p_hyper_slot2, abs=1e-9) == model["state_probabilities"]["hyper_only"]
+
+
+@pytest.mark.parametrize(
+    "raw_outcomes",
+    [
+        {"rare": "double rare", "reverse_1": "regular reverse", "reverse_2": "special illustration rare"},
+        {"rare": "rare", "reverse_1": "ace spec rare", "reverse_2": "special illustration rare"},
+        {"rare": "ultra rare", "reverse_1": "regular reverse", "reverse_2": "illustration rare"},
+        {"rare": "rare", "reverse_1": "shiny rare", "reverse_2": "special illustration rare"},
+        {"rare": "rare", "reverse_1": "shiny rare", "reverse_2": "illustration rare"},
+    ],
+    ids=[
+        "sir_plus_double_rare_allowed",
+        "sir_plus_ace_spec_allowed",
+        "ir_plus_ultra_rare_allowed",
+        "shiny_rare_plus_sir_allowed",
+        "shiny_rare_plus_ir_allowed",
+    ],
+)
+def test_sv_conditional_rules_allow_expected_hit_combinations(raw_outcomes):
+    constraints = resolve_pack_state_model(SetPaldeanFatesConfig)["constraints"]
+    assert coerce_slot_outcomes(raw_outcomes, constraints) == raw_outcomes
+
+
+@pytest.mark.parametrize(
+    "raw_outcomes, expected",
+    [
+        (
+            {"rare": "ultra rare", "reverse_1": "regular reverse", "reverse_2": "special illustration rare"},
+            {"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "special illustration rare"},
+        ),
+        (
+            {"rare": "rare", "reverse_1": "illustration rare", "reverse_2": "hyper rare"},
+            {"rare": "rare", "reverse_1": "regular reverse", "reverse_2": "hyper rare"},
+        ),
+        (
+            {"rare": "hyper rare", "reverse_1": "regular reverse", "reverse_2": "illustration rare"},
+            {"rare": "hyper rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+        ),
+        (
+            {"rare": "hyper rare", "reverse_1": "regular reverse", "reverse_2": "special illustration rare"},
+            {"rare": "hyper rare", "reverse_1": "regular reverse", "reverse_2": "regular reverse"},
+        ),
+    ],
+    ids=[
+        "sir_plus_ultra_rare_forbidden",
+        "ir_plus_hyper_rare_forbidden",
+        "hyper_rare_plus_ir_forbidden",
+        "hyper_rare_plus_sir_forbidden",
+    ],
+)
+def test_sv_conditional_rules_forbid_targeted_hit_combinations(raw_outcomes, expected):
+    constraints = resolve_pack_state_model(SetPaldeanFatesConfig)["constraints"]
+    assert coerce_slot_outcomes(raw_outcomes, constraints) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -344,8 +400,7 @@ def test_bwr_named_state_probability_includes_forbidden_reverse2_demotions(cfg):
 
     For Black Bolt / White Flare, when rare is BWR, reverse_2 outcomes of
     illustration rare and special illustration rare are forbidden and demoted
-    to regular reverse. Under current coercion ordering, SIR is handled by
-    exclusive-hit logic earlier, while IR contributes additional demoted mass.
+    to regular reverse.
     """
     model = resolve_pack_state_model(cfg)
     p_bwr   = cfg.RARE_SLOT_PROBABILITY["black white rare"]
@@ -357,8 +412,12 @@ def test_bwr_named_state_probability_includes_forbidden_reverse2_demotions(cfg):
     )
     p_s2_reg = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("regular reverse", 0.0)
     p_s2_ir = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("illustration rare", 0.0)
+    p_s2_sir = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("special illustration rare", 0.0)
 
-    expected = p_bwr * (p_s1_reg * (p_s2_reg + p_s2_ir) + p_s1_nonreg * p_s2_ir)
+    expected = p_bwr * (
+        p_s1_reg * (p_s2_reg + p_s2_ir + p_s2_sir)
+        + p_s1_nonreg * (p_s2_ir + p_s2_sir)
+    )
     assert pytest.approx(expected, abs=1e-9) == model["state_probabilities"]["black_white_rare_only"]
 
 
@@ -772,7 +831,7 @@ def test_empty_conditional_exclusions_matches_key_omitted_model_exactly():
 def test_prismatic_has_no_conditional_exclusions_and_named_state_behaviour_unchanged():
     model = resolve_pack_state_model(SetPrismaticEvolutionsConfig)
 
-    assert "conditional_slot_exclusions" not in model["constraints"]
+    assert "conditional_slot_exclusions" in model["constraints"]
     assert model["state_outcomes"]["pattern_plus_double_rare"] == {
         "rare": "double rare",
         "reverse_1": "poke ball pattern",
@@ -799,3 +858,52 @@ def test_exclusive_hits_semantics_unchanged_without_conditional_rules_present():
     model = resolve_pack_state_model(ExclusiveOnlyNoConditional)
     assert set(model["state_probabilities"].keys()) == {"hyper_only"}
     assert pytest.approx(1.0, abs=1e-12) == model["state_probabilities"]["hyper_only"]
+
+
+def test_sir_combinations_validate_when_allowed_by_rules(pools):
+    """Validation must not reject SIR + double rare / ace spec combinations."""
+    class ValidSIRConfigs:
+        ERA = "Scarlet and Violet"
+        # Allow SIR + double rare
+        RARE_SLOT_PROBABILITY = {"rare": 0.5, "double rare": 0.5}
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {"regular reverse": 1.0},
+            "slot_2": {"special illustration rare": 1.0},
+        }
+
+    # This should NOT raise ValidationError
+    validate_pack_state_model(ValidSIRConfigs, pools)
+
+
+def test_sir_plus_ace_spec_validates(pools):
+    """SIR + ace spec should be valid (non-blocking bonus hit)."""
+    class SIRPlusAceSpec:
+        ERA = "Scarlet and Violet"
+        RARE_SLOT_PROBABILITY = {"rare": 1.0}
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {"ace spec rare": 1.0},
+            "slot_2": {"special illustration rare": 1.0},
+        }
+
+    # This should NOT raise ValidationError
+    validate_pack_state_model(SIRPlusAceSpec, pools)
+
+
+def test_still_blocked_combos_fail_or_coerce(pools):
+    """Ensure SIR + ultra rare still coerces/blocks as per rules."""
+    class SIRPlusUltra:
+        ERA = "Scarlet and Violet"
+        RARE_SLOT_PROBABILITY = {"ultra rare": 1.0}
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {"regular reverse": 1.0},
+            "slot_2": {"special illustration rare": 1.0},
+        }
+
+    # Coercion should demote ultra rare to rare (per conditional rules)
+    model = resolve_pack_state_model(SIRPlusUltra)
+    resolved_state = model["state_outcomes"]["sir_only"]
+    # After coercion, rare slot should be "rare" (demoted from ultra rare)
+    assert resolved_state["rare"] == "rare"
+    assert resolved_state["reverse_2"] == "special illustration rare"
+    # Validation should pass (coerced state is valid)
+    validate_pack_state_model(SIRPlusUltra, pools)

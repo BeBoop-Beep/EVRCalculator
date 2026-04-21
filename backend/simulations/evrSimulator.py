@@ -1,4 +1,5 @@
 from collections import defaultdict
+import logging
 
 from .monteCarloSim import make_simulate_pack_fn, print_simulation_summary, run_simulation
 from .monteCarloSimV2 import (
@@ -9,7 +10,11 @@ from .monteCarloSimV2 import (
 )
 from backend.calculations.packCalcsRefractored.otherCalculations import PackCalculations
 from .utils.extractScarletAndVioletCardGroups import extract_scarletandviolet_card_groups
+from .utils.simulationTokenResolver import get_row_match_keys
 from .validations.monteCarloValidations import validate_and_debug_slot, validate_full_pack_logic
+
+
+logger = logging.getLogger(__name__)
 
 
 class PackEVRSimulator(PackCalculations):
@@ -19,6 +24,43 @@ class PackEVRSimulator(PackCalculations):
     def calculate_evr_simulations(self, df):
         print("=== ❗STARTING PACK EV SIMULATION❗ ===")
         card_groups = extract_scarletandviolet_card_groups(self.config, df)
+
+        pattern_keys_source, _ = get_row_match_keys(df, mode="pattern")
+        source_pattern_mask = pattern_keys_source.isin({"pokeball_pattern", "master_ball_pattern"})
+
+        base_pool_indices = (
+            set(card_groups["common"].index.tolist())
+            | set(card_groups["uncommon"].index.tolist())
+            | set(card_groups["rare"].index.tolist())
+        )
+        source_pattern_indices = set(df.index[source_pattern_mask].tolist())
+        base_pools_pattern_overlap_count = len(base_pool_indices & source_pattern_indices)
+
+        hit_pattern_keys, _ = get_row_match_keys(card_groups["hit"], mode="pattern")
+        patterns_in_hit_pool = int(
+            hit_pattern_keys.isin({"pokeball_pattern", "master_ball_pattern"}).sum()
+        )
+
+        covered_indices = (
+            set(card_groups["common"].index.tolist())
+            | set(card_groups["uncommon"].index.tolist())
+            | set(card_groups["rare"].index.tolist())
+            | set(card_groups["hit"].index.tolist())
+        )
+        source_indices = set(df.index.tolist())
+        all_rows_accounted_for = covered_indices == source_indices
+
+        logger.info("[POOL_CROSS_CHECK] Verifying pool composition for simulation...")
+        logger.info(
+            "[POOL_CROSS_CHECK] base_pools_pattern_overlap_count=%d (expected >=0 with dual semantic membership)",
+            base_pools_pattern_overlap_count,
+        )
+        logger.info("[POOL_CROSS_CHECK] patterns_in_hit_pool=%d_rows", patterns_in_hit_pool)
+        logger.info(
+            "[POOL_CROSS_CHECK] all_rows_accounted_for=%s (common+uncommon+rare+hit cover source rows)",
+            all_rows_accounted_for,
+        )
+
         use_v2 = bool(getattr(self.config, "USE_MONTE_CARLO_V2", False))
 
         rarity_pull_counts = defaultdict(int)

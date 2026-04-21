@@ -9,7 +9,15 @@ import numpy as np
 import pandas as pd
 
 from .utils.packStateModels.packStateModelOrchestrator import resolve_pack_state_model
+from .utils.simulationTokenResolver import (
+    format_token_resolution_error,
+    get_row_match_keys,
+    get_simulation_token_mode,
+    list_available_canonical_tokens,
+    resolve_hit_pool_rows,
+)
 from .utils.packStateModels.packStateCoercion import (
+    DEFAULT_PACK_CONSTRAINTS,
     coerce_slot_outcomes,
     contains_incompatible_hits,
     count_exclusive_hits,
@@ -38,30 +46,22 @@ def _extract_probs(mapping: Mapping[str, float]) -> Dict[str, float]:
 
 def _get_pack_constraints(config) -> Dict[str, object]:
     resolved_model = resolve_pack_state_model(config)
-    defaults = resolved_model.get(
-        "constraints",
-        {
-            "primary_hits": {"double rare", "ultra rare", "illustration rare"},
-            "exclusive_hits": {"special illustration rare", "hyper rare", "mega hyper rare"},
-            "bonus_hits": {"ace spec rare", "poke ball pattern", "master ball pattern"},
-            "max_major_hits": 2,
-            "max_non_regular_hits": 2,
-            "max_exclusive_hits": 1,
-        },
-    )
+    resolved_constraints = deepcopy(resolved_model.get("constraints", DEFAULT_PACK_CONSTRAINTS))
     defaults = {
-        "primary_hits": set(defaults.get("primary_hits", set())),
-        "exclusive_hits": set(defaults.get("exclusive_hits", set())),
-        "bonus_hits": set(defaults.get("bonus_hits", set())),
+        "primary_hits": set(resolved_constraints.get("primary_hits", set())),
+        "exclusive_hits": set(resolved_constraints.get("exclusive_hits", set())),
+        "bonus_hits": set(resolved_constraints.get("bonus_hits", set())),
         "max_major_hits": 2,
         "max_non_regular_hits": 2,
         "max_exclusive_hits": 1,
         **{
-            key: defaults[key]
+            key: resolved_constraints[key]
             for key in ("max_major_hits", "max_non_regular_hits", "max_exclusive_hits")
-            if key in defaults
+            if key in resolved_constraints
         },
     }
+    if "conditional_slot_exclusions" in resolved_constraints:
+        defaults["conditional_slot_exclusions"] = resolved_constraints["conditional_slot_exclusions"]
     overrides = getattr(config, "PACK_CONSTRAINTS", None)
     merged = dict(defaults)
     if isinstance(overrides, dict):
@@ -150,13 +150,11 @@ def validate_pack_state_model(config, pools: Mapping[str, pd.DataFrame]) -> Dict
     if reverse_pool is None or rare_pool is None or hit_pool is None:
         raise ValueError("Pools must include reverse, rare, and hit dataframes.")
 
-    available_hit_rarities = {
-        _normalize_rarity(r)
-        for r in hit_pool.get("Rarity", pd.Series(dtype=str)).dropna().tolist()
-    }
+    available_base_tokens = list_available_canonical_tokens(hit_pool, mode="base_rarity")
+    available_pattern_tokens = list_available_canonical_tokens(hit_pool, mode="pattern")
 
-    if not available_hit_rarities:
-        raise ValueError("Hit pool contains no rarity data.")
+    if not available_base_tokens and not available_pattern_tokens:
+        raise ValueError("Hit pool contains no resolvable simulation tokens.")
 
     for state, slot_outcomes in outcomes.items():
         required_slots = {"rare", "reverse_1", "reverse_2"}
@@ -169,14 +167,16 @@ def validate_pack_state_model(config, pools: Mapping[str, pd.DataFrame]) -> Dict
             "reverse_2": _normalize_rarity(slot_outcomes["reverse_2"]),
         }
 
-        if _contains_incompatible_hits(raw_outcomes):
-            raise ValueError(f"Invalid state {state}: contains incompatible hit pair.")
-
         raw_exclusive_hits = _count_exclusive_hits(raw_outcomes, constraints)
         if raw_exclusive_hits > int(constraints["max_exclusive_hits"]):
             raise ValueError(f"Invalid state {state}: more than one exclusive hit.")
 
-        if raw_exclusive_hits == 1 and _count_non_regular_hits(raw_outcomes) > 1:
+        singleton_exclusive_hits = {"hyper rare", "mega hyper rare"}
+        has_singleton_exclusive = any(
+            _normalize_rarity(raw_outcomes[slot]) in singleton_exclusive_hits
+            for slot in ("rare", "reverse_1", "reverse_2")
+        )
+        if has_singleton_exclusive and _count_non_regular_hits(raw_outcomes) > 1:
             raise ValueError(f"Invalid state {state}: exclusive hit must be the only hit.")
 
         raw_major_hits = _count_major_hits(raw_outcomes, constraints)
@@ -187,9 +187,6 @@ def validate_pack_state_model(config, pools: Mapping[str, pd.DataFrame]) -> Dict
             raise ValueError(f"Invalid state {state}: exceeds max non-regular hit slots.")
 
         normalized = _coerce_slot_outcomes(raw_outcomes, constraints)
-
-        if normalized["reverse_2"] == "special illustration rare" and normalized["rare"] != "rare":
-            raise ValueError(f"Invalid state {state}: SIR state must downgrade rare slot to rare.")
 
         for slot_name, rarity in normalized.items():
             if rarity == "regular reverse":
@@ -202,8 +199,21 @@ def validate_pack_state_model(config, pools: Mapping[str, pd.DataFrame]) -> Dict
                     raise ValueError(f"State {state} needs rare pool but rare pool is empty.")
                 continue
 
-            if rarity not in available_hit_rarities:
-                raise ValueError(f"State {state} references rarity '{rarity}' not available in hit pool.")
+            requested_token = str(slot_outcomes.get(slot_name, rarity))
+            resolution_mode = get_simulation_token_mode(requested_token)
+            resolved_rows, resolution = resolve_hit_pool_rows(
+                hit_pool,
+                requested_token,
+                mode=resolution_mode,
+            )
+            if resolved_rows.empty:
+                details = format_token_resolution_error(
+                    mode=resolution["mode"],
+                    requested_token=resolution["requested_token"],
+                    canonical_token=resolution["canonical_token"],
+                    available_tokens=resolution["available_tokens"],
+                )
+                raise ValueError(f"State {state} slot {slot_name} {details}")
 
     max_state_probability = max(float(v) for v in probs.values())
     min_non_zero_probability = min(float(v) for v in probs.values() if float(v) > 0)
@@ -263,15 +273,39 @@ def _sample_single_value(
     value_col: str,
     rng: np.random.Generator,
     fallback: float = 0.0,
-) -> Tuple[float, Optional[str]]:
+) -> Tuple[float, Optional[str], Optional[object]]:
     if df.empty or value_col not in df.columns:
-        return float(fallback), None
+        return float(fallback), None, None
     row = _sample_rows(df, 1, rng)
     if row.empty:
-        return float(fallback), None
+        return float(fallback), None, None
     value = float(pd.to_numeric(row.iloc[0][value_col], errors="coerce") or 0.0)
     card_name = row.iloc[0]["Card Name"] if "Card Name" in row.columns else None
-    return value, None if pd.isna(card_name) else str(card_name)
+    source_row_index = row.iloc[0].get("__source_row_index__") if "__source_row_index__" in row.columns else None
+    return value, None if pd.isna(card_name) else str(card_name), source_row_index
+
+
+def _exclude_selected_source_rows(df: pd.DataFrame, selected_source_rows: set) -> pd.DataFrame:
+    if not selected_source_rows or "__source_row_index__" not in df.columns:
+        return df
+
+    filtered = df.loc[~df["__source_row_index__"].isin(selected_source_rows)]
+    # Preserve continuity when no alternate rows exist.
+    return filtered if not filtered.empty else df
+
+
+def _prefer_non_pattern_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Prefer non-pattern rows for base-slot sampling, fallback to full pool when needed."""
+    if df.empty:
+        return df
+    pattern_keys, _ = get_row_match_keys(df, mode="pattern")
+    non_pattern_rows = df.loc[pattern_keys.eq("")]
+    return non_pattern_rows if not non_pattern_rows.empty else df
+
+
+def _get_base_slot_sampling_pool(df: pd.DataFrame) -> pd.DataFrame:
+    """Return ordinary base-slot pool: non-pattern rows when present, else fallback to full pool."""
+    return _prefer_non_pattern_rows(df)
 
 
 def _sample_rows_with_rarity(
@@ -325,6 +359,8 @@ def _sample_special_pack_details(
 ) -> Dict[str, object]:
     rarities: List[str] = []
     values: List[float] = []
+    common_sampling_pool = _get_base_slot_sampling_pool(common_cards)
+    uncommon_sampling_pool = _get_base_slot_sampling_pool(uncommon_cards)
     strategy = config_map.get("strategy", {}) if isinstance(config_map, dict) else {}
     strategy_type = strategy.get("type", "fixed")
 
@@ -338,10 +374,10 @@ def _sample_special_pack_details(
                 cards = selected_pack.get("cards", [])
                 context_label = f"god.fixed_pack:{selected_pack.get('name', '?')}"
                 c_rarities, c_values = _sample_rows_with_rarity(
-                    common_cards, 4, rng, "Price ($)", default_rarity="common"
+                    common_sampling_pool, 4, rng, "Price ($)", default_rarity="common"
                 )
                 u_rarities, u_values = _sample_rows_with_rarity(
-                    uncommon_cards, 3, rng, "Price ($)", default_rarity="uncommon"
+                    uncommon_sampling_pool, 3, rng, "Price ($)", default_rarity="uncommon"
                 )
                 rarities.extend(c_rarities + u_rarities)
                 values.extend(c_values + u_values)
@@ -387,10 +423,10 @@ def _sample_special_pack_details(
 
     elif entry_path == "demi_god":
         c_rarities, c_values = _sample_rows_with_rarity(
-            common_cards, 4, rng, "Price ($)", default_rarity="common"
+            common_sampling_pool, 4, rng, "Price ($)", default_rarity="common"
         )
         u_rarities, u_values = _sample_rows_with_rarity(
-            uncommon_cards, 3, rng, "Price ($)", default_rarity="uncommon"
+            uncommon_sampling_pool, 3, rng, "Price ($)", default_rarity="uncommon"
         )
         rarities.extend(c_rarities + u_rarities)
         values.extend(c_values + u_values)
@@ -461,14 +497,17 @@ def sample_cards_for_slot_outcomes(
     rng = _to_rng(rng)
     total_value = 0.0
 
-    sampled_common = _sample_rows(common_cards, int(slots_per_rarity.get("common", 4)), rng)
+    common_sampling_pool = _get_base_slot_sampling_pool(common_cards)
+    uncommon_sampling_pool = _get_base_slot_sampling_pool(uncommon_cards)
+
+    sampled_common = _sample_rows(common_sampling_pool, int(slots_per_rarity.get("common", 4)), rng)
     common_prices = pd.to_numeric(sampled_common.get("Price ($)"), errors="coerce").fillna(0)
     common_value = float(common_prices.sum())
     total_value += common_value
     rarity_pull_counts["common"] += len(common_prices)
     rarity_value_totals["common"] += common_value
 
-    sampled_uncommon = _sample_rows(uncommon_cards, int(slots_per_rarity.get("uncommon", 3)), rng)
+    sampled_uncommon = _sample_rows(uncommon_sampling_pool, int(slots_per_rarity.get("uncommon", 3)), rng)
     uncommon_prices = pd.to_numeric(sampled_uncommon.get("Price ($)"), errors="coerce").fillna(0)
     uncommon_value = float(uncommon_prices.sum())
     total_value += uncommon_value
@@ -477,18 +516,42 @@ def sample_cards_for_slot_outcomes(
 
     slot_values: Dict[str, float] = {}
     slot_cards: Dict[str, Optional[str]] = {}
+    selected_source_rows: set = set()
 
     for slot_name in ("rare", "reverse_1", "reverse_2"):
-        rarity = _normalize_rarity(slot_outcomes[slot_name])
+        requested_token = str(slot_outcomes[slot_name])
+        rarity = _normalize_rarity(requested_token)
         if slot_name == "rare" and rarity == "rare":
-            value, card_name = _sample_single_value(rare_cards, "Price ($)", rng)
+            eligible_rare = _exclude_selected_source_rows(rare_cards, selected_source_rows)
+            eligible_rare = _get_base_slot_sampling_pool(eligible_rare)
+            value, card_name, source_row_index = _sample_single_value(eligible_rare, "Price ($)", rng)
         elif rarity == "regular reverse":
-            value, card_name = _sample_single_value(reverse_pool, "Reverse Variant Price ($)", rng)
+            eligible_reverse = _exclude_selected_source_rows(reverse_pool, selected_source_rows)
+            value, card_name, source_row_index = _sample_single_value(
+                eligible_reverse,
+                "Reverse Variant Price ($)",
+                rng,
+            )
         else:
-            eligible = hit_cards[
-                hit_cards.get("Rarity", pd.Series(dtype=str)).astype(str).str.strip().str.lower() == rarity
-            ]
-            value, card_name = _sample_single_value(eligible, "Price ($)", rng)
+            resolution_mode = get_simulation_token_mode(requested_token)
+            eligible, resolution = resolve_hit_pool_rows(
+                hit_cards,
+                requested_token,
+                mode=resolution_mode,
+            )
+            if eligible.empty:
+                details = format_token_resolution_error(
+                    mode=resolution["mode"],
+                    requested_token=resolution["requested_token"],
+                    canonical_token=resolution["canonical_token"],
+                    available_tokens=resolution["available_tokens"],
+                )
+                raise ValueError(f"Slot {slot_name} {details}")
+            eligible = _exclude_selected_source_rows(eligible, selected_source_rows)
+            value, card_name, source_row_index = _sample_single_value(eligible, "Price ($)", rng)
+
+        if source_row_index is not None and not pd.isna(source_row_index):
+            selected_source_rows.add(source_row_index)
 
         slot_values[slot_name] = value
         slot_cards[slot_name] = card_name

@@ -1,52 +1,99 @@
 import numpy as np
 import pandas as pd
+from typing import Set
 
+from .rarity_classification import normalize_rarity_key
+from .special_type_normalization import (
+    RECOGNIZED_PATTERN_BUCKETS,
+    derive_classification_key,
+    derive_pattern_key,
+    normalize_special_type_key,
+)
 
-SPECIAL_PATTERN_NAME_REGEX = r"Master Ball|Poke Ball"
 REVERSE_PRICE_COLUMN = "Reverse Variant Price ($)"
 
 
-def get_normalized_reverse_eligible_rarities(config) -> set[str]:
+def normalize_reverse_classification_key(value: str) -> str:
+    normalized_special_type = normalize_special_type_key(value)
+    if normalized_special_type in RECOGNIZED_PATTERN_BUCKETS:
+        return normalized_special_type
+
+    return normalize_rarity_key(value)
+
+
+def get_normalized_reverse_eligible_rarity_keys(config) -> Set[str]:
     provider = getattr(config, "get_reverse_eligible_rarities", None)
     if not callable(provider):
         raise ValueError("Config must define get_reverse_eligible_rarities() for reverse EV calculations.")
 
     return {
-        str(rarity).strip().lower()
+        normalize_reverse_classification_key(rarity)
         for rarity in provider()
         if rarity is not None and str(rarity).strip()
     }
 
 
-def get_normalized_rarity_series(df: pd.DataFrame) -> pd.Series:
-    if "rarity_raw" in df.columns:
+def get_normalized_base_rarity_key_series(df: pd.DataFrame) -> pd.Series:
+    if "rarity_key" in df.columns:
+        source = df["rarity_key"]
+    elif "rarity_raw" in df.columns:
         source = df["rarity_raw"]
     elif "Rarity" in df.columns:
         source = df["Rarity"]
     else:
         raise ValueError("Reverse EV calculations require either 'rarity_raw' or 'Rarity'.")
 
-    return source.astype(str).str.strip().str.lower()
+    return source.fillna("").apply(normalize_rarity_key)
+
+
+def get_normalized_classification_key_series(df: pd.DataFrame) -> pd.Series:
+    if "classification_key" in df.columns:
+        classification_keys = df["classification_key"].fillna("").apply(normalize_reverse_classification_key)
+
+        if "pattern_key" in df.columns:
+            pattern_keys = df["pattern_key"].fillna("").apply(normalize_special_type_key).apply(derive_pattern_key)
+            pattern_mask = pattern_keys.isin(RECOGNIZED_PATTERN_BUCKETS)
+            if pattern_mask.any():
+                classification_keys = classification_keys.where(~pattern_mask, pattern_keys)
+
+        if "aggregation_key" in df.columns:
+            aggregation_keys = df["aggregation_key"].fillna("").apply(normalize_reverse_classification_key)
+            aggregation_pattern_mask = aggregation_keys.isin(RECOGNIZED_PATTERN_BUCKETS)
+            if aggregation_pattern_mask.any():
+                classification_keys = classification_keys.where(~aggregation_pattern_mask, aggregation_keys)
+
+        return classification_keys
+
+    rarity_keys = get_normalized_base_rarity_key_series(df)
+
+    if "special_type_key" in df.columns:
+        special_type_keys = df["special_type_key"].fillna("").apply(normalize_special_type_key)
+    elif "Special Type" in df.columns:
+        special_type_keys = df["Special Type"].fillna("").apply(normalize_special_type_key)
+    else:
+        special_type_keys = pd.Series("", index=df.index, dtype="object")
+
+    classification_keys = [
+        normalize_reverse_classification_key(derive_classification_key(rarity_key, special_type_key))
+        for rarity_key, special_type_key in zip(rarity_keys, special_type_keys)
+    ]
+    return pd.Series(classification_keys, index=df.index, dtype="object")
 
 
 def build_reverse_eligible_pool(config, df: pd.DataFrame) -> pd.DataFrame:
     if REVERSE_PRICE_COLUMN not in df.columns:
         return df.iloc[0:0].copy()
 
-    rarity_normalized = get_normalized_rarity_series(df)
-    reverse_eligible_rarities = get_normalized_reverse_eligible_rarities(config)
-    eligible_mask = rarity_normalized.isin(reverse_eligible_rarities)
+    rarity_keys = get_normalized_base_rarity_key_series(df)
+    classification_keys = get_normalized_classification_key_series(df)
+    reverse_eligible_keys = get_normalized_reverse_eligible_rarity_keys(config)
+    explicit_pattern_keys = reverse_eligible_keys & RECOGNIZED_PATTERN_BUCKETS
+    base_rarity_keys = reverse_eligible_keys - RECOGNIZED_PATTERN_BUCKETS
+    pattern_overlay_mask = classification_keys.isin(RECOGNIZED_PATTERN_BUCKETS)
 
-    if "Card Name" in df.columns:
-        explicit_pattern_rarities = {
-            rarity for rarity in reverse_eligible_rarities if "pattern" in rarity or "ball" in rarity
-        }
-        pattern_mask = df["Card Name"].astype(str).str.contains(
-            SPECIAL_PATTERN_NAME_REGEX,
-            case=False,
-            na=False,
-        )
-        eligible_mask = eligible_mask & ~(pattern_mask & ~rarity_normalized.isin(explicit_pattern_rarities))
+    eligible_mask = (
+        rarity_keys.isin(base_rarity_keys) & ~pattern_overlay_mask
+    ) | classification_keys.isin(explicit_pattern_keys)
 
     reverse_prices = pd.to_numeric(df[REVERSE_PRICE_COLUMN], errors="coerce")
     reverse_pool = df.loc[eligible_mask & reverse_prices.notna()].copy()

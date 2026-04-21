@@ -85,6 +85,29 @@ SV_DEFAULT_CONSTRAINTS = {
     "max_major_hits":     2,
     "max_non_regular_hits": 2,
     "max_exclusive_hits": 1,
+    "conditional_slot_exclusions": [
+        {
+            "if": {"reverse_2": "special illustration rare"},
+            "forbid": {
+                "rare": ["ultra rare", "hyper rare"],
+                "reverse_1": ["hyper rare"],
+            },
+        },
+        {
+            "if": {"reverse_2": "illustration rare"},
+            "forbid": {
+                "rare": ["hyper rare"],
+                "reverse_1": ["hyper rare"],
+            },
+        },
+        {
+            "if": {"reverse_2": "hyper rare"},
+            "forbid": {
+                "rare": ["illustration rare", "special illustration rare"],
+                "reverse_1": ["illustration rare", "special illustration rare"],
+            },
+        },
+    ],
 }
 
 # ---------------------------------------------------------------------------

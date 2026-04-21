@@ -2,14 +2,48 @@ from __future__ import annotations
 
 from typing import Dict, Mapping, MutableMapping, Sequence, Tuple
 
+from ..simulationTokenResolver import normalize_simulation_token
+
 
 REQUIRED_SLOTS = ("rare", "reverse_1", "reverse_2")
 _BASELINE_RARE = "rare"
 _BASELINE_REVERSE = "regular reverse"
+_SINGLETON_EXCLUSIVE_HITS = {"hyper rare", "mega hyper rare"}
+DEFAULT_PACK_CONSTRAINTS = {
+    "primary_hits": {"double rare", "ultra rare", "illustration rare"},
+    "exclusive_hits": {"special illustration rare", "hyper rare", "mega hyper rare"},
+    "bonus_hits": {"ace spec rare", "poke ball pattern", "master ball pattern"},
+    "max_major_hits": 2,
+    "max_non_regular_hits": 2,
+    "max_exclusive_hits": 1,
+    "conditional_slot_exclusions": [
+        {
+            "if": {"reverse_2": "special illustration rare"},
+            "forbid": {
+                "rare": ["ultra rare", "hyper rare"],
+                "reverse_1": ["hyper rare"],
+            },
+        },
+        {
+            "if": {"reverse_2": "illustration rare"},
+            "forbid": {
+                "rare": ["hyper rare"],
+                "reverse_1": ["hyper rare"],
+            },
+        },
+        {
+            "if": {"reverse_2": "hyper rare"},
+            "forbid": {
+                "rare": ["illustration rare", "special illustration rare"],
+                "reverse_1": ["illustration rare", "special illustration rare"],
+            },
+        },
+    ],
+}
 
 
 def normalize_rarity(value: str) -> str:
-    return str(value).strip().lower()
+    return normalize_simulation_token(value)
 
 
 def normalize_slot_outcomes(slot_outcomes: Mapping[str, str]) -> Dict[str, str]:
@@ -94,12 +128,10 @@ def _set_slot_to_base(outcomes: MutableMapping[str, str], slot_name: str) -> Non
 
 
 def contains_incompatible_hits(slot_outcomes: Mapping[str, str]) -> bool:
-    hits = {normalize_rarity(r) for r in slot_outcomes.values() if _is_non_regular_hit(r)}
-    return (
-        {"illustration rare", "special illustration rare"}.issubset(hits)
-        or {"special illustration rare", "hyper rare"}.issubset(hits)
-        or {"hyper rare", "illustration rare"}.issubset(hits)
-    )
+    # Legacy broad-pair incompatibility is intentionally non-blocking.
+    # Compatibility is enforced by explicit conditional_slot_exclusions.
+    _ = slot_outcomes
+    return False
 
 
 def _apply_conditional_slot_exclusions(
@@ -153,16 +185,21 @@ def coerce_slot_outcomes(
     """Apply canonical pack-state coercion rules (shared by simulation and derivation)."""
     outcomes = normalize_slot_outcomes(slot_outcomes)
 
-    # Rule 1: Exclusive hits always force a singleton-style hit pack.
+    # Rule 1: Hard-exclusive hits force a singleton-style hit pack.
+    singleton_exclusive_hits = {
+        normalize_rarity(rarity)
+        for rarity in constraints["exclusive_hits"]
+        if normalize_rarity(rarity) in _SINGLETON_EXCLUSIVE_HITS
+    }
     exclusive_slots = [
         slot_name
         for slot_name, rarity in outcomes.items()
-        if normalize_rarity(rarity) in constraints["exclusive_hits"]
+        if normalize_rarity(rarity) in singleton_exclusive_hits
     ]
     if exclusive_slots:
-        if normalize_rarity(outcomes["reverse_2"]) in constraints["exclusive_hits"]:
+        if normalize_rarity(outcomes["reverse_2"]) in singleton_exclusive_hits:
             keep_slot = "reverse_2"
-        elif normalize_rarity(outcomes["rare"]) in constraints["exclusive_hits"]:
+        elif normalize_rarity(outcomes["rare"]) in singleton_exclusive_hits:
             keep_slot = "rare"
         else:
             keep_slot = "reverse_1"

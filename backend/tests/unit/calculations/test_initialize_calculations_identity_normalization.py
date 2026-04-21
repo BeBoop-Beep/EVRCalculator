@@ -16,6 +16,7 @@ class _ConfigStub:
         "common": "common",
         "uncommon": "uncommon",
         "rare": "rare",
+        "double rare": "hits",
         "illustration rare": "hits",
         "special illustration rare": "hits",
     })
@@ -31,7 +32,7 @@ class _ConfigStub:
 
 
 class _InitializerUnderTest(PackEVInitializer):
-    def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, card_name=None):
+    def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, pattern_key=None):
         return base_pull_rate
 
 
@@ -68,6 +69,15 @@ def test_splits_combined_card_name_into_card_number_when_number_blank():
     assert prepared_df.iloc[0]["Card Number"] == "168/165"
     assert prepared_df.iloc[0]["Rarity"] == "illustration rare"
     assert prepared_df.iloc[0]["Special Type"] == "regular"
+    assert prepared_df.iloc[0]["rarity_raw"] == "illustration rare"
+    assert prepared_df.iloc[0]["rarity_group"] == "hits"
+    assert prepared_df.iloc[0]["rarity_key"] == "illustration_rare"
+    assert prepared_df.iloc[0]["special_type_raw"] == "regular"
+    assert prepared_df.iloc[0]["special_type_key"] == "regular"
+    assert prepared_df.iloc[0]["pattern_key"] == ""
+    assert prepared_df.iloc[0]["base_rarity_key"] == "illustration_rare"
+    assert prepared_df.iloc[0]["aggregation_key"] == "illustration_rare"
+    assert prepared_df.iloc[0]["classification_key"] == "illustration_rare"
 
 
 def test_cleans_combined_card_name_when_card_number_already_present():
@@ -109,6 +119,149 @@ def test_already_normalized_rows_remain_unchanged():
     assert prepared_df.iloc[0]["Card Name"] == "Pikachu"
     assert prepared_df.iloc[0]["Card Number"] == "025/165"
     assert prepared_df.iloc[0]["Rarity"] == "rare"
+    assert prepared_df.iloc[0]["rarity_raw"] == "rare"
+    assert prepared_df.iloc[0]["rarity_group"] == "rare"
+    assert prepared_df.iloc[0]["rarity_key"] == "rare"
+    assert prepared_df.iloc[0]["special_type_raw"] == ""
+    assert prepared_df.iloc[0]["special_type_key"] == ""
+    assert prepared_df.iloc[0]["pattern_key"] == ""
+    assert prepared_df.iloc[0]["base_rarity_key"] == "rare"
+    assert prepared_df.iloc[0]["aggregation_key"] == "rare"
+    assert prepared_df.iloc[0]["classification_key"] == "rare"
+
+
+def test_rarity_key_normalizes_spaces_and_hyphens_without_changing_group_mapping():
+    initializer = _InitializerUnderTest(_ConfigStub())
+    df = pd.DataFrame([
+        _base_row(
+            **{
+                "Rarity": "  Double   Rare  ",
+            }
+        )
+    ])
+
+    prepared_df, _ = initializer.load_and_prepare_data(df)
+
+    assert prepared_df.iloc[0]["rarity_raw"] == "double   rare"
+    assert prepared_df.iloc[0]["rarity_group"] is None or pd.isna(prepared_df.iloc[0]["rarity_group"])
+    assert prepared_df.iloc[0]["rarity_key"] == "double_rare"
+    assert prepared_df.iloc[0]["pattern_key"] == ""
+    assert prepared_df.iloc[0]["base_rarity_key"] == "double_rare"
+    assert prepared_df.iloc[0]["aggregation_key"] == "double_rare"
+    assert prepared_df.iloc[0]["classification_key"] == "double_rare"
+
+
+def test_pattern_overlay_preserves_base_classification_and_uses_pattern_aggregation():
+    initializer = _InitializerUnderTest(_ConfigStub())
+    df = pd.DataFrame([
+        _base_row(
+            **{
+                "Rarity": "common",
+                "Special Type": "poke ball",
+            }
+        )
+    ])
+
+    prepared_df, _ = initializer.load_and_prepare_data(df)
+
+    assert prepared_df.iloc[0]["Rarity"] == "common"
+    assert prepared_df.iloc[0]["rarity_key"] == "common"
+    assert prepared_df.iloc[0]["special_type_raw"] == "poke ball"
+    assert prepared_df.iloc[0]["special_type_key"] == "pokeball_pattern"
+    assert prepared_df.iloc[0]["pattern_key"] == "pokeball_pattern"
+    assert prepared_df.iloc[0]["base_rarity_key"] == "common"
+    assert prepared_df.iloc[0]["aggregation_key"] == "pokeball_pattern"
+    assert prepared_df.iloc[0]["classification_key"] == "common"
+
+
+def test_raw_rarity_remains_intact_after_preparation():
+    initializer = _InitializerUnderTest(_ConfigStub())
+    df = pd.DataFrame([
+        _base_row(
+            **{
+                "Rarity": "special illustration rare",
+                "Special Type": "master ball pattern",
+            }
+        )
+    ])
+
+    prepared_df, _ = initializer.load_and_prepare_data(df)
+
+    assert prepared_df.iloc[0]["Rarity"] == "special illustration rare"
+    assert prepared_df.iloc[0]["rarity_raw"] == "special illustration rare"
+    assert prepared_df.iloc[0]["special_type_key"] == "master_ball_pattern"
+    assert prepared_df.iloc[0]["pattern_key"] == "master_ball_pattern"
+    assert prepared_df.iloc[0]["base_rarity_key"] == "special_illustration_rare"
+    assert prepared_df.iloc[0]["aggregation_key"] == "master_ball_pattern"
+    assert prepared_df.iloc[0]["classification_key"] == "special_illustration_rare"
+
+
+def test_master_ball_overlay_keeps_base_rarity_key_as_rare_while_aggregation_uses_pattern():
+    initializer = _InitializerUnderTest(_ConfigStub())
+    df = pd.DataFrame([
+        _base_row(
+            **{
+                "Rarity": "rare",
+                "Special Type": "master ball",
+            }
+        )
+    ])
+
+    prepared_df, _ = initializer.load_and_prepare_data(df)
+
+    assert prepared_df.iloc[0]["rarity_key"] == "rare"
+    assert prepared_df.iloc[0]["special_type_key"] == "master_ball_pattern"
+    assert prepared_df.iloc[0]["pattern_key"] == "master_ball_pattern"
+    assert prepared_df.iloc[0]["base_rarity_key"] == "rare"
+    assert prepared_df.iloc[0]["aggregation_key"] == "master_ball_pattern"
+    assert prepared_df.iloc[0]["classification_key"] == "rare"
+
+
+def test_unknown_special_types_emit_diagnostic_and_fall_back_to_rarity_key(capsys):
+    initializer = _InitializerUnderTest(_ConfigStub())
+    df = pd.DataFrame([
+        _base_row(
+            **{
+                "Rarity": "rare",
+                "Special Type": "Galaxy Foil",
+            }
+        )
+    ])
+
+    prepared_df, _ = initializer.load_and_prepare_data(df)
+    output = capsys.readouterr().out
+
+    assert prepared_df.iloc[0]["special_type_raw"] == "galaxy foil"
+    assert prepared_df.iloc[0]["special_type_key"] == "galaxy_foil"
+    assert prepared_df.iloc[0]["pattern_key"] == ""
+    assert prepared_df.iloc[0]["aggregation_key"] == "rare"
+    assert prepared_df.iloc[0]["classification_key"] == "rare"
+    assert "[SPECIAL_TYPE_WARNING]" in output
+    assert "galaxy foil" in output
+    assert "galaxy_foil" in output
+    assert "pattern_key remains empty" in output
+    assert "fall back to rarity_key" in output
+
+
+def test_unmapped_rarity_emits_warning_and_keeps_group_missing(capsys):
+    initializer = _InitializerUnderTest(_ConfigStub())
+    df = pd.DataFrame([
+        _base_row(
+            **{
+                "Rarity": "  Shiny-Ultra Rare  ",
+            }
+        )
+    ])
+
+    prepared_df, _ = initializer.load_and_prepare_data(df)
+    output = capsys.readouterr().out
+
+    assert prepared_df.iloc[0]["rarity_raw"] == "shiny-ultra rare"
+    assert prepared_df.iloc[0]["rarity_key"] == "shiny_ultra_rare"
+    assert pd.isna(prepared_df.iloc[0]["rarity_group"])
+    assert "[RARITY_WARNING]" in output
+    assert "shiny-ultra rare" in output
+    assert "no fallback rarity_group was applied" in output
 
 
 def test_active_runtime_rejects_file_path_input():

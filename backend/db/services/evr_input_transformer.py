@@ -3,6 +3,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
+from backend.calculations.utils.special_type_normalization import derive_pattern_key, normalize_special_type_key
+
 
 class EVRInputTransformer:
     """Transform DB EVR payloads into internal contract and legacy calculator shape."""
@@ -75,47 +77,24 @@ class EVRInputTransformer:
             rarity_raw = self._normalize_text(card.get("rarity"))
             normalized_rarity = self._normalize_rarity(rarity_raw, rarity_mapping)
 
-            (
-                selected_price,
-                selected_reverse_price,
-                selected_special_type,
-                selected_variant_id,
-                selected_condition_id,
-                selected_price_source,
-                selected_captured_at,
-            ) = self._select_card_prices(card.get("variants") or [])
-            pull_rate = self._resolve_pull_rate(
-                card_name=card_name,
-                rarity_text=normalized_rarity,
-                pull_rate_mapping=pull_rate_mapping,
-            )
-
-            if selected_price is None:
+            variant_candidates = self._collect_priced_variant_candidates(card.get("variants") or [])
+            if not variant_candidates:
                 missing_price_rows += 1
                 continue
 
-            if pull_rate is None:
+            emitted_rows = self._build_card_rows_for_variants(
+                card_id=card.get("card_id"),
+                card_name=card_name,
+                card_number=str(card.get("card_number") or "").strip(),
+                normalized_rarity=normalized_rarity,
+                variant_candidates=variant_candidates,
+                pull_rate_mapping=pull_rate_mapping,
+            )
+            if not emitted_rows:
                 missing_pull_rate_rows += 1
                 continue
 
-            card_rows.append(
-                {
-                    "card_id": card.get("card_id"),
-                    "card_name": card_name,
-                    "card_number": str(card.get("card_number") or "").strip(),
-                    "card_variant_id": selected_variant_id,
-                    "condition_id": selected_condition_id,
-                    "rarity": normalized_rarity,
-                    "special_type": self._normalize_text(selected_special_type),
-                    "market_price": selected_price,
-                    "price_source": selected_price_source,
-                    "captured_at": selected_captured_at,
-                    "pull_rate_one_in_x": pull_rate,
-                    "reverse_market_price": (
-                        selected_reverse_price if selected_reverse_price is not None else selected_price
-                    ),
-                }
-            )
+            card_rows.extend(emitted_rows)
 
         rows_dropped = len(cards) - len(card_rows)
         diagnostics = {
@@ -145,6 +124,164 @@ class EVRInputTransformer:
             },
             "diagnostics": diagnostics,
         }
+
+    def _build_card_rows_for_variants(
+        self,
+        *,
+        card_id: Any,
+        card_name: str,
+        card_number: str,
+        normalized_rarity: str,
+        variant_candidates: List[Dict[str, Any]],
+        pull_rate_mapping: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        generic_rarity = normalized_rarity in self.GENERIC_RARITY_KEYS
+        pattern_candidates = [candidate for candidate in variant_candidates if candidate["pattern_key"]]
+
+        if generic_rarity and pattern_candidates:
+            emitted_rows: List[Dict[str, Any]] = []
+            base_candidates = [candidate for candidate in variant_candidates if not candidate["pattern_key"]]
+            selected_base = self._select_base_candidate(base_candidates or pattern_candidates)
+            reverse_price = self._select_reverse_price(base_candidates or [selected_base])
+
+            base_row = self._build_card_row(
+                card_id=card_id,
+                card_name=card_name,
+                card_number=card_number,
+                rarity=normalized_rarity,
+                candidate=selected_base,
+                special_type_override="",
+                reverse_price_override=reverse_price,
+                pull_rate_mapping=pull_rate_mapping,
+            )
+            if base_row is not None:
+                emitted_rows.append(base_row)
+
+            seen_pattern_keys: set[str] = set()
+            for pattern_candidate in pattern_candidates:
+                pattern_key = str(pattern_candidate["pattern_key"])
+                if not pattern_key or pattern_key in seen_pattern_keys:
+                    continue
+                selected_pattern = self._select_primary_candidate(
+                    [candidate for candidate in pattern_candidates if candidate["pattern_key"] == pattern_key]
+                )
+                pattern_row = self._build_card_row(
+                    card_id=card_id,
+                    card_name=card_name,
+                    card_number=card_number,
+                    rarity=normalized_rarity,
+                    candidate=selected_pattern,
+                    special_type_override=str(selected_pattern["special_type"]),
+                    reverse_price_override=float(selected_pattern["price"]),
+                    pull_rate_mapping=pull_rate_mapping,
+                )
+                if pattern_row is not None:
+                    emitted_rows.append(pattern_row)
+                    seen_pattern_keys.add(pattern_key)
+
+            return emitted_rows
+
+        selected_candidate = self._select_primary_candidate(variant_candidates)
+        selected_base = self._select_base_candidate(variant_candidates)
+        reverse_price = self._select_reverse_price(variant_candidates)
+        base_row = self._build_card_row(
+            card_id=card_id,
+            card_name=card_name,
+            card_number=card_number,
+            rarity=normalized_rarity,
+            candidate=selected_base,
+            special_type_override=str(selected_base["special_type"]),
+            reverse_price_override=reverse_price,
+            pull_rate_mapping=pull_rate_mapping,
+        )
+        return [base_row] if base_row is not None else []
+
+    def _build_card_row(
+        self,
+        *,
+        card_id: Any,
+        card_name: str,
+        card_number: str,
+        rarity: str,
+        candidate: Dict[str, Any],
+        special_type_override: str,
+        reverse_price_override: Optional[float],
+        pull_rate_mapping: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        special_type = self._normalize_text(special_type_override)
+        pull_rate = self._resolve_pull_rate(
+            card_name=card_name,
+            rarity_text=rarity,
+            special_type=special_type,
+            pull_rate_mapping=pull_rate_mapping,
+        )
+        if pull_rate is None:
+            return None
+
+        return {
+            "card_id": card_id,
+            "card_name": card_name,
+            "card_number": card_number,
+            "card_variant_id": candidate.get("variant_id"),
+            "condition_id": candidate.get("condition_id"),
+            "rarity": rarity,
+            "special_type": special_type,
+            "market_price": float(candidate["price"]),
+            "price_source": candidate.get("price_source") or "unknown",
+            "captured_at": candidate.get("captured_at"),
+            "pull_rate_one_in_x": pull_rate,
+            "reverse_market_price": float(reverse_price_override if reverse_price_override is not None else candidate["price"]),
+        }
+
+    def _collect_priced_variant_candidates(self, variants: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        candidates: List[Dict[str, Any]] = []
+
+        for variant in variants:
+            price = self._extract_market_price(variant)
+            if price is None:
+                continue
+
+            special_type = self._normalize_text(variant.get("special_type"))
+            special_type_key = normalize_special_type_key(special_type)
+            pattern_key = derive_pattern_key(special_type_key)
+            latest_price = variant.get("near_mint_latest") or {}
+            condition_id = latest_price.get("condition_id") if isinstance(latest_price, Mapping) else None
+            source = latest_price.get("source") if isinstance(latest_price, Mapping) else None
+            captured_at = latest_price.get("captured_at") if isinstance(latest_price, Mapping) else None
+            candidates.append(
+                {
+                    "price": float(price),
+                    "reverse_price": float(price),
+                    "variant_id": variant.get("variant_id"),
+                    "special_type": special_type,
+                    "special_type_key": special_type_key,
+                    "pattern_key": pattern_key,
+                    "is_reverse": self._is_reverse_variant(variant),
+                    "condition_id": condition_id,
+                    "price_source": self._normalize_text(source) or "unknown",
+                    "captured_at": captured_at,
+                }
+            )
+
+        return candidates
+
+    def _select_primary_candidate(self, candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
+        return sorted(
+            candidates,
+            key=lambda row: (
+                -float(row["price"]),
+                row.get("variant_id") if row.get("variant_id") is not None else float("inf"),
+            ),
+        )[0]
+
+    def _select_base_candidate(self, candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
+        non_reverse_candidates = [candidate for candidate in candidates if not candidate.get("is_reverse", False)]
+        return self._select_primary_candidate(non_reverse_candidates or candidates)
+
+    def _select_reverse_price(self, candidates: List[Dict[str, Any]]) -> Optional[float]:
+        reverse_candidates = [candidate for candidate in candidates if candidate.get("is_reverse", False)]
+        selected = self._select_primary_candidate(reverse_candidates or candidates)
+        return float(selected["price"]) if selected else None
 
     def to_legacy_calculator_payload(self, internal_payload: Dict[str, Any]) -> Dict[str, Any]:
         """Map internal DB-native contract to legacy dataframe/column calculator input."""
@@ -272,68 +409,21 @@ class EVRInputTransformer:
 
         return sanitized
 
-    def _select_card_prices(
-        self,
-        variants: Iterable[Dict[str, Any]],
-    ) -> Tuple[Optional[float], Optional[float], str, Optional[int], Optional[int], str, Optional[str]]:
-        all_priced: List[Tuple[float, bool, int, str, Optional[int], str, Optional[str]]] = []
-
-        for variant in variants:
-            price = self._extract_market_price(variant)
-            if price is None:
-                continue
-
-            is_reverse = self._is_reverse_variant(variant)
-            variant_id = variant.get("variant_id")
-            special_type = self._normalize_text(variant.get("special_type"))
-            latest_price = variant.get("near_mint_latest") or {}
-            condition_id = latest_price.get("condition_id") if isinstance(latest_price, Mapping) else None
-            source = latest_price.get("source") if isinstance(latest_price, Mapping) else None
-            captured_at = latest_price.get("captured_at") if isinstance(latest_price, Mapping) else None
-            all_priced.append(
-                (
-                    price,
-                    is_reverse,
-                    variant_id,
-                    special_type,
-                    condition_id,
-                    self._normalize_text(source) or "unknown",
-                    captured_at,
-                )
-            )
-
-        if not all_priced:
-            return None, None, "", None, None, "unknown", None
-
-        non_reverse = [row for row in all_priced if not row[1]]
-        reverse = [row for row in all_priced if row[1]]
-
-        # Deterministic selection: choose highest price, then lowest variant id tie-break.
-        base_pool = non_reverse or all_priced
-        selected_base = sorted(base_pool, key=lambda row: (-row[0], row[2]))[0]
-        base_price = selected_base[0]
-        base_special_type = selected_base[3]
-
-        reverse_pool = reverse or [selected_base]
-        reverse_price = sorted(reverse_pool, key=lambda row: (-row[0], row[2]))[0][0]
-
-        return (
-            float(base_price),
-            float(reverse_price),
-            base_special_type,
-            selected_base[2],
-            selected_base[4],
-            selected_base[5],
-            selected_base[6],
-        )
-
     def _resolve_pull_rate(
         self,
         card_name: str,
         rarity_text: str,
+        special_type: str,
         pull_rate_mapping: Dict[str, Any],
     ) -> Optional[float]:
         card_name_normalized = self._normalize_text(card_name)
+        special_type_key = normalize_special_type_key(special_type)
+        pattern_key = derive_pattern_key(special_type_key)
+
+        if pattern_key == "master_ball_pattern":
+            return self._coerce_float(pull_rate_mapping.get("master ball pattern"))
+        if pattern_key == "pokeball_pattern":
+            return self._coerce_float(pull_rate_mapping.get("poke ball pattern"))
 
         if "master ball pattern" in card_name_normalized:
             return self._coerce_float(pull_rate_mapping.get("master ball pattern"))

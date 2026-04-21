@@ -1,4 +1,5 @@
 import re
+from typing import Optional, Tuple
 from .pull_rate_helper import determine_pull_rate
 
 def clean_condition(condition):
@@ -21,6 +22,45 @@ def clean_condition(condition):
         cleaned = cleaned.replace(suffix, '').strip()
     
     return cleaned
+
+def parse_tcgplayer_printing(raw_printing: Optional[str]) -> Tuple[str, str]:
+    """
+    Parse TCGplayer printing string into edition and printing_type components.
+    
+    Splits printing strings like "1st Edition Holofoil" into separate normalized slugs:
+    - edition: normalized edition identifier (e.g., "1st-edition", "unlimited", empty string)
+    - printing_type: normalized finish identifier (e.g., "holo", "non-holo", "reverse-holo")
+    
+    Args:
+        raw_printing: Raw printing string from TCGPlayer (e.g., "1st Edition Holofoil")
+        
+    Returns:
+        Tuple of (edition, printing_type) both as normalized string slugs
+    """
+    if not raw_printing:
+        return ("", "non-holo")
+    
+    printing_lower = raw_printing.lower().strip()
+    edition = ""
+    printing_type = "non-holo"
+    
+    # Check for finish/holofoil indicators
+    if "reverse holofoil" in printing_lower or "reverse holo" in printing_lower:
+        printing_type = "reverse-holo"
+        # Remove reverse holofoil from string to check for edition
+        printing_lower = printing_lower.replace("reverse holofoil", "").replace("reverse holo", "").strip()
+    elif "holofoil" in printing_lower or "holo" in printing_lower:
+        printing_type = "holo"
+        # Remove holofoil from string to check for edition
+        printing_lower = printing_lower.replace("holofoil", "").replace("holo", "").strip()
+    
+    # Check for edition indicators
+    if "1st edition" in printing_lower or "1st ed" in printing_lower:
+        edition = "1st-edition"
+    elif "unlimited" in printing_lower:
+        edition = "unlimited"
+    
+    return (edition, printing_type)
 
 def normalize_condition(condition):
     """
@@ -185,11 +225,16 @@ def process_card(card, pull_rate_mapping):
     # Determine pull rate and normalized rarity
     pull_rate, normalized_rarity = determine_pull_rate(product_name, rarity, pull_rate_mapping)
 
+    # Parse printing into edition and printing_type components
+    edition, printing_type = parse_tcgplayer_printing(printing)
+
     # Build card data structure
     card_dict = {
         'productName': product_name,
         'number': number,
         'printing': printing,
+        'edition': edition,
+        'printing_type': printing_type,
         'condition': condition,
         'rarity': normalized_rarity,
         'specialType': special_type,

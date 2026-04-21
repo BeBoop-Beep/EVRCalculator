@@ -721,8 +721,8 @@ class TestComputeAllDerivedMetrics:
 
     def test_index_score_always_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
-        assert "index_score" in result
-        assert result["index_score"]["score_version"] == "v1"
+        assert "pack_score" in result
+        assert result["pack_score"]["score_version"] == "v1"
 
     def test_index_score_uses_chase_dependency_when_available(self):
         contribs = {"big_chase": 9.0, "others": 1.0}
@@ -732,8 +732,8 @@ class TestComputeAllDerivedMetrics:
         result_without = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         # With high chase dependency, diversification should be lower → different score
         assert (
-            result_with["index_score"]["ind_ex_score_v1"]
-            != result_without["index_score"]["ind_ex_score_v1"]
+            result_with["pack_score"]["ind_ex_score_v1"]
+            != result_without["pack_score"]["ind_ex_score_v1"]
         )
 
     def test_index_score_uses_actual_top5_share_when_contributions_present(self):
@@ -745,7 +745,7 @@ class TestComputeAllDerivedMetrics:
         )
         top5 = result["chase_dependency_metrics"]["top5_ev_share"]
         assert top5 == pytest.approx(1.0)
-        assert result["index_score"]["top5_ev_share_used"] == pytest.approx(top5)
+        assert result["pack_score"]["top5_ev_share_used"] == pytest.approx(top5)
 
     def test_diversification_component_not_neutral_when_real_data_supplied(self):
         contribs = {"card_a": 6.0, "card_b": 3.0, "card_c": 1.0}
@@ -755,7 +755,7 @@ class TestComputeAllDerivedMetrics:
             card_ev_contributions=contribs,
         )
         # Neutral fallback is 0.5 only when top5 share is unavailable.
-        assert result["index_score"]["diversification_component"] != pytest.approx(0.5)
+        assert result["pack_score"]["diversification_component"] != pytest.approx(0.5)
 
     def test_ev_composition_present_when_supplied(self):
         result = compute_all_derived_metrics(

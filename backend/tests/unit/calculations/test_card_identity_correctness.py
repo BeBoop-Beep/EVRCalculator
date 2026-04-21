@@ -265,6 +265,21 @@ class TestFilterCardEvByHitsWithCardNumber:
         assert total_hit_ev == pytest.approx(0.043 + 0.200)
         assert total_non_hit_ev == pytest.approx(0.001)
 
+    def test_recognized_pattern_classification_counts_as_hit_even_when_raw_rarity_is_base_pool(self):
+        """Pattern-overlay rows must count as hits when classification_key is a recognized pattern bucket."""
+        df = _make_df_with_card_number([
+            {"Card Name": "Eevee (Poke Ball Pattern)", "Card Number": "050/131", "Rarity": "common",
+             "classification_key": "pokeball_pattern", "Price ($)": 1.50, "EV": 0.020},
+            {"Card Name": "Rare Filler", "Card Number": "120/131", "Rarity": "rare",
+             "classification_key": "rare", "Price ($)": 0.90, "EV": 0.010},
+        ])
+        contributions = {"050/131": 0.020, "120/131": 0.010}
+
+        hit, non_hit = filter_card_ev_by_hits(contributions, df, MockSVConfig())
+
+        assert hit == {"050/131": pytest.approx(0.020)}
+        assert non_hit == {"120/131": pytest.approx(0.010)}
+
 
 # ============================================================================
 # Tests: structured config shape and resolver behavior

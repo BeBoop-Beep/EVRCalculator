@@ -123,6 +123,8 @@ class TCGPlayerParser:
                 'variant': (card.get('specialType') or '').lower().strip(),  # Normalize to lowercase
                 'condition': normalized_condition,  # Use normalized condition
                 'printing': (card.get('printing') or '').strip(),
+                'edition': (card.get('edition') or '').strip(),
+                'printing_type': (card.get('printing_type') or '').strip(),
                 'pull_rate': card.get('Pull Rate (1/X)'),
                 'currency': 'USD',
                 'source': 'TCGPlayer',

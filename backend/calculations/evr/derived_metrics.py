@@ -932,7 +932,7 @@ def compute_all_derived_metrics(
         "ev_composition_metrics": ev_comp_metrics,
         "session_metrics": sess_metrics,
         "packs_to_hit_metrics": pth_metrics,
-        "index_score": idx_score,
+        "pack_score": idx_score,
     }
 
 
@@ -1040,7 +1040,7 @@ def build_pack_simulation_summary(
     cm = all_metrics.get("chase_dependency_metrics") or {}
     sm = all_metrics.get("session_metrics") or {}
     pth = all_metrics.get("packs_to_hit_metrics") or {}
-    idx = all_metrics.get("index_score") or {}
+    idx = all_metrics.get("pack_score") or {}
 
     return PackSimulationSummary(
         set_id=set_id,
@@ -1106,7 +1106,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
     cm = all_metrics.get("chase_dependency_metrics") or {}
     sm = all_metrics.get("session_metrics") or {}
     pth = all_metrics.get("packs_to_hit_metrics") or {}
-    idx = all_metrics.get("index_score") or {}
+    idx = all_metrics.get("pack_score") or {}
 
     sep = "-" * 50
     n_runs = pm.get("n_runs", 0)

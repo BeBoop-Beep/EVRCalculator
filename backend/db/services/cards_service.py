@@ -91,21 +91,29 @@ class CardsService(BatchProcessor):
             Tuple of (printing_type, special_type, edition)
         """
         variant = card.get('variant')
-        printing = (card.get('printing') or '').strip().lower()
         
-        # Determine printing type based on the 'printing' field from payload
-        printing_type = 'non-holo'
-        if 'holofoil' in printing or 'holo' in printing:
-            if 'reverse' in printing:
-                printing_type = 'reverse-holo'
-            else:
-                printing_type = 'holo'
+        # If parsing was done upstream (TCGPlayer scraper), use the parsed fields
+        parsed_printing_type = (card.get('printing_type') or '').strip().lower()
+        parsed_edition = (card.get('edition') or '').strip().lower()
+        
+        # Use parsed values if available, otherwise fall back to parsing the raw printing string
+        if parsed_printing_type:
+            printing_type = parsed_printing_type
+        else:
+            # Fallback: parse from raw printing field if not parsed upstream
+            printing = (card.get('printing') or '').strip().lower()
+            printing_type = 'non-holo'
+            if 'holofoil' in printing or 'holo' in printing:
+                if 'reverse' in printing:
+                    printing_type = 'reverse-holo'
+                else:
+                    printing_type = 'holo'
+        
+        # Use parsed edition if available
+        edition = parsed_edition if parsed_edition else None
         
         # Extract special type (ex, v, vmax, etc.) from variant field
         special_type = variant if variant else None
-        
-        # Edition can be extracted if needed
-        edition = None
         
         return printing_type, special_type, edition
     
