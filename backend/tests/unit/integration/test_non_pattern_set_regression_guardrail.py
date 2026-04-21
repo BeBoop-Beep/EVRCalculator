@@ -79,11 +79,11 @@ def _run_obsidian_sim(prepared_df: pd.DataFrame, *, n: int = 1800) -> Dict[str, 
         df=prepared_df,
         rarity_pull_counts=rarity_pull_counts,
         rarity_value_totals=rarity_value_totals,
-        pack_logs=[],
+        pack_logs=None,
         rng=np.random.default_rng(7),
     )
     return run_simulation_v2(
-        lambda: simulate_one_pack(return_pack_data=True),
+        simulate_one_pack,
         rarity_pull_counts,
         rarity_value_totals,
         n=n,
@@ -117,6 +117,21 @@ def test_obsidian_flames_simulation_completes() -> None:
     assert np.isfinite(float(sim["mean"])), "Simulation mean should be finite for non-pattern sets"
     assert 5.0 < float(sim["mean"]) < 20.0, (
         f"Simulation mean for non-pattern fixture should stay in reasonable range; got {sim['mean']:.4f}"
+    )
+
+
+def test_obsidian_flames_simulation_mean_remains_directionally_aligned_with_manual_ev() -> None:
+    prepared_df, manual = _run_obsidian_manual()
+    sim = _run_obsidian_sim(prepared_df, n=1500)
+
+    manual_ev = float(manual["total_manual_ev"])
+    sim_mean = float(sim["mean"])
+    ratio = sim_mean / manual_ev if manual_ev else 0.0
+
+    assert 0.65 <= ratio <= 1.35, (
+        f"Non-pattern simulation/manual EV ratio drifted outside guardrail: sim={sim_mean:.4f}, "
+        f"manual={manual_ev:.4f}, ratio={ratio:.4f}. This should catch large simulation-path regressions "
+        "without being brittle to ordinary Monte Carlo variance."
     )
 
 

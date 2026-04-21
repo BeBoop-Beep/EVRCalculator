@@ -69,7 +69,6 @@ def _run_simulation_prismatic(prepared_df: pd.DataFrame, *, n: int = 2500) -> Di
     rng = np.random.default_rng(42)
     rarity_pull_counts = defaultdict(int)
     rarity_value_totals = defaultdict(float)
-    pack_logs: list[dict] = []
     simulate_one_pack = make_simulate_pack_fn_v2(
         common_cards=pools["common"],
         uncommon_cards=pools["uncommon"],
@@ -81,11 +80,11 @@ def _run_simulation_prismatic(prepared_df: pd.DataFrame, *, n: int = 2500) -> Di
         df=prepared_df,
         rarity_pull_counts=rarity_pull_counts,
         rarity_value_totals=rarity_value_totals,
-        pack_logs=pack_logs,
+        pack_logs=None,
         rng=rng,
     )
     return run_simulation_v2(
-        lambda: simulate_one_pack(return_pack_data=True),
+        simulate_one_pack,
         rarity_pull_counts,
         rarity_value_totals,
         n=n,
@@ -110,6 +109,21 @@ def test_prismatic_simulation_mean_reasonable() -> None:
     assert 15.0 < sim_mean < 25.0, (
         f"Prismatic simulation mean expected in sane range (15, 25); got {sim_mean:.4f}. "
         "This guards against recurrence of inflated means like ~34.79"
+    )
+
+
+def test_prismatic_simulation_mean_remains_directionally_aligned_with_manual_ev() -> None:
+    prepared_df, manual = _run_manual_prismatic()
+    sim = _run_simulation_prismatic(prepared_df, n=1500)
+
+    manual_ev = float(manual["total_manual_ev"])
+    sim_mean = float(sim["mean"])
+    ratio = sim_mean / manual_ev if manual_ev else 0.0
+
+    assert 0.65 <= ratio <= 1.35, (
+        f"Prismatic simulation/manual EV ratio drifted outside guardrail: sim={sim_mean:.4f}, "
+        f"manual={manual_ev:.4f}, ratio={ratio:.4f}. This is intended to catch a recurrence "
+        "of base-slot overlay leakage or other major simulation/math divergence."
     )
 
 

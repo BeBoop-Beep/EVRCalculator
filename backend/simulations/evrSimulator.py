@@ -1,5 +1,7 @@
 from collections import defaultdict
 import logging
+import time
+from typing import MutableMapping
 
 from .monteCarloSim import make_simulate_pack_fn, print_simulation_summary, run_simulation
 from .monteCarloSimV2 import (
@@ -23,7 +25,9 @@ class PackEVRSimulator(PackCalculations):
 
     def calculate_evr_simulations(self, df):
         print("=== ❗STARTING PACK EV SIMULATION❗ ===")
+        _t0 = time.perf_counter()
         card_groups = extract_scarletandviolet_card_groups(self.config, df)
+        print(f"[SIM_TIMING] stage_name=pool_extraction elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
 
         pattern_keys_source, _ = get_row_match_keys(df, mode="pattern")
         source_pattern_mask = pattern_keys_source.isin({"pokeball_pattern", "master_ball_pattern"})
@@ -69,7 +73,17 @@ class PackEVRSimulator(PackCalculations):
         slot_logs = []
 
         if use_v2:
+            _t0 = time.perf_counter()
             validate_pack_state_model(self.config, card_groups)
+            print(f"[SIM_TIMING] stage_name=validation elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
+
+            # Dedicated counters populated by the closure directly — no record
+            # dicts are built for normal runs, so run_simulation_v2 never needs
+            # to inspect a return tuple for path/state tracking.
+            _path_counts: MutableMapping[str, int] = defaultdict(int)
+            _state_counts: MutableMapping[str, int] = defaultdict(int)
+
+            # token_pool_precomputation timing is printed inside make_simulate_pack_fn_v2
             simulate_one_pack = make_simulate_pack_fn_v2(
                 common_cards=card_groups["common"],
                 uncommon_cards=card_groups["uncommon"],
@@ -81,16 +95,25 @@ class PackEVRSimulator(PackCalculations):
                 df=df,
                 rarity_pull_counts=rarity_pull_counts,
                 rarity_value_totals=rarity_value_totals,
-                pack_logs=slot_logs,
+                pack_logs=None,
+                path_counts=_path_counts,
+                state_counts=_state_counts,
             )
 
+            _t0 = time.perf_counter()
             sim_results = run_simulation_v2(
-                lambda: simulate_one_pack(return_pack_data=True),
+                simulate_one_pack,
                 rarity_pull_counts,
                 rarity_value_totals,
-                n=100000,
+                n=1000000,
+                pack_path_counts=_path_counts,
+                pack_state_counts=_state_counts,
             )
+            print(f"[SIM_TIMING] stage_name=simulation_loop elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
+
+            _t0 = time.perf_counter()
             print_simulation_summary_v2(sim_results)
+            print(f"[SIM_TIMING] stage_name=post_simulation_summary elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
 
             return {
                 "sim_results": sim_results,
@@ -113,7 +136,7 @@ class PackEVRSimulator(PackCalculations):
             log_choices=slot_logs
         )
 
-        sim_results = run_simulation(simulate_one_pack, rarity_pull_counts, rarity_value_totals, n=100000)
+        sim_results = run_simulation(simulate_one_pack, rarity_pull_counts, rarity_value_totals, n=1000000)
 
         print_simulation_summary(sim_results)
 

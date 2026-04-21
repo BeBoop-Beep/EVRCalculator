@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
+from dataclasses import dataclass
+import time
 from typing import Callable, Dict, List, Mapping, MutableMapping, Optional, Tuple
 import warnings
 
@@ -14,6 +16,7 @@ from .utils.simulationTokenResolver import (
     get_row_match_keys,
     get_simulation_token_mode,
     list_available_canonical_tokens,
+    normalize_simulation_token,
     resolve_hit_pool_rows,
 )
 from .utils.packStateModels.packStateCoercion import (
@@ -30,6 +33,14 @@ from backend.configured_special_pack_resolver import resolve_configured_god_pack
 
 
 PackState = Dict[str, object]
+
+
+@dataclass(frozen=True)
+class _ArrayPool:
+    prices: np.ndarray
+    source_row_indices: Optional[np.ndarray]
+    card_names: Optional[np.ndarray]
+    rarities: Optional[np.ndarray]
 
 
 def _to_rng(rng: Optional[np.random.Generator] = None) -> np.random.Generator:
@@ -308,6 +319,167 @@ def _get_base_slot_sampling_pool(df: pd.DataFrame) -> pd.DataFrame:
     return _prefer_non_pattern_rows(df)
 
 
+def _validate_pool_has_no_pattern_rows(pool_df: pd.DataFrame, *, label: str) -> None:
+    if pool_df.empty:
+        return
+
+    pattern_keys, _ = get_row_match_keys(pool_df, mode="pattern")
+    leaked_mask = pattern_keys.ne("")
+    if leaked_mask.any():
+        sample_cards = (
+            pool_df.loc[leaked_mask, "Card Name"].fillna("<unknown>").astype(str).head(5).tolist()
+            if "Card Name" in pool_df.columns
+            else []
+        )
+        raise ValueError(
+            f"[FAST_PATH_POOL_INTEGRITY] {label} contains pattern-overlay rows. "
+            f"sample_cards={sample_cards}"
+        )
+
+
+def _validate_pattern_token_pool(pool_df: pd.DataFrame, *, token: str) -> None:
+    if pool_df.empty:
+        return
+
+    pattern_keys, _ = get_row_match_keys(pool_df, mode="pattern")
+    if pattern_keys.eq("").any():
+        sample_cards = (
+            pool_df.loc[pattern_keys.eq(""), "Card Name"].fillna("<unknown>").astype(str).head(5).tolist()
+            if "Card Name" in pool_df.columns
+            else []
+        )
+        raise ValueError(
+            f"[FAST_PATH_POOL_INTEGRITY] pattern token pool '{token}' contains non-pattern rows. "
+            f"sample_cards={sample_cards}"
+        )
+    canonical_token = normalize_simulation_token(token)
+    canonical_pool_tokens = {
+        token_name for token_name in list_available_canonical_tokens(pool_df, mode="pattern") if token_name
+    }
+    if canonical_token not in canonical_pool_tokens:
+        raise ValueError(
+            f"[FAST_PATH_POOL_INTEGRITY] pattern token pool '{token}' resolved to unexpected tokens "
+            f"{sorted(canonical_pool_tokens)}"
+        )
+
+
+def _build_array_pool(
+    df: pd.DataFrame,
+    *,
+    value_col: str,
+    rarity_col: str = "Rarity",
+    default_rarity: Optional[str] = None,
+) -> _ArrayPool:
+    if df.empty or value_col not in df.columns:
+        return _ArrayPool(
+            prices=np.empty(0, dtype=np.float64),
+            source_row_indices=None,
+            card_names=None,
+            rarities=None,
+        )
+
+    prices = pd.to_numeric(df[value_col], errors="coerce").fillna(0.0).to_numpy(dtype=np.float64, copy=True)
+
+    source_row_indices = None
+    if "__source_row_index__" in df.columns:
+        source_row_indices = (
+            df["__source_row_index__"].where(df["__source_row_index__"].notna(), None).to_numpy(dtype=object, copy=True)
+        )
+
+    if "Card Name" in df.columns:
+        card_names = df["Card Name"].where(df["Card Name"].notna(), None).to_numpy(dtype=object, copy=True)
+    else:
+        card_names = None
+
+    if default_rarity is not None:
+        normalized = _normalize_rarity(default_rarity)
+        rarities = np.full(prices.shape[0], normalized, dtype=object)
+    elif rarity_col in df.columns:
+        rarities = np.array(
+            [_normalize_rarity(v) for v in df[rarity_col].fillna("unknown").astype(str).tolist()],
+            dtype=object,
+        )
+    else:
+        rarities = None
+
+    return _ArrayPool(
+        prices=prices,
+        source_row_indices=source_row_indices,
+        card_names=card_names,
+        rarities=rarities,
+    )
+
+
+def _sample_pool_total(
+    pool: _ArrayPool,
+    n: int,
+    rng: np.random.Generator,
+    *,
+    include_card_names: bool,
+) -> Tuple[float, int, List[str]]:
+    if pool.prices.size == 0 or n <= 0:
+        return 0.0, 0, []
+
+    indices = rng.integers(0, pool.prices.size, size=n)
+    total = float(pool.prices[indices].sum(dtype=np.float64))
+
+    if not include_card_names or pool.card_names is None:
+        return total, int(indices.size), []
+
+    names = [str(name) for name in pool.card_names[indices].tolist() if name is not None]
+    return total, int(indices.size), names
+
+
+def _sample_single_from_array_pool(
+    pool: _ArrayPool,
+    rng: np.random.Generator,
+    selected_source_rows: set,
+    fallback: float = 0.0,
+    *,
+    include_card_name: bool = True,
+) -> Tuple[float, Optional[str], Optional[object]]:
+    if pool.prices.size == 0:
+        return float(fallback), None, None
+
+    source_row_indices = pool.source_row_indices
+    if source_row_indices is None or not selected_source_rows:
+        chosen_index = int(rng.integers(0, pool.prices.size))
+    else:
+        chosen_index = -1
+        for _ in range(8):
+            candidate_index = int(rng.integers(0, pool.prices.size))
+            candidate_source = source_row_indices[candidate_index]
+            if candidate_source is None or candidate_source not in selected_source_rows:
+                chosen_index = candidate_index
+                break
+
+        if chosen_index == -1:
+            eligible_mask = np.ones(pool.prices.shape[0], dtype=bool)
+            for selected_source in selected_source_rows:
+                eligible_mask &= source_row_indices != selected_source
+
+            if eligible_mask.any():
+                eligible_positions = np.flatnonzero(eligible_mask)
+                chosen_index = int(eligible_positions[int(rng.integers(0, eligible_positions.size))])
+            else:
+                # Preserve existing fallback semantics: when exclusion empties the
+                # pool, sample from the full pool rather than failing.
+                chosen_index = int(rng.integers(0, pool.prices.size))
+
+    value = float(pool.prices[chosen_index])
+    card_name = None
+    if include_card_name and pool.card_names is not None:
+        raw_name = pool.card_names[chosen_index]
+        if raw_name is not None:
+            card_name = str(raw_name)
+
+    source_row_index = None
+    if source_row_indices is not None:
+        source_row_index = source_row_indices[chosen_index]
+
+    return value, card_name, source_row_index
+
+
 def _sample_rows_with_rarity(
     df: pd.DataFrame,
     n: int,
@@ -570,6 +742,109 @@ def sample_cards_for_slot_outcomes(
     }
 
 
+def _sample_cards_fast(
+    *,
+    common_pool: _ArrayPool,
+    uncommon_pool: _ArrayPool,
+    rare_base_pool: _ArrayPool,
+    reverse_pool: _ArrayPool,
+    slot_outcomes: Mapping[str, str],
+    slot_pool_keys: Mapping[str, tuple],
+    token_pool_map: Dict[Tuple[str, str], _ArrayPool],
+    n_common: int,
+    n_uncommon: int,
+    rarity_pull_counts: MutableMapping[str, int],
+    rarity_value_totals: MutableMapping[str, float],
+    rng: np.random.Generator,
+    include_details: bool = False,
+) -> Dict[str, object]:
+    """Hot-path card sampler using precomputed pools and slot-key lookup table.
+
+    Replaces sample_cards_for_slot_outcomes in the inner simulation loop.
+    Semantics and outputs are identical; DataFrame filtering and token
+    resolution are bypassed via pre-built structures.
+    """
+    total_value = 0.0
+
+    common_value, common_count, common_names = _sample_pool_total(
+        common_pool,
+        n_common,
+        rng,
+        include_card_names=include_details,
+    )
+    total_value += common_value
+    rarity_pull_counts["common"] += common_count
+    rarity_value_totals["common"] += common_value
+
+    uncommon_value, uncommon_count, uncommon_names = _sample_pool_total(
+        uncommon_pool,
+        n_uncommon,
+        rng,
+        include_card_names=include_details,
+    )
+    total_value += uncommon_value
+    rarity_pull_counts["uncommon"] += uncommon_count
+    rarity_value_totals["uncommon"] += uncommon_value
+
+    slot_values: Dict[str, float] = {}
+    slot_cards: Dict[str, Optional[str]] = {}
+    selected_source_rows: set = set()
+
+    for slot_name in ("rare", "reverse_1", "reverse_2"):
+        key_info = slot_pool_keys[slot_name]
+        pool_type = key_info[0]
+        rarity = _normalize_rarity(str(slot_outcomes[slot_name]))
+
+        if pool_type == "rare_pool":
+            value, card_name, source_row_index = _sample_single_from_array_pool(
+                rare_base_pool,
+                rng,
+                selected_source_rows,
+                include_card_name=include_details,
+            )
+        elif pool_type == "reverse_pool":
+            value, card_name, source_row_index = _sample_single_from_array_pool(
+                reverse_pool,
+                rng,
+                selected_source_rows,
+                include_card_name=include_details,
+            )
+        else:
+            # hit_pool: key_info = ("hit_pool", mode, canonical_token)
+            eligible = token_pool_map[(key_info[1], key_info[2])]
+            if eligible.prices.size == 0:
+                raise ValueError(
+                    f"Slot {slot_name}: empty token pool for '{key_info[2]}' "
+                    f"(mode={key_info[1]}). Pool was non-empty at validation time."
+                )
+            value, card_name, source_row_index = _sample_single_from_array_pool(
+                eligible,
+                rng,
+                selected_source_rows,
+                include_card_name=include_details,
+            )
+
+        if source_row_index is not None:
+            selected_source_rows.add(source_row_index)
+
+        if include_details:
+            slot_values[slot_name] = value
+            slot_cards[slot_name] = card_name
+        total_value += value
+        rarity_pull_counts[rarity] += 1
+        rarity_value_totals[rarity] += value
+
+    return {
+        "total_value": total_value,
+        "slot_values": slot_values,
+        "slot_cards": slot_cards,
+        "common_count": common_count,
+        "uncommon_count": uncommon_count,
+        "common_cards": common_names if include_details else [],
+        "uncommon_cards": uncommon_names if include_details else [],
+    }
+
+
 def make_simulate_pack_fn_v2(
     *,
     common_cards: pd.DataFrame,
@@ -584,9 +859,118 @@ def make_simulate_pack_fn_v2(
     rarity_value_totals: MutableMapping[str, float],
     pack_logs: Optional[list] = None,
     rng: Optional[np.random.Generator] = None,
+    max_pack_logs: int = 0,
+    path_counts: Optional[MutableMapping[str, int]] = None,
+    state_counts: Optional[MutableMapping[str, int]] = None,
 ) -> Callable[..., object]:
-    """Create a V2 pack simulator with special-pack bypass and state-first normal packs."""
+    """Create a V2 pack simulator with special-pack bypass and state-first normal packs.
+
+    Parameters
+    ----------
+    max_pack_logs:
+        Controls pack-record logging into *pack_logs*.
+        ``0``  — logging disabled (default; avoids 100 k record allocations per run).
+        ``-1`` — unlimited (all packs logged; use for debugging only).
+        ``N>0`` — log at most N records then stop.
+    path_counts:
+        Optional external counter updated directly in the hot path.  When
+        provided the caller does not need ``return_pack_data=True`` to get
+        pack-path statistics.
+    state_counts:
+        Optional external counter for normal-pack state names, same contract
+        as *path_counts*.
+    """
     rng = _to_rng(rng)
+
+    # ------------------------------------------------------------------
+    # Precompute pack model, constraints, and all per-state structures
+    # ONCE so the hot loop performs only O(1) dict/array lookups.
+    # ------------------------------------------------------------------
+    _t_pre0 = time.perf_counter()
+
+    _model = _get_pack_state_model(config)
+    _constraints = _get_pack_constraints(config)
+
+    # State sampling arrays (built once)
+    _state_names: List[str] = list(_model["state_probabilities"].keys())
+    _state_probs = np.array(
+        [float(_model["state_probabilities"][s]) for s in _state_names], dtype=float
+    )
+    _state_probs = _state_probs / _state_probs.sum()
+
+    # Pre-coerce all slot outcomes so coerce_slot_outcomes is never called per-pack
+    _coerced_outcomes: Dict[str, Dict[str, str]] = {
+        state: _coerce_slot_outcomes(outcomes, _constraints)
+        for state, outcomes in _model["state_outcomes"].items()
+    }
+
+    # Precompute base slot sampling pools (non-pattern filter runs once)
+    _common_pool_df = _get_base_slot_sampling_pool(common_cards)
+    _uncommon_pool_df = _get_base_slot_sampling_pool(uncommon_cards)
+    _rare_base_pool_df = _get_base_slot_sampling_pool(rare_cards)
+    _validate_pool_has_no_pattern_rows(_common_pool_df, label="common_base_pool")
+    _validate_pool_has_no_pattern_rows(_uncommon_pool_df, label="uncommon_base_pool")
+    _validate_pool_has_no_pattern_rows(_rare_base_pool_df, label="rare_base_pool")
+    _common_pool = _build_array_pool(_common_pool_df, value_col="Price ($)", default_rarity="common")
+    _uncommon_pool = _build_array_pool(
+        _uncommon_pool_df,
+        value_col="Price ($)",
+        default_rarity="uncommon",
+    )
+    _rare_base_pool = _build_array_pool(_rare_base_pool_df, value_col="Price ($)")
+    _reverse_pool = _build_array_pool(reverse_pool, value_col="Reverse Variant Price ($)")
+
+    # Slot-count constants
+    _n_common = int(slots_per_rarity.get("common", 4))
+    _n_uncommon = int(slots_per_rarity.get("uncommon", 3))
+
+    # Build token pool map: (mode, canonical_token) -> eligible DataFrame slice.
+    # Iterate over every coerced state outcome to cover all tokens used in this run.
+    _token_pool_map: Dict[Tuple[str, str], _ArrayPool] = {}
+    for _outcomes in _coerced_outcomes.values():
+        for _slot_name, _token in _outcomes.items():
+            _rarity = _normalize_rarity(_token)
+            if _slot_name == "rare" and _rarity == "rare":
+                continue  # uses _rare_base_pool
+            if _rarity == "regular reverse":
+                continue  # uses reverse_pool
+            _mode = get_simulation_token_mode(_token)
+            _canonical = normalize_simulation_token(_token)
+            _key: Tuple[str, str] = (_mode, _canonical)
+            if _key not in _token_pool_map:
+                _eligible, _ = resolve_hit_pool_rows(hit_cards, _token, mode=_mode)
+                if _mode == "pattern":
+                    _validate_pattern_token_pool(_eligible, token=_token)
+                _token_pool_map[_key] = _build_array_pool(_eligible, value_col="Price ($)")
+
+    # Per-state slot-pool key lookup: avoids get_simulation_token_mode +
+    # normalize_simulation_token calls inside the hot loop.
+    _state_slot_info: Dict[str, Dict[str, tuple]] = {}
+    for _state, _outcomes in _coerced_outcomes.items():
+        _slot_keys: Dict[str, tuple] = {}
+        for _slot_name in ("rare", "reverse_1", "reverse_2"):
+            _token = _outcomes[_slot_name]
+            _rarity = _normalize_rarity(_token)
+            if _slot_name == "rare" and _rarity == "rare":
+                _slot_keys[_slot_name] = ("rare_pool",)
+            elif _rarity == "regular reverse":
+                _slot_keys[_slot_name] = ("reverse_pool",)
+            else:
+                _mode = get_simulation_token_mode(_token)
+                _canonical = normalize_simulation_token(_token)
+                _slot_keys[_slot_name] = ("hit_pool", _mode, _canonical)
+        _state_slot_info[_state] = _slot_keys
+
+    _t_pre1 = time.perf_counter()
+    print(
+        f"[SIM_TIMING] stage_name=token_pool_precomputation "
+        f"elapsed_ms={(_t_pre1 - _t_pre0) * 1000:.1f}"
+    )
+
+    # ------------------------------------------------------------------
+    # Determine log cap once so the closure avoids recomputing it
+    # ------------------------------------------------------------------
+    _log_cap = max_pack_logs  # 0=disabled, -1=unlimited, N>0=cap at N
 
     def simulate_one_pack(*, return_pack_data: bool = False):
         god_cfg = getattr(config, "GOD_PACK_CONFIG", {})
@@ -606,17 +990,26 @@ def make_simulate_pack_fn_v2(
                 rarity_value_totals=rarity_value_totals,
             )
             value = float(special["total_value"])
-            record = {
-                "entry_path": "god",
-                "state": "god_pack",
-                "slot_outcomes": {},
-                "slot_values": {},
-                "special_pack_rarities": special["rarities"],
-                "total_value": value,
-            }
-            if pack_logs is not None:
-                pack_logs.append(record)
-            return (value, record) if return_pack_data else value
+            if path_counts is not None:
+                path_counts["god"] += 1
+            _should_log = (
+                pack_logs is not None
+                and (_log_cap == -1 or (_log_cap > 0 and len(pack_logs) < _log_cap))
+            )
+            if return_pack_data or _should_log:
+                record: Dict[str, object] = {
+                    "entry_path": "god",
+                    "state": "god_pack",
+                    "slot_outcomes": {},
+                    "slot_values": {},
+                    "special_pack_rarities": special["rarities"],
+                    "total_value": value,
+                }
+                if _should_log:
+                    pack_logs.append(record)  # type: ignore[union-attr]
+                if return_pack_data:
+                    return value, record
+            return value
 
         demi_cfg = getattr(config, "DEMI_GOD_PACK_CONFIG", {})
         if demi_cfg.get("enabled", False) and rng.random() < float(demi_cfg.get("pull_rate", 0.0)):
@@ -635,47 +1028,74 @@ def make_simulate_pack_fn_v2(
                 rarity_value_totals=rarity_value_totals,
             )
             value = float(special["total_value"])
-            record = {
-                "entry_path": "demi_god",
-                "state": "demi_god_pack",
-                "slot_outcomes": {},
-                "slot_values": {},
-                "special_pack_rarities": special["rarities"],
-                "total_value": value,
-            }
-            if pack_logs is not None:
-                pack_logs.append(record)
-            return (value, record) if return_pack_data else value
+            if path_counts is not None:
+                path_counts["demi_god"] += 1
+            _should_log = (
+                pack_logs is not None
+                and (_log_cap == -1 or (_log_cap > 0 and len(pack_logs) < _log_cap))
+            )
+            if return_pack_data or _should_log:
+                record = {
+                    "entry_path": "demi_god",
+                    "state": "demi_god_pack",
+                    "slot_outcomes": {},
+                    "slot_values": {},
+                    "special_pack_rarities": special["rarities"],
+                    "total_value": value,
+                }
+                if _should_log:
+                    pack_logs.append(record)  # type: ignore[union-attr]
+                if return_pack_data:
+                    return value, record
+            return value
 
-        pack_state = sample_pack_state(config=config, rng=rng)
-        slot_outcomes = resolve_slot_outcomes_from_state(pack_state=pack_state, config=config, rng=rng)
+        # --- Hot path: O(1) state sampling via precomputed arrays ---
+        idx = rng.choice(len(_state_names), p=_state_probs)
+        sampled_state = _state_names[idx]
+        slot_outcomes = _coerced_outcomes[sampled_state]   # already coerced, no deepcopy needed
+        slot_pool_keys = _state_slot_info[sampled_state]
+        _should_log = (
+            pack_logs is not None
+            and (_log_cap == -1 or (_log_cap > 0 and len(pack_logs) < _log_cap))
+        )
+        _collect_details = return_pack_data or _should_log
 
-        sampled = sample_cards_for_slot_outcomes(
-            common_cards=common_cards,
-            uncommon_cards=uncommon_cards,
-            rare_cards=rare_cards,
-            hit_cards=hit_cards,
-            reverse_pool=reverse_pool,
+        sampled = _sample_cards_fast(
+            common_pool=_common_pool,
+            uncommon_pool=_uncommon_pool,
+            rare_base_pool=_rare_base_pool,
+            reverse_pool=_reverse_pool,
             slot_outcomes=slot_outcomes,
-            slots_per_rarity=slots_per_rarity,
+            slot_pool_keys=slot_pool_keys,
+            token_pool_map=_token_pool_map,
+            n_common=_n_common,
+            n_uncommon=_n_uncommon,
             rarity_pull_counts=rarity_pull_counts,
             rarity_value_totals=rarity_value_totals,
             rng=rng,
+            include_details=_collect_details,
         )
 
-        record = {
-            "entry_path": "normal",
-            "state": pack_state["state"],
-            "slot_outcomes": slot_outcomes,
-            "slot_cards": sampled["slot_cards"],
-            "slot_values": sampled["slot_values"],
-            "total_value": sampled["total_value"],
-        }
+        # Cheap direct-counter update — no record dict needed for normal runs.
+        if path_counts is not None:
+            path_counts["normal"] += 1
+        if state_counts is not None:
+            state_counts[sampled_state] += 1
 
-        if pack_logs is not None:
-            pack_logs.append(record)
-        if return_pack_data:
-            return sampled["total_value"], record
+        if return_pack_data or _should_log:
+            record = {
+                "entry_path": "normal",
+                "state": sampled_state,
+                "slot_outcomes": slot_outcomes,
+                "slot_cards": sampled["slot_cards"],
+                "slot_values": sampled["slot_values"],
+                "total_value": sampled["total_value"],
+            }
+            if _should_log:
+                pack_logs.append(record)  # type: ignore[union-attr]
+            if return_pack_data:
+                return sampled["total_value"], record
+
         return sampled["total_value"]
 
     return simulate_one_pack
@@ -685,26 +1105,39 @@ def run_simulation_v2(
     open_pack_fn: Callable[[], object],
     rarity_pull_counts: MutableMapping[str, int],
     rarity_value_totals: MutableMapping[str, float],
-    n: int = 100000,
+    n: int = 1000000,
     export_debug_df: bool = False,
+    pack_path_counts: Optional[MutableMapping[str, int]] = None,
+    pack_state_counts: Optional[MutableMapping[str, int]] = None,
 ) -> Dict[str, object]:
-    """Run V2 simulation with a single pass so all outputs come from the same sample set."""
-    values = []
-    path_counts: MutableMapping[str, int] = defaultdict(int)
-    state_counts: MutableMapping[str, int] = defaultdict(int)
+    """Run V2 simulation with a single pass so all outputs come from the same sample set.
+
+    Parameters
+    ----------
+    pack_path_counts:
+        When provided (pre-populated by the pack closure), these counters are
+        used directly in the result dict and internal tuple-based tracking is
+        skipped.  Allows ``open_pack_fn`` to return a plain ``float``.
+    pack_state_counts:
+        Same contract as *pack_path_counts* for normal-pack state names.
+    """
+    results_array = np.empty(n, dtype=np.float64)
+    _internal_path_counts: MutableMapping[str, int] = defaultdict(int)
+    _internal_state_counts: MutableMapping[str, int] = defaultdict(int)
     debug_rows = []
 
-    for _ in range(n):
+    for index in range(n):
         result = open_pack_fn()
         if isinstance(result, tuple):
             value = float(result[0])
             pack_data = result[1] if len(result) > 1 and isinstance(result[1], dict) else {}
             path = pack_data.get("entry_path")
             state = pack_data.get("state")
-            if path:
-                path_counts[str(path)] += 1
-            if state and str(path) == "normal":
-                state_counts[str(state)] += 1
+            # Only count internally when external counters are not supplied.
+            if pack_path_counts is None and path:
+                _internal_path_counts[str(path)] += 1
+            if pack_state_counts is None and state and str(path) == "normal":
+                _internal_state_counts[str(state)] += 1
             if export_debug_df:
                 debug_rows.append(
                     {
@@ -727,9 +1160,9 @@ def run_simulation_v2(
                         "total_value": value,
                     }
                 )
-        values.append(value)
+        results_array[index] = value
 
-    results_array = np.array(values, dtype=float)
+    values = results_array.tolist()
     result = {
         "values": values,
         "rarity_pull_counts": rarity_pull_counts,
@@ -748,15 +1181,15 @@ def run_simulation_v2(
             "99th": float(np.percentile(results_array, 99)),
         },
         "distribution": results_array,
-        "pack_path_counts": dict(path_counts),
-        "pack_state_counts": dict(state_counts),
+        "pack_path_counts": dict(pack_path_counts if pack_path_counts is not None else _internal_path_counts),
+        "pack_state_counts": dict(pack_state_counts if pack_state_counts is not None else _internal_state_counts),
     }
     if export_debug_df:
         result["debug_df"] = pd.DataFrame(debug_rows)
     return result
 
 
-def print_simulation_summary_v2(sim_results: Mapping[str, object], n_simulations: int = 100000) -> None:
+def print_simulation_summary_v2(sim_results: Mapping[str, object], n_simulations: int = 1000000) -> None:
     print(f"Monte Carlo Simulation V2 Results ({n_simulations} simulations):")
     print("-" * 50)
     print(f"Mean Value:          ${sim_results['mean']:.2f}")

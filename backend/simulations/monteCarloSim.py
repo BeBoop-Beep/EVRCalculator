@@ -4,7 +4,7 @@ import pandas as pd
 from typing import Callable, List, Dict
 from .utils.monteCarloSimUtils.specialPackLogic import sample_god_pack, sample_demi_god_pack
 
-def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 100000) -> List[float]:
+def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 1000000) -> List[float]:
     """Simulates opening n packs using the provided simulation function."""
     return [open_pack_fn() for _ in range(n)]
 
@@ -12,7 +12,7 @@ def run_simulation(
     open_pack_fn: Callable[[], float],
     rarity_pull_counts: Dict[str, int],
     rarity_value_totals: Dict[str, float],
-    n: int = 100000
+    n: int = 1000000
 ) -> Dict[str, object]:
 
     """Runs a Monte Carlo simulation and returns statistical summaries."""
@@ -145,7 +145,7 @@ def make_simulate_pack_fn(
     return simulate_one_pack
 
 
-def print_simulation_summary(sim_results, n_simulations=100000):
+def print_simulation_summary(sim_results, n_simulations=1000000):
     values = sim_results["values"]
     pull_counts = sim_results["rarity_pull_counts"]
     value_totals = sim_results["rarity_value_totals"]

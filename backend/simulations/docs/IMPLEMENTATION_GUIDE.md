@@ -429,7 +429,7 @@ from backend.simulations.utils.simulation_sampling_audit import (
     verify_no_pattern_in_base_pools,
 )
 
-def run_simulation_with_verification(config, df, num_packs=100000):
+def run_simulation_with_verification(config, df, num_packs=1000000):
     # Extract pools
     pools = extract_scarletandviolet_card_groups(config, df)
     
