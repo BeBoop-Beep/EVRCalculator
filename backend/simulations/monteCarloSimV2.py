@@ -34,6 +34,7 @@ from backend.utils.special_pack_config import (
     iter_rarity_bucket_rules,
     parse_rarity_bucket_spec,
 )
+from backend.utils.debug_output import debug_print
 
 
 PackState = Dict[str, object]
@@ -50,14 +51,14 @@ class _ArrayPool:
 def _emit_sim_pool_debug(prefix: str, pool_name: str, pool_df: pd.DataFrame, price_col: str) -> None:
     row_count = int(len(pool_df))
     if row_count == 0:
-        print(f"{prefix} pool={pool_name} rows=0 price_col='{price_col}' min=0.0000 max=0.0000 mean=0.0000")
+        debug_print(f"{prefix} pool={pool_name} rows=0 price_col='{price_col}' min=0.0000 max=0.0000 mean=0.0000")
         return
 
     prices = pd.to_numeric(pool_df.get(price_col), errors="coerce").dropna()
     min_price = float(prices.min()) if not prices.empty else 0.0
     max_price = float(prices.max()) if not prices.empty else 0.0
     mean_price = float(prices.mean()) if not prices.empty else 0.0
-    print(
+    debug_print(
         f"{prefix} pool={pool_name} rows={row_count} price_col='{price_col}' "
         f"min={min_price:.4f} max={max_price:.4f} mean={mean_price:.4f}"
     )
@@ -69,7 +70,7 @@ def _emit_sim_pool_debug(prefix: str, pool_name: str, pool_df: pd.DataFrame, pri
         card_number = row.get("Card Number", row.get("card_number", ""))
         variant_marker = row.get("Special Type", row.get("special_type_key", row.get("pattern_key", "")))
         variant_id = row.get("card_variant_id", "")
-        print(
+        debug_print(
             f"{prefix} sample[{idx}] pool={pool_name} name={card_name} rarity={rarity} "
             f"price={float(price):.4f} card_number={card_number or '<none>'} "
             f"variant_marker={variant_marker or '<none>'} "
@@ -995,7 +996,7 @@ def make_simulate_pack_fn_v2(
     _validate_pool_has_no_pattern_rows(_uncommon_pool_df, label="uncommon_base_pool")
     _validate_pool_has_no_pattern_rows(_rare_base_pool_df, label="rare_base_pool")
 
-    print(
+    debug_print(
         "[SIM_POOL_DEBUG] "
         f"base_common_count={len(_common_pool_df)} "
         f"base_uncommon_count={len(_uncommon_pool_df)} "
@@ -1058,7 +1059,7 @@ def make_simulate_pack_fn_v2(
         _state_slot_info[_state] = _slot_keys
 
     _t_pre1 = time.perf_counter()
-    print(
+    debug_print(
         f"[SIM_TIMING] stage_name=token_pool_precomputation "
         f"elapsed_ms={(_t_pre1 - _t_pre0) * 1000:.1f}"
     )

@@ -1,5 +1,6 @@
 import pandas as pd
 
+from backend.utils.debug_output import debug_print
 from ..utils.reverse_pool import normalize_reverse_classification_key
 from ..utils.rarity_classification import normalize_rarity_key
 from ..utils.special_type_normalization import (
@@ -227,8 +228,8 @@ class PackEVInitializer:
         df.columns = df.columns.str.strip()
 
     def _debug_print(self, df):
-        print(f"Total cards processed: {len(df)}")
-        print(df[['Card Name', 'Rarity', 'Price ($)', 'Effective_Pull_Rate', 'EV']].head(10))
+        debug_print(f"[DATA_PREP_DATAFRAME_PREVIEW] Total cards processed: {len(df)}")
+        debug_print(f"[DATA_PREP_DATAFRAME_PREVIEW] {df[['Card Name', 'Rarity', 'Price ($)', 'Effective_Pull_Rate', 'EV']].head(10)}")
 
     def load_and_prepare_data(self, calculation_input):
         df = self._load_dataframe(calculation_input)

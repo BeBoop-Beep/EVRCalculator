@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
 from backend.db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
+from backend.utils.debug_output import debug_print
 from backend.db.repositories.card_variant_prices_repository import (
     insert_card_variant_price,
     insert_card_variant_prices_batch,
@@ -456,7 +457,7 @@ class CardsService(BatchProcessor):
             raw_name = card.get('name') or ''
             canonical_name = self._normalize_base_card_name(raw_name)
             if raw_name != canonical_name:
-                print(f"[DEBUG] Name normalized: '{raw_name}' → '{canonical_name}' (card_number={card.get('card_number')})")
+                debug_print(f"[CARDS_NORMALIZATION_DEBUG] Name normalized: '{raw_name}' → '{canonical_name}' (card_number={card.get('card_number')})")
             key = (canonical_name, card.get('card_number'))
             if key not in cards_by_key:
                 cards_by_key[key] = []

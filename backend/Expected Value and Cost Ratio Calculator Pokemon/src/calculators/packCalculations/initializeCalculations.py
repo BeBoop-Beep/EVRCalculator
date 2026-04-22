@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 
+from backend.utils.debug_output import debug_print
+
 class PackEVInitializer:
     """Handles initialization and data loading for pack EV calculations"""
     
@@ -78,8 +80,8 @@ class PackEVInitializer:
         df.columns = df.columns.str.strip()
 
     def _debug_print(self, df):
-        print(f"Total cards processed: {len(df)}")
-        print(df[['Card Name', 'Rarity', 'Price ($)', 'Effective_Pull_Rate', 'EV']].head(10))
+        debug_print(f"[DATA_PREP_DATAFRAME_PREVIEW] Total cards processed: {len(df)}")
+        debug_print(f"[DATA_PREP_DATAFRAME_PREVIEW] {df[['Card Name', 'Rarity', 'Price ($)', 'Effective_Pull_Rate', 'EV']].head(10)}")
 
     def load_and_prepare_data(self, file_path):
         df = self._load_file(file_path)

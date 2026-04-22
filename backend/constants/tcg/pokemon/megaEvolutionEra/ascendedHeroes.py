@@ -23,7 +23,7 @@ class SetAscendedHeroesConfig(BaseSetConfig):
     PULL_RATE_MAPPING = {
         # https://www.facebook.com/HKF3LIX/posts/pfbid02b9vQUSmnXbZECw8YsucAxEWLNJtZWQPRLvNjNi5WGKWkhtfGEm9jdkzqSt5mjj7cl/
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Ascended-Heroes-Pull-Rates/60143d94-88a7-42ce-8e73-babd7b3fabd6/?srsltid=AfmBOoqaUCg2-kUOCbOmVetRPcirK1dhfXgiWRnPtNNWlIxCVAHzitkv
-        'common' : 216, # 4/84 (there are 4 commons in each pack with 84 total commons is in the set)
+        'common' : 84, # 4/84 (there are 4 commons in each pack with 84 total commons is in the set)
         'uncommon': 69, # 3/69 (there are 3 uncommons in each pack with 69 total uncommons in the set)
         'rare': 25,
         'double rare': 191,

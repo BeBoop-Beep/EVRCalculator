@@ -18,6 +18,7 @@ from backend.configured_special_pack_resolver import resolve_configured_god_pack
 from backend.utils.special_pack_config import (
     iter_rarity_bucket_rules,
 )
+from backend.utils.debug_output import debug_print
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 def _emit_pool_debug_snapshot(prefix: str, pool_name: str, pool_df: pd.DataFrame, price_col: str) -> None:
     row_count = int(len(pool_df))
     if row_count == 0:
-        print(
+        debug_print(
             f"{prefix} pool={pool_name} rows=0 price_col='{price_col}' min=0.0000 max=0.0000 mean=0.0000"
         )
         return
@@ -36,7 +37,7 @@ def _emit_pool_debug_snapshot(prefix: str, pool_name: str, pool_df: pd.DataFrame
     max_price = float(prices.max()) if not prices.empty else 0.0
     mean_price = float(prices.mean()) if not prices.empty else 0.0
 
-    print(
+    debug_print(
         f"{prefix} pool={pool_name} rows={row_count} price_col='{price_col}' "
         f"min={min_price:.4f} max={max_price:.4f} mean={mean_price:.4f}"
     )
@@ -60,7 +61,7 @@ def _emit_pool_debug_snapshot(prefix: str, pool_name: str, pool_df: pd.DataFrame
             or ""
         )
         variant_id = row.get("card_variant_id", "")
-        print(
+        debug_print(
             f"{prefix} sample[{idx}] name={card_name} rarity={rarity} price={float(price):.4f} "
             f"card_number={card_number or '<none>'} variant_marker={variant_marker or '<none>'} "
             f"card_variant_id={variant_id if variant_id not in (None, '') else '<none>'}"
@@ -360,7 +361,7 @@ class PackEVCalculator(PackEVInitializer):
             (name_variant_mask & rarity_keys.isin({'common', 'uncommon', 'rare'})).sum()
         )
         if name_variant_excluded_count:
-            print(
+            debug_print(
                 f"[RARITY_EV_AUDIT] name_variant_rows_excluded_from_base_buckets={name_variant_excluded_count} "
                 "(parenthetical-name variants routed out of common/uncommon/rare EV totals)"
             )
@@ -393,34 +394,34 @@ class PackEVCalculator(PackEVInitializer):
         _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "rare", calc_rare_pool, "Price ($)")
         _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "reverse", calc_reverse_pool, "Reverse Variant Price ($)")
 
-        print("[RARITY_EV_AUDIT] row_counts_by_rarity_key:")
+        debug_print("[RARITY_EV_AUDIT] row_counts_by_rarity_key:")
         rarity_counts = rows_with_totals['_rarity_key'].value_counts(dropna=False)
         for key, count in rarity_counts.items():
             label = key if str(key).strip() else '<blank>'
-            print(f"  {label}: rows={int(count)}")
+            debug_print(f"  {label}: rows={int(count)}")
 
-        print("[RARITY_EV_AUDIT] row_counts_by_pattern_key:")
+        debug_print("[RARITY_EV_AUDIT] row_counts_by_pattern_key:")
         pattern_counts = rows_with_totals['_pattern_key'].value_counts(dropna=False)
         for key, count in pattern_counts.items():
             label = key if str(key).strip() else '<blank>'
-            print(f"  {label}: rows={int(count)}")
+            debug_print(f"  {label}: rows={int(count)}")
 
-        print("[RARITY_EV_AUDIT] row_counts_by_aggregation_key:")
+        debug_print("[RARITY_EV_AUDIT] row_counts_by_aggregation_key:")
         aggregation_counts = rows_with_totals['_aggregation_key'].value_counts(dropna=False)
         for key, count in aggregation_counts.items():
             label = key if str(key).strip() else '<blank>'
-            print(f"  {label}: rows={int(count)}")
+            debug_print(f"  {label}: rows={int(count)}")
 
         missing_bucket_mask = rows_with_totals['_bucket_key'].eq('')
         missing_bucket_count = int(missing_bucket_mask.sum())
         if missing_bucket_count:
             excluded_ev_total = float(rows_with_totals.loc[missing_bucket_mask, '_ev_value'].sum())
-            print(
+            debug_print(
                 "[RARITY_EV_BUCKETS] skipped_rows_without_aggregation_key_or_rarity_key="
                 f"{missing_bucket_count} "
                 "because they cannot be assigned to a stable rarity bucket."
             )
-            print(
+            debug_print(
                 f"[RARITY_EV_BUCKETS] excluded_unbucketed_ev_total={excluded_ev_total:.4f} "
                 "bucket_source=aggregation_key->rarity_key"
             )
@@ -451,9 +452,9 @@ class PackEVCalculator(PackEVInitializer):
         ev_totals_by_rarity['reverse'] = float(ev_reverse_total)
 
         if 'aggregation_key' in df.columns:
-            print("[RARITY_EV_BUCKETS] row-derived totals by aggregation_key (fallback rarity_key when blank):")
+            debug_print("[RARITY_EV_BUCKETS] row-derived totals by aggregation_key (fallback rarity_key when blank):")
         else:
-            print("[RARITY_EV_BUCKETS] row-derived totals by rarity_key:")
+            debug_print("[RARITY_EV_BUCKETS] row-derived totals by rarity_key:")
         if grouped_totals.empty:
             print("  (none)")
         else:
@@ -469,7 +470,7 @@ class PackEVCalculator(PackEVInitializer):
             base_mask = rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq(base_rarity)
             ev_from_rows = float(rows_with_totals.loc[base_mask, '_ev_value'].sum())
             ev_in_bucket = float(ev_totals_by_rarity.get(base_rarity, 0.0))
-            print(
+            debug_print(
                 f"[RARITY_EV_AUDIT] non_pattern_{base_rarity}: "
                 f"rows={int(base_mask.sum())} ev_from_rows={ev_from_rows:.6f} ev_in_bucket={ev_in_bucket:.6f}"
             )
@@ -478,7 +479,7 @@ class PackEVCalculator(PackEVInitializer):
             pattern_row_mask = rows_with_totals['_pattern_key'].eq(pattern_key)
             ev_from_rows = float(rows_with_totals.loc[pattern_row_mask, '_ev_value'].sum())
             ev_in_bucket = float(ev_totals_by_rarity.get(pattern_key, 0.0))
-            print(
+            debug_print(
                 f"[RARITY_EV_AUDIT] pattern_{pattern_key}: "
                 f"rows={int(pattern_row_mask.sum())} ev_from_rows={ev_from_rows:.6f} ev_in_bucket={ev_in_bucket:.6f}"
             )

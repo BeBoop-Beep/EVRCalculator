@@ -4,6 +4,7 @@ import pandas as pd
 
 from backend.calculations.utils.reverse_pool import build_reverse_eligible_pool
 from backend.simulations.utils.simulationTokenResolver import get_row_match_keys
+from backend.utils.debug_output import debug_print
 
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 def _emit_sim_pool_debug(pool_name: str, pool_df: pd.DataFrame, price_col: str, sample_size: int = 10) -> None:
     row_count = int(len(pool_df))
     if row_count == 0:
-        print(
+        debug_print(
             f"[SIM_POOL_DEBUG] pool={pool_name} rows=0 price_col='{price_col}' min=0.0000 max=0.0000 mean=0.0000"
         )
         return
@@ -22,7 +23,7 @@ def _emit_sim_pool_debug(pool_name: str, pool_df: pd.DataFrame, price_col: str, 
     max_price = float(prices.max()) if not prices.empty else 0.0
     mean_price = float(prices.mean()) if not prices.empty else 0.0
 
-    print(
+    debug_print(
         f"[SIM_POOL_DEBUG] pool={pool_name} rows={row_count} price_col='{price_col}' "
         f"min={min_price:.4f} max={max_price:.4f} mean={mean_price:.4f}"
     )
@@ -34,7 +35,7 @@ def _emit_sim_pool_debug(pool_name: str, pool_df: pd.DataFrame, price_col: str, 
         card_number = row.get('Card Number', row.get('card_number', ''))
         variant_marker = row.get('Special Type', row.get('special_type_key', row.get('pattern_key', '')))
         variant_id = row.get('card_variant_id', '')
-        print(
+        debug_print(
             f"[SIM_POOL_DEBUG] sample[{idx}] pool={pool_name} name={card_name} rarity={rarity} "
             f"price={float(price):.4f} card_number={card_number or '<none>'} "
             f"variant_marker={variant_marker or '<none>'} "
@@ -45,14 +46,12 @@ def _emit_sim_pool_debug(pool_name: str, pool_df: pd.DataFrame, price_col: str, 
 def _log_value_counts(label: str, values: pd.Series, max_rows: int = 20) -> None:
     series = values.fillna("<NA>").astype(str)
     counts = series.value_counts(dropna=False)
-    logger.warning("[POOL_INPUT_PROFILE] %s unique=%d total=%d", label, int(len(counts)), int(len(series)))
+    debug_print(f"[POOL_INPUT_PROFILE] {label} unique={int(len(counts))} total={int(len(series))}")
     for value, count in counts.head(max_rows).items():
-        logger.warning("[POOL_INPUT_PROFILE] %s value=%s count=%d", label, value, int(count))
+        debug_print(f"[POOL_INPUT_PROFILE] {label} value={value} count={int(count)}")
     if len(counts) > max_rows:
-        logger.warning(
-            "[POOL_INPUT_PROFILE] %s truncated_unique_values=%d",
-            label,
-            int(len(counts) - max_rows),
+        debug_print(
+            f"[POOL_INPUT_PROFILE] {label} truncated_unique_values={int(len(counts) - max_rows)}"
         )
 
 
@@ -149,13 +148,12 @@ def extract_scarletandviolet_card_groups(config, df):
             _log_value_counts(column, source_df[column])
 
     base_rarity_keys, base_rarity_key_source = get_row_match_keys(source_df, mode='base_rarity')
-    logger.warning("[POOL_INPUT_PROFILE] base_rarity_key_source=%s", base_rarity_key_source)
+    debug_print(f"[POOL_INPUT_PROFILE] base_rarity_key_source={base_rarity_key_source}")
     _log_value_counts("base_rarity_key", base_rarity_keys)
-    logger.warning(
-        "[POOL_INPUT_PROFILE] base_rarity_key_counts common=%d uncommon=%d rare=%d",
-        int(base_rarity_keys.eq('common').sum()),
-        int(base_rarity_keys.eq('uncommon').sum()),
-        int(base_rarity_keys.eq('rare').sum()),
+    debug_print(
+        f"[POOL_INPUT_PROFILE] base_rarity_key_counts common={int(base_rarity_keys.eq('common').sum())} "
+        f"uncommon={int(base_rarity_keys.eq('uncommon').sum())} "
+        f"rare={int(base_rarity_keys.eq('rare').sum())}"
     )
 
     common_pool = source_df[_build_base_pool_mask(source_df, 'common')]
@@ -272,7 +270,7 @@ def extract_scarletandviolet_card_groups(config, df):
         pattern_overlap_with_base_pools,
     )
 
-    print(
+    debug_print(
         "[SIM_POOL_DEBUG] "
         f"base_common_count={len(common_pool)} "
         f"base_uncommon_count={len(uncommon_pool)} "
@@ -286,7 +284,7 @@ def extract_scarletandviolet_card_groups(config, df):
 
     # --- SIM_POOL_AUDIT debug output ---
     rare_prices = pd.to_numeric(rare_pool.get('Price ($)'), errors='coerce').dropna()
-    print(
+    debug_print(
         f"[SIM_POOL_AUDIT]\n"
         f"  source_total_rows={len(source_df)}\n"
         f"  name_variant_rows_excluded={total_name_variant_count}\n"

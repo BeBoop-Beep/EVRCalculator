@@ -11,6 +11,7 @@ from .monteCarloSimV2 import (
     validate_pack_state_model,
 )
 from backend.calculations.packCalcsRefractored.otherCalculations import PackCalculations
+from backend.utils.debug_output import debug_print
 from .utils.extractScarletAndVioletCardGroups import extract_scarletandviolet_card_groups
 from .utils.simulationTokenResolver import get_row_match_keys
 from .validations.monteCarloValidations import validate_and_debug_slot, validate_full_pack_logic
@@ -44,7 +45,7 @@ class PackEVRSimulator(PackCalculations):
         print("=== STARTING PACK EV SIMULATION ===")
         _t0 = time.perf_counter()
         card_groups = extract_scarletandviolet_card_groups(self.config, df)
-        print(f"[SIM_TIMING] stage_name=pool_extraction elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
+        debug_print(f"[SIM_TIMING] stage_name=pool_extraction elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
 
         pattern_keys_source, _ = get_row_match_keys(df, mode="pattern")
         source_pattern_mask = pattern_keys_source.isin({"pokeball_pattern", "master_ball_pattern"})
@@ -83,7 +84,7 @@ class PackEVRSimulator(PackCalculations):
         )
 
         use_v2 = _should_use_monte_carlo_v2(self.config)
-        print(
+        debug_print(
             "[SIM_ENGINE] selected_engine=%s configured_use_monte_carlo_v2=%r era=%s"
             % (
                 "v2" if use_v2 else "v1",
@@ -100,7 +101,7 @@ class PackEVRSimulator(PackCalculations):
         if use_v2:
             _t0 = time.perf_counter()
             validate_pack_state_model(self.config, card_groups)
-            print(f"[SIM_TIMING] stage_name=validation elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
+            debug_print(f"[SIM_TIMING] stage_name=validation elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
 
             # Dedicated counters populated by the closure directly — no record
             # dicts are built for normal runs, so run_simulation_v2 never needs
@@ -134,11 +135,11 @@ class PackEVRSimulator(PackCalculations):
                 pack_path_counts=_path_counts,
                 pack_state_counts=_state_counts,
             )
-            print(f"[SIM_TIMING] stage_name=simulation_loop elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
+            debug_print(f"[SIM_TIMING] stage_name=simulation_loop elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
 
             _t0 = time.perf_counter()
             print_simulation_summary_v2(sim_results)
-            print(f"[SIM_TIMING] stage_name=post_simulation_summary elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
+            debug_print(f"[SIM_TIMING] stage_name=post_simulation_summary elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
 
             return {
                 "sim_results": sim_results,

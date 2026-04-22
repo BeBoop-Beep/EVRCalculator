@@ -10,6 +10,7 @@ from backend.calculations.utils.rarity_classification import normalize_rarity_ke
 from backend.calculations.utils.special_type_normalization import derive_pattern_key, normalize_special_type_key
 from backend.db.services.evr_input_repository import EVRInputRepository
 from backend.db.services.evr_input_transformer import EVRInputTransformer
+from backend.utils.debug_output import debug_print
 
 
 class EVRInputPreparationService:
@@ -67,7 +68,7 @@ class EVRInputPreparationService:
             "rows_dropped": transform_diag.get("rows_dropped"),
         }
 
-        print(f"[DB_INPUT_DIAGNOSTICS] {json.dumps(diagnostics, sort_keys=True)}")
+        debug_print(f"[DB_INPUT_DIAGNOSTICS] {json.dumps(diagnostics, sort_keys=True)}")
         return diagnostics
 
     def _emit_row_population_audit(self, transformed_payload: Dict[str, Any], config: Any, set_name: str) -> Dict[str, Any]:
@@ -110,7 +111,7 @@ class EVRInputPreparationService:
                 .sum()
             ),
         }
-        print(f"[DB_INPUT_ROW_AUDIT] {json.dumps(diagnostics, sort_keys=True)}")
+        debug_print(f"[DB_INPUT_ROW_AUDIT] {json.dumps(diagnostics, sort_keys=True)}")
 
         if self._is_prismatic_set(config, set_name) and any(count <= 0 for count in non_pattern_counts.values()):
             raise ValueError(
@@ -164,8 +165,8 @@ class EVRInputPreparationService:
             output_path = output_dir / f"{safe_set_id}_{run_stamp}.json"
             output_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
-            print(f"[DEBUG_JSON_DUMP] wrote={output_path.as_posix()}")
-            print(
+            debug_print(f"[DEBUG_JSON_DUMP] wrote={output_path.as_posix()}")
+            debug_print(
                 "[DEBUG_SUSPICIOUS_ROWS] "
                 f"total={len(suspicious_rows)} "
                 f"common={suspicious_counts['common']} "
