@@ -89,14 +89,14 @@ def test_non_pattern_base_rows_exclude_from_hit_pool() -> None:
     assert 5 in hit_idx, "Hit-rarity rows should still be present in hit pool"
 
 
-def test_pattern_pool_overlaps_with_base() -> None:
+def test_pattern_pool_does_not_overlap_with_base() -> None:
     _, pools = _extract()
     base_idx = _idx(pools["common"]) | _idx(pools["uncommon"]) | _idx(pools["rare"])
     hit_idx = _idx(pools["hit"])
     pattern_idx = {3, 4}
 
     assert pattern_idx.issubset(hit_idx), "Pattern rows must be in hit pool"
-    assert pattern_idx.issubset(base_idx), "Pattern rows should also remain in matching base pools"
+    assert pattern_idx.isdisjoint(base_idx), "Pattern rows must not overlap with any base pool (common/uncommon/rare)"
 
 
 def test_no_row_in_multiple_base_pool_types() -> None:

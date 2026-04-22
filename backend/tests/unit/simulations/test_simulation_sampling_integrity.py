@@ -36,8 +36,9 @@ from backend.simulations.utils.simulationTokenResolver import get_row_match_keys
 
 class TestBasePoolsPreservePatternOverlayRows:
     """
-    Test 1: Verify base pools (common, uncommon, rare) preserve base-rarity rows,
-    including overlay rows.
+    Test 1: Verify base pools (common, uncommon, rare) contain only plain
+    non-pattern rows. Pattern overlay rows must be excluded from base pools
+    and routed exclusively to the hit pool.
     """
 
     def test_base_pools_preserve_pattern_rows_with_synthetic_data(self):
@@ -73,12 +74,12 @@ class TestBasePoolsPreservePatternOverlayRows:
         assert uncommon_mask.iloc[2] and uncommon_mask.iloc[3], "Normal uncommons should be included"
         assert rare_mask.iloc[4] and rare_mask.iloc[5], "Normal rares should be included"
 
-        # Verify pattern cards remain in base rare by base-rarity semantics
-        assert rare_mask.iloc[6], "Pattern poke ball rare should remain in base rare pool"
-        assert rare_mask.iloc[7], "Pattern master ball rare should remain in base rare pool"
+        # Verify pattern cards are excluded from base rare pool.
+        assert not rare_mask.iloc[6], "Pattern poke ball rare must be excluded from base rare pool"
+        assert not rare_mask.iloc[7], "Pattern master ball rare must be excluded from base rare pool"
 
-    def test_base_pools_include_pattern_rows_with_prismatic_data(self):
-        """Verify base-rarity preservation works with Prismatic configuration."""
+    def test_base_pools_exclude_pattern_rows_with_prismatic_data(self):
+        """Verify pattern rows are excluded from base-rarity pools in Prismatic configuration."""
         # Create a minimal dataset with Prismatic structure
         df = pd.DataFrame({
             "Card Name": [
@@ -94,11 +95,12 @@ class TestBasePoolsPreservePatternOverlayRows:
         groups = extract_scarletandviolet_card_groups(SetPrismaticEvolutionsConfig, df)
         rare_pool = groups["rare"]
 
-        assert len(rare_pool) == 4, f"Rare pool should have 4 cards, got {len(rare_pool)}"
+        # Only plain (non-pattern) rare rows should be in the base rare pool.
+        assert len(rare_pool) == 2, f"Rare pool should have 2 plain cards only, got {len(rare_pool)}"
         assert all(
-            card_name in rare_pool["Card Name"].tolist()
+            card_name not in rare_pool["Card Name"].tolist()
             for card_name in ["Poke Ball Pattern Rare", "Master Ball Pattern Rare"]
-        ), "Pattern cards should remain in base rare pool"
+        ), "Pattern cards must be excluded from base rare pool"
 
 
 class TestPatternRowNotSampledFromBaseSlots:
@@ -566,7 +568,7 @@ class TestEdgeCases:
 
         common_mask = _build_base_pool_mask(df, "common")
         assert common_mask.iloc[0], "Normal common should be in base"
-        assert common_mask.iloc[1], "Common with poke pattern should remain in base"
+        assert not common_mask.iloc[1], "Common with poke pattern must be excluded from base pool"
 
         hit_mask = _build_hit_pool_mask(df)
         assert not hit_mask.iloc[0], "Normal common should not be in hit"
@@ -585,10 +587,10 @@ class TestEdgeCases:
         base_rare_mask = _build_base_pool_mask(df, "rare")
         hit_mask = _build_hit_pool_mask(df)
 
-        # Verify dual membership
+        # Verify pattern exclusion from base pool
         assert base_rare_mask.iloc[0], "No-pattern rare in base"
-        assert base_rare_mask.iloc[1], "Poke pattern remains in base"
-        assert base_rare_mask.iloc[2], "Master pattern remains in base"
+        assert not base_rare_mask.iloc[1], "Poke pattern must be excluded from base"
+        assert not base_rare_mask.iloc[2], "Master pattern must be excluded from base"
 
         assert not hit_mask.iloc[0], "No-pattern rare not in hit"
         assert hit_mask.iloc[1], "Poke pattern in hit"
@@ -664,10 +666,10 @@ class TestEdgeCases:
 
         groups = extract_scarletandviolet_card_groups(SetPrismaticEvolutionsConfig, df)
 
-        # Verify base pools preserve base-rarity members including pattern overlays
-        assert len(groups["common"]) == 4, "Base common should include pattern overlays"
-        assert len(groups["uncommon"]) == 4, "Base uncommon should include pattern overlays"
-        assert len(groups["rare"]) == 4, "Base rare should include pattern overlays"
+        # Verify base pools contain only non-pattern rows
+        assert len(groups["common"]) == 2, "Base common should contain only plain (non-pattern) rows"
+        assert len(groups["uncommon"]) == 2, "Base uncommon should contain only plain (non-pattern) rows"
+        assert len(groups["rare"]) == 2, "Base rare should contain only plain (non-pattern) rows"
 
         # Verify hit pool has everything else
         hit_pool = groups["hit"]

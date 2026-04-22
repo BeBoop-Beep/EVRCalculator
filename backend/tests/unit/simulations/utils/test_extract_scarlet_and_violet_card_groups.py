@@ -1,7 +1,8 @@
 """Tests for Scarlet and Violet card group extraction logic.
 
-Validates dual semantic membership where pattern-overlay rows preserve base
-rarity membership while still being routed to the hit pool for pattern slots.
+Validates that pattern-overlay rows are excluded from base rarity pools
+(common/uncommon/rare) and are routed exclusively to the hit pool.
+Plain non-pattern rows remain in their matching base rarity pool.
 """
 
 from __future__ import annotations
@@ -33,8 +34,8 @@ class TestBuildBasePoolMask:
         assert mask.iloc[0], \
             f"Expected normal rare card to be in base rare pool, got mask={mask.iloc[0]}"
 
-    def test_pattern_rare_card_included_in_base_rare_pool(self):
-        """A pattern-overlay rare card still belongs to the base rare pool."""
+    def test_pattern_rare_card_excluded_from_base_rare_pool(self):
+        """A pattern-overlay rare card must be excluded from the base rare pool."""
         df = pd.DataFrame({
             "Rarity": ["rare"],
             "Special Type": ["master ball"],
@@ -42,12 +43,12 @@ class TestBuildBasePoolMask:
         
         mask = _build_base_pool_mask(df, "rare")
         
-        # Pattern rare card should remain in base rare pool.
-        assert mask.iloc[0], \
-            f"Expected pattern rare card to remain in base rare pool, got mask={mask.iloc[0]}"
+        # Pattern rare card must NOT be in base rare pool.
+        assert not mask.iloc[0], \
+            f"Expected pattern rare card to be excluded from base rare pool, got mask={mask.iloc[0]}"
 
-    def test_poke_ball_pattern_rare_card_included_in_base_rare_pool(self):
-        """A poke_ball pattern rare card still belongs to the base rare pool."""
+    def test_poke_ball_pattern_rare_card_excluded_from_base_rare_pool(self):
+        """A poke_ball pattern rare card must be excluded from the base rare pool."""
         df = pd.DataFrame({
             "Rarity": ["rare"],
             "Special Type": ["poke ball"],
@@ -55,12 +56,12 @@ class TestBuildBasePoolMask:
         
         mask = _build_base_pool_mask(df, "rare")
         
-        # Pattern rare card should remain in base rare pool.
-        assert mask.iloc[0], \
-            f"Expected poke_ball pattern rare card to remain in base rare pool, got mask={mask.iloc[0]}"
+        # Pattern rare card must NOT be in base rare pool.
+        assert not mask.iloc[0], \
+            f"Expected poke_ball pattern rare card to be excluded from base rare pool, got mask={mask.iloc[0]}"
 
-    def test_mixed_rare_cards_all_stay_in_base_pool(self):
-        """Multiple rare cards: both plain and pattern rows remain in base rare."""
+    def test_plain_rare_stays_in_base_pool_pattern_rares_excluded(self):
+        """Plain rare stays in base rare; pattern overlay rows are excluded."""
         df = pd.DataFrame({
             "Rarity": ["rare", "rare", "rare"],
             "Special Type": ["", "master ball", "poke ball"],
@@ -68,7 +69,8 @@ class TestBuildBasePoolMask:
         
         mask = _build_base_pool_mask(df, "rare")
         
-        expected = [True, True, True]
+        # Only plain (non-pattern) rare row remains; pattern rows are excluded.
+        expected = [True, False, False]
         assert mask.tolist() == expected, \
             f"Expected {expected}, got {mask.tolist()}"
 
@@ -129,8 +131,8 @@ class TestPatternCardRouting:
         assert base_rare_mask.iloc[0], "Normal rare should be in base pool"
         assert not hit_mask.iloc[0], "Normal rare should not be in hit pool"
         
-        # Row 1: pattern rare -> in base pool and in hit pool
-        assert base_rare_mask.iloc[1], "Pattern rare should remain in base pool"
+        # Row 1: pattern rare -> excluded from base pool, routes to hit pool only
+        assert not base_rare_mask.iloc[1], "Pattern rare must be excluded from base pool"
         assert hit_mask.iloc[1], "Pattern rare should be in hit pool"
         
         # Row 2: normal common -> in base pool, not in hit pool
@@ -190,27 +192,32 @@ class TestExtractCardGroups:
         
         return MockConfig()
 
-    def test_pattern_rare_stays_in_base_rare_group(self, mock_config):
-        """Full extraction: pattern rare card should appear in 'rare' group."""
+    def test_pattern_rare_excluded_from_base_rare_group(self, mock_config):
+        """Full extraction: pattern rare card must NOT appear in 'rare' group."""
         df = pd.DataFrame({
             "Rarity": ["rare", "rare"],
             "Special Type": ["", "master ball"],
+            "Price ($)": [1.0, 2.0],
         })
         
         groups = extract_scarletandviolet_card_groups(mock_config, df)
         
-        assert len(groups["rare"]) == 2, \
-            f"Expected both rare rows in 'rare' group, got {len(groups['rare'])}"
+        # Only the plain rare row should be in the rare base pool.
+        assert len(groups["rare"]) == 1, \
+            f"Expected only plain rare row in 'rare' group (pattern excluded), got {len(groups['rare'])}"
 
     def test_pattern_rare_in_hit_group(self, mock_config):
-        """Full extraction: pattern rare card should appear in 'hit' group."""
+        """Full extraction: pattern rare card must appear in 'hit' group."""
         df = pd.DataFrame({
             "Rarity": ["rare", "rare"],
             "Special Type": ["", "master ball"],
+            "Price ($)": [1.0, 2.0],
         })
         
         groups = extract_scarletandviolet_card_groups(mock_config, df)
         
-        # Pattern card should be in hit group
+        # Pattern card must be in hit group and not in the rare base pool.
         assert len(groups["hit"]) >= 1, \
             f"Expected pattern card in 'hit' group, got {len(groups['hit'])}"
+        assert len(groups["rare"]) == 1, \
+            f"Expected only plain rare in 'rare' group, got {len(groups['rare'])}"
