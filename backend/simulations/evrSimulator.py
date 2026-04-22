@@ -19,12 +19,29 @@ from .validations.monteCarloValidations import validate_and_debug_slot, validate
 logger = logging.getLogger(__name__)
 
 
+def _coerce_bool_flag(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _should_use_monte_carlo_v2(config) -> bool:
+    configured = getattr(config, "USE_MONTE_CARLO_V2", False)
+    if _coerce_bool_flag(configured):
+        return True
+
+    era = str(getattr(config, "ERA", "")).strip().lower()
+    return era in {"scarlet and violet", "mega evolution"}
+
+
 class PackEVRSimulator(PackCalculations):
     def __init__(self, config):
         super().__init__(config)
 
     def calculate_evr_simulations(self, df):
-        print("=== ❗STARTING PACK EV SIMULATION❗ ===")
+        print("=== STARTING PACK EV SIMULATION ===")
         _t0 = time.perf_counter()
         card_groups = extract_scarletandviolet_card_groups(self.config, df)
         print(f"[SIM_TIMING] stage_name=pool_extraction elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
@@ -65,7 +82,15 @@ class PackEVRSimulator(PackCalculations):
             all_rows_accounted_for,
         )
 
-        use_v2 = bool(getattr(self.config, "USE_MONTE_CARLO_V2", False))
+        use_v2 = _should_use_monte_carlo_v2(self.config)
+        print(
+            "[SIM_ENGINE] selected_engine=%s configured_use_monte_carlo_v2=%r era=%s"
+            % (
+                "v2" if use_v2 else "v1",
+                getattr(self.config, "USE_MONTE_CARLO_V2", None),
+                getattr(self.config, "ERA", ""),
+            )
+        )
 
         rarity_pull_counts = defaultdict(int)
         rarity_value_totals = defaultdict(float)

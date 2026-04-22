@@ -12,6 +12,7 @@ class BaseSetConfig(SharedBaseSetConfig):
         'rare': 'rare',
         'double rare': 'hits', 
         'ultra rare': 'hits',
+        'mega attack rare': 'hits',
         'mega hyper rare': 'hits',
         'illustration rare': 'hits',             
         'special illustration rare': 'hits', 
@@ -32,6 +33,9 @@ class BaseSetConfig(SharedBaseSetConfig):
         "pull_rate": 0,
         "strategy": {}
     }
+
+    # Backwards-safe gate: V1 remains the default simulation engine.
+    USE_MONTE_CARLO_V2 = True
 
     SLOTS_PER_RARITY = {
         "common": 4,

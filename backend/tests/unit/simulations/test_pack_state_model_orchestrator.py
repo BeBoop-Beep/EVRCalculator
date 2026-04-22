@@ -81,6 +81,21 @@ def test_resolver_dynamically_resolves_scarlet_violet_builder():
     assert "sir_only" in model["state_probabilities"]
 
 
+def test_resolver_dynamically_resolves_mega_evolution_builder():
+    class EraConfig(BaseConfig):
+        ERA = "Mega Evolution"
+        RARE_SLOT_PROBABILITY = {
+            "rare": 1.0,
+        }
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {"regular reverse": 1.0},
+            "slot_2": {"regular reverse": 1.0},
+        }
+
+    model = resolve_pack_state_model(EraConfig)
+    assert "baseline" in model["state_probabilities"]
+
+
 def test_resolver_raises_for_unsupported_named_era():
     class UnknownEraConfig(BaseConfig):
         ERA = "Unregistered Era"

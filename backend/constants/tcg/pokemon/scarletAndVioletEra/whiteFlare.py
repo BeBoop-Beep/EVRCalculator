@@ -70,14 +70,9 @@ class SetWhiteFlareConfig(BaseSetConfig):
         "strategy": {
             "type": "random",  # or "fixed"
             "rules": {
-                # Option A: unified pool
-                # "count": 11,
-                # "rarities": ["Illustration Rare", "Special Illustration Rare"]
-
-                # Option B: split by slot
                 "rarities": {
-                    "illustration rare": 9,
-                    "special illustration rare": 1,
+                    "illustration rare": {"count": 9, "replacement": "without_replacement"},
+                    "special illustration rare": {"count": 1, "replacement": "without_replacement"},
                 }
             }
         }

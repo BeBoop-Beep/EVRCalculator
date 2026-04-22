@@ -90,9 +90,18 @@ class SetPrismaticEvolutionsConfig(BaseSetConfig):
             "type": "random",
             "rules": {
                 "rarities": {
-                    "common": 4,
-                    "uncommon": 3,
-                    "special illustration rare": 3
+                    "common": {
+                        "count": 4,
+                        "replacement": "with_replacement"
+                    },
+                    "uncommon": {
+                        "count": 3,
+                        "replacement": "with_replacement"
+                    },
+                    "special illustration rare": {
+                        "count": 3,
+                        "replacement": "without_replacement"
+                    }
                 }
             }
         }

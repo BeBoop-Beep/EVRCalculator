@@ -9,7 +9,14 @@ from typing import Any, Dict
 from backend.calculations.evr import compute_all_derived_metrics, print_derived_metrics_summary
 from backend.calculations.evrEtb import calculate_etb_metrics
 from backend.calculations.packCalcsRefractored import calculate_pack_stats
-from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import SET_ALIAS_MAP, SET_CONFIG_MAP
+from backend.constants.tcg.pokemon.megaEvolutionEra.setMap import (
+    SET_ALIAS_MAP as MEGA_EVOLUTION_SET_ALIAS_MAP,
+    SET_CONFIG_MAP as MEGA_EVOLUTION_SET_CONFIG_MAP,
+)
+from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import (
+    SET_ALIAS_MAP as SCARLET_VIOLET_SET_ALIAS_MAP,
+    SET_CONFIG_MAP as SCARLET_VIOLET_SET_CONFIG_MAP,
+)
 from backend.db.services.calculation_run_persistence_service import (
     persist_parent_run_with_price_snapshots,
     persist_simulation_etb_summary,
@@ -34,13 +41,23 @@ DEFAULT_PRODUCT_VARIANT_RULES: Dict[str, Dict[str, Dict[str, Any]]] = {
 
 
 def _build_constants_config_map() -> Dict[str, Any]:
-    if not SET_CONFIG_MAP:
+    config_map: Dict[str, Any] = {
+        **SCARLET_VIOLET_SET_CONFIG_MAP,
+        **MEGA_EVOLUTION_SET_CONFIG_MAP,
+    }
+
+    if not config_map:
         raise RuntimeError("No Pokemon set configuration map entries were loaded.")
-    return SET_CONFIG_MAP
+    return config_map
 
 
 def _build_constants_alias_map() -> Dict[str, str]:
-    return SET_ALIAS_MAP
+    # Mega Evolution aliases intentionally override on collision so short forms
+    # like "asc" resolve to Ascended Heroes rather than fuzzy-matching SV sets.
+    return {
+        **SCARLET_VIOLET_SET_ALIAS_MAP,
+        **MEGA_EVOLUTION_SET_ALIAS_MAP,
+    }
 
 
 def _resolve_set_config(target_set_identifier: str) -> tuple[Any, str]:

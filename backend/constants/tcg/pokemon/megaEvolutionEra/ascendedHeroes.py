@@ -23,9 +23,9 @@ class SetAscendedHeroesConfig(BaseSetConfig):
     PULL_RATE_MAPPING = {
         # https://www.facebook.com/HKF3LIX/posts/pfbid02b9vQUSmnXbZECw8YsucAxEWLNJtZWQPRLvNjNi5WGKWkhtfGEm9jdkzqSt5mjj7cl/
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Ascended-Heroes-Pull-Rates/60143d94-88a7-42ce-8e73-babd7b3fabd6/?srsltid=AfmBOoqaUCg2-kUOCbOmVetRPcirK1dhfXgiWRnPtNNWlIxCVAHzitkv
-        'common' : 38, # 4/38 (there are 4 commons in each pack with 38 total commons is in the set)
-        'uncommon': 32, # 3/32 (there are 3 uncommons in each pack with 32 total uncommons in the set)
-        'rare': 10,
+        'common' : 216, # 4/84 (there are 4 commons in each pack with 84 total commons is in the set)
+        'uncommon': 69, # 3/69 (there are 3 uncommons in each pack with 69 total uncommons in the set)
+        'rare': 25,
         'double rare': 191,
         'illustration rare': 293,
         'special illustration rare': 1533,
@@ -37,18 +37,20 @@ class SetAscendedHeroesConfig(BaseSetConfig):
     }
 
     REVERSE_SLOT_PROBABILITIES = {
-        # Total: ≈ 1.517547
+        # Approximation model: split published pack-level IR/SIR odds evenly
+        # across both reverse slots so the two-slot combined rate stays near
+        # intended pull-rate targets within the existing slot-based architecture.
         "slot_1": {
-            'illustration rare': 1/9,
-            "special illustration rare": 1/70,
-            "regular reverse": 1 - (1/9) - (1/70) # ≈ 0.818518
+            "illustration rare": 1 / 18, # 1/9 Published slot-level pull rate for IR, which is the same for both slots in this approximation model. Actual distribution may differ.
+            "special illustration rare": 1 / 140, # 1/70 split of 1/20 IR/SIR combined, which is the published pack-level pull rate for IR+SIR
+            "regular reverse": 1 - (1 / 18) - (1 / 140),
         },
         "slot_2": {
-            'illustration rare': 1/9,
-            "special illustration rare": 1/70,
-            "mega hyper rare": 1/540,
-            "regular reverse": 1 - (1/9) - (1 / 70) - (1/540)  # ≈ 0.816667
-        }
+            "illustration rare": 1 / 18, # Same as slot 1 to maintain overall IR pull rate, though actual distribution may differ.
+            "special illustration rare": 1 / 140, # 1/70 split of 1/20 IR/SIR combined, which is the published pack-level pull rate for IR+SIR
+            "mega hyper rare": 1 / 540,
+            "regular reverse": 1 - (1 / 18) - (1 / 140) - (1 / 540),
+        },
     }
 
     RARE_SLOT_PROBABILITY = {
@@ -64,14 +66,9 @@ class SetAscendedHeroesConfig(BaseSetConfig):
         "strategy": {
             "type": "random",  # or "fixed"
             "rules": {
-                # Option A: unified pool
-                # "count": 11,
-                # "rarities": ["Illustration Rare", "Special Illustration Rare"]
-
-                # Option B: split by slot
                 "rarities": {
-                    "mega attack rare": 3,
-                    "special illustration rare": 7,
+                    "mega attack rare": {"count": 3, "replacement": "without_replacement"},
+                    "special illustration rare": {"count": 7, "replacement": "without_replacement"},
                 }
             }
         }

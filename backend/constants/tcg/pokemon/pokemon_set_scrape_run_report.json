@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-04-21T16:46:41.165420+00:00",
-  "completed_at_utc": "2026-04-21T16:47:39.200813+00:00",
+  "generated_at_utc": "2026-04-22T17:53:10.344499+00:00",
+  "completed_at_utc": "2026-04-22T17:54:48.726904+00:00",
   "mode": "apply",
   "era_filter": null,
-  "set_filter": "neoDestiny",
+  "set_filter": "blackBolt",
   "limit": null,
   "db_ingestion_enabled": true,
   "shuffle_within_date": false,
@@ -15,15 +15,15 @@
   "skipped_no_config": [],
   "sets_era_filtered": 0,
   "deduped_targets_removed": 0,
-  "elapsed_seconds": 58.03,
+  "elapsed_seconds": 98.38,
   "retry_heavy_sets": [],
   "results": [
     {
-      "canonical_key": "neoDestiny",
+      "canonical_key": "blackBolt",
       "status": "success",
       "attempt": 1,
-      "cards_scraped": 1008,
-      "sealed_scraped": 1,
+      "cards_scraped": 1116,
+      "sealed_scraped": 26,
       "error": null
     }
   ],

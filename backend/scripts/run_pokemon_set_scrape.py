@@ -343,6 +343,35 @@ def _scrape_one_set(
                 cards_count,
                 sealed_count,
             )
+            # Harden success criteria: a set that has an expected card count but
+            # produced zero cards in the payload is a data-quality failure, not
+            # a success.  We do NOT suppress the exception path — we return a
+            # proper "failed" result so the run report captures it correctly.
+            printed_total = getattr(config_cls, "PRINTED_TOTAL", 0) or 0
+            if cards_count == 0 and printed_total > 0:
+                zero_cards_error = (
+                    f"Zero cards in payload for set with PRINTED_TOTAL={printed_total}. "
+                    f"Likely cause: all cards had null market prices at scrape time, "
+                    f"or the TCGPlayer API endpoint returned no results. "
+                    f"Check [DIAG] log lines above for the exact drop stage."
+                )
+                logger.warning(
+                    "%s ZERO-CARDS FAILURE for %s (PRINTED_TOTAL=%d) — marking as failed",
+                    RUNNER_TAG,
+                    canonical_key,
+                    printed_total,
+                )
+                last_error = zero_cards_error
+                # Do not retry on zero-cards; it is likely a data-availability
+                # issue that won't be fixed by immediate retries.
+                return {
+                    "canonical_key": canonical_key,
+                    "status": "failed",
+                    "attempt": attempt,
+                    "cards_scraped": 0,
+                    "sealed_scraped": sealed_count,
+                    "error": zero_cards_error,
+                }
             return {
                 "canonical_key": canonical_key,
                 "status": "success",

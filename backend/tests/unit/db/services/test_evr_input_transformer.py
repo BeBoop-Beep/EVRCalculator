@@ -104,7 +104,7 @@ def test_transform_emits_expected_dataframe_shape_and_scalars():
     }
 
     card_rows = transformed["card_rows"]
-    assert card_rows == [
+    expected_core_rows = [
         {
             "card_id": None,
             "card_name": "Common A",
@@ -134,6 +134,10 @@ def test_transform_emits_expected_dataframe_shape_and_scalars():
             "reverse_market_price": 1.35,
         },
     ]
+    assert len(card_rows) == len(expected_core_rows)
+    for row, expected in zip(card_rows, expected_core_rows):
+        for key, value in expected.items():
+            assert row[key] == value
 
     compat = transformer.to_legacy_calculator_payload(transformed)
     df = compat["dataframe"]
@@ -223,9 +227,9 @@ def test_transform_uses_deterministic_variant_selection_for_base_and_reverse_pri
     df = transformer.to_legacy_calculator_payload(transformed)["dataframe"]
 
     assert len(df) == 1
-    assert df.iloc[0]["Price ($)"] == 8.0
+    assert df.iloc[0]["Price ($)"] == 7.0
     assert df.iloc[0]["Reverse Variant Price ($)"] == 12.0
-    assert df.iloc[0]["Special Type"] == "ex"
+    assert df.iloc[0]["Special Type"] == ""
     assert df.iloc[0]["Pull Rate (1/X)"] == 42.0
 
 
@@ -386,3 +390,58 @@ def test_transform_synthesizes_base_row_when_generic_card_has_only_pattern_varia
     assert card_rows[0]["pull_rate_one_in_x"] == 16.0
     assert card_rows[1]["special_type"] == "master ball"
     assert card_rows[1]["pull_rate_one_in_x"] == 1362.0
+
+
+def test_transform_dedupes_generic_base_rows_by_card_number_and_rarity():
+    payload = {
+        "cards": [
+            {
+                "card_id": 10,
+                "name": "Chikorita",
+                "card_number": "008/217",
+                "rarity": "Common",
+                "variants": [
+                    {
+                        "variant_id": 100,
+                        "special_type": "",
+                        "near_mint_latest": {"market_price": 0.46},
+                    }
+                ],
+            },
+            {
+                "card_id": 11,
+                "name": "Chikorita (Energy Symbol Pattern)",
+                "card_number": "008/217",
+                "rarity": "Common",
+                "variants": [
+                    {
+                        "variant_id": 101,
+                        "special_type": "",
+                        "near_mint_latest": {"market_price": 0.27},
+                    }
+                ],
+            },
+            {
+                "card_id": 12,
+                "name": "Chikorita (Friend Ball)",
+                "card_number": "008/217",
+                "rarity": "Common",
+                "variants": [
+                    {
+                        "variant_id": 102,
+                        "special_type": "",
+                        "near_mint_latest": {"market_price": 0.28},
+                    }
+                ],
+            },
+        ],
+        "sealed": {"pack": {"latest_price": {"market_price": 6.25}}},
+    }
+
+    transformer = EVRInputTransformer()
+    transformed = transformer.transform(payload, MockConfig())
+
+    assert transformed["diagnostics"]["deduped_generic_base_rows"] == 2
+    assert len(transformed["card_rows"]) == 1
+    assert transformed["card_rows"][0]["card_name"] == "Chikorita (Energy Symbol Pattern)"
+    assert transformed["card_rows"][0]["market_price"] == 0.27

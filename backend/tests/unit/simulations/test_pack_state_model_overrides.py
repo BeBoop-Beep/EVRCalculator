@@ -541,13 +541,57 @@ def test_prismatic_derives_ace_spec_and_pattern_states_from_config_probabilities
 # Requirement 8: Mega Hyper Rare handled via normal exclusive-hit logic
 # ---------------------------------------------------------------------------
 
-def test_mega_era_sets_expose_reverse_1_and_mega_hyper_override_shapes():
-    """Overrides register structural shapes for reverse_1 placements."""
+def test_mega_era_sets_expose_mega_hyper_and_reverse_1_ultra_override_shapes():
+    """Overrides register structural shapes for mega-hyper and reverse_1 ultra placements."""
     asc = SetAscendedHeroesConfig.get_pack_state_overrides()
     meg = SetMegaEvolutionConfig.get_pack_state_overrides()
 
-    assert asc["state_outcomes"]["mega_hyper_only"]["reverse_1"] == "mega hyper rare"
+    assert asc["state_outcomes"]["mega_hyper_only"]["reverse_2"] == "mega hyper rare"
     assert meg["state_outcomes"]["reverse_1_ultra_plus_rare"]["reverse_1"] == "ultra rare"
+
+
+def test_ascended_heroes_disallows_illegal_normal_pack_reverse_pairings():
+    model = build_scarlet_and_violet_pack_state_model(SetAscendedHeroesConfig)
+
+    for state_name, slot_outcomes in model["state_outcomes"].items():
+        prob = model["state_probabilities"].get(state_name, 0.0)
+        if prob <= 0.0:
+            continue
+
+        r1 = slot_outcomes["reverse_1"]
+        r2 = slot_outcomes["reverse_2"]
+        rare = slot_outcomes["rare"]
+
+        assert not (r1 == "illustration rare" and r2 == "illustration rare")
+        assert not (r1 == "special illustration rare" and r2 == "special illustration rare")
+        assert not ({r1, r2} == {"illustration rare", "special illustration rare"})
+        assert not (rare == "mega attack rare" and "special illustration rare" in {r1, r2})
+
+
+def test_ascended_heroes_keeps_legal_mega_attack_plus_ir_and_singleton_mega_hyper():
+    model = build_scarlet_and_violet_pack_state_model(SetAscendedHeroesConfig)
+
+    has_mega_attack_plus_ir = False
+    for state_name, slot_outcomes in model["state_outcomes"].items():
+        prob = model["state_probabilities"].get(state_name, 0.0)
+        if prob <= 0.0:
+            continue
+
+        rare = slot_outcomes["rare"]
+        r1 = slot_outcomes["reverse_1"]
+        r2 = slot_outcomes["reverse_2"]
+
+        if rare == "mega attack rare" and "illustration rare" in {r1, r2}:
+            has_mega_attack_plus_ir = True
+
+    assert has_mega_attack_plus_ir
+    assert "mega_hyper_only" in model["state_outcomes"]
+    assert model["state_outcomes"]["mega_hyper_only"] == {
+        "rare": "rare",
+        "reverse_1": "regular reverse",
+        "reverse_2": "mega hyper rare",
+    }
+    assert model["state_probabilities"]["mega_hyper_only"] > 0.0
 
 
 def test_mega_hyper_rare_uses_normal_exclusive_hit_behaviour_when_slot_data_present():

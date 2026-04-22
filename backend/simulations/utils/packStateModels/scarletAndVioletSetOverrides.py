@@ -101,16 +101,11 @@ def get_ascended_heroes_pack_state_overrides() -> Dict[str, object]:
     """Structural overrides for Ascended Heroes.
 
     Key structural differences from era defaults:
-    - ``mega hyper rare`` can appear in **reverse_1** (not reverse_2).
     - ``ultra rare`` can appear in **reverse_1** (reverse_1 placement change).
+    - ``mega hyper rare`` appears in **reverse_2** and remains singleton/exclusive.
+    - reverse-slot IR/SIR pairings are constrained for normal packs.
+    - ``mega attack rare`` cannot pair with ``special illustration rare``.
     - ``mega hyper rare`` is exclusive (added to exclusive_hits).
-
-    State probabilities will be derived once Ascended Heroes receives
-    RARE_SLOT_PROBABILITY and REVERSE_SLOT_PROBABILITIES data.  Until then
-    the era-default slot probabilities are used, which means the mega hyper
-    and reverse_1 ultra states will carry zero probability (they cannot be
-    sampled from era defaults that lack those outcomes) – correctly reflecting
-    the absence of sourced data rather than an invented constant.
     """
     return {
         "state_outcomes": {
@@ -121,12 +116,54 @@ def get_ascended_heroes_pack_state_overrides() -> Dict[str, object]:
             },
             "mega_hyper_only": {
                 "rare":      "rare",
-                "reverse_1": "mega hyper rare",
-                "reverse_2": "regular reverse",
+                "reverse_1": "regular reverse",
+                "reverse_2": "mega hyper rare",
             },
         },
         "constraints": {
             "exclusive_hits": {"mega hyper rare"},
+            "conditional_slot_exclusions": [
+                {
+                    "if": {"reverse_2": "special illustration rare"},
+                    "forbid": {
+                        "rare": ["ultra rare", "hyper rare"],
+                        "reverse_1": ["hyper rare"],
+                    },
+                },
+                {
+                    "if": {"reverse_2": "illustration rare"},
+                    "forbid": {
+                        "rare": ["hyper rare"],
+                        "reverse_1": ["hyper rare"],
+                    },
+                },
+                {
+                    "if": {"reverse_2": "hyper rare"},
+                    "forbid": {
+                        "rare": ["illustration rare", "special illustration rare"],
+                        "reverse_1": ["illustration rare", "special illustration rare"],
+                    },
+                },
+                {
+                    "if": {"reverse_1": "illustration rare"},
+                    "forbid": {
+                        "reverse_2": ["illustration rare", "special illustration rare"],
+                    },
+                },
+                {
+                    "if": {"reverse_1": "special illustration rare"},
+                    "forbid": {
+                        "reverse_2": ["illustration rare", "special illustration rare"],
+                    },
+                },
+                {
+                    "if": {"rare": "mega attack rare"},
+                    "forbid": {
+                        "reverse_1": ["special illustration rare"],
+                        "reverse_2": ["special illustration rare"],
+                    },
+                },
+            ],
         },
     }
 

@@ -7,6 +7,7 @@ from ...dtos.ingest_dto import (
     SealedProductDTO
 )
 
+
 class TCGPlayerDTOBuilder:
     """Builds TCGPlayer-specific DTOs from parsed data"""
     
@@ -40,7 +41,7 @@ class TCGPlayerDTOBuilder:
         
         # Build CardDTO list
         card_dtos = [CardDTO(**card) for card in card_dicts]
-        
+
         # Build SealedProductDTO list
         sealed_dtos = [SealedProductDTO(**product) for product in sealed_dicts]
         

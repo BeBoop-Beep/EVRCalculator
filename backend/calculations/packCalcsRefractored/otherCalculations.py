@@ -106,9 +106,16 @@ class PackCalculations(PackEVCalculator):
             if rarity_key == 'ace_spec':
                 accepted_keys.add('ace_spec_rare')
 
+            # Name-variant rows (Card Name contains parentheses) are cosmetic/reverse
+            # variants and must not enter base slot variance pools.
+            name_variant_flag = pd.Series(False, index=cards_df.index)
+            if 'Card Name' in cards_df.columns:
+                name_variant_flag = cards_df['Card Name'].fillna('').astype(str).str.contains('(', regex=False)
+
             return (
                 cards_df['_rarity_key'].isin(accepted_keys)
                 & ~cards_df['_classification_key'].isin(RECOGNIZED_PATTERN_BUCKETS)
+                & ~name_variant_flag
             )
 
         def is_supported_reverse_special_outcome(outcome_type):

@@ -15,9 +15,56 @@ from backend.calculations.utils.special_type_normalization import (
     normalize_special_type_key,
 )
 from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
+from backend.utils.special_pack_config import (
+    iter_rarity_bucket_rules,
+)
 
 
 logger = logging.getLogger(__name__)
+
+
+def _emit_pool_debug_snapshot(prefix: str, pool_name: str, pool_df: pd.DataFrame, price_col: str) -> None:
+    row_count = int(len(pool_df))
+    if row_count == 0:
+        print(
+            f"{prefix} pool={pool_name} rows=0 price_col='{price_col}' min=0.0000 max=0.0000 mean=0.0000"
+        )
+        return
+
+    prices = pd.to_numeric(pool_df.get(price_col), errors="coerce").dropna()
+    min_price = float(prices.min()) if not prices.empty else 0.0
+    max_price = float(prices.max()) if not prices.empty else 0.0
+    mean_price = float(prices.mean()) if not prices.empty else 0.0
+
+    print(
+        f"{prefix} pool={pool_name} rows={row_count} price_col='{price_col}' "
+        f"min={min_price:.4f} max={max_price:.4f} mean={mean_price:.4f}"
+    )
+
+    sample_df = pool_df.head(10)
+    for idx, (_, row) in enumerate(sample_df.iterrows(), start=1):
+        card_name = str(row.get("Card Name", "<missing>") or "<missing>")
+        rarity = str(row.get("Rarity", row.get("_rarity_key", "<missing>")) or "<missing>")
+        price = pd.to_numeric(pd.Series([row.get(price_col)]), errors="coerce").fillna(0.0).iloc[0]
+        card_number = (
+            row.get("Card Number")
+            or row.get("card_number")
+            or row.get("Card_Number")
+            or ""
+        )
+        variant_marker = (
+            row.get("Special Type")
+            or row.get("special_type_key")
+            or row.get("pattern_key")
+            or row.get("aggregation_key")
+            or ""
+        )
+        variant_id = row.get("card_variant_id", "")
+        print(
+            f"{prefix} sample[{idx}] name={card_name} rarity={rarity} price={float(price):.4f} "
+            f"card_number={card_number or '<none>'} variant_marker={variant_marker or '<none>'} "
+            f"card_variant_id={variant_id if variant_id not in (None, '') else '<none>'}"
+        )
 
 
 class PackEVCalculator(PackEVInitializer):
@@ -88,12 +135,25 @@ class PackEVCalculator(PackEVInitializer):
                 rarities = rules.get("rarities", {})
                 pack_value = 0.0
                 print("=== GOD PACK (RANDOM by slot count) ===")
-                for rarity, count in rarities.items():
-                    rarity = rarity.strip().lower()
-                    avg_price = df[df["Rarity"].str.lower().str.strip() == rarity]["Price ($)"].mean()
-                    subtotal = count * avg_price
+                for rarity, sample_count, use_replacement in iter_rarity_bucket_rules(rarities):
+                    rarity_normalized = rarity.strip().lower()
+                    pool = df[df["Rarity"].str.lower().str.strip() == rarity_normalized]
+                    pool_size = len(pool)
+                    if not use_replacement and sample_count > pool_size:
+                        raise ValueError(
+                            f"Cannot sample {sample_count} unique cards from '{rarity_normalized}' pool of size {pool_size}. "
+                            f"Requested count exceeds available cards without replacement."
+                        )
+
+                    avg_price = pool["Price ($)"].mean()
+                    # EV note: For a single rarity bucket, E[sum of n draws] = n * mean(pool)
+                    # for both with-replacement and without-replacement sampling (when n <= pool size).
+                    # So this subtotal is exact for expected value. It is still an approximation for
+                    # higher moments/distribution shape because it does not model per-pack covariance.
+                    subtotal = sample_count * avg_price
                     pack_value += subtotal
-                    print(f"  {rarity} × {count} → avg ${avg_price:.2f} → subtotal ${subtotal:.2f}")
+                    replacement_label = "(no replacement)" if not use_replacement else ""
+                    print(f"  {rarity_normalized} × {sample_count} → avg ${avg_price:.2f} → subtotal ${subtotal:.2f} {replacement_label}")
                 adjusted_ev = pull_rate * pack_value
                 print(f"God Pack Value: ${pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
                 return adjusted_ev
@@ -282,8 +342,28 @@ class PackEVCalculator(PackEVInitializer):
         all_pattern_mask = pattern_keys.isin(RECOGNIZED_PATTERN_BUCKETS)
         bucket_keys = bucket_keys.where(~all_pattern_mask, pattern_keys)
 
-        non_pattern_base_mask = (~all_pattern_mask) & rarity_keys.isin({'common', 'uncommon', 'rare'})
+        # Name-variant rows (Card Name contains parentheses, e.g. "(Friend Ball)") are
+        # cosmetic/reverse variants and must NOT be bucketed into base rarity EV totals.
+        # Their reverse price is already captured by the external reverse EV calculation.
+        name_variant_mask = pd.Series(False, index=df.index)
+        if 'Card Name' in df.columns:
+            name_variant_mask = df['Card Name'].fillna('').astype(str).str.contains('(', regex=False)
+
+        non_pattern_base_mask = (
+            (~all_pattern_mask)
+            & (~name_variant_mask)
+            & rarity_keys.isin({'common', 'uncommon', 'rare'})
+        )
         bucket_keys = bucket_keys.where(~non_pattern_base_mask, rarity_keys)
+
+        name_variant_excluded_count = int(
+            (name_variant_mask & rarity_keys.isin({'common', 'uncommon', 'rare'})).sum()
+        )
+        if name_variant_excluded_count:
+            print(
+                f"[RARITY_EV_AUDIT] name_variant_rows_excluded_from_base_buckets={name_variant_excluded_count} "
+                "(parenthetical-name variants routed out of common/uncommon/rare EV totals)"
+            )
 
         ev_values = pd.to_numeric(df['EV'], errors='coerce').fillna(0.0)
         rows_with_totals = df.assign(
@@ -296,6 +376,22 @@ class PackEVCalculator(PackEVInitializer):
             if 'Card Name' in df.columns
             else '',
         )
+
+        calc_common_pool = rows_with_totals[
+            rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq('common')
+        ]
+        calc_uncommon_pool = rows_with_totals[
+            rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq('uncommon')
+        ]
+        calc_rare_pool = rows_with_totals[
+            rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq('rare')
+        ]
+        calc_reverse_pool = build_reverse_eligible_pool(self.config, rows_with_totals)
+
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "common", calc_common_pool, "Price ($)")
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "uncommon", calc_uncommon_pool, "Price ($)")
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "rare", calc_rare_pool, "Price ($)")
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "reverse", calc_reverse_pool, "Reverse Variant Price ($)")
 
         print("[RARITY_EV_AUDIT] row_counts_by_rarity_key:")
         rarity_counts = rows_with_totals['_rarity_key'].value_counts(dropna=False)
@@ -483,7 +579,15 @@ class PackEVCalculator(PackEVInitializer):
         all_pattern_mask = pattern_keys.isin(RECOGNIZED_PATTERN_BUCKETS)
         bucket_keys = bucket_keys.where(~all_pattern_mask, pattern_keys)
 
-        non_pattern_base_mask = (~all_pattern_mask) & rarity_keys.isin({'common', 'uncommon', 'rare'})
+        name_variant_mask = pd.Series(False, index=df.index)
+        if 'Card Name' in df.columns:
+            name_variant_mask = df['Card Name'].fillna('').astype(str).str.contains('(', regex=False)
+
+        non_pattern_base_mask = (
+            (~all_pattern_mask)
+            & (~name_variant_mask)
+            & rarity_keys.isin({'common', 'uncommon', 'rare'})
+        )
         bucket_keys = bucket_keys.where(~non_pattern_base_mask, rarity_keys)
 
         ev_values = pd.to_numeric(df['EV'], errors='coerce').fillna(0.0)

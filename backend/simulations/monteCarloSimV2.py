@@ -30,6 +30,10 @@ from .utils.packStateModels.packStateCoercion import (
     validate_unique_state_outcome_shapes,
 )
 from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
+from backend.utils.special_pack_config import (
+    iter_rarity_bucket_rules,
+    parse_rarity_bucket_spec,
+)
 
 
 PackState = Dict[str, object]
@@ -41,6 +45,36 @@ class _ArrayPool:
     source_row_indices: Optional[np.ndarray]
     card_names: Optional[np.ndarray]
     rarities: Optional[np.ndarray]
+
+
+def _emit_sim_pool_debug(prefix: str, pool_name: str, pool_df: pd.DataFrame, price_col: str) -> None:
+    row_count = int(len(pool_df))
+    if row_count == 0:
+        print(f"{prefix} pool={pool_name} rows=0 price_col='{price_col}' min=0.0000 max=0.0000 mean=0.0000")
+        return
+
+    prices = pd.to_numeric(pool_df.get(price_col), errors="coerce").dropna()
+    min_price = float(prices.min()) if not prices.empty else 0.0
+    max_price = float(prices.max()) if not prices.empty else 0.0
+    mean_price = float(prices.mean()) if not prices.empty else 0.0
+    print(
+        f"{prefix} pool={pool_name} rows={row_count} price_col='{price_col}' "
+        f"min={min_price:.4f} max={max_price:.4f} mean={mean_price:.4f}"
+    )
+
+    for idx, (_, row) in enumerate(pool_df.head(10).iterrows(), start=1):
+        card_name = str(row.get("Card Name", "<missing>") or "<missing>")
+        rarity = str(row.get("Rarity", row.get("rarity_key", "<missing>")) or "<missing>")
+        price = pd.to_numeric(pd.Series([row.get(price_col)]), errors="coerce").fillna(0.0).iloc[0]
+        card_number = row.get("Card Number", row.get("card_number", ""))
+        variant_marker = row.get("Special Type", row.get("special_type_key", row.get("pattern_key", "")))
+        variant_id = row.get("card_variant_id", "")
+        print(
+            f"{prefix} sample[{idx}] pool={pool_name} name={card_name} rarity={rarity} "
+            f"price={float(price):.4f} card_number={card_number or '<none>'} "
+            f"variant_marker={variant_marker or '<none>'} "
+            f"card_variant_id={variant_id if variant_id not in (None, '') else '<none>'}"
+        )
 
 
 def _to_rng(rng: Optional[np.random.Generator] = None) -> np.random.Generator:
@@ -279,6 +313,46 @@ def _sample_rows(df: pd.DataFrame, n: int, rng: np.random.Generator) -> pd.DataF
     return df.iloc[indices]
 
 
+def _sample_rows_controlled(
+    df: pd.DataFrame,
+    n: int,
+    rng: np.random.Generator,
+    replace: bool = True,
+) -> pd.DataFrame:
+    """Sample rows with controlled replacement.
+    
+    Args:
+        df: DataFrame to sample from
+        n: Number of rows to sample
+        rng: Random number generator
+        replace: If True, sample with replacement (current behavior).
+                 If False, sample without replacement (raises if n > len(df))
+    
+    Returns:
+        Sampled rows DataFrame
+    
+    Raises:
+        ValueError: If replace=False and n > len(df)
+    """
+    if df.empty or n <= 0:
+        return df.iloc[0:0]
+    
+    if replace:
+        # With replacement: use the standard approach
+        indices = rng.integers(0, len(df), size=n)
+        return df.iloc[indices]
+    else:
+        # Without replacement: sample unique indices
+        pool_size = len(df)
+        if n > pool_size:
+            raise ValueError(
+                f"Cannot sample {n} unique cards from pool of size {pool_size}. "
+                f"Requested count exceeds available cards without replacement."
+            )
+        indices = rng.choice(pool_size, size=n, replace=False)
+        return df.iloc[indices]
+
+
 def _sample_single_value(
     df: pd.DataFrame,
     value_col: str,
@@ -487,8 +561,9 @@ def _sample_rows_with_rarity(
     value_col: str,
     rarity_col: str = "Rarity",
     default_rarity: Optional[str] = None,
+    replace: bool = True,
 ) -> Tuple[List[str], List[float]]:
-    rows = _sample_rows(df, n, rng)
+    rows = _sample_rows_controlled(df, n, rng, replace=replace)
     if rows.empty or value_col not in rows.columns:
         return [], []
 
@@ -518,6 +593,14 @@ def _resolved_rows_to_rarities_and_values(
     else:
         rarities = ["unknown" for _ in values]
     return rarities, values
+
+
+def _parse_rarity_config(qty_spec: object) -> Tuple[int, bool]:
+    """Backward-compatible wrapper for tests/import sites.
+
+    Authoritative parsing lives in special_pack_config.parse_rarity_bucket_spec.
+    """
+    return parse_rarity_bucket_spec(qty_spec)
 
 
 def _sample_special_pack_details(
@@ -582,13 +665,13 @@ def _sample_special_pack_details(
                 rarities.extend(hit_rarities)
                 values.extend(hit_values)
             elif isinstance(rarity_rules, dict):
-                for rarity, qty in rarity_rules.items():
+                for rarity, sample_count, use_replacement in iter_rarity_bucket_rules(rarity_rules):
                     eligible = df[
                         df.get("Rarity", pd.Series(dtype=str)).astype(str).str.strip().str.lower()
                         == _normalize_rarity(rarity)
                     ]
                     hit_rarities, hit_values = _sample_rows_with_rarity(
-                        eligible, int(qty), rng, "Price ($)"
+                        eligible, sample_count, rng, "Price ($)", replace=use_replacement
                     )
                     rarities.extend(hit_rarities)
                     values.extend(hit_values)
@@ -608,7 +691,7 @@ def _sample_special_pack_details(
         count = int(rules.get("count", 0))
 
         if isinstance(rarity_rules, dict) and rarity_rules:
-            for rarity, qty in rarity_rules.items():
+            for rarity, sample_count, use_replacement in iter_rarity_bucket_rules(rarity_rules):
                 normalized_rarity = _normalize_rarity(rarity)
                 if normalized_rarity in {"common", "uncommon"}:
                     continue
@@ -617,7 +700,7 @@ def _sample_special_pack_details(
                     == normalized_rarity
                 ]
                 hit_rarities, hit_values = _sample_rows_with_rarity(
-                    eligible, int(qty), rng, "Price ($)"
+                    eligible, sample_count, rng, "Price ($)", replace=use_replacement
                 )
                 rarities.extend(hit_rarities)
                 values.extend(hit_values)
@@ -911,6 +994,19 @@ def make_simulate_pack_fn_v2(
     _validate_pool_has_no_pattern_rows(_common_pool_df, label="common_base_pool")
     _validate_pool_has_no_pattern_rows(_uncommon_pool_df, label="uncommon_base_pool")
     _validate_pool_has_no_pattern_rows(_rare_base_pool_df, label="rare_base_pool")
+
+    print(
+        "[SIM_POOL_DEBUG] "
+        f"base_common_count={len(_common_pool_df)} "
+        f"base_uncommon_count={len(_uncommon_pool_df)} "
+        f"base_rare_count={len(_rare_base_pool_df)} "
+        f"reverse_pool_size={len(reverse_pool)}"
+    )
+    _emit_sim_pool_debug("[SIM_POOL_DEBUG]", "base_common_prepared", _common_pool_df, "Price ($)")
+    _emit_sim_pool_debug("[SIM_POOL_DEBUG]", "base_uncommon_prepared", _uncommon_pool_df, "Price ($)")
+    _emit_sim_pool_debug("[SIM_POOL_DEBUG]", "base_rare_prepared", _rare_base_pool_df, "Price ($)")
+    _emit_sim_pool_debug("[SIM_POOL_DEBUG]", "reverse_prepared", reverse_pool, "Reverse Variant Price ($)")
+
     _common_pool = _build_array_pool(_common_pool_df, value_col="Price ($)", default_rarity="common")
     _uncommon_pool = _build_array_pool(
         _uncommon_pool_df,

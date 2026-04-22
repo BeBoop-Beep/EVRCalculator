@@ -31,3 +31,8 @@ def build_base_pack_state_model(config) -> Dict[str, object]:
         },
         "constraints": constraints,
     }
+
+
+def build_mega_evolution_pack_state_model(config) -> Dict[str, object]:
+    """Mega Evolution currently shares Scarlet/Violet state-model architecture."""
+    return build_scarlet_and_violet_pack_state_model(config)
