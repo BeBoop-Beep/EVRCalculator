@@ -447,6 +447,28 @@ def _print_value_vs_cost_summary(
         )
 
 
+def _emit_config_trace(*, phase: str, set_key: str, config: Any, calc_config_id: int | None = None) -> None:
+    pull_rate_mapping = getattr(config, "PULL_RATE_MAPPING", {}) or {}
+    pull_rate_keys = list(pull_rate_mapping.keys()) if isinstance(pull_rate_mapping, dict) else []
+    god_pack_config = getattr(config, "GOD_PACK_CONFIG", {}) or {}
+    god_pack_enabled = bool(god_pack_config.get("enabled", False)) if isinstance(god_pack_config, dict) else False
+    same_object_as_calc = (id(config) == calc_config_id) if calc_config_id is not None else None
+
+    print(
+        "[CONFIG_TRACE] "
+        f"phase={phase} "
+        f"set_key={set_key} "
+        f"config_class={config.__class__.__name__} "
+        f"set_name={getattr(config, 'SET_NAME', None)} "
+        f"set_id={getattr(config, 'SET_ID', None)} "
+        f"use_monte_carlo_v2={getattr(config, 'USE_MONTE_CARLO_V2', None)} "
+        f"pull_rate_mapping_keys={pull_rate_keys} "
+        f"god_pack_enabled={god_pack_enabled} "
+        f"config_object_id={id(config)} "
+        f"same_object_as_calc={same_object_as_calc}"
+    )
+
+
 class EVRRunOrchestrator:
     """Owner of end-to-end EVR run orchestration for manual/scheduled invocations."""
 
@@ -481,7 +503,14 @@ class EVRRunOrchestrator:
                 etb_variants=etb_variants,
             )
 
+        _emit_config_trace(phase="pre_calc", set_key=canonical_key, config=config)
         results, _summary_data, top_10_hits, pack_price = calculate_pack_stats(calculation_input, config)
+        _emit_config_trace(
+            phase="pre_sim",
+            set_key=canonical_key,
+            config=config,
+            calc_config_id=id(config),
+        )
         sim_results, pack_metrics = calculate_pack_simulations(calculation_input, config)
         total_ev = pack_metrics.get("total_ev", 0.0)
         calculated_expected_value_per_pack = _safe_float(results.get("total_manual_ev"), 0.0)

@@ -10,6 +10,9 @@ python backend/scripts/run_pokemon_set_scrape.py --run
 run data scrape era 
 python backend/scripts/run_pokemon_set_scrape.py --run --era scarletAndVioletEra
 
+run calc/simulations
+python backend/scripts/run_all_v2_sets.py
+
 ssh key pathing
 C:\Users\Owner\.ssh
 

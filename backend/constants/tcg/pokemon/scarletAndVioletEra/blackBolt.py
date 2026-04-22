@@ -34,7 +34,7 @@ class SetBlackBoltConfig(BaseSetConfig):
         'double rare': 57,
         'illustration rare': 848,
         'special illustration rare': 1120,
-        'secret rare': 274,
+        'ultra rare': 274,
         # Special cases (checked first)
         'black white rare': 1400,
         'poke ball pattern': 488,
@@ -58,7 +58,7 @@ class SetBlackBoltConfig(BaseSetConfig):
 
     RARE_SLOT_PROBABILITY = {
         'double rare': 1 / 5,
-        'secret rare': 1 / 17,
+        'ultra rare': 1 / 17,
         'black white rare': 1 / 496,
         'rare': 1 - (1 / 5) - (1 / 17) - (1 / 496),
     }

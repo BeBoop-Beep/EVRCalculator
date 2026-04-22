@@ -60,7 +60,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.36
+      "market": 0.3
     }
   },
   {
@@ -124,7 +124,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.51
+      "market": 0.5
     }
   },
   {
@@ -156,7 +156,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 1.24
+      "market": 1.25
     }
   },
   {
@@ -188,7 +188,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.06
+      "market": 0.05
     }
   },
   {
@@ -220,7 +220,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.19
+      "market": 0.18
     }
   },
   {
@@ -380,7 +380,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.1
+      "market": 0.09
     }
   },
   {
@@ -636,7 +636,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.15
+      "market": 0.14
     }
   },
   {
@@ -700,7 +700,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.2
+      "market": 0.13
     }
   },
   {
@@ -716,7 +716,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.08
+      "market": 0.07
     }
   },
   {
@@ -956,7 +956,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.09
+      "market": 2.02
     }
   },
   {
@@ -1004,7 +1004,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.27
+      "market": 0.26
     }
   },
   {
@@ -1052,7 +1052,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 12.21
+      "market": 12.18
     }
   },
   {
@@ -1116,7 +1116,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.18
+      "market": 0.19
     }
   },
   {
@@ -1228,7 +1228,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.53
+      "market": 0.54
     }
   },
   {
@@ -1276,7 +1276,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 7.74
+      "market": 7.69
     }
   },
   {
@@ -1436,7 +1436,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.52
+      "market": 0.54
     }
   },
   {
@@ -1612,7 +1612,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 9.37
+      "market": 9.43
     }
   },
   {
@@ -1660,7 +1660,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.47
+      "market": 0.46
     }
   },
   {
@@ -1708,7 +1708,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 7.63
+      "market": 7.61
     }
   },
   {
@@ -1932,7 +1932,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.19
+      "market": 0.18
     }
   },
   {
@@ -2060,7 +2060,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 7.82
+      "market": 7.87
     }
   },
   {
@@ -2156,7 +2156,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.19
+      "market": 0.2
     }
   },
   {
@@ -2588,7 +2588,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.22
+      "market": 0.21
     }
   },
   {
@@ -2652,7 +2652,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.52
+      "market": 0.51
     }
   },
   {
@@ -2780,7 +2780,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.18
+      "market": 0.17
     }
   },
   {
@@ -2828,7 +2828,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 10.83
+      "market": 10.84
     }
   },
   {
@@ -2924,7 +2924,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 5.17
+      "market": 5.12
     }
   },
   {
@@ -2956,7 +2956,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.06
+      "market": 0.04
     }
   },
   {
@@ -2988,7 +2988,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.16
+      "market": 0.17
     }
   },
   {
@@ -3116,7 +3116,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 5.94
+      "market": 6
     }
   },
   {
@@ -3244,7 +3244,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.34
+      "market": 2.37
     }
   },
   {
@@ -3276,7 +3276,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.27
+      "market": 0.26
     }
   },
   {
@@ -3340,7 +3340,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 13.39
+      "market": 13.49
     }
   },
   {
@@ -3516,7 +3516,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.48
+      "market": 0.5
     }
   },
   {
@@ -3564,7 +3564,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 9.08
+      "market": 9.13
     }
   },
   {
@@ -3692,7 +3692,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.05
+      "market": 2
     }
   },
   {
@@ -3724,7 +3724,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.23
+      "market": 0.22
     }
   },
   {
@@ -3772,7 +3772,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 10.27
+      "market": 10.21
     }
   },
   {
@@ -4044,7 +4044,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.08
+      "market": 0.09
     }
   },
   {
@@ -4332,7 +4332,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.17
+      "market": 0.16
     }
   },
   {
@@ -4364,7 +4364,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.08
+      "market": 2.1
     }
   },
   {
@@ -4428,7 +4428,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.29
+      "market": 0.27
     }
   },
   {
@@ -4476,7 +4476,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 29.03
+      "market": 28.95
     }
   },
   {
@@ -4556,7 +4556,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.29
+      "market": 0.28
     }
   },
   {
@@ -4684,7 +4684,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.73
+      "market": 0.68
     }
   },
   {
@@ -4812,7 +4812,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.21
+      "market": 0.2
     }
   },
   {
@@ -4844,7 +4844,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 10.25
+      "market": 10.27
     }
   },
   {
@@ -4876,7 +4876,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.49
+      "market": 0.51
     }
   },
   {
@@ -4908,7 +4908,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 17.29
+      "market": 17.31
     }
   },
   {
@@ -5068,7 +5068,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.44
+      "market": 2.38
     }
   },
   {
@@ -5308,7 +5308,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.47
+      "market": 0.46
     }
   },
   {
@@ -5436,7 +5436,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.17
+      "market": 0.16
     }
   },
   {
@@ -5468,7 +5468,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.53
+      "market": 0.55
     }
   },
   {
@@ -5532,7 +5532,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.22
+      "market": 0.21
     }
   },
   {
@@ -5580,7 +5580,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 11.3
+      "market": 11.43
     }
   },
   {
@@ -5644,7 +5644,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 14.41
+      "market": 14.26
     }
   },
   {
@@ -5676,7 +5676,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.51
+      "market": 0.5
     }
   },
   {
@@ -5708,19 +5708,19 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.5
+      "market": 0.49
     }
   },
   {
     "name": "Excadrill ex",
     "card_number": "160/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -5730,29 +5730,29 @@
   {
     "name": "Excadrill ex",
     "card_number": "160/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.87
+      "market": 0.85
     }
   },
   {
     "name": "Excadrill ex",
     "card_number": "160/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -5762,17 +5762,17 @@
   {
     "name": "Excadrill ex",
     "card_number": "160/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.88
+      "market": 0.69
     }
   },
   {
@@ -5970,13 +5970,13 @@
   {
     "name": "Fennel",
     "card_number": "162/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -5986,13 +5986,13 @@
   {
     "name": "Fennel",
     "card_number": "162/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -6002,13 +6002,13 @@
   {
     "name": "Fennel",
     "card_number": "162/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -6018,17 +6018,17 @@
   {
     "name": "Fennel",
     "card_number": "162/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 1.37
+      "market": 1.4
     }
   },
   {
@@ -6380,7 +6380,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 14.62
+      "market": 14.63
     }
   },
   {
@@ -6412,7 +6412,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.69
+      "market": 0.7
     }
   },
   {
@@ -6540,19 +6540,19 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.67
+      "market": 0.64
     }
   },
   {
     "name": "Genesect ex",
     "card_number": "161/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -6562,13 +6562,13 @@
   {
     "name": "Genesect ex",
     "card_number": "161/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -6578,13 +6578,13 @@
   {
     "name": "Genesect ex",
     "card_number": "161/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -6594,13 +6594,13 @@
   {
     "name": "Genesect ex",
     "card_number": "161/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -6764,7 +6764,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.11
+      "market": 2.12
     }
   },
   {
@@ -6924,7 +6924,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.21
+      "market": 0.22
     }
   },
   {
@@ -6972,7 +6972,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 9.52
+      "market": 9.57
     }
   },
   {
@@ -7084,7 +7084,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 7.91
+      "market": 7.87
     }
   },
   {
@@ -7260,7 +7260,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.4
+      "market": 0.39
     }
   },
   {
@@ -7340,7 +7340,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.12
+      "market": 0.15
     }
   },
   {
@@ -7500,7 +7500,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 58.65
+      "market": 59.3
     }
   },
   {
@@ -7724,7 +7724,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 8.97
+      "market": 8.95
     }
   },
   {
@@ -7836,7 +7836,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 9.68
+      "market": 9.62
     }
   },
   {
@@ -7932,7 +7932,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 5.12
+      "market": 5.11
     }
   },
   {
@@ -8012,7 +8012,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.05
+      "market": 0.04
     }
   },
   {
@@ -8140,7 +8140,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 5.3
+      "market": 5.32
     }
   },
   {
@@ -8156,7 +8156,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 5.65
+      "market": 5.62
     }
   },
   {
@@ -8268,7 +8268,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 9.51
+      "market": 9.69
     }
   },
   {
@@ -8300,7 +8300,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.61
+      "market": 0.59
     }
   },
   {
@@ -8396,7 +8396,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.05
+      "market": 0.06
     }
   },
   {
@@ -8524,7 +8524,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.56
+      "market": 0.57
     }
   },
   {
@@ -8684,7 +8684,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 18.08
+      "market": 18.05
     }
   },
   {
@@ -8716,7 +8716,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.57
+      "market": 0.58
     }
   },
   {
@@ -8828,7 +8828,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.83
+      "market": 0.81
     }
   },
   {
@@ -8860,19 +8860,19 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.53
+      "market": 0.52
     }
   },
   {
     "name": "Kyurem ex",
     "card_number": "157/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -8882,13 +8882,13 @@
   {
     "name": "Kyurem ex",
     "card_number": "157/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Heavily Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -8898,13 +8898,13 @@
   {
     "name": "Kyurem ex",
     "card_number": "157/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -8914,13 +8914,13 @@
   {
     "name": "Kyurem ex",
     "card_number": "157/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -8930,17 +8930,17 @@
   {
     "name": "Kyurem ex",
     "card_number": "157/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 1.3
+      "market": 1.31
     }
   },
   {
@@ -9116,7 +9116,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 14.18
+      "market": 13.95
     }
   },
   {
@@ -9212,7 +9212,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 20.32
+      "market": 20.25
     }
   },
   {
@@ -9260,7 +9260,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.13
+      "market": 0.12
     }
   },
   {
@@ -9916,7 +9916,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.79
+      "market": 2.86
     }
   },
   {
@@ -9964,7 +9964,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.79
+      "market": 0.71
     }
   },
   {
@@ -9996,19 +9996,19 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.53
+      "market": 0.55
     }
   },
   {
     "name": "Meloetta ex",
     "card_number": "159/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -10018,13 +10018,13 @@
   {
     "name": "Meloetta ex",
     "card_number": "159/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -10034,13 +10034,13 @@
   {
     "name": "Meloetta ex",
     "card_number": "159/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -10050,17 +10050,17 @@
   {
     "name": "Meloetta ex",
     "card_number": "159/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 1.39
+      "market": 1.41
     }
   },
   {
@@ -10124,7 +10124,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 37.54
+      "market": 37.52
     }
   },
   {
@@ -10268,7 +10268,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.38
+      "market": 0.39
     }
   },
   {
@@ -10460,7 +10460,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.34
+      "market": 2.36
     }
   },
   {
@@ -10508,7 +10508,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.32
+      "market": 0.3
     }
   },
   {
@@ -10588,7 +10588,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 11.35
+      "market": 11.3
     }
   },
   {
@@ -10860,7 +10860,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.16
+      "market": 0.15
     }
   },
   {
@@ -10962,13 +10962,13 @@
   {
     "name": "N's Plan",
     "card_number": "163/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -10978,13 +10978,13 @@
   {
     "name": "N's Plan",
     "card_number": "163/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Heavily Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -10994,29 +10994,29 @@
   {
     "name": "N's Plan",
     "card_number": "163/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 3.57
+      "market": 3.59
     }
   },
   {
     "name": "N's Plan",
     "card_number": "163/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -11026,17 +11026,17 @@
   {
     "name": "N's Plan",
     "card_number": "163/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 3.83
+      "market": 3.81
     }
   },
   {
@@ -11212,7 +11212,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 14.02
+      "market": 13.65
     }
   },
   {
@@ -11244,7 +11244,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.36
+      "market": 0.37
     }
   },
   {
@@ -11420,7 +11420,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 1.68
+      "market": 1.64
     }
   },
   {
@@ -11452,7 +11452,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.23
+      "market": 0.22
     }
   },
   {
@@ -11484,7 +11484,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 8.78
+      "market": 8.82
     }
   },
   {
@@ -11612,7 +11612,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.47
+      "market": 2.44
     }
   },
   {
@@ -11708,7 +11708,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 10.37
+      "market": 10.39
     }
   },
   {
@@ -12140,7 +12140,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.06
+      "market": 0.05
     }
   },
   {
@@ -12252,7 +12252,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.26
+      "market": 0.25
     }
   },
   {
@@ -12396,7 +12396,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.31
+      "market": 0.3
     }
   },
   {
@@ -12444,7 +12444,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.39
+      "market": 0.4
     }
   },
   {
@@ -12492,7 +12492,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 1.96
+      "market": 1.84
     }
   },
   {
@@ -12572,7 +12572,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.33
+      "market": 0.32
     }
   },
   {
@@ -12780,7 +12780,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.5
+      "market": 0.61
     }
   },
   {
@@ -12924,7 +12924,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.58
+      "market": 0.57
     }
   },
   {
@@ -12956,7 +12956,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.6
+      "market": 0.61
     }
   },
   {
@@ -13020,7 +13020,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.2
+      "market": 0.19
     }
   },
   {
@@ -13276,7 +13276,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 2.66
+      "market": 2.64
     }
   },
   {
@@ -13500,7 +13500,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 21.13
+      "market": 21.53
     }
   },
   {
@@ -13628,7 +13628,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.07
+      "market": 0.06
     }
   },
   {
@@ -13820,7 +13820,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.7
+      "market": 0.69
     }
   },
   {
@@ -13852,19 +13852,19 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.51
+      "market": 0.53
     }
   },
   {
     "name": "Serperior ex",
     "card_number": "156/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -13874,13 +13874,13 @@
   {
     "name": "Serperior ex",
     "card_number": "156/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -13890,13 +13890,13 @@
   {
     "name": "Serperior ex",
     "card_number": "156/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -13906,17 +13906,17 @@
   {
     "name": "Serperior ex",
     "card_number": "156/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 1.42
+      "market": 1.43
     }
   },
   {
@@ -14028,7 +14028,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.18
+      "market": 0.17
     }
   },
   {
@@ -14332,7 +14332,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.49
+      "market": 0.48
     }
   },
   {
@@ -14396,7 +14396,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 7.71
+      "market": 7.67
     }
   },
   {
@@ -14508,7 +14508,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 23.67
+      "market": 22.84
     }
   },
   {
@@ -14540,7 +14540,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.45
+      "market": 0.46
     }
   },
   {
@@ -14620,7 +14620,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 7.26
+      "market": 7.22
     }
   },
   {
@@ -14700,7 +14700,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.06
+      "market": 0.05
     }
   },
   {
@@ -14764,7 +14764,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 4.37
+      "market": 4.34
     }
   },
   {
@@ -14924,7 +14924,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.05
+      "market": 0.04
     }
   },
   {
@@ -15020,7 +15020,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.22
+      "market": 0.21
     }
   },
   {
@@ -15516,7 +15516,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.14
+      "market": 0.13
     }
   },
   {
@@ -15564,7 +15564,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 6.81
+      "market": 6.89
     }
   },
   {
@@ -15676,7 +15676,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 10.04
+      "market": 10.02
     }
   },
   {
@@ -15708,7 +15708,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.08
+      "market": 0.09
     }
   },
   {
@@ -15820,7 +15820,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.55
+      "market": 0.54
     }
   },
   {
@@ -15868,7 +15868,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 16.55
+      "market": 16.59
     }
   },
   {
@@ -16652,7 +16652,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.47
+      "market": 0.46
     }
   },
   {
@@ -16748,7 +16748,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.08
+      "market": 0.07
     }
   },
   {
@@ -17116,7 +17116,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.23
+      "market": 0.22
     }
   },
   {
@@ -17420,7 +17420,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.14
+      "market": 0.12
     }
   },
   {
@@ -17596,7 +17596,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 5.86
+      "market": 5.89
     }
   },
   {
@@ -17628,7 +17628,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.92
+      "market": 0.91
     }
   },
   {
@@ -17660,19 +17660,19 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 0.66
+      "market": 0.61
     }
   },
   {
     "name": "Zekrom ex",
     "card_number": "158/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Damaged",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -17682,13 +17682,13 @@
   {
     "name": "Zekrom ex",
     "card_number": "158/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Heavily Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -17698,13 +17698,13 @@
   {
     "name": "Zekrom ex",
     "card_number": "158/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Lightly Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -17714,13 +17714,13 @@
   {
     "name": "Zekrom ex",
     "card_number": "158/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Moderately Played",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
@@ -17730,17 +17730,17 @@
   {
     "name": "Zekrom ex",
     "card_number": "158/086",
-    "rarity": "rare",
+    "rarity": "ultra rare",
     "variant": "",
     "condition": "Near Mint",
     "printing": "Holofoil",
     "edition": "",
     "printing_type": "holo",
-    "pull_rate": 18,
+    "pull_rate": 274,
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 4.1
+      "market": 4.14
     }
   },
   {
@@ -17852,7 +17852,7 @@
     "currency": "USD",
     "source": "TCGPlayer",
     "prices": {
-      "market": 452.78
+      "market": 454.74
     }
   }
 ]
