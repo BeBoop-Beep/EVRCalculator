@@ -627,60 +627,6 @@ def _coerce_optional_str(value: Any) -> Optional[str]:
     return text if text else None
 
 
-def map_simulation_top_hits_rows(run_id: Any, top_hits_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Map top-hit rows to strict schema payload shape for persistence."""
-    mapped_rows: List[Dict[str, Any]] = []
-    for index, row in enumerate(top_hits_rows, start=1):
-        _require_fields(
-            row,
-            [
-                "card_id",
-                "card_variant_id",
-                "rank",
-                "card_name",
-                "rarity_bucket",
-                "market_price_at_run",
-                "effective_pull_rate",
-                "ev_contribution",
-            ],
-            f"simulation_top_hits row {index}",
-        )
-
-        mapped_rows.append(
-            {
-                "calculation_run_id": _require_present(run_id, "calculation_run_id"),
-                "card_id": row.get("card_id"),
-                "card_variant_id": row.get("card_variant_id"),
-                "rank": _require_int(row.get("rank"), "rank"),
-                "card_name": _coerce_optional_str(row.get("card_name")),
-                "rarity_bucket": _coerce_optional_str(row.get("rarity_bucket")),
-                "market_price_at_run": _require_float(row.get("market_price_at_run"), "market_price_at_run"),
-                "effective_pull_rate": _require_float(row.get("effective_pull_rate"), "effective_pull_rate"),
-                "ev_contribution": _require_float(row.get("ev_contribution"), "ev_contribution"),
-            }
-        )
-    return mapped_rows
-
-
-def create_simulation_top_hits(run_id: Any, top_hits_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Persist ordered top-hit rows from pack calculation output."""
-    mapped_rows = map_simulation_top_hits_rows(run_id, top_hits_rows)
-    inserted_rows: List[Dict[str, Any]] = []
-
-    for mapped in mapped_rows:
-        if mapped.get("rank") is None:
-            raise ValueError("Missing required field: rank")
-
-        inserted = _insert_required_payload(
-            "simulation_top_hits",
-            mapped,
-            f"Simulation top-hit insert (rank:{mapped.get('rank')})",
-        )
-        inserted_rows.append(inserted)
-
-    return inserted_rows
-
-
 def map_simulation_input_cards_rows(run_id: Any, input_cards_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Map normalized input-card rows to strict schema payload shape for persistence."""
     mapped_rows: List[Dict[str, Any]] = []

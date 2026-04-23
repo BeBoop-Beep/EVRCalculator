@@ -14,7 +14,6 @@ from backend.db.repositories.calculation_runs_repository import (
     create_simulation_pull_summary,
     create_simulation_run_summary,
     create_simulation_state_counts,
-    create_simulation_top_hits,
     create_calculation_price_snapshot,
     create_parent_calculation_run,
     get_or_create_calculation_config,
@@ -123,38 +122,6 @@ def _coerce_share_or_zero(value: Any, field_name: str, *, zero_when_empty: bool)
     return _require_float(value, field_name)
 
 
-def _normalize_top_hits_rows(top_hits_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    normalized_rows: list[dict[str, Any]] = []
-
-    for index, row in enumerate(top_hits_rows, start=1):
-        normalized_rows.append(
-            {
-                "card_id": _first_present(row, ("card_id", "Card ID", "card_number", "Card Number", "card_name", "Card Name")),
-                "card_variant_id": _first_present(
-                    row,
-                    (
-                        "card_variant_id",
-                        "Card Variant ID",
-                        "card_id",
-                        "Card ID",
-                        "card_number",
-                        "Card Number",
-                        "card_name",
-                        "Card Name",
-                    ),
-                ),
-                "rank": _first_present(row, ("rank", "Rank")) or index,
-                "card_name": _first_present(row, ("card_name", "Card Name")),
-                "rarity_bucket": _first_present(row, ("rarity_bucket", "rarity_group", "Rarity")),
-                "market_price_at_run": _first_present(row, ("market_price_at_run", "Price ($)")),
-                "effective_pull_rate": _first_present(row, ("effective_pull_rate", "Effective_Pull_Rate")),
-                "ev_contribution": _first_present(row, ("ev_contribution", "EV")),
-            }
-        )
-
-    return normalized_rows
-
-
 def _build_comparison_metrics_payload(
     *,
     pack_value_vs_cost_comparison: Mapping[str, Any],
@@ -179,6 +146,12 @@ def _build_comparison_metrics_payload(
             return None
         return _coerce_optional_float(payload.get("roi"), field_name)
 
+    def _extract_expected_value(comparisons: Mapping[str, Any], comparison_key: str, field_name: str) -> float | None:
+        payload = comparisons.get(comparison_key)
+        if not isinstance(payload, Mapping):
+            raise ValueError(f"Missing required field: {field_name}")
+        return _coerce_optional_float(payload.get("expected_value"), field_name)
+
     return {
         "simulated_mean_pack_value_vs_pack_cost": _extract_roi(
             pack_value_vs_cost_comparison,
@@ -190,7 +163,7 @@ def _build_comparison_metrics_payload(
             "simulated_median_pack_value_vs_pack_cost",
             "simulated_median_pack_value_vs_pack_cost",
         ),
-        "calculated_expected_pack_value_vs_pack_cost": _extract_roi(
+        "calculated_expected_pack_value_vs_pack_cost": _extract_expected_value(
             pack_value_vs_cost_comparison,
             "calculated_expected_pack_value_vs_pack_cost",
             "calculated_expected_pack_value_vs_pack_cost",
@@ -419,6 +392,26 @@ def persist_parent_run_with_price_snapshots(
         ),
     )
 
+    console_pack_ev = _coerce_optional_float(
+        _require_mapping(
+            pack_value_vs_cost_comparison.get("calculated_expected_pack_value_vs_pack_cost"),
+            "pack_value_vs_cost_comparison.calculated_expected_pack_value_vs_pack_cost",
+        ).get("expected_value"),
+        "pack_value_vs_cost_comparison.calculated_expected_pack_value_vs_pack_cost.expected_value",
+    )
+    persisted_pack_ev = comparison_metrics_payload.get("calculated_expected_pack_value_vs_pack_cost")
+    values_match = (
+        persisted_pack_ev is not None
+        and console_pack_ev is not None
+        and abs(float(persisted_pack_ev) - float(console_pack_ev)) <= 1e-9
+    )
+    print(
+        "[TEMP_DEBUG_CALC_RUN_PACK_EV] "
+        f"value_to_write={persisted_pack_ev} "
+        f"console_ev={console_pack_ev} "
+        f"equal={values_match}"
+    )
+
     run_row = create_parent_calculation_run(
         config_row["id"],
         target_type,
@@ -526,19 +519,6 @@ def persist_simulation_etb_summary(
     }
 
 
-def _to_records(value: Any) -> list[dict[str, Any]]:
-    if value is None:
-        return []
-    if hasattr(value, "to_dict"):
-        try:
-            return list(value.to_dict(orient="records"))
-        except TypeError as exc:
-            raise RuntimeError("Failed to convert tabular value to records") from exc
-    if isinstance(value, list):
-        return [item for item in value if isinstance(item, dict)]
-    return []
-
-
 def _normalize_simulation_input_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         {
@@ -583,28 +563,12 @@ def _resolve_simulation_input_snapshot(calculation_input: Any, config: Any) -> l
 def persist_simulation_inputs(
     *,
     run_id: Any,
-    top_10_hits: Any,
     calculation_input: Any,
     config: Any,
 ) -> Dict[str, Any]:
-    """Persist top-hit rows and normalized input-card rows for the run."""
-    top_hits_rows = _normalize_top_hits_rows(_to_records(top_10_hits))
+    """Persist normalized input-card rows for the run."""
     input_rows = _resolve_simulation_input_snapshot(calculation_input, config)
 
-    _require_records_fields(
-        top_hits_rows,
-        [
-            "card_id",
-            "card_variant_id",
-            "rank",
-            "card_name",
-            "rarity_bucket",
-            "market_price_at_run",
-            "effective_pull_rate",
-            "ev_contribution",
-        ],
-        "simulation_top_hits",
-    )
     _require_records_fields(
         input_rows,
         [
@@ -622,22 +586,9 @@ def persist_simulation_inputs(
         "simulation_input_cards",
     )
 
-    if top_hits_rows:
-        logger.debug(
-            "TEMP DEBUG persist_simulation_inputs top_hits normalized sample run_id=%s row=%s",
-            run_id,
-            top_hits_rows[0],
-        )
-    else:
-        logger.debug(
-            "TEMP DEBUG persist_simulation_inputs top_hits normalized empty run_id=%s",
-            run_id,
-        )
-
-    top_hits_inserted = create_simulation_top_hits(run_id, top_hits_rows)
     input_cards_inserted = create_simulation_input_cards(run_id, input_rows)
 
     return {
-        "top_hits_count": len(top_hits_inserted),
+        "top_hits_count": 0,
         "input_cards_count": len(input_cards_inserted),
     }

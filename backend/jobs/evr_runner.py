@@ -504,7 +504,7 @@ class EVRRunOrchestrator:
             )
 
         _emit_config_trace(phase="pre_calc", set_key=canonical_key, config=config)
-        results, _summary_data, top_10_hits, pack_price = calculate_pack_stats(calculation_input, config)
+        results, _summary_data, _top_10_hits, pack_price = calculate_pack_stats(calculation_input, config)
         _emit_config_trace(
             phase="pre_sim",
             set_key=canonical_key,
@@ -620,7 +620,6 @@ class EVRRunOrchestrator:
 
         persisted_inputs = persist_simulation_inputs(
             run_id=run_id,
-            top_10_hits=top_10_hits,
             calculation_input=calculation_input,
             config=config,
         )

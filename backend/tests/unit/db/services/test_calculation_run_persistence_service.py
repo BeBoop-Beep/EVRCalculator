@@ -212,26 +212,11 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_input_cards")
-@patch("backend.db.services.calculation_run_persistence_service.create_simulation_top_hits")
-def test_persist_simulation_inputs_normalizes_legacy_top_hit_rows(
-    mock_create_simulation_top_hits,
+def test_persist_simulation_inputs_persists_input_rows_without_top_hits_dependency(
     mock_create_simulation_input_cards,
 ):
-    mock_create_simulation_top_hits.return_value = [{"id": "top-hit-1"}]
     mock_create_simulation_input_cards.return_value = [{"id": "input-card-1"}]
 
-    top_hits_df = pd.DataFrame(
-        [
-            {
-                "Card Name": "Charizard ex",
-                "Card Number": "199/165",
-                "Rarity": "special illustration rare",
-                "Price ($)": 45.0,
-                "Effective_Pull_Rate": 225.0,
-                "EV": 0.2,
-            }
-        ]
-    )
     input_df = pd.DataFrame(
         [
             {
@@ -251,33 +236,23 @@ def test_persist_simulation_inputs_normalizes_legacy_top_hit_rows(
 
     result = persist_simulation_inputs(
         run_id="run-1",
-        top_10_hits=top_hits_df,
         calculation_input=input_df,
         config=object(),
     )
 
-    assert result == {"top_hits_count": 1, "input_cards_count": 1}
-    persisted_top_hits = mock_create_simulation_top_hits.call_args.args[1]
-    assert set(persisted_top_hits[0].keys()) == {
-        "card_id",
-        "card_variant_id",
-        "rank",
-        "card_name",
-        "rarity_bucket",
-        "market_price_at_run",
-        "effective_pull_rate",
-        "ev_contribution",
-    }
-    mock_create_simulation_top_hits.assert_called_once_with(
+    assert result == {"top_hits_count": 0, "input_cards_count": 1}
+    mock_create_simulation_input_cards.assert_called_once_with(
         "run-1",
         [
             {
                 "card_id": "199/165",
                 "card_variant_id": "199/165",
-                "rank": 1,
+                "condition_id": 1,
                 "card_name": "Charizard ex",
-                "rarity_bucket": "special illustration rare",
-                "market_price_at_run": 45.0,
+                "rarity_bucket": "hits",
+                "price_source": "market",
+                "price_used": 45.0,
+                "captured_at": "2026-04-18T00:00:00Z",
                 "effective_pull_rate": 225.0,
                 "ev_contribution": 0.2,
             }
@@ -337,30 +312,15 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_input_cards")
-@patch("backend.db.services.calculation_run_persistence_service.create_simulation_top_hits")
 def test_persist_simulation_inputs_maps_dataframe_runtime_columns_to_child_table_contract(
-    mock_create_simulation_top_hits,
     mock_create_simulation_input_cards,
 ):
     from backend.db.services.calculation_run_persistence_service import persist_simulation_inputs
 
-    mock_create_simulation_top_hits.return_value = [{"id": "top-hit-1"}]
     mock_create_simulation_input_cards.return_value = [{"id": "input-1"}]
 
     result = persist_simulation_inputs(
         run_id="run-1",
-        top_10_hits=[
-            {
-                "card_id": "card-1",
-                "card_variant_id": "variant-1",
-                "rank": 1,
-                "card_name": "Card A",
-                "rarity_bucket": "rare",
-                "market_price_at_run": 5.0,
-                "effective_pull_rate": 10.0,
-                "ev_contribution": 0.5,
-            }
-        ],
         calculation_input=pd.DataFrame(
             [
                 {
@@ -380,33 +340,7 @@ def test_persist_simulation_inputs_maps_dataframe_runtime_columns_to_child_table
         config=object(),
     )
 
-    assert result == {"top_hits_count": 1, "input_cards_count": 1}
-    persisted_top_hits = mock_create_simulation_top_hits.call_args.args[1]
-    assert set(persisted_top_hits[0].keys()) == {
-        "card_id",
-        "card_variant_id",
-        "rank",
-        "card_name",
-        "rarity_bucket",
-        "market_price_at_run",
-        "effective_pull_rate",
-        "ev_contribution",
-    }
-    mock_create_simulation_top_hits.assert_called_once_with(
-        "run-1",
-        [
-            {
-                "card_id": "card-1",
-                "card_variant_id": "variant-1",
-                "rank": 1,
-                "card_name": "Card A",
-                "rarity_bucket": "rare",
-                "market_price_at_run": 5.0,
-                "effective_pull_rate": 10.0,
-                "ev_contribution": 0.5,
-            }
-        ],
-    )
+    assert result == {"top_hits_count": 0, "input_cards_count": 1}
     mock_create_simulation_input_cards.assert_called_once_with(
         "run-1",
         [
@@ -428,13 +362,10 @@ def test_persist_simulation_inputs_maps_dataframe_runtime_columns_to_child_table
 
 @patch("backend.calculations.packCalcsRefractored.PackCalculationOrchestrator")
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_input_cards")
-@patch("backend.db.services.calculation_run_persistence_service.create_simulation_top_hits")
 def test_persist_simulation_inputs_falls_back_to_orchestrator_when_dataframe_missing_ev_fields(
-    mock_create_simulation_top_hits,
     mock_create_simulation_input_cards,
     mock_orchestrator_cls,
 ):
-    mock_create_simulation_top_hits.return_value = [{"id": "top-hit-1"}]
     mock_create_simulation_input_cards.return_value = [{"id": "input-1"}]
 
     runtime_input_df = pd.DataFrame(
@@ -475,23 +406,11 @@ def test_persist_simulation_inputs_falls_back_to_orchestrator_when_dataframe_mis
     config = object()
     result = persist_simulation_inputs(
         run_id="run-1",
-        top_10_hits=[
-            {
-                "card_id": "card-1",
-                "card_variant_id": "variant-1",
-                "rank": 1,
-                "card_name": "Card A",
-                "rarity_bucket": "rare",
-                "market_price_at_run": 5.0,
-                "effective_pull_rate": 10.0,
-                "ev_contribution": 0.5,
-            }
-        ],
         calculation_input=runtime_input_df,
         config=config,
     )
 
-    assert result == {"top_hits_count": 1, "input_cards_count": 1}
+    assert result == {"top_hits_count": 0, "input_cards_count": 1}
     mock_orchestrator_cls.assert_called_once_with(config)
     mock_orchestrator.load_and_prepare_data.assert_called_once_with(runtime_input_df)
     mock_create_simulation_input_cards.assert_called_once_with(
@@ -573,7 +492,7 @@ def test_persist_parent_run_with_price_snapshots_maps_all_value_vs_cost_comparis
         pack_value_vs_cost_comparison={
             "simulated_mean_pack_value_vs_pack_cost": {"roi": 1.2},
             "simulated_median_pack_value_vs_pack_cost": {"roi": 0.9},
-            "calculated_expected_pack_value_vs_pack_cost": {"roi": 1.1},
+            "calculated_expected_pack_value_vs_pack_cost": {"expected_value": 1.1, "roi": 1.1},
         },
         etb_value_vs_cost_comparison={
             "simulated_mean_etb_value_vs_etb_cost": {"roi": 1.15},
@@ -634,7 +553,7 @@ def test_persist_parent_run_with_price_snapshots_allows_missing_etb_comparison_a
         pack_value_vs_cost_comparison={
             "simulated_mean_pack_value_vs_pack_cost": {"roi": 1.2},
             "simulated_median_pack_value_vs_pack_cost": {"roi": 0.9},
-            "calculated_expected_pack_value_vs_pack_cost": {"roi": 1.1},
+            "calculated_expected_pack_value_vs_pack_cost": {"expected_value": 1.1, "roi": 1.1},
         },
         etb_value_vs_cost_comparison=None,
         booster_box_value_vs_cost_comparison={
