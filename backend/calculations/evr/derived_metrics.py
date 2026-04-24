@@ -1,80 +1,52 @@
 """Derived decision-metrics layer for pack simulation output.
 
 This module consumes simulation outcomes produced by the Monte Carlo simulation
-engine and returns structured, product-facing metrics.  It is intentionally
-kept separate from:
-
-  * the simulation engine  (monteCarloSimV2 / monteCarloSim)
-  * validation / calibration modules
-  * front-end glue code
+engine and returns structured, product-facing metrics. It is intentionally
+kept separate from simulation execution, validation/calibration orchestration,
+and UI presentation.
 
 Layering contract
 -----------------
-  simulation layer    →  produces raw outcome arrays (values, slot logs, …)
-  derived metrics     →  interprets those outcomes into product metrics
-  persistence/UI      →  stores or presents the derived metrics
+  simulation layer    -> produces raw outcome arrays (values, slot logs, ...)
+  derived metrics     -> interprets those outcomes into product metrics
+  persistence/UI      -> stores or presents the derived metrics
 
 Nothing in this file runs a simulation from scratch.
 All public functions accept pre-computed simulation outputs as inputs.
 
-Metric definitions
-------------------
-prob_profit
-    Fraction of simulated packs whose total value is >= pack_cost.
-    Direct count, no smoothing.
+Scoring modes in this module
+----------------------------
+V1 population scoring (cross-set min-max)
+    :func:`compute_pack_scores_for_set_records` computes population-relative
+    scores across a list of set records using cross-set min-max normalization.
+    This is retained for set-vs-set ranking workflows.
 
-prob_big_hit_fixed
-    Fraction of simulated packs whose total value is >= a fixed absolute
-    threshold supplied by the caller.
+V2 runtime scoring (fixed anchors)
+    :func:`compute_all_derived_metrics` builds a real runtime score payload via
+    fixed-anchor normalization (not a placeholder singleton). The runtime
+    payload reports:
+      score_version = "pack_score_v2_runtime"
+      normalization_mode = "fixed_anchor_runtime_v2"
+      pack_score_is_placeholder = False
 
-prob_big_hit_dynamic
-    Fraction of simulated packs whose total value is >= a threshold derived
-    at call time.  Two modes are supported:
-      "cost_multiple"  – threshold = param * pack_cost  (e.g. 5×)
-      "percentile"     – threshold = the p-th percentile of the distribution
+V2 runtime component inputs
+---------------------------
+Profit Score (0-100)
+    Inputs: prob_profit, mean_value_to_cost_ratio, median_value_to_cost_ratio.
 
-expected_loss_given_loss
-    Mean of (pack_cost − value) over *only* the runs where value < pack_cost.
-    Represents: "when you lose, how much do you lose on average?"
+Safety Score (0-100)
+    Inputs: expected_loss_when_losing, median_loss_when_losing,
+    p05_shortfall_to_cost where
+    p05_shortfall_to_cost = max(pack_cost - tail_value_p05, 0) / pack_cost.
 
-median_loss_given_loss
-    Median of (pack_cost − value) over losing runs only.
+Stability Score (0-100)
+    Inputs: coefficient_of_variation and full-distribution concentration from
+    EV shares via HHI and effective chase count.
+    HHI = sum(p_i^2), effective_chase_count = 1 / HHI when HHI > 0.
 
-expected_loss_unconditional
-    Mean of max(pack_cost − value, 0) over *all* runs.
-    Represents: "per pack, what is the average downside burden?"
-    This is always <= expected_loss_given_loss * (1 − prob_profit).
-
-coefficient_of_variation (CV)
-    std_dev / mean_value.  Normalized volatility.  None if mean_value <= 0.
-
-top1_ev_share / top3_ev_share / top5_ev_share
-    The EV fraction contributed by the single highest / top-3 / top-5 cards,
-    computed from a caller-supplied card_ev_contributions dict.
-
-prob_box_profit / expected_box_value / median_box_value
-    Session-level (box or ETB) metrics computed by *simulating* sessions
-    as repeated pack draws — not by approximating from pack averages.
-
-prob_no_chase_hit_in_box
-    Fraction of simulated sessions where zero chase hits were obtained.
-    Requires the caller to supply a chase-hit detection callable.
-
-expected_packs_to_hit / median_packs_to_hit
-    Estimated number of packs needed to obtain at least one qualifying hit,
-    derived from repeated simulation runs each continued until a hit lands.
-    Fails explicitly if the target rarity/card is unavailable in the model.
-
-ind_ex_score_v1
-    A bounded 0–100 score (version "v1") combining:
-      • probability-of-profit component   (weight w1, default 0.40)
-      • stability component               (weight w2, default 0.30)
-      • diversification component         (weight w3, default 0.30)
-    Each component is normalized to [0, 1] before weighting.
-    Stability  = 1 − clamp(CV / CV_MAX, 0, 1)  where CV_MAX = 5.0
-    Diversification = 1 − clamp(top5_ev_share, 0, 1)
-    The score and all component values are always returned together so the
-    calculation can be audited.
+PACK Score (0-100)
+    Weighted blend of interpretable components:
+    40% Profit Score + 30% Safety Score + 30% Stability Score.
 """
 
 from __future__ import annotations
@@ -326,6 +298,8 @@ def compute_chase_dependency_metrics(
             "top1_ev_share": None,
             "top3_ev_share": None,
             "top5_ev_share": None,
+            "hhi_ev_concentration": None,
+            "effective_chase_count": None,
         }
         if return_ranked_cards:
             result["ranked_cards"] = []
@@ -333,11 +307,18 @@ def compute_chase_dependency_metrics(
 
     # Rank by contribution descending; treat negatives as 0 in share math
     ranked: List[Tuple[str, float]] = sorted(
-        card_ev_contributions.items(), key=lambda kv: kv[1], reverse=True
+        [
+            (card_id, max(0.0, _to_finite_float(ev) or 0.0))
+            for card_id, ev in card_ev_contributions.items()
+        ],
+        key=lambda kv: kv[1],
+        reverse=True,
     )
-    contributions = [max(0.0, float(v)) for _, v in ranked]
+    contributions = [v for _, v in ranked]
     total_ev = float(sum(contributions))
     n_cards = len(contributions)
+    hhi_ev_concentration = _compute_hhi_from_ev_contributions(contributions)
+    effective_chase_count = _compute_effective_chase_count(hhi_ev_concentration)
 
     if total_ev <= 0:
         shares: Dict[str, Optional[float]] = {
@@ -360,6 +341,8 @@ def compute_chase_dependency_metrics(
         "cards_tracked": n_cards,
         "total_ev": total_ev,
         "total_card_ev": total_ev,
+        "hhi_ev_concentration": hhi_ev_concentration,
+        "effective_chase_count": effective_chase_count,
         **shares,
     }
     if return_ranked_cards:
@@ -663,106 +646,572 @@ def derive_packs_to_hit_metrics(
 
 
 # ---------------------------------------------------------------------------
-# Goal 8 — inDex Score v1
+# Goal 8 — PACK Score (component-based, cross-set min-max normalized)
 # ---------------------------------------------------------------------------
 
-#: Maximum CV used as the ceiling for stability normalization.
-#: A CV of this value or above maps to 0 stability.  Hard-coded per v1 spec.
-_CV_MAX_V1: float = 5.0
+_NEUTRAL_SCORE: float = 50.0
 
-#: Default weights for ind_ex_score_v1 components.
-_DEFAULT_WEIGHTS_V1: Tuple[float, float, float] = (0.40, 0.30, 0.30)
+_SCORE_DIRECTION_HIGHER_IS_BETTER = "higher_is_better"
+_SCORE_DIRECTION_LOWER_IS_BETTER = "lower_is_better"
+
+# Component composition weights.
+_PROFIT_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
+_SAFETY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
+_STABILITY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
+
+# Overall PACK Score weights.
+_PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.40, 0.30, 0.30)
 
 
-def compute_index_score_v1(
-    prob_profit: float,
-    coefficient_of_variation: Optional[float],
-    top5_ev_share: Optional[float],
+# Runtime V2 component weights are declared as percentage-style values and
+# normalized internally for weighted averages.
+_PROFIT_V2_WEIGHTS_PCT: Dict[str, float] = {
+    "prob_profit": 40.0,
+    "mean_value_to_cost_ratio": 30.0,
+    "median_value_to_cost_ratio": 30.0,
+}
+_SAFETY_V2_WEIGHTS_PCT: Dict[str, float] = {
+    "expected_loss_when_losing_fraction": 34.0,
+    "median_loss_when_losing_fraction": 33.0,
+    "p05_shortfall_to_cost": 33.0,
+}
+_STABILITY_V2_WEIGHTS_PCT: Dict[str, float] = {
+    "coefficient_of_variation": 50.0,
+    "effective_chase_count": 50.0,
+}
+_PACK_SCORE_V2_WEIGHTS_PCT: Dict[str, float] = {
+    "profit_score": 40.0,
+    "safety_score": 30.0,
+    "stability_score": 30.0,
+}
+
+_RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
+    # Profit anchors
+    "prob_profit": {
+        "min": 0.00,
+        "max": 1.00,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+    },
+    "mean_value_to_cost_ratio": {
+        "min": 0.25,
+        "max": 1.25,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+    },
+    "median_value_to_cost_ratio": {
+        "min": 0.10,
+        "max": 1.00,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+    },
+    # Safety anchors (all normalized downside fractions)
+    "expected_loss_when_losing_fraction": {
+        "min": 0.00,
+        "max": 1.00,
+        "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
+    },
+    "median_loss_when_losing_fraction": {
+        "min": 0.00,
+        "max": 1.00,
+        "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
+    },
+    "p05_shortfall_to_cost": {
+        "min": 0.00,
+        "max": 1.00,
+        "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
+    },
+    # Stability anchors
+    "coefficient_of_variation": {
+        "min": 0.25,
+        "max": 10.00,
+        "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
+    },
+    "effective_chase_count": {
+        "min": 1.0,
+        "max": 30.0,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+    },
+}
+
+
+def _to_finite_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed):
+        return None
+    return parsed
+
+
+def _safe_ratio(numerator: Optional[float], denominator: Optional[float]) -> Optional[float]:
+    """Return numerator/denominator when both are finite and denominator > 0."""
+    if numerator is None or denominator is None:
+        return None
+    if not math.isfinite(numerator) or not math.isfinite(denominator):
+        return None
+    if denominator <= 0:
+        return None
+    return numerator / denominator
+
+
+def _compute_p05_shortfall_to_cost(
+    tail_value_p05: Optional[float],
+    pack_cost: Optional[float],
+) -> Optional[float]:
+    """Compute max(pack_cost - p05, 0) / pack_cost for runtime V2 safety scoring."""
+    if tail_value_p05 is None or pack_cost is None:
+        return None
+    if not math.isfinite(tail_value_p05) or not math.isfinite(pack_cost):
+        return None
+    if pack_cost <= 0:
+        return None
+    return max(pack_cost - tail_value_p05, 0.0) / pack_cost
+
+
+def _compute_hhi_from_ev_contributions(contributions: Sequence[float]) -> Optional[float]:
+    """Compute HHI = sum(p_i^2) from non-negative EV contributions."""
+    sanitized = [max(0.0, float(v)) for v in contributions if math.isfinite(float(v))]
+    if not sanitized:
+        return None
+    total = float(sum(sanitized))
+    if total <= 0:
+        return None
+    shares = [v / total for v in sanitized]
+    return float(sum(p * p for p in shares))
+
+
+def _compute_effective_chase_count(hhi: Optional[float]) -> Optional[float]:
+    """Compute effective chase count as 1/HHI when HHI > 0."""
+    if hhi is None:
+        return None
+    if not math.isfinite(hhi) or hhi <= 0:
+        return None
+    return 1.0 / hhi
+
+
+def _normalize_weights_from_percent(weights_pct: Dict[str, float]) -> Dict[str, float]:
+    """Normalize percentage-style weights to unit-sum weights."""
+    total = float(sum(weights_pct.values()))
+    if total <= 0 or not math.isfinite(total):
+        raise ValueError("Weight total must be positive and finite.")
+    return {k: float(v) / total for k, v in weights_pct.items()}
+
+
+def _weighted_average(values: Dict[str, float], weights_pct: Dict[str, float]) -> float:
+    """Compute weighted average using percentage-style weights."""
+    normalized_weights = _normalize_weights_from_percent(weights_pct)
+    return float(sum(values[key] * normalized_weights[key] for key in values.keys()))
+
+
+def _normalize_fixed_anchor_0_100(
+    value: Optional[float],
     *,
-    weights: Optional[Tuple[float, float, float]] = None,
-    cv_max: float = _CV_MAX_V1,
-) -> Dict[str, Any]:
-    """Compute the inDex Score v1 — a bounded, explainable 0–100 product score.
+    min_anchor: float,
+    max_anchor: float,
+    direction: str,
+) -> float:
+    """Normalize one metric to [0, 100] using fixed anchors.
 
-    Formula
-    -------
-    Three components, each normalized to [0, 1]:
-
-      prob_profit_component   =  clamp(prob_profit, 0, 1)
-      stability_component     =  1 − clamp(CV / cv_max, 0, 1)
-      diversification_component = 1 − clamp(top5_ev_share, 0, 1)
-
-    score_raw = w1 * pp + w2 * stab + w3 * div
-    ind_ex_score_v1 = round(100 * score_raw, 2)
-
-    Missing inputs (None) fall back to neutral values:
-      CV = None      → stability_component = 0.5  (moderate, not zero)
-      top5 = None    → diversification_component = 0.5
-
-    These fallbacks are explicit and surfaced in the breakdown.
-
-    Parameters
-    ----------
-    prob_profit:
-        Probability of profit in [0, 1].
-    coefficient_of_variation:
-        CV from compute_volatility_metrics, may be None.
-    top5_ev_share:
-        Top-5-card EV share from compute_chase_dependency_metrics, may be None.
-    weights:
-        (w1, w2, w3) tuple, must sum to 1.0.  Defaults to (0.40, 0.30, 0.30).
-    cv_max:
-        CV ceiling for stability normalization.  Do not change this for v1
-        scores — use a new score version instead.
-
-    Returns
-    -------
-    dict with keys:
-        ind_ex_score_v1, score_version, score_raw,
-        weights (tuple),
-        prob_profit_component,
-        stability_component, cv_used, cv_max,
-        diversification_component, top5_ev_share_used.
+    Missing metric values return a neutral score (50) so runtime scoring stays
+    robust when an upstream metric is undefined (for example pack_cost <= 0).
+    Invalid or degenerate anchor definitions raise ValueError.
     """
-    w1, w2, w3 = weights if weights is not None else _DEFAULT_WEIGHTS_V1
+    if value is None or not math.isfinite(value):
+        return _NEUTRAL_SCORE
+    if not math.isfinite(min_anchor) or not math.isfinite(max_anchor):
+        raise ValueError("Fixed anchors must be finite.")
+    if max_anchor <= min_anchor:
+        raise ValueError("Fixed anchor max must be greater than min.")
 
-    weight_sum = w1 + w2 + w3
-    if not math.isclose(weight_sum, 1.0, abs_tol=1e-6):
-        raise ValueError(
-            f"Weights must sum to 1.0 (got {weight_sum:.8f}).  "
-            "Adjust the weights tuple."
+    range_width = max_anchor - min_anchor
+    if direction == _SCORE_DIRECTION_HIGHER_IS_BETTER:
+        raw = 100.0 * ((value - min_anchor) / range_width)
+    elif direction == _SCORE_DIRECTION_LOWER_IS_BETTER:
+        raw = 100.0 * ((max_anchor - value) / range_width)
+    else:
+        raise ValueError(f"Unknown normalization direction: {direction}")
+    return _clamp(raw, 0.0, 100.0)
+
+
+def _normalize_min_max_0_100(
+    value: Optional[float],
+    min_value: Optional[float],
+    max_value: Optional[float],
+) -> float:
+    """Normalize a higher-is-better metric to [0, 100] with neutral fallbacks."""
+    if value is None or min_value is None or max_value is None:
+        return _NEUTRAL_SCORE
+    if not math.isfinite(value) or not math.isfinite(min_value) or not math.isfinite(max_value):
+        return _NEUTRAL_SCORE
+
+    range_width = max_value - min_value
+    if math.isclose(range_width, 0.0, abs_tol=1e-12):
+        return _NEUTRAL_SCORE
+
+    raw = 100.0 * ((value - min_value) / range_width)
+    return _clamp(raw, 0.0, 100.0)
+
+
+def _inverse_normalize_min_max_0_100(
+    value: Optional[float],
+    min_value: Optional[float],
+    max_value: Optional[float],
+) -> float:
+    """Normalize a lower-is-better metric to [0, 100] with neutral fallbacks."""
+    if value is None or min_value is None or max_value is None:
+        return _NEUTRAL_SCORE
+    if not math.isfinite(value) or not math.isfinite(min_value) or not math.isfinite(max_value):
+        return _NEUTRAL_SCORE
+
+    range_width = max_value - min_value
+    if math.isclose(range_width, 0.0, abs_tol=1e-12):
+        return _NEUTRAL_SCORE
+
+    raw = 100.0 * ((max_value - value) / range_width)
+    return _clamp(raw, 0.0, 100.0)
+
+
+def _compute_metric_range(values: Sequence[Optional[float]]) -> Tuple[Optional[float], Optional[float]]:
+    finite_values = [float(v) for v in values if v is not None and math.isfinite(float(v))]
+    if not finite_values:
+        return None, None
+    return min(finite_values), max(finite_values)
+
+
+def _resolve_ev_to_cost_ratio(record: Dict[str, Any]) -> Optional[float]:
+    ratio = _to_finite_float(record.get("ev_to_cost_ratio"))
+    if ratio is not None:
+        return ratio
+
+    mean_value = _to_finite_float(
+        record.get("mean_value")
+        if record.get("mean_value") is not None
+        else record.get("mean")
+    )
+    if mean_value is None:
+        mean_value = _to_finite_float(record.get("total_ev"))
+
+    pack_cost = _to_finite_float(record.get("pack_cost"))
+    if mean_value is None or pack_cost is None or pack_cost <= 0:
+        return None
+    return mean_value / pack_cost
+
+
+def _extract_score_input_record(record: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    return {
+        # Profit drivers (higher is better).
+        "prob_profit": _to_finite_float(
+            record.get("probability_of_profit")
+            if record.get("probability_of_profit") is not None
+            else record.get("prob_profit")
+        ),
+        "ev_to_cost_ratio": _resolve_ev_to_cost_ratio(record),
+        # Safety drivers (lower loss is better).
+        "expected_loss_when_losing": _to_finite_float(
+            record.get("expected_loss_when_losing")
+            if record.get("expected_loss_when_losing") is not None
+            else record.get("expected_loss_given_loss")
+        ),
+        "median_loss_when_losing": _to_finite_float(
+            record.get("median_loss_when_losing")
+            if record.get("median_loss_when_losing") is not None
+            else record.get("median_loss_given_loss")
+        ),
+        # Stability drivers (lower risk concentration is better).
+        "coefficient_of_variation": _to_finite_float(record.get("coefficient_of_variation")),
+        "top5_ev_share": _to_finite_float(
+            record.get("top_5_ev_share")
+            if record.get("top_5_ev_share") is not None
+            else record.get("top5_ev_share")
+        ),
+    }
+
+
+def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Compute Profit/Safety/Stability/PACK scores for a set population.
+
+    Each raw metric is min-max normalized against the supplied set population
+    for this scoring run. Penalty metrics (losses, CV, concentration) are
+    inverse-normalized so higher score always means better.
+    """
+    extracted_rows = [_extract_score_input_record(record) for record in set_records]
+
+    prob_profit_min, prob_profit_max = _compute_metric_range(
+        [row["prob_profit"] for row in extracted_rows]
+    )
+    ev_ratio_min, ev_ratio_max = _compute_metric_range(
+        [row["ev_to_cost_ratio"] for row in extracted_rows]
+    )
+    expected_loss_min, expected_loss_max = _compute_metric_range(
+        [row["expected_loss_when_losing"] for row in extracted_rows]
+    )
+    median_loss_min, median_loss_max = _compute_metric_range(
+        [row["median_loss_when_losing"] for row in extracted_rows]
+    )
+    cv_min, cv_max = _compute_metric_range(
+        [row["coefficient_of_variation"] for row in extracted_rows]
+    )
+    top5_min, top5_max = _compute_metric_range(
+        [row["top5_ev_share"] for row in extracted_rows]
+    )
+
+    results: List[Dict[str, Any]] = []
+    for row in extracted_rows:
+        prob_profit_score = _normalize_min_max_0_100(row["prob_profit"], prob_profit_min, prob_profit_max)
+        ev_ratio_score = _normalize_min_max_0_100(row["ev_to_cost_ratio"], ev_ratio_min, ev_ratio_max)
+        expected_loss_score = _inverse_normalize_min_max_0_100(
+            row["expected_loss_when_losing"], expected_loss_min, expected_loss_max
+        )
+        median_loss_score = _inverse_normalize_min_max_0_100(
+            row["median_loss_when_losing"], median_loss_min, median_loss_max
+        )
+        cv_score = _inverse_normalize_min_max_0_100(row["coefficient_of_variation"], cv_min, cv_max)
+        top5_score = _inverse_normalize_min_max_0_100(row["top5_ev_share"], top5_min, top5_max)
+
+        # Profit combines probability-of-profit and EV-to-cost strength.
+        profit_score = (
+            _PROFIT_COMPONENT_WEIGHTS[0] * prob_profit_score
+            + _PROFIT_COMPONENT_WEIGHTS[1] * ev_ratio_score
         )
 
-    pp_component = _clamp(float(prob_profit), 0.0, 1.0)
+        # Safety isolates downside pain from losing outcomes.
+        safety_score = (
+            _SAFETY_COMPONENT_WEIGHTS[0] * expected_loss_score
+            + _SAFETY_COMPONENT_WEIGHTS[1] * median_loss_score
+        )
 
-    if coefficient_of_variation is None:
-        stab_component = 0.5
-        cv_used = None
-    else:
-        cv_used = float(coefficient_of_variation)
-        stab_component = 1.0 - _clamp(cv_used / float(cv_max), 0.0, 1.0)
+        # Stability isolates dispersion and top-heaviness risk.
+        stability_score = (
+            _STABILITY_COMPONENT_WEIGHTS[0] * cv_score
+            + _STABILITY_COMPONENT_WEIGHTS[1] * top5_score
+        )
 
-    if top5_ev_share is None:
-        div_component = 0.5
-        top5_used = None
-    else:
-        top5_used = _clamp(float(top5_ev_share), 0.0, 1.0)
-        div_component = 1.0 - top5_used
+        pack_score = (
+            _PACK_SCORE_WEIGHTS[0] * profit_score
+            + _PACK_SCORE_WEIGHTS[1] * safety_score
+            + _PACK_SCORE_WEIGHTS[2] * stability_score
+        )
 
-    score_raw = w1 * pp_component + w2 * stab_component + w3 * div_component
-    ind_ex_score = round(100.0 * score_raw, 2)
+        results.append(
+            {
+                "score_version": "pack_score_v1",
+                "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
+                "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
+                "stability_score": round(_clamp(stability_score, 0.0, 100.0), 2),
+                "pack_score": round(_clamp(pack_score, 0.0, 100.0), 2),
+                "weights": {
+                    "pack_score": {
+                        "profit_score": _PACK_SCORE_WEIGHTS[0],
+                        "safety_score": _PACK_SCORE_WEIGHTS[1],
+                        "stability_score": _PACK_SCORE_WEIGHTS[2],
+                    },
+                    "profit_score": {
+                        "prob_profit": _PROFIT_COMPONENT_WEIGHTS[0],
+                        "ev_to_cost_ratio": _PROFIT_COMPONENT_WEIGHTS[1],
+                    },
+                    "safety_score": {
+                        "expected_loss_when_losing": _SAFETY_COMPONENT_WEIGHTS[0],
+                        "median_loss_when_losing": _SAFETY_COMPONENT_WEIGHTS[1],
+                    },
+                    "stability_score": {
+                        "coefficient_of_variation": _STABILITY_COMPONENT_WEIGHTS[0],
+                        "top5_ev_share": _STABILITY_COMPONENT_WEIGHTS[1],
+                    },
+                },
+                "normalization": {
+                    "prob_profit": {
+                        "value": row["prob_profit"],
+                        "min": prob_profit_min,
+                        "max": prob_profit_max,
+                        "score": round(prob_profit_score, 2),
+                        "direction": "higher_is_better",
+                    },
+                    "ev_to_cost_ratio": {
+                        "value": row["ev_to_cost_ratio"],
+                        "min": ev_ratio_min,
+                        "max": ev_ratio_max,
+                        "score": round(ev_ratio_score, 2),
+                        "direction": "higher_is_better",
+                    },
+                    "expected_loss_when_losing": {
+                        "value": row["expected_loss_when_losing"],
+                        "min": expected_loss_min,
+                        "max": expected_loss_max,
+                        "score": round(expected_loss_score, 2),
+                        "direction": "lower_is_better",
+                    },
+                    "median_loss_when_losing": {
+                        "value": row["median_loss_when_losing"],
+                        "min": median_loss_min,
+                        "max": median_loss_max,
+                        "score": round(median_loss_score, 2),
+                        "direction": "lower_is_better",
+                    },
+                    "coefficient_of_variation": {
+                        "value": row["coefficient_of_variation"],
+                        "min": cv_min,
+                        "max": cv_max,
+                        "score": round(cv_score, 2),
+                        "direction": "lower_is_better",
+                    },
+                    "top5_ev_share": {
+                        "value": row["top5_ev_share"],
+                        "min": top5_min,
+                        "max": top5_max,
+                        "score": round(top5_score, 2),
+                        "direction": "lower_is_better",
+                    },
+                },
+            }
+        )
+
+    return results
+
+
+def _build_runtime_v2_pack_score_payload(
+    *,
+    pack_metrics: Dict[str, Any],
+    chase_metrics: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build runtime V2 PACK scoring payload from one simulation run."""
+    pack_cost = _to_finite_float(pack_metrics.get("pack_cost"))
+    mean_value = _to_finite_float(pack_metrics.get("mean"))
+    median_value = _to_finite_float(pack_metrics.get("median"))
+    expected_loss_when_losing = _to_finite_float(pack_metrics.get("expected_loss_given_loss"))
+    median_loss_when_losing = _to_finite_float(pack_metrics.get("median_loss_given_loss"))
+    tail_value_p05 = _to_finite_float(pack_metrics.get("tail_value_p05"))
+
+    raw_inputs = {
+        "prob_profit": _to_finite_float(pack_metrics.get("prob_profit")),
+        "mean_value_to_cost_ratio": _safe_ratio(mean_value, pack_cost),
+        "median_value_to_cost_ratio": _safe_ratio(median_value, pack_cost),
+        "expected_loss_when_losing": expected_loss_when_losing,
+        "median_loss_when_losing": median_loss_when_losing,
+        "expected_loss_when_losing_fraction": _safe_ratio(expected_loss_when_losing, pack_cost),
+        "median_loss_when_losing_fraction": _safe_ratio(median_loss_when_losing, pack_cost),
+        "p05_shortfall_to_cost": _compute_p05_shortfall_to_cost(tail_value_p05, pack_cost),
+        "coefficient_of_variation": _to_finite_float(pack_metrics.get("coefficient_of_variation")),
+        "hhi_ev_concentration": _to_finite_float(
+            chase_metrics.get("hhi_ev_concentration") if chase_metrics is not None else None
+        ),
+        "effective_chase_count": _to_finite_float(
+            chase_metrics.get("effective_chase_count") if chase_metrics is not None else None
+        ),
+    }
+
+    def _score_metric(metric_name: str, value: Optional[float]) -> Dict[str, Any]:
+        anchor = _RUNTIME_V2_ANCHORS[metric_name]
+        score = _normalize_fixed_anchor_0_100(
+            value,
+            min_anchor=float(anchor["min"]),
+            max_anchor=float(anchor["max"]),
+            direction=str(anchor["direction"]),
+        )
+        return {
+            "value": value,
+            "min": float(anchor["min"]),
+            "max": float(anchor["max"]),
+            "direction": str(anchor["direction"]),
+            "score": score,
+        }
+
+    normalized_inputs = {
+        "prob_profit": _score_metric("prob_profit", raw_inputs["prob_profit"]),
+        "mean_value_to_cost_ratio": _score_metric(
+            "mean_value_to_cost_ratio",
+            raw_inputs["mean_value_to_cost_ratio"],
+        ),
+        "median_value_to_cost_ratio": _score_metric(
+            "median_value_to_cost_ratio",
+            raw_inputs["median_value_to_cost_ratio"],
+        ),
+        "expected_loss_when_losing_fraction": _score_metric(
+            "expected_loss_when_losing_fraction",
+            raw_inputs["expected_loss_when_losing_fraction"],
+        ),
+        "median_loss_when_losing_fraction": _score_metric(
+            "median_loss_when_losing_fraction",
+            raw_inputs["median_loss_when_losing_fraction"],
+        ),
+        "p05_shortfall_to_cost": _score_metric(
+            "p05_shortfall_to_cost",
+            raw_inputs["p05_shortfall_to_cost"],
+        ),
+        "coefficient_of_variation": _score_metric(
+            "coefficient_of_variation",
+            raw_inputs["coefficient_of_variation"],
+        ),
+        "effective_chase_count": _score_metric(
+            "effective_chase_count",
+            raw_inputs["effective_chase_count"],
+        ),
+    }
+
+    profit_score = _weighted_average(
+        {
+            "prob_profit": normalized_inputs["prob_profit"]["score"],
+            "mean_value_to_cost_ratio": normalized_inputs["mean_value_to_cost_ratio"]["score"],
+            "median_value_to_cost_ratio": normalized_inputs["median_value_to_cost_ratio"]["score"],
+        },
+        _PROFIT_V2_WEIGHTS_PCT,
+    )
+    safety_score = _weighted_average(
+        {
+            "expected_loss_when_losing_fraction": normalized_inputs[
+                "expected_loss_when_losing_fraction"
+            ]["score"],
+            "median_loss_when_losing_fraction": normalized_inputs[
+                "median_loss_when_losing_fraction"
+            ]["score"],
+            "p05_shortfall_to_cost": normalized_inputs["p05_shortfall_to_cost"]["score"],
+        },
+        _SAFETY_V2_WEIGHTS_PCT,
+    )
+    stability_score = _weighted_average(
+        {
+            "coefficient_of_variation": normalized_inputs["coefficient_of_variation"]["score"],
+            "effective_chase_count": normalized_inputs["effective_chase_count"]["score"],
+        },
+        _STABILITY_V2_WEIGHTS_PCT,
+    )
+    pack_score = _weighted_average(
+        {
+            "profit_score": profit_score,
+            "safety_score": safety_score,
+            "stability_score": stability_score,
+        },
+        _PACK_SCORE_V2_WEIGHTS_PCT,
+    )
 
     return {
-        "ind_ex_score_v1": ind_ex_score,
-        "score_version": "v1",
-        "score_raw": score_raw,
-        "weights": (w1, w2, w3),
-        "prob_profit_component": pp_component,
-        "stability_component": stab_component,
-        "cv_used": cv_used,
-        "cv_max": float(cv_max),
-        "diversification_component": div_component,
-        "top5_ev_share_used": top5_used if top5_ev_share is not None else None,
+        "score_version": "pack_score_v2_runtime",
+        "normalization_mode": "fixed_anchor_runtime_v2",
+        "pack_score_is_placeholder": False,
+        "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
+        "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
+        "stability_score": round(_clamp(stability_score, 0.0, 100.0), 2),
+        "pack_score": round(_clamp(pack_score, 0.0, 100.0), 2),
+        "weights_pct": {
+            "pack_score": dict(_PACK_SCORE_V2_WEIGHTS_PCT),
+            "profit_score": dict(_PROFIT_V2_WEIGHTS_PCT),
+            "safety_score": dict(_SAFETY_V2_WEIGHTS_PCT),
+            "stability_score": dict(_STABILITY_V2_WEIGHTS_PCT),
+        },
+        "weights_normalized": {
+            "pack_score": _normalize_weights_from_percent(_PACK_SCORE_V2_WEIGHTS_PCT),
+            "profit_score": _normalize_weights_from_percent(_PROFIT_V2_WEIGHTS_PCT),
+            "safety_score": _normalize_weights_from_percent(_SAFETY_V2_WEIGHTS_PCT),
+            "stability_score": _normalize_weights_from_percent(_STABILITY_V2_WEIGHTS_PCT),
+        },
+        "raw_inputs": raw_inputs,
+        "normalized_inputs": {
+            key: {
+                **entry,
+                "score": round(float(entry["score"]), 4),
+            }
+            for key, entry in normalized_inputs.items()
+        },
     }
 
 
@@ -867,7 +1316,7 @@ def compute_all_derived_metrics(
     big_hit_dynamic_mode / big_hit_dynamic_param:
         Dynamic big-hit threshold configuration.
     index_score_weights:
-        (w1, w2, w3) for the inDex Score.  Defaults to (0.40, 0.30, 0.30).
+        Deprecated legacy parameter; kept for call-site compatibility.
     total_pack_ev:
         Optional total simulated pack EV (for EV composition reconciliation).
     hit_ev:
@@ -882,7 +1331,7 @@ def compute_all_derived_metrics(
         ev_composition_metrics (None if total_pack_ev not provided),
         session_metrics (None if session_data not provided),
         packs_to_hit_metrics (None if packs_to_hit_data not provided),
-        index_score.
+        pack_score.
     """
     pack_metrics = compute_pack_decision_metrics(
         values,
@@ -918,12 +1367,11 @@ def compute_all_derived_metrics(
     else:
         pth_metrics = None
 
-    top5 = chase_metrics["top5_ev_share"] if chase_metrics is not None else None
-    idx_score = compute_index_score_v1(
-        prob_profit=pack_metrics["prob_profit"],
-        coefficient_of_variation=pack_metrics["coefficient_of_variation"],
-        top5_ev_share=top5,
-        weights=index_score_weights,
+    _ = index_score_weights
+
+    pack_score_payload = _build_runtime_v2_pack_score_payload(
+        pack_metrics=pack_metrics,
+        chase_metrics=chase_metrics,
     )
 
     return {
@@ -932,7 +1380,7 @@ def compute_all_derived_metrics(
         "ev_composition_metrics": ev_comp_metrics,
         "session_metrics": sess_metrics,
         "packs_to_hit_metrics": pth_metrics,
-        "pack_score": idx_score,
+        "pack_score": pack_score_payload,
     }
 
 
@@ -1002,8 +1450,11 @@ class PackSimulationSummary:
     expected_packs_to_hit: Optional[float]
     median_packs_to_hit: Optional[float]
 
-    # --- Score ---
-    ind_ex_score_v1: Optional[float]
+    # --- Scores ---
+    profit_score: Optional[float]
+    safety_score: Optional[float]
+    stability_score: Optional[float]
+    pack_score: Optional[float]
 
 
 def build_pack_simulation_summary(
@@ -1072,7 +1523,10 @@ def build_pack_simulation_summary(
         prob_no_chase_hit_in_box=sm.get("prob_no_chase_hit_in_box"),
         expected_packs_to_hit=pth.get("expected_packs_to_hit"),
         median_packs_to_hit=pth.get("median_packs_to_hit"),
-        ind_ex_score_v1=idx.get("ind_ex_score_v1"),
+        profit_score=idx.get("profit_score"),
+        safety_score=idx.get("safety_score"),
+        stability_score=idx.get("stability_score"),
+        pack_score=idx.get("pack_score"),
     )
 
 
@@ -1204,17 +1658,75 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
         print(f"  Exp. packs to hit target:   {_fmt_float(pth.get('expected_packs_to_hit'))}")
         print(f"  Median packs to hit target: {_fmt_float(pth.get('median_packs_to_hit'))}")
 
-    # --- inDex Score ---
+    # --- PACK Score ---
     if idx:
         print()
         print(sep)
-        print(f"inDex Score  (version: {idx.get('score_version', 'v1')})")
+        print(f"PACK Score  (version: {idx.get('score_version', 'pack_score_v1')})")
         print(sep)
-        print(f"  Score:                      {_fmt_float(idx.get('ind_ex_score_v1'))} / 100")
+        print(f"  PACK Score:                 {_fmt_float(idx.get('pack_score'))} / 100")
         print(f"  --- Component Breakdown ---")
-        w = idx.get("weights", (0.40, 0.30, 0.30))
-        print(f"  Prob. Profit  (w={w[0]:.2f}):     {_fmt_float(idx.get('prob_profit_component'))}")
-        print(f"  Stability     (w={w[1]:.2f}):     {_fmt_float(idx.get('stability_component'))}  (CV={_fmt_float(idx.get('cv_used'))}, max={_fmt_float(idx.get('cv_max'))})")
-        print(f"  Diversif.     (w={w[2]:.2f}):     {_fmt_float(idx.get('diversification_component'))}  (top5 share={_fmt_pct(idx.get('top5_ev_share_used'))})")
+        weights = idx.get("weights", {}).get("pack_score", {})
+        if not weights:
+            weights = idx.get("weights_normalized", {}).get("pack_score", {})
+        print(
+            f"  Profit Score  (w={_fmt_float(weights.get('profit_score', 0.40), 2)}):    "
+            f"{_fmt_float(idx.get('profit_score'))}"
+        )
+        print(
+            f"  Safety Score  (w={_fmt_float(weights.get('safety_score', 0.30), 2)}):    "
+            f"{_fmt_float(idx.get('safety_score'))}"
+        )
+        print(
+            f"  Stability Score (w={_fmt_float(weights.get('stability_score', 0.30), 2)}): "
+            f"{_fmt_float(idx.get('stability_score'))}"
+        )
+
+        if idx.get("score_version") == "pack_score_v2_runtime":
+            print()
+            print("[PACK_SCORE_V2_RUNTIME]")
+            print(f"  score_version:               {idx.get('score_version')}")
+            print(f"  normalization_mode:          {idx.get('normalization_mode')}")
+            print(f"  pack_score_is_placeholder:   {idx.get('pack_score_is_placeholder')}")
+
+            raw_inputs = idx.get("raw_inputs") or {}
+            normalized_inputs = idx.get("normalized_inputs") or {}
+
+            print("  raw_inputs:")
+            for key in (
+                "prob_profit",
+                "mean_value_to_cost_ratio",
+                "median_value_to_cost_ratio",
+                "expected_loss_when_losing",
+                "median_loss_when_losing",
+                "expected_loss_when_losing_fraction",
+                "median_loss_when_losing_fraction",
+                "p05_shortfall_to_cost",
+                "coefficient_of_variation",
+                "hhi_ev_concentration",
+                "effective_chase_count",
+            ):
+                if key in raw_inputs:
+                    print(f"    {key}: {raw_inputs.get(key)}")
+
+            if normalized_inputs:
+                print("  normalized_inputs:")
+                for key, payload in normalized_inputs.items():
+                    print(
+                        "    "
+                        f"{key}: value={payload.get('value')}, "
+                        f"score={payload.get('score')}, "
+                        f"min={payload.get('min')}, "
+                        f"max={payload.get('max')}, "
+                        f"direction={payload.get('direction')}"
+                    )
+
+            print(
+                f"  component_scores:            profit={idx.get('profit_score')}, "
+                f"safety={idx.get('safety_score')}, stability={idx.get('stability_score')}"
+            )
+            print(f"  final_pack_score:            {idx.get('pack_score')}")
+            print(f"  hhi_ev_concentration:        {raw_inputs.get('hhi_ev_concentration')}")
+            print(f"  effective_chase_count:       {raw_inputs.get('effective_chase_count')}")
 
     print(sep)

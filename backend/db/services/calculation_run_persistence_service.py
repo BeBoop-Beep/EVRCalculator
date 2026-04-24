@@ -48,6 +48,12 @@ def _require_int(value: Any, field_name: str) -> int:
         raise ValueError(f"Missing required field: {field_name}") from exc
 
 
+def _require_bool(value: Any, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"Missing required field: {field_name}")
+
+
 def _require_records_fields(rows: list[dict[str, Any]], required_fields: list[str], context: str) -> None:
     for index, row in enumerate(rows, start=1):
         missing: list[str] = []
@@ -103,6 +109,22 @@ def _coerce_optional_float(value: Any, field_name: str) -> float | None:
         return float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid numeric field: {field_name}") from exc
+
+
+def _require_score_0_100(value: Any, field_name: str) -> float:
+    score = _require_float(value, field_name)
+    if score < 0.0 or score > 100.0:
+        raise ValueError(f"Invalid score field (expected 0-100): {field_name}")
+    return score
+
+
+def _require_nonempty_str(value: Any, field_name: str) -> str:
+    if value is None:
+        raise ValueError(f"Missing required field: {field_name}")
+    text = str(value).strip()
+    if not text:
+        raise ValueError(f"Missing required field: {field_name}")
+    return text
 
 
 def _first_present(source: Mapping[str, Any], field_names: tuple[str, ...]) -> Any:
@@ -295,6 +317,56 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         )
         raise
 
+    pack_score_is_placeholder = _require_bool(
+        pack_score.get("pack_score_is_placeholder"),
+        "derived.pack_score.pack_score_is_placeholder",
+    )
+    pack_score_raw_inputs = pack_score.get("raw_inputs")
+    pack_score_raw_inputs_map = pack_score_raw_inputs if isinstance(pack_score_raw_inputs, Mapping) else {}
+
+    hhi_ev_concentration = _coerce_optional_float(
+        _first_present(chase, ("hhi_ev_concentration",)),
+        "derived.chase_dependency_metrics.hhi_ev_concentration",
+    )
+    if hhi_ev_concentration is None:
+        hhi_ev_concentration = _coerce_optional_float(
+            _first_present(pack_score_raw_inputs_map, ("hhi_ev_concentration",)),
+            "derived.pack_score.raw_inputs.hhi_ev_concentration",
+        )
+
+    effective_chase_count = _coerce_optional_float(
+        _first_present(chase, ("effective_chase_count",)),
+        "derived.chase_dependency_metrics.effective_chase_count",
+    )
+    if effective_chase_count is None:
+        effective_chase_count = _coerce_optional_float(
+            _first_present(pack_score_raw_inputs_map, ("effective_chase_count",)),
+            "derived.pack_score.raw_inputs.effective_chase_count",
+        )
+
+    if pack_score_is_placeholder:
+        canonical_pack_score = None
+        canonical_profit_score = None
+        canonical_safety_score = None
+        canonical_stability_score = None
+    else:
+        canonical_pack_score = _require_score_0_100(
+            pack_score.get("pack_score"),
+            "derived.pack_score.pack_score",
+        )
+        canonical_profit_score = _require_score_0_100(
+            pack_score.get("profit_score"),
+            "derived.pack_score.profit_score",
+        )
+        canonical_safety_score = _require_score_0_100(
+            pack_score.get("safety_score"),
+            "derived.pack_score.safety_score",
+        )
+        canonical_stability_score = _require_score_0_100(
+            pack_score.get("stability_score"),
+            "derived.pack_score.stability_score",
+        )
+
     return {
         "hit_ev": _require_float(ev_comp.get("hit_ev"), "derived.ev_composition_metrics.hit_ev"),
         "non_hit_ev": _require_float(ev_comp.get("non_hit_ev"), "derived.ev_composition_metrics.non_hit_ev"),
@@ -324,19 +396,21 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
             "derived.chase_dependency_metrics.top5_ev_share",
             zero_when_empty=cards_tracked == 0 or total_card_ev <= 0,
         ),
-        "pack_score": _require_float(pack_score.get("ind_ex_score_v1"), "derived.pack_score.ind_ex_score_v1"),
-        "profit_component": _require_float(
-            pack_score.get("prob_profit_component"),
-            "derived.pack_score.prob_profit_component",
+        "hhi_ev_concentration": hhi_ev_concentration,
+        "effective_chase_count": effective_chase_count,
+        "pack_score": canonical_pack_score,
+        "profit_score": canonical_profit_score,
+        "safety_score": canonical_safety_score,
+        "stability_score": canonical_stability_score,
+        "score_version": _require_nonempty_str(
+            _first_present(pack_score, ("score_version",)),
+            "derived.pack_score.score_version",
         ),
-        "stability_component": _require_float(
-            pack_score.get("stability_component"),
-            "derived.pack_score.stability_component",
+        "normalization_mode": _require_nonempty_str(
+            _first_present(pack_score, ("normalization_mode",)),
+            "derived.pack_score.normalization_mode",
         ),
-        "diversification_component": _require_float(
-            pack_score.get("diversification_component"),
-            "derived.pack_score.diversification_component",
-        ),
+        "pack_score_is_placeholder": pack_score_is_placeholder,
     }
 
 

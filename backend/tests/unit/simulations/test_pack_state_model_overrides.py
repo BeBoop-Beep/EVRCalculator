@@ -161,6 +161,18 @@ def test_override_adds_named_state_for_reachable_slot_combination():
     assert named_model["state_outcomes"]["sir_only"] == base_model["state_outcomes"]["sir_only"]
 
 
+@pytest.mark.parametrize(
+    "cfg",
+    [SetPrismaticEvolutionsConfig, SetBlackBoltConfig, SetWhiteFlareConfig],
+)
+def test_pokeball_pattern_token_remains_reachable_in_state_outcomes(cfg):
+    model = resolve_pack_state_model(cfg)
+    assert any(
+        "poke ball pattern" in slot_outcomes.values()
+        for slot_outcomes in model["state_outcomes"].values()
+    )
+
+
 # ---------------------------------------------------------------------------
 # Requirement 4: No manual placeholder probability tables required
 # ---------------------------------------------------------------------------
@@ -396,28 +408,10 @@ def test_black_bolt_and_white_flare_bwr_in_rare_slot():
     ids=["black_bolt", "white_flare"],
 )
 def test_bwr_named_state_probability_includes_forbidden_reverse2_demotions(cfg):
-    """BB/WF BWR state includes conditional reverse_2 demotions under exclusion rules.
-
-    For Black Bolt / White Flare, when rare is BWR, reverse_2 outcomes of
-    illustration rare and special illustration rare are forbidden and demoted
-    to regular reverse.
-    """
+    """BB/WF BWR is a singleton-exclusive hit: any reverse outcomes collapse to baseline."""
     model = resolve_pack_state_model(cfg)
     p_bwr   = cfg.RARE_SLOT_PROBABILITY["black white rare"]
-    p_s1_reg = cfg.REVERSE_SLOT_PROBABILITIES["slot_1"].get("regular reverse", 0.0)
-    p_s1_nonreg = sum(
-        p
-        for rarity, p in cfg.REVERSE_SLOT_PROBABILITIES["slot_1"].items()
-        if rarity != "regular reverse"
-    )
-    p_s2_reg = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("regular reverse", 0.0)
-    p_s2_ir = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("illustration rare", 0.0)
-    p_s2_sir = cfg.REVERSE_SLOT_PROBABILITIES["slot_2"].get("special illustration rare", 0.0)
-
-    expected = p_bwr * (
-        p_s1_reg * (p_s2_reg + p_s2_ir + p_s2_sir)
-        + p_s1_nonreg * (p_s2_ir + p_s2_sir)
-    )
+    expected = p_bwr
     assert pytest.approx(expected, abs=1e-9) == model["state_probabilities"]["black_white_rare_only"]
 
 
@@ -475,8 +469,8 @@ def test_bwr_conditional_exclusion_blocks_forbidden_reverse_2_outcomes(cfg, forb
     [SetBlackBoltConfig, SetWhiteFlareConfig],
     ids=["black_bolt", "white_flare"],
 )
-def test_bwr_does_not_suppress_master_ball_reverse_1_when_slot_prob_allows(cfg):
-    """Guardrail: BWR + master ball in reverse_1 remains reachable if slot probabilities allow it."""
+def test_bwr_singleton_collapses_reverse_1_non_regular_outcomes(cfg):
+    """Guardrail: singleton-exclusive BWR suppresses reverse_1 non-regular outcomes."""
     model = resolve_pack_state_model(cfg)
 
     has_reachable_bwr_master_ball = any(
@@ -486,7 +480,65 @@ def test_bwr_does_not_suppress_master_ball_reverse_1_when_slot_prob_allows(cfg):
         for state_name, slot_outcomes in model["state_outcomes"].items()
     )
 
-    assert has_reachable_bwr_master_ball
+    assert not has_reachable_bwr_master_ball
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [SetBlackBoltConfig, SetWhiteFlareConfig],
+    ids=["black_bolt", "white_flare"],
+)
+@pytest.mark.parametrize(
+    "raw_outcomes",
+    [
+        {"rare": "black white rare", "reverse_1": "poke ball pattern", "reverse_2": "regular reverse"},
+        {"rare": "black white rare", "reverse_1": "regular reverse", "reverse_2": "illustration rare"},
+        {"rare": "black white rare", "reverse_1": "master ball pattern", "reverse_2": "special illustration rare"},
+    ],
+    ids=[
+        "bwr_plus_pokeball",
+        "bwr_plus_ir",
+        "bwr_plus_masterball_plus_sir",
+    ],
+)
+def test_bwr_singleton_coercion_examples_collapse_to_black_white_rare_only(cfg, raw_outcomes):
+    constraints = resolve_pack_state_model(cfg)["constraints"]
+    expected = {
+        "rare": "black white rare",
+        "reverse_1": "regular reverse",
+        "reverse_2": "regular reverse",
+    }
+    assert coerce_slot_outcomes(raw_outcomes, constraints) == expected
+
+
+def test_normal_sv_set_without_singleton_exclusive_hits_is_unchanged():
+    constraints = resolve_pack_state_model(SetPaldeanFatesConfig)["constraints"]
+    raw_outcomes = {
+        "rare": "rare",
+        "reverse_1": "regular reverse",
+        "reverse_2": "special illustration rare",
+    }
+    assert coerce_slot_outcomes(raw_outcomes, constraints) == raw_outcomes
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [SetBlackBoltConfig, SetWhiteFlareConfig],
+    ids=["black_bolt", "white_flare"],
+)
+def test_special_illustration_rare_behavior_is_unchanged_for_non_bwr_paths(cfg):
+    constraints = resolve_pack_state_model(cfg)["constraints"]
+    raw_outcomes = {
+        "rare": "ultra rare",
+        "reverse_1": "regular reverse",
+        "reverse_2": "special illustration rare",
+    }
+    expected = {
+        "rare": "rare",
+        "reverse_1": "regular reverse",
+        "reverse_2": "special illustration rare",
+    }
+    assert coerce_slot_outcomes(raw_outcomes, constraints) == expected
 
 
 @pytest.mark.parametrize(
@@ -753,16 +805,25 @@ def test_debug_export_uses_resolved_override_state(pools):
     rarity_counts = defaultdict(int)
     rarity_values = defaultdict(float)
     logs = []
+    custom_hit = pd.DataFrame(
+        {
+            "Card Name": ["Custom Rare A"],
+            "Price ($)": [15.0],
+            "Rarity": ["custom rare"],
+        }
+    )
+    hit_cards = pd.concat([pools["hit"], custom_hit], ignore_index=True)
+    df = pd.concat([pools["df"], custom_hit], ignore_index=True)
 
     fn = make_simulate_pack_fn_v2(
         common_cards=pools["common"],
         uncommon_cards=pools["uncommon"],
         rare_cards=pools["rare"],
-        hit_cards=pools["hit"],
+        hit_cards=hit_cards,
         reverse_pool=pools["reverse"],
         slots_per_rarity=ForcedOverride.SLOTS_PER_RARITY,
         config=ForcedOverride,
-        df=pools["df"],
+        df=df,
         rarity_pull_counts=rarity_counts,
         rarity_value_totals=rarity_values,
         pack_logs=logs,
@@ -835,7 +896,7 @@ def test_no_conditional_exclusions_key_keeps_expected_baseline_resolution():
     }
 
 
-def test_empty_conditional_exclusions_matches_key_omitted_model_exactly():
+def test_empty_conditional_exclusions_adds_no_delta_to_key_omitted_model():
     class OmittedConditionalRules:
         ERA = "Scarlet and Violet"
         RARE_SLOT_PROBABILITY = {"rare": 0.6, "double rare": 0.4}
@@ -869,7 +930,10 @@ def test_empty_conditional_exclusions_matches_key_omitted_model_exactly():
         if k != "conditional_slot_exclusions"
     }
     assert empty_constraints == omitted_constraints
-    assert empty_model["constraints"].get("conditional_slot_exclusions", []) == []
+    assert (
+        empty_model["constraints"].get("conditional_slot_exclusions", [])
+        == omitted_model["constraints"].get("conditional_slot_exclusions", [])
+    )
 
 
 def test_prismatic_has_no_conditional_exclusions_and_named_state_behaviour_unchanged():

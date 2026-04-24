@@ -36,6 +36,11 @@ class BaseSetConfig:
         },
     }
 
+    # Optional per-set hook for excluding specific raw rarities from
+    # chase/hit-derived metrics only. Simulation/state token handling remains
+    # unchanged.
+    CHASE_METRICS_EXCLUDED_RARITIES = frozenset()
+
     @classmethod
     def validate(cls):
         required_attrs = ["SET_NAME", "PULL_RATE_MAPPING", "SEALED_DETAILS_URL"]

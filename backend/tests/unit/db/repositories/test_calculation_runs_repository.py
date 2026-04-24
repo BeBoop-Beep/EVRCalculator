@@ -79,7 +79,7 @@ def test_create_simulation_percentiles_raises_for_missing_value(mock_insert_requ
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
-def test_create_simulation_derived_metrics_persists_all_required_fields_non_null(mock_insert_required_payload):
+def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores(mock_insert_required_payload):
     mock_insert_required_payload.return_value = {"id": "derived-1"}
 
     derived_payload = {
@@ -92,10 +92,13 @@ def test_create_simulation_derived_metrics_persists_all_required_fields_non_null
         "top1_ev_share": 0.22,
         "top3_ev_share": 0.47,
         "top5_ev_share": 0.63,
-        "pack_score": 72.4,
-        "profit_component": 0.71,
-        "stability_component": 0.65,
-        "diversification_component": 0.37,
+        "pack_score": None,
+        "profit_score": None,
+        "safety_score": None,
+        "stability_score": None,
+        "score_version": "pack_score_v1_singleton_placeholder",
+        "normalization_mode": "singleton_placeholder",
+        "pack_score_is_placeholder": True,
     }
 
     rows = create_simulation_derived_metrics("run-1", derived_payload)
@@ -113,12 +116,27 @@ def test_create_simulation_derived_metrics_persists_all_required_fields_non_null
         "top1_ev_share": 0.22,
         "top3_ev_share": 0.47,
         "top5_ev_share": 0.63,
-        "pack_score": 72.4,
-        "profit_component": 0.71,
-        "stability_component": 0.65,
-        "diversification_component": 0.37,
+        "hhi_ev_concentration": None,
+        "effective_chase_count": None,
+        "pack_score": None,
+        "profit_score": None,
+        "safety_score": None,
+        "stability_score": None,
+        "score_version": "pack_score_v1_singleton_placeholder",
+        "normalization_mode": "singleton_placeholder",
+        "pack_score_is_placeholder": True,
+    }
+    nullable_score_fields = {
+        "pack_score",
+        "profit_score",
+        "safety_score",
+        "stability_score",
+        "hhi_ev_concentration",
+        "effective_chase_count",
     }
     for field, value in inserted_payload.items():
+        if field in nullable_score_fields:
+            continue
         assert value is not None, f"Expected non-null value for {field}"
 
 
@@ -134,16 +152,53 @@ def test_create_simulation_derived_metrics_raises_when_required_field_missing(mo
         "top1_ev_share": 0.22,
         "top3_ev_share": 0.47,
         # top5_ev_share missing on purpose
-        "pack_score": 72.4,
-        "profit_component": 0.71,
-        "stability_component": 0.65,
-        "diversification_component": 0.37,
+        "pack_score": None,
+        "profit_score": None,
+        "safety_score": None,
+        "stability_score": None,
+        "score_version": "pack_score_v1_singleton_placeholder",
+        "normalization_mode": "singleton_placeholder",
+        "pack_score_is_placeholder": True,
     }
 
     with pytest.raises(ValueError, match="simulation_derived_metrics: top5_ev_share"):
         create_simulation_derived_metrics("run-1", derived_payload)
 
     mock_insert_required_payload.assert_not_called()
+
+
+@patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
+def test_create_simulation_derived_metrics_persists_real_scores_when_present(mock_insert_required_payload):
+    mock_insert_required_payload.return_value = {"id": "derived-1"}
+
+    rows = create_simulation_derived_metrics(
+        "run-1",
+        {
+            "hit_ev": 6.16,
+            "non_hit_ev": 1.02,
+            "hit_ev_share": 0.858,
+            "hit_cards_tracked": 208,
+            "cards_tracked": 600,
+            "total_card_ev": 7.18,
+            "top1_ev_share": 0.22,
+            "top3_ev_share": 0.47,
+            "top5_ev_share": 0.63,
+            "pack_score": 72.4,
+            "profit_score": 71.0,
+            "safety_score": 37.0,
+            "stability_score": 65.0,
+            "score_version": "pack_score_v1",
+            "normalization_mode": "cross_set_minmax",
+            "pack_score_is_placeholder": False,
+        },
+    )
+
+    assert rows == [{"id": "derived-1"}]
+    inserted_payload = mock_insert_required_payload.call_args.args[1]
+    assert inserted_payload["pack_score"] == 72.4
+    assert inserted_payload["profit_score"] == 71.0
+    assert inserted_payload["safety_score"] == 37.0
+    assert inserted_payload["stability_score"] == 65.0
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
@@ -235,3 +290,8 @@ def test_get_latest_run_snapshot_for_target_includes_explicit_derived_and_compar
 @patch("backend.db.repositories.calculation_runs_repository._select_rows_with_candidates", return_value=[])
 def test_get_latest_run_snapshot_for_target_returns_none_when_no_runs_exist(_mock_select_rows):
     assert get_latest_run_snapshot_for_target("set", "missing") is None
+
+
+def test_derived_metric_fields_include_pack_score_v2_concentration_fields():
+    assert "hhi_ev_concentration" in DERIVED_METRIC_FIELDS
+    assert "effective_chase_count" in DERIVED_METRIC_FIELDS

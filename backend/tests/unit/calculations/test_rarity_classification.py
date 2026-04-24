@@ -45,6 +45,11 @@ class MockScarletVioletConfig:
         'poke ball pattern': 'hits',
         'master ball pattern': 'hits',
     })
+    CHASE_METRICS_EXCLUDED_RARITIES = set()
+
+
+class MockScarletVioletExcludedPokeBallConfig(MockScarletVioletConfig):
+    CHASE_METRICS_EXCLUDED_RARITIES = {"poke ball pattern"}
 
 
 class MockPlatinumConfig:
@@ -321,3 +326,24 @@ class TestFilterCardEvByHits:
         # In a config without it, it's not found → assumed non-hit
         hit_none, non_hit_none = filter_card_ev_by_hits(contribs, df, NoSpecialsConfig())
         assert 'Poke Ball Pattern' in non_hit_none
+
+    def test_excluded_pokeball_pattern_is_omitted_from_hit_pool_only(self):
+        df = pd.DataFrame(
+            {
+                "Card Name": ["Poke Ball Pattern A", "Master Ball Pattern A", "Ultra A"],
+                "Rarity": ["poke ball pattern", "master ball pattern", "ultra rare"],
+                "Card Number": ["001", "002", "003"],
+            }
+        )
+        contribs = {"001": 1.0, "002": 2.0, "003": 3.0}
+
+        hit, non_hit = filter_card_ev_by_hits(
+            contribs,
+            df,
+            MockScarletVioletExcludedPokeBallConfig(),
+        )
+
+        assert "001" not in hit
+        assert "001" in non_hit
+        assert "002" in hit
+        assert "003" in hit

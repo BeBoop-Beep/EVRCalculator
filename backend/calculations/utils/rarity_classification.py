@@ -134,6 +134,20 @@ def is_hit_row(row: pd.Series, config) -> bool:
     return is_hit_rarity(row.get("Rarity", ""), config)
 
 
+def get_chase_metrics_excluded_rarities(config) -> set[str]:
+    """Return normalized raw rarities excluded from chase/hit-derived metrics."""
+    configured = getattr(config, "CHASE_METRICS_EXCLUDED_RARITIES", set())
+    if configured is None:
+        return set()
+    return {normalize_rarity_string(rarity) for rarity in configured}
+
+
+def is_excluded_from_chase_metrics(rarity_raw: str, config) -> bool:
+    """Check if a raw rarity should be excluded from hit/chase-derived metrics."""
+    normalized = normalize_rarity_string(rarity_raw)
+    return normalized in get_chase_metrics_excluded_rarities(config)
+
+
 def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
     """Filter card EV contributions into hit and non-hit pools.
 
@@ -192,10 +206,12 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
                 "Using first matching row for hit classification."
             )
         first_rows_by_card_number = df_indexed.groupby("_card_key", sort=False).first()
-        hit_status_by_card_number = {
-            str(card_key): bool(is_hit_row(row, config))
-            for card_key, row in first_rows_by_card_number.iterrows()
-        }
+        hit_status_by_card_number = {}
+        for card_key, row in first_rows_by_card_number.iterrows():
+            is_hit = bool(is_hit_row(row, config))
+            if is_hit and is_excluded_from_chase_metrics(row.get("Rarity", ""), config):
+                is_hit = False
+            hit_status_by_card_number[str(card_key)] = is_hit
     else:
         # Legacy: build name-based index
         print(
@@ -207,7 +223,10 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
         hit_status_by_name = {}
         for normalized_name, (_, row) in zip(name_col, df.iterrows()):
             if normalized_name not in hit_status_by_name:
-                hit_status_by_name[normalized_name] = bool(is_hit_row(row, config))
+                is_hit = bool(is_hit_row(row, config))
+                if is_hit and is_excluded_from_chase_metrics(row.get("Rarity", ""), config):
+                    is_hit = False
+                hit_status_by_name[normalized_name] = is_hit
 
     for card_key, ev_value in card_ev_contributions.items():
         if float(ev_value) <= 0.0:

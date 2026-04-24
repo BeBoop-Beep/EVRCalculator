@@ -3,6 +3,7 @@ import pytest
 from types import MappingProxyType
 from unittest import mock
 
+from backend.calculations.evr.derived_metrics import compute_chase_dependency_metrics
 from backend.calculations.packCalcsRefractored.packCalculationOrchestrator import (
     PackCalculationOrchestrator,
 )
@@ -30,9 +31,27 @@ class MockTestConfig:
 
     GOD_PACK_CONFIG = {'enabled': False}
     DEMI_GOD_PACK_CONFIG = {'enabled': False}
+    CHASE_METRICS_EXCLUDED_RARITIES = set()
 
     def get_rarity_pack_multiplier(self):
         return {'common': 1, 'uncommon': 1}
+
+
+class MockPatternExcludedConfig(MockTestConfig):
+    RARITY_MAPPING = MappingProxyType(
+        {
+            'common': 'common',
+            'rare': 'rare',
+            'ultra rare': 'hits',
+            'poke ball pattern': 'hits',
+            'master ball pattern': 'hits',
+        }
+    )
+    CHASE_METRICS_EXCLUDED_RARITIES = {"poke ball pattern"}
+
+
+class MockPatternIncludedConfig(MockPatternExcludedConfig):
+    CHASE_METRICS_EXCLUDED_RARITIES = set()
 
 
 def test_build_card_ev_contributions_uses_real_ev_column_and_groups_duplicates():
@@ -193,4 +212,53 @@ def test_build_manual_summary_data_prefers_canonical_pattern_keys_and_derives_to
 # testing of its components (rarity_classification.py utilities and derived
 # metrics). Unit tests of this method require complex mocking of the orchestrator
 # class hierarchy and don't add value beyond those component tests.
+
+
+def test_hit_pool_excludes_pokeball_keeps_masterball_and_preserves_total_card_ev():
+    orchestrator = PackCalculationOrchestrator(MockPatternExcludedConfig())
+    df = pd.DataFrame(
+        {
+            "Card Number": ["001", "002", "003", "004"],
+            "Card Name": ["Poke A", "Master A", "Ultra A", "Common A"],
+            "Rarity": ["poke ball pattern", "master ball pattern", "ultra rare", "common"],
+            "EV": [5.0, 9.0, 3.0, 1.0],
+        }
+    )
+
+    split = orchestrator.build_hit_and_non_hit_ev_contributions(df)
+
+    assert split["hit_ev_contributions"] == {"002": 9.0, "003": 3.0}
+    assert split["non_hit_ev_contributions"] == {"001": 5.0, "004": 1.0}
+    assert split["hit_ev"] == pytest.approx(12.0)
+    assert split["total_card_ev"] == pytest.approx(18.0)
+    assert len(split["hit_ev_contributions"]) == 2
+
+
+def test_excluding_pokeball_changes_chase_inputs_and_hhi_effective_count():
+    df = pd.DataFrame(
+        {
+            "Card Number": ["001", "002", "003"],
+            "Card Name": ["Poke A", "Master A", "Ultra A"],
+            "Rarity": ["poke ball pattern", "master ball pattern", "ultra rare"],
+            "EV": [5.0, 9.0, 3.0],
+        }
+    )
+
+    include_split = PackCalculationOrchestrator(MockPatternIncludedConfig()).build_hit_and_non_hit_ev_contributions(df)
+    exclude_split = PackCalculationOrchestrator(MockPatternExcludedConfig()).build_hit_and_non_hit_ev_contributions(df)
+
+    include_chase = compute_chase_dependency_metrics(include_split["hit_ev_contributions"])
+    exclude_chase = compute_chase_dependency_metrics(exclude_split["hit_ev_contributions"])
+
+    # With poke ball included: shares [9/17, 5/17, 3/17] => HHI = 115/289
+    assert include_chase["hhi_ev_concentration"] == pytest.approx(115.0 / 289.0)
+
+    # With poke ball excluded: shares [9/12, 3/12] => HHI = 0.625
+    assert exclude_chase["hhi_ev_concentration"] == pytest.approx(0.625)
+    assert exclude_chase["effective_chase_count"] == pytest.approx(1.0 / 0.625)
+
+    # Exclusion narrows chase input set and changes concentration metrics.
+    assert set(include_split["hit_ev_contributions"].keys()) == {"001", "002", "003"}
+    assert set(exclude_split["hit_ev_contributions"].keys()) == {"002", "003"}
+    assert include_chase["hhi_ev_concentration"] != exclude_chase["hhi_ev_concentration"]
 

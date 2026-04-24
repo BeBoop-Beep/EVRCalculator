@@ -19,10 +19,15 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "top1_ev_share",
     "top3_ev_share",
     "top5_ev_share",
+    "hhi_ev_concentration",
+    "effective_chase_count",
     "pack_score",
-    "profit_component",
-    "stability_component",
-    "diversification_component",
+    "profit_score",
+    "safety_score",
+    "stability_score",
+    "score_version",
+    "normalization_mode",
+    "pack_score_is_placeholder",
 ]
 
 COMPARISON_METRIC_FIELDS: List[str] = [
@@ -185,6 +190,21 @@ def _require_int(value: Any, field_name: str) -> int:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Missing required field: {field_name}") from exc
+
+
+def _require_non_empty_str(value: Any, field_name: str) -> str:
+    if value is None:
+        raise ValueError(f"Missing required field: {field_name}")
+    text = str(value).strip()
+    if not text:
+        raise ValueError(f"Missing required field: {field_name}")
+    return text
+
+
+def _require_bool(value: Any, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"Missing required field: {field_name}")
 
 
 def get_or_create_calculation_config(config_hash: str, config_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -585,10 +605,9 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
             "top1_ev_share",
             "top3_ev_share",
             "top5_ev_share",
-            "pack_score",
-            "profit_component",
-            "stability_component",
-            "diversification_component",
+            "score_version",
+            "normalization_mode",
+            "pack_score_is_placeholder",
         ],
         "simulation_derived_metrics",
     )
@@ -604,12 +623,15 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
         "top1_ev_share": _require_float(derived.get("top1_ev_share"), "top1_ev_share"),
         "top3_ev_share": _require_float(derived.get("top3_ev_share"), "top3_ev_share"),
         "top5_ev_share": _require_float(derived.get("top5_ev_share"), "top5_ev_share"),
-        "pack_score": _require_float(derived.get("pack_score"), "pack_score"),
-        "profit_component": _require_float(derived.get("profit_component"), "profit_component"),
-        "stability_component": _require_float(derived.get("stability_component"), "stability_component"),
-        "diversification_component": _require_float(
-            derived.get("diversification_component"), "diversification_component"
-        ),
+        "hhi_ev_concentration": _coerce_optional_float(derived.get("hhi_ev_concentration")),
+        "effective_chase_count": _coerce_optional_float(derived.get("effective_chase_count")),
+        "pack_score": _coerce_optional_float(derived.get("pack_score")),
+        "profit_score": _coerce_optional_float(derived.get("profit_score")),
+        "safety_score": _coerce_optional_float(derived.get("safety_score")),
+        "stability_score": _coerce_optional_float(derived.get("stability_score")),
+        "score_version": _require_non_empty_str(derived.get("score_version"), "score_version"),
+        "normalization_mode": _require_non_empty_str(derived.get("normalization_mode"), "normalization_mode"),
+        "pack_score_is_placeholder": _require_bool(derived.get("pack_score_is_placeholder"), "pack_score_is_placeholder"),
     }
 
     inserted = _insert_required_payload(

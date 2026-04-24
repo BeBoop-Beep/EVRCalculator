@@ -107,6 +107,8 @@ class SetPrismaticEvolutionsConfig(BaseSetConfig):
         }
     }
 
+    CHASE_METRICS_EXCLUDED_RARITIES = {"poke ball pattern"}
+
     @classmethod
     def get_pack_state_overrides(cls):
         return get_prismatic_evolutions_pack_state_overrides()

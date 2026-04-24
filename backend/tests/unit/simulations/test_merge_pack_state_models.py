@@ -58,6 +58,7 @@ def test_merge_pack_state_models_merges_constraints_with_set_union_for_hit_categ
         "constraints": {
             "exclusive_hits": {"mega hyper rare"},
             "bonus_hits": {"master ball pattern"},
+            "singleton_exclusive_hits": {"black white rare"},
             "max_major_hits": 3,
         }
     }
@@ -65,6 +66,7 @@ def test_merge_pack_state_models_merges_constraints_with_set_union_for_hit_categ
     merged = merge_pack_state_models(BASE_MODEL, overrides)
     assert "mega hyper rare" in merged["constraints"]["exclusive_hits"]
     assert "master ball pattern" in merged["constraints"]["bonus_hits"]
+    assert "black white rare" in merged["constraints"]["singleton_exclusive_hits"]
     assert merged["constraints"]["max_major_hits"] == 3
 
 

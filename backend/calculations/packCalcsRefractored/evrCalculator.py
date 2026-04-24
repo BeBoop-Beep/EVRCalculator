@@ -83,12 +83,24 @@ class PackEVCalculator(PackEVInitializer):
   
     @staticmethod
     def _calculate_god_packs_ev_contributions(strategy_config, df, config):
-        if not strategy_config.get("enabled", False):
-            return 0.0
-
-        pull_rate = strategy_config.get("pull_rate", 0)
+        enabled = bool(strategy_config.get("enabled", False))
+        pull_rate = float(strategy_config.get("pull_rate", 0) or 0.0)
         strategy = strategy_config.get("strategy", {})
         strategy_type = strategy.get("type")
+        rules = strategy.get("rules", {}) if isinstance(strategy, dict) else {}
+        rarity_rules_payload = rules.get("rarities") if isinstance(rules, dict) else None
+        debug_print(
+            "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+            f"set_name={getattr(config, 'SET_NAME', '<unknown>')} "
+            f"enabled={enabled} "
+            f"pull_rate={pull_rate} "
+            f"strategy_type={strategy_type} "
+            f"rules_rarities={rarity_rules_payload}"
+        )
+
+        if not enabled:
+            debug_print("[CALC_POOL_DEBUG] [GOD_PACK_TRACE] branch_exit reason=disabled_config return=0.0")
+            return 0.0
 
         if strategy_type == "fixed":
             def _resolved_total(card_specs, context_label):
@@ -140,7 +152,19 @@ class PackEVCalculator(PackEVInitializer):
                     rarity_normalized = rarity.strip().lower()
                     pool = df[df["Rarity"].str.lower().str.strip() == rarity_normalized]
                     pool_size = len(pool)
+                    debug_print(
+                        "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                        f"rarity={rarity_normalized} "
+                        f"configured_count={sample_count} "
+                        f"replacement={'with_replacement' if use_replacement else 'without_replacement'} "
+                        f"candidate_rows={pool_size}"
+                    )
                     if not use_replacement and sample_count > pool_size:
+                        debug_print(
+                            "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                            f"branch_exit reason=insufficient_pool rarity={rarity_normalized} "
+                            f"requested={sample_count} available={pool_size}"
+                        )
                         raise ValueError(
                             f"Cannot sample {sample_count} unique cards from '{rarity_normalized}' pool of size {pool_size}. "
                             f"Requested count exceeds available cards without replacement."
@@ -157,8 +181,19 @@ class PackEVCalculator(PackEVInitializer):
                     print(f"  {rarity_normalized} × {sample_count} → avg ${avg_price:.2f} → subtotal ${subtotal:.2f} {replacement_label}")
                 adjusted_ev = pull_rate * pack_value
                 print(f"God Pack Value: ${pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
+                debug_print(
+                    "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                    f"branch_return random_nonzero={adjusted_ev > 0.0} "
+                    f"pack_value={pack_value} adjusted_ev={adjusted_ev}"
+                )
                 return adjusted_ev
+            debug_print("[CALC_POOL_DEBUG] [GOD_PACK_TRACE] branch_exit reason=missing_or_invalid_random_rarity_rules return=0.0")
 
+        else:
+            debug_print(
+                "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                f"branch_exit reason=unsupported_strategy_type strategy_type={strategy_type} return=0.0"
+            )
         return 0.0
 
     def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, pattern_key=None):

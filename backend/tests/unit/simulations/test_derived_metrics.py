@@ -12,7 +12,7 @@ Test categories
 5.  chase dependency — known EV contribution maps
 6.  session simulation metrics — deterministic toy pack function
 7.  packs-to-hit — deterministic toy scenarios
-8.  inDex Score — bounded 0-100, correct direction
+8.  PACK Score — bounded 0-100, correct direction
 9.  score component breakdown present and interpretable
 10. compute_all_derived_metrics integration path
 11. PackSimulationSummary dataclass construction
@@ -22,17 +22,22 @@ from __future__ import annotations
 
 import math
 from typing import List, Optional
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
 from backend.calculations.evr.derived_metrics import (
+    _RUNTIME_V2_ANCHORS,
+    _compute_effective_chase_count,
+    _compute_hhi_from_ev_contributions,
+    _normalize_fixed_anchor_0_100,
     PackSimulationSummary,
     build_pack_simulation_summary,
     compute_all_derived_metrics,
     compute_chase_dependency_metrics,
     compute_downside_metrics,
-    compute_index_score_v1,
+    compute_pack_scores_for_set_records,
     compute_pack_decision_metrics,
     compute_probability_metrics,
     compute_volatility_metrics,
@@ -288,6 +293,8 @@ class TestChaseDependencyMetrics:
         assert result["top1_ev_share"] is None
         assert result["top3_ev_share"] is None
         assert result["top5_ev_share"] is None
+        assert result["hhi_ev_concentration"] is None
+        assert result["effective_chase_count"] is None
 
     def test_empty_contributions(self):
         result = compute_chase_dependency_metrics({})
@@ -329,6 +336,18 @@ class TestChaseDependencyMetrics:
         result = compute_chase_dependency_metrics(contribs)
         # total_ev capped at 10.0 (negative clamped to 0)
         assert result["top1_ev_share"] == pytest.approx(1.0)
+
+    def test_hhi_and_effective_chase_count_computed_from_full_distribution(self):
+        contribs = {"a": 4.0, "b": 3.0, "c": 2.0, "d": 1.0}
+        result = compute_chase_dependency_metrics(contribs)
+        # shares: [0.4, 0.3, 0.2, 0.1] => HHI = 0.16 + 0.09 + 0.04 + 0.01 = 0.30
+        assert result["hhi_ev_concentration"] == pytest.approx(0.30)
+        assert result["effective_chase_count"] == pytest.approx(1.0 / 0.30)
+
+    def test_hhi_helper_and_effective_count_math(self):
+        hhi = _compute_hhi_from_ev_contributions([4.0, 3.0, 2.0, 1.0])
+        assert hhi == pytest.approx(0.30)
+        assert _compute_effective_chase_count(hhi) == pytest.approx(1.0 / 0.30)
 
 
 # ---------------------------------------------------------------------------
@@ -560,73 +579,88 @@ class TestPacksToHitMetrics:
 
 
 # ---------------------------------------------------------------------------
-# 8. inDex Score — bounded 0-100, correct direction
+# 8. PACK Score — bounded 0-100, correct direction
 # ---------------------------------------------------------------------------
 
-class TestIndexScoreV1:
-    def test_score_bounded_0_to_100(self):
-        score = compute_index_score_v1(
-            prob_profit=0.7, coefficient_of_variation=1.2, top5_ev_share=0.5
+class TestPackScores:
+    def _score_pair(self):
+        return compute_pack_scores_for_set_records(
+            [
+                {
+                    "prob_profit": 0.80,
+                    "ev_to_cost_ratio": 1.30,
+                    "expected_loss_when_losing": 1.00,
+                    "median_loss_when_losing": 0.90,
+                    "coefficient_of_variation": 0.80,
+                    "top5_ev_share": 0.40,
+                },
+                {
+                    "prob_profit": 0.20,
+                    "ev_to_cost_ratio": 0.70,
+                    "expected_loss_when_losing": 3.00,
+                    "median_loss_when_losing": 2.50,
+                    "coefficient_of_variation": 2.20,
+                    "top5_ev_share": 0.90,
+                },
+            ]
         )
-        assert 0.0 <= score["ind_ex_score_v1"] <= 100.0
 
-    def test_perfect_inputs_approach_100(self):
-        score = compute_index_score_v1(
-            prob_profit=1.0, coefficient_of_variation=0.0, top5_ev_share=0.0
+    def test_all_scores_bounded_0_to_100(self):
+        scored = self._score_pair()
+        for row in scored:
+            assert 0.0 <= row["profit_score"] <= 100.0
+            assert 0.0 <= row["safety_score"] <= 100.0
+            assert 0.0 <= row["stability_score"] <= 100.0
+            assert 0.0 <= row["pack_score"] <= 100.0
+
+    def test_better_profit_inputs_improve_profit_score(self):
+        better, worse = self._score_pair()
+        assert better["profit_score"] > worse["profit_score"]
+
+    def test_worse_downside_inputs_reduce_safety_score(self):
+        better, worse = self._score_pair()
+        assert better["safety_score"] > worse["safety_score"]
+
+    def test_higher_cv_and_top5_reduce_stability_score(self):
+        better, worse = self._score_pair()
+        assert better["stability_score"] > worse["stability_score"]
+
+    def test_pack_score_moves_with_components(self):
+        better, worse = self._score_pair()
+        assert better["pack_score"] > worse["pack_score"]
+
+    def test_zero_range_falls_back_to_neutral(self):
+        scored = compute_pack_scores_for_set_records(
+            [
+                {
+                    "prob_profit": 0.5,
+                    "ev_to_cost_ratio": 1.0,
+                    "expected_loss_when_losing": 2.0,
+                    "median_loss_when_losing": 2.0,
+                    "coefficient_of_variation": 1.5,
+                    "top5_ev_share": 0.6,
+                },
+                {
+                    "prob_profit": 0.5,
+                    "ev_to_cost_ratio": 1.0,
+                    "expected_loss_when_losing": 2.0,
+                    "median_loss_when_losing": 2.0,
+                    "coefficient_of_variation": 1.5,
+                    "top5_ev_share": 0.6,
+                },
+            ]
         )
-        assert score["ind_ex_score_v1"] == pytest.approx(100.0)
+        assert scored[0]["profit_score"] == pytest.approx(50.0)
+        assert scored[0]["safety_score"] == pytest.approx(50.0)
+        assert scored[0]["stability_score"] == pytest.approx(50.0)
+        assert scored[0]["pack_score"] == pytest.approx(50.0)
 
-    def test_worst_inputs_approach_0(self):
-        # prob_profit=0, extreme CV, top5=100%
-        score = compute_index_score_v1(
-            prob_profit=0.0, coefficient_of_variation=100.0, top5_ev_share=1.0
-        )
-        assert score["ind_ex_score_v1"] == pytest.approx(0.0)
-
-    def test_higher_prob_profit_increases_score(self):
-        low = compute_index_score_v1(prob_profit=0.1, coefficient_of_variation=1.0, top5_ev_share=0.5)
-        high = compute_index_score_v1(prob_profit=0.9, coefficient_of_variation=1.0, top5_ev_share=0.5)
-        assert high["ind_ex_score_v1"] > low["ind_ex_score_v1"]
-
-    def test_lower_cv_increases_score(self):
-        volatile = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=4.0, top5_ev_share=0.5)
-        stable = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=0.5, top5_ev_share=0.5)
-        assert stable["ind_ex_score_v1"] > volatile["ind_ex_score_v1"]
-
-    def test_lower_chase_dependency_increases_score(self):
-        concentrated = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=1.0, top5_ev_share=0.9)
-        diverse = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=1.0, top5_ev_share=0.1)
-        assert diverse["ind_ex_score_v1"] > concentrated["ind_ex_score_v1"]
-
-    def test_weights_must_sum_to_1(self):
-        with pytest.raises(ValueError, match="Weights must sum to 1.0"):
-            compute_index_score_v1(
-                prob_profit=0.5, coefficient_of_variation=1.0, top5_ev_share=0.5,
-                weights=(0.5, 0.5, 0.5),  # sums to 1.5
-            )
-
-    def test_none_cv_falls_back_to_neutral(self):
-        # None CV → stability = 0.5 (documented neutral fallback)
-        score = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=None, top5_ev_share=0.5)
-        assert score["ind_ex_score_v1"] is not None
-        assert score["cv_used"] is None
-
-    def test_none_top5_falls_back_to_neutral(self):
-        score = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=1.0, top5_ev_share=None)
-        assert score["ind_ex_score_v1"] is not None
-        assert score["top5_ev_share_used"] is None
-
-    def test_score_version_is_v1(self):
-        score = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=1.0, top5_ev_share=0.5)
-        assert score["score_version"] == "v1"
-
-    def test_extreme_cv_clamped_not_unbounded(self):
-        # Very high CV must not blow up; stability_component should be 0
-        score_high_cv = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=1000.0, top5_ev_share=0.5)
-        score_mod_cv = compute_index_score_v1(prob_profit=0.5, coefficient_of_variation=5.0, top5_ev_share=0.5)
-        # Both should have the same stability (0) once CV >= CV_MAX
-        assert score_high_cv["stability_component"] == pytest.approx(0.0)
-        assert score_mod_cv["stability_component"] == pytest.approx(0.0)
+    def test_missing_values_fall_back_to_neutral(self):
+        scored = compute_pack_scores_for_set_records([{"prob_profit": 0.6}])[0]
+        assert scored["profit_score"] == pytest.approx(50.0)
+        assert scored["safety_score"] == pytest.approx(50.0)
+        assert scored["stability_score"] == pytest.approx(50.0)
+        assert scored["pack_score"] == pytest.approx(50.0)
 
 
 # ---------------------------------------------------------------------------
@@ -635,48 +669,52 @@ class TestIndexScoreV1:
 
 class TestScoreBreakdown:
     def test_all_component_keys_present(self):
-        result = compute_index_score_v1(
-            prob_profit=0.65, coefficient_of_variation=1.2, top5_ev_share=0.4
-        )
+        result = compute_pack_scores_for_set_records(
+            [
+                {
+                    "prob_profit": 0.65,
+                    "ev_to_cost_ratio": 1.1,
+                    "expected_loss_when_losing": 2.0,
+                    "median_loss_when_losing": 1.8,
+                    "coefficient_of_variation": 1.2,
+                    "top5_ev_share": 0.4,
+                }
+            ]
+        )[0]
         required_keys = {
-            "ind_ex_score_v1",
+            "pack_score",
             "score_version",
-            "score_raw",
+            "profit_score",
+            "safety_score",
+            "stability_score",
             "weights",
-            "prob_profit_component",
-            "stability_component",
-            "cv_used",
-            "cv_max",
-            "diversification_component",
-            "top5_ev_share_used",
+            "normalization",
         }
         assert required_keys.issubset(result.keys())
 
-    def test_components_sum_to_score_raw(self):
-        result = compute_index_score_v1(
-            prob_profit=0.65, coefficient_of_variation=1.2, top5_ev_share=0.4
-        )
-        w1, w2, w3 = result["weights"]
-        expected_raw = (
-            w1 * result["prob_profit_component"]
-            + w2 * result["stability_component"]
-            + w3 * result["diversification_component"]
-        )
-        assert result["score_raw"] == pytest.approx(expected_raw, abs=1e-9)
-
-    def test_score_raw_scales_to_100(self):
-        result = compute_index_score_v1(
-            prob_profit=0.65, coefficient_of_variation=1.2, top5_ev_share=0.4
-        )
-        assert result["ind_ex_score_v1"] == pytest.approx(100.0 * result["score_raw"], abs=0.005)
-
-    def test_custom_weights_respected(self):
-        weights = (0.50, 0.25, 0.25)
-        result = compute_index_score_v1(
-            prob_profit=0.8, coefficient_of_variation=0.5, top5_ev_share=0.3,
-            weights=weights,
-        )
-        assert result["weights"] == weights
+    def test_pack_score_weighted_from_components(self):
+        result = compute_pack_scores_for_set_records(
+            [
+                {
+                    "prob_profit": 0.65,
+                    "ev_to_cost_ratio": 1.2,
+                    "expected_loss_when_losing": 2.2,
+                    "median_loss_when_losing": 2.0,
+                    "coefficient_of_variation": 1.2,
+                    "top5_ev_share": 0.4,
+                },
+                {
+                    "prob_profit": 0.20,
+                    "ev_to_cost_ratio": 0.8,
+                    "expected_loss_when_losing": 3.4,
+                    "median_loss_when_losing": 3.0,
+                    "coefficient_of_variation": 2.0,
+                    "top5_ev_share": 0.8,
+                },
+            ]
+        )[0]
+        expected = 0.40 * result["profit_score"] + 0.30 * result["safety_score"] + 0.30 * result["stability_score"]
+        assert result["pack_score"] == pytest.approx(expected, abs=0.01)
 
 
 # ---------------------------------------------------------------------------
@@ -684,6 +722,14 @@ class TestScoreBreakdown:
 # ---------------------------------------------------------------------------
 
 class TestComputeAllDerivedMetrics:
+    def test_runtime_v2_anchor_contract_updated_for_profit_and_stability(self):
+        assert _RUNTIME_V2_ANCHORS["prob_profit"]["min"] == pytest.approx(0.0)
+        assert _RUNTIME_V2_ANCHORS["prob_profit"]["max"] == pytest.approx(1.0)
+        assert _RUNTIME_V2_ANCHORS["effective_chase_count"]["min"] == pytest.approx(1.0)
+        assert _RUNTIME_V2_ANCHORS["effective_chase_count"]["max"] == pytest.approx(30.0)
+        assert _RUNTIME_V2_ANCHORS["coefficient_of_variation"]["min"] == pytest.approx(0.25)
+        assert _RUNTIME_V2_ANCHORS["coefficient_of_variation"]["max"] == pytest.approx(10.0)
+
     def test_pack_decision_metrics_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert "pack_decision_metrics" in result
@@ -719,43 +765,238 @@ class TestComputeAllDerivedMetrics:
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert result["packs_to_hit_metrics"] is None
 
-    def test_index_score_always_present(self):
+    def test_pack_score_always_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert "pack_score" in result
-        assert result["pack_score"]["score_version"] == "v1"
+        assert result["pack_score"]["score_version"] == "pack_score_v2_runtime"
 
-    def test_index_score_uses_chase_dependency_when_available(self):
+    def test_pack_score_runtime_v2_flags(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        score = result["pack_score"]
+        assert score["normalization_mode"] == "fixed_anchor_runtime_v2"
+        assert score["pack_score_is_placeholder"] is False
+        assert 0.0 <= score["pack_score"] <= 100.0
+
+    def test_pack_score_raw_input_contract_uses_canonical_fields(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        raw = result["pack_score"]["raw_inputs"]
+        assert set(raw.keys()) == {
+            "prob_profit",
+            "mean_value_to_cost_ratio",
+            "median_value_to_cost_ratio",
+            "expected_loss_when_losing",
+            "median_loss_when_losing",
+            "expected_loss_when_losing_fraction",
+            "median_loss_when_losing_fraction",
+            "p05_shortfall_to_cost",
+            "coefficient_of_variation",
+            "hhi_ev_concentration",
+            "effective_chase_count",
+        }
+
+    def test_mean_value_to_cost_ratio_is_mean_over_pack_cost(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        mean_val = result["pack_decision_metrics"]["mean"]
+        assert result["pack_score"]["raw_inputs"]["mean_value_to_cost_ratio"] == pytest.approx(
+            mean_val / PACK_COST
+        )
+
+    def test_median_value_to_cost_ratio_is_median_over_pack_cost(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        median_val = result["pack_decision_metrics"]["median"]
+        assert result["pack_score"]["raw_inputs"]["median_value_to_cost_ratio"] == pytest.approx(
+            median_val / PACK_COST
+        )
+
+    def test_cost_ratios_are_none_when_pack_cost_zero(self):
+        result = compute_all_derived_metrics(TOY_VALUES, 0.0)
+        assert result["pack_score"]["raw_inputs"]["mean_value_to_cost_ratio"] is None
+        assert result["pack_score"]["raw_inputs"]["median_value_to_cost_ratio"] is None
+
+    @patch("backend.calculations.evr.derived_metrics.compute_pack_decision_metrics")
+    def test_cost_ratios_respect_missing_mean_or_median(self, mock_compute_pack_decision_metrics):
+        mock_compute_pack_decision_metrics.return_value = {
+            "pack_cost": PACK_COST,
+            "n_runs": 10,
+            "prob_profit": 0.6,
+            "prob_big_hit_fixed": None,
+            "big_hit_threshold_fixed": None,
+            "prob_big_hit_dynamic": 0.0,
+            "big_hit_threshold_dynamic": 25.0,
+            "big_hit_dynamic_mode": "cost_multiple",
+            "big_hit_dynamic_param": 5.0,
+            "n_losing_runs": 4,
+            "expected_loss_given_loss": 2.5,
+            "median_loss_given_loss": 2.5,
+            "expected_loss_unconditional": 1.0,
+            "tail_value_p05": 1.45,
+            "mean": None,
+            "median": None,
+            "std_dev": 2.5,
+            "coefficient_of_variation": 0.4,
+            "p05": 1.45,
+            "p25": 3.25,
+            "p50": 5.5,
+            "p75": 7.75,
+            "p95": 9.55,
+            "p99": 9.91,
+        }
+
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        assert result["pack_score"]["raw_inputs"]["mean_value_to_cost_ratio"] is None
+        assert result["pack_score"]["raw_inputs"]["median_value_to_cost_ratio"] is None
+
+    def test_safety_shortfall_to_cost_formula(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        p05 = result["pack_decision_metrics"]["tail_value_p05"]
+        expected = max(PACK_COST - p05, 0.0) / PACK_COST
+        assert result["pack_score"]["raw_inputs"]["p05_shortfall_to_cost"] == pytest.approx(expected)
+
+    def test_safety_fraction_formulas(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        raw = result["pack_score"]["raw_inputs"]
+        assert raw["expected_loss_when_losing_fraction"] == pytest.approx(
+            raw["expected_loss_when_losing"] / PACK_COST
+        )
+        assert raw["median_loss_when_losing_fraction"] == pytest.approx(
+            raw["median_loss_when_losing"] / PACK_COST
+        )
+
+    def test_pack_score_uses_chase_dependency_when_available(self):
         contribs = {"big_chase": 9.0, "others": 1.0}
         result_with = compute_all_derived_metrics(
             TOY_VALUES, PACK_COST, card_ev_contributions=contribs
         )
         result_without = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
-        # With high chase dependency, diversification should be lower → different score
-        assert (
-            result_with["pack_score"]["ind_ex_score_v1"]
-            != result_without["pack_score"]["ind_ex_score_v1"]
-        )
+        assert result_with["pack_score"]["raw_inputs"]["effective_chase_count"] is not None
+        assert result_without["pack_score"]["raw_inputs"]["effective_chase_count"] is None
 
-    def test_index_score_uses_actual_top5_share_when_contributions_present(self):
+    def test_pack_score_breakdown_includes_hhi_and_effective_count(self):
         contribs = {"card_a": 6.0, "card_b": 3.0, "card_c": 1.0}
         result = compute_all_derived_metrics(
             TOY_VALUES,
             PACK_COST,
             card_ev_contributions=contribs,
         )
-        top5 = result["chase_dependency_metrics"]["top5_ev_share"]
-        assert top5 == pytest.approx(1.0)
-        assert result["pack_score"]["top5_ev_share_used"] == pytest.approx(top5)
+        hhi = result["chase_dependency_metrics"]["hhi_ev_concentration"]
+        eff = result["chase_dependency_metrics"]["effective_chase_count"]
+        assert result["pack_score"]["raw_inputs"]["hhi_ev_concentration"] == pytest.approx(hhi)
+        assert result["pack_score"]["raw_inputs"]["effective_chase_count"] == pytest.approx(eff)
 
-    def test_diversification_component_not_neutral_when_real_data_supplied(self):
+    def test_stability_component_not_placeholder_when_real_data_supplied(self):
         contribs = {"card_a": 6.0, "card_b": 3.0, "card_c": 1.0}
         result = compute_all_derived_metrics(
             TOY_VALUES,
             PACK_COST,
             card_ev_contributions=contribs,
         )
-        # Neutral fallback is 0.5 only when top5 share is unavailable.
-        assert result["pack_score"]["diversification_component"] != pytest.approx(0.5)
+        assert result["pack_score"]["pack_score_is_placeholder"] is False
+        assert 0.0 <= result["pack_score"]["stability_score"] <= 100.0
+
+    def test_component_and_final_weights_sum_to_100(self):
+        score = compute_all_derived_metrics(TOY_VALUES, PACK_COST)["pack_score"]
+        assert sum(score["weights_pct"]["profit_score"].values()) == pytest.approx(100.0)
+        assert sum(score["weights_pct"]["safety_score"].values()) == pytest.approx(100.0)
+        assert sum(score["weights_pct"]["stability_score"].values()) == pytest.approx(100.0)
+        assert sum(score["weights_pct"]["pack_score"].values()) == pytest.approx(100.0)
+
+    def test_component_weighted_averages_match_reported_scores(self):
+        score = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            card_ev_contributions={"a": 4.0, "b": 3.0, "c": 2.0, "d": 1.0},
+        )["pack_score"]
+        n = score["normalized_inputs"]
+        expected_profit = (
+            40.0 * n["prob_profit"]["score"]
+            + 30.0 * n["mean_value_to_cost_ratio"]["score"]
+            + 30.0 * n["median_value_to_cost_ratio"]["score"]
+        ) / 100.0
+        expected_safety = (
+            34.0 * n["expected_loss_when_losing_fraction"]["score"]
+            + 33.0 * n["median_loss_when_losing_fraction"]["score"]
+            + 33.0 * n["p05_shortfall_to_cost"]["score"]
+        ) / 100.0
+        expected_stability = (
+            50.0 * n["coefficient_of_variation"]["score"]
+            + 50.0 * n["effective_chase_count"]["score"]
+        ) / 100.0
+        expected_pack = (
+            40.0 * expected_profit + 30.0 * expected_safety + 30.0 * expected_stability
+        ) / 100.0
+
+        assert score["profit_score"] == pytest.approx(expected_profit, abs=0.01)
+        assert score["safety_score"] == pytest.approx(expected_safety, abs=0.01)
+        assert score["stability_score"] == pytest.approx(expected_stability, abs=0.01)
+        assert score["pack_score"] == pytest.approx(expected_pack, abs=0.01)
+
+    def test_runtime_normalized_inputs_expose_updated_anchor_bounds(self):
+        score = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            card_ev_contributions={f"card_{i}": 1.0 for i in range(30)},
+        )["pack_score"]
+        normalized = score["normalized_inputs"]
+
+        assert normalized["prob_profit"]["min"] == pytest.approx(0.0)
+        assert normalized["prob_profit"]["max"] == pytest.approx(1.0)
+
+        assert normalized["effective_chase_count"]["min"] == pytest.approx(1.0)
+        assert normalized["effective_chase_count"]["max"] == pytest.approx(30.0)
+
+        assert normalized["coefficient_of_variation"]["min"] == pytest.approx(0.25)
+        assert normalized["coefficient_of_variation"]["max"] == pytest.approx(10.0)
+
+    def test_fixed_anchor_normalization_clamps_extreme_values(self):
+        # higher-is-better clamps below min to 0 and above max to 100
+        assert _normalize_fixed_anchor_0_100(
+            -10.0,
+            min_anchor=0.0,
+            max_anchor=1.0,
+            direction="higher_is_better",
+        ) == pytest.approx(0.0)
+        assert _normalize_fixed_anchor_0_100(
+            10.0,
+            min_anchor=0.0,
+            max_anchor=1.0,
+            direction="higher_is_better",
+        ) == pytest.approx(100.0)
+
+        # lower-is-better clamps below min to 100 and above max to 0
+        assert _normalize_fixed_anchor_0_100(
+            -1.0,
+            min_anchor=0.25,
+            max_anchor=10.0,
+            direction="lower_is_better",
+        ) == pytest.approx(100.0)
+        assert _normalize_fixed_anchor_0_100(
+            25.0,
+            min_anchor=0.25,
+            max_anchor=10.0,
+            direction="lower_is_better",
+        ) == pytest.approx(0.0)
+
+    def test_inverse_normalization_direction_for_safety_and_cv(self):
+        better = compute_all_derived_metrics(TOY_VALUES, PACK_COST)["pack_score"]
+        worse_values = [0.0, 0.0, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0]
+        worse = compute_all_derived_metrics(worse_values, PACK_COST)["pack_score"]
+        assert better["safety_score"] > worse["safety_score"]
+        assert better["stability_score"] > worse["stability_score"]
+
+    def test_pack_cost_non_positive_still_returns_bounded_runtime_scores(self):
+        score = compute_all_derived_metrics(TOY_VALUES, 0.0)["pack_score"]
+        assert score["pack_score_is_placeholder"] is False
+        for key in ("profit_score", "safety_score", "stability_score", "pack_score"):
+            assert 0.0 <= score[key] <= 100.0
+
+    def test_degenerate_anchor_ranges_fail_loudly(self):
+        with pytest.raises(ValueError):
+            _normalize_fixed_anchor_0_100(
+                0.3,
+                min_anchor=1.0,
+                max_anchor=1.0,
+                direction="higher_is_better",
+            )
 
     def test_ev_composition_present_when_supplied(self):
         result = compute_all_derived_metrics(
@@ -816,12 +1057,12 @@ class TestPackSimulationSummary:
 
     def test_score_version_stored(self):
         s = self._build_summary()
-        assert s.score_version == "v1"
+        assert s.score_version == "pack_score_v2_runtime"
 
-    def test_ind_ex_score_v1_stored_and_bounded(self):
+    def test_pack_score_stored_and_bounded(self):
         s = self._build_summary()
-        assert s.ind_ex_score_v1 is not None
-        assert 0.0 <= s.ind_ex_score_v1 <= 100.0
+        assert s.pack_score is not None
+        assert 0.0 <= s.pack_score <= 100.0
 
     def test_chase_shares_stored(self):
         s = self._build_summary()

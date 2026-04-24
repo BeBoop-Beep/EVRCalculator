@@ -171,6 +171,9 @@ def derive_pack_state_probabilities_from_slots(
         "primary_hits": frozenset(normalize_rarity(r) for r in constraints.get("primary_hits", set())),
         "exclusive_hits": frozenset(normalize_rarity(r) for r in constraints.get("exclusive_hits", set())),
         "bonus_hits": frozenset(normalize_rarity(r) for r in constraints.get("bonus_hits", set())),
+        "singleton_exclusive_hits": frozenset(
+            normalize_rarity(r) for r in constraints.get("singleton_exclusive_hits", set())
+        ),
         "max_exclusive_hits": int(constraints.get("max_exclusive_hits", 1)),
         "max_major_hits": int(constraints.get("max_major_hits", 2)),
         "max_non_regular_hits": int(constraints.get("max_non_regular_hits", 2)),

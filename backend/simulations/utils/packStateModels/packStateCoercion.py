@@ -16,6 +16,7 @@ DEFAULT_PACK_CONSTRAINTS = {
     "max_major_hits": 2,
     "max_non_regular_hits": 2,
     "max_exclusive_hits": 1,
+    "singleton_exclusive_hits": set(),
     "conditional_slot_exclusions": [
         {
             "if": {"reverse_2": "special illustration rare"},
@@ -127,6 +128,19 @@ def _set_slot_to_base(outcomes: MutableMapping[str, str], slot_name: str) -> Non
     outcomes[slot_name] = _BASELINE_RARE if slot_name == "rare" else _BASELINE_REVERSE
 
 
+def resolve_singleton_exclusive_hits(constraints: Mapping[str, object]) -> set[str]:
+    configured_singleton_exclusive_hits = {
+        normalize_rarity(rarity)
+        for rarity in constraints.get("singleton_exclusive_hits", set())
+    }
+    default_singleton_exclusive_hits = {
+        normalize_rarity(rarity)
+        for rarity in constraints["exclusive_hits"]
+        if normalize_rarity(rarity) in _SINGLETON_EXCLUSIVE_HITS
+    }
+    return default_singleton_exclusive_hits.union(configured_singleton_exclusive_hits)
+
+
 def contains_incompatible_hits(slot_outcomes: Mapping[str, str]) -> bool:
     # Legacy broad-pair incompatibility is intentionally non-blocking.
     # Compatibility is enforced by explicit conditional_slot_exclusions.
@@ -186,11 +200,7 @@ def coerce_slot_outcomes(
     outcomes = normalize_slot_outcomes(slot_outcomes)
 
     # Rule 1: Hard-exclusive hits force a singleton-style hit pack.
-    singleton_exclusive_hits = {
-        normalize_rarity(rarity)
-        for rarity in constraints["exclusive_hits"]
-        if normalize_rarity(rarity) in _SINGLETON_EXCLUSIVE_HITS
-    }
+    singleton_exclusive_hits = resolve_singleton_exclusive_hits(constraints)
     exclusive_slots = [
         slot_name
         for slot_name, rarity in outcomes.items()

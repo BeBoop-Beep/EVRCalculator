@@ -92,10 +92,13 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "top5_ev_share": "0.63",
         },
         "pack_score": {
-            "ind_ex_score_v1": "72.4",
-            "prob_profit_component": "0.71",
-            "stability_component": "0.65",
-            "diversification_component": "0.37",
+            "pack_score": "72.4",
+            "profit_score": "71.0",
+            "safety_score": "37.0",
+            "stability_score": "65.0",
+            "score_version": "pack_score_v1_singleton_placeholder",
+            "normalization_mode": "singleton_placeholder",
+            "pack_score_is_placeholder": True,
         },
     }
 
@@ -116,10 +119,15 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "top1_ev_share": 0.22,
             "top3_ev_share": 0.47,
             "top5_ev_share": 0.63,
-            "pack_score": 72.4,
-            "profit_component": 0.71,
-            "stability_component": 0.65,
-            "diversification_component": 0.37,
+            "hhi_ev_concentration": None,
+            "effective_chase_count": None,
+            "pack_score": None,
+            "profit_score": None,
+            "safety_score": None,
+            "stability_score": None,
+            "score_version": "pack_score_v1_singleton_placeholder",
+            "normalization_mode": "singleton_placeholder",
+            "pack_score_is_placeholder": True,
         },
     )
 
@@ -150,15 +158,22 @@ def test_persist_simulation_derived_metrics_prefers_primary_chase_aliases_when_b
                 "top5_ev_share": 0.63,
             },
             "pack_score": {
-                "ind_ex_score_v1": 72.4,
-                "prob_profit_component": 0.71,
-                "stability_component": 0.65,
-                "diversification_component": 0.37,
+                "pack_score": 72.4,
+                "profit_score": 71.0,
+                "safety_score": 37.0,
+                "stability_score": 65.0,
+                "score_version": "pack_score_v1_singleton_placeholder",
+                "normalization_mode": "singleton_placeholder",
+                "pack_score_is_placeholder": True,
             },
         },
     )
 
     persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
+    assert persisted_payload["pack_score"] is None
+    assert persisted_payload["profit_score"] is None
+    assert persisted_payload["safety_score"] is None
+    assert persisted_payload["stability_score"] is None
     assert persisted_payload["cards_tracked"] == 700
     assert persisted_payload["total_card_ev"] == 8.18
 
@@ -182,10 +197,13 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "top5_ev_share": 0.63,
         },
         "pack_score": {
-            "ind_ex_score_v1": 72.4,
-            "prob_profit_component": 0.71,
-            "stability_component": 0.65,
-            "diversification_component": 0.37,
+            "pack_score": 72.4,
+            "profit_score": 71.0,
+            "safety_score": 37.0,
+            "stability_score": 65.0,
+            "score_version": "pack_score_v1_singleton_placeholder",
+            "normalization_mode": "singleton_placeholder",
+            "pack_score_is_placeholder": True,
         },
     }
 
@@ -203,10 +221,15 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "top1_ev_share": 0.22,
             "top3_ev_share": 0.47,
             "top5_ev_share": 0.63,
-            "pack_score": 72.4,
-            "profit_component": 0.71,
-            "stability_component": 0.65,
-            "diversification_component": 0.37,
+            "hhi_ev_concentration": None,
+            "effective_chase_count": None,
+            "pack_score": None,
+            "profit_score": None,
+            "safety_score": None,
+            "stability_score": None,
+            "score_version": "pack_score_v1_singleton_placeholder",
+            "normalization_mode": "singleton_placeholder",
+            "pack_score_is_placeholder": True,
         },
     )
 
@@ -282,10 +305,13 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
                 "top5_ev_share": None,
             },
             "pack_score": {
-                "ind_ex_score_v1": 0.0,
-                "prob_profit_component": 0.0,
-                "stability_component": 0.0,
-                "diversification_component": 1.0,
+                "pack_score": 0.0,
+                "profit_score": 0.0,
+                "safety_score": 100.0,
+                "stability_score": 0.0,
+                "score_version": "pack_score_v1_singleton_placeholder",
+                "normalization_mode": "singleton_placeholder",
+                "pack_score_is_placeholder": True,
             },
         },
     )
@@ -303,12 +329,58 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
             "top1_ev_share": 0.0,
             "top3_ev_share": 0.0,
             "top5_ev_share": 0.0,
-            "pack_score": 0.0,
-            "profit_component": 0.0,
-            "stability_component": 0.0,
-            "diversification_component": 1.0,
+            "hhi_ev_concentration": None,
+            "effective_chase_count": None,
+            "pack_score": None,
+            "profit_score": None,
+            "safety_score": None,
+            "stability_score": None,
+            "score_version": "pack_score_v1_singleton_placeholder",
+            "normalization_mode": "singleton_placeholder",
+            "pack_score_is_placeholder": True,
         },
     )
+
+
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
+def test_persist_simulation_derived_metrics_does_not_map_safety_into_diversification(
+    mock_create_simulation_derived_metrics,
+):
+    mock_create_simulation_derived_metrics.return_value = [{"id": "derived-1"}]
+
+    persist_simulation_derived_metrics(
+        run_id="run-1",
+        derived={
+            "ev_composition_metrics": {
+                "total_pack_ev": 7.18,
+                "hit_ev": 6.16,
+                "non_hit_ev": 1.02,
+                "hit_ev_share_of_pack_ev": 0.858,
+                "hit_cards_count": 208,
+            },
+            "chase_dependency_metrics": {
+                "n_cards": 600,
+                "total_ev": 7.18,
+                "top1_ev_share": 0.22,
+                "top3_ev_share": 0.47,
+                "top5_ev_share": 0.63,
+            },
+            "pack_score": {
+                "pack_score": 72.4,
+                "profit_score": 71.0,
+                "safety_score": 12.0,
+                "stability_score": 65.0,
+                "score_version": "pack_score_v1_singleton_placeholder",
+                "normalization_mode": "singleton_placeholder",
+                "pack_score_is_placeholder": True,
+            },
+        },
+    )
+
+    persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
+    assert "safety_score" in persisted_payload
+    assert "stability_score" in persisted_payload
+    assert "diversification_component" not in persisted_payload
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_input_cards")
@@ -450,10 +522,13 @@ def test_persist_simulation_derived_metrics_raises_when_required_source_missing(
             # top5_ev_share missing on purpose
         },
         "pack_score": {
-            "ind_ex_score_v1": 72.4,
-            "prob_profit_component": 0.71,
-            "stability_component": 0.65,
-            "diversification_component": 0.37,
+            "pack_score": 72.4,
+            "profit_score": 71.0,
+            "stability_score": 65.0,
+            "safety_score": 37.0,
+            "score_version": "pack_score_v1_singleton_placeholder",
+            "normalization_mode": "singleton_placeholder",
+            "pack_score_is_placeholder": True,
         },
     }
 
@@ -461,6 +536,186 @@ def test_persist_simulation_derived_metrics_raises_when_required_source_missing(
         persist_simulation_derived_metrics(run_id="run-1", derived=derived)
 
     mock_create_simulation_derived_metrics.assert_not_called()
+
+
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
+def test_persist_simulation_derived_metrics_persists_real_scores_when_not_placeholder(
+    mock_create_simulation_derived_metrics,
+):
+    mock_create_simulation_derived_metrics.return_value = [{"id": "derived-1"}]
+
+    persist_simulation_derived_metrics(
+        run_id="run-1",
+        derived={
+            "ev_composition_metrics": {
+                "total_pack_ev": 7.18,
+                "hit_ev": 6.16,
+                "non_hit_ev": 1.02,
+                "hit_ev_share_of_pack_ev": 0.858,
+                "hit_cards_count": 208,
+            },
+            "chase_dependency_metrics": {
+                "n_cards": 600,
+                "total_ev": 7.18,
+                "top1_ev_share": 0.22,
+                "top3_ev_share": 0.47,
+                "top5_ev_share": 0.63,
+            },
+            "pack_score": {
+                "pack_score": 72.4,
+                "profit_score": 71.0,
+                "safety_score": 37.0,
+                "stability_score": 65.0,
+                "score_version": "pack_score_v1",
+                "normalization_mode": "cross_set_minmax",
+                "pack_score_is_placeholder": False,
+            },
+        },
+    )
+
+    persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
+    assert persisted_payload["pack_score"] == 72.4
+    assert persisted_payload["profit_score"] == 71.0
+    assert persisted_payload["safety_score"] == 37.0
+    assert persisted_payload["stability_score"] == 65.0
+
+
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
+def test_persist_simulation_derived_metrics_rejects_out_of_range_real_scores(
+    mock_create_simulation_derived_metrics,
+):
+    with pytest.raises(ValueError, match="expected 0-100"):
+        persist_simulation_derived_metrics(
+            run_id="run-1",
+            derived={
+                "ev_composition_metrics": {
+                    "total_pack_ev": 7.18,
+                    "hit_ev": 6.16,
+                    "non_hit_ev": 1.02,
+                    "hit_ev_share_of_pack_ev": 0.858,
+                    "hit_cards_count": 208,
+                },
+                "chase_dependency_metrics": {
+                    "n_cards": 600,
+                    "total_ev": 7.18,
+                    "top1_ev_share": 0.22,
+                    "top3_ev_share": 0.47,
+                    "top5_ev_share": 0.63,
+                },
+                "pack_score": {
+                    "pack_score": 101.0,
+                    "profit_score": 71.0,
+                    "safety_score": 37.0,
+                    "stability_score": 65.0,
+                    "score_version": "pack_score_v1",
+                    "normalization_mode": "cross_set_minmax",
+                    "pack_score_is_placeholder": False,
+                },
+            },
+        )
+
+    mock_create_simulation_derived_metrics.assert_not_called()
+
+
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
+def test_persist_simulation_derived_metrics_accepts_runtime_v2_and_ignores_runtime_only_detail_fields(
+    mock_create_simulation_derived_metrics,
+):
+    mock_create_simulation_derived_metrics.return_value = [{"id": "derived-1"}]
+
+    persist_simulation_derived_metrics(
+        run_id="run-1",
+        derived={
+            "ev_composition_metrics": {
+                "total_pack_ev": 7.18,
+                "hit_ev": 6.16,
+                "non_hit_ev": 1.02,
+                "hit_ev_share_of_pack_ev": 0.858,
+                "hit_cards_count": 208,
+            },
+            "chase_dependency_metrics": {
+                "n_cards": 600,
+                "total_ev": 7.18,
+                "top1_ev_share": 0.22,
+                "top3_ev_share": 0.47,
+                "top5_ev_share": 0.63,
+                "hhi_ev_concentration": 0.30,
+                "effective_chase_count": 3.3333,
+            },
+            "pack_score": {
+                "pack_score": 72.4,
+                "profit_score": 71.0,
+                "safety_score": 37.0,
+                "stability_score": 65.0,
+                "score_version": "pack_score_v2_runtime",
+                "normalization_mode": "fixed_anchor_runtime_v2",
+                "pack_score_is_placeholder": False,
+                "weights_pct": {"pack_score": {"profit_score": 40.0}},
+                "weights_normalized": {"pack_score": {"profit_score": 0.4}},
+                "raw_inputs": {"prob_profit": 0.6},
+                "normalized_inputs": {"prob_profit": {"score": 60.0}},
+            },
+        },
+    )
+
+    persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
+    assert persisted_payload["pack_score"] == 72.4
+    assert persisted_payload["profit_score"] == 71.0
+    assert persisted_payload["safety_score"] == 37.0
+    assert persisted_payload["stability_score"] == 65.0
+    assert persisted_payload["score_version"] == "pack_score_v2_runtime"
+    assert persisted_payload["normalization_mode"] == "fixed_anchor_runtime_v2"
+    assert persisted_payload["pack_score_is_placeholder"] is False
+    assert persisted_payload["hhi_ev_concentration"] == pytest.approx(0.30)
+    assert persisted_payload["effective_chase_count"] == pytest.approx(3.3333)
+    assert "raw_inputs" not in persisted_payload
+    assert "normalized_inputs" not in persisted_payload
+    assert "weights_pct" not in persisted_payload
+    assert "weights_normalized" not in persisted_payload
+
+
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
+def test_persist_simulation_derived_metrics_uses_pack_score_raw_inputs_fallback_for_concentration_fields(
+    mock_create_simulation_derived_metrics,
+):
+    mock_create_simulation_derived_metrics.return_value = [{"id": "derived-1"}]
+
+    persist_simulation_derived_metrics(
+        run_id="run-1",
+        derived={
+            "ev_composition_metrics": {
+                "total_pack_ev": 7.18,
+                "hit_ev": 6.16,
+                "non_hit_ev": 1.02,
+                "hit_ev_share_of_pack_ev": 0.858,
+                "hit_cards_count": 208,
+            },
+            "chase_dependency_metrics": {
+                "n_cards": 600,
+                "total_ev": 7.18,
+                "top1_ev_share": 0.22,
+                "top3_ev_share": 0.47,
+                "top5_ev_share": 0.63,
+            },
+            "pack_score": {
+                "pack_score": 72.4,
+                "profit_score": 71.0,
+                "safety_score": 37.0,
+                "stability_score": 65.0,
+                "score_version": "pack_score_v2_runtime",
+                "normalization_mode": "fixed_anchor_runtime_v2",
+                "pack_score_is_placeholder": False,
+                "raw_inputs": {
+                    "hhi_ev_concentration": 0.44,
+                    "effective_chase_count": 2.2727,
+                },
+            },
+        },
+    )
+
+    persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
+    assert persisted_payload["hhi_ev_concentration"] == pytest.approx(0.44)
+    assert persisted_payload["effective_chase_count"] == pytest.approx(2.2727)
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_calculation_price_snapshot")

@@ -11,6 +11,7 @@ def build_base_pack_state_model(config) -> Dict[str, object]:
         "primary_hits": {"double rare", "ultra rare", "illustration rare"},
         "exclusive_hits": {"special illustration rare", "hyper rare", "mega hyper rare"},
         "bonus_hits": {"ace spec rare", "poke ball pattern", "master ball pattern"},
+        "singleton_exclusive_hits": set(),
         "max_major_hits": 2,
         "max_non_regular_hits": 2,
         "max_exclusive_hits": 1,

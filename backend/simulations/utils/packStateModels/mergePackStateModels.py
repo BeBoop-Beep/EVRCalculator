@@ -5,7 +5,7 @@ from typing import Dict, Mapping
 
 
 REQUIRED_SLOTS = {"rare", "reverse_1", "reverse_2"}
-SET_LIKE_CONSTRAINT_KEYS = {"primary_hits", "exclusive_hits", "bonus_hits"}
+SET_LIKE_CONSTRAINT_KEYS = {"primary_hits", "exclusive_hits", "bonus_hits", "singleton_exclusive_hits"}
 
 
 def _normalize_state_probabilities(state_probabilities: Mapping[str, float]) -> Dict[str, float]:

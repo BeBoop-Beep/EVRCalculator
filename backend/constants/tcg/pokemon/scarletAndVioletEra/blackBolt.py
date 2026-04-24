@@ -50,17 +50,17 @@ class SetBlackBoltConfig(BaseSetConfig):
             "regular reverse": 1 - (1/3) - (1/19) # ≈ 0.61407
         },
         "slot_2": {
-            'illustration rare': 1/6,
-            "special illustration rare": 1/80,
-            "regular reverse": 1 - (1/6) - (1 / 80)  # ≈ 0.820833
+            'illustration rare': 1/12,
+            "special illustration rare": 1/160,
+            "regular reverse": 1 - (1/12) - (1 / 160)  # ≈ 0.820833
         }
     }
 
     RARE_SLOT_PROBABILITY = {
-        'double rare': 1 / 5,
-        'ultra rare': 1 / 17,
-        'black white rare': 1 / 496,
-        'rare': 1 - (1 / 5) - (1 / 17) - (1 / 496),
+        'double rare': 1 / 10,
+        'ultra rare': 1 / 34,
+        'black white rare': 1 / 700,
+        'rare': 1 - (1 / 10) - (1 / 34) - (1 / 700),
     }
  
     GOD_PACK_CONFIG = {
@@ -76,6 +76,8 @@ class SetBlackBoltConfig(BaseSetConfig):
             }
         }
     }
+
+    CHASE_METRICS_EXCLUDED_RARITIES = {"poke ball pattern"}
 
     @classmethod
     def get_pack_state_overrides(cls):

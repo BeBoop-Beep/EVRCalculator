@@ -27,6 +27,7 @@ from .utils.packStateModels.packStateCoercion import (
     count_major_hits,
     count_non_regular_hits,
     normalize_rarity,
+    resolve_singleton_exclusive_hits,
     validate_unique_state_outcome_shapes,
 )
 from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
@@ -97,6 +98,7 @@ def _get_pack_constraints(config) -> Dict[str, object]:
         "primary_hits": set(resolved_constraints.get("primary_hits", set())),
         "exclusive_hits": set(resolved_constraints.get("exclusive_hits", set())),
         "bonus_hits": set(resolved_constraints.get("bonus_hits", set())),
+        "singleton_exclusive_hits": set(resolved_constraints.get("singleton_exclusive_hits", set())),
         "max_major_hits": 2,
         "max_non_regular_hits": 2,
         "max_exclusive_hits": 1,
@@ -113,7 +115,7 @@ def _get_pack_constraints(config) -> Dict[str, object]:
     if isinstance(overrides, dict):
         merged.update(overrides)
 
-    for key in ("primary_hits", "exclusive_hits", "bonus_hits"):
+    for key in ("primary_hits", "exclusive_hits", "bonus_hits", "singleton_exclusive_hits"):
         merged[key] = {_normalize_rarity(x) for x in merged.get(key, set())}
 
     return merged
@@ -198,8 +200,21 @@ def validate_pack_state_model(config, pools: Mapping[str, pd.DataFrame]) -> Dict
 
     available_base_tokens = list_available_canonical_tokens(hit_pool, mode="base_rarity")
     available_pattern_tokens = list_available_canonical_tokens(hit_pool, mode="pattern")
+    available_aggregation_tokens = list_available_canonical_tokens(hit_pool, mode="aggregation")
+
+    debug_print(
+        "[SIM_POOL_DEBUG] [SIM_TOKEN_TRACE] "
+        f"set_name={getattr(config, 'SET_NAME', '<unknown>')} "
+        f"available_base_tokens={available_base_tokens} "
+        f"available_pattern_tokens={available_pattern_tokens} "
+        f"available_aggregation_tokens={available_aggregation_tokens}"
+    )
 
     if not available_base_tokens and not available_pattern_tokens:
+        debug_print(
+            "[SIM_POOL_DEBUG] [SIM_TOKEN_TRACE] "
+            "validation_exit reason=no_resolvable_tokens_in_hit_pool"
+        )
         raise ValueError("Hit pool contains no resolvable simulation tokens.")
 
     for state, slot_outcomes in outcomes.items():
@@ -217,7 +232,7 @@ def validate_pack_state_model(config, pools: Mapping[str, pd.DataFrame]) -> Dict
         if raw_exclusive_hits > int(constraints["max_exclusive_hits"]):
             raise ValueError(f"Invalid state {state}: more than one exclusive hit.")
 
-        singleton_exclusive_hits = {"hyper rare", "mega hyper rare"}
+        singleton_exclusive_hits = resolve_singleton_exclusive_hits(constraints)
         has_singleton_exclusive = any(
             _normalize_rarity(raw_outcomes[slot]) in singleton_exclusive_hits
             for slot in ("rare", "reverse_1", "reverse_2")
@@ -253,6 +268,14 @@ def validate_pack_state_model(config, pools: Mapping[str, pd.DataFrame]) -> Dict
                 mode=resolution_mode,
             )
             if resolved_rows.empty:
+                debug_print(
+                    "[SIM_POOL_DEBUG] [SIM_TOKEN_TRACE] "
+                    f"state={state} slot={slot_name} mode={resolution['mode']} "
+                    f"requested_token={resolution['requested_token']} "
+                    f"canonical_token={resolution['canonical_token']} "
+                    f"match_source={resolution['match_source']} "
+                    f"available_tokens={resolution['available_tokens']}"
+                )
                 details = format_token_resolution_error(
                     mode=resolution["mode"],
                     requested_token=resolution["requested_token"],
@@ -982,6 +1005,21 @@ def make_simulate_pack_fn_v2(
     )
     _state_probs = _state_probs / _state_probs.sum()
 
+    _god_cfg = getattr(config, "GOD_PACK_CONFIG", {})
+    _demi_cfg = getattr(config, "DEMI_GOD_PACK_CONFIG", {})
+    _god_pull_rate = float(_god_cfg.get("pull_rate", 0.0)) if bool(_god_cfg.get("enabled", False)) else 0.0
+    _demi_pull_rate = float(_demi_cfg.get("pull_rate", 0.0)) if bool(_demi_cfg.get("enabled", False)) else 0.0
+    # Sequential entry logic in simulate_one_pack:
+    # P(god) = g, P(demi) = (1-g)*d, P(normal) = (1-g)*(1-d)
+    _path_prob_god = _god_pull_rate
+    _path_prob_demi = (1.0 - _god_pull_rate) * _demi_pull_rate
+    _path_prob_normal = (1.0 - _god_pull_rate) * (1.0 - _demi_pull_rate)
+    debug_print(
+        "[SIM_POOL_DEBUG] [SIM_PATH_TRACE] "
+        f"set_name={getattr(config, 'SET_NAME', '<unknown>')} "
+        f"pack_path_probabilities={{'normal': {_path_prob_normal:.12f}, 'god': {_path_prob_god:.12f}, 'demi_god': {_path_prob_demi:.12f}}}"
+    )
+
     # Pre-coerce all slot outcomes so coerce_slot_outcomes is never called per-pack
     _coerced_outcomes: Dict[str, Dict[str, str]] = {
         state: _coerce_slot_outcomes(outcomes, _constraints)
@@ -1281,6 +1319,11 @@ def run_simulation_v2(
         "pack_path_counts": dict(pack_path_counts if pack_path_counts is not None else _internal_path_counts),
         "pack_state_counts": dict(pack_state_counts if pack_state_counts is not None else _internal_state_counts),
     }
+    debug_print(
+        "[SIM_POOL_DEBUG] [SIM_PATH_TRACE] "
+        f"run_complete n={n} "
+        f"chosen_pack_path_counts={result['pack_path_counts']}"
+    )
     if export_debug_df:
         result["debug_df"] = pd.DataFrame(debug_rows)
     return result

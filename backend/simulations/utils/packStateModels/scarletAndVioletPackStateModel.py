@@ -82,6 +82,7 @@ SV_DEFAULT_CONSTRAINTS = {
     "primary_hits":       {"double rare", "ultra rare", "illustration rare"},
     "exclusive_hits":     {"special illustration rare", "hyper rare", "mega hyper rare"},
     "bonus_hits":         {"ace spec rare", "poke ball pattern", "master ball pattern"},
+    "singleton_exclusive_hits": set(),
     "max_major_hits":     2,
     "max_non_regular_hits": 2,
     "max_exclusive_hits": 1,
@@ -193,8 +194,14 @@ def build_scarlet_and_violet_pack_state_model(config) -> Dict[str, object]:
             state_outcomes_registry[str(state_name)] = dict(slot_dict)
 
         for key, value in overrides.get("constraints", {}).items():
-            if key in {"primary_hits", "exclusive_hits", "bonus_hits"}:
+            if key in {"primary_hits", "exclusive_hits", "bonus_hits", "singleton_exclusive_hits"}:
                 constraints[key] = constraints.get(key, set()) | set(value)
+            elif key == "conditional_slot_exclusions" and isinstance(value, list):
+                base_rules = constraints.get("conditional_slot_exclusions", [])
+                if isinstance(base_rules, list):
+                    constraints[key] = [*base_rules, *value]
+                else:
+                    constraints[key] = list(value)
             else:
                 constraints[key] = value
 

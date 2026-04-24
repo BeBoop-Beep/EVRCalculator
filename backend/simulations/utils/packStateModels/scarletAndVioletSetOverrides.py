@@ -59,6 +59,7 @@ def get_black_bolt_pack_state_overrides() -> Dict[str, object]:
             },
         },
         "constraints": {
+            "singleton_exclusive_hits": {"black white rare"},
             "conditional_slot_exclusions": [
                 {
                     "if": {"rare": "black white rare"},
@@ -85,6 +86,7 @@ def get_white_flare_pack_state_overrides() -> Dict[str, object]:
             },
         },
         "constraints": {
+            "singleton_exclusive_hits": {"black white rare"},
             "conditional_slot_exclusions": [
                 {
                     "if": {"rare": "black white rare"},

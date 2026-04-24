@@ -9,7 +9,7 @@ Primary entry point: derived_metrics.compute_all_derived_metrics
 from .derived_metrics import (
     compute_pack_decision_metrics,
     compute_chase_dependency_metrics,
-    compute_index_score_v1,
+    compute_pack_scores_for_set_records,
     compute_all_derived_metrics,
     simulate_session,
     derive_session_metrics,
@@ -23,7 +23,7 @@ from .derived_metrics import (
 __all__ = [
     "compute_pack_decision_metrics",
     "compute_chase_dependency_metrics",
-    "compute_index_score_v1",
+    "compute_pack_scores_for_set_records",
     "compute_all_derived_metrics",
     "simulate_session",
     "derive_session_metrics",
