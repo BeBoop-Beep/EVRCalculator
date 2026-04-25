@@ -8,6 +8,7 @@ from backend.db.controllers.cards_controller import CardsController
 from backend.db.controllers.prices_controller import PricesController
 from backend.db.controllers.sealed_products_controller import SealedProductsController
 
+
 class PokemonTCGOrchestrator:
     """
     Orchestrates the ingestion of Pokemon TCG data following the hierarchical dependency order:
@@ -65,6 +66,13 @@ class PokemonTCGOrchestrator:
                 print("[WARN]  No set data provided - subsequent operations may fail")
             
             # Step 2: Process Cards (depends on set_id)
+            _cards_payload_len = len(data.get('cards', []))
+            print(
+                f"[DIAG][pokemon_tcg_orchestrator] "
+                f"set_id={set_id} "
+                f"cards_in_data={_cards_payload_len} "
+                f"will_ingest={'yes' if set_id and _cards_payload_len > 0 else 'no'}"
+            )
             if 'cards' in data and set_id:
                 try:
                     cards_result = self.cards_controller.ingest_cards(set_id, data['cards'])

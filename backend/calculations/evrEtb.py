@@ -4,7 +4,14 @@ from typing import Dict, Any
 class ETBCalculator:
     """Calculator for ETB (Elite Trainer Box) expected value and ROI analysis."""
     
-    def __init__(self, file_path: str, total_packs_per_etb: int = 9, total_ev: float = 0.0):
+    def __init__(
+        self,
+        file_path: str = None,
+        total_packs_per_etb: int = 9,
+        total_ev: float = 0.0,
+        etb_price: float = None,
+        etb_promo_card_price: float = None,
+    ):
         """
         Initialize the calculator with file path and pack configuration.
         
@@ -16,6 +23,8 @@ class ETBCalculator:
         self.file_path = file_path
         self.total_packs_per_etb = total_packs_per_etb
         self.total_ev = total_ev  # Store the total_ev as instance variable
+        self.etb_price = etb_price
+        self.etb_promo_card_price = etb_promo_card_price
         self.df = None
         self.calculations = {}
         
@@ -48,12 +57,17 @@ class ETBCalculator:
         Returns:
             Dictionary containing all calculated metrics and input data
         """
-        if self.df is None:
-            self.load_data()
-        
-        # Extract input values
-        etb_price = self.df["ETB Price"].iloc[0]
-        etb_promo_price = self.df["ETB Promo Card Price"].iloc[0]
+        if self.etb_price is not None and self.etb_promo_card_price is not None:
+            etb_price = self.etb_price
+            etb_promo_price = self.etb_promo_card_price
+        else:
+            if self.df is None:
+                self.load_data()
+
+            # Extract input values
+            etb_price = self.df["ETB Price"].iloc[0]
+            etb_promo_price = self.df["ETB Promo Card Price"].iloc[0]
+
         total_ev_per_pack = self.total_ev  # Now this will work
         print("total_ev_per_pack: ", total_ev_per_pack)
         
@@ -130,7 +144,8 @@ class ETBCalculator:
 
 # Convenience function for backwards compatibility and quick usage
 def calculate_etb_metrics(file_path: str, total_packs_per_etb: int = 9, total_ev: float = 0.0, 
-                         print_results: bool = True) -> Dict[str, Any]:
+                         print_results: bool = True, etb_price: float = None,
+                         etb_promo_card_price: float = None) -> Dict[str, Any]:
     """
     Quick function to calculate ETB metrics and return results.
     
@@ -143,7 +158,13 @@ def calculate_etb_metrics(file_path: str, total_packs_per_etb: int = 9, total_ev
     Returns:
         Dictionary containing all calculations
     """
-    calculator = ETBCalculator(file_path, total_packs_per_etb, total_ev)
+    calculator = ETBCalculator(
+        file_path,
+        total_packs_per_etb,
+        total_ev,
+        etb_price=etb_price,
+        etb_promo_card_price=etb_promo_card_price,
+    )
     results = calculator.calculate_etb_metrics()
     
     if print_results:

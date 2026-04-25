@@ -1,4 +1,7 @@
 from .baseConfig import BaseSetConfig
+from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+    get_black_bolt_pack_state_overrides,
+)
 
 class SetBlackBoltConfig(BaseSetConfig):
     SET_NAME = "Black Bolt"
@@ -31,7 +34,7 @@ class SetBlackBoltConfig(BaseSetConfig):
         'double rare': 57,
         'illustration rare': 848,
         'special illustration rare': 1120,
-        'secret rare': 274,
+        'ultra rare': 274,
         # Special cases (checked first)
         'black white rare': 1400,
         'poke ball pattern': 488,
@@ -47,17 +50,17 @@ class SetBlackBoltConfig(BaseSetConfig):
             "regular reverse": 1 - (1/3) - (1/19) # ≈ 0.61407
         },
         "slot_2": {
-            'illustration rare': 1/6,
-            "special illustration rare": 1/80,
-            "regular reverse": 1 - (1/6) - (1 / 80)  # ≈ 0.820833
+            'illustration rare': 1/12,
+            "special illustration rare": 1/160,
+            "regular reverse": 1 - (1/12) - (1 / 160)  # ≈ 0.820833
         }
     }
 
     RARE_SLOT_PROBABILITY = {
-        'double rare': 1 / 5,
-        'secret rare': 1 / 17,
-        'black white rare': 1 / 496,
-        'rare': 1 - (1 / 5) - (1 / 17) - (1 / 496),
+        'double rare': 1 / 10,
+        'ultra rare': 1 / 34,
+        'black white rare': 1 / 700,
+        'rare': 1 - (1 / 10) - (1 / 34) - (1 / 700),
     }
  
     GOD_PACK_CONFIG = {
@@ -66,15 +69,16 @@ class SetBlackBoltConfig(BaseSetConfig):
         "strategy": {
             "type": "random",  # or "fixed"
             "rules": {
-                # Option A: unified pool
-                # "count": 11,
-                # "rarities": ["Illustration Rare", "Special Illustration Rare"]
-
-                # Option B: split by slot
                 "rarities": {
-                    "illustration rare": 9,
-                    "special illustration rare": 1,
+                    "illustration rare": {"count": 9, "replacement": "without_replacement"},
+                    "special illustration rare": {"count": 1, "replacement": "without_replacement"},
                 }
             }
         }
     }
+
+    CHASE_METRICS_EXCLUDED_RARITIES = {"poke ball pattern"}
+
+    @classmethod
+    def get_pack_state_overrides(cls):
+        return get_black_bolt_pack_state_overrides()

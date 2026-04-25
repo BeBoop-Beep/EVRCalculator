@@ -17,6 +17,7 @@ from backend.db.services.collection_portfolio_service import (
     get_current_user_portfolio_dashboard_data,
     get_public_collection_data_by_username,
 )
+from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
     decode_token,
     get_current_profile,
@@ -184,6 +185,17 @@ async def collection_holdings_mutate(
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.get("/evr/runs/latest")
+def get_latest_evr_run(
+    target_type: str = Query(...),
+    target_id: str = Query(...),
+):
+    snapshot = get_latest_evr_run_snapshot(target_type=target_type, target_id=target_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="No EVR run snapshot found")
+    return {"snapshot": snapshot}
 
 
 @app.get("/auth/me")

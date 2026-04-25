@@ -29,6 +29,10 @@ def _jwt_role(key: str) -> str:
 logger = logging.getLogger(__name__)
 
 
+_LATEST_CARD_MARKET_VIEW = "card_market_usd_latest_by_condition"
+_LATEST_CARD_MARKET_IN_CHUNK_SIZE = 500
+
+
 def _parse_captured_at(value: Any) -> datetime:
     """Parse captured_at value into a timezone-aware UTC datetime."""
     if isinstance(value, datetime):
@@ -218,7 +222,7 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     """
     key_role = _jwt_role(SUPABASE_KEY)
     logger.warning(
-        "[portfolio-debug] card price lookup start | url=%s | key_role=%s | card_variant_id=%s | condition_id=%s | source=card_market_usd_latest",
+        "[portfolio-debug] card price lookup start | url=%s | key_role=%s | card_variant_id=%s | condition_id=%s | source=card_market_usd_latest_by_condition",
         SUPABASE_URL,
         key_role,
         card_variant_id,
@@ -226,7 +230,7 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     )
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     res = (
-        fresh_client.table("card_market_usd_latest")
+        fresh_client.table("card_market_usd_latest_by_condition_by_condition")
         .select("*")
         .eq("variant_id", card_variant_id)
         .eq("condition_id", condition_id)
@@ -245,6 +249,106 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
         getattr(res, "count", "N/A"),
     )
     return row
+
+
+def _normalize_variant_ids(values: List[Any]) -> Tuple[List[str], int]:
+    cleaned: List[str] = []
+    dropped = 0
+    seen: Set[str] = set()
+
+    for raw in values:
+        if raw is None:
+            dropped += 1
+            continue
+        token = str(raw).strip()
+        if not token:
+            dropped += 1
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        cleaned.append(token)
+
+    return cleaned, dropped
+
+
+def _chunk_list(values: List[str], size: int) -> List[List[str]]:
+    return [values[i : i + size] for i in range(0, len(values), size)]
+
+
+def get_latest_prices_for_variants(variant_ids: List[Any], condition_id: Any) -> List[Dict[str, Any]]:
+    """Return latest market rows from view for variant IDs at a single condition."""
+    if not variant_ids:
+        return []
+
+    normalized_variant_ids, dropped_count = _normalize_variant_ids(variant_ids)
+    normalized_condition_id = None if condition_id is None else str(condition_id).strip()
+
+    if not normalized_variant_ids or not normalized_condition_id:
+        logger.warning(
+            "[DB_CARD_PRICE_QUERY] checkpoint=preflight-empty table=%s variant_count_raw=%s variant_count_normalized=%s dropped_variant_ids=%s condition_id=%r condition_type=%s",
+            _LATEST_CARD_MARKET_VIEW,
+            len(variant_ids),
+            len(normalized_variant_ids),
+            dropped_count,
+            condition_id,
+            type(condition_id).__name__,
+        )
+        return []
+
+    chunk_size = _LATEST_CARD_MARKET_IN_CHUNK_SIZE
+    chunks = _chunk_list(normalized_variant_ids, chunk_size)
+
+    sample_ids = normalized_variant_ids[:5]
+    sample_types = sorted({type(v).__name__ for v in variant_ids[:10]})
+    logger.warning(
+        "[DB_CARD_PRICE_QUERY] checkpoint=before-execute table=%s variant_count_raw=%s variant_count_normalized=%s chunk_count=%s chunk_size=%s dropped_variant_ids=%s sample_variant_ids=%s sample_variant_types=%s condition_id=%s condition_type=%s",
+        _LATEST_CARD_MARKET_VIEW,
+        len(variant_ids),
+        len(normalized_variant_ids),
+        len(chunks),
+        chunk_size,
+        dropped_count,
+        sample_ids,
+        sample_types,
+        normalized_condition_id,
+        type(condition_id).__name__,
+    )
+
+    fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    results: List[Dict[str, Any]] = []
+
+    for idx, chunk in enumerate(chunks, start=1):
+        try:
+            res = (
+                fresh_client.table(_LATEST_CARD_MARKET_VIEW)
+                .select("*")
+                .in_("variant_id", chunk)
+                .eq("condition_id", normalized_condition_id)
+                .execute()
+            )
+        except APIError as exc:
+            logger.error(
+                "[DB_CARD_PRICE_QUERY] checkpoint=chunk-failed table=%s chunk_index=%s chunk_count=%s chunk_size=%s condition_id=%s error=%s",
+                _LATEST_CARD_MARKET_VIEW,
+                idx,
+                len(chunks),
+                len(chunk),
+                normalized_condition_id,
+                exc,
+            )
+            raise
+
+        chunk_rows = res.data if res and res.data else []
+        results.extend(chunk_rows)
+
+    logger.warning(
+        "[DB_CARD_PRICE_QUERY] checkpoint=after-execute table=%s total_rows=%s chunk_count=%s",
+        _LATEST_CARD_MARKET_VIEW,
+        len(results),
+        len(chunks),
+    )
+    return results
 
 
 def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[int]:

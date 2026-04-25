@@ -1,9 +1,71 @@
 import pandas as pd
 import numpy as np
 import os
+import logging
 
 from itertools import combinations_with_replacement
 from .initializeCalculations import PackEVInitializer
+from backend.calculations.utils.reverse_pool import (
+    build_reverse_eligible_pool,
+    get_regular_reverse_probability,
+)
+from backend.calculations.utils.special_type_normalization import (
+    RECOGNIZED_PATTERN_BUCKETS,
+    derive_pattern_key,
+    normalize_special_type_key,
+)
+from backend.configured_special_pack_resolver import resolve_configured_god_pack_rows
+from backend.utils.special_pack_config import (
+    iter_rarity_bucket_rules,
+)
+from backend.utils.debug_output import debug_print
+
+
+logger = logging.getLogger(__name__)
+
+
+def _emit_pool_debug_snapshot(prefix: str, pool_name: str, pool_df: pd.DataFrame, price_col: str) -> None:
+    row_count = int(len(pool_df))
+    if row_count == 0:
+        debug_print(
+            f"{prefix} pool={pool_name} rows=0 price_col='{price_col}' min=0.0000 max=0.0000 mean=0.0000"
+        )
+        return
+
+    prices = pd.to_numeric(pool_df.get(price_col), errors="coerce").dropna()
+    min_price = float(prices.min()) if not prices.empty else 0.0
+    max_price = float(prices.max()) if not prices.empty else 0.0
+    mean_price = float(prices.mean()) if not prices.empty else 0.0
+
+    debug_print(
+        f"{prefix} pool={pool_name} rows={row_count} price_col='{price_col}' "
+        f"min={min_price:.4f} max={max_price:.4f} mean={mean_price:.4f}"
+    )
+
+    sample_df = pool_df.head(10)
+    for idx, (_, row) in enumerate(sample_df.iterrows(), start=1):
+        card_name = str(row.get("Card Name", "<missing>") or "<missing>")
+        rarity = str(row.get("Rarity", row.get("_rarity_key", "<missing>")) or "<missing>")
+        price = pd.to_numeric(pd.Series([row.get(price_col)]), errors="coerce").fillna(0.0).iloc[0]
+        card_number = (
+            row.get("Card Number")
+            or row.get("card_number")
+            or row.get("Card_Number")
+            or ""
+        )
+        variant_marker = (
+            row.get("Special Type")
+            or row.get("special_type_key")
+            or row.get("pattern_key")
+            or row.get("aggregation_key")
+            or ""
+        )
+        variant_id = row.get("card_variant_id", "")
+        debug_print(
+            f"{prefix} sample[{idx}] name={card_name} rarity={rarity} price={float(price):.4f} "
+            f"card_number={card_number or '<none>'} variant_marker={variant_marker or '<none>'} "
+            f"card_variant_id={variant_id if variant_id not in (None, '') else '<none>'}"
+        )
 
 
 class PackEVCalculator(PackEVInitializer):
@@ -21,31 +83,61 @@ class PackEVCalculator(PackEVInitializer):
   
     @staticmethod
     def _calculate_god_packs_ev_contributions(strategy_config, df, config):
-        if not strategy_config.get("enabled", False):
-            return 0.0
-
-        pull_rate = strategy_config.get("pull_rate", 0)
+        enabled = bool(strategy_config.get("enabled", False))
+        pull_rate = float(strategy_config.get("pull_rate", 0) or 0.0)
         strategy = strategy_config.get("strategy", {})
         strategy_type = strategy.get("type")
+        rules = strategy.get("rules", {}) if isinstance(strategy, dict) else {}
+        rarity_rules_payload = rules.get("rarities") if isinstance(rules, dict) else None
+        debug_print(
+            "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+            f"set_name={getattr(config, 'SET_NAME', '<unknown>')} "
+            f"enabled={enabled} "
+            f"pull_rate={pull_rate} "
+            f"strategy_type={strategy_type} "
+            f"rules_rarities={rarity_rules_payload}"
+        )
+
+        if not enabled:
+            debug_print("[CALC_POOL_DEBUG] [GOD_PACK_TRACE] branch_exit reason=disabled_config return=0.0")
+            return 0.0
 
         if strategy_type == "fixed":
+            def _resolved_total(card_specs, context_label):
+                resolved_rows = resolve_configured_god_pack_rows(
+                    card_specs,
+                    df,
+                    context_label=context_label,
+                )
+                if resolved_rows.empty or "Price ($)" not in resolved_rows.columns:
+                    return 0.0
+                return float(pd.to_numeric(resolved_rows["Price ($)"], errors="coerce").fillna(0.0).sum())
+
             if "packs" in strategy:
-                # Handle fixed packs (e.g., 151)
+                # Handle fixed packs (e.g., 151 — each pack is a named trio)
                 pack_values = []
                 for pack in strategy["packs"]:
-                    trio_value = df[df["Card Name"].isin(pack["cards"])]["Price ($)"].sum()
+                    trio_value = _resolved_total(
+                        pack.get("cards", []),
+                        context_label=f"god.fixed_pack:{pack.get('name', '?')}",
+                    )
                     avg_common = df[df["Rarity"] == "common"]["Price ($)"].mean()
                     avg_uncommon = df[df["Rarity"] == "uncommon"]["Price ($)"].mean()
                     pack_value = trio_value + 4 * avg_common + 3 * avg_uncommon
                     pack_values.append(pack_value)
+                    print(
+                        f"  God Pack '{pack.get('name', '?')}': trio=${trio_value:.2f}, "
+                        f"common_fill=${4*avg_common:.2f}, uncommon_fill=${3*avg_uncommon:.2f}, "
+                        f"total=${pack_value:.2f}"
+                    )
                 avg_pack_value = np.mean(pack_values)
                 adjusted_ev = pull_rate * avg_pack_value
                 print(f"God Pack Fixed Value With Multiple Options: ${avg_pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
                 return adjusted_ev
             elif "cards" in strategy:
-                # Handle fixed card list (original logic)
+                # Handle single fixed card list
                 cards = strategy.get("cards", [])
-                total = df[df["Card Name"].isin(cards)]["Price ($)"].sum()
+                total = _resolved_total(cards, context_label="god.fixed_cards")
                 adjusted_ev = pull_rate * total
                 print(f"God Pack Fixed Value 1 Option: ${total:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
                 return adjusted_ev
@@ -56,26 +148,77 @@ class PackEVCalculator(PackEVInitializer):
                 rarities = rules.get("rarities", {})
                 pack_value = 0.0
                 print("=== GOD PACK (RANDOM by slot count) ===")
-                for rarity, count in rarities.items():
-                    rarity = rarity.strip().lower()
-                    avg_price = df[df["Rarity"].str.lower().str.strip() == rarity]["Price ($)"].mean()
-                    subtotal = count * avg_price
+                for rarity, sample_count, use_replacement in iter_rarity_bucket_rules(rarities):
+                    rarity_normalized = rarity.strip().lower()
+                    pool = df[df["Rarity"].str.lower().str.strip() == rarity_normalized]
+                    pool_size = len(pool)
+                    debug_print(
+                        "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                        f"rarity={rarity_normalized} "
+                        f"configured_count={sample_count} "
+                        f"replacement={'with_replacement' if use_replacement else 'without_replacement'} "
+                        f"candidate_rows={pool_size}"
+                    )
+                    if not use_replacement and sample_count > pool_size:
+                        debug_print(
+                            "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                            f"branch_exit reason=insufficient_pool rarity={rarity_normalized} "
+                            f"requested={sample_count} available={pool_size}"
+                        )
+                        raise ValueError(
+                            f"Cannot sample {sample_count} unique cards from '{rarity_normalized}' pool of size {pool_size}. "
+                            f"Requested count exceeds available cards without replacement."
+                        )
+
+                    avg_price = pool["Price ($)"].mean()
+                    # EV note: For a single rarity bucket, E[sum of n draws] = n * mean(pool)
+                    # for both with-replacement and without-replacement sampling (when n <= pool size).
+                    # So this subtotal is exact for expected value. It is still an approximation for
+                    # higher moments/distribution shape because it does not model per-pack covariance.
+                    subtotal = sample_count * avg_price
                     pack_value += subtotal
-                    print(f"  {rarity} × {count} → avg ${avg_price:.2f} → subtotal ${subtotal:.2f}")
+                    replacement_label = "(no replacement)" if not use_replacement else ""
+                    print(f"  {rarity_normalized} × {sample_count} → avg ${avg_price:.2f} → subtotal ${subtotal:.2f} {replacement_label}")
                 adjusted_ev = pull_rate * pack_value
                 print(f"God Pack Value: ${pack_value:.2f}, Pull Rate: {pull_rate}, EV Contribution: ${adjusted_ev:.4f}")
+                debug_print(
+                    "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                    f"branch_return random_nonzero={adjusted_ev > 0.0} "
+                    f"pack_value={pack_value} adjusted_ev={adjusted_ev}"
+                )
                 return adjusted_ev
+            debug_print("[CALC_POOL_DEBUG] [GOD_PACK_TRACE] branch_exit reason=missing_or_invalid_random_rarity_rules return=0.0")
 
+        else:
+            debug_print(
+                "[CALC_POOL_DEBUG] [GOD_PACK_TRACE] "
+                f"branch_exit reason=unsupported_strategy_type strategy_type={strategy_type} return=0.0"
+            )
         return 0.0
 
-    def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, card_name=None):
+    def calculate_effective_pull_rate(self, rarity_group, base_pull_rate, pattern_key=None):
         """
         Calculate the true effective pull rate for each card type following the model's methodology.
         Dynamically determines calculation method based on configuration data.
+        
+        For pattern-overlay cards (pattern_key in {'pokeball_pattern', 'master_ball_pattern'}),
+        returns the exact base_pull_rate because these cards have database-configured exact 
+        pull rates. Non-pattern cards use rarity-based calculations (guaranteed slots or 
+        probability-based adjustments).
+        
+        Args:
+            rarity_group: Rarity classification key ('common', 'uncommon', 'rare', etc.)
+            base_pull_rate: Base pull rate (1/X) from configuration or database
+            pattern_key: Structured pattern key from special_type_key normalization.
+                        Recognized values: 'pokeball_pattern', 'master_ball_pattern', or empty string.
+        
+        Returns:
+            float: Effective pull rate for EV calculation
         """
         
         # Special pattern cards (always use exact rates)
-        if card_name and ('master ball' in card_name.lower() or 'poke ball' in card_name.lower()):
+        # Pattern overlay cards are DB-configured with exact rates, not derived from rarity
+        if pattern_key and pattern_key in {'pokeball_pattern', 'master_ball_pattern'}:
             return base_pull_rate
         
         # Determine calculation type and execute appropriate method
@@ -156,44 +299,26 @@ class PackEVCalculator(PackEVInitializer):
     
     def calculate_reverse_ev_for_slot(self, df, slot_name):
         """Calculate reverse EV contribution from a single reverse slot"""
-        ev_slot_total = 0
-        
-        if 'Reverse Variant Price ($)' not in df.columns:
-            return ev_slot_total
-        
         # Get slot configuration
-        if slot_name not in self.config.REVERSE_SLOT_PROBABILITIES:
-            return ev_slot_total
-        
-        slot_config = self.config.REVERSE_SLOT_PROBABILITIES[slot_name]
-        regular_reverse_prob = slot_config.get("regular reverse", 0)
-        
+        reverse_slot_probabilities = getattr(self.config, 'REVERSE_SLOT_PROBABILITIES', {})
+        if slot_name not in reverse_slot_probabilities:
+            return 0.0
+
+        slot_config = reverse_slot_probabilities.get(slot_name, {})
+        regular_reverse_prob = get_regular_reverse_probability(slot_name, slot_config)
+
         if regular_reverse_prob == 0:
-            return ev_slot_total
-        
-        # Cards eligible for regular reverse treatment (exclude special cards)
-        is_eligible_for_reverse = ~df['Rarity'].isin(['Illustration Rare', 'Special Illustration Rare'])
-        
-        # Also exclude special pattern cards from reverse calculation
-        pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
-        is_eligible_for_reverse = is_eligible_for_reverse & ~pattern_mask
-        
-        eligible_df = df[is_eligible_for_reverse & df['Reverse Variant Price ($)'].notna()].copy()
-        
-        if not eligible_df.empty:
-            total_eligible_cards = len(eligible_df)
-            
-            # Each card's probability of appearing as reverse in this slot
-            individual_prob_this_slot = regular_reverse_prob / total_eligible_cards
-            
-            # Calculate EV contribution from this slot
-            slot_ev_contribution = (
-                eligible_df['Reverse Variant Price ($)'].fillna(0) * individual_prob_this_slot
-            ).sum()
-            
-            ev_slot_total = slot_ev_contribution
-        
-        return ev_slot_total
+            return 0.0
+
+        reverse_pool = build_reverse_eligible_pool(self.config, df)
+        if reverse_pool.empty:
+            raise ValueError(
+                f"Reverse slot '{slot_name}' has regular reverse probability {regular_reverse_prob} "
+                "but the eligible reverse pool is empty."
+            )
+
+        mean_reverse_price = float(reverse_pool['Reverse Variant Price ($)'].mean())
+        return regular_reverse_prob * mean_reverse_price
 
     def calculate_reverse_ev(self, df):
         """Calculate total EV for reverse holo variants across all reverse slots"""
@@ -210,41 +335,448 @@ class PackEVCalculator(PackEVInitializer):
         return total_reverse_ev
         
     def calculate_rarity_ev_totals(self, df, ev_reverse_total):
-        """Calculate EV totals by rarity group - NO ADDITIONAL MULTIPLIERS NEEDED"""
+        """Calculate EV totals by aggregation_key with rarity_key fallback and reverse EV handled separately."""
         print("\n=== CALCULATING RARITY EV TOTALS ===")
-        
-        # Filter out special patterns from rarity calculations
-        pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
-        
-        # Get special cards separately
-        master_ball_cards = df[df['Card Name'].str.contains('Master Ball', case=False, na=False)]
-        pokeball_cards = df[df['Card Name'].str.contains('Poke Ball', case=False, na=False)]
-        
-        # Calculate EV totals by rarity - NO MULTIPLIERS because they're already in effective rates
-        ev_totals = {
-            'common': df[(df['Rarity'] == 'common') & ~pattern_mask]['EV'].sum(),  # REMOVED MULTIPLIER
-            'uncommon': df[(df['Rarity'] == 'uncommon') & ~pattern_mask]['EV'].sum(),  # REMOVED MULTIPLIER
-            'rare': df[(df['Rarity'] == 'rare') & ~pattern_mask]['EV'].sum(),
-            'double_rare': df[(df['Rarity'] == 'double rare') & ~pattern_mask]['EV'].sum(),
-            'ace_spec_rare': df[(df['Rarity'] == 'ace spec rare') & ~pattern_mask]['EV'].sum(),
-            'hyper_rare': df[(df['Rarity'] == 'hyper rare') & ~pattern_mask]['EV'].sum(),
-            'ultra_rare': df[(df['Rarity'] == 'ultra rare') & ~pattern_mask]['EV'].sum(),
-            'special_illustration_rare': df[(df['Rarity'] == 'special illustration rare') & ~pattern_mask]['EV'].sum(),
-            'illustration_rare': df[(df['Rarity'] == 'illustration rare') & ~pattern_mask]['EV'].sum(),
-            'black white rare': df[(df['Rarity'] == 'black white rare') & ~pattern_mask]['EV'].sum(),
-            'master_ball': master_ball_cards['EV'].sum(),
-            'pokeball': pokeball_cards['EV'].sum(),
-            'reverse': ev_reverse_total,
-            'other': df[df['rarity_group'] == 'other']['EV'].sum(),
-        }
 
-        print("EV totals by rarity:")
-        for rarity, total in ev_totals.items():
-            if total > 0:
-                print(f"  {rarity}: {total:.4f}")
-        print(f"\nSum of all EV totals: {sum(ev_totals.values()):.4f}\n")
+        if 'EV' not in df.columns:
+            raise ValueError("Prepared dataframe must include an 'EV' column for EV aggregation.")
+        if 'aggregation_key' not in df.columns and 'rarity_key' not in df.columns:
+            raise ValueError(
+                "Prepared dataframe must include an 'aggregation_key' or 'rarity_key' column for EV aggregation."
+            )
+
+        aggregation_keys = (
+            df['aggregation_key'].fillna('').astype(str).str.strip()
+            if 'aggregation_key' in df.columns
+            else pd.Series('', index=df.index, dtype='object')
+        )
+        rarity_keys = (
+            df['rarity_key'].fillna('').astype(str).str.strip()
+            if 'rarity_key' in df.columns
+            else pd.Series('', index=df.index, dtype='object')
+        )
+        pattern_keys = pd.Series('', index=df.index, dtype='object')
+        if 'pattern_key' in df.columns:
+            pattern_keys = df['pattern_key'].fillna('').astype(str).map(normalize_special_type_key).map(derive_pattern_key)
+
+        if 'aggregation_key' in df.columns:
+            pattern_from_aggregation = df['aggregation_key'].fillna('').astype(str).map(normalize_special_type_key).map(derive_pattern_key)
+            missing_pattern_mask = pattern_keys.eq('')
+            pattern_keys = pattern_keys.where(~missing_pattern_mask, pattern_from_aggregation)
+
+        for special_type_column in ('special_type_key', 'Special Type'):
+            if special_type_column in df.columns:
+                pattern_from_special_type = df[special_type_column].fillna('').astype(str).map(normalize_special_type_key).map(derive_pattern_key)
+                missing_pattern_mask = pattern_keys.eq('')
+                pattern_keys = pattern_keys.where(~missing_pattern_mask, pattern_from_special_type)
+
+        # Stable semantic aggregation axis:
+        # - pattern rows must aggregate to pattern buckets only
+        # - non-pattern base rows (common/uncommon/rare) must aggregate to base rarity buckets
+        # - all other rows use aggregation_key with rarity_key fallback
+        bucket_keys = aggregation_keys.where(aggregation_keys.ne(''), rarity_keys)
+        all_pattern_mask = pattern_keys.isin(RECOGNIZED_PATTERN_BUCKETS)
+        bucket_keys = bucket_keys.where(~all_pattern_mask, pattern_keys)
+
+        # Name-variant rows (Card Name contains parentheses, e.g. "(Friend Ball)") are
+        # cosmetic/reverse variants and must NOT be bucketed into base rarity EV totals.
+        # Their reverse price is already captured by the external reverse EV calculation.
+        name_variant_mask = pd.Series(False, index=df.index)
+        if 'Card Name' in df.columns:
+            name_variant_mask = df['Card Name'].fillna('').astype(str).str.contains('(', regex=False)
+
+        non_pattern_base_mask = (
+            (~all_pattern_mask)
+            & (~name_variant_mask)
+            & rarity_keys.isin({'common', 'uncommon', 'rare'})
+        )
+        bucket_keys = bucket_keys.where(~non_pattern_base_mask, rarity_keys)
+
+        name_variant_excluded_count = int(
+            (name_variant_mask & rarity_keys.isin({'common', 'uncommon', 'rare'})).sum()
+        )
+        if name_variant_excluded_count:
+            debug_print(
+                f"[RARITY_EV_AUDIT] name_variant_rows_excluded_from_base_buckets={name_variant_excluded_count} "
+                "(parenthetical-name variants routed out of common/uncommon/rare EV totals)"
+            )
+
+        ev_values = pd.to_numeric(df['EV'], errors='coerce').fillna(0.0)
+        rows_with_totals = df.assign(
+            _bucket_key=bucket_keys,
+            _ev_value=ev_values,
+            _aggregation_key=aggregation_keys,
+            _rarity_key=rarity_keys,
+            _pattern_key=pattern_keys,
+            _card_name=df['Card Name'].fillna('').astype(str).str.strip()
+            if 'Card Name' in df.columns
+            else '',
+        )
+
+        calc_common_pool = rows_with_totals[
+            rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq('common')
+        ]
+        calc_uncommon_pool = rows_with_totals[
+            rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq('uncommon')
+        ]
+        calc_rare_pool = rows_with_totals[
+            rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq('rare')
+        ]
+        calc_reverse_pool = build_reverse_eligible_pool(self.config, rows_with_totals)
+
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "common", calc_common_pool, "Price ($)")
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "uncommon", calc_uncommon_pool, "Price ($)")
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "rare", calc_rare_pool, "Price ($)")
+        _emit_pool_debug_snapshot("[CALC_POOL_DEBUG]", "reverse", calc_reverse_pool, "Reverse Variant Price ($)")
+
+        debug_print("[RARITY_EV_AUDIT] row_counts_by_rarity_key:")
+        rarity_counts = rows_with_totals['_rarity_key'].value_counts(dropna=False)
+        for key, count in rarity_counts.items():
+            label = key if str(key).strip() else '<blank>'
+            debug_print(f"  {label}: rows={int(count)}")
+
+        debug_print("[RARITY_EV_AUDIT] row_counts_by_pattern_key:")
+        pattern_counts = rows_with_totals['_pattern_key'].value_counts(dropna=False)
+        for key, count in pattern_counts.items():
+            label = key if str(key).strip() else '<blank>'
+            debug_print(f"  {label}: rows={int(count)}")
+
+        debug_print("[RARITY_EV_AUDIT] row_counts_by_aggregation_key:")
+        aggregation_counts = rows_with_totals['_aggregation_key'].value_counts(dropna=False)
+        for key, count in aggregation_counts.items():
+            label = key if str(key).strip() else '<blank>'
+            debug_print(f"  {label}: rows={int(count)}")
+
+        missing_bucket_mask = rows_with_totals['_bucket_key'].eq('')
+        missing_bucket_count = int(missing_bucket_mask.sum())
+        if missing_bucket_count:
+            excluded_ev_total = float(rows_with_totals.loc[missing_bucket_mask, '_ev_value'].sum())
+            debug_print(
+                "[RARITY_EV_BUCKETS] skipped_rows_without_aggregation_key_or_rarity_key="
+                f"{missing_bucket_count} "
+                "because they cannot be assigned to a stable rarity bucket."
+            )
+            debug_print(
+                f"[RARITY_EV_BUCKETS] excluded_unbucketed_ev_total={excluded_ev_total:.4f} "
+                "bucket_source=aggregation_key->rarity_key"
+            )
+
+            skipped_rows = rows_with_totals.loc[
+                missing_bucket_mask,
+                ['_card_name', '_aggregation_key', '_rarity_key', '_ev_value'],
+            ].head(5)
+            for card_name, aggregation_key, rarity_key, ev_value in skipped_rows.itertuples(index=False, name=None):
+                print(
+                    "  unbucketed_row: "
+                    f"card_name={card_name or '<missing>'} "
+                    f"aggregation_key={aggregation_key or '<missing>'} "
+                    f"rarity_key={rarity_key or '<missing>'} "
+                    f"ev={float(ev_value):.4f}"
+                )
+
+        grouped_totals = (
+            rows_with_totals.loc[rows_with_totals['_bucket_key'].ne('')]
+            .groupby('_bucket_key', sort=True)['_ev_value']
+            .agg(['sum', 'size'])
+        )
+
+        ev_totals_by_rarity = {
+            str(bucket_key): float(row['sum'])
+            for bucket_key, row in grouped_totals.iterrows()
+        }
+        ev_totals_by_rarity['reverse'] = float(ev_reverse_total)
+
+        if 'aggregation_key' in df.columns:
+            debug_print("[RARITY_EV_BUCKETS] row-derived totals by aggregation_key (fallback rarity_key when blank):")
+        else:
+            debug_print("[RARITY_EV_BUCKETS] row-derived totals by rarity_key:")
+        if grouped_totals.empty:
+            print("  (none)")
+        else:
+            for bucket_key, row in grouped_totals.iterrows():
+                print(
+                    f"  {bucket_key}: rows={int(row['size'])} "
+                    f"ev_total={float(row['sum']):.4f}"
+                )
+        print(f"  reverse: rows=external ev_total={float(ev_reverse_total):.4f}")
+
+        # Targeted integrity printouts for baseline pools and pattern overlays.
+        for base_rarity in ('common', 'uncommon', 'rare'):
+            base_mask = rows_with_totals['_pattern_key'].eq('') & rows_with_totals['_rarity_key'].eq(base_rarity)
+            ev_from_rows = float(rows_with_totals.loc[base_mask, '_ev_value'].sum())
+            ev_in_bucket = float(ev_totals_by_rarity.get(base_rarity, 0.0))
+            debug_print(
+                f"[RARITY_EV_AUDIT] non_pattern_{base_rarity}: "
+                f"rows={int(base_mask.sum())} ev_from_rows={ev_from_rows:.6f} ev_in_bucket={ev_in_bucket:.6f}"
+            )
+
+        for pattern_key in sorted(RECOGNIZED_PATTERN_BUCKETS):
+            pattern_row_mask = rows_with_totals['_pattern_key'].eq(pattern_key)
+            ev_from_rows = float(rows_with_totals.loc[pattern_row_mask, '_ev_value'].sum())
+            ev_in_bucket = float(ev_totals_by_rarity.get(pattern_key, 0.0))
+            debug_print(
+                f"[RARITY_EV_AUDIT] pattern_{pattern_key}: "
+                f"rows={int(pattern_row_mask.sum())} ev_from_rows={ev_from_rows:.6f} ev_in_bucket={ev_in_bucket:.6f}"
+            )
+
+        print(f"\nSum of all EV totals: {sum(ev_totals_by_rarity.values()):.4f}\n")
+
+        pokeball_pattern_ev = float(
+            ev_totals_by_rarity.get('pokeball_pattern', 0.0)
+            + ev_totals_by_rarity.get('poke_ball_pattern', 0.0)
+        )
+        master_ball_pattern_ev = float(ev_totals_by_rarity.get('master_ball_pattern', 0.0))
+        pattern_ev_total = pokeball_pattern_ev + master_ball_pattern_ev
+        base_rarity_ev_total = float(
+            ev_totals_by_rarity.get('common', 0.0)
+            + ev_totals_by_rarity.get('uncommon', 0.0)
+            + ev_totals_by_rarity.get('rare', 0.0)
+            + ev_totals_by_rarity.get('reverse', 0.0)
+        )
+        total_ev_across_all_buckets = float(sum(ev_totals_by_rarity.values()))
+        other_special_ev_total = total_ev_across_all_buckets - base_rarity_ev_total - pattern_ev_total
+        if abs(other_special_ev_total) < 1e-12:
+            other_special_ev_total = 0.0
+
+        logger.info(
+            "[MANUAL_EV_COMPOSITION] total_ev_across_all_buckets=%.2f",
+            total_ev_across_all_buckets,
+        )
+        logger.info(
+            "[MANUAL_EV_COMPOSITION] base_rarity_ev_total=%.2f (sum of common, uncommon, rare, reverse)",
+            base_rarity_ev_total,
+        )
+        logger.info(
+            "[MANUAL_EV_COMPOSITION] pattern_ev_total=%.2f (sum of pokeball_pattern, master_ball_pattern)",
+            pattern_ev_total,
+        )
+        logger.info(
+            "[MANUAL_EV_COMPOSITION] other_special_ev_total=%.2f (ace_spec, illustration_rare, etc)",
+            other_special_ev_total,
+        )
+        logger.info("[MANUAL_EV_COMPOSITION] pokeball_pattern_ev=%.3f", pokeball_pattern_ev)
+        logger.info("[MANUAL_EV_COMPOSITION] master_ball_pattern_ev=%.3f", master_ball_pattern_ev)
+
+        return ev_totals_by_rarity
+
+    def audit_ev_aggregation_integrity(self, df, ev_totals_by_rarity):
+        """
+        Audit and verify manual EV aggregation integrity.
         
-        return ev_totals
+        Ensures:
+        1. Pattern rows aggregate to intended buckets (master_ball_pattern, pokeball_pattern)
+        2. Pattern rows do NOT also contribute to base-rarity buckets
+        3. No double-counting occurs
+        4. Aggregation axis is correct and stable
+        
+        Args:
+            df: Prepared dataframe with 'aggregation_key', 'rarity_key', 'EV', and 'pattern_key'
+            ev_totals_by_rarity: Dictionary mapping rarity/pattern keys to EV totals
+            
+        Returns:
+            dict with:
+            - is_valid (bool): True if no issues found
+            - issues (list): List of issue strings (empty if valid)
+            - row_sum (float): Sum of all row EVs grouped by aggregation_key
+            - bucket_sum (float): Sum of all bucket totals (excluding reverse)
+            - spot_checks (dict): Results of specific verification checks
+        """
+        issues = []
+        
+        # ===== AUDIT 1: Total EV Sum Consistency =====
+        # Sum all row EVs by aggregation_key (should equal bucket totals)
+        if 'aggregation_key' not in df.columns or 'EV' not in df.columns:
+            return {
+                'is_valid': False,
+                'issues': ["DataFrame missing 'aggregation_key' or 'EV' columns"],
+                'row_sum': 0.0,
+                'bucket_sum': 0.0,
+                'spot_checks': {},
+            }
+        
+        aggregation_keys = df['aggregation_key'].fillna('').astype(str).str.strip()
+        rarity_keys = df['rarity_key'].fillna('').astype(str).str.strip() if 'rarity_key' in df.columns else pd.Series('', index=df.index)
+        pattern_keys = pd.Series('', index=df.index, dtype='object')
+        if 'pattern_key' in df.columns:
+            pattern_keys = df['pattern_key'].fillna('').astype(str).map(normalize_special_type_key).map(derive_pattern_key)
+
+        if 'aggregation_key' in df.columns:
+            pattern_from_aggregation = df['aggregation_key'].fillna('').astype(str).map(normalize_special_type_key).map(derive_pattern_key)
+            missing_pattern_mask = pattern_keys.eq('')
+            pattern_keys = pattern_keys.where(~missing_pattern_mask, pattern_from_aggregation)
+
+        for special_type_column in ('special_type_key', 'Special Type'):
+            if special_type_column in df.columns:
+                pattern_from_special_type = df[special_type_column].fillna('').astype(str).map(normalize_special_type_key).map(derive_pattern_key)
+                missing_pattern_mask = pattern_keys.eq('')
+                pattern_keys = pattern_keys.where(~missing_pattern_mask, pattern_from_special_type)
+
+        bucket_keys = aggregation_keys.where(aggregation_keys.ne(''), rarity_keys)
+        all_pattern_mask = pattern_keys.isin(RECOGNIZED_PATTERN_BUCKETS)
+        bucket_keys = bucket_keys.where(~all_pattern_mask, pattern_keys)
+
+        name_variant_mask = pd.Series(False, index=df.index)
+        if 'Card Name' in df.columns:
+            name_variant_mask = df['Card Name'].fillna('').astype(str).str.contains('(', regex=False)
+
+        non_pattern_base_mask = (
+            (~all_pattern_mask)
+            & (~name_variant_mask)
+            & rarity_keys.isin({'common', 'uncommon', 'rare'})
+        )
+        bucket_keys = bucket_keys.where(~non_pattern_base_mask, rarity_keys)
+
+        ev_values = pd.to_numeric(df['EV'], errors='coerce').fillna(0.0)
+        
+        # Sum row EVs by bucket
+        row_level_sum = float(ev_values[bucket_keys.ne('')].sum())
+        
+        # Sum bucket totals (excluding reverse which is external)
+        bucket_sum = float(sum(
+            v for k, v in ev_totals_by_rarity.items()
+            if k != 'reverse'
+        ))
+        
+        # Check for consistency (with floating point tolerance)
+        tolerance = 1e-6
+        if abs(row_level_sum - bucket_sum) > tolerance:
+            issues.append(
+                f"Row-level EV sum ({row_level_sum:.6f}) != bucket total ({bucket_sum:.6f}). "
+                f"Difference: {abs(row_level_sum - bucket_sum):.6f} (tolerance: {tolerance})"
+            )
+        
+        # ===== AUDIT 2: Spot-Check Pattern Rows =====
+        spot_checks = {
+            'pattern_rows': {},
+            'non_pattern_rows': {},
+        }
+        
+        # Find all pattern rows
+        for pattern_val in ['master_ball_pattern', 'pokeball_pattern']:
+            pattern_row_mask = pattern_keys.eq(pattern_val)
+            pattern_rows = df[pattern_row_mask]
+            
+            if len(pattern_rows) > 0:
+                pattern_ev_from_rows = float(pattern_rows['EV'].sum())
+                pattern_ev_from_buckets = float(ev_totals_by_rarity.get(pattern_val, 0.0))
+                
+                check_result = {
+                    'row_count': len(pattern_rows),
+                    'ev_from_rows': pattern_ev_from_rows,
+                    'ev_in_bucket': pattern_ev_from_buckets,
+                    'match': abs(pattern_ev_from_rows - pattern_ev_from_buckets) < tolerance,
+                    'rows': [],
+                }
+                
+                # Check each pattern row is counted only in pattern bucket, not base rarity bucket
+                for idx, row in pattern_rows.iterrows():
+                    card_name = row.get('Card Name', '<unknown>')
+                    base_rarity = row.get('rarity_key', '')
+                    ev = float(row['EV'])
+                    
+                    # Verify row is in pattern bucket
+                    agg_key = bucket_keys.loc[idx]
+                    is_in_pattern_bucket = agg_key == pattern_val
+                    
+                    row_check = {
+                        'card_name': card_name,
+                        'aggregation_key': agg_key,
+                        'base_rarity': base_rarity,
+                        'ev': ev,
+                        'in_pattern_bucket': is_in_pattern_bucket,
+                    }
+                    check_result['rows'].append(row_check)
+                    
+                    # Flag issues only if row is NOT in its intended pattern bucket
+                    if not is_in_pattern_bucket:
+                        issues.append(
+                            f"Pattern row '{card_name}' has pattern_key={pattern_val} "
+                            f"but aggregation_key={agg_key} (should be {pattern_val})"
+                        )
+                
+                # Check if pattern bucket EV matches row-level EV
+                if not check_result['match']:
+                    issues.append(
+                        f"Pattern rows for {pattern_val}: EV from dataframe ({pattern_ev_from_rows:.6f}) "
+                        f"!= EV in bucket ({pattern_ev_from_buckets:.6f})"
+                    )
+                
+                spot_checks['pattern_rows'][pattern_val] = check_result
+        
+        # ===== AUDIT 3: Spot-Check Non-Pattern Rows =====
+        non_pattern_mask = ~all_pattern_mask
+        non_pattern_rows = df[non_pattern_mask]
+        
+        if len(non_pattern_rows) > 0:
+            for base_rarity in ['common', 'uncommon', 'rare']:
+                rarity_mask = non_pattern_mask & rarity_keys.eq(base_rarity)
+                rarity_rows = df[rarity_mask]
+                
+                if len(rarity_rows) > 0:
+                    rarity_ev_from_rows = float(rarity_rows['EV'].sum())
+                    rarity_ev_from_buckets = float(ev_totals_by_rarity.get(base_rarity, 0.0))
+                    
+                    check_result = {
+                        'row_count': len(rarity_rows),
+                        'ev_from_rows': rarity_ev_from_rows,
+                        'ev_in_bucket': rarity_ev_from_buckets,
+                        'match': abs(rarity_ev_from_rows - rarity_ev_from_buckets) < tolerance,
+                        'rows': [],
+                    }
+                    
+                    for idx, row in rarity_rows.iterrows():
+                        card_name = row.get('Card Name', '<unknown>')
+                        ev = float(row['EV'])
+                        agg_key = bucket_keys.loc[idx]
+                        
+                        row_check = {
+                            'card_name': card_name,
+                            'aggregation_key': agg_key,
+                            'base_rarity': base_rarity,
+                            'ev': ev,
+                            'in_base_bucket': agg_key == base_rarity,
+                        }
+                        check_result['rows'].append(row_check)
+                        
+                        if agg_key != base_rarity:
+                            issues.append(
+                                f"Non-pattern row '{card_name}' has rarity_key={base_rarity} "
+                                f"but aggregation_key={agg_key} (should be {base_rarity})"
+                            )
+
+                    if not check_result['match']:
+                        issues.append(
+                            f"Non-pattern rows for {base_rarity}: EV from dataframe ({rarity_ev_from_rows:.6f}) "
+                            f"!= EV in bucket ({rarity_ev_from_buckets:.6f})"
+                        )
+
+                    spot_checks['non_pattern_rows'][base_rarity] = check_result
+
+        # Structural failure checks.
+        pattern_in_base_mask = all_pattern_mask & bucket_keys.isin({'common', 'uncommon', 'rare'})
+        if pattern_in_base_mask.any():
+            offenders = df.loc[pattern_in_base_mask, 'Card Name'].fillna('<unknown>').astype(str).head(5).tolist()
+            issues.append(
+                "Pattern rows routed to base rarity buckets. "
+                f"sample_cards={offenders}"
+            )
+
+        base_non_pattern_mismatch_mask = (~all_pattern_mask) & rarity_keys.isin({'common', 'uncommon', 'rare'}) & bucket_keys.ne(rarity_keys)
+        if base_non_pattern_mismatch_mask.any():
+            offenders = df.loc[base_non_pattern_mismatch_mask, 'Card Name'].fillna('<unknown>').astype(str).head(5).tolist()
+            issues.append(
+                "Non-pattern common/uncommon/rare rows routed outside their base rarity bucket. "
+                f"sample_cards={offenders}"
+            )
+        
+        return {
+            'is_valid': len(issues) == 0,
+            'issues': issues,
+            'row_sum': row_level_sum,
+            'bucket_sum': bucket_sum,
+            'spot_checks': spot_checks,
+        }
+    
     
    
     def calculate_total_ev(self, ev_totals, df):
