@@ -725,6 +725,8 @@ class TestComputeAllDerivedMetrics:
     def test_runtime_v2_anchor_contract_updated_for_profit_and_stability(self):
         assert _RUNTIME_V2_ANCHORS["prob_profit"]["min"] == pytest.approx(0.0)
         assert _RUNTIME_V2_ANCHORS["prob_profit"]["max"] == pytest.approx(1.0)
+        assert _RUNTIME_V2_ANCHORS["p95_value_to_cost_ratio"]["min"] == pytest.approx(0.25)
+        assert _RUNTIME_V2_ANCHORS["p95_value_to_cost_ratio"]["max"] == pytest.approx(5.0)
         assert _RUNTIME_V2_ANCHORS["effective_chase_count"]["min"] == pytest.approx(1.0)
         assert _RUNTIME_V2_ANCHORS["effective_chase_count"]["max"] == pytest.approx(30.0)
         assert _RUNTIME_V2_ANCHORS["coefficient_of_variation"]["min"] == pytest.approx(0.25)
@@ -768,12 +770,12 @@ class TestComputeAllDerivedMetrics:
     def test_pack_score_always_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert "pack_score" in result
-        assert result["pack_score"]["score_version"] == "pack_score_v2_runtime"
+        assert result["pack_score"]["score_version"] == "pack_score_v2_1_runtime"
 
     def test_pack_score_runtime_v2_flags(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         score = result["pack_score"]
-        assert score["normalization_mode"] == "fixed_anchor_runtime_v2"
+        assert score["normalization_mode"] == "fixed_anchor_runtime_v2_1"
         assert score["pack_score_is_placeholder"] is False
         assert 0.0 <= score["pack_score"] <= 100.0
 
@@ -784,6 +786,7 @@ class TestComputeAllDerivedMetrics:
             "prob_profit",
             "mean_value_to_cost_ratio",
             "median_value_to_cost_ratio",
+            "p95_value_to_cost_ratio",
             "expected_loss_when_losing",
             "median_loss_when_losing",
             "expected_loss_when_losing_fraction",
@@ -812,6 +815,7 @@ class TestComputeAllDerivedMetrics:
         result = compute_all_derived_metrics(TOY_VALUES, 0.0)
         assert result["pack_score"]["raw_inputs"]["mean_value_to_cost_ratio"] is None
         assert result["pack_score"]["raw_inputs"]["median_value_to_cost_ratio"] is None
+        assert result["pack_score"]["raw_inputs"]["p95_value_to_cost_ratio"] is None
 
     @patch("backend.calculations.evr.derived_metrics.compute_pack_decision_metrics")
     def test_cost_ratios_respect_missing_mean_or_median(self, mock_compute_pack_decision_metrics):
@@ -845,6 +849,57 @@ class TestComputeAllDerivedMetrics:
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert result["pack_score"]["raw_inputs"]["mean_value_to_cost_ratio"] is None
         assert result["pack_score"]["raw_inputs"]["median_value_to_cost_ratio"] is None
+        assert result["pack_score"]["raw_inputs"]["p95_value_to_cost_ratio"] == pytest.approx(
+            9.55 / PACK_COST
+        )
+
+    def test_p95_value_to_cost_ratio_is_p95_over_pack_cost(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        p95_val = result["pack_decision_metrics"]["p95"]
+        assert result["pack_score"]["raw_inputs"]["p95_value_to_cost_ratio"] == pytest.approx(
+            p95_val / PACK_COST
+        )
+
+    @patch("backend.calculations.evr.derived_metrics.compute_pack_decision_metrics")
+    def test_profit_score_changes_when_p95_changes_all_else_equal(self, mock_compute_pack_decision_metrics):
+        base_metrics = {
+            "pack_cost": PACK_COST,
+            "n_runs": 10,
+            "prob_profit": 0.6,
+            "prob_big_hit_fixed": None,
+            "big_hit_threshold_fixed": None,
+            "prob_big_hit_dynamic": 0.0,
+            "big_hit_threshold_dynamic": 25.0,
+            "big_hit_dynamic_mode": "cost_multiple",
+            "big_hit_dynamic_param": 5.0,
+            "n_losing_runs": 4,
+            "expected_loss_given_loss": 2.5,
+            "median_loss_given_loss": 2.5,
+            "expected_loss_unconditional": 1.0,
+            "tail_value_p05": 1.45,
+            "mean": 5.5,
+            "median": 5.5,
+            "std_dev": 2.5,
+            "coefficient_of_variation": 0.4,
+            "p05": 1.45,
+            "p25": 3.25,
+            "p50": 5.5,
+            "p75": 7.75,
+            "p95": 9.55,
+            "p99": 9.91,
+        }
+        low_p95_metrics = dict(base_metrics)
+        low_p95_metrics["p95"] = 3.0
+        high_p95_metrics = dict(base_metrics)
+        high_p95_metrics["p95"] = 20.0
+
+        mock_compute_pack_decision_metrics.return_value = low_p95_metrics
+        low_p95_score = compute_all_derived_metrics(TOY_VALUES, PACK_COST)["pack_score"]
+
+        mock_compute_pack_decision_metrics.return_value = high_p95_metrics
+        high_p95_score = compute_all_derived_metrics(TOY_VALUES, PACK_COST)["pack_score"]
+
+        assert high_p95_score["profit_score"] > low_p95_score["profit_score"]
 
     def test_safety_shortfall_to_cost_formula(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
@@ -908,9 +963,10 @@ class TestComputeAllDerivedMetrics:
         )["pack_score"]
         n = score["normalized_inputs"]
         expected_profit = (
-            40.0 * n["prob_profit"]["score"]
-            + 30.0 * n["mean_value_to_cost_ratio"]["score"]
-            + 30.0 * n["median_value_to_cost_ratio"]["score"]
+            35.0 * n["prob_profit"]["score"]
+            + 25.0 * n["mean_value_to_cost_ratio"]["score"]
+            + 20.0 * n["median_value_to_cost_ratio"]["score"]
+            + 20.0 * n["p95_value_to_cost_ratio"]["score"]
         ) / 100.0
         expected_safety = (
             34.0 * n["expected_loss_when_losing_fraction"]["score"]
@@ -946,6 +1002,9 @@ class TestComputeAllDerivedMetrics:
 
         assert normalized["coefficient_of_variation"]["min"] == pytest.approx(0.25)
         assert normalized["coefficient_of_variation"]["max"] == pytest.approx(10.0)
+
+        assert normalized["p95_value_to_cost_ratio"]["min"] == pytest.approx(0.25)
+        assert normalized["p95_value_to_cost_ratio"]["max"] == pytest.approx(5.0)
 
     def test_fixed_anchor_normalization_clamps_extreme_values(self):
         # higher-is-better clamps below min to 0 and above max to 100
@@ -1057,7 +1116,12 @@ class TestPackSimulationSummary:
 
     def test_score_version_stored(self):
         s = self._build_summary()
-        assert s.score_version == "pack_score_v2_runtime"
+        assert s.score_version == "pack_score_v2_1_runtime"
+
+    def test_p95_fields_stored(self):
+        s = self._build_summary()
+        assert s.p95_value == pytest.approx(9.55)
+        assert s.p95_value_to_cost_ratio == pytest.approx(9.55 / PACK_COST)
 
     def test_pack_score_stored_and_bounded(self):
         s = self._build_summary()

@@ -25,6 +25,7 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "profit_score",
     "safety_score",
     "stability_score",
+    "p95_value_to_cost_ratio",
     "score_version",
     "normalization_mode",
     "pack_score_is_placeholder",
@@ -629,6 +630,7 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
         "profit_score": _coerce_optional_float(derived.get("profit_score")),
         "safety_score": _coerce_optional_float(derived.get("safety_score")),
         "stability_score": _coerce_optional_float(derived.get("stability_score")),
+        "p95_value_to_cost_ratio": _coerce_optional_float(derived.get("p95_value_to_cost_ratio")),
         "score_version": _require_non_empty_str(derived.get("score_version"), "score_version"),
         "normalization_mode": _require_non_empty_str(derived.get("normalization_mode"), "normalization_mode"),
         "pack_score_is_placeholder": _require_bool(derived.get("pack_score_is_placeholder"), "pack_score_is_placeholder"),
@@ -797,8 +799,21 @@ def get_latest_run_snapshot_for_target(target_type: str, target_id: str) -> Opti
         limit=1,
     )
 
+    percentile_rows = _select_rows_with_candidates(
+        table_name="simulation_percentiles",
+        select_candidates=[
+            "calculation_run_id,percentile,value",
+            "calculation_run_id,value",
+            "calculation_run_id",
+        ],
+        filters=[("eq", "calculation_run_id", run_id), ("eq", "percentile", 95.0)],
+        limit=1,
+    )
+
     derived_row = derived_rows[0] if derived_rows else {}
-    summary_row = summary_rows[0] if summary_rows else {}
+    summary_row = dict(summary_rows[0]) if summary_rows else {}
+    p95_row = percentile_rows[0] if percentile_rows else {}
+    summary_row["p95_value"] = p95_row.get("value") if isinstance(p95_row, dict) else None
 
     for field in ETB_COMPARISON_METRIC_FIELDS:
         if field in run_row:

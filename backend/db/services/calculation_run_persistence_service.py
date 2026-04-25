@@ -344,6 +344,11 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
             "derived.pack_score.raw_inputs.effective_chase_count",
         )
 
+    p95_value_to_cost_ratio = _coerce_optional_float(
+        _first_present(pack_score_raw_inputs_map, ("p95_value_to_cost_ratio",)),
+        "derived.pack_score.raw_inputs.p95_value_to_cost_ratio",
+    )
+
     if pack_score_is_placeholder:
         canonical_pack_score = None
         canonical_profit_score = None
@@ -402,6 +407,7 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         "profit_score": canonical_profit_score,
         "safety_score": canonical_safety_score,
         "stability_score": canonical_stability_score,
+        "p95_value_to_cost_ratio": p95_value_to_cost_ratio,
         "score_version": _require_nonempty_str(
             _first_present(pack_score, ("score_version",)),
             "derived.pack_score.score_version",

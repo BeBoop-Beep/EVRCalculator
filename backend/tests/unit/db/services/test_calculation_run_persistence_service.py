@@ -125,6 +125,7 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "profit_score": None,
             "safety_score": None,
             "stability_score": None,
+            "p95_value_to_cost_ratio": None,
             "score_version": "pack_score_v1_singleton_placeholder",
             "normalization_mode": "singleton_placeholder",
             "pack_score_is_placeholder": True,
@@ -227,6 +228,7 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "profit_score": None,
             "safety_score": None,
             "stability_score": None,
+            "p95_value_to_cost_ratio": None,
             "score_version": "pack_score_v1_singleton_placeholder",
             "normalization_mode": "singleton_placeholder",
             "pack_score_is_placeholder": True,
@@ -335,6 +337,7 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
             "profit_score": None,
             "safety_score": None,
             "stability_score": None,
+            "p95_value_to_cost_ratio": None,
             "score_version": "pack_score_v1_singleton_placeholder",
             "normalization_mode": "singleton_placeholder",
             "pack_score_is_placeholder": True,
@@ -380,6 +383,7 @@ def test_persist_simulation_derived_metrics_does_not_map_safety_into_diversifica
     persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
     assert "safety_score" in persisted_payload
     assert "stability_score" in persisted_payload
+    assert "impact_score" not in persisted_payload
     assert "diversification_component" not in persisted_payload
 
 
@@ -647,8 +651,8 @@ def test_persist_simulation_derived_metrics_accepts_runtime_v2_and_ignores_runti
                 "profit_score": 71.0,
                 "safety_score": 37.0,
                 "stability_score": 65.0,
-                "score_version": "pack_score_v2_runtime",
-                "normalization_mode": "fixed_anchor_runtime_v2",
+                "score_version": "pack_score_v2_1_runtime",
+                "normalization_mode": "fixed_anchor_runtime_v2_1",
                 "pack_score_is_placeholder": False,
                 "weights_pct": {"pack_score": {"profit_score": 40.0}},
                 "weights_normalized": {"pack_score": {"profit_score": 0.4}},
@@ -663,11 +667,12 @@ def test_persist_simulation_derived_metrics_accepts_runtime_v2_and_ignores_runti
     assert persisted_payload["profit_score"] == 71.0
     assert persisted_payload["safety_score"] == 37.0
     assert persisted_payload["stability_score"] == 65.0
-    assert persisted_payload["score_version"] == "pack_score_v2_runtime"
-    assert persisted_payload["normalization_mode"] == "fixed_anchor_runtime_v2"
+    assert persisted_payload["score_version"] == "pack_score_v2_1_runtime"
+    assert persisted_payload["normalization_mode"] == "fixed_anchor_runtime_v2_1"
     assert persisted_payload["pack_score_is_placeholder"] is False
     assert persisted_payload["hhi_ev_concentration"] == pytest.approx(0.30)
     assert persisted_payload["effective_chase_count"] == pytest.approx(3.3333)
+    assert persisted_payload["p95_value_to_cost_ratio"] is None
     assert "raw_inputs" not in persisted_payload
     assert "normalized_inputs" not in persisted_payload
     assert "weights_pct" not in persisted_payload
@@ -702,12 +707,13 @@ def test_persist_simulation_derived_metrics_uses_pack_score_raw_inputs_fallback_
                 "profit_score": 71.0,
                 "safety_score": 37.0,
                 "stability_score": 65.0,
-                "score_version": "pack_score_v2_runtime",
-                "normalization_mode": "fixed_anchor_runtime_v2",
+                "score_version": "pack_score_v2_1_runtime",
+                "normalization_mode": "fixed_anchor_runtime_v2_1",
                 "pack_score_is_placeholder": False,
                 "raw_inputs": {
                     "hhi_ev_concentration": 0.44,
                     "effective_chase_count": 2.2727,
+                    "p95_value_to_cost_ratio": 1.91,
                 },
             },
         },
@@ -716,6 +722,7 @@ def test_persist_simulation_derived_metrics_uses_pack_score_raw_inputs_fallback_
     persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
     assert persisted_payload["hhi_ev_concentration"] == pytest.approx(0.44)
     assert persisted_payload["effective_chase_count"] == pytest.approx(2.2727)
+    assert persisted_payload["p95_value_to_cost_ratio"] == pytest.approx(1.91)
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_calculation_price_snapshot")

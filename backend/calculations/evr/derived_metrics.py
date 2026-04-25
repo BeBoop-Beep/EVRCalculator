@@ -25,14 +25,15 @@ V2 runtime scoring (fixed anchors)
     :func:`compute_all_derived_metrics` builds a real runtime score payload via
     fixed-anchor normalization (not a placeholder singleton). The runtime
     payload reports:
-      score_version = "pack_score_v2_runtime"
-      normalization_mode = "fixed_anchor_runtime_v2"
+            score_version = "pack_score_v2_1_runtime"
+            normalization_mode = "fixed_anchor_runtime_v2_1"
       pack_score_is_placeholder = False
 
 V2 runtime component inputs
 ---------------------------
 Profit Score (0-100)
-    Inputs: prob_profit, mean_value_to_cost_ratio, median_value_to_cost_ratio.
+    Inputs: prob_profit, mean_value_to_cost_ratio, median_value_to_cost_ratio,
+    p95_value_to_cost_ratio.
 
 Safety Score (0-100)
     Inputs: expected_loss_when_losing, median_loss_when_losing,
@@ -666,9 +667,10 @@ _PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.40, 0.30, 0.30)
 # Runtime V2 component weights are declared as percentage-style values and
 # normalized internally for weighted averages.
 _PROFIT_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "prob_profit": 40.0,
-    "mean_value_to_cost_ratio": 30.0,
-    "median_value_to_cost_ratio": 30.0,
+    "prob_profit": 35.0,
+    "mean_value_to_cost_ratio": 25.0,
+    "median_value_to_cost_ratio": 20.0,
+    "p95_value_to_cost_ratio": 20.0,
 }
 _SAFETY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "expected_loss_when_losing_fraction": 34.0,
@@ -700,6 +702,11 @@ _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
     "median_value_to_cost_ratio": {
         "min": 0.10,
         "max": 1.00,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+    },
+    "p95_value_to_cost_ratio": {
+        "min": 0.25,
+        "max": 5.00,
         "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
     },
     # Safety anchors (all normalized downside fractions)
@@ -1078,6 +1085,7 @@ def _build_runtime_v2_pack_score_payload(
     pack_cost = _to_finite_float(pack_metrics.get("pack_cost"))
     mean_value = _to_finite_float(pack_metrics.get("mean"))
     median_value = _to_finite_float(pack_metrics.get("median"))
+    p95_value = _to_finite_float(pack_metrics.get("p95"))
     expected_loss_when_losing = _to_finite_float(pack_metrics.get("expected_loss_given_loss"))
     median_loss_when_losing = _to_finite_float(pack_metrics.get("median_loss_given_loss"))
     tail_value_p05 = _to_finite_float(pack_metrics.get("tail_value_p05"))
@@ -1086,6 +1094,7 @@ def _build_runtime_v2_pack_score_payload(
         "prob_profit": _to_finite_float(pack_metrics.get("prob_profit")),
         "mean_value_to_cost_ratio": _safe_ratio(mean_value, pack_cost),
         "median_value_to_cost_ratio": _safe_ratio(median_value, pack_cost),
+        "p95_value_to_cost_ratio": _safe_ratio(p95_value, pack_cost),
         "expected_loss_when_losing": expected_loss_when_losing,
         "median_loss_when_losing": median_loss_when_losing,
         "expected_loss_when_losing_fraction": _safe_ratio(expected_loss_when_losing, pack_cost),
@@ -1126,6 +1135,10 @@ def _build_runtime_v2_pack_score_payload(
             "median_value_to_cost_ratio",
             raw_inputs["median_value_to_cost_ratio"],
         ),
+        "p95_value_to_cost_ratio": _score_metric(
+            "p95_value_to_cost_ratio",
+            raw_inputs["p95_value_to_cost_ratio"],
+        ),
         "expected_loss_when_losing_fraction": _score_metric(
             "expected_loss_when_losing_fraction",
             raw_inputs["expected_loss_when_losing_fraction"],
@@ -1153,6 +1166,7 @@ def _build_runtime_v2_pack_score_payload(
             "prob_profit": normalized_inputs["prob_profit"]["score"],
             "mean_value_to_cost_ratio": normalized_inputs["mean_value_to_cost_ratio"]["score"],
             "median_value_to_cost_ratio": normalized_inputs["median_value_to_cost_ratio"]["score"],
+            "p95_value_to_cost_ratio": normalized_inputs["p95_value_to_cost_ratio"]["score"],
         },
         _PROFIT_V2_WEIGHTS_PCT,
     )
@@ -1185,8 +1199,8 @@ def _build_runtime_v2_pack_score_payload(
     )
 
     return {
-        "score_version": "pack_score_v2_runtime",
-        "normalization_mode": "fixed_anchor_runtime_v2",
+        "score_version": "pack_score_v2_1_runtime",
+        "normalization_mode": "fixed_anchor_runtime_v2_1",
         "pack_score_is_placeholder": False,
         "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
         "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
@@ -1420,6 +1434,7 @@ class PackSimulationSummary:
     # --- Distribution summary ---
     mean_value: float
     median_value: float
+    p95_value: Optional[float]
     std_dev: float
     coefficient_of_variation: Optional[float]
 
@@ -1455,6 +1470,7 @@ class PackSimulationSummary:
     safety_score: Optional[float]
     stability_score: Optional[float]
     pack_score: Optional[float]
+    p95_value_to_cost_ratio: Optional[float]
 
 
 def build_pack_simulation_summary(
@@ -1504,6 +1520,7 @@ def build_pack_simulation_summary(
         n_session_runs=int(sm["n_runs"]) if sm.get("n_runs") is not None else None,
         mean_value=float(pm.get("mean", 0.0)),
         median_value=float(pm.get("median", 0.0)),
+        p95_value=pm.get("p95"),
         std_dev=float(pm.get("std_dev", 0.0)),
         coefficient_of_variation=pm.get("coefficient_of_variation"),
         prob_profit=float(pm.get("prob_profit", 0.0)),
@@ -1527,6 +1544,7 @@ def build_pack_simulation_summary(
         safety_score=idx.get("safety_score"),
         stability_score=idx.get("stability_score"),
         pack_score=idx.get("pack_score"),
+        p95_value_to_cost_ratio=((idx.get("raw_inputs") or {}).get("p95_value_to_cost_ratio")),
     )
 
 
@@ -1682,7 +1700,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
             f"{_fmt_float(idx.get('stability_score'))}"
         )
 
-        if idx.get("score_version") == "pack_score_v2_runtime":
+        if idx.get("score_version") in {"pack_score_v2_runtime", "pack_score_v2_1_runtime"}:
             print()
             print("[PACK_SCORE_V2_RUNTIME]")
             print(f"  score_version:               {idx.get('score_version')}")
@@ -1697,6 +1715,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
                 "prob_profit",
                 "mean_value_to_cost_ratio",
                 "median_value_to_cost_ratio",
+                "p95_value_to_cost_ratio",
                 "expected_loss_when_losing",
                 "median_loss_when_losing",
                 "expected_loss_when_losing_fraction",

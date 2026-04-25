@@ -96,6 +96,7 @@ def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores
         "profit_score": None,
         "safety_score": None,
         "stability_score": None,
+        "p95_value_to_cost_ratio": None,
         "score_version": "pack_score_v1_singleton_placeholder",
         "normalization_mode": "singleton_placeholder",
         "pack_score_is_placeholder": True,
@@ -122,6 +123,7 @@ def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores
         "profit_score": None,
         "safety_score": None,
         "stability_score": None,
+        "p95_value_to_cost_ratio": None,
         "score_version": "pack_score_v1_singleton_placeholder",
         "normalization_mode": "singleton_placeholder",
         "pack_score_is_placeholder": True,
@@ -131,6 +133,7 @@ def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores
         "profit_score",
         "safety_score",
         "stability_score",
+        "p95_value_to_cost_ratio",
         "hhi_ev_concentration",
         "effective_chase_count",
     }
@@ -156,6 +159,7 @@ def test_create_simulation_derived_metrics_raises_when_required_field_missing(mo
         "profit_score": None,
         "safety_score": None,
         "stability_score": None,
+        "p95_value_to_cost_ratio": None,
         "score_version": "pack_score_v1_singleton_placeholder",
         "normalization_mode": "singleton_placeholder",
         "pack_score_is_placeholder": True,
@@ -187,6 +191,7 @@ def test_create_simulation_derived_metrics_persists_real_scores_when_present(moc
             "profit_score": 71.0,
             "safety_score": 37.0,
             "stability_score": 65.0,
+            "p95_value_to_cost_ratio": 1.91,
             "score_version": "pack_score_v1",
             "normalization_mode": "cross_set_minmax",
             "pack_score_is_placeholder": False,
@@ -199,6 +204,7 @@ def test_create_simulation_derived_metrics_persists_real_scores_when_present(moc
     assert inserted_payload["profit_score"] == 71.0
     assert inserted_payload["safety_score"] == 37.0
     assert inserted_payload["stability_score"] == 65.0
+    assert inserted_payload["p95_value_to_cost_ratio"] == pytest.approx(1.91)
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
@@ -264,7 +270,13 @@ def test_get_latest_run_snapshot_for_target_includes_explicit_derived_and_compar
         "roi_percent": 20.0,
     }
 
-    mock_select_rows.side_effect = [[run_row], [derived_row], [summary_row]]
+    percentile_row = {
+        "calculation_run_id": "run-1",
+        "percentile": 95.0,
+        "value": 9.55,
+    }
+
+    mock_select_rows.side_effect = [[run_row], [derived_row], [summary_row], [percentile_row]]
 
     snapshot = get_latest_run_snapshot_for_target("set", "sv8")
 
@@ -285,6 +297,7 @@ def test_get_latest_run_snapshot_for_target_includes_explicit_derived_and_compar
         assert snapshot["derived_metrics"][field] == derived_row[field]
 
     assert snapshot["simulation_summary"]["calculation_run_id"] == "run-1"
+    assert snapshot["simulation_summary"]["p95_value"] == pytest.approx(9.55)
 
 
 @patch("backend.db.repositories.calculation_runs_repository._select_rows_with_candidates", return_value=[])
