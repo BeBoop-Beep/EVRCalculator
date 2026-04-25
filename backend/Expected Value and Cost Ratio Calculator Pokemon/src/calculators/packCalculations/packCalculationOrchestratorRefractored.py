@@ -59,7 +59,7 @@ class PackCalculationOrchestrator(PackCalculations):
             log_choices=slot_logs
         )
 
-        sim_results = run_simulation(simulate_one_pack, rarity_pull_counts, rarity_value_totals, n=100000)
+        sim_results = run_simulation(simulate_one_pack, rarity_pull_counts, rarity_value_totals, n=1000000)
 
         print_simulation_summary(sim_results)
 

@@ -1,5 +1,6 @@
 import PublicCollectionViewWrapper from "@/components/Profile/PublicCollectionViewWrapper";
 import { buildCollectionStats, getPublicCollectionEntries } from "@/lib/profile/collectionEntryLoader";
+import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
 
 const ALLOWED_SORTS = new Set(["recent", "value-desc", "value-asc", "name-asc", "name-desc"]);
 const ALLOWED_VIEWS = new Set(["continuous", "binder"]);
@@ -29,10 +30,17 @@ export default async function PublicProfileCollectionPage({ params, searchParams
 
   let publicCollectionAssets = [];
   let publicCollectionFetchError = null;
+  let hasPublicProfile = false;
+  let profileFetchError = null;
 
   try {
     // Guardrail: collection route should not serially block on a separate public profile fetch.
-    publicCollectionAssets = await getPublicCollectionEntries(normalizedUsername);
+    const [collectionEntries, publicContext] = await Promise.all([
+      getPublicCollectionEntries(normalizedUsername),
+      getCachedPublicRouteContextByUsername(normalizedUsername),
+    ]);
+    publicCollectionAssets = collectionEntries;
+    hasPublicProfile = Boolean(publicContext?.publicProfile?.id);
   } catch (error) {
     publicCollectionFetchError = error;
     console.error("[public-collection-page] collection_fetch_failed", {
@@ -42,13 +50,22 @@ export default async function PublicProfileCollectionPage({ params, searchParams
     });
   }
 
+  if (!hasPublicProfile) {
+    try {
+      const context = await getCachedPublicRouteContextByUsername(normalizedUsername);
+      hasPublicProfile = Boolean(context?.publicProfile?.id);
+    } catch (error) {
+      profileFetchError = error;
+    }
+  }
+
   const collectionStats = buildCollectionStats(publicCollectionAssets);
-  const canRenderPublicCollection = !publicCollectionFetchError;
+  const canRenderPublicCollection = !publicCollectionFetchError && hasPublicProfile;
 
   console.info("[public-collection-lifecycle] page_props", {
     username: normalizedUsername,
-    hasPublicProfile: null,
-    profileFetchError: null,
+    hasPublicProfile,
+    profileFetchError: profileFetchError ? (profileFetchError.message || String(profileFetchError)) : null,
     collectionFetchError: publicCollectionFetchError ? (publicCollectionFetchError.message || String(publicCollectionFetchError)) : null,
     count: publicCollectionAssets.length,
     sampleIds: publicCollectionAssets.map((item) => String(item?.id || "")).filter(Boolean).slice(0, 10),
@@ -73,7 +90,7 @@ export default async function PublicProfileCollectionPage({ params, searchParams
   console.info("[public-collection-lifecycle] page_timing", {
     username: normalizedUsername,
     pageRenderPrepMs: Date.now() - pageStartedAt,
-    hasPublicProfile: null,
+    hasPublicProfile,
     collectionCount: publicCollectionAssets.length,
   });
 

@@ -1,4 +1,7 @@
 from .baseConfig import BaseSetConfig
+from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+    get_prismatic_evolutions_pack_state_overrides,
+)
 
 class SetPrismaticEvolutionsConfig(BaseSetConfig):
     SET_NAME = "Prismatic Evolutions"
@@ -66,16 +69,16 @@ class SetPrismaticEvolutionsConfig(BaseSetConfig):
         "strategy": {
             "type": "fixed",
             "cards": [
-                "Eevee (Master Ball Pattern)",
-                "Eevee ex - 167/131",
-                "Vaporeon ex - 149/131",
-                "Jolteon ex - 153/131",
-                "Flareon ex - 146/131",
-                "Espeon ex - 155/131",
-                "Umbreon ex - 161/131",
-                "Glaceon ex - 150/131",
-                "Leafeon ex - 144/131",
-                "Sylveon ex - 156/131"
+                {"name": "Eevee", "number": "074/131", "rarity": "common", "special_type": "master ball"},
+                {"name": "Eevee ex", "number": "167/131", "rarity": "special illustration rare"},
+                {"name": "Vaporeon ex", "number": "149/131", "rarity": "special illustration rare"},
+                {"name": "Jolteon ex", "number": "153/131", "rarity": "special illustration rare"},
+                {"name": "Flareon ex", "number": "146/131", "rarity": "special illustration rare"},
+                {"name": "Espeon ex", "number": "155/131", "rarity": "special illustration rare"},
+                {"name": "Umbreon ex", "number": "161/131", "rarity": "special illustration rare"},
+                {"name": "Glaceon ex", "number": "150/131", "rarity": "special illustration rare"},
+                {"name": "Leafeon ex", "number": "144/131", "rarity": "special illustration rare"},
+                {"name": "Sylveon ex", "number": "156/131", "rarity": "special illustration rare"}
             ]
         }
     }
@@ -87,10 +90,25 @@ class SetPrismaticEvolutionsConfig(BaseSetConfig):
             "type": "random",
             "rules": {
                 "rarities": {
-                    "common": 4,
-                    "uncommon": 3,
-                    "special illustration rare": 3
+                    "common": {
+                        "count": 4,
+                        "replacement": "with_replacement"
+                    },
+                    "uncommon": {
+                        "count": 3,
+                        "replacement": "with_replacement"
+                    },
+                    "special illustration rare": {
+                        "count": 3,
+                        "replacement": "without_replacement"
+                    }
                 }
             }
         }
     }
+
+    CHASE_METRICS_EXCLUDED_RARITIES = {"poke ball pattern"}
+
+    @classmethod
+    def get_pack_state_overrides(cls):
+        return get_prismatic_evolutions_pack_state_overrides()

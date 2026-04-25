@@ -1,6 +1,7 @@
 from ..helpers.card_helper import clean_price_value, process_card, clean_condition, normalize_condition
 from ..helpers.sealed_price_helper import parse_sealed_prices
 
+
 class TCGPlayerParser:
     def __init__(self, pull_rate_mapping):
         """
@@ -10,7 +11,7 @@ class TCGPlayerParser:
             pull_rate_mapping: Dictionary mapping rarities to pull rates
         """
         self.pull_rate_mapping = pull_rate_mapping
-    
+
     def parse_cards(self, raw_data):
         """
         Parse raw card data from TCGPlayer API
@@ -23,13 +24,19 @@ class TCGPlayerParser:
         """
         raw_cards = raw_data.get("result", [])
         card_data = {}
+        dropped_no_market = 0
+        dropped_invalid = 0
         
         for card in raw_cards:
             
             product_name, card_dict = process_card(card, self.pull_rate_mapping)
-            
+
             # Skip invalid cards
             if product_name is None:
+                if not card.get('marketPrice'):
+                    dropped_no_market += 1
+                else:
+                    dropped_invalid += 1
                 continue
             
             # Create unique key to differentiate card variants
@@ -50,12 +57,19 @@ class TCGPlayerParser:
                 key_parts.append(condition)
             
             unique_key = "|".join(key_parts)
-            
+
             # Store card data with unique key (keeps each variant separate)
             card_data[unique_key] = card_dict
             
         cards = list(card_data.values())
         
+        print(
+            f"[DIAG][parse_cards] raw={len(raw_cards)} "
+            f"kept={len(cards)} "
+            f"dropped_no_market_price={dropped_no_market} "
+            f"dropped_other={dropped_invalid}"
+        )
+
         return self._clean_card_data(cards)
     
     def parse_sealed_products(self, config, client):
@@ -106,6 +120,8 @@ class TCGPlayerParser:
     def _clean_card_data(self, cards):
         """Clean and validate card data before DTO conversion"""
         cleaned = []
+        dropped_no_name = 0
+        dropped_no_price = 0
         for card in cards:
             
             # Normalize condition to match database values
@@ -123,6 +139,8 @@ class TCGPlayerParser:
                 'variant': (card.get('specialType') or '').lower().strip(),  # Normalize to lowercase
                 'condition': normalized_condition,  # Use normalized condition
                 'printing': (card.get('printing') or '').strip(),
+                'edition': (card.get('edition') or '').strip(),
+                'printing_type': (card.get('printing_type') or '').strip(),
                 'pull_rate': card.get('Pull Rate (1/X)'),
                 'currency': 'USD',
                 'source': 'TCGPlayer',
@@ -130,16 +148,25 @@ class TCGPlayerParser:
                     'market': clean_price_value(card.get('Price ($)')),
                 }
             }
-            
+
             # Only include cards with valid data
             if cleaned_card['name'] and cleaned_card['prices']['market'] is not None:
                 cleaned.append(cleaned_card)
+            elif not cleaned_card['name']:
+                dropped_no_name += 1
+            else:
+                dropped_no_price += 1
         
         # Write full output to file for inspection
         import json
         with open('cleaned_cards_debug.json', 'w', encoding='utf-8') as f:
             json.dump(cleaned, f, indent=2)
-        print(f'counted cards: {len(cleaned)} (full list written to cleaned_cards_debug.json)')
+        print(
+            f"[DIAG][_clean_card_data] after_clean={len(cleaned)} "
+            f"dropped_no_name={dropped_no_name} "
+            f"dropped_no_market_price={dropped_no_price} "
+            f"(full list written to cleaned_cards_debug.json)"
+        )
         
         return cleaned
     

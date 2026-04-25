@@ -185,6 +185,21 @@ def get_latest_price(sealed_product_id: int) -> Optional[Dict[str, Any]]:
     return res.data if res and res.data else None
 
 
+def get_latest_prices_for_sealed_product_ids(sealed_product_ids: List[int]) -> List[Dict[str, Any]]:
+    """Return latest market rows for sealed product IDs from canonical latest view."""
+    if not sealed_product_ids:
+        return []
+
+    fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    res = (
+        fresh_client.table("sealed_product_market_usd_latest")
+        .select("*")
+        .in_("sealed_product_id", sealed_product_ids)
+        .execute()
+    )
+    return res.data if res and res.data else []
+
+
 def insert_sealed_product_prices_batch(price_rows: List[Dict[str, Any]]) -> List[int]:
     """
     Insert multiple sealed product price rows in a single batch operation.

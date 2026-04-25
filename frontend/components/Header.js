@@ -122,17 +122,22 @@ export default function Header() {
             <Link
               href="/"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="text-[var(--text-primary)] cursor-pointer flex items-center gap-0 transition-all duration-300 ease-in-out hover:scale-105"
+              className="text-[var(--text-primary)] cursor-pointer flex items-center gap-1.5 transition-all duration-300 ease-in-out hover:scale-105"
             >
               <Image
                 src="/images/inDex.png"
                 alt="inDex"
                 width={58}
                 height={58}
-                className="h-[52px] w-[52px] md:h-[58px] md:w-[58px] object-contain"
+                className="h-[50px] w-[50px] md:h-[56px] md:w-[56px] object-contain"
               />
-              <span className="hidden sm:inline -ml-1 text-xl md:text-2xl font-semibold tracking-tight">
-                inDex
+              <span className="hidden sm:flex items-center -ml-1 md:-ml-2 leading-none">
+                <span className="text-[20px] md:text-[26px] font-semibold text-[#097754]">
+                  in
+                </span>
+                <span className="text-[20px] md:text-[26px] font-semibold text-white">
+                  Dex
+                </span>
               </span>
             </Link>
 

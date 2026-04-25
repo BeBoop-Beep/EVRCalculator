@@ -3,6 +3,15 @@ import numpy as np
 import os
 
 from .evrCalculator import PackEVCalculator
+from backend.calculations.utils.rarity_classification import normalize_rarity_key, normalize_rarity_string
+from backend.calculations.utils.reverse_pool import (
+    build_reverse_eligible_pool,
+    get_normalized_base_rarity_key_series,
+    get_normalized_classification_key_series,
+    get_regular_reverse_probability,
+    normalize_reverse_classification_key,
+)
+from backend.calculations.utils.special_type_normalization import RECOGNIZED_PATTERN_BUCKETS
 
 class PackCalculations(PackEVCalculator):
     """Complete pack EV calculator with all metrics"""
@@ -56,17 +65,78 @@ class PackCalculations(PackEVCalculator):
             total_ev: The already calculated total expected value from calculate_total_ev()
         """
         
-        # Filter out special patterns for standard rarity calculations
-        pattern_mask = df['Card Name'].str.contains('Master Ball|Poke Ball', case=False, na=False)
-        
-        # Get card pools for each rarity
-        common_cards = df[(df['Rarity'] == 'common') & ~pattern_mask]
-        uncommon_cards = df[(df['Rarity'] == 'uncommon') & ~pattern_mask]
-        rare_cards = df[(df['Rarity'] == 'rare') & ~pattern_mask]
+        rarity_source = df['rarity_raw'] if 'rarity_raw' in df.columns else df['Rarity']
+        rarity_normalized = rarity_source.astype(str).str.strip().str.lower()
+        rarity_keys = get_normalized_base_rarity_key_series(df)
+        classification_keys = get_normalized_classification_key_series(df)
+        rarity_groups = (
+            df['rarity_group']
+            if 'rarity_group' in df.columns
+            else rarity_normalized.map(self.config.RARITY_MAPPING)
+        )
+        variance_df = df.assign(
+            _rarity_normalized=rarity_normalized,
+            _rarity_key=rarity_keys,
+            _classification_key=classification_keys,
+            _rarity_group=rarity_groups,
+        )
+
+        def filter_cards_by_rarity_semantics(cards_df, rarity_value):
+            classification_key = normalize_reverse_classification_key(rarity_value)
+            rarity_key = normalize_rarity_key(rarity_value)
+            accepted_classification_keys = {classification_key}
+            accepted_rarity_keys = {rarity_key}
+
+            if classification_key in {'ace_spec', 'ace_spec_rare'} or rarity_key in {'ace_spec', 'ace_spec_rare'}:
+                accepted_classification_keys.update({'ace_spec', 'ace_spec_rare'})
+                accepted_rarity_keys.update({'ace_spec', 'ace_spec_rare'})
+
+            if classification_key in RECOGNIZED_PATTERN_BUCKETS:
+                return cards_df[cards_df['_classification_key'].isin(accepted_classification_keys)]
+
+            return cards_df[
+                cards_df['_classification_key'].isin(accepted_classification_keys)
+                | cards_df['_rarity_key'].isin(accepted_rarity_keys)
+            ]
+
+        def get_rarity_mask(cards_df, rarity_value):
+            rarity_key = normalize_rarity_key(rarity_value)
+            accepted_keys = {rarity_key}
+
+            if rarity_key == 'ace_spec':
+                accepted_keys.add('ace_spec_rare')
+
+            # Name-variant rows (Card Name contains parentheses) are cosmetic/reverse
+            # variants and must not enter base slot variance pools.
+            name_variant_flag = pd.Series(False, index=cards_df.index)
+            if 'Card Name' in cards_df.columns:
+                name_variant_flag = cards_df['Card Name'].fillna('').astype(str).str.contains('(', regex=False)
+
+            return (
+                cards_df['_rarity_key'].isin(accepted_keys)
+                & ~cards_df['_classification_key'].isin(RECOGNIZED_PATTERN_BUCKETS)
+                & ~name_variant_flag
+            )
+
+        def is_supported_reverse_special_outcome(outcome_type):
+            outcome_key = normalize_reverse_classification_key(outcome_type)
+            supported_outcome_keys = {
+                'illustration_rare',
+                'special_illustration_rare',
+                'ace_spec',
+                'ace_spec_rare',
+                'pokeball_pattern',
+                'master_ball_pattern',
+            }
+            return outcome_key in supported_outcome_keys
+
+        # Get card pools for each rarity using prepared rarity semantics.
+        common_cards = variance_df[get_rarity_mask(variance_df, 'common')]
+        uncommon_cards = variance_df[get_rarity_mask(variance_df, 'uncommon')]
+        rare_cards = variance_df[get_rarity_mask(variance_df, 'rare')]
         
         # Get hit cards and special cards
-        df["rarity_group"] = df["Rarity"].str.lower().map(self.config.RARITY_MAPPING)
-        hit_cards = df[df['rarity_group'] == 'hits']
+        hit_cards = variance_df[variance_df['_rarity_group'] == 'hits']
     
         def calculate_guaranteed_slot_variance(cards_df, num_slots, total_cards_in_rarity):
             """
@@ -129,8 +199,7 @@ class PackCalculations(PackEVCalculator):
                 if rarity == 'rare':
                     continue
                     
-                rarity = rarity.lower().strip()
-                hit_subset = hit_cards[hit_cards['Rarity'].str.lower().str.strip() == rarity]
+                hit_subset = filter_cards_by_rarity_semantics(hit_cards, rarity)
 
                 if not hit_subset.empty:
                     num_hits = len(hit_subset)
@@ -155,44 +224,35 @@ class PackCalculations(PackEVCalculator):
             Calculate variance for reverse slots with proper replacement modeling.
             Each slot is independent, within each slot we have a multinomial draw.
             """
-            if 'EV_Reverse' not in df.columns or not reverse_config:
+            if not reverse_config:
                 return 0.0
+
+            reverse_cards = build_reverse_eligible_pool(self.config, variance_df)
             
             total_variance = 0.0
             
             for slot_name, slot_outcomes in reverse_config.items():
-                # Verify slot probabilities sum to 1
-                slot_prob_sum = sum(slot_outcomes.values())
-                if not np.isclose(slot_prob_sum, 1.0, rtol=1e-6):
-                    print(f"Warning: {slot_name} probabilities sum to {slot_prob_sum:.6f}, not 1.0")
+                regular_reverse_probability = get_regular_reverse_probability(slot_name, slot_outcomes)
                 
                 slot_variance = 0.0
                 slot_outcomes_list = []
                 
                 for outcome_type, probability in slot_outcomes.items():
                     if outcome_type == "regular reverse":
-                        # Regular reverse cards
-                        reverse_cards = df[df['EV_Reverse'] > 0]
+                        if regular_reverse_probability > 0 and reverse_cards.empty:
+                            raise ValueError(
+                                f"Reverse slot '{slot_name}' has regular reverse probability {regular_reverse_probability} "
+                                "but the eligible reverse pool is empty."
+                            )
                         if not reverse_cards.empty:
                             num_reverse = len(reverse_cards)
                             for _, card in reverse_cards.iterrows():
                                 card_prob = probability / num_reverse
-                                reverse_price = card['Reverse Variant Price ($)'] if 'Reverse Variant Price ($)' in card else card['Price ($)']
-                                slot_outcomes_list.append((card_prob, reverse_price))
+                                slot_outcomes_list.append((card_prob, card['Reverse Variant Price ($)']))
                     
-                    elif outcome_type in ["illustration rare", "special illustration rare", "ace spec", "poke ball pattern", "master ball pattern"]:
-                        # Special cards that can appear in reverse slot
-                        # Map outcome types to actual rarity names in your data
-                        rarity_mapping = {
-                            "illustration_rare": "illustration rare",
-                            "special_illustration_rare": "special illustration rare", 
-                            "ace_spec": "ace spec",
-                            "pokeball_pattern": "poke ball pattern",
-                            "masterball_pattern": "master ball pattern"
-                        }
-                        
-                        mapped_rarity = rarity_mapping.get(outcome_type, outcome_type.replace('_', ' '))
-                        special_cards = df[df['Rarity'] == mapped_rarity]
+                    # Keep reverse-slot specials explicitly enumerated to preserve pack math.
+                    elif is_supported_reverse_special_outcome(outcome_type):
+                        special_cards = filter_cards_by_rarity_semantics(variance_df, outcome_type)
                         
                         if not special_cards.empty:
                             num_special = len(special_cards)
@@ -233,7 +293,8 @@ class PackCalculations(PackEVCalculator):
             hit_cards, 
             getattr(self.config, 'RARE_SLOT_PROBABILITY', {})
         )
-        print(f"Reverse cards count: {len(df[df['EV_Reverse'] > 0])}")
+        reverse_cards = build_reverse_eligible_pool(self.config, variance_df)
+        print(f"Reverse cards count: {len(reverse_cards)}")
 
         # 3. Reverse slots with special replacements - ALREADY CORRECT
         reverse_variance = calculate_reverse_slot_variance(

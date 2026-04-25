@@ -4,7 +4,7 @@ import pandas as pd
 from typing import Callable, List, Dict
 from .utils.monteCarloSimUtils.specialPackLogic import sample_god_pack, sample_demi_god_pack
 
-def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 100000) -> List[float]:
+def simulate_pack_distribution(open_pack_fn: Callable[[], float], n: int = 1000000) -> List[float]:
     """Simulates opening n packs using the provided simulation function."""
     return [open_pack_fn() for _ in range(n)]
 
@@ -12,7 +12,7 @@ def run_simulation(
     open_pack_fn: Callable[[], float],
     rarity_pull_counts: Dict[str, int],
     rarity_value_totals: Dict[str, float],
-    n: int = 100000
+    n: int = 1000000
 ) -> Dict[str, object]:
 
     """Runs a Monte Carlo simulation and returns statistical summaries."""
@@ -35,7 +35,7 @@ def run_simulation(
         "percentiles": {
             "5th": np.percentile(results_array, 5),
             "25th": np.percentile(results_array, 25),
-            "50th (median)": np.percentile(results_array, 50),
+            "50th": np.percentile(results_array, 50),
             "75th": np.percentile(results_array, 75),
             "90th": np.percentile(results_array, 90),
             "95th": np.percentile(results_array, 95),
@@ -145,7 +145,7 @@ def make_simulate_pack_fn(
     return simulate_one_pack
 
 
-def print_simulation_summary(sim_results, n_simulations=100000):
+def print_simulation_summary(sim_results, n_simulations=1000000):
     values = sim_results["values"]
     pull_counts = sim_results["rarity_pull_counts"]
     value_totals = sim_results["rarity_value_totals"]
@@ -160,16 +160,20 @@ def print_simulation_summary(sim_results, n_simulations=100000):
 
     print("Percentiles:")
     for perc_label, perc_val in sim_results['percentiles'].items():
-        print(f"  {perc_label}:       ${perc_val:.2f}")
+        display_label = "50th (median)" if perc_label == "50th" else perc_label
+        print(f"  {display_label}:       ${perc_val:.2f}")
 
     print("-" * 50)
 
     print()
 
     print("\n=== Pull Summary by Rarity (All Slots) ===")
+    print("(avg value is derived from exact sampled totals; shown with higher precision for auditability)")
     for rarity, count in pull_counts.items():
         total_val = value_totals[rarity]
         avg_val = total_val / count if count else 0
-        print(f"{rarity:30s} | pulled: {count:7d} | avg value: ${avg_val:.2f} | total EV: ${total_val:.2f}")
+        print(
+            f"{rarity:30s} | pulled: {count:7d} | avg value: ${avg_val:.6f} | total sampled value: ${total_val:.2f}"
+        )
 
     print()

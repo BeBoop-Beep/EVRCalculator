@@ -1,4 +1,7 @@
 from .baseConfig import BaseSetConfig
+from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+    get_white_flare_pack_state_overrides,
+)
 
 class SetWhiteFlareConfig(BaseSetConfig):
     SET_NAME = "White Flare"
@@ -26,9 +29,9 @@ class SetWhiteFlareConfig(BaseSetConfig):
     PULL_RATE_MAPPING = {
         # https://www.facebook.com/HKF3LIX/posts/pfbid02b9vQUSmnXbZECw8YsucAxEWLNJtZWQPRLvNjNi5WGKWkhtfGEm9jdkzqSt5mjj7cl/
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Black-Bolt-and-White-Flare-Pull-Rates/bac92199-a2a7-4668-b4a4-2647a111776f/
-        'common' : 38, # 4/38 (there are 4 commons in each pack with 38 total commons is in the set)
-        'uncommon': 32, # 3/32 (there are 3 uncommons in each pack with 32 total uncommons in the set)
-        'rare': 10,
+        'common' : 40, # 4/40 (there are 4 commons in each pack with 38 total commons is in the set)
+        'uncommon': 30, # 3/30 (there are 3 uncommons in each pack with 32 total uncommons in the set)
+        'rare': 18, 
         'double rare': 57,
         'illustration rare': 848,
         'special illustration rare': 1120,
@@ -48,17 +51,17 @@ class SetWhiteFlareConfig(BaseSetConfig):
             "regular reverse": 1 - (1/3) - (1/19) # ≈ 0.61407
         },
         "slot_2": {
-            'illustration rare': 1/6,
-            "special illustration rare": 1/80,
-            "regular reverse": 1 - (1/6) - (1 / 80)  # ≈ 0.820833
+            'illustration rare': 1/12,
+            "special illustration rare": 1/160,
+            "regular reverse": 1 - (1/12) - (1 / 160)  # ≈ 0.820833
         }
     }
 
     RARE_SLOT_PROBABILITY = {
-        'double rare': 1 / 5,
-        'ultra rare': 1 / 17,
-        'black white rare': 1 / 496,
-        'rare': 1 - (1 / 5) - (1 / 17) - (1 / 496),
+        'double rare': 1 / 10,
+        'ultra rare': 1 / 34,
+        'black white rare': 1 / 700,
+        'rare': 1 - (1 / 10) - (1 / 34) - (1 / 700),
     }
  
     GOD_PACK_CONFIG = {
@@ -67,14 +70,9 @@ class SetWhiteFlareConfig(BaseSetConfig):
         "strategy": {
             "type": "random",  # or "fixed"
             "rules": {
-                # Option A: unified pool
-                # "count": 11,
-                # "rarities": ["Illustration Rare", "Special Illustration Rare"]
-
-                # Option B: split by slot
                 "rarities": {
-                    "illustration rare": 9,
-                    "special illustration rare": 1,
+                    "illustration rare": {"count": 9, "replacement": "without_replacement"},
+                    "special illustration rare": {"count": 1, "replacement": "without_replacement"},
                 }
             }
         }
@@ -83,3 +81,9 @@ class SetWhiteFlareConfig(BaseSetConfig):
     DEMI_GOD_PACK_CONFIG = {
         "enabled": False,
     }
+
+    CHASE_METRICS_EXCLUDED_RARITIES = {"poke ball pattern"}
+
+    @classmethod
+    def get_pack_state_overrides(cls):
+        return get_white_flare_pack_state_overrides()

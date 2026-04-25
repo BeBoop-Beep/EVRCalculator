@@ -1,0 +1,35 @@
+name: Pattern Overlay Guardrails
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  guardrail-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pandas numpy
+
+      - name: Run pattern-overlay guardrail suite
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/simulations/test_base_pool_pattern_exclusion_guardrail.py \
+            backend/tests/unit/simulations/test_rare_pool_pattern_exclusion_guardrail.py \
+            backend/tests/unit/calculations/test_pull_rate_pattern_detection_guardrail.py \
+            backend/tests/unit/simulations/test_no_pool_overlap_guardrail.py \
+            backend/tests/unit/calculations/test_manual_ev_bucket_parity_guardrail.py \
+            backend/tests/unit/integration/test_prismatic_sanity_guardrail.py \
+            backend/tests/unit/integration/test_non_pattern_set_regression_guardrail.py

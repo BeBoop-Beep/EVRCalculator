@@ -35,7 +35,13 @@ class TCGScraper:
         
         # Step 1: Fetch raw data
         raw_data = self.client.fetch_price_data(config.CARD_DETAILS_URL)
-       
+        _raw_count = len(raw_data.get("result", []))
+        print(
+            f"[DIAG][{config.SET_NAME}] step=fetch "
+            f"raw_cards={_raw_count} "
+            f"url={config.CARD_DETAILS_URL}"
+        )
+
         # Step 2: Parse data
         parser = TCGPlayerParser(config.PULL_RATE_MAPPING)
         card_cache_key = (config.CARD_DETAILS_URL, config.SET_NAME)
@@ -45,6 +51,11 @@ class TCGScraper:
         else:
             card_dicts = parser.parse_cards(raw_data)
             self._cache_parsed(self._parsed_cards_cache, card_cache_key, card_dicts)
+
+        print(
+            f"[DIAG][{config.SET_NAME}] step=parse "
+            f"parsed_cards={len(card_dicts)}"
+        )
 
         sealed_cache_key = (config.SEALED_DETAILS_URL, config.SET_NAME)
         if sealed_cache_key in self._parsed_sealed_cache:
@@ -59,7 +70,13 @@ class TCGScraper:
         
         # Step 4: Convert to payload
         payload = dto.model_dump()
-        
+
+        _payload_cards = len(payload.get('data', {}).get('cards', []))
+        print(
+            f"[DIAG][{config.SET_NAME}] step=payload "
+            f"cards_in_payload={_payload_cards}"
+        )
+
         # Debug output
         print(f"\n[OK] Payload created:")
         data = payload.get('data', {})
@@ -77,6 +94,14 @@ class TCGScraper:
                 # Payload already has the correct structure with type and data fields
                 result = self.ingest_controller.ingest(payload)
                 if result and result.get('success'):
+                    _set_id = result.get('set_id')
+                    _cards_inserted = result.get('details', {}).get('cards', {}).get('inserted_cards', 0)
+                    _cards_reused = len(result.get('details', {}).get('cards', {}).get('ingestion_efficiency', {}).get('attempted_rows', '') or '')
+                    print(
+                        f"[DIAG][{config.SET_NAME}] step=ingest "
+                        f"set_id={_set_id} "
+                        f"cards_inserted={_cards_inserted}"
+                    )
                     print("[OK] Database ingestion successful")
                     print(f"\n[SUMMARY] Ingestion Summary:")
                     if 'summary' in result:

@@ -1,0 +1,274 @@
+from __future__ import annotations
+
+from typing import Dict, Mapping, MutableMapping, Sequence, Tuple
+
+from ..simulationTokenResolver import normalize_simulation_token
+
+
+REQUIRED_SLOTS = ("rare", "reverse_1", "reverse_2")
+_BASELINE_RARE = "rare"
+_BASELINE_REVERSE = "regular reverse"
+_SINGLETON_EXCLUSIVE_HITS = {"hyper rare", "mega hyper rare"}
+DEFAULT_PACK_CONSTRAINTS = {
+    "primary_hits": {"double rare", "ultra rare", "illustration rare"},
+    "exclusive_hits": {"special illustration rare", "hyper rare", "mega hyper rare"},
+    "bonus_hits": {"ace spec rare", "poke ball pattern", "master ball pattern"},
+    "max_major_hits": 2,
+    "max_non_regular_hits": 2,
+    "max_exclusive_hits": 1,
+    "singleton_exclusive_hits": set(),
+    "conditional_slot_exclusions": [
+        {
+            "if": {"reverse_2": "special illustration rare"},
+            "forbid": {
+                "rare": ["ultra rare", "hyper rare"],
+                "reverse_1": ["hyper rare"],
+            },
+        },
+        {
+            "if": {"reverse_2": "illustration rare"},
+            "forbid": {
+                "rare": ["hyper rare"],
+                "reverse_1": ["hyper rare"],
+            },
+        },
+        {
+            "if": {"reverse_2": "hyper rare"},
+            "forbid": {
+                "rare": ["illustration rare", "special illustration rare"],
+                "reverse_1": ["illustration rare", "special illustration rare"],
+            },
+        },
+    ],
+}
+
+
+def normalize_rarity(value: str) -> str:
+    return normalize_simulation_token(value)
+
+
+def normalize_slot_outcomes(slot_outcomes: Mapping[str, str]) -> Dict[str, str]:
+    return {
+        "rare": normalize_rarity(slot_outcomes.get("rare", _BASELINE_RARE)),
+        "reverse_1": normalize_rarity(slot_outcomes.get("reverse_1", _BASELINE_REVERSE)),
+        "reverse_2": normalize_rarity(slot_outcomes.get("reverse_2", _BASELINE_REVERSE)),
+    }
+
+
+def canonical_slot_outcome_tuple(slot_outcomes: Mapping[str, str]) -> Tuple[str, str, str]:
+    normalized = normalize_slot_outcomes(slot_outcomes)
+    return (
+        normalized["rare"],
+        normalized["reverse_1"],
+        normalized["reverse_2"],
+    )
+
+
+def validate_unique_state_outcome_shapes(
+    state_outcomes: Mapping[str, Mapping[str, str]],
+    *,
+    context: str,
+) -> None:
+    """Forbid duplicate structural aliases (same slot triple under different state names)."""
+    tuple_to_names: Dict[Tuple[str, str, str], list[str]] = {}
+
+    for state_name, slot_outcomes in state_outcomes.items():
+        slots = set(slot_outcomes.keys())
+        required = set(REQUIRED_SLOTS)
+        if slots != required:
+            raise ValueError(
+                f"State '{state_name}' in {context} must define exactly {sorted(required)} slots."
+            )
+
+        key = canonical_slot_outcome_tuple(slot_outcomes)
+        tuple_to_names.setdefault(key, []).append(str(state_name))
+
+    conflicts = [
+        (key, names)
+        for key, names in tuple_to_names.items()
+        if len(set(names)) > 1
+    ]
+    if conflicts:
+        key, names = conflicts[0]
+        names_sorted = sorted(set(names))
+        raise ValueError(
+            "Duplicate state-outcome shape detected "
+            f"in {context}: states {names_sorted} share slot outcomes {key}. "
+            "Duplicate aliases are forbidden."
+        )
+
+
+def _is_non_regular_hit(rarity: str) -> bool:
+    normalized = normalize_rarity(rarity)
+    return normalized not in {_BASELINE_RARE, _BASELINE_REVERSE}
+
+
+def count_non_regular_hits(slot_outcomes: Mapping[str, str]) -> int:
+    return sum(1 for rarity in slot_outcomes.values() if _is_non_regular_hit(rarity))
+
+
+def is_major_hit(rarity: str, constraints: Mapping[str, object]) -> bool:
+    normalized = normalize_rarity(rarity)
+    return normalized in constraints["primary_hits"] or normalized in constraints["exclusive_hits"]
+
+
+def count_major_hits(slot_outcomes: Mapping[str, str], constraints: Mapping[str, object]) -> int:
+    return sum(1 for rarity in slot_outcomes.values() if is_major_hit(rarity, constraints))
+
+
+def count_exclusive_hits(slot_outcomes: Mapping[str, str], constraints: Mapping[str, object]) -> int:
+    return sum(
+        1
+        for rarity in slot_outcomes.values()
+        if normalize_rarity(rarity) in constraints["exclusive_hits"]
+    )
+
+
+def _set_slot_to_base(outcomes: MutableMapping[str, str], slot_name: str) -> None:
+    outcomes[slot_name] = _BASELINE_RARE if slot_name == "rare" else _BASELINE_REVERSE
+
+
+def resolve_singleton_exclusive_hits(constraints: Mapping[str, object]) -> set[str]:
+    configured_singleton_exclusive_hits = {
+        normalize_rarity(rarity)
+        for rarity in constraints.get("singleton_exclusive_hits", set())
+    }
+    default_singleton_exclusive_hits = {
+        normalize_rarity(rarity)
+        for rarity in constraints["exclusive_hits"]
+        if normalize_rarity(rarity) in _SINGLETON_EXCLUSIVE_HITS
+    }
+    return default_singleton_exclusive_hits.union(configured_singleton_exclusive_hits)
+
+
+def contains_incompatible_hits(slot_outcomes: Mapping[str, str]) -> bool:
+    # Legacy broad-pair incompatibility is intentionally non-blocking.
+    # Compatibility is enforced by explicit conditional_slot_exclusions.
+    _ = slot_outcomes
+    return False
+
+
+def _apply_conditional_slot_exclusions(
+    outcomes: MutableMapping[str, str], constraints: Mapping[str, object]
+) -> None:
+    raw_rules = constraints.get("conditional_slot_exclusions", ())
+    if not isinstance(raw_rules, Sequence) or isinstance(raw_rules, (str, bytes, bytearray)):
+        return
+
+    for raw_rule in raw_rules:
+        if not isinstance(raw_rule, Mapping):
+            continue
+
+        condition = raw_rule.get("if", {})
+        forbid = raw_rule.get("forbid", {})
+        if not isinstance(condition, Mapping) or not isinstance(forbid, Mapping):
+            continue
+
+        condition_matches = True
+        for slot_name, expected_rarity in condition.items():
+            slot_key = str(slot_name)
+            if slot_key not in outcomes:
+                condition_matches = False
+                break
+            if normalize_rarity(outcomes[slot_key]) != normalize_rarity(str(expected_rarity)):
+                condition_matches = False
+                break
+
+        if not condition_matches:
+            continue
+
+        for slot_name, forbidden_rarities in forbid.items():
+            slot_key = str(slot_name)
+            if slot_key not in outcomes:
+                continue
+
+            if isinstance(forbidden_rarities, str):
+                forbidden_values = {normalize_rarity(forbidden_rarities)}
+            elif isinstance(forbidden_rarities, Sequence):
+                forbidden_values = {normalize_rarity(str(r)) for r in forbidden_rarities}
+            else:
+                continue
+
+            if normalize_rarity(outcomes[slot_key]) in forbidden_values:
+                _set_slot_to_base(outcomes, slot_key)
+
+
+def coerce_slot_outcomes(
+    slot_outcomes: Mapping[str, str], constraints: Mapping[str, object]
+) -> Dict[str, str]:
+    """Apply canonical pack-state coercion rules (shared by simulation and derivation)."""
+    outcomes = normalize_slot_outcomes(slot_outcomes)
+
+    # Rule 1: Hard-exclusive hits force a singleton-style hit pack.
+    singleton_exclusive_hits = resolve_singleton_exclusive_hits(constraints)
+    exclusive_slots = [
+        slot_name
+        for slot_name, rarity in outcomes.items()
+        if normalize_rarity(rarity) in singleton_exclusive_hits
+    ]
+    if exclusive_slots:
+        if normalize_rarity(outcomes["reverse_2"]) in singleton_exclusive_hits:
+            keep_slot = "reverse_2"
+        elif normalize_rarity(outcomes["rare"]) in singleton_exclusive_hits:
+            keep_slot = "rare"
+        else:
+            keep_slot = "reverse_1"
+
+        for slot_name in REQUIRED_SLOTS:
+            if slot_name != keep_slot:
+                _set_slot_to_base(outcomes, slot_name)
+
+    # Rule 2: Illustration Rare and exclusive hits may not coexist.
+    if contains_incompatible_hits(outcomes):
+        if normalize_rarity(outcomes["reverse_2"]) in constraints["exclusive_hits"]:
+            _set_slot_to_base(outcomes, "rare")
+            _set_slot_to_base(outcomes, "reverse_1")
+        else:
+            if normalize_rarity(outcomes["rare"]) == "illustration rare":
+                _set_slot_to_base(outcomes, "rare")
+            if normalize_rarity(outcomes["reverse_1"]) == "illustration rare":
+                _set_slot_to_base(outcomes, "reverse_1")
+
+    # Rule 3: At most one exclusive hit.
+    if count_exclusive_hits(outcomes, constraints) > int(constraints["max_exclusive_hits"]):
+        keep = "reverse_2" if normalize_rarity(outcomes["reverse_2"]) in constraints["exclusive_hits"] else "rare"
+        for slot_name in REQUIRED_SLOTS:
+            if slot_name != keep and normalize_rarity(outcomes[slot_name]) in constraints["exclusive_hits"]:
+                _set_slot_to_base(outcomes, slot_name)
+
+    # Rule 4: Max two major hits (primary + exclusive).
+    while count_major_hits(outcomes, constraints) > int(constraints["max_major_hits"]):
+        if normalize_rarity(outcomes["reverse_1"]) in constraints["primary_hits"]:
+            _set_slot_to_base(outcomes, "reverse_1")
+            continue
+        if normalize_rarity(outcomes["rare"]) in constraints["primary_hits"]:
+            _set_slot_to_base(outcomes, "rare")
+            continue
+        if normalize_rarity(outcomes["reverse_2"]) in constraints["primary_hits"]:
+            _set_slot_to_base(outcomes, "reverse_2")
+            continue
+        break
+
+    # Rule 5: Max two total non-regular hits (primary + exclusive + bonus).
+    while count_non_regular_hits(outcomes) > int(constraints["max_non_regular_hits"]):
+        if normalize_rarity(outcomes["reverse_1"]) in constraints["bonus_hits"]:
+            _set_slot_to_base(outcomes, "reverse_1")
+            continue
+        if normalize_rarity(outcomes["rare"]) in constraints["bonus_hits"]:
+            _set_slot_to_base(outcomes, "rare")
+            continue
+        if normalize_rarity(outcomes["reverse_2"]) in constraints["bonus_hits"]:
+            _set_slot_to_base(outcomes, "reverse_2")
+            continue
+        if normalize_rarity(outcomes["reverse_1"]) in constraints["primary_hits"]:
+            _set_slot_to_base(outcomes, "reverse_1")
+            continue
+        if normalize_rarity(outcomes["rare"]) in constraints["primary_hits"]:
+            _set_slot_to_base(outcomes, "rare")
+            continue
+        break
+
+    # Rule 6 (opt-in): Conditional per-slot exclusions.
+    _apply_conditional_slot_exclusions(outcomes, constraints)
+
+    return outcomes

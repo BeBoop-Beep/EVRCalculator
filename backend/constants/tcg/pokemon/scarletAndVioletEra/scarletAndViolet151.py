@@ -61,25 +61,25 @@ class Set151Config(BaseSetConfig):
                 {
                     "name": "Charmander Line",
                     "cards": [
-                        "Charmander - 168/165",
-                        "Charmeleon - 169/165",
-                        "Charizard ex - 199/165"
+                        {"name": "Charmander", "number": "168/165", "rarity": "illustration rare"},
+                        {"name": "Charmeleon", "number": "169/165", "rarity": "illustration rare"},
+                        {"name": "Charizard ex", "number": "199/165", "rarity": "special illustration rare"}
                     ]
                 },
                 {
                     "name": "Squirtle Line",
                     "cards": [
-                        "Squirtle - 170/165",
-                        "Wartortle - 171/165",
-                        "Blastoise ex - 200/165"
+                        {"name": "Squirtle", "number": "170/165", "rarity": "illustration rare"},
+                        {"name": "Wartortle", "number": "171/165", "rarity": "illustration rare"},
+                        {"name": "Blastoise ex", "number": "200/165", "rarity": "special illustration rare"}
                     ]
                 },
                 {
                     "name": "Bulbasaur Line",
                     "cards": [
-                        "Bulbasaur - 166/165",
-                        "Ivysaur - 167/165",
-                        "Venusaur ex - 198/165"
+                        {"name": "Bulbasaur", "number": "166/165", "rarity": "illustration rare"},
+                        {"name": "Ivysaur", "number": "167/165", "rarity": "illustration rare"},
+                        {"name": "Venusaur ex", "number": "198/165", "rarity": "special illustration rare"}
                     ]
                 }
             ]

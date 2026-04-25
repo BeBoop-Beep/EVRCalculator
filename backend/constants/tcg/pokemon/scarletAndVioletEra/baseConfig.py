@@ -1,6 +1,7 @@
 from types import MappingProxyType
+from ..sharedBaseConfig import BaseSetConfig as SharedBaseSetConfig
 
-class BaseSetConfig:
+class BaseSetConfig(SharedBaseSetConfig):
     COLLECTION = "TCG"
     TCG = "Pokemon"
     ERA = "Scarlet and Violet"
@@ -43,6 +44,21 @@ class BaseSetConfig:
         "rare": 1,
     }
 
+    PRODUCT_VARIANT_RULES = {
+        **SharedBaseSetConfig.PRODUCT_VARIANT_RULES,
+        "etb": {
+            "standard": {
+                "packs_per_product": 9,
+            },
+            "pokemon_center": {
+                "packs_per_product": 11,
+            },
+        },
+    }
+
+    # Backwards-safe gate: V1 remains the default simulation engine.
+    USE_MONTE_CARLO_V2 = True
+
     @classmethod
     def get_rarity_pack_multiplier(cls):
         base_multipliers = {}
@@ -78,3 +94,8 @@ class BaseSetConfig:
             for raw_rarity, group in cls.RARITY_MAPPING.items()
             if group in {'common', 'uncommon', 'rare'}
         ]
+
+    @classmethod
+    def get_pack_state_overrides(cls):
+        """Optional set-level delta over era defaults for V2 pack-state modeling."""
+        return {}

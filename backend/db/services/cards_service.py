@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
 from backend.db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
+from backend.utils.debug_output import debug_print
 from backend.db.repositories.card_variant_prices_repository import (
     insert_card_variant_price,
     insert_card_variant_prices_batch,
@@ -31,7 +32,7 @@ class CardsService(BatchProcessor):
     
     # Thread pool size for concurrent card data preparation
     THREAD_POOL_SIZE = 10
-    
+
     def __init__(self):
         """Initialize service and cache conditions"""
         self._conditions_cache = None
@@ -91,24 +92,32 @@ class CardsService(BatchProcessor):
             Tuple of (printing_type, special_type, edition)
         """
         variant = card.get('variant')
-        printing = (card.get('printing') or '').strip().lower()
         
-        # Determine printing type based on the 'printing' field from payload
-        printing_type = 'non-holo'
-        if 'holofoil' in printing or 'holo' in printing:
-            if 'reverse' in printing:
-                printing_type = 'reverse-holo'
-            else:
-                printing_type = 'holo'
+        # If parsing was done upstream (TCGPlayer scraper), use the parsed fields
+        parsed_printing_type = (card.get('printing_type') or '').strip().lower()
+        parsed_edition = (card.get('edition') or '').strip().lower()
+        
+        # Use parsed values if available, otherwise fall back to parsing the raw printing string
+        if parsed_printing_type:
+            printing_type = parsed_printing_type
+        else:
+            # Fallback: parse from raw printing field if not parsed upstream
+            printing = (card.get('printing') or '').strip().lower()
+            printing_type = 'non-holo'
+            if 'holofoil' in printing or 'holo' in printing:
+                if 'reverse' in printing:
+                    printing_type = 'reverse-holo'
+                else:
+                    printing_type = 'holo'
+        
+        # Use parsed edition if available
+        edition = parsed_edition if parsed_edition else None
         
         # Extract special type (ex, v, vmax, etc.) from variant field
         special_type = variant if variant else None
         
-        # Edition can be extracted if needed
-        edition = None
-        
         return printing_type, special_type, edition
-    
+
     def _process_batch_worker(self, batch_data, batch_id):
         """
         Worker function that processes a single batch of work items.
@@ -214,14 +223,14 @@ class CardsService(BatchProcessor):
         This runs in parallel threads - safe because no DB access.
         
         Args:
-            card_key: Tuple of (name, card_number, rarity)
+            card_key: Tuple of (name, card_number)
             card_id: The ID of the card in database
             card_list: List of card entries for this card
             
         Returns:
             List of tuples: (variant_data, price_data_list, errors)
         """
-        name, card_number, rarity = card_key
+        name, card_number = card_key
         work_items = []
         errors = []
         
@@ -434,18 +443,22 @@ class CardsService(BatchProcessor):
             'failed': 0,
             'errors': []
         }
-        
-        # Group cards by unique identifier to avoid duplicates
-        # Include rarity in the key because different rarities of the same card are different cards
-        # Canonical name normalization is applied here to strip any trailing " - NNN/YYY" suffix
-        # that may have leaked through upstream parsing paths.
+
+        # Group all upstream rows by base card identity: (name, card_number).
+        # Rarity is intentionally excluded from the base card key — it is variant
+        # metadata. Pattern overlay rows (e.g. Pokeball, Master Ball) for the same
+        # physical card share the same card_number and name but may carry a different
+        # rarity value; grouping on rarity would produce duplicate base card rows and
+        # violate the DB unique constraint on (set_id, card_number, name).
+        # Canonical name normalization strips any trailing " - NNN/YYY" suffix that
+        # may have leaked through upstream parsing paths.
         cards_by_key = {}
         for card in cards:
             raw_name = card.get('name') or ''
             canonical_name = self._normalize_base_card_name(raw_name)
             if raw_name != canonical_name:
-                print(f"[DEBUG] Name normalized: '{raw_name}' → '{canonical_name}' (card_number={card.get('card_number')})")
-            key = (canonical_name, card.get('card_number'), card.get('rarity'))
+                debug_print(f"[CARDS_NORMALIZATION_DEBUG] Name normalized: '{raw_name}' → '{canonical_name}' (card_number={card.get('card_number')})")
+            key = (canonical_name, card.get('card_number'))
             if key not in cards_by_key:
                 cards_by_key[key] = []
             cards_by_key[key].append(card)
@@ -453,51 +466,61 @@ class CardsService(BatchProcessor):
         # Fetch all existing cards for this set once to avoid repeated DB calls.
         # Normalize DB names too so that any previously-ingested dirty rows
         # (name still containing the card-number suffix) are matched correctly.
+        # Lookup key matches the base card identity: (name, card_number).
         existing_cards = get_all_cards_for_set(set_id)
         existing_cards_set = {
-            (self._normalize_base_card_name(card['name']), card['card_number'], card['rarity']): card['id']
+            (self._normalize_base_card_name(card['name']), card['card_number']): card['id']
             for card in existing_cards
         }
-        
+
         # Build a list of new cards to insert (checking against both DB and incoming payload)
         new_cards_to_insert = []
         new_cards_set = set()  # Track what we've already added to new_cards_to_insert
-        card_key_to_id = {}  # Will store (name, card_number, rarity) -> card_id for new cards
-        
-        for (name, card_number, rarity), card_list in cards_by_key.items():
-            card_key = (name, card_number, rarity)
-            
+        card_key_to_id = {}  # Maps (name, card_number) -> card_id
+
+        for (name, card_number), card_list in cards_by_key.items():
+            card_key = (name, card_number)
+
             # Skip if it already exists in DB
             if card_key in existing_cards_set:
                 card_key_to_id[card_key] = existing_cards_set[card_key]
                 print(f"[INFO]  [CARD REUSED] canonical_name='{name}' card_number='{card_number}' → ID={existing_cards_set[card_key]}")
                 continue
-            
+
             # Skip if we've already added this to the new_cards_to_insert list
             if card_key in new_cards_set:
                 continue
-            
+
+            # Select the rarity for the base card row.
+            # Prefer the upstream row that represents the plain base card (no variant /
+            # no special pattern) over overlay variants like Pokeball or Master Ball,
+            # whose rarity values may differ from the true base-card rarity.
+            base_row = next(
+                (c for c in card_list if not (c.get('variant') or '').strip()),
+                card_list[0],
+            )
+
             # Add to new cards list
             card_data = {
                 'set_id': set_id,
                 'name': name,
-                'rarity': rarity,
+                'rarity': base_row.get('rarity'),
                 'card_number': card_number,
-                'copies_in_pack': card_list[0].get('copies_in_pack'),
+                'copies_in_pack': base_row.get('copies_in_pack'),
             }
             new_cards_to_insert.append(card_data)
             new_cards_set.add(card_key)
-        
+
         # Batch insert all new cards at once
         if new_cards_to_insert:
             try:
                 print(f"[INFO] Batch inserting {len(new_cards_to_insert)} new cards...")
                 card_ids = insert_cards_batch(new_cards_to_insert)
                 results['inserted_cards'] += len(card_ids)
-                
+
                 # Map card keys to IDs
                 for i, card_data in enumerate(new_cards_to_insert):
-                    card_key = (card_data['name'], card_data['card_number'], card_data['rarity'])
+                    card_key = (card_data['name'], card_data['card_number'])
                     card_key_to_id[card_key] = card_ids[i]
                     print(f"[OK]  [CARD INSERTED] canonical_name='{card_data['name']}' card_number='{card_data['card_number']}' → new ID={card_ids[i]}")
             except Exception as e:

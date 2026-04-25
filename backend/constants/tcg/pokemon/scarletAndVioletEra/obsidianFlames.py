@@ -26,7 +26,8 @@ class SetObsidianFlamesConfig(BaseSetConfig):
         # https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Obsidian-Flames-Pull-Rates/e2a66999-a7b5-4621-9765-c9a132e04bd2/?srsltid=AfmBOooUxe99pA9pdgKr9i-Ghul9Qf0klkrKAElnOkfYOcZ4hOh_Kbmg
         'common' : 92, # 4/92 (there are 4 commons in each pack with 46 total commons is in the set)
         'uncommon': 74, # 3/74 (there are 3 uncommons in each pack with 33 total uncommons in the set)
-        'rare': 10, 
+        'rare': 10,
+        'double rare': 154,
         'illustration rare': 158,
         'special illustration rare': 192,
         'ultra rare': 181,
