@@ -667,10 +667,10 @@ _PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.40, 0.30, 0.30)
 # Runtime V2 component weights are declared as percentage-style values and
 # normalized internally for weighted averages.
 _PROFIT_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "prob_profit": 35.0,
+    "prob_profit": 32.5,
     "mean_value_to_cost_ratio": 25.0,
-    "median_value_to_cost_ratio": 20.0,
-    "p95_value_to_cost_ratio": 20.0,
+    "median_value_to_cost_ratio": 17.5,
+    "p95_value_to_cost_ratio": 25.0,
 }
 _SAFETY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "expected_loss_when_losing_fraction": 34.0,
@@ -682,9 +682,9 @@ _STABILITY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "effective_chase_count": 50.0,
 }
 _PACK_SCORE_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "profit_score": 40.0,
+    "profit_score": 45.0,
     "safety_score": 30.0,
-    "stability_score": 30.0,
+    "stability_score": 25.0,
 }
 
 _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {

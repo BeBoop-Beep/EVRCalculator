@@ -12,6 +12,7 @@ python backend/scripts/run_pokemon_set_scrape.py --run --era scarletAndVioletEra
 
 run calc/simulations
 python backend/scripts/run_all_v2_sets.py
+./infra/local/run_simulations.sh
 
 ssh key pathing
 C:\Users\Owner\.ssh
@@ -24,3 +25,6 @@ d:/EVRCalculator/backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/s
 
 activate venv
 source .venv/Scripts/activate
+
+scraper login
+ssh -i ~/.ssh/id_rsa ubuntu@129.146.130.104

@@ -42,7 +42,7 @@ class TestBasePoolsPreservePatternOverlayRows:
     """
 
     def test_base_pools_preserve_pattern_rows_with_synthetic_data(self):
-        """Verify that pattern rows remain in matching base pools."""
+        """Verify that pattern rows are excluded from base pools."""
         df = pd.DataFrame({
             "Card Name": [
                 "Common 1", "Common 2",
@@ -175,7 +175,7 @@ class TestPatternRowNotSampledFromBaseSlots:
             f"Found anomalies in base pool sampling: {base_pool_anomalies}"
         )
 
-        # Overlap semantics allow pattern rows in base pools.
+        # Pattern rows must still be discoverable through the hit pool path.
         assert verify_pattern_rows_in_hit_pool(synthetic_pools)
 
 
