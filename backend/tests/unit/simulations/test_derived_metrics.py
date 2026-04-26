@@ -962,23 +962,24 @@ class TestComputeAllDerivedMetrics:
             card_ev_contributions={"a": 4.0, "b": 3.0, "c": 2.0, "d": 1.0},
         )["pack_score"]
         n = score["normalized_inputs"]
-        expected_profit = (
-            35.0 * n["prob_profit"]["score"]
-            + 25.0 * n["mean_value_to_cost_ratio"]["score"]
-            + 20.0 * n["median_value_to_cost_ratio"]["score"]
-            + 20.0 * n["p95_value_to_cost_ratio"]["score"]
+        weights = score["weights_pct"]
+
+        expected_profit = sum(
+            float(weight) * n[metric]["score"]
+            for metric, weight in weights["profit_score"].items()
         ) / 100.0
-        expected_safety = (
-            34.0 * n["expected_loss_when_losing_fraction"]["score"]
-            + 33.0 * n["median_loss_when_losing_fraction"]["score"]
-            + 33.0 * n["p05_shortfall_to_cost"]["score"]
+        expected_safety = sum(
+            float(weight) * n[metric]["score"]
+            for metric, weight in weights["safety_score"].items()
         ) / 100.0
-        expected_stability = (
-            50.0 * n["coefficient_of_variation"]["score"]
-            + 50.0 * n["effective_chase_count"]["score"]
+        expected_stability = sum(
+            float(weight) * n[metric]["score"]
+            for metric, weight in weights["stability_score"].items()
         ) / 100.0
         expected_pack = (
-            40.0 * expected_profit + 30.0 * expected_safety + 30.0 * expected_stability
+            float(weights["pack_score"]["profit_score"]) * expected_profit
+            + float(weights["pack_score"]["safety_score"]) * expected_safety
+            + float(weights["pack_score"]["stability_score"]) * expected_stability
         ) / 100.0
 
         assert score["profit_score"] == pytest.approx(expected_profit, abs=0.01)

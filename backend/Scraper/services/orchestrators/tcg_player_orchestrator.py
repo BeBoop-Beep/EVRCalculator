@@ -94,9 +94,17 @@ class TCGScraper:
                 # Payload already has the correct structure with type and data fields
                 result = self.ingest_controller.ingest(payload)
                 if result and result.get('success'):
+                    def _metric_count(value):
+                        """Return a count from a metric that may be int, list, or None."""
+                        if isinstance(value, (int, float)):
+                            return int(value)
+                        if isinstance(value, (list, tuple, dict, set, str)):
+                            return len(value)
+                        return 0
+
                     _set_id = result.get('set_id')
                     _cards_inserted = result.get('details', {}).get('cards', {}).get('inserted_cards', 0)
-                    _cards_reused = len(result.get('details', {}).get('cards', {}).get('ingestion_efficiency', {}).get('attempted_rows', '') or '')
+                    _cards_reused = _metric_count(result.get('details', {}).get('cards', {}).get('ingestion_efficiency', {}).get('attempted_rows'))
                     print(
                         f"[DIAG][{config.SET_NAME}] step=ingest "
                         f"set_id={_set_id} "

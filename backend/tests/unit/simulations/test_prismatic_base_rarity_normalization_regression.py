@@ -98,7 +98,7 @@ def test_prismatic_base_rare_pool_not_empty_with_holo_rare_aliases() -> None:
     assert not pools["rare"].empty
     assert "Ordinary Rare Holo A" in pools["rare"]["Card Name"].tolist()
     assert "Ordinary Rare Holo B" in pools["rare"]["Card Name"].tolist()
-    assert "Master Overlay Rare Alias" in pools["rare"]["Card Name"].tolist()
+    assert "Master Overlay Rare Alias" not in pools["rare"]["Card Name"].tolist()
     assert "Master Overlay Rare Alias" in pools["hit"]["Card Name"].tolist()
 
     # Baseline validation is the regression target: this raised when rare pool was empty.

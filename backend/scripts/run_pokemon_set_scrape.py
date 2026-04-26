@@ -37,7 +37,7 @@ import time
 import tracemalloc
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Ensure project root is on path so backend.* imports resolve correctly.
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -92,6 +92,16 @@ DIAG_JOB_NAME = "pokemon_set_scrape"
 DIAG_SOURCE_SYSTEM = "tcgplayer"
 DIAG_JOB_TYPE = "price_scrape"
 DIAG_ENTITY_TYPE = "set"
+
+
+def get_config_attr(config: Any, attr: str, default: Any = None) -> Any:
+    if isinstance(config, dict):
+        return config.get(attr, default)
+    return getattr(config, attr, default)
+
+
+def _normalize_key(value: Optional[str]) -> str:
+    return (value or "").strip().lower()
 
 
 def _get_host() -> str:
@@ -214,7 +224,9 @@ def _shuffle_targets_within_release_date(targets: List[Dict[str, Any]]) -> List[
 # ---------------------------------------------------------------------------
 # Constants config map
 # ---------------------------------------------------------------------------
-def _build_constants_config_map(era_filter: Optional[str] = None) -> Dict[str, Any]:
+def _build_constants_registry(
+    era_filter: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, str], List[str]]:
     """Build a flat canonical_key → config_cls mapping from all era setMaps.
 
     Mirrors how pokemon_era_set_sync_service discovers sets via importlib so
@@ -228,6 +240,7 @@ def _build_constants_config_map(era_filter: Optional[str] = None) -> Dict[str, A
         raise RuntimeError(f"Pokemon constants root not found: {POKEMON_CONSTANTS_ROOT}")
 
     config_map: Dict[str, Any] = {}
+    alias_map: Dict[str, str] = {}
     era_dirs = sorted(
         (p for p in POKEMON_CONSTANTS_ROOT.iterdir() if p.is_dir() and p.name != "__pycache__"),
         key=lambda p: p.name.lower(),
@@ -246,7 +259,21 @@ def _build_constants_config_map(era_filter: Optional[str] = None) -> Dict[str, A
             continue
 
         set_config_map: Dict[str, Any] = getattr(set_map_module, "SET_CONFIG_MAP", {})
-        config_map.update(set_config_map)
+        set_alias_map: Dict[str, str] = getattr(set_map_module, "SET_ALIAS_MAP", {})
+
+        for canonical_key, config in set_config_map.items():
+            if not isinstance(canonical_key, str) or not canonical_key.strip():
+                continue
+            config_map[canonical_key] = config
+
+        for alias, canonical_key in set_alias_map.items():
+            if not isinstance(alias, str) or not isinstance(canonical_key, str):
+                continue
+            alias_key = _normalize_key(alias)
+            if not alias_key:
+                continue
+            alias_map[alias_key] = canonical_key
+
         loaded_eras.append(era_dir.name)
 
     logger.info(
@@ -256,7 +283,127 @@ def _build_constants_config_map(era_filter: Optional[str] = None) -> Dict[str, A
         len(loaded_eras),
         ", ".join(loaded_eras) if loaded_eras else "none",
     )
+    return config_map, alias_map, loaded_eras
+
+
+def _build_constants_config_map(era_filter: Optional[str] = None) -> Dict[str, Any]:
+    """Backwards-compatible wrapper for callers that expect only config map."""
+    config_map, _, _ = _build_constants_registry(era_filter)
     return config_map
+
+
+def _resolve_set_key_filter(
+    requested_set_key: str,
+    config_map: Dict[str, Any],
+    alias_map: Dict[str, str],
+) -> Dict[str, Any]:
+    requested_raw = (requested_set_key or "").strip()
+    requested_norm = _normalize_key(requested_raw)
+
+    canonical_by_norm: Dict[str, str] = {
+        _normalize_key(key): key for key in config_map.keys() if isinstance(key, str)
+    }
+
+    resolved_key: Optional[str] = None
+    alias_checked = bool(alias_map)
+    alias_match: Optional[str] = None
+
+    if requested_raw in config_map:
+        resolved_key = requested_raw
+    elif requested_norm in canonical_by_norm:
+        resolved_key = canonical_by_norm[requested_norm]
+    else:
+        alias_target = alias_map.get(requested_norm)
+        if alias_target:
+            alias_match = alias_target
+            alias_target_norm = _normalize_key(alias_target)
+            if alias_target in config_map:
+                resolved_key = alias_target
+            elif alias_target_norm in canonical_by_norm:
+                resolved_key = canonical_by_norm[alias_target_norm]
+
+    return {
+        "requested_set_key_filter": requested_raw,
+        "resolved_set_key_filter": resolved_key,
+        "aliases_checked": alias_checked,
+        "alias_match": alias_match,
+    }
+
+
+def _validate_scrape_config_fields(config: Any) -> List[str]:
+    # Keep validation focused on fields this runner/scraper path relies on.
+    required = ["SET_NAME", "SEALED_DETAILS_URL"]
+    missing: List[str] = []
+    for field in required:
+        value = get_config_attr(config, field, None)
+        if value is None:
+            missing.append(field)
+            continue
+        if isinstance(value, str) and not value.strip():
+            missing.append(field)
+    return missing
+
+
+def _build_unresolved_filter_report(
+    *,
+    started_at: datetime,
+    dry_run: bool,
+    era_filter: Optional[str],
+    set_key_filter: Optional[str],
+    limit: Optional[int],
+    enable_db_ingestion: bool,
+    shuffle_within_date: bool,
+    loaded_eras: List[str],
+    available_keys: List[str],
+    aliases_checked: bool,
+    alias_match: Optional[str],
+    reason: str,
+    error_message: str,
+) -> Dict[str, Any]:
+    return {
+        "generated_at_utc": started_at.isoformat(),
+        "completed_at_utc": datetime.now(timezone.utc).isoformat(),
+        "mode": "dry_run" if dry_run else "apply",
+        "era_filter": era_filter,
+        "set_filter": set_key_filter,
+        "limit": limit,
+        "db_ingestion_enabled": enable_db_ingestion,
+        "shuffle_within_date": shuffle_within_date,
+        "sets_selected": 0,
+        "sets_attempted": 0,
+        "sets_succeeded": 0,
+        "sets_failed": 0,
+        "sets_skipped_no_config": 0,
+        "skipped_no_config": [],
+        "sets_era_filtered": 0,
+        "deduped_targets_removed": 0,
+        "elapsed_seconds": 0,
+        "retry_heavy_sets": [],
+        "results": [
+            {
+                "canonical_key": set_key_filter,
+                "status": "error",
+                "error": error_message,
+            }
+        ],
+        "http_requests_total": 0,
+        "http_requests_cache_hits": 0,
+        "http_requests_cache_misses": 0,
+        "http_requests_skipped_redundant": 0,
+        "rate_limit_events": 0,
+        "retry_count_total": 0,
+        "aborted_due_to_request_cap": False,
+        "aborted_due_to_rate_limit": False,
+        "kill_switch_enabled": _is_scraper_enabled(),
+        "run_aborted_early": True,
+        "run_abort_reason": reason,
+        "requested_set_key_filter": set_key_filter,
+        "loaded_eras": loaded_eras,
+        "available_set_keys": available_keys,
+        "aliases_checked": aliases_checked,
+        "alias_match": alias_match,
+        "error": error_message,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +580,7 @@ def run_scraper(
     limit: Optional[int],
     enable_db_ingestion: bool,
     shuffle_within_date: bool,
-    report_path: Path,
+    report_path: Path = DEFAULT_REPORT_PATH,
 ) -> Dict[str, Any]:
     """Orchestrate the full scrape run: select targets, execute, throttle, report."""
     from backend.db.repositories.scrape_diagnostics_repository import (
@@ -452,11 +599,55 @@ def run_scraper(
 
     started_at = datetime.now(timezone.utc)
 
-    # 1. Fetch targets from DB
-    db_sets = _load_scrape_targets(set_key_filter)
+    # 1. Build constants config registry (canonical key -> config class/object)
+    config_map, alias_map, loaded_eras = _build_constants_registry(era_filter)
+    available_set_keys = sorted(config_map.keys())
 
-    # 2. Build constants config index (used to resolve config_cls from canonical_key)
-    config_map = _build_constants_config_map(era_filter)
+    set_resolution: Optional[Dict[str, Any]] = None
+    effective_set_key_filter = set_key_filter
+    if set_key_filter:
+        set_resolution = _resolve_set_key_filter(set_key_filter, config_map, alias_map)
+        resolved_key = set_resolution.get("resolved_set_key_filter")
+        if not resolved_key:
+            error_message = (
+                "Requested set_key_filter did not resolve to any loaded SET_CONFIG_MAP key. "
+                f"requested={set_resolution.get('requested_set_key_filter')!r}, "
+                f"loaded_eras={loaded_eras}, aliases_checked={set_resolution.get('aliases_checked')}, "
+                f"alias_match={set_resolution.get('alias_match')}, "
+                f"available_keys={available_set_keys}"
+            )
+            logger.error("%s %s", RUNNER_TAG, error_message)
+            report = _build_unresolved_filter_report(
+                started_at=started_at,
+                dry_run=dry_run,
+                era_filter=era_filter,
+                set_key_filter=set_key_filter,
+                limit=limit,
+                enable_db_ingestion=enable_db_ingestion,
+                shuffle_within_date=shuffle_within_date,
+                loaded_eras=loaded_eras,
+                available_keys=available_set_keys,
+                aliases_checked=bool(set_resolution.get("aliases_checked")),
+                alias_match=set_resolution.get("alias_match"),
+                reason="invalid_set_key_filter",
+                error_message=error_message,
+            )
+            _write_report(report, report_path)
+            return report
+
+        effective_set_key_filter = resolved_key
+        if effective_set_key_filter != set_key_filter:
+            logger.info(
+                "%s normalized set_key_filter %r -> %r",
+                RUNNER_TAG,
+                set_key_filter,
+                effective_set_key_filter,
+            )
+
+    canonical_by_norm = {_normalize_key(key): key for key in config_map.keys()}
+
+    # 2. Fetch targets from DB
+    db_sets = _load_scrape_targets(effective_set_key_filter)
 
     # 3. Resolve each DB row to a config class; warn on any missing.
     #    era filtering is implicit: the config_map only contains sets from the
@@ -465,9 +656,12 @@ def run_scraper(
     skipped_no_config: List[str] = []    # genuinely missing from constants
     skipped_era_filtered: int = 0         # expected: other-era sets when era_filter active
     for row in db_sets:
-        canonical_key: str = row.get("canonical_key", "")
+        raw_canonical_key: str = row.get("canonical_key", "")
+        normalized_canonical_key = canonical_by_norm.get(_normalize_key(raw_canonical_key))
+        canonical_key = normalized_canonical_key or raw_canonical_key
+
         if canonical_key in config_map:
-            targets.append({**row, "_config_cls": config_map[canonical_key]})
+            targets.append({**row, "canonical_key": canonical_key, "_config_cls": config_map[canonical_key]})
         elif era_filter:
             # Expected: sets from other eras won't be in the filtered config map.
             skipped_era_filtered += 1
@@ -478,6 +672,33 @@ def run_scraper(
                 RUNNER_TAG,
                 canonical_key,
             )
+
+    if set_key_filter and not targets:
+        error_message = (
+            "Resolved set_key_filter is present in constants registry but no scrape-ready DB target "
+            "was selected after intersection. "
+            f"requested={set_key_filter!r}, resolved={effective_set_key_filter!r}, "
+            f"loaded_eras={loaded_eras}, aliases_checked={bool(set_resolution and set_resolution.get('aliases_checked'))}, "
+            f"alias_match={(set_resolution or {}).get('alias_match')}, available_keys={available_set_keys}"
+        )
+        logger.error("%s %s", RUNNER_TAG, error_message)
+        report = _build_unresolved_filter_report(
+            started_at=started_at,
+            dry_run=dry_run,
+            era_filter=era_filter,
+            set_key_filter=set_key_filter,
+            limit=limit,
+            enable_db_ingestion=enable_db_ingestion,
+            shuffle_within_date=shuffle_within_date,
+            loaded_eras=loaded_eras,
+            available_keys=available_set_keys,
+            aliases_checked=bool(set_resolution and set_resolution.get("aliases_checked")),
+            alias_match=(set_resolution or {}).get("alias_match"),
+            reason="set_key_filter_not_scrape_ready",
+            error_message=error_message,
+        )
+        _write_report(report, report_path)
+        return report
 
     targets, deduped_targets_removed = _dedupe_targets(targets)
     if deduped_targets_removed:
@@ -660,6 +881,25 @@ def run_scraper(
         for index, target in enumerate(targets, start=1):
             canonical_key = target["canonical_key"]
             config_cls = target["_config_cls"]
+
+            missing_fields = _validate_scrape_config_fields(config_cls)
+            if missing_fields:
+                missing_fields_csv = ", ".join(missing_fields)
+                error_message = (
+                    f"Invalid set config for {canonical_key!r}; missing required fields: {missing_fields_csv}"
+                )
+                logger.error("%s %s", RUNNER_TAG, error_message)
+                result = {
+                    "canonical_key": canonical_key,
+                    "status": "failed",
+                    "attempt": 1,
+                    "cards_scraped": 0,
+                    "sealed_scraped": 0,
+                    "error": error_message,
+                }
+                results.append(result)
+                failed += 1
+                continue
 
             try:
                 result = _scrape_one_set(scraper, config_cls, canonical_key, index, total)

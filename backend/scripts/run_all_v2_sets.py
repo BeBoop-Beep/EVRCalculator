@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 import argparse
 import os
-import sys
 import time
 from typing import Any
 
