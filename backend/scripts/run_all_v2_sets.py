@@ -7,8 +7,11 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 import argparse
+import json
 import os
+import socket
 import time
+import urllib.request
 from typing import Any
 
 # Ensure project root is on sys.path so backend.* imports resolve when invoked
@@ -26,10 +29,48 @@ from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import (
 from backend.jobs.evr_runner import EVRRunOrchestrator
 
 
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "").strip()
+
+
+def notify_slack(message: str) -> None:
+    if not SLACK_WEBHOOK_URL:
+        return
+
+    payload = json.dumps({"text": message}, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        SLACK_WEBHOOK_URL,
+        data=payload,
+        headers={"Content-Type": "application/json; charset=utf-8"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=5):
+            return
+    except Exception as exc:
+        print(f"[SLACK_NOTIFY_FAILED] {exc}")
+
+
 def format_duration(seconds: float) -> str:
     total_seconds = max(0.0, float(seconds))
     minutes, remaining_seconds = divmod(total_seconds, 60)
     return f"{int(minutes):02d}:{remaining_seconds:05.2f}"
+
+
+def format_progress(current: int, total: int) -> str:
+    safe_total = max(total, 1)
+    percent = (float(current) / float(safe_total)) * 100.0
+    return f"{current}/{total} ({percent:.1f}%)"
+
+
+def format_eta(completed_durations: list[float], total_sets: int, completed_sets: int) -> str:
+    remaining = max(total_sets - completed_sets, 0)
+    if remaining == 0:
+        return "0.00s"
+    if not completed_durations:
+        return "estimating..."
+    average_duration = sum(completed_durations) / len(completed_durations)
+    return f"{remaining * average_duration:.2f}s"
 
 
 def discover_sets() -> dict:
@@ -102,8 +143,11 @@ def run_single_set(orchestrator, set_key: str, config) -> dict:
 def run_batch(set_map: dict) -> list:
     orchestrator = EVRRunOrchestrator()
     results: list[dict[str, Any]] = []
+    completed_durations: list[float] = []
+    total_sets = len(set_map)
+    host = socket.gethostname()
 
-    for set_key, config_cls in set_map.items():
+    for current_index, (set_key, config_cls) in enumerate(set_map.items(), start=1):
         config = config_cls()
         set_label = str(getattr(config, "SET_NAME", set_key))
         print(f"[START] {set_label}")
@@ -115,14 +159,59 @@ def run_batch(set_map: dict) -> list:
             f"set_id={getattr(config, 'SET_ID', None)} "
             f"use_monte_carlo_v2={getattr(config, 'USE_MONTE_CARLO_V2', None)}"
         )
+        notify_slack(
+            "\n".join(
+                [
+                    "🚀 Simulation set started",
+                    f"Host: {host}",
+                    f"Set: {set_key}",
+                    f"Progress: {format_progress(current_index, total_sets)}",
+                ]
+            )
+        )
 
         result = run_single_set(orchestrator, set_key, config)
         results.append(result)
+        completed_durations.append(float(result.get("duration", 0.0)))
+
+        completed_count = len(results)
+        failed_count = sum(1 for item in results if not item.get("success"))
+        remaining_count = max(total_sets - completed_count, 0)
+        progress = format_progress(completed_count, total_sets)
+        eta = format_eta(completed_durations, total_sets, completed_count)
+        elapsed = float(result.get("duration", 0.0))
 
         if result["success"]:
             print(f"[SUCCESS] {set_label} ({result['duration']:.2f}s)")
+            notify_slack(
+                "\n".join(
+                    [
+                        "✅ Simulation set completed",
+                        f"Host: {host}",
+                        f"Set: {set_key}",
+                        f"Elapsed: {elapsed:.2f}s",
+                        f"Progress: {progress}",
+                        f"Queue: {remaining_count} pending, {failed_count} failed",
+                        f"ETA: {eta}",
+                    ]
+                )
+            )
         else:
             print(f"[FAILED] {set_label}: {result['error']}")
+            notify_slack(
+                "\n".join(
+                    [
+                        "❌ Simulation set failed",
+                        f"Host: {host}",
+                        f"Set: {set_key}",
+                        f"Elapsed: {elapsed:.2f}s",
+                        f"Error: {result.get('error', 'unknown error')}",
+                        f"Progress: {progress}",
+                        f"Queue: {remaining_count} pending, {failed_count} failed",
+                        f"ETA: {eta}",
+                    ]
+                )
+            )
 
     return results
 
