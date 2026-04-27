@@ -26,6 +26,7 @@ Usage examples:
 from __future__ import annotations
 
 import argparse
+import difflib
 import importlib
 import json
 import logging
@@ -292,41 +293,90 @@ def _build_constants_config_map(era_filter: Optional[str] = None) -> Dict[str, A
     return config_map
 
 
+def build_valid_set_key_registry(era_filter: Optional[str] = None) -> Dict[str, Any]:
+    """Build the runtime set-key registry from SET_CONFIG_MAP and SET_ALIAS_MAP."""
+    config_map, alias_map, loaded_eras = _build_constants_registry(era_filter)
+    valid_keys = sorted(
+        key for key in config_map.keys() if isinstance(key, str) and key.strip()
+    )
+    canonical_by_norm = {_normalize_key(key): key for key in valid_keys}
+
+    normalized_alias_map: Dict[str, str] = {}
+    for alias, canonical_key in alias_map.items():
+        alias_lookup = _normalize_key(alias)
+        if not alias_lookup or not isinstance(canonical_key, str) or not canonical_key.strip():
+            continue
+        normalized_alias_map[alias_lookup] = canonical_key
+
+    return {
+        "config_map": config_map,
+        "valid_keys": valid_keys,
+        "canonical_by_norm": canonical_by_norm,
+        "alias_map": normalized_alias_map,
+        "loaded_eras": loaded_eras,
+        "registry_source": "SET_CONFIG_MAP",
+    }
+
+
+def normalize_set_key_filter(raw_key: Optional[str], registry: Dict[str, Any]) -> Dict[str, Any]:
+    raw_set_key = (raw_key or "").strip()
+    alias_lookup = raw_set_key.strip().lower()
+    alias_map: Dict[str, str] = registry.get("alias_map", {})
+    canonical_by_norm: Dict[str, str] = registry.get("canonical_by_norm", {})
+    valid_keys: List[str] = registry.get("valid_keys", [])
+    config_map: Dict[str, Any] = registry.get("config_map", {})
+
+    normalized_candidate = alias_map.get(alias_lookup, raw_set_key.strip())
+    normalized_set_key = canonical_by_norm.get(
+        _normalize_key(normalized_candidate),
+        normalized_candidate,
+    )
+
+    nearby_inputs = difflib.get_close_matches(
+        alias_lookup,
+        list(alias_map.keys()) + list(canonical_by_norm.keys()),
+        n=5,
+        cutoff=0.6,
+    )
+    nearby_matches: List[str] = []
+    for match in nearby_inputs:
+        suggested_key = alias_map.get(match) or canonical_by_norm.get(match) or match
+        if suggested_key not in nearby_matches:
+            nearby_matches.append(suggested_key)
+
+    return {
+        "raw_set_key": raw_set_key,
+        "normalized_set_key": normalized_set_key,
+        "resolved_set_key_filter": normalized_set_key if normalized_set_key in config_map else None,
+        "valid_key_count": len(valid_keys),
+        "nearby_matches": nearby_matches,
+        "registry_source": registry.get("registry_source", "SET_CONFIG_MAP"),
+        "aliases_checked": bool(alias_map),
+        "alias_match": alias_map.get(alias_lookup),
+    }
+
+
 def _resolve_set_key_filter(
     requested_set_key: str,
     config_map: Dict[str, Any],
     alias_map: Dict[str, str],
 ) -> Dict[str, Any]:
-    requested_raw = (requested_set_key or "").strip()
-    requested_norm = _normalize_key(requested_raw)
-
-    canonical_by_norm: Dict[str, str] = {
-        _normalize_key(key): key for key in config_map.keys() if isinstance(key, str)
+    registry = {
+        "config_map": config_map,
+        "valid_keys": [key for key in config_map.keys() if isinstance(key, str) and key.strip()],
+        "canonical_by_norm": {
+            _normalize_key(key): key for key in config_map.keys() if isinstance(key, str) and key.strip()
+        },
+        "alias_map": {
+            _normalize_key(alias): canonical_key
+            for alias, canonical_key in alias_map.items()
+            if isinstance(alias, str) and alias.strip() and isinstance(canonical_key, str) and canonical_key.strip()
+        },
+        "registry_source": "SET_CONFIG_MAP",
     }
-
-    resolved_key: Optional[str] = None
-    alias_checked = bool(alias_map)
-    alias_match: Optional[str] = None
-
-    if requested_raw in config_map:
-        resolved_key = requested_raw
-    elif requested_norm in canonical_by_norm:
-        resolved_key = canonical_by_norm[requested_norm]
-    else:
-        alias_target = alias_map.get(requested_norm)
-        if alias_target:
-            alias_match = alias_target
-            alias_target_norm = _normalize_key(alias_target)
-            if alias_target in config_map:
-                resolved_key = alias_target
-            elif alias_target_norm in canonical_by_norm:
-                resolved_key = canonical_by_norm[alias_target_norm]
-
     return {
-        "requested_set_key_filter": requested_raw,
-        "resolved_set_key_filter": resolved_key,
-        "aliases_checked": alias_checked,
-        "alias_match": alias_match,
+        "requested_set_key_filter": (requested_set_key or "").strip(),
+        **normalize_set_key_filter(requested_set_key, registry),
     }
 
 
@@ -359,6 +409,11 @@ def _build_unresolved_filter_report(
     alias_match: Optional[str],
     reason: str,
     error_message: str,
+    raw_set_key: Optional[str] = None,
+    normalized_set_key: Optional[str] = None,
+    valid_key_count: Optional[int] = None,
+    nearby_matches: Optional[List[str]] = None,
+    registry_source: Optional[str] = None,
 ) -> Dict[str, Any]:
     return {
         "generated_at_utc": started_at.isoformat(),
@@ -402,6 +457,11 @@ def _build_unresolved_filter_report(
         "available_set_keys": available_keys,
         "aliases_checked": aliases_checked,
         "alias_match": alias_match,
+        "raw_set_key": raw_set_key,
+        "normalized_set_key": normalized_set_key,
+        "valid_key_count": valid_key_count,
+        "nearby_matches": nearby_matches or [],
+        "registry_source": registry_source,
         "error": error_message,
     }
 
@@ -600,18 +660,25 @@ def run_scraper(
     started_at = datetime.now(timezone.utc)
 
     # 1. Build constants config registry (canonical key -> config class/object)
-    config_map, alias_map, loaded_eras = _build_constants_registry(era_filter)
-    available_set_keys = sorted(config_map.keys())
+    set_key_registry = build_valid_set_key_registry(era_filter)
+    config_map = set_key_registry["config_map"]
+    alias_map = set_key_registry["alias_map"]
+    loaded_eras = set_key_registry["loaded_eras"]
+    available_set_keys = set_key_registry["valid_keys"]
 
     set_resolution: Optional[Dict[str, Any]] = None
     effective_set_key_filter = set_key_filter
     if set_key_filter:
-        set_resolution = _resolve_set_key_filter(set_key_filter, config_map, alias_map)
+        set_resolution = normalize_set_key_filter(set_key_filter, set_key_registry)
         resolved_key = set_resolution.get("resolved_set_key_filter")
         if not resolved_key:
             error_message = (
                 "Requested set_key_filter did not resolve to any loaded SET_CONFIG_MAP key. "
-                f"requested={set_resolution.get('requested_set_key_filter')!r}, "
+                f"raw_set_key={set_resolution.get('raw_set_key')!r}, "
+                f"normalized_set_key={set_resolution.get('normalized_set_key')!r}, "
+                f"valid_key_count={set_resolution.get('valid_key_count')}, "
+                f"nearby_matches={set_resolution.get('nearby_matches')}, "
+                f"registry_source={set_resolution.get('registry_source')}, "
                 f"loaded_eras={loaded_eras}, aliases_checked={set_resolution.get('aliases_checked')}, "
                 f"alias_match={set_resolution.get('alias_match')}, "
                 f"available_keys={available_set_keys}"
@@ -631,6 +698,11 @@ def run_scraper(
                 alias_match=set_resolution.get("alias_match"),
                 reason="invalid_set_key_filter",
                 error_message=error_message,
+                raw_set_key=set_resolution.get("raw_set_key"),
+                normalized_set_key=set_resolution.get("normalized_set_key"),
+                valid_key_count=set_resolution.get("valid_key_count"),
+                nearby_matches=set_resolution.get("nearby_matches"),
+                registry_source=set_resolution.get("registry_source"),
             )
             _write_report(report, report_path)
             return report

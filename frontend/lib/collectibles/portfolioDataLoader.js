@@ -1,8 +1,8 @@
 import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
 import {
   getPrivateCollectionEntryById,
-  getPublicCollectionEntryById,
 } from "@/lib/profile/collectionEntryLoader";
+import { getPublicProfilePagePayload } from "@/lib/profile/publicProfileServer";
 import {
   getCardMarketPageData,
   getSealedProductMarketPageData,
@@ -86,14 +86,18 @@ export async function getOwnedEntryPortfolioPageData(entryId) {
 
 export async function getPublicCollectionRedirectCollectible(username, entryId) {
   const startedAt = Date.now();
-  const publicEntry = await getPublicCollectionEntryById(username, entryId);
-  if (!publicEntry) return null;
+  const payload = await getPublicProfilePagePayload(username);
+  const items = Array.isArray(payload?.collection_items) ? payload.collection_items : [];
+  const publicEntry = items.find((item) => String(item?.id || "") === String(entryId || ""));
+  if (!publicEntry) {
+    return null;
+  }
   console.info("[portfolioDataLoader] public_entry_redirect", {
     route: "portfolioDataLoader.getPublicCollectionRedirectCollectible",
     username: String(username || ""),
     entryId: String(entryId || ""),
-    pathUsed: "entry_detail_endpoint",
-    includeCollectionItems: false,
+    pathUsed: "public_profile_page_payload",
+    includeCollectionItems: true,
     elapsedMs: Date.now() - startedAt,
   });
   return {

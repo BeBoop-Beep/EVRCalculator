@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional, Tuple
 
-from backend.db.clients.supabase_client import reset_service_role_auth, supabase
+from backend.db.clients.supabase_client import supabase
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,6 @@ def resolve_public_user_by_username(
     db_client: Any = None,
 ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
     client = db_client or supabase
-    if db_client is None:
-        reset_service_role_auth()
     requested_username = str(username or "").strip()
     normalized_username = normalize_public_username(requested_username)
 
@@ -72,8 +70,11 @@ def resolve_public_user_by_username(
 
     lookup_attempts = [
         ("username_eq_requested", "eq", requested_username),
-        ("username_eq_normalized", "eq", normalized_username),
     ]
+    # Only add the normalised variant when it differs from the raw input to
+    # avoid an identical second round-trip to the database.
+    if normalized_username != requested_username:
+        lookup_attempts.append(("username_eq_normalized", "eq", normalized_username))
 
     spaced_candidate = normalized_username.replace("-", " ")
     if spaced_candidate and spaced_candidate != requested_username and spaced_candidate != normalized_username:

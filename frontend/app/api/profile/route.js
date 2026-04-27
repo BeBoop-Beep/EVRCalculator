@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+const PROFILE_ME_PATH = "/profile/me";
+
 function getBackendBaseUrl() {
   return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 }
@@ -35,7 +37,7 @@ export async function GET(req) {
       hasAuthorizationHeader,
     });
 
-    const proxyResponse = await fetch(`${getBackendBaseUrl()}/profile/me`, {
+    const proxyResponse = await fetch(`${getBackendBaseUrl()}${PROFILE_ME_PATH}`, {
       method: "GET",
       headers: buildProxyHeaders(req),
       credentials: "include",
@@ -81,7 +83,7 @@ export async function PUT(req) {
     });
 
     const payload = await req.json();
-    const proxyResponse = await fetch(`${getBackendBaseUrl()}/profile/me`, {
+    const proxyResponse = await fetch(`${getBackendBaseUrl()}${PROFILE_ME_PATH}`, {
       method: "PUT",
       headers: buildProxyHeaders(req, true),
       body: JSON.stringify(payload),

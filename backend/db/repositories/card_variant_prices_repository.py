@@ -230,7 +230,7 @@ def get_latest_price(card_variant_id: int, condition_id: int) -> Optional[Dict[s
     )
     fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     res = (
-        fresh_client.table("card_market_usd_latest_by_condition_by_condition")
+        fresh_client.table(_LATEST_CARD_MARKET_VIEW)
         .select("*")
         .eq("variant_id", card_variant_id)
         .eq("condition_id", condition_id)

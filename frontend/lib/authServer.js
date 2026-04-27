@@ -141,3 +141,36 @@ export async function getAuthenticatedUserFromCookies() {
 
   return result;
 }
+
+export async function getAuthenticatedUserFromCookiesWithTimeout(timeoutMs = 750) {
+  const startedAt = Date.now();
+  const safeTimeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : 750;
+
+  const timeoutResult = {
+    user: null,
+    error: "Auth resolution timed out",
+    status: 504,
+    correlationId: crypto.randomUUID(),
+    authResolution: "timeout",
+  };
+
+  const timedResult = await Promise.race([
+    getAuthenticatedUserFromCookies(),
+    new Promise((resolve) => {
+      setTimeout(() => resolve(timeoutResult), safeTimeoutMs);
+    }),
+  ]);
+
+  if (timedResult?.authResolution === "timeout") {
+    console.info("[authServer] auth_resolution", {
+      correlationId: timedResult.correlationId,
+      route: "authServer.getAuthenticatedUserFromCookiesWithTimeout",
+      authResolution: "timeout",
+      status: 504,
+      timeoutMs: safeTimeoutMs,
+      elapsedMs: Date.now() - startedAt,
+    });
+  }
+
+  return timedResult;
+}

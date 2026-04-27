@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from concurrent import futures as _cf
 from copy import deepcopy
 from datetime import datetime
 import logging
+import time
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from uuid import UUID
 
@@ -280,12 +282,14 @@ def _select_with_fallback(
     filters: Optional[List[Tuple[str, str, Any]]] = None,
     order_by: Optional[Tuple[str, bool]] = None,
     limit: Optional[int] = None,
+    db_client: Any = None,
 ) -> List[Dict[str, Any]]:
     filters = filters or []
+    client = db_client or supabase
 
     for select_clause in select_candidates:
         try:
-            query = supabase.table(table).select(select_clause)
+            query = client.table(table).select(select_clause)
             for operator, column, value in filters:
                 if operator == "eq":
                     query = query.eq(column, value)
@@ -339,7 +343,7 @@ def _first_row_value(row: Dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def _load_collection_items_from_market_view(user_id: str) -> List[Dict[str, Any]]:
+def _load_collection_items_from_market_view(user_id: str, db_client: Any = None) -> List[Dict[str, Any]]:
     logger.warning(
         "[public-profile-debug] market-view load start user_id=%s",
         user_id,
@@ -354,6 +358,7 @@ def _load_collection_items_from_market_view(user_id: str) -> List[Dict[str, Any]
             "holding_id,holding_type,collectible_id,quantity,name,set_name,card_number,condition,market_price,estimated_value,image_url,user_id",
         ],
         filters=[("eq", "user_id", user_id)],
+        db_client=db_client,
     )
 
     logger.warning(
@@ -422,6 +427,307 @@ def _load_collection_items_from_market_view(user_id: str) -> List[Dict[str, Any]
         )
 
     return items
+
+
+def _load_lightweight_fallback_items(
+    user_id: str,
+    timeout_s: float = 2.5,
+    db_client: Any = None,
+) -> Tuple[List[Dict[str, Any]], str]:
+    """Lightweight public-collection fallback using PostgREST nested selects.
+
+    Fires 3 queries concurrently (one per holding type); each query resolves as
+    a server-side JOIN so there are no N+1 round-trips.  Market prices are
+    omitted — estimated_value defaults to 0.0 — to keep latency low.
+
+    Returns (items, source_label) where source_label is one of:
+      lightweight_fallback | partial_lightweight_fallback | fallback_failed
+    """
+    t_start = time.perf_counter()
+    client = db_client or supabase
+
+    def _fetch_card_items() -> List[Dict[str, Any]]:
+        try:
+            response = client.table("user_card_holdings").select(
+                "id,card_variant_id,condition_id,quantity,"
+                "card_variants(id,card_id,printing_type,special_type,edition,image_small_url,image_large_url,"
+                "cards(id,name,card_number,rarity,image_small_url,image_large_url,"
+                "sets(id,name)))"
+            ).eq("user_id", user_id).execute()
+            rows = response.data or []
+        except Exception:
+            logger.exception(
+                "[public-profile-fallback] card nested select failed user_id=%s", user_id
+            )
+            return []
+        result: List[Dict[str, Any]] = []
+        for row in rows:
+            qty = int(max(0.0, _to_number(row.get("quantity"), 0.0)))
+            variant = row.get("card_variants") or {}
+            card = variant.get("cards") or {}
+            set_row = card.get("sets") or {}
+            images = _resolve_card_like_images(
+                variant_small=variant.get("image_small_url"),
+                variant_large=variant.get("image_large_url"),
+                card_small=card.get("image_small_url"),
+                card_large=card.get("image_large_url"),
+            )
+            result.append({
+                "id": str(row.get("id") or ""),
+                "collectible_type": "card",
+                "collectible_id": row.get("card_variant_id"),
+                "condition_id": row.get("condition_id"),
+                "quantity": qty,
+                "name": _to_optional_string(card.get("name")) or "Unknown Card",
+                "set_name": _to_optional_string(set_row.get("name")),
+                "card_number": _to_optional_string(card.get("card_number")),
+                "rarity": _to_optional_string(card.get("rarity")),
+                "condition": None,
+                "printing_type": _to_optional_string(variant.get("printing_type")),
+                "edition": _to_optional_string(variant.get("edition")),
+                "special_type": _to_optional_string(variant.get("special_type")),
+                "market_price": 0.0,
+                "estimated_value": 0.0,
+                "image_url": images["image_url"],
+                "image_large_url": images["image_large_url"],
+                "image_type": None,
+                "image_source": None,
+                "source_confidence": None,
+            })
+        return result
+
+    def _fetch_sealed_items() -> List[Dict[str, Any]]:
+        try:
+            response = client.table("user_sealed_product_holdings").select(
+                "id,sealed_product_id,quantity,"
+                "sealed_products(id,name,product_type,image_small_url,image_large_url,"
+                "sets(id,name))"
+            ).eq("user_id", user_id).execute()
+            rows = response.data or []
+        except Exception:
+            logger.exception(
+                "[public-profile-fallback] sealed nested select failed user_id=%s", user_id
+            )
+            return []
+        result: List[Dict[str, Any]] = []
+        for row in rows:
+            qty = int(max(0.0, _to_number(row.get("quantity"), 0.0)))
+            sealed = row.get("sealed_products") or {}
+            set_row = sealed.get("sets") or {}
+            images = _resolve_card_like_images(
+                variant_small=sealed.get("image_small_url"),
+                variant_large=sealed.get("image_large_url"),
+                card_small=None,
+                card_large=None,
+            )
+            result.append({
+                "id": str(row.get("id") or ""),
+                "collectible_type": "sealed_product",
+                "collectible_id": row.get("sealed_product_id"),
+                "quantity": qty,
+                "name": _to_optional_string(sealed.get("name")) or "Sealed Product",
+                "set_name": _to_optional_string(set_row.get("name")),
+                "card_number": None,
+                "rarity": None,
+                "condition": "Sealed",
+                "printing_type": None,
+                "edition": None,
+                "special_type": _to_optional_string(sealed.get("product_type")),
+                "market_price": 0.0,
+                "estimated_value": 0.0,
+                "image_url": images["image_url"],
+                "image_large_url": images["image_large_url"],
+                "image_type": None,
+                "image_source": None,
+                "source_confidence": None,
+            })
+        return result
+
+    def _fetch_graded_items() -> List[Dict[str, Any]]:
+        """Resolve graded items via graded -> card variant -> card -> set chain."""
+        try:
+            holdings_resp = client.table("user_graded_card_holdings").select(
+                "id,graded_card_variant_id,quantity"
+            ).eq("user_id", user_id).execute()
+            holdings = holdings_resp.data or []
+        except Exception:
+            logger.exception(
+                "[public-profile-fallback] graded holdings query failed user_id=%s", user_id
+            )
+            return []
+
+        if not holdings:
+            return []
+
+        graded_variant_ids = list({
+            str(r["graded_card_variant_id"])
+            for r in holdings
+            if r.get("graded_card_variant_id") is not None
+        })
+
+        gv_map: Dict[str, Dict[str, Any]] = {}
+        card_variant_map: Dict[str, Dict[str, Any]] = {}
+        card_map: Dict[str, Dict[str, Any]] = {}
+        set_map: Dict[str, Dict[str, Any]] = {}
+        gc_map: Dict[str, str] = {}
+
+        if graded_variant_ids:
+            gv_rows = _select_with_fallback(
+                table="graded_card_variants",
+                select_candidates=[
+                    "id,card_variant_id,card_id,grade_value,grade,grading_company_id,grading_company,special_label,image_small_url,image_large_url",
+                    "id,card_variant_id,card_id,grade_value,grade,grading_company_id,grading_company,special_label",
+                    "id,card_variant_id,card_id,grade_value,grade,grading_company_id,special_label",
+                    "id,card_variant_id,card_id,grade_value,grading_company_id,special_label",
+                    "id,card_variant_id,card_id",
+                ],
+                filters=[("in", "id", graded_variant_ids)],
+                db_client=client,
+            )
+            gv_map = {str(r["id"]): r for r in gv_rows if r.get("id")}
+
+            variant_ids = _unique_values(r.get("card_variant_id") for r in gv_rows)
+            if variant_ids:
+                cv_rows = _select_with_fallback(
+                    table="card_variants",
+                    select_candidates=[
+                        "id,card_id,printing_type,special_type,edition,image_small_url,image_large_url",
+                        "id,card_id,printing_type,special_type,edition",
+                        "id,card_id",
+                    ],
+                    filters=[("in", "id", variant_ids)],
+                    db_client=client,
+                )
+                card_variant_map = _build_row_map(cv_rows, "id")
+
+            card_ids = _unique_values(
+                [
+                    *(r.get("card_id") for r in gv_rows),
+                    *(r.get("card_id") for r in card_variant_map.values()),
+                ]
+            )
+            if card_ids:
+                card_rows = _select_with_fallback(
+                    table="cards",
+                    select_candidates=[
+                        "id,name,card_number,rarity,set_id,image_small_url,image_large_url",
+                        "id,name,card_number,rarity,set_id",
+                        "id,name,card_number,rarity",
+                    ],
+                    filters=[("in", "id", card_ids)],
+                    db_client=client,
+                )
+                card_map = _build_row_map(card_rows, "id")
+
+                set_ids = _unique_values(row.get("set_id") for row in card_rows)
+                if set_ids:
+                    set_rows = _select_with_fallback(
+                        table="sets",
+                        select_candidates=["id,name"],
+                        filters=[("in", "id", set_ids)],
+                        db_client=client,
+                    )
+                    set_map = _build_row_map(set_rows, "id")
+
+            gc_ids = _unique_values(r.get("grading_company_id") for r in gv_rows)
+            if gc_ids:
+                gc_rows = _select_with_fallback(
+                    table="grading_companies",
+                    select_candidates=["id,name"],
+                    filters=[("in", "id", gc_ids)],
+                    db_client=client,
+                )
+                gc_map = {str(r["id"]): _to_trimmed_string(r.get("name")) for r in gc_rows if r.get("id")}
+
+        result: List[Dict[str, Any]] = []
+        for row in holdings:
+            qty = int(max(0.0, _to_number(row.get("quantity"), 0.0)))
+            gv_id = str(row.get("graded_card_variant_id") or "")
+            gv = gv_map.get(gv_id) or {}
+            variant = card_variant_map.get(str(gv.get("card_variant_id") or "")) or {}
+            card = card_map.get(str(gv.get("card_id") or variant.get("card_id") or "")) or {}
+            set_row = set_map.get(str(card.get("set_id") or "")) or {}
+            company = _to_optional_string(gv.get("grading_company")) or gc_map.get(str(gv.get("grading_company_id") or ""), None)
+            grade_value = gv.get("grade_value") if gv.get("grade_value") is not None else gv.get("grade")
+            grade_label = f"{grade_value}" if grade_value is not None else None
+            condition = " ".join(filter(None, [company, grade_label])) or None
+            images = _resolve_card_like_images(
+                variant_small=gv.get("image_small_url") or variant.get("image_small_url"),
+                variant_large=gv.get("image_large_url") or variant.get("image_large_url"),
+                card_small=card.get("image_small_url"),
+                card_large=card.get("image_large_url"),
+            )
+            result.append({
+                "id": str(row.get("id") or ""),
+                "collectible_type": "graded_card",
+                "collectible_id": row.get("graded_card_variant_id"),
+                "quantity": qty,
+                "name": _to_optional_string(card.get("name")) or "Graded Card",
+                "set_name": _to_optional_string(set_row.get("name")),
+                "card_number": _to_optional_string(card.get("card_number")),
+                "rarity": _to_optional_string(card.get("rarity")),
+                "condition": condition,
+                "printing_type": _to_optional_string(variant.get("printing_type")),
+                "edition": _to_optional_string(variant.get("edition")),
+                "special_type": _to_optional_string(gv.get("special_label")) or _to_optional_string(variant.get("special_type")),
+                "market_price": 0.0,
+                "estimated_value": 0.0,
+                "image_url": images["image_url"],
+                "image_large_url": images["image_large_url"],
+                "image_type": None,
+                "image_source": None,
+                "source_confidence": None,
+            })
+        return result
+
+    all_items: List[Dict[str, Any]] = []
+    any_failed = False
+    deadline = t_start + timeout_s
+
+    with _cf.ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_kind = {
+            executor.submit(_fetch_card_items): "cards",
+            executor.submit(_fetch_sealed_items): "sealed",
+            executor.submit(_fetch_graded_items): "graded",
+        }
+        counts_by_type: Dict[str, int] = {}
+        for fut, kind in future_to_kind.items():
+            remaining = max(0.001, deadline - time.perf_counter())
+            try:
+                batch = fut.result(timeout=remaining)
+                all_items.extend(batch)
+                counts_by_type[kind] = len(batch)
+                logger.info(
+                    "[public-profile-fallback] %s batch done user_id=%s count=%s elapsed=%.3fs",
+                    kind, user_id, len(batch), time.perf_counter() - t_start,
+                )
+            except _cf.TimeoutError:
+                any_failed = True
+                counts_by_type[kind] = 0
+                logger.warning(
+                    "[public-profile-fallback] %s batch TIMEOUT user_id=%s elapsed=%.3fs",
+                    kind, user_id, time.perf_counter() - t_start,
+                )
+            except Exception:
+                any_failed = True
+                counts_by_type[kind] = 0
+                logger.exception(
+                    "[public-profile-fallback] %s batch raised user_id=%s", kind, user_id
+                )
+
+    elapsed = time.perf_counter() - t_start
+    if not all_items and any_failed:
+        source = "fallback_failed"
+    elif any_failed:
+        source = "partial_lightweight_fallback"
+    else:
+        source = "lightweight_fallback"
+
+    logger.info(
+        "[public-profile-fallback] done user_id=%s item_count=%s counts_by_type=%s source=%s elapsed=%.3fs",
+        user_id, len(all_items), counts_by_type, source, elapsed,
+    )
+    return all_items, source
 
 
 def _unavailable_public_summary() -> Dict[str, Any]:
@@ -976,10 +1282,13 @@ def get_public_collection_data_by_username(
     correlation_id: Optional[str] = None,
     resolved_public_user: Optional[Dict[str, Any]] = None,
     resolved_trace: Optional[Dict[str, Any]] = None,
+    db_client: Any = None,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     requested_username = _to_trimmed_string(username)
     if not requested_username:
         return None, "Invalid username."
+
+    _t0 = time.perf_counter()
 
     user = resolved_public_user
     trace = resolved_trace
@@ -990,6 +1299,7 @@ def get_public_collection_data_by_username(
             user, trace = resolve_public_user_by_username(
                 requested_username,
                 correlation_id=correlation_id,
+                db_client=db_client,
             )
         except Exception:
             logger.exception(
@@ -999,6 +1309,14 @@ def get_public_collection_data_by_username(
             )
             return None, "User not found."
 
+    _t1 = time.perf_counter()
+    logger.warning(
+        "[perf] public-profile user-resolution username=%s elapsed=%.3fs row_found=%s",
+        requested_username,
+        _t1 - _t0,
+        bool(user and user.get("id")),
+    )
+
     if not user or not user.get("id"):
         return None, "User not found."
 
@@ -1007,11 +1325,24 @@ def get_public_collection_data_by_username(
             return None, "User not found."
 
     resolved_user_id = str(user.get("id"))
-    collection_items = _load_collection_items_from_market_view(resolved_user_id) if include_collection_items else []
+    _t_items_start = time.perf_counter()
+    collection_items = _load_collection_items_from_market_view(
+        resolved_user_id,
+        db_client=db_client,
+    ) if include_collection_items else []
     collection_items_source = "user_collection_items_with_market"
+    _t_items_end = time.perf_counter()
+    logger.warning(
+        "[perf] public-profile items-load username=%s elapsed=%.3fs item_count=%s",
+        requested_username,
+        _t_items_end - _t_items_start,
+        len(collection_items),
+    )
+
     summary = _unavailable_public_summary()
     summary_source = "collection_summary_service.snapshot"
 
+    _t_summary_start = time.perf_counter()
     try:
         from backend.db.services.collection_summary_service import get_user_collection_summary_snapshot
 
@@ -1027,6 +1358,14 @@ def get_public_collection_data_by_username(
             resolved_user_id,
         )
         summary = _unavailable_public_summary()
+    _t_summary_end = time.perf_counter()
+    logger.warning(
+        "[perf] public-profile summary-snapshot username=%s elapsed=%.3fs row_found=%s portfolio_value=%s",
+        requested_username,
+        _t_summary_end - _t_summary_start,
+        isinstance(summary, dict) and summary.get("portfolio_value") is not None,
+        summary.get("portfolio_value") if isinstance(summary, dict) else None,
+    )
 
     summary_indicates_holdings = any(
         _to_number(summary.get(key), 0.0) > 0.0
@@ -1035,40 +1374,19 @@ def get_public_collection_data_by_username(
 
     if include_collection_items and not collection_items and summary_indicates_holdings:
         logger.warning(
-            "[public-profile-debug] public items fallback start username=%s user_id=%s market_view_count=0 summary_counts={cards:%s,sealed:%s,graded:%s}",
+            "[public-profile-debug] public items fallback triggered username=%s user_id=%s"
+            " market_view_count=0 summary_counts={cards:%s,sealed:%s,graded:%s}",
             requested_username,
             resolved_user_id,
             summary.get("cards_count") if isinstance(summary, dict) else None,
             summary.get("sealed_count") if isinstance(summary, dict) else None,
             summary.get("graded_count") if isinstance(summary, dict) else None,
         )
-        try:
-            fallback_payload = get_collection_summary_and_items_for_user_id(
-                user_id=resolved_user_id,
-                include_collection_items=True,
-                include_private_fields=False,
-            )
-            fallback_items = (
-                fallback_payload.get("collection_items", [])
-                if isinstance(fallback_payload, dict)
-                else []
-            )
-            if fallback_items:
-                collection_items = fallback_items
-                collection_items_source = "fallback.get_collection_summary_and_items_for_user_id"
-            logger.warning(
-                "[public-profile-debug] public items fallback result username=%s user_id=%s fallback_count=%s applied=%s",
-                requested_username,
-                resolved_user_id,
-                len(fallback_items),
-                bool(fallback_items),
-            )
-        except Exception:
-            logger.exception(
-                "[public-profile-debug] public items fallback failed username=%s user_id=%s",
-                requested_username,
-                resolved_user_id,
-            )
+        collection_items, collection_items_source = _load_lightweight_fallback_items(
+            user_id=resolved_user_id,
+            timeout_s=2.5,
+            db_client=db_client,
+        )
 
     logger.warning(
         "[public-profile-debug] public collection summary username=%s source=%s items_source=%s portfolio_value=%s summary_keys=%s item_count=%s",
@@ -1095,5 +1413,14 @@ def get_public_collection_data_by_username(
 
     if include_collection_items:
         response_payload["collection_items"] = collection_items
+
+    _t_total_end = time.perf_counter()
+    logger.warning(
+        "[perf] public-profile TOTAL username=%s elapsed=%.3fs item_count=%s items_source=%s",
+        requested_username,
+        _t_total_end - _t0,
+        len(collection_items),
+        collection_items_source,
+    )
 
     return response_payload, None

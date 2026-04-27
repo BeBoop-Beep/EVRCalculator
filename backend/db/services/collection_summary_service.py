@@ -12,6 +12,7 @@ from backend.calculations.collection_summary import (
     calculate_summary,
 )
 from backend.db.repositories.user_collection_summary_repository import (
+    get_nightly_snapshot_pricing_freshness,
     has_stale_user_collection_summary_rows,
     load_user_collection_for_summary,
     load_user_collection_summary_snapshot,
@@ -212,12 +213,32 @@ def refresh_user_summary_with_history_and_deltas(user_id: UUID) -> Dict[str, Any
     return refreshed_snapshot
 
 
-def run_daily_portfolio_reconciliation_all_users() -> Dict[str, Any]:
+def run_daily_portfolio_reconciliation_all_users(current_date: Optional[str] = None) -> Dict[str, Any]:
     """Backend-invokable daily reconciliation entry point for all users."""
     if has_stale_user_collection_summary_rows():
         raise RuntimeError(
             "Daily portfolio reconciliation aborted: user_collection_summary contains stale rows"
         )
+
+    pricing_freshness = get_nightly_snapshot_pricing_freshness(current_date)
+    if not pricing_freshness["is_fresh"]:
+        status = "incomplete" if not pricing_freshness.get("check_completed", True) else "skipped"
+        logger.warning(
+            "collection_summary.daily_reconciliation status=%s snapshot_date=%s warning=%s missing_asset_counts=%s timings_ms=%s",
+            status,
+            pricing_freshness["snapshot_date"],
+            pricing_freshness["warning"],
+            pricing_freshness["missing_asset_counts"],
+            pricing_freshness.get("timings_ms"),
+        )
+        return {
+            "status": status,
+            "summary_source_verified": True,
+            "snapshot_all_users_executed": False,
+            "delta_refresh_all_users_executed": False,
+            "pricing_freshness": pricing_freshness,
+            "warning": pricing_freshness["warning"],
+        }
 
     try:
         snapshot_all_user_portfolio_history()
@@ -245,4 +266,5 @@ def run_daily_portfolio_reconciliation_all_users() -> Dict[str, Any]:
         "summary_source_verified": True,
         "snapshot_all_users_executed": True,
         "delta_refresh_all_users_executed": True,
+        "pricing_freshness": pricing_freshness,
     }

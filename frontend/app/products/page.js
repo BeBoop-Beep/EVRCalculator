@@ -14,22 +14,11 @@ export default function Products() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useRouter();
 
-  // Fetch all products from the server when the component mounts
+  // Template product endpoint is removed and is not part of the app.
+  // Keep this page stable by defaulting to an empty product list.
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch("/api/product");
-        if (!res.ok) {
-          throw new Error("Failed to fetch products");
-        }
-        const data = await res.json();
-        setProducts(data);
-        setFilteredProducts(data);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      }
-    }
-    fetchProducts();
+    setProducts([]);
+    setFilteredProducts([]);
   }, []);
 
   // Fetch all categories from the server when the component mounts

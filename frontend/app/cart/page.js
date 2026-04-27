@@ -27,21 +27,9 @@ export default function Cart() {
         return;
       }
 
-      try {
-        // Fetch products
-        const productRes = await fetch("/api/product");
-        if (!productRes.ok) throw new Error("Failed to fetch products");
-        const productData = await productRes.json();
-
-        // Filter items that are in the cart
-        const filteredProducts = productData.filter((p) =>
-          cartProducts.includes(String(p._id))
-        );
-
-        setProducts(filteredProducts);
-      } catch (error) {
-        console.error("Error fetching cart items:", error);
-      }
+      // Template product endpoint is removed and not part of this app.
+      // Keep cart UX stable by clearing unresolved product snapshots.
+      setProducts([]);
     }
 
     fetchCartItems();
@@ -94,24 +82,12 @@ export default function Cart() {
 
   // Handle price review
   function handlePriceReview() {
-    // Fetch updated prices from the backend
+    // Template product endpoint is removed; there is no cart product refresh endpoint.
     async function updatePrices() {
-      try {
-        const res = await fetch("/api/product");
-        if (!res.ok) throw new Error("Failed to fetch products");
-
-        const data = await res.json();
-        const updatedProducts = data.filter((p) =>
-          cartProducts.includes(String(p._id))
-        );
-
-        setProducts(updatedProducts);
-        setShowPriceReview(false); // Close review prompt after updating prices
-        setCartTimestamp(Date.now()); // Reset the timestamp to now
-        localStorage.setItem("cartTimestamp", Date.now().toString());
-      } catch (error) {
-        console.error("Error fetching updated prices:", error);
-      }
+      setProducts([]);
+      setShowPriceReview(false); // Close review prompt after acknowledging
+      setCartTimestamp(Date.now()); // Reset the timestamp to now
+      localStorage.setItem("cartTimestamp", Date.now().toString());
     }
 
     updatePrices();
