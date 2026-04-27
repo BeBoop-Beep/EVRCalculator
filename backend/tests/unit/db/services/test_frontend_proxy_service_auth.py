@@ -120,6 +120,43 @@ def test_signup_user_uses_isolated_auth_client_for_sign_up(monkeypatch):
     ]
 
 
+def test_login_user_returns_controlled_error_when_auth_client_unavailable(monkeypatch):
+    monkeypatch.setattr(service, "_create_auth_client", lambda: (_ for _ in ()).throw(service.AuthClientUnavailableError("Authentication service unavailable")))
+
+    payload, status = service.login_user("collector@example.com", "secret")
+
+    assert status == 503
+    assert payload == {"message": "Authentication service unavailable"}
+
+
+def test_signup_user_returns_controlled_error_when_auth_client_unavailable(monkeypatch):
+    monkeypatch.setattr(service, "_create_auth_client", lambda: (_ for _ in ()).throw(service.AuthClientUnavailableError("Authentication service unavailable")))
+
+    payload, status = service.signup_user("Collector User", "collector@example.com", "secret")
+
+    assert status == 503
+    assert payload == {"error": "Authentication service unavailable"}
+
+
+def test_update_customer_password_returns_controlled_error_when_auth_client_unavailable(monkeypatch):
+    def fake_decode_token(_token):
+        return (
+            {
+                "id": "user-123",
+                "email": "collector@example.com",
+            },
+            None,
+        )
+
+    monkeypatch.setattr(service, "decode_token", fake_decode_token)
+    monkeypatch.setattr(service, "_create_auth_client", lambda: (_ for _ in ()).throw(service.AuthClientUnavailableError("Authentication service unavailable")))
+
+    payload, status = service.update_customer_password("token", "current-secret", "new-secret")
+
+    assert status == 503
+    assert payload == {"error": "Authentication service unavailable"}
+
+
 def test_get_me_prefers_profile_display_name_for_canonical_name(monkeypatch):
     def fake_decode_token(_token):
         return (

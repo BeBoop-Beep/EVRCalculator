@@ -34,6 +34,7 @@ from backend.db.services.frontend_proxy_service import (
     update_profile,
 )
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
+from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
 
 
 app = FastAPI(title="EVR Collection API")
@@ -227,6 +228,39 @@ def get_latest_evr_run(
     if snapshot is None:
         raise HTTPException(status_code=404, detail="No EVR run snapshot found")
     return {"snapshot": snapshot}
+
+
+@app.get("/explore/page")
+def get_explore_page(
+    target_type: str = Query(...),
+    target_id: str = Query(...),
+    limit_distribution_bins: int = Query(default=50, ge=1, le=200),
+    limit_top_hits: int = Query(default=10, ge=1, le=100),
+):
+    """Return complete Explore page payload for a target (set, edition, pack, etc.)."""
+    try:
+        payload = get_explore_page_payload(
+            target_type=target_type,
+            target_id=target_id,
+            limit_distribution_bins=limit_distribution_bins,
+            limit_top_hits=limit_top_hits,
+        )
+        return payload
+    except ExplorePageError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception as exc:
+        logger.exception(
+            "/explore/page unexpected error target_type=%s target_id=%s",
+            target_type,
+            target_id,
+        )
+        return JSONResponse(
+            content={"message": "Unable to load explore page data", "code": "EXPLORE_PAGE_FAILED"},
+            status_code=500,
+        )
 
 
 @app.get("/auth/me")

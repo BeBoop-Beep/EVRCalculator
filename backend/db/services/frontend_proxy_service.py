@@ -30,13 +30,17 @@ EDITABLE_PROFILE_FIELDS = {
 logger = logging.getLogger(__name__)
 
 
+class AuthClientUnavailableError(RuntimeError):
+    pass
+
+
 def _create_auth_client():
     """Return a dedicated auth client so auth session state never mutates shared read client."""
     try:
         return create_service_role_client()
-    except Exception:
-        logger.exception("auth client creation failed; falling back to shared client")
-        return supabase
+    except Exception as exc:
+        logger.exception("auth client creation failed")
+        raise AuthClientUnavailableError("Authentication service unavailable") from exc
 
 
 def _first_row(result: Any) -> Optional[Dict[str, Any]]:
@@ -178,7 +182,10 @@ def login_user(email: Any, password: Any) -> Tuple[Dict[str, Any], int]:
 
     logger.info("login_user: attempting sign_in_with_password email_present=%s", bool(normalized_email))
 
-    auth_client = _create_auth_client()
+    try:
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"message": str(exc)}, 503
 
     try:
         auth_response = auth_client.auth.sign_in_with_password(
@@ -232,7 +239,10 @@ def login_user_legacy(email: Any, password: Any) -> Tuple[Dict[str, Any], int]:
 
     logger.info("login_user_legacy: attempting sign_in_with_password email_present=%s", bool(normalized_email))
 
-    auth_client = _create_auth_client()
+    try:
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"message": str(exc)}, 503
 
     try:
         auth_response = auth_client.auth.sign_in_with_password(
@@ -288,7 +298,10 @@ def signup_user(name: Any, email: Any, password: Any) -> Tuple[Dict[str, Any], i
 
     logger.info("signup_user: attempting sign_up name_present=%s email_present=%s", bool(user_name), bool(normalized_email))
 
-    auth_client = _create_auth_client()
+    try:
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"error": str(exc)}, 503
 
     try:
         auth_response = auth_client.auth.sign_up(
@@ -457,7 +470,10 @@ def update_customer_password(token: Optional[str], current_password: Any, new_pa
     if not isinstance(email, str) or not email or not user_id:
         return {"error": "Invalid token payload"}, 401
 
-    auth_client = _create_auth_client()
+    try:
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"error": str(exc)}, 503
 
     try:
         auth_client.auth.sign_in_with_password(
