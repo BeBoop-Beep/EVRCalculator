@@ -589,6 +589,43 @@ def create_simulation_state_counts(run_id: Any, sim_results: Mapping[str, Any]) 
     return inserted_rows
 
 
+def create_simulation_value_distribution_bins(
+    run_id: Any,
+    bins: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Persist value distribution bin rows for a Monte Carlo V2 run.
+
+    Each element of *bins* must contain:
+        bin_floor, bin_ceiling, occurrence_count, probability,
+        cumulative_probability, survival_probability.
+
+    Inserts one row per bin into public.simulation_value_distribution_bins.
+    Returns an empty list when *bins* is empty (no simulated values case).
+    """
+    if not bins:
+        return []
+
+    inserted_rows: List[Dict[str, Any]] = []
+    for bin_row in bins:
+        payload = {
+            "calculation_run_id": _require_present(run_id, "calculation_run_id"),
+            "bin_floor": float(bin_row["bin_floor"]),
+            "bin_ceiling": float(bin_row["bin_ceiling"]),
+            "occurrence_count": int(bin_row["occurrence_count"]),
+            "probability": float(bin_row["probability"]),
+            "cumulative_probability": float(bin_row["cumulative_probability"]),
+            "survival_probability": float(bin_row["survival_probability"]),
+        }
+        inserted = _insert_required_payload(
+            "simulation_value_distribution_bins",
+            payload,
+            f"Simulation value distribution bin insert (floor={bin_row['bin_floor']:.4f})",
+        )
+        inserted_rows.append(inserted)
+
+    return inserted_rows
+
+
 def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     """Persist one derived-metrics row per run."""
     if not isinstance(derived, Mapping):
