@@ -17,6 +17,7 @@ from backend.db.services.collection_portfolio_service import (
     get_current_user_portfolio_dashboard_data,
     get_public_collection_data_by_username,
 )
+from backend.db.clients.supabase_client import public_read_client
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
     decode_token,
@@ -32,6 +33,8 @@ from backend.db.services.frontend_proxy_service import (
     update_customer_profile,
     update_profile,
 )
+from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
+from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
 
 
 app = FastAPI(title="EVR Collection API")
@@ -139,6 +142,7 @@ def get_public_collection_items(
         username=username,
         include_collection_items=include_items,
         viewer_user_id=viewer_user_id,
+        db_client=public_read_client,
     )
 
     if error == "Invalid username.":
@@ -150,6 +154,34 @@ def get_public_collection_items(
         raise HTTPException(status_code=500, detail="Failed to load collection summary.")
 
     return payload
+
+
+@app.get("/public/profiles/{username}")
+def get_public_profile_page(
+    username: str,
+    include_collection_items: Optional[str] = Query(default="1"),
+    viewer_user_id: Optional[str] = Query(default=None),
+):
+    include_items = _is_truthy(include_collection_items if include_collection_items is not None else "1")
+
+    try:
+        payload = get_public_profile_page_payload(
+            username=username,
+            include_collection_items=include_items,
+            viewer_user_id=(viewer_user_id or "").strip() or None,
+        )
+        return payload
+    except PublicProfilePageError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/public/profiles/%s unexpected error", username)
+        return JSONResponse(
+            content={"message": "Unable to load public profile", "code": "PUBLIC_PROFILE_PAGE_FAILED"},
+            status_code=500,
+        )
 
 
 @app.post("/collection/holdings/mutate")
@@ -196,6 +228,39 @@ def get_latest_evr_run(
     if snapshot is None:
         raise HTTPException(status_code=404, detail="No EVR run snapshot found")
     return {"snapshot": snapshot}
+
+
+@app.get("/explore/page")
+def get_explore_page(
+    target_type: str = Query(...),
+    target_id: str = Query(...),
+    limit_distribution_bins: int = Query(default=50, ge=1, le=200),
+    limit_top_hits: int = Query(default=10, ge=1, le=100),
+):
+    """Return complete Explore page payload for a target (set, edition, pack, etc.)."""
+    try:
+        payload = get_explore_page_payload(
+            target_type=target_type,
+            target_id=target_id,
+            limit_distribution_bins=limit_distribution_bins,
+            limit_top_hits=limit_top_hits,
+        )
+        return payload
+    except ExplorePageError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception as exc:
+        logger.exception(
+            "/explore/page unexpected error target_type=%s target_id=%s",
+            target_type,
+            target_id,
+        )
+        return JSONResponse(
+            content={"message": "Unable to load explore page data", "code": "EXPLORE_PAGE_FAILED"},
+            status_code=500,
+        )
 
 
 @app.get("/auth/me")
@@ -280,10 +345,48 @@ def products_get():
 
 @app.get("/profile/me")
 def profile_me(
+    request: Request,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    payload, status = get_current_profile(_extract_token(authorization, token_cookie))
+    token = _extract_token(authorization, token_cookie)
+    has_cookie_header = bool(request.headers.get("cookie"))
+    has_authorization_header = bool(request.headers.get("authorization"))
+
+    resolved_user_id = None
+    try:
+        token_user, token_error = decode_token(token)
+        if not token_error and token_user:
+            resolved_user_id = str(token_user.get("id") or "").strip() or None
+    except Exception:
+        resolved_user_id = None
+
+    try:
+        payload, status = get_current_profile(token)
+    except Exception as exc:
+        logger.exception(
+            "/profile/me unhandled exception path=%s user_id=%r has_cookie_header=%s has_authorization_header=%s exception_type=%s exception_message=%s",
+            request.url.path,
+            resolved_user_id,
+            has_cookie_header,
+            has_authorization_header,
+            type(exc).__name__,
+            str(exc),
+        )
+        return JSONResponse(content={"message": "Unable to fetch profile"}, status_code=500)
+
+    if status >= 500:
+        logger.error(
+            "/profile/me failed path=%s user_id=%r has_cookie_header=%s has_authorization_header=%s profile_found=%s status=%s message=%r",
+            request.url.path,
+            resolved_user_id,
+            has_cookie_header,
+            has_authorization_header,
+            bool(isinstance(payload, dict) and isinstance(payload.get("profile"), dict)),
+            status,
+            payload.get("message") if isinstance(payload, dict) else None,
+        )
+
     return JSONResponse(content=payload, status_code=status)
 
 

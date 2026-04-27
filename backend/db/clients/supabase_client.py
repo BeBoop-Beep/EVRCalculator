@@ -45,6 +45,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 try:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    public_read_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     logger.info("supabase_client: supabase client initialized successfully")
     # Clear the schema cache to avoid stale schema issues
     if hasattr(supabase, 'postgrest') and hasattr(supabase.postgrest, '_cache'):
@@ -69,6 +70,13 @@ def create_service_role_client():
 
 def reset_service_role_auth():
     auth_header = f"Bearer {SUPABASE_KEY}"
+    # If auth is already the service-role key, skip tearing down the PostgREST
+    # client.  Nulling _postgrest forces a full client rebuild on the next
+    # supabase.table() call and is the primary cause of per-request latency on
+    # the public-profile endpoint when no user token has been injected.
+    current_auth = supabase.options.headers.get("Authorization", "")
+    if current_auth == auth_header:
+        return
     supabase.options.headers["Authorization"] = auth_header
     if hasattr(supabase, "auth") and hasattr(supabase.auth, "_headers"):
         supabase.auth._headers["Authorization"] = auth_header

@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime, timezone
+from time import perf_counter
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -16,6 +18,129 @@ SUMMARY_SELECT_COLUMNS = (
     "portfolio_delta_pct_1d,portfolio_delta_pct_7d,portfolio_delta_pct_3m,portfolio_delta_pct_6m,portfolio_delta_pct_1y,portfolio_delta_pct_lifetime,"
     "computed_at,is_stale"
 )
+
+_NIGHTLY_PRICING_SAMPLE_LIMIT = 25
+
+
+def _timer_elapsed_ms(start: float) -> float:
+    """Return elapsed time in milliseconds with lightweight rounding."""
+    return round((perf_counter() - start) * 1000, 3)
+
+
+def _resolve_snapshot_date(snapshot_date: Optional[str]) -> str:
+    """Normalize a nightly snapshot date to YYYY-MM-DD in UTC."""
+    if snapshot_date:
+        normalized = snapshot_date.strip()
+        if not normalized:
+            raise ValueError("snapshot_date cannot be blank")
+        try:
+            return datetime.fromisoformat(normalized.replace("Z", "+00:00")).date().isoformat()
+        except ValueError:
+            try:
+                return datetime.strptime(normalized, "%Y-%m-%d").date().isoformat()
+            except ValueError as exc:
+                raise ValueError(f"Invalid snapshot_date: {snapshot_date}") from exc
+
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def get_nightly_snapshot_pricing_freshness(snapshot_date: Optional[str] = None) -> Dict[str, Any]:
+    """Verify held assets have snapshot-date pricing using the bounded SQL freshness RPC."""
+    total_started = perf_counter()
+    resolved_snapshot_date = _resolve_snapshot_date(snapshot_date)
+    fallback_timings = {
+        "held_asset_load_ms": 0.0,
+        "card_freshness_check_ms": 0.0,
+        "sealed_freshness_check_ms": 0.0,
+        "graded_freshness_check_ms": 0.0,
+        "total_ms": 0.0,
+    }
+    fallback_query_path = {
+        "held_asset_source": [
+            "user_card_holdings(quantity>0)",
+            "user_sealed_product_holdings(quantity>0)",
+            "user_graded_card_holdings(quantity>0)",
+        ],
+        "card_check_source": "card_variant_price_observations(captured_at)",
+        "sealed_check_source": "sealed_product_price_observations(captured_at)",
+        "graded_check_source": "graded_card_market_latest(captured_at)",
+        "uses_distinct_held_assets": True,
+        "loads_full_holdings_rows": False,
+        "loads_full_latest_views": False,
+        "notes": [
+            "Card and sealed freshness use snapshot-date observation tables with minimal columns.",
+            "Graded freshness falls back to graded_card_market_latest because no graded observation table was found in repo migrations.",
+            "Missing asset samples are fetched only after freshness is decided and are bounded by sample limit.",
+        ],
+    }
+
+    try:
+        payload = {
+            "p_snapshot_date": resolved_snapshot_date,
+            "p_sample_limit": _NIGHTLY_PRICING_SAMPLE_LIMIT,
+        }
+        response = supabase.rpc("get_nightly_snapshot_pricing_freshness", payload).execute()
+        data = response.data if response else None
+        result = data[0] if isinstance(data, list) and data else data
+
+        if not isinstance(result, dict):
+            raise RuntimeError("Nightly pricing freshness RPC returned an unexpected payload")
+
+        result.setdefault("snapshot_date", resolved_snapshot_date)
+        result.setdefault("status", "incomplete")
+        result.setdefault("check_completed", False)
+        result.setdefault("is_fresh", False)
+        result.setdefault("held_asset_counts", {"cards": 0, "sealed": 0, "graded": 0})
+        result.setdefault("fresh_asset_counts", {"cards": 0, "sealed": 0, "graded": 0})
+        result.setdefault("missing_asset_counts", {"cards": 0, "sealed": 0, "graded": 0, "total": 0})
+        result.setdefault("missing_assets_sample", [])
+        result.setdefault("query_path", fallback_query_path)
+        timings = result.get("timings_ms") if isinstance(result.get("timings_ms"), dict) else {}
+        timings.setdefault("total_ms", _timer_elapsed_ms(total_started))
+        result["timings_ms"] = timings
+        if result.get("warning") is None and not result.get("is_fresh"):
+            result["warning"] = (
+                f"Pricing freshness incomplete for snapshot_date={resolved_snapshot_date}; "
+                "nightly snapshot skipped."
+            )
+        logger.info(
+            "pricing_freshness.snapshot_date=%s status=%s held_asset_counts=%s missing_asset_counts=%s timings_ms=%s",
+            result.get("snapshot_date"),
+            result["status"],
+            result.get("held_asset_counts"),
+            result["missing_asset_counts"],
+            result["timings_ms"],
+        )
+        return result
+    except Exception as exc:
+        fallback_timings["total_ms"] = _timer_elapsed_ms(total_started)
+        logger.exception(
+            "pricing_freshness.failed snapshot_date=%s error_type=%s error=%s timings_ms=%s",
+            resolved_snapshot_date,
+            type(exc).__name__,
+            exc,
+            fallback_timings,
+        )
+        return {
+            "snapshot_date": resolved_snapshot_date,
+            "status": "incomplete",
+            "check_completed": False,
+            "is_fresh": False,
+            "held_asset_counts": {"cards": 0, "sealed": 0, "graded": 0},
+            "fresh_asset_counts": {"cards": 0, "sealed": 0, "graded": 0},
+            "missing_asset_counts": {"cards": 0, "sealed": 0, "graded": 0, "total": 0},
+            "missing_assets_sample": [],
+            "warning": (
+                f"Pricing freshness check could not complete for snapshot_date={resolved_snapshot_date}; "
+                "nightly snapshot skipped."
+            ),
+            "error": {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            },
+            "timings_ms": fallback_timings,
+            "query_path": fallback_query_path,
+        }
 
 
 def _extract_price(value: Any) -> float:

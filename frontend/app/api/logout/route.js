@@ -13,7 +13,7 @@ export async function POST() {
     expires: new Date(0),
     maxAge: 0,
     path: "/",
-    sameSite: "strict",
+    sameSite: "lax",
   });
 
   return response;

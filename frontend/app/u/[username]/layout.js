@@ -1,7 +1,8 @@
 // Presentation layout: consumes precomputed summary data from publicProfileServer; keep display-only logic here.
 import PublicProfileHeader from "@/components/Profile/PublicProfileHeader";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
-import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
+import { getPublicProfileIdentity } from "@/lib/profile/publicIdentity";
+import { getPublicProfilePagePayload } from "@/lib/profile/publicProfileServer";
 
 function normalizeSummaryMetricValue(value) {
   if (value === null || value === undefined) {
@@ -46,7 +47,21 @@ function formatCountOrUnknown(value) {
 
 export default async function PublicProfileLayout({ children, params }) {
   const { username } = await params;
-  const { publicProfile, identity } = await getCachedPublicRouteContextByUsername(username || "");
+  const payload = await getPublicProfilePagePayload(username || "");
+  const publicProfile = payload?.profile
+    ? {
+      ...payload.profile,
+      collection_summary: payload.collection_summary || null,
+      collection_summary_warning:
+        Array.isArray(payload?.meta?.warnings) && payload.meta.warnings.length > 0
+          ? payload.meta.warnings.join("; ")
+          : null,
+    }
+    : null;
+  const identity = getPublicProfileIdentity({
+    ...publicProfile,
+    username: publicProfile?.username || username,
+  });
   const summary = publicProfile?.collection_summary || null;
 
   const collectionMetrics = {
@@ -59,7 +74,7 @@ export default async function PublicProfileLayout({ children, params }) {
   };
 
   if (publicProfile?.collection_summary_warning) {
-    console.error(publicProfile.collection_summary_warning);
+    console.warn(publicProfile.collection_summary_warning);
   }
 
   const joinDateLabel = publicProfile?.created_at

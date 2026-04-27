@@ -1,6 +1,7 @@
-// Server-only accessor that fetches from /api/public-profile/[username]/collection-summary. Not the route itself.
+// Legacy server-only accessor retained for compatibility with non-critical callers.
+// Public server-render paths now use getPublicProfilePagePayload instead.
 import "server-only";
-import { getPublicCollectionByUsername } from "@/lib/profile/profileQueries";
+import { getPublicProfilePagePayload } from "@/lib/profile/publicProfileServer";
 
 /** @typedef {import("@/types/profile").PublicCollectionSummary} PublicCollectionSummary */
 
@@ -94,18 +95,8 @@ export async function getPublicCollectionSummaryByUsername(username) {
   const startedAt = Date.now();
 
   try {
-    const response = await getPublicCollectionByUsername(normalizedUsername, {
-      includeCollectionItems: false,
-    });
-
-    if (response.error) {
-      return {
-        data: null,
-        warning: `Collection summary request failed for ${normalizedUsername}: ${response.error.status} ${response.error.message}`.trim(),
-      };
-    }
-
-    const summary = extractCollectionSummary(response.data || {});
+    const payload = await getPublicProfilePagePayload(normalizedUsername);
+    const summary = extractCollectionSummary(payload || {});
 
     if (!summary) {
       return {

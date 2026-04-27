@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Tuple
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-from backend.db.clients.supabase_client import supabase
+from backend.db.clients.supabase_client import create_service_role_client, public_read_client, supabase
 from backend.db.services.collection_portfolio_service import get_public_collection_data_by_username
 from backend.db.services.public_identity_service import normalize_profile_username, resolve_public_user_by_username
 
@@ -28,6 +28,19 @@ EDITABLE_PROFILE_FIELDS = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+class AuthClientUnavailableError(RuntimeError):
+    pass
+
+
+def _create_auth_client():
+    """Return a dedicated auth client so auth session state never mutates shared read client."""
+    try:
+        return create_service_role_client()
+    except Exception as exc:
+        logger.exception("auth client creation failed")
+        raise AuthClientUnavailableError("Authentication service unavailable") from exc
 
 
 def _first_row(result: Any) -> Optional[Dict[str, Any]]:
@@ -127,6 +140,18 @@ def get_profile_by_user_id(user_id: str, email: Optional[str] = None) -> Tuple[O
         )
         profile = _first_row(result)
 
+    # Legacy rows may retain mixed-case email values.
+    # Use a case-insensitive fallback when exact normalized email does not match.
+    if not profile and normalized_email:
+        result = (
+            supabase.table("users")
+            .select(PROFILE_SELECT_FIELDS)
+            .ilike("email", normalized_email)
+            .limit(1)
+            .execute()
+        )
+        profile = _first_row(result)
+
     if not profile:
         return None, "Profile not found"
 
@@ -158,7 +183,12 @@ def login_user(email: Any, password: Any) -> Tuple[Dict[str, Any], int]:
     logger.info("login_user: attempting sign_in_with_password email_present=%s", bool(normalized_email))
 
     try:
-        auth_response = supabase.auth.sign_in_with_password(
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"message": str(exc)}, 503
+
+    try:
+        auth_response = auth_client.auth.sign_in_with_password(
             {
                 "email": normalized_email,
                 "password": password,
@@ -210,7 +240,12 @@ def login_user_legacy(email: Any, password: Any) -> Tuple[Dict[str, Any], int]:
     logger.info("login_user_legacy: attempting sign_in_with_password email_present=%s", bool(normalized_email))
 
     try:
-        auth_response = supabase.auth.sign_in_with_password(
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"message": str(exc)}, 503
+
+    try:
+        auth_response = auth_client.auth.sign_in_with_password(
             {
                 "email": normalized_email,
                 "password": password,
@@ -264,7 +299,12 @@ def signup_user(name: Any, email: Any, password: Any) -> Tuple[Dict[str, Any], i
     logger.info("signup_user: attempting sign_up name_present=%s email_present=%s", bool(user_name), bool(normalized_email))
 
     try:
-        auth_response = supabase.auth.sign_up(
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"error": str(exc)}, 503
+
+    try:
+        auth_response = auth_client.auth.sign_up(
             {
                 "email": normalized_email,
                 "password": password,
@@ -431,7 +471,12 @@ def update_customer_password(token: Optional[str], current_password: Any, new_pa
         return {"error": "Invalid token payload"}, 401
 
     try:
-        supabase.auth.sign_in_with_password(
+        auth_client = _create_auth_client()
+    except AuthClientUnavailableError as exc:
+        return {"error": str(exc)}, 503
+
+    try:
+        auth_client.auth.sign_in_with_password(
             {
                 "email": email,
                 "password": current_password,
@@ -494,7 +539,7 @@ def get_public_profile(username_param: Any, viewer_token: Optional[str]) -> Tupl
     if token_user and token_user.get("id"):
         viewer_user_id = str(token_user.get("id"))
 
-    public_user, public_user_trace = resolve_public_user_by_username(username)
+    public_user, public_user_trace = resolve_public_user_by_username(username, db_client=public_read_client)
     if not public_user or not public_user.get("id"):
         return {"message": "Public profile not found", "code": "PROFILE_NOT_FOUND"}, 404
 
@@ -507,11 +552,26 @@ def get_public_profile(username_param: Any, viewer_token: Optional[str]) -> Tupl
 
     for select_clause in profile_select_candidates:
         try:
-            result = supabase.table("users").select(select_clause).eq("id", public_user.get("id")).limit(1).execute()
-            profile = _first_row(result)
-            break
+            result = public_read_client.table("users").select(select_clause).eq("id", public_user.get("id")).limit(1).execute()
+            row = _first_row(result)
+            if row is not None:
+                profile = row
+                break
+            # query succeeded but returned 0 rows — try next candidate (column subset may differ)
+            logger.warning(
+                "[public-profile-debug] users select returned 0 rows username=%s user_id=%s select=%r",
+                username,
+                public_user.get("id"),
+                select_clause,
+            )
         except Exception:
-            continue
+            logger.warning(
+                "[public-profile-debug] users select failed username=%s user_id=%s select=%r",
+                username,
+                public_user.get("id"),
+                select_clause,
+                exc_info=True,
+            )
 
     if profile is None:
         return {"message": "Unable to fetch public profile"}, 500
@@ -531,7 +591,7 @@ def get_public_profile(username_param: Any, viewer_token: Optional[str]) -> Tupl
     if favorite_tcg_id:
         try:
             tcg_result = (
-                supabase.table("tcgs")
+                public_read_client.table("tcgs")
                 .select("id, name")
                 .eq("id", favorite_tcg_id)
                 .limit(1)
@@ -589,8 +649,14 @@ def get_current_profile(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
 
     try:
         profile, profile_error = get_profile_by_user_id(user_id, token_email)
-    except Exception:
-        logger.exception("Unable to fetch profile")
+    except Exception as exc:
+        logger.exception(
+            "profile lookup exception user_id=%r token_email=%r exception_type=%s exception_message=%s",
+            user_id,
+            _normalize_email(token_email) if token_email else None,
+            type(exc).__name__,
+            str(exc),
+        )
         return {"message": "Unable to fetch profile"}, 500
 
     if profile_error:
