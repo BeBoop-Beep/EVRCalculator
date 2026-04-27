@@ -653,3 +653,50 @@ def refresh_all_stale_user_collection_summaries() -> None:
             exc,
         )
         raise RuntimeError("Failed to refresh all stale user collection summaries") from exc
+
+
+def refresh_user_portfolio_summary_and_deltas(
+    user_id: UUID,
+    snapshot_date: Optional[str] = None,
+) -> None:
+    """Atomically snapshot current portfolio value and refresh deltas for one user.
+    
+    This is the primary consistency boundary for user collection summaries.
+    When called after holdings mutations, it ensures:
+    1) Snapshots current portfolio_value from user_collection_summary
+    2) Refreshes all portfolio deltas from history
+    3) Both operations remain synchronized
+    
+    The Supabase DB-side function orchestrates this lightweight atomic sequence.
+    It intentionally does not run live recomputation.
+    
+    Args:
+        user_id: UUID of the user whose summary to refresh
+        snapshot_date: Optional snapshot date (ISO format YYYY-MM-DD).
+                      Defaults to current date in America/Phoenix timezone.
+    
+    Raises:
+        RuntimeError: If DB function call fails
+    """
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized")
+    
+    payload: Dict[str, Any] = {"p_user_id": str(user_id)}
+    if snapshot_date:
+        payload["p_snapshot_date"] = snapshot_date
+    
+    try:
+        supabase.rpc("refresh_user_portfolio_summary_and_deltas", payload).execute()
+        logger.info(
+            "repository: refresh_user_portfolio_summary_and_deltas user_id=%s snapshot_date=%s executed successfully",
+            user_id,
+            snapshot_date or "(default)",
+        )
+    except Exception as exc:
+        logger.exception(
+            "repository: refresh_user_portfolio_summary_and_deltas user_id=%s failed error_type=%s error=%s",
+            user_id,
+            type(exc).__name__,
+            exc,
+        )
+        raise RuntimeError(f"Failed to refresh portfolio summary and deltas for user {user_id}") from exc

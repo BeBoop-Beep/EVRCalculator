@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Request  # type: ignore[reportMissingImports]
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissingImports]
@@ -12,6 +13,7 @@ from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from pydantic import BaseModel  # type: ignore[reportMissingImports]
 
 from backend.db.services.collection_holdings_service import mutate_holding
+from backend.db.services.collection_freshness_service import ensure_fresh_user_collection_summary
 from backend.db.services.collection_portfolio_service import (
     get_collection_items_for_user_id,
     get_current_user_portfolio_dashboard_data,
@@ -104,6 +106,16 @@ def get_collection_dashboard(
 ):
     resolved_user_id = _require_user_id(user_id_query=user_id, user_id_header=x_user_id)
     include_items = _is_truthy(include_collection_items)
+
+    # Keep reads fresh without blocking mutation flows on heavy recompute work.
+    try:
+        ensure_fresh_user_collection_summary(UUID(resolved_user_id))
+    except Exception as exc:
+        logger.warning(
+            "collection_dashboard.ensure_fresh failed user_id=%s error=%s",
+            resolved_user_id,
+            exc,
+        )
 
     dashboard_payload = get_current_user_portfolio_dashboard_data(resolved_user_id)
     if not include_items:
@@ -234,8 +246,8 @@ def get_latest_evr_run(
 def get_explore_page(
     target_type: str = Query(...),
     target_id: str = Query(...),
-    limit_distribution_bins: int = Query(default=50, ge=1, le=200),
-    limit_top_hits: int = Query(default=10, ge=1, le=100),
+    limit_distribution_bins: Optional[str] = Query(default=None),
+    limit_top_hits: Optional[str] = Query(default=None),
 ):
     """Return complete Explore page payload for a target (set, edition, pack, etc.)."""
     try:

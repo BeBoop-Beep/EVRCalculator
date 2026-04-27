@@ -219,3 +219,111 @@ class TestErrorHandling:
                 ensure_fresh_user_collection_summary(sample_user_id)
             
             mock_logger.exception.assert_called_once()
+
+
+class TestConsistencyBoundaryWrapper:
+    """Integration tests for refresh_user_portfolio_summary_and_deltas (consistency boundary)."""
+
+    def test_wrapper_calls_repository_function(self, sample_user_id):
+        """Wrapper should call repository with correct parameters."""
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas"
+        ) as mock_repo:
+            from backend.db.services.collection_freshness_service import (
+                refresh_user_portfolio_summary_and_deltas
+            )
+            
+            refresh_user_portfolio_summary_and_deltas(sample_user_id)
+            
+            mock_repo.assert_called_once_with(sample_user_id, None)
+
+    def test_wrapper_passes_snapshot_date(self, sample_user_id):
+        """Wrapper should pass snapshot_date to repository."""
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas"
+        ) as mock_repo:
+            from backend.db.services.collection_freshness_service import (
+                refresh_user_portfolio_summary_and_deltas
+            )
+            
+            refresh_user_portfolio_summary_and_deltas(sample_user_id, snapshot_date="2026-04-25")
+            
+            mock_repo.assert_called_once_with(sample_user_id, "2026-04-25")
+
+    def test_repository_calls_supabase_rpc(self, sample_user_id):
+        """Repository should call Supabase RPC for consistency boundary."""
+        with patch(
+            "backend.db.repositories.user_collection_summary_repository.supabase"
+        ) as mock_supabase:
+            mock_rpc = MagicMock()
+            mock_supabase.rpc.return_value = mock_rpc
+            mock_rpc.execute.return_value = None
+            
+            from backend.db.repositories.user_collection_summary_repository import (
+                refresh_user_portfolio_summary_and_deltas
+            )
+            
+            refresh_user_portfolio_summary_and_deltas(sample_user_id)
+            
+            # Verify RPC was called with correct function name
+            mock_supabase.rpc.assert_called_once()
+            call_args = mock_supabase.rpc.call_args
+            assert call_args[0][0] == "refresh_user_portfolio_summary_and_deltas"
+            assert str(sample_user_id) in str(call_args[0][1])
+
+    def test_holdings_mutation_flow_calls_consistency_boundary(self, sample_user_id):
+        """Holdings mutation should call consistency boundary wrapper."""
+        sample_holding_id = str(uuid4())
+        
+        with patch(
+            "backend.db.services.collection_holdings_service.get_holding"
+        ) as mock_get, patch(
+            "backend.db.services.collection_holdings_service.update_holding_quantity"
+        ) as mock_update, patch(
+            "backend.db.services.collection_holdings_service.refresh_user_portfolio_summary_and_deltas"
+        ) as mock_refresh:
+            
+            mock_get.return_value = {"quantity": "1"}
+            
+            from backend.db.services.collection_holdings_service import mutate_holding
+            
+            result, error = mutate_holding(
+                user_id=sample_user_id,
+                holding_type="card",
+                holding_id=sample_holding_id,
+                action="increment",
+            )
+            
+            # Verify mutation succeeded
+            assert error is None
+            assert result["action"] == "incremented"
+            
+            # Verify consistency boundary wrapper was called
+            mock_refresh.assert_called_once()
+
+    def test_consistency_boundary_prevents_desync(self, sample_user_id):
+        """Consistency boundary should prevent portfolio_value/delta desync."""
+        # This is a conceptual test. The DB-side orchestration prevents desync
+        # by executing a single lightweight atomic RPC (snapshot current value + refresh deltas).
+        with patch(
+            "backend.db.repositories.user_collection_summary_repository.supabase"
+        ) as mock_supabase:
+            mock_rpc = MagicMock()
+            mock_supabase.rpc.return_value = mock_rpc
+            mock_rpc.execute.return_value = None
+            
+            from backend.db.repositories.user_collection_summary_repository import (
+                refresh_user_portfolio_summary_and_deltas
+            )
+            
+            # Call consistency boundary
+            refresh_user_portfolio_summary_and_deltas(sample_user_id)
+            
+            # Verify the single atomic operation was called (not separate calls)
+            mock_supabase.rpc.assert_called_once()
+            
+            # There should be exactly one RPC call, not separate calls from application code.
+            rpc_call_count = mock_supabase.rpc.call_count
+            assert rpc_call_count == 1, \
+                "Consistency boundary should orchestrate atomically via single DB function, not separate calls"
+

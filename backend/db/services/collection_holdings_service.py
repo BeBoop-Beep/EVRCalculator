@@ -13,11 +13,15 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, Optional, Tuple
+from uuid import UUID
 
 from backend.db.repositories.holdings_repository import (
     delete_holding,
     get_holding,
     update_holding_quantity,
+)
+from backend.db.services.collection_freshness_service import (
+    refresh_user_portfolio_summary_and_deltas,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +43,9 @@ def mutate_holding(
     """Apply *action* to a holding owned by *user_id*.
 
     Returns (result, None) on success or (None, error_dict) on failure.
+    
+    After any successful mutation, atomically refreshes the user's portfolio
+    summary and deltas to maintain consistency between portfolio_value and deltas.
     """
     # ── input validation ──────────────────────────────────────────────────
     if not user_id:
@@ -62,11 +69,41 @@ def mutate_holding(
         deleted = delete_holding(holding_type, holding_id, user_id)
         if not deleted:
             return _err("Failed to remove holding.", 500)
+        
+        # Refresh portfolio summary + deltas to maintain consistency boundary
+        try:
+            user_uuid = UUID(user_id) if not isinstance(user_id, UUID) else user_id
+            refresh_user_portfolio_summary_and_deltas(user_uuid)
+        except Exception as exc:
+            logger.exception(
+                "collection_holdings.mutate_holding refresh_failed user_id=%s action=%s error=%s",
+                user_id,
+                action,
+                exc,
+            )
+            # Non-fatal: holding was removed successfully, but delta refresh failed
+            # Log it and continue; next read will trigger freshness check
+        
         return {"action": "removed", "holding_id": holding_id}, None
 
     if action == "increment":
         new_qty = current_qty + 1
         update_holding_quantity(holding_type, holding_id, user_id, new_qty)
+        
+        # Refresh portfolio summary + deltas to maintain consistency boundary
+        try:
+            user_uuid = UUID(user_id) if not isinstance(user_id, UUID) else user_id
+            refresh_user_portfolio_summary_and_deltas(user_uuid)
+        except Exception as exc:
+            logger.exception(
+                "collection_holdings.mutate_holding refresh_failed user_id=%s action=%s error=%s",
+                user_id,
+                action,
+                exc,
+            )
+            # Non-fatal: holding was updated successfully, but delta refresh failed
+            # Log it and continue; next read will trigger freshness check
+        
         return {"action": "incremented", "holding_id": holding_id, "quantity": new_qty}, None
 
     if action == "decrement":
@@ -78,6 +115,21 @@ def mutate_holding(
             )
         new_qty = current_qty - 1
         update_holding_quantity(holding_type, holding_id, user_id, new_qty)
+        
+        # Refresh portfolio summary + deltas to maintain consistency boundary
+        try:
+            user_uuid = UUID(user_id) if not isinstance(user_id, UUID) else user_id
+            refresh_user_portfolio_summary_and_deltas(user_uuid)
+        except Exception as exc:
+            logger.exception(
+                "collection_holdings.mutate_holding refresh_failed user_id=%s action=%s error=%s",
+                user_id,
+                action,
+                exc,
+            )
+            # Non-fatal: holding was updated successfully, but delta refresh failed
+            # Log it and continue; next read will trigger freshness check
+        
         return {"action": "decremented", "holding_id": holding_id, "quantity": new_qty}, None
 
     # unreachable

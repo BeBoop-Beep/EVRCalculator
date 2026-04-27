@@ -13,6 +13,7 @@ from backend.db.repositories.user_collection_summary_repository import (
     ensure_fresh_user_collection_summary as repo_ensure_fresh,
     refresh_all_stale_user_collection_summaries as repo_refresh_all_stale,
     refresh_user_collection_summary_live as repo_refresh_live,
+    refresh_user_portfolio_summary_and_deltas as repo_refresh_summary_and_deltas,
 )
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,45 @@ def run_nightly_portfolio_refresh(current_date: str = None) -> Dict[str, Any]:
     except Exception as exc:
         logger.exception(
             "collection_freshness.run_nightly_portfolio_refresh failed error=%s",
+            exc,
+        )
+        raise
+
+
+def refresh_user_portfolio_summary_and_deltas(user_id: UUID, snapshot_date: str = None) -> None:
+    """Service wrapper for atomic portfolio snapshot + deltas refresh (consistency boundary).
+    
+    This is the primary consistency boundary for user collection summaries.
+    After any holdings mutation, call this function to ensure:
+    1) Current portfolio_value is snapshotted to history
+    2) All deltas (1d, 7d, 30d, 3m, 6m, 1y, lifetime and their %versions) are refreshed
+    
+    This lightweight sequence is orchestrated atomically by the DB-side function.
+    It intentionally does not invoke live recompute.
+    
+    Intended usage patterns:
+    - After holdings add/remove/modify: mutate_holding() -> this function
+    - After portfolio-level import/batch update: refresh wrapper
+    - NOT needed after global cron snapshots (those are handled separately)
+    
+    Args:
+        user_id: UUID of the user
+        snapshot_date: Optional ISO date string (YYYY-MM-DD). Defaults to today in America/Phoenix.
+        
+    Raises:
+        RuntimeError: If DB operation fails
+    """
+    try:
+        repo_refresh_summary_and_deltas(user_id, snapshot_date)
+        logger.info(
+            "collection_freshness.refresh_summary_and_deltas user_id=%s snapshot_date=%s",
+            user_id,
+            snapshot_date or "(default)",
+        )
+    except Exception as exc:
+        logger.exception(
+            "collection_freshness.refresh_summary_and_deltas user_id=%s failed error=%s",
+            user_id,
             exc,
         )
         raise

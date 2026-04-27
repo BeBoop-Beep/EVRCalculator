@@ -25,6 +25,7 @@ d:/EVRCalculator/backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/s
 
 activate venv
 source .venv/Scripts/activate
+source .venv-1/Scripts/activate
 
 scraper login
 ssh -i ~/.ssh/id_rsa ubuntu@129.146.130.104
