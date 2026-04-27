@@ -206,26 +206,43 @@ def test_refresh_user_summary_with_history_and_deltas_stops_when_snapshot_fails(
 
 @patch("backend.db.services.collection_summary_service.refresh_user_collection_deltas")
 @patch("backend.db.services.collection_summary_service.snapshot_all_user_portfolio_history")
+@patch("backend.db.services.collection_summary_service.get_nightly_snapshot_pricing_freshness")
 @patch("backend.db.services.collection_summary_service.has_stale_user_collection_summary_rows")
 def test_run_daily_portfolio_reconciliation_all_users_success(
     mock_has_stale,
+    mock_get_pricing_freshness,
     mock_snapshot_all,
     mock_refresh_deltas,
 ):
     mock_has_stale.return_value = False
+    mock_get_pricing_freshness.return_value = {
+        "snapshot_date": "2026-04-26",
+        "is_fresh": True,
+        "status": "ok",
+        "check_completed": True,
+        "held_asset_counts": {"cards": 1, "sealed": 0, "graded": 0},
+        "fresh_asset_counts": {"cards": 1, "sealed": 0, "graded": 0},
+        "missing_asset_counts": {"cards": 0, "sealed": 0, "graded": 0, "total": 0},
+        "missing_assets_sample": [],
+        "warning": None,
+        "timings_ms": {"total_ms": 4.2},
+    }
 
     result = run_daily_portfolio_reconciliation_all_users()
 
     assert result["status"] == "ok"
     assert result["summary_source_verified"] is True
+    assert result["pricing_freshness"]["is_fresh"] is True
     mock_snapshot_all.assert_called_once_with()
     mock_refresh_deltas.assert_called_once_with()
 
 
 @patch("backend.db.services.collection_summary_service.snapshot_all_user_portfolio_history")
+@patch("backend.db.services.collection_summary_service.get_nightly_snapshot_pricing_freshness")
 @patch("backend.db.services.collection_summary_service.has_stale_user_collection_summary_rows")
 def test_run_daily_portfolio_reconciliation_all_users_fails_when_summary_source_is_stale(
     mock_has_stale,
+    mock_get_pricing_freshness,
     mock_snapshot_all,
 ):
     mock_has_stale.return_value = True
@@ -236,4 +253,92 @@ def test_run_daily_portfolio_reconciliation_all_users_fails_when_summary_source_
     except RuntimeError as exc:
         assert "contains stale rows" in str(exc)
 
+    mock_get_pricing_freshness.assert_not_called()
     mock_snapshot_all.assert_not_called()
+
+
+@patch("backend.db.services.collection_summary_service.refresh_user_collection_deltas")
+@patch("backend.db.services.collection_summary_service.snapshot_all_user_portfolio_history")
+@patch("backend.db.services.collection_summary_service.get_nightly_snapshot_pricing_freshness")
+@patch("backend.db.services.collection_summary_service.has_stale_user_collection_summary_rows")
+def test_run_daily_portfolio_reconciliation_all_users_skips_when_pricing_is_incomplete(
+    mock_has_stale,
+    mock_get_pricing_freshness,
+    mock_snapshot_all,
+    mock_refresh_deltas,
+):
+    mock_has_stale.return_value = False
+    mock_get_pricing_freshness.return_value = {
+        "snapshot_date": "2026-04-25",
+        "is_fresh": False,
+        "status": "skipped",
+        "check_completed": True,
+        "held_asset_counts": {"cards": 2, "sealed": 1, "graded": 0},
+        "fresh_asset_counts": {"cards": 1, "sealed": 1, "graded": 0},
+        "missing_asset_counts": {"cards": 1, "sealed": 0, "graded": 0, "total": 1},
+        "missing_assets_sample": [
+            {
+                "asset_type": "card",
+                "card_variant_id": 123,
+                "condition_id": 4,
+                "reason": "missing_snapshot_date_price",
+                "snapshot_date": "2026-04-25",
+                "latest_captured_at": "2026-04-24",
+            }
+        ],
+        "warning": "Pricing freshness incomplete for snapshot_date=2026-04-25; missing_or_stale_assets=1. Nightly snapshot skipped.",
+        "timings_ms": {"total_ms": 8.4},
+    }
+
+    result = run_daily_portfolio_reconciliation_all_users(current_date="2026-04-25")
+
+    assert result == {
+        "status": "skipped",
+        "summary_source_verified": True,
+        "snapshot_all_users_executed": False,
+        "delta_refresh_all_users_executed": False,
+        "pricing_freshness": mock_get_pricing_freshness.return_value,
+        "warning": mock_get_pricing_freshness.return_value["warning"],
+    }
+    mock_get_pricing_freshness.assert_called_once_with("2026-04-25")
+    mock_snapshot_all.assert_not_called()
+    mock_refresh_deltas.assert_not_called()
+
+
+@patch("backend.db.services.collection_summary_service.refresh_user_collection_deltas")
+@patch("backend.db.services.collection_summary_service.snapshot_all_user_portfolio_history")
+@patch("backend.db.services.collection_summary_service.get_nightly_snapshot_pricing_freshness")
+@patch("backend.db.services.collection_summary_service.has_stale_user_collection_summary_rows")
+def test_run_daily_portfolio_reconciliation_all_users_marks_incomplete_when_freshness_check_fails(
+    mock_has_stale,
+    mock_get_pricing_freshness,
+    mock_snapshot_all,
+    mock_refresh_deltas,
+):
+    mock_has_stale.return_value = False
+    mock_get_pricing_freshness.return_value = {
+        "snapshot_date": "2026-04-25",
+        "status": "incomplete",
+        "check_completed": False,
+        "is_fresh": False,
+        "held_asset_counts": {"cards": 0, "sealed": 0, "graded": 0},
+        "fresh_asset_counts": {"cards": 0, "sealed": 0, "graded": 0},
+        "missing_asset_counts": {"cards": 0, "sealed": 0, "graded": 0, "total": 0},
+        "missing_assets_sample": [],
+        "warning": "Pricing freshness check could not complete for snapshot_date=2026-04-25; nightly snapshot skipped.",
+        "error": {"type": "RuntimeError", "message": "query failed"},
+        "timings_ms": {"total_ms": 11.3},
+    }
+
+    result = run_daily_portfolio_reconciliation_all_users(current_date="2026-04-25")
+
+    assert result == {
+        "status": "incomplete",
+        "summary_source_verified": True,
+        "snapshot_all_users_executed": False,
+        "delta_refresh_all_users_executed": False,
+        "pricing_freshness": mock_get_pricing_freshness.return_value,
+        "warning": mock_get_pricing_freshness.return_value["warning"],
+    }
+    mock_snapshot_all.assert_not_called()
+    mock_refresh_deltas.assert_not_called()

@@ -6,11 +6,13 @@ import logging
 from typing import Any, Dict
 from uuid import UUID
 
+from backend.db.services.collection_summary_service import (
+    run_daily_portfolio_reconciliation_all_users,
+)
 from backend.db.repositories.user_collection_summary_repository import (
     ensure_fresh_user_collection_summary as repo_ensure_fresh,
     refresh_all_stale_user_collection_summaries as repo_refresh_all_stale,
     refresh_user_collection_summary_live as repo_refresh_live,
-    run_nightly_portfolio_refresh as repo_run_nightly,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,12 +109,16 @@ def run_nightly_portfolio_refresh(current_date: str = None) -> Dict[str, Any]:
         RuntimeError: If DB operation fails
     """
     try:
-        repo_run_nightly(current_date)
-        logger.info("collection_freshness.run_nightly_portfolio_refresh completed")
+        result = run_daily_portfolio_reconciliation_all_users(current_date=current_date)
+        logger.info(
+            "collection_freshness.run_nightly_portfolio_refresh completed status=%s snapshot_executed=%s",
+            result.get("status"),
+            result.get("snapshot_all_users_executed"),
+        )
         return {
-            "status": "ok",
             "operation": "run_nightly_portfolio_refresh",
-            "nightly_refresh_executed": True,
+            "nightly_refresh_executed": bool(result.get("snapshot_all_users_executed")),
+            **result,
         }
     except Exception as exc:
         logger.exception(

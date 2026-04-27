@@ -1,6 +1,6 @@
 import PublicCollectionViewWrapper from "@/components/Profile/PublicCollectionViewWrapper";
-import { buildCollectionStats, getPublicCollectionEntries } from "@/lib/profile/collectionEntryLoader";
-import { getCachedPublicRouteContextByUsername } from "@/lib/profile/publicProfileServer";
+import { buildCollectionStats, mapPublicCollectionItemsToView } from "@/lib/profile/collectionEntryLoader";
+import { getPublicProfilePagePayload } from "@/lib/profile/publicProfileServer";
 
 const ALLOWED_SORTS = new Set(["recent", "value-desc", "value-asc", "name-asc", "name-desc"]);
 const ALLOWED_VIEWS = new Set(["continuous", "binder"]);
@@ -28,45 +28,30 @@ export default async function PublicProfileCollectionPage({ params, searchParams
   const resolvedSearchParams = (await searchParams) || {};
   const normalizedUsername = username || "";
 
-  let publicCollectionAssets = [];
-  let publicCollectionFetchError = null;
-  let hasPublicProfile = false;
-  let profileFetchError = null;
-
+  let payload = null;
+  let publicFetchError = null;
   try {
-    // Guardrail: collection route should not serially block on a separate public profile fetch.
-    const [collectionEntries, publicContext] = await Promise.all([
-      getPublicCollectionEntries(normalizedUsername),
-      getCachedPublicRouteContextByUsername(normalizedUsername),
-    ]);
-    publicCollectionAssets = collectionEntries;
-    hasPublicProfile = Boolean(publicContext?.publicProfile?.id);
+    payload = await getPublicProfilePagePayload(normalizedUsername);
   } catch (error) {
-    publicCollectionFetchError = error;
-    console.error("[public-collection-page] collection_fetch_failed", {
+    publicFetchError = error;
+    console.error("[public-collection-page] payloadFetchError", {
       username: normalizedUsername,
       message: error instanceof Error ? error.message : String(error),
       status: error?.status || null,
     });
   }
 
-  if (!hasPublicProfile) {
-    try {
-      const context = await getCachedPublicRouteContextByUsername(normalizedUsername);
-      hasPublicProfile = Boolean(context?.publicProfile?.id);
-    } catch (error) {
-      profileFetchError = error;
-    }
-  }
-
+  const hasPublicProfile = Boolean(payload?.profile?.id);
+  const warnings = Array.isArray(payload?.meta?.warnings) ? payload.meta.warnings : [];
+  const publicCollectionAssets = mapPublicCollectionItemsToView(payload?.collection_items || []);
   const collectionStats = buildCollectionStats(publicCollectionAssets);
-  const canRenderPublicCollection = !publicCollectionFetchError && hasPublicProfile;
+  const canRenderPublicCollection = !publicFetchError && hasPublicProfile;
 
   console.info("[public-collection-lifecycle] page_props", {
     username: normalizedUsername,
     hasPublicProfile,
-    profileFetchError: profileFetchError ? (profileFetchError.message || String(profileFetchError)) : null,
-    collectionFetchError: publicCollectionFetchError ? (publicCollectionFetchError.message || String(publicCollectionFetchError)) : null,
+    payloadFetchError: publicFetchError ? (publicFetchError.message || String(publicFetchError)) : null,
+    warnings,
     count: publicCollectionAssets.length,
     sampleIds: publicCollectionAssets.map((item) => String(item?.id || "")).filter(Boolean).slice(0, 10),
   });
@@ -92,27 +77,49 @@ export default async function PublicProfileCollectionPage({ params, searchParams
     pageRenderPrepMs: Date.now() - pageStartedAt,
     hasPublicProfile,
     collectionCount: publicCollectionAssets.length,
+    itemsSource: payload?.meta?.items_source || null,
+    timings: payload?.meta?.timings || null,
   });
 
   return (
     <div className="space-y-6">
       {!canRenderPublicCollection ? (
         <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-5 sm:p-6">
-          <p className="text-base font-semibold text-[var(--text-primary)]">Public profile is unavailable</p>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            This collector has not shared enough public data yet. The public root is reserved for profile-safe collection, showcase, and insight surfaces.
-          </p>
+          {Number(publicFetchError?.status || 0) === 500 ? (
+            <>
+              <p className="text-base font-semibold text-[var(--text-primary)]">Public profile is temporarily unavailable</p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                We could not load this public profile right now. Please try again shortly.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-base font-semibold text-[var(--text-primary)]">Profile not found</p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                The profile you are looking for does not exist or is private.
+              </p>
+            </>
+          )}
         </section>
       ) : (
-        <PublicCollectionViewWrapper
-          items={publicCollectionAssets}
-          stats={collectionStats}
-          username={normalizedUsername}
-          showPerformanceCard={false}
-          localNavToolState={localToolState}
-          localNavControlsActive
-          serverPreparedAt={Date.now()}
-        />
+        <>
+          {warnings.length > 0 ? (
+            <section className="dashboard-panel rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-4 sm:p-5">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Some public data is partially available</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">{warnings.join("; ")}</p>
+            </section>
+          ) : null}
+
+          <PublicCollectionViewWrapper
+            items={publicCollectionAssets}
+            stats={collectionStats}
+            username={normalizedUsername}
+            showPerformanceCard={false}
+            localNavToolState={localToolState}
+            localNavControlsActive
+            serverPreparedAt={Date.now()}
+          />
+        </>
       )}
     </div>
   );

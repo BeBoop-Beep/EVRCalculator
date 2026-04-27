@@ -1,7 +1,7 @@
 import StickyNav from "@/components/StickyNav";
 import { CartContextProvider } from "@/components/Cart/CartContext";
 import { AuthProvider } from "@/components/AuthContext";
-import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
+import { getAuthenticatedUserFromCookiesWithTimeout } from "@/lib/authServer";
 import { Manrope } from "next/font/google";
 import "./styles/globals.css";
 
@@ -23,7 +23,7 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const authResult = await getAuthenticatedUserFromCookies();
+  const authResult = await getAuthenticatedUserFromCookiesWithTimeout(150);
   const initialUser = authResult?.user || null;
 
   return (

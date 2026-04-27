@@ -70,6 +70,14 @@ function toFiniteNumberOrNull(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeSignedZero(value) {
+  const parsed = toFiniteNumberOrNull(value);
+  if (parsed === null) {
+    return null;
+  }
+  return Object.is(parsed, -0) ? 0 : parsed;
+}
+
 function formatSignedCurrencyDelta(value) {
   const parsed = toFiniteNumberOrNull(value);
   if (parsed === null) {
@@ -121,13 +129,17 @@ function getDeltaToneClass(value) {
 }
 
 function PortfolioValueCell({ value, delta1d, deltaPct1d }) {
-  const deltaValueLabel = formatSignedCurrencyDelta(delta1d);
-  const deltaPctLabel = formatDeltaPercent(deltaPct1d);
+  const normalizedDelta1d = normalizeSignedZero(delta1d);
+  const normalizedDeltaPct1d =
+    normalizeSignedZero(deltaPct1d) ?? (normalizedDelta1d === 0 ? 0 : null);
+
+  const deltaValueLabel = formatSignedCurrencyDelta(normalizedDelta1d);
+  const deltaPctLabel = formatDeltaPercent(normalizedDeltaPct1d);
   const deltaLabel =
     deltaValueLabel === "—" && deltaPctLabel === "—"
       ? "—"
       : `${deltaValueLabel} (${deltaPctLabel}) 1D`;
-  const deltaToneClass = getDeltaToneClass(delta1d);
+  const deltaToneClass = getDeltaToneClass(normalizedDelta1d);
 
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-center">
