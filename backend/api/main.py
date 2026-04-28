@@ -37,6 +37,10 @@ from backend.db.services.frontend_proxy_service import (
 )
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
+from backend.db.services.explore_rip_statistics_service import (
+    ExploreRipStatisticsTargetsError,
+    get_rip_statistics_targets_payload,
+)
 
 
 app = FastAPI(title="EVR Collection API")
@@ -271,6 +275,26 @@ def get_explore_page(
         )
         return JSONResponse(
             content={"message": "Unable to load explore page data", "code": "EXPLORE_PAGE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/explore/rip-statistics/targets")
+def get_explore_rip_statistics_targets(
+    limit: Optional[str] = Query(default=None),
+):
+    """Return available RIP Statistics targets plus the best default target."""
+    try:
+        return get_rip_statistics_targets_payload(limit=limit)
+    except ExploreRipStatisticsTargetsError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/explore/rip-statistics/targets unexpected error")
+        return JSONResponse(
+            content={"message": "Unable to load RIP Statistics targets", "code": "RIP_STATISTICS_TARGETS_FAILED"},
             status_code=500,
         )
 

@@ -1,77 +1,70 @@
-import { getExplorePagePayload } from "@/lib/explore/explorePageServer";
+import Image from "next/image";
+import Link from "next/link";
 
-const IS_DEV = process.env.NODE_ENV !== "production";
+const TOPICS = [
+  {
+    title: "Top 10",
+    description:
+      "Explore the strongest rankings across sets, cards, pack scores, market value, and chase potential.",
+    cta: "View Top 10",
+    href: "/Explore/top-10",
+    imageSrc: "/images/explore/top-10.svg",
+    imageAlt: "Leaderboard preview for Top 10 explore rankings",
+  },
+  {
+    title: "RIP Statistics",
+    description:
+      "Understand pack-opening outcomes, Pack Score, profit potential, safety, stability, hit rates, and risk.",
+    cta: "View RIP Statistics",
+    href: "/Explore/rip-statistics",
+    imageSrc: "/images/explore/rip-statistics.svg",
+    imageAlt: "Distribution chart preview for RIP Statistics",
+  },
+];
 
-export default async function ExplorePage({ searchParams }) {
-  const params = await searchParams;
-
-  const targetType = (params?.target_type || "set").toString();
-  const targetId = (params?.target_id || "").toString();
-  const limitDistributionBins = params?.limit_distribution_bins
-    ? parseInt(params.limit_distribution_bins, 10)
-    : 50;
-  const limitTopHits = params?.limit_top_hits
-    ? parseInt(params.limit_top_hits, 10)
-    : 10;
-
-  let exploreData = null;
-  let exploreError = null;
-
-  try {
-    if (targetId) {
-      exploreData = await getExplorePagePayload(targetType, targetId, {
-        limitDistributionBins,
-        limitTopHits,
-      });
-    }
-  } catch (error) {
-    console.error("[explore-page] Error loading explore data:", error);
-    exploreError = error?.message || "Failed to load explore page data";
-  }
-
-  const hasData = exploreData && typeof exploreData === "object";
-
+export default function ExplorePage() {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="dashboard-container">
-        <h1 className="text-2xl font-semibold">Explore</h1>
-
-        {exploreError && (
-          <div className="mt-4 rounded-md bg-red-50 p-4">
-            <p className="text-sm text-red-800">{exploreError}</p>
-          </div>
-        )}
-
-        {!targetId && (
-          <div className="mt-4 rounded-md bg-blue-50 p-4">
-            <p className="text-sm text-blue-800">
-              Select a target to view simulation data. Use query params:{" "}
-              <code>?target_type=set&amp;target_id=...</code>
+      <div className="dashboard-container space-y-6">
+        <section className="page-hero-panel rounded-2xl px-6 py-7">
+          <div>
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Explore</h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Discover rankings, trends, and pack-ripping analytics.
             </p>
           </div>
-        )}
+        </section>
 
-        {hasData && exploreData.meta?.timings?.total_backend_ms != null && <p className="mt-3 text-xs text-gray-500">Backend: {Math.round(exploreData.meta.timings.total_backend_ms)}ms</p>}
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {TOPICS.map((topic) => (
+            <article
+              key={topic.href}
+              className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6"
+            >
+              <div className="relative mb-5 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] aspect-[16/9]">
+                <Image
+                  src={topic.imageSrc}
+                  alt={topic.imageAlt}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
+              </div>
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">{topic.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{topic.description}</p>
 
-        {hasData && exploreData.meta?.warnings?.length > 0 && (
-          <div className="mt-4 rounded-md bg-yellow-50 p-4">
-            <p className="text-sm font-medium text-yellow-800">Warnings</p>
-            <ul className="mt-1 list-disc pl-5 text-sm text-yellow-700">
-              {exploreData.meta.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {IS_DEV && hasData && (
-          <section className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-medium text-gray-700">Debug Preview</p>
-            <pre className="mt-2 max-h-72 overflow-auto rounded bg-white p-3 text-xs text-gray-700">
-              {JSON.stringify(exploreData, null, 2)}
-            </pre>
-          </section>
-        )}
+              <div className="mt-5">
+                <Link
+                  href={topic.href}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
+                >
+                  {topic.cta}
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+            </article>
+          ))}
+        </section>
       </div>
     </main>
   );
