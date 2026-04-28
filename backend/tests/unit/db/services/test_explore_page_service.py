@@ -65,6 +65,9 @@ def _build_success_handlers(run_id="run-1"):
     simulation_derived_metrics are NOT queried on the happy path.
     """
     return {
+        # RIP-specific latest view (preferred for set targets).
+        # Defaulting to [] keeps legacy canonical-path tests intact.
+        "explore_rip_statistics_latest": lambda _q: [],
         "simulation_latest_by_target": lambda _q: [
             {
                 "target_type": "set",
@@ -102,6 +105,67 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_value_threshold_bins": lambda _q: [],
         "simulation_input_cards": lambda _q: [],
     }
+
+
+def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-rip",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 4.99,
+            "mean_value": 5.55,
+            "median_value": 5.10,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["summary"]["relative_pack_score"] == 81.4
+    assert payload["summary"]["pack_rank"] == 3
+    assert payload["meta"]["sources"]["summary_source"] == "explore_rip_statistics_latest"
+    assert payload["meta"]["sources"]["latest_target_source"] == "explore_rip_statistics_latest"
+
+    # Canonical summary sources are skipped when RIP summary is available.
+    assert payload["meta"]["sources"]["simulation_latest_by_target"] == "SKIPPED_RIP_SUMMARY"
+    assert payload["meta"]["sources"]["simulation_run_summary"] == "SKIPPED_RIP_SUMMARY"
+    assert payload["meta"]["sources"]["simulation_derived_metrics"] == "SKIPPED_RIP_SUMMARY"
+
+    # Downstream queries must use the calculation_run_id from RIP summary row.
+    percentiles_calls = [c for c in client.calls if c.table_name == "simulation_percentiles"]
+    assert len(percentiles_calls) == 1
+    assert ("calculation_run_id", "run-rip") in percentiles_calls[0].eq_filters
 
 
 def test_missing_target_returns_404(monkeypatch):

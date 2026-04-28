@@ -51,6 +51,7 @@ function normalisePayload(payload) {
       ? payload.threshold_bins
       : [],
     top_hits: Array.isArray(payload?.top_hits) ? payload.top_hits : [],
+    history_trend: Array.isArray(payload?.history_trend) ? payload.history_trend : [],
     meta: payload?.meta || { warnings: [], timings: {}, sources: {} },
   };
 }

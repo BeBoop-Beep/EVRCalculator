@@ -728,12 +728,12 @@ _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
     # Stability anchors
     "coefficient_of_variation": {
         "min": 0.25,
-        "max": 10.00,
+        "max": 6.00,
         "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
     },
     "effective_chase_count": {
         "min": 1.0,
-        "max": 30.0,
+        "max": 20.0,
         "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
     },
 }
@@ -1199,8 +1199,8 @@ def _build_runtime_v2_pack_score_payload(
     )
 
     return {
-        "score_version": "pack_score_v2_1_runtime",
-        "normalization_mode": "fixed_anchor_runtime_v2_1",
+        "score_version": "pack_score_v2_2_runtime",
+        "normalization_mode": "fixed_anchor_runtime_v2_2",
         "pack_score_is_placeholder": False,
         "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
         "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
@@ -1700,7 +1700,11 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
             f"{_fmt_float(idx.get('stability_score'))}"
         )
 
-        if idx.get("score_version") in {"pack_score_v2_runtime", "pack_score_v2_1_runtime"}:
+        if idx.get("score_version") in {
+            "pack_score_v2_runtime",
+            "pack_score_v2_1_runtime",
+            "pack_score_v2_2_runtime",
+        }:
             print()
             print("[PACK_SCORE_V2_RUNTIME]")
             print(f"  score_version:               {idx.get('score_version')}")

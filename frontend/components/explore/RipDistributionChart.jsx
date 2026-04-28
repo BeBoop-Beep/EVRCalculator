@@ -260,7 +260,6 @@ function EmptyChartState({ title, body }) {
 
 export default function RipDistributionChart({ bins = [], thresholdBins = [], markers = [] }) {
   const [activeMarkerKey, setActiveMarkerKey] = useState(null);
-  const [viewMode, setViewMode] = useState("full");
   const [showBars, setShowBars] = useState(true);
   const [showLine, setShowLine] = useState(true);
   const hasThresholdBins = Array.isArray(thresholdBins) && thresholdBins.length > 0;
@@ -371,33 +370,6 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
     [chartData]
   );
 
-  const coreCutoffIndex = useMemo(() => {
-    if (!histogramData.length) {
-      return -1;
-    }
-
-    const thresholdIndex = histogramData.findIndex((row) => {
-      const cumulative = toNumber(row.cumulative_probability);
-      return cumulative !== null && cumulative >= 0.99;
-    });
-
-    if (thresholdIndex >= 0) {
-      return thresholdIndex;
-    }
-
-    return Math.min(histogramData.length - 1, Math.max(9, Math.floor(histogramData.length * 0.6)));
-  }, [histogramData]);
-
-  const displayBinData = useMemo(() => {
-    if (viewMode === "full") {
-      return histogramData;
-    }
-    if (coreCutoffIndex < 0) {
-      return histogramData;
-    }
-    return histogramData.slice(0, coreCutoffIndex + 1);
-  }, [coreCutoffIndex, histogramData, viewMode]);
-
   const markerRows = useMemo(
     () =>
       (Array.isArray(markers) ? markers : [])
@@ -411,7 +383,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   );
 
   const combinedData = useMemo(() => {
-    const rows = displayBinData.map((row) => ({
+    const rows = histogramData.map((row) => ({
       ...row,
       x_slot: String(row.slot_index),
       // Populate chance_to_reach_percent directly from threshold bin survival_probability
@@ -480,7 +452,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
     }
 
     return rows;
-  }, [displayBinData, markerRows]);
+  }, [histogramData, markerRows]);
 
   // Check if curve is available: at least 2 displayed rows have valid survival_probability-derived chance_to_reach_percent.
   const isCurveAvailable = useMemo(() => {
@@ -563,32 +535,6 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-            <button
-              type="button"
-              onClick={() => setViewMode("core")}
-              aria-pressed={viewMode === "core"}
-              className={`min-w-[5.2rem] rounded-md px-3 py-1 text-[11px] font-semibold leading-none transition-colors ${
-                viewMode === "core"
-                  ? "bg-[var(--brand)] text-white"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
-            >
-              Core View
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("full")}
-              aria-pressed={viewMode === "full"}
-              className={`min-w-[5.2rem] rounded-md px-3 py-1 text-[11px] font-semibold leading-none transition-colors ${
-                viewMode === "full"
-                  ? "bg-[var(--brand)] text-white"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
-            >
-              Full Range
-            </button>
-          </div>
           <div className="flex items-center gap-3 text-[11px]">
             <button
               type="button"

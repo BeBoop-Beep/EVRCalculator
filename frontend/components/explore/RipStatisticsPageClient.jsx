@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
+import RankBadge from "@/components/ui/RankBadge";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -15,14 +17,6 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function normalizeScore(value) {
-  const parsed = toNumber(value);
-  if (parsed === null) {
-    return null;
-  }
-  return parsed >= 0 && parsed <= 1 ? parsed * 100 : parsed;
 }
 
 function normalizeProbability(value) {
@@ -48,8 +42,8 @@ function formatPercent(value, options = {}) {
 }
 
 function formatScore(value) {
-  const normalized = normalizeScore(value);
-  return normalized === null ? "—" : normalized.toFixed(1);
+  const parsed = toNumber(value);
+  return parsed === null ? "—" : parsed.toFixed(1);
 }
 
 function formatRawScore(value) {
@@ -71,33 +65,6 @@ function titleCaseStateLabel(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function getVerdictLabel(summary) {
-  const packScore = normalizeScore(summary?.pack_score);
-  const roiPercent = toNumber(summary?.roi_percent);
-  const probProfit = normalizeProbability(summary?.prob_profit);
-  const stabilityScore = normalizeScore(summary?.stability_score);
-
-  if (packScore === null || roiPercent === null || probProfit === null || stabilityScore === null) {
-    return "—";
-  }
-
-  if (packScore >= 80 && roiPercent >= 15 && probProfit >= 0.6) {
-    return "Strong Rip";
-  }
-  if (packScore >= 65 && stabilityScore >= 60 && probProfit >= 0.5) {
-    return "Balanced Rip";
-  }
-  if (packScore >= 55 && stabilityScore < 45 && probProfit >= 0.35) {
-    return "Chase Heavy";
-  }
-  if (packScore < 45 || roiPercent < 0) {
-    return "Poor EV";
-  }
-  if (stabilityScore < 45 || probProfit < 0.35) {
-    return "Risky Rip";
-  }
-  return "Balanced Rip";
-}
 
 function getPercentileValue(percentiles, requestedPercentile) {
   if (!Array.isArray(percentiles)) {
@@ -127,59 +94,20 @@ function sortObjectEntriesDescending(input) {
   });
 }
 
-function getScoreRankContext(targets, selectedTargetId, scoreKey) {
-  const scoredRows = (Array.isArray(targets) ? targets : [])
-    .map((target) => ({
-      targetId: String(target?.target_id || ""),
-      score: normalizeScore(target?.[scoreKey]),
-    }))
-    .filter((row) => row.targetId && row.score !== null)
-    .sort((left, right) => right.score - left.score);
-
-  if (scoredRows.length === 0) {
-    return null;
-  }
-
-  const index = scoredRows.findIndex((row) => row.targetId === String(selectedTargetId || ""));
-  if (index < 0) {
-    return null;
-  }
-
-  const rank = index + 1;
-  const total = scoredRows.length;
-  const topPercent = (rank / total) * 100;
-  const relativeScore = total > 1 ? ((total - rank) / (total - 1)) * 100 : 100;
-
-  return {
-    rank,
-    total,
-    topPercent,
-    relativeScore,
-  };
-}
-
-function RankChip({ context }) {
-  if (!context) {
-    return (
-      <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs text-[var(--text-secondary)]">
-        Rank unavailable
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs text-[var(--text-secondary)]">
-      Rank #{context.rank} of {context.total} • Top {context.topPercent.toFixed(0)}%
-    </span>
-  );
-}
 
 function ScoreMeter({ score }) {
-  const normalized = normalizeScore(score);
-  const width = normalized === null ? 0 : Math.max(0, Math.min(100, normalized));
+  const parsed = Number(score);
+  const width = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
   return (
-    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-page)]">
-      <div className="h-full rounded-full bg-[var(--brand)]" style={{ width: `${width}%` }} />
+    <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
+      <div
+        className="h-full rounded-full"
+        style={{
+          width: `${width}%`,
+          background: "linear-gradient(90deg, rgba(20,184,166,0.7) 0%, rgba(94,234,212,0.95) 100%)",
+          boxShadow: width > 0 ? "0 0 6px 1px rgba(20,184,166,0.45)" : "none",
+        }}
+      />
     </div>
   );
 }
@@ -193,37 +121,60 @@ function MetricRow({ label, value }) {
   );
 }
 
-function ScorePillarCard({ title, score, rankContext, scoreMode, signals, contextMetrics }) {
-  const displayedScore =
-    scoreMode === "relative" && rankContext
-      ? formatRawScore(rankContext.relativeScore)
-      : formatScore(score);
+function InfoPopover({ text }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative flex-none">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setOpen(false)}
+        aria-label="More info"
+        className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] transition-all hover:border-[rgba(20,184,166,0.6)] hover:text-[rgba(20,184,166,0.95)] hover:shadow-[0_0_6px_rgba(20,184,166,0.35)]"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <circle cx="6" cy="6" r="5.5" stroke="currentColor" />
+          <text x="6" y="9" textAnchor="middle" fontSize="7.5" fill="currentColor" fontWeight="600">i</text>
+        </svg>
+      </button>
+      {open ? (
+        <div
+          role="tooltip"
+          className="absolute left-0 top-7 z-20 w-64 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)] text-xs text-[var(--text-secondary)] leading-relaxed"
+        >
+          {text}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
-  const scoreLabel = scoreMode === "relative" && rankContext ? "Relative" : "Absolute";
+function ScorePillarCard({ title, score, rankValue, rankTier, signals, contextMetrics, infoText, rankLabel }) {
+  const parsedRank = toNumber(rankValue);
+  const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
 
   return (
-    <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6" title="Related signals, not exact formula inputs.">
+    <article className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h3>
-          <p className="mt-1 text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">{scoreLabel} score</p>
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h3>
+            <p className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">Score</p>
+          </div>
+          {infoText ? <InfoPopover text={infoText} /> : null}
         </div>
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2 text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Score</p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{displayedScore}</p>
+        <div className="flex flex-none flex-col items-end gap-1.5">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2 text-right">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Score</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{formatScore(score)}</p>
+          </div>
+          <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} />
         </div>
       </div>
 
-      <ScoreMeter score={scoreMode === "relative" && rankContext ? rankContext.relativeScore : score} />
+      <ScoreMeter score={score} />
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <RankChip context={rankContext} />
-        <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs text-[var(--text-secondary)]" title="These metrics are related context signals.">
-          Related signals
-        </span>
-      </div>
-
-      <div className="mt-4 space-y-1">
+      <div className="mt-4 flex-1 space-y-1">
         {signals.map((metric) => (
           <MetricRow key={metric.label} label={metric.label} value={metric.value} />
         ))}
@@ -298,6 +249,7 @@ export default function RipStatisticsPageClient({
   const distributionBins = explorePayload?.distribution_bins || [];
   const thresholdBins = explorePayload?.threshold_bins || [];
   const topHits = explorePayload?.top_hits || [];
+  const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
   const ripStatistics = explorePayload?.rip_statistics;
   const warnings = [
@@ -306,7 +258,6 @@ export default function RipStatisticsPageClient({
   ];
 
   const selectedName = selectedTarget?.name || requestedTargetId || "Selected Set";
-  const verdictLabel = getVerdictLabel(summary);
   const percentileP5 = getPercentileValue(percentiles, 5);
   const percentileP25 = getPercentileValue(percentiles, 25);
   const percentileP50 = getPercentileValue(percentiles, 50);
@@ -314,32 +265,14 @@ export default function RipStatisticsPageClient({
   const percentileP90 = getPercentileValue(percentiles, 90);
   const percentileP95 = getPercentileValue(percentiles, 95);
   const percentileP99 = getPercentileValue(percentiles, 99);
+  const meanValueToCostRatio = summary.mean_value_to_cost_ratio ?? null;
+  const medianValueToCostRatio = summary.median_value_to_cost_ratio ?? null;
+  const expectedLossWhenLosingFraction = summary.expected_loss_when_losing_fraction ?? null;
+  const medianLossWhenLosingFraction = summary.median_loss_when_losing_fraction ?? null;
+  const p05ShortfallToCost = summary.p05_shortfall_to_cost ?? null;
 
-  const packContext = useMemo(
-    () => getScoreRankContext(targets, requestedTargetId, "pack_score"),
-    [targets, requestedTargetId]
-  );
-  const profitContext = useMemo(
-    () => getScoreRankContext(targets, requestedTargetId, "profit_score"),
-    [targets, requestedTargetId]
-  );
-  const safetyContext = useMemo(
-    () => getScoreRankContext(targets, requestedTargetId, "safety_score"),
-    [targets, requestedTargetId]
-  );
-  const stabilityContext = useMemo(
-    () => getScoreRankContext(targets, requestedTargetId, "stability_score"),
-    [targets, requestedTargetId]
-  );
-
-  const hasRelativeContext = Boolean(packContext && profitContext && safetyContext && stabilityContext);
-  const [scoreMode, setScoreMode] = useState(hasRelativeContext ? "relative" : "absolute");
-
-  useEffect(() => {
-    if (!hasRelativeContext && scoreMode !== "absolute") {
-      setScoreMode("absolute");
-    }
-  }, [hasRelativeContext, scoreMode]);
+  const [graphMode, setGraphMode] = useState("outcome-distribution");
+  const [scoreMode, setScoreMode] = useState("relative");
 
   const packPathRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.pack_paths),
@@ -367,10 +300,15 @@ export default function RipStatisticsPageClient({
     { key: "big-hit", label: "Big Hit", value: summary.big_hit_threshold },
   ];
 
-  const displayedPackScore =
-    scoreMode === "relative" && packContext
-      ? formatRawScore(packContext.relativeScore)
-      : formatScore(summary.pack_score);
+  const displayedRelativePackScore = formatRawScore(summary.relative_pack_score);
+  const displayedAbsolutePackScore = formatRawScore(summary.pack_score);
+  const topScoreRaw = scoreMode === "relative" ? summary.relative_pack_score : summary.pack_score;
+  const displayedTopScore = scoreMode === "relative" ? displayedRelativePackScore : displayedAbsolutePackScore;
+
+  const displayedProfitScore = scoreMode === "relative" ? summary.relative_profit_score : summary.profit_score;
+  const displayedSafetyScore = scoreMode === "relative" ? summary.relative_safety_score : summary.safety_score;
+  const displayedStabilityScore =
+    scoreMode === "relative" ? summary.relative_stability_score : summary.stability_score;
 
   const handleTargetChange = (event) => {
     const nextTargetId = String(event.target.value || "").trim();
@@ -444,69 +382,71 @@ export default function RipStatisticsPageClient({
                 <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">{selectedName}</h1>
 
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs text-[var(--text-secondary)]">
-                    Verdict: <span className="ml-1 font-semibold text-[var(--text-primary)]">{verdictLabel}</span>
-                  </span>
-                  <RankChip context={packContext} />
+                  <RankBadge
+                    rank={summary.pack_tier}
+                    label="Pack Rank"
+                    title={
+                      summary.pack_rank === null || summary.pack_rank === undefined
+                        ? "Pack Rank unavailable"
+                        : `Pack rank #${summary.pack_rank}`
+                    }
+                  />
                 </div>
 
                 <div className="mx-auto mt-5 w-full max-w-sm rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] px-6 py-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_12px_32px_rgba(0,0,0,0.35)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]" title="Relative uses live cross-set context from loaded targets. Absolute uses the persisted score value.">
-                    {scoreMode === "relative" ? "Relative" : "Absolute"} Pack Score
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                    {scoreMode === "relative" ? "Relative Pack Score" : "Pack Score"}
                   </p>
-                  <p className="mt-1 text-[clamp(2.2rem,7vw,3.3rem)] font-semibold leading-none text-[var(--text-primary)]">{displayedPackScore}</p>
-                  <ScoreMeter score={scoreMode === "relative" && packContext ? packContext.relativeScore : summary.pack_score} />
-                  {hasRelativeContext ? (
-                    <div className="mt-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-0.5">
-                      <button
-                        type="button"
-                        onClick={() => setScoreMode("relative")}
-                        aria-pressed={scoreMode === "relative"}
-                        className={`min-w-[6rem] rounded-md px-3 py-1 text-[11px] font-semibold leading-none transition-colors ${
-                          scoreMode === "relative"
-                            ? "bg-[var(--brand)] text-white"
-                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                        }`}
-                      >
-                        Relative
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setScoreMode("absolute")}
-                        aria-pressed={scoreMode === "absolute"}
-                        className={`min-w-[6rem] rounded-md px-3 py-1 text-[11px] font-semibold leading-none transition-colors ${
-                          scoreMode === "absolute"
-                            ? "bg-[var(--brand)] text-white"
-                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                        }`}
-                      >
-                        Absolute
-                      </button>
-                    </div>
-                  ) : null}
+                  <p className="mt-1 text-[clamp(2.2rem,7vw,3.3rem)] font-semibold leading-none text-[var(--text-primary)]">{displayedTopScore}</p>
+                  <ScoreMeter score={topScoreRaw} />
+
+                  <div className="mx-auto mt-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setScoreMode("relative")}
+                      aria-pressed={scoreMode === "relative"}
+                      className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                        scoreMode === "relative"
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Relative
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScoreMode("absolute")}
+                      aria-pressed={scoreMode === "absolute"}
+                      className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                        scoreMode === "absolute"
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Absolute
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>
 
             <section>
-              <h2 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">Score Pillars</h2>
               <div className="grid gap-4 lg:grid-cols-3">
                 <ScorePillarCard
                   title="Profit"
-                  score={summary.profit_score}
-                  rankContext={profitContext}
-                  scoreMode={scoreMode}
+                  score={displayedProfitScore}
+                  rankValue={summary.profit_rank}
+                  rankTier={summary.profit_tier}
+                  rankLabel="Profit Rank"
+                  infoText="Profit estimates upside relative to pack cost using simulated value, median-to-cost, and profit probability signals."
                   signals={[
-                    { label: "EV / Mean Value", value: formatCurrency(summary.mean_value) },
-                    {
-                      label: "Median-to-Cost Ratio",
-                      value:
-                        toNumber(summary.median_value) !== null && toNumber(summary.pack_cost) !== null && toNumber(summary.pack_cost) !== 0
-                          ? formatNumber(toNumber(summary.median_value) / toNumber(summary.pack_cost), 2)
-                          : "—",
-                    },
-                    { label: "P95-to-Cost Ratio", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
                     { label: "Probability of Profit", value: formatPercent(summary.prob_profit, { probability: true }) },
+                    {
+                      label: "EV / Mean Value",
+                      value: formatNumber(meanValueToCostRatio, 2),
+                    },
+                    { label: "Median-to-Cost Ratio", value: formatNumber(medianValueToCostRatio, 2) },
+                    { label: "P95-to-Cost Ratio", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
                   ]}
                   contextMetrics={[
                     { label: "ROI", value: formatPercent(summary.roi_percent) },
@@ -515,40 +455,83 @@ export default function RipStatisticsPageClient({
                 />
                 <ScorePillarCard
                   title="Safety"
-                  score={summary.safety_score}
-                  rankContext={safetyContext}
-                  scoreMode={scoreMode}
+                  score={displayedSafetyScore}
+                  rankValue={summary.safety_rank}
+                  rankTier={summary.safety_tier}
+                  rankLabel="Safety Rank"
+                  infoText="Safety estimates downside protection by looking at expected losses, tail value, and how often packs miss."
                   signals={[
-                    { label: "Expected Loss When Losing", value: formatCurrency(summary.expected_loss_when_losing) },
-                    { label: "Median Loss When Losing", value: formatCurrency(summary.median_loss_when_losing) },
-                    { label: "Tail Value P5", value: formatCurrency(summary.tail_value_p05) },
-                    { label: "Expected Loss Per Pack", value: formatCurrency(summary.expected_loss_per_pack) },
+                    { label: "Expected Loss When Losing / Cost", value: formatPercent(expectedLossWhenLosingFraction, { probability: true }) },
+                    { label: "Median Loss When Losing / Cost", value: formatPercent(medianLossWhenLosingFraction, { probability: true }) },
+                    { label: "P05 Shortfall to Cost", value: formatPercent(p05ShortfallToCost, { probability: true }) },
                   ]}
                   contextMetrics={[
-                    { label: "Probability of Profit", value: formatPercent(summary.prob_profit, { probability: true }) },
+                    { label: "Median Loss When Losing", value: formatCurrency(summary.median_loss_when_losing) },
+                    { label: "Tail Value P5", value: formatCurrency(summary.tail_value_p05) },
                   ]}
                 />
                 <ScorePillarCard
                   title="Stability"
-                  score={summary.stability_score}
-                  rankContext={stabilityContext}
-                  scoreMode={scoreMode}
+                  score={displayedStabilityScore}
+                  rankValue={summary.stability_rank}
+                  rankTier={summary.stability_tier}
+                  rankLabel="Stability Rank"
+                  infoText="Stability estimates how concentrated or volatile outcomes are. Higher stability means returns are less dependent on a tiny number of chase hits."
                   signals={[
                     { label: "Coefficient of Variation", value: formatNumber(summary.coefficient_of_variation, 2) },
                     { label: "HHI EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
                     { label: "Effective Chase Count", value: formatNumber(summary.effective_chase_count, 2) },
-                    {
-                      label: "Top1 / Top3 / Top5 EV Share",
-                      value: `${formatPercent(summary.top1_ev_share)} / ${formatPercent(summary.top3_ev_share)} / ${formatPercent(summary.top5_ev_share)}`,
-                    },
                   ]}
-                  contextMetrics={[]}
+                  contextMetrics={[
+                    { label: "Top 1 EV Share", value: formatPercent(summary.top1_ev_share) },
+                    { label: "Top 3 EV Share", value: formatPercent(summary.top3_ev_share) },
+                    { label: "Top 5 EV Share", value: formatPercent(summary.top5_ev_share) },
+                  ]}
                 />
               </div>
             </section>
 
-            <SectionCard title="Outcome Distribution" subtitle="See how simulated pack outcomes are distributed across value ranges.">
-              <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
+            <SectionCard
+              title={graphMode === "historical-trend" ? "Historical Trend" : "Outcome Distribution"}
+              subtitle={
+                graphMode === "historical-trend"
+                  ? "Track how simulated value-to-cost ratios move across daily snapshots."
+                  : "See how simulated pack outcomes are distributed across value ranges."
+              }
+            >
+              <div className="mb-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setGraphMode("outcome-distribution")}
+                  aria-pressed={graphMode === "outcome-distribution"}
+                  className={`min-w-[10.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                    graphMode === "outcome-distribution"
+                      ? "bg-[var(--brand)] text-white"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  }`}
+                >
+                  Outcome Distribution
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGraphMode("historical-trend")}
+                  aria-pressed={graphMode === "historical-trend"}
+                  className={`min-w-[9.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                    graphMode === "historical-trend"
+                      ? "bg-[var(--brand)] text-white"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  }`}
+                >
+                  Historical Trend
+                </button>
+              </div>
+
+              {graphMode === "historical-trend" ? (
+                <PackValueHistoryChart historyTrend={historyTrend} />
+              ) : (
+                <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
+              )}
+
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile label="Probability of Profit" value={formatPercent(summary.prob_profit, { probability: true })} />
                 <StatTile label="Probability of Big Hit" value={formatPercent(summary.prob_big_hit, { probability: true })} />

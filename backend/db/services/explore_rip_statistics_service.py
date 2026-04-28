@@ -56,6 +56,66 @@ def _build_sort_key(row: Dict[str, Any]) -> tuple[int, float, str]:
     )
 
 
+def _calculate_score_ranks_and_tiers(
+    rows: List[Dict[str, Any]], score_key: str
+) -> Dict[str, Dict[str, Any]]:
+    """Calculate rank and tier for each row based on a score field.
+    
+    Args:
+        rows: List of target rows with score data
+        score_key: The score field name (e.g., 'pack_score', 'profit_score')
+    
+    Returns:
+        Dict mapping target_id to {rank, tier} for that score
+    """
+    result: Dict[str, Dict[str, Any]] = {}
+    
+    # Sort rows by score descending (highest score = rank 1)
+    scored_rows = [
+        (str(row.get("target_id")), _to_optional_float(row.get(score_key)))
+        for row in rows
+        if row.get("target_id")
+    ]
+    scored_rows_with_valid_scores = [
+        (target_id, score) for target_id, score in scored_rows if score is not None
+    ]
+    
+    if not scored_rows_with_valid_scores:
+        # All rows have null scores for this score_key
+        for target_id, _ in scored_rows:
+            result[target_id] = {"rank": None, "tier": None}
+        return result
+    
+    # Sort by score descending
+    scored_rows_with_valid_scores.sort(key=lambda x: x[1], reverse=True)
+    total = len(scored_rows_with_valid_scores)
+    
+    # Assign ranks and calculate percentile-based tiers
+    for rank, (target_id, score) in enumerate(scored_rows_with_valid_scores, start=1):
+        percentile = (rank / total) * 100  # 0-100, where higher = worse rank
+        
+        # Assign tier based on percentile
+        if percentile <= 10:
+            tier = "S"
+        elif percentile <= 25:
+            tier = "A"
+        elif percentile <= 50:
+            tier = "B"
+        elif percentile <= 75:
+            tier = "C"
+        else:
+            tier = "D"
+        
+        result[target_id] = {"rank": rank, "tier": tier}
+    
+    # Rows without scores get None
+    for target_id, _ in scored_rows:
+        if target_id not in result:
+            result[target_id] = {"rank": None, "tier": None}
+    
+    return result
+
+
 def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Dict[str, Any]:
     """Return available RIP targets and the best default target from persisted data."""
     total_started = time.perf_counter()
@@ -97,6 +157,12 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         )
 
     sorted_rows = sorted(raw_rows, key=_build_sort_key)
+
+    # Calculate ranks and tiers for each score type
+    pack_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "pack_score")
+    profit_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "profit_score")
+    safety_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "safety_score")
+    stability_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "stability_score")
 
     set_lookup: Dict[str, Dict[str, Any]] = {}
     era_lookup: Dict[str, Dict[str, Any]] = {}
@@ -162,6 +228,13 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         target_id = str(row.get("target_id"))
         set_row = set_lookup.get(target_id) or {}
         era_row = era_lookup.get(str(set_row.get("era_id"))) if set_row.get("era_id") is not None else None
+        
+        # Get rank/tier for each score type
+        pack_rt = pack_rank_tier.get(target_id, {})
+        profit_rt = profit_rank_tier.get(target_id, {})
+        safety_rt = safety_rank_tier.get(target_id, {})
+        stability_rt = stability_rank_tier.get(target_id, {})
+        
         targets.append(
             {
                 "target_type": str(row.get("target_type") or "set"),
@@ -169,9 +242,17 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "name": str(set_row.get("name") or target_id),
                 "era": era_row.get("name") if era_row else None,
                 "pack_score": row.get("pack_score"),
+                "pack_rank": pack_rt.get("rank"),
+                "pack_tier": pack_rt.get("tier"),
                 "profit_score": row.get("profit_score"),
+                "profit_rank": profit_rt.get("rank"),
+                "profit_tier": profit_rt.get("tier"),
                 "safety_score": row.get("safety_score"),
+                "safety_rank": safety_rt.get("rank"),
+                "safety_tier": safety_rt.get("tier"),
                 "stability_score": row.get("stability_score"),
+                "stability_rank": stability_rt.get("rank"),
+                "stability_tier": stability_rt.get("tier"),
                 "pack_cost": row.get("pack_cost"),
                 "mean_value": row.get("mean_value"),
                 "median_value": row.get("median_value"),
