@@ -296,6 +296,7 @@ export default function RipStatisticsPageClient({
   const summary = explorePayload?.summary || {};
   const percentiles = explorePayload?.percentiles || [];
   const distributionBins = explorePayload?.distribution_bins || [];
+  const thresholdBins = explorePayload?.threshold_bins || [];
   const topHits = explorePayload?.top_hits || [];
   const rankings = explorePayload?.rankings || [];
   const ripStatistics = explorePayload?.rip_statistics;
@@ -307,8 +308,12 @@ export default function RipStatisticsPageClient({
   const selectedName = selectedTarget?.name || requestedTargetId || "Selected Set";
   const verdictLabel = getVerdictLabel(summary);
   const percentileP5 = getPercentileValue(percentiles, 5);
+  const percentileP25 = getPercentileValue(percentiles, 25);
   const percentileP50 = getPercentileValue(percentiles, 50);
+  const percentileP75 = getPercentileValue(percentiles, 75);
+  const percentileP90 = getPercentileValue(percentiles, 90);
   const percentileP95 = getPercentileValue(percentiles, 95);
+  const percentileP99 = getPercentileValue(percentiles, 99);
 
   const packContext = useMemo(
     () => getScoreRankContext(targets, requestedTargetId, "pack_score"),
@@ -345,26 +350,21 @@ export default function RipStatisticsPageClient({
     [ripStatistics?.normal_pack_states]
   );
 
-  const percentileRows = useMemo(
-    () =>
-      (Array.isArray(percentiles) ? percentiles : [])
-        .map((entry) => ({ percentile: toNumber(entry?.percentile), value: entry?.value }))
-        .filter((entry) => entry.percentile !== null)
-        .sort((left, right) => left.percentile - right.percentile),
-    [percentiles]
-  );
-
   const timingRows = Object.entries(explorePayload?.meta?.timings || {}).filter(
     ([, value]) => toNumber(value) !== null
   );
 
   const chartMarkers = [
-    { label: "Pack Cost", value: summary.pack_cost },
-    { label: "EV", value: summary.mean_value },
-    { label: "Median", value: percentileP50 ?? summary.median_value },
-    { label: "P5", value: percentileP5 },
-    { label: "P95", value: percentileP95 },
-    { label: "Big Hit", value: summary.big_hit_threshold },
+    { key: "pack-cost", label: "Pack Cost", value: summary.pack_cost },
+    { key: "ev", label: "EV", value: summary.mean_value },
+    { key: "median", label: "Median", value: percentileP50 ?? summary.median_value },
+    { key: "p5", label: "P5", value: percentileP5 },
+    { key: "p25", label: "P25", value: percentileP25 },
+    { key: "p75", label: "P75", value: percentileP75 },
+    { key: "p90", label: "P90", value: percentileP90 },
+    { key: "p95", label: "P95", value: percentileP95 },
+    { key: "p99", label: "P99", value: percentileP99 },
+    { key: "big-hit", label: "Big Hit", value: summary.big_hit_threshold },
   ];
 
   const displayedPackScore =
@@ -547,8 +547,8 @@ export default function RipStatisticsPageClient({
               </div>
             </section>
 
-            <SectionCard title="Outcome Distribution" subtitle="Live simulation outcome bins.">
-              <RipDistributionChart bins={distributionBins} markers={chartMarkers} />
+            <SectionCard title="Outcome Distribution" subtitle="See how simulated pack outcomes are distributed across value ranges.">
+              <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile label="Probability of Profit" value={formatPercent(summary.prob_profit, { probability: true })} />
                 <StatTile label="Probability of Big Hit" value={formatPercent(summary.prob_big_hit, { probability: true })} />
@@ -558,18 +558,6 @@ export default function RipStatisticsPageClient({
             </SectionCard>
 
             <section className="space-y-4">
-              <SectionCard title="Percentiles" subtitle={null}>
-                {percentileRows.length > 0 ? (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    {percentileRows.map((entry) => (
-                      <StatTile key={`percentile:${entry.percentile}`} label={`P${entry.percentile}`} value={formatCurrency(entry.value)} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-[var(--text-secondary)]">No percentile data is available.</p>
-                )}
-              </SectionCard>
-
               <div className="grid gap-4 xl:grid-cols-2">
                 <SectionCard title="Top Hits" subtitle="Image slot reserved for future payload fields.">
                   <div className="space-y-2">

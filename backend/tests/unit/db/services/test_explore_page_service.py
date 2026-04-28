@@ -99,6 +99,7 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_state_counts": lambda _q: [],
         "simulation_percentiles": lambda _q: [],
         "simulation_value_distribution_bins": lambda _q: [],
+        "simulation_value_threshold_bins": lambda _q: [],
         "simulation_input_cards": lambda _q: [],
     }
 
@@ -203,6 +204,20 @@ def test_distribution_bins_are_queried_separately(monkeypatch):
     assert len(summary_calls) == 0
     # Distribution bins are still fetched as a separate optional query.
     assert len(distribution_calls) == 1
+
+
+def test_threshold_bins_are_queried_separately(monkeypatch):
+    handlers = _build_success_handlers()
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    threshold_calls = [c for c in client.calls if c.table_name == "simulation_value_threshold_bins"]
+
+    assert len(threshold_calls) == 1
+    assert payload["threshold_bins"] == []
+    assert payload["meta"]["sources"]["simulation_value_threshold_bins"] == "OK"
 
 
 def test_canonical_latest_missing_run_id_falls_back_with_warning(monkeypatch):

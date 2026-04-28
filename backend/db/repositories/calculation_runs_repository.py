@@ -626,6 +626,41 @@ def create_simulation_value_distribution_bins(
     return inserted_rows
 
 
+def create_simulation_value_threshold_bins(
+    run_id: Any,
+    bins: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Persist fixed-threshold value distribution rows for a simulation run."""
+    if not bins:
+        return []
+
+    inserted_rows: List[Dict[str, Any]] = []
+    for bin_row in bins:
+        payload = {
+            "calculation_run_id": _require_present(run_id, "calculation_run_id"),
+            "threshold_floor": float(bin_row["threshold_floor"]),
+            "threshold_ceiling": (
+                float(bin_row["threshold_ceiling"])
+                if bin_row.get("threshold_ceiling") is not None
+                else None
+            ),
+            "occurrence_count": int(bin_row["occurrence_count"]),
+            "probability": float(bin_row["probability"]),
+            "cumulative_probability": float(bin_row["cumulative_probability"]),
+            "survival_probability": float(bin_row["survival_probability"]),
+            "bucket_label": _require_non_empty_str(bin_row.get("bucket_label"), "bucket_label"),
+            "bucket_order": _require_int(bin_row.get("bucket_order"), "bucket_order"),
+        }
+        inserted = _insert_required_payload(
+            "simulation_value_threshold_bins",
+            payload,
+            f"Simulation value threshold bin insert (floor={payload['threshold_floor']:.4f})",
+        )
+        inserted_rows.append(inserted)
+
+    return inserted_rows
+
+
 def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     """Persist one derived-metrics row per run."""
     if not isinstance(derived, Mapping):

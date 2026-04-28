@@ -47,6 +47,9 @@ function normalisePayload(payload) {
     distribution_bins: Array.isArray(payload?.distribution_bins)
       ? payload.distribution_bins
       : [],
+    threshold_bins: Array.isArray(payload?.threshold_bins)
+      ? payload.threshold_bins
+      : [],
     top_hits: Array.isArray(payload?.top_hits) ? payload.top_hits : [],
     meta: payload?.meta || { warnings: [], timings: {}, sources: {} },
   };

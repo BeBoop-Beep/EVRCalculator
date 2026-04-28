@@ -329,6 +329,28 @@ def get_explore_page_payload(
         sources["simulation_value_distribution_bins"] = "FAILED"
     distribution_ms = (time.perf_counter() - distribution_started) * 1000
 
+    # Threshold bins (optional, separate query)
+    threshold_started = time.perf_counter()
+    threshold_bins: List[Dict[str, Any]] = []
+    try:
+        threshold_result = (
+            public_read_client.table("simulation_value_threshold_bins")
+            .select(
+                "threshold_floor,threshold_ceiling,occurrence_count,probability,"
+                "cumulative_probability,survival_probability,bucket_label,bucket_order"
+            )
+            .eq("calculation_run_id", run_id)
+            .order("bucket_order", desc=False)
+            .execute()
+        )
+        threshold_bins = threshold_result.data if threshold_result.data else []
+        sources["simulation_value_threshold_bins"] = "OK"
+    except Exception as exc:
+        logger.warning("[explore-page] simulation_value_threshold_bins failed run_id=%s: %s", run_id, exc)
+        warnings.append("Failed to load threshold bins")
+        sources["simulation_value_threshold_bins"] = "FAILED"
+    threshold_ms = (time.perf_counter() - threshold_started) * 1000
+
     # Top hits (optional)
     top_hits_started = time.perf_counter()
     top_hits: List[Dict[str, Any]] = []
@@ -357,6 +379,7 @@ def get_explore_page_payload(
         "rip_statistics": rip_statistics,
         "percentiles": percentiles,
         "distribution_bins": distribution_bins,
+        "threshold_bins": threshold_bins,
         "top_hits": top_hits,
         "meta": {
             "request": {
@@ -373,6 +396,7 @@ def get_explore_page_payload(
                 "rip_statistics_ms": round(rip_ms, 2),
                 "percentiles_ms": round(percentiles_ms, 2),
                 "distribution_bins_ms": round(distribution_ms, 2),
+                "threshold_bins_ms": round(threshold_ms, 2),
                 "top_hits_ms": round(top_hits_ms, 2),
                 "total_backend_ms": round(total_ms, 2),
             },

@@ -15,11 +15,13 @@ from backend.db.repositories.calculation_runs_repository import (
     create_simulation_run_summary,
     create_simulation_state_counts,
     create_simulation_value_distribution_bins,
+    create_simulation_value_threshold_bins,
     create_calculation_price_snapshot,
     create_parent_calculation_run,
     get_or_create_calculation_config,
 )
 from backend.simulations.value_distribution_bins import compute_simulation_value_distribution_bins
+from backend.simulations.value_threshold_bins import compute_simulation_value_threshold_bins
 from backend.db.repositories.sets_repository import get_set_by_canonical_key
 
 
@@ -551,13 +553,16 @@ def persist_simulation_outputs(
     if raw_values:
         distribution_bins = compute_simulation_value_distribution_bins(raw_values)
         bin_rows = create_simulation_value_distribution_bins(run_id, distribution_bins)
+        threshold_bins = compute_simulation_value_threshold_bins(raw_values)
+        threshold_bin_rows = create_simulation_value_threshold_bins(run_id, threshold_bins)
     else:
         logger.warning(
             "persist_simulation_outputs: no simulated values found in sim_results for run_id=%s; "
-            "skipping simulation_value_distribution_bins persistence.",
+            "skipping simulation_value_distribution_bins and simulation_value_threshold_bins persistence.",
             run_id,
         )
         bin_rows = []
+        threshold_bin_rows = []
 
     return {
         "run_summary_id": run_summary_row.get("id"),
@@ -566,6 +571,7 @@ def persist_simulation_outputs(
         "state_count": len(state_count_rows),
         "derived_metric_count": len(derived_metric_rows),
         "distribution_bin_count": len(bin_rows),
+        "threshold_bin_count": len(threshold_bin_rows),
     }
 
 
