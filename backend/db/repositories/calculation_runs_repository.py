@@ -706,7 +706,6 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
         "mean_value_to_cost_ratio": _coerce_optional_float(derived.get("mean_value_to_cost_ratio")),
         "expected_loss_when_losing_fraction": _coerce_optional_float(derived.get("expected_loss_when_losing_fraction")),
         "p05_shortfall_to_cost": _coerce_optional_float(derived.get("p05_shortfall_to_cost")),
-        "median_loss_when_losing_fraction": _coerce_optional_float(derived.get("median_loss_when_losing_fraction")),
         "score_version": _require_non_empty_str(derived.get("score_version"), "score_version"),
         "normalization_mode": _require_non_empty_str(derived.get("normalization_mode"), "normalization_mode"),
         "pack_score_is_placeholder": _require_bool(derived.get("pack_score_is_placeholder"), "pack_score_is_placeholder"),

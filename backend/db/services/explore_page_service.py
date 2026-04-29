@@ -533,13 +533,19 @@ def get_explore_page_payload(
     try:
         top_hits_result = (
             public_read_client.table("simulation_input_cards")
-            .select("card_name,ev_contribution")
+            .select("card_name,ev_contribution,card_variants(image_small_url,image_large_url)")
             .eq("calculation_run_id", run_id)
             .order("ev_contribution", desc=True)
             .limit(clamped_top_hits_limit)
             .execute()
         )
-        top_hits = top_hits_result.data if top_hits_result.data else []
+        raw_hits = top_hits_result.data if top_hits_result.data else []
+        # Flatten nested card_variants image fields into each hit row
+        for hit in raw_hits:
+            variant = hit.pop("card_variants", None) or {}
+            hit["image_small_url"] = variant.get("image_small_url")
+            hit["image_large_url"] = variant.get("image_large_url")
+        top_hits = raw_hits
         sources["simulation_input_cards"] = "OK"
     except Exception as exc:
         logger.warning("[explore-page] simulation_input_cards failed run_id=%s: %s", run_id, exc)

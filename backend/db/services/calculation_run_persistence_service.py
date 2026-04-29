@@ -359,18 +359,16 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
     )
 
     expected_loss_when_losing_fraction = _coerce_optional_float(
-        _first_present(pack_score_raw_inputs_map, ("expected_loss_when_losing_fraction",)),
-        "derived.pack_score.raw_inputs.expected_loss_when_losing_fraction",
+        _first_present(
+            pack_score_raw_inputs_map,
+            ("expected_loss_when_losing_ratio", "expected_loss_when_losing_fraction"),
+        ),
+        "derived.pack_score.raw_inputs.expected_loss_when_losing_ratio",
     )
 
     p05_shortfall_to_cost = _coerce_optional_float(
         _first_present(pack_score_raw_inputs_map, ("p05_shortfall_to_cost",)),
         "derived.pack_score.raw_inputs.p05_shortfall_to_cost",
-    )
-
-    median_loss_when_losing_fraction = _coerce_optional_float(
-        _first_present(pack_score_raw_inputs_map, ("median_loss_when_losing_fraction",)),
-        "derived.pack_score.raw_inputs.median_loss_when_losing_fraction",
     )
 
     if pack_score_is_placeholder:
@@ -435,7 +433,6 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         "mean_value_to_cost_ratio": mean_value_to_cost_ratio,
         "expected_loss_when_losing_fraction": expected_loss_when_losing_fraction,
         "p05_shortfall_to_cost": p05_shortfall_to_cost,
-        "median_loss_when_losing_fraction": median_loss_when_losing_fraction,
         "score_version": _require_nonempty_str(
             _first_present(pack_score, ("score_version",)),
             "derived.pack_score.score_version",

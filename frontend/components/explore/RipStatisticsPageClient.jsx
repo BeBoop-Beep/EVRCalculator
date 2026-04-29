@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import RankBadge from "@/components/ui/RankBadge";
+import { RANK_CONFIG } from "@/constants/rankConfig";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -13,6 +14,8 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+const REQUIRED_PACK_PATHS = ["normal", "demi_god_pack", "god_pack"];
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -65,6 +68,21 @@ function titleCaseStateLabel(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatPackPathLabel(value) {
+  switch (String(value || "").toLowerCase()) {
+    case "normal":
+      return "Normal";
+    case "demi_god_pack":
+    case "demi_god":
+    case "demigod":
+      return "Demi-God Pack";
+    case "god_pack":
+    case "god":
+      return "God Pack";
+    default:
+      return titleCaseStateLabel(value);
+  }
+}
 
 function getPercentileValue(percentiles, requestedPercentile) {
   if (!Array.isArray(percentiles)) {
@@ -94,18 +112,94 @@ function sortObjectEntriesDescending(input) {
   });
 }
 
+function normalizeBarWidth(value, maxValue) {
+  const v = toNumber(value);
+  const m = toNumber(maxValue);
+  if (v === null || m === null || m === 0) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, (v / m) * 100));
+}
 
-function ScoreMeter({ score }) {
+function withAlpha(color, alpha) {
+  if (typeof color !== "string") {
+    return null;
+  }
+
+  const rgbaMatch = color.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[^)]+)?\)$/i);
+  if (!rgbaMatch) {
+    return color;
+  }
+
+  return `rgba(${rgbaMatch[1]},${rgbaMatch[2]},${rgbaMatch[3]},${alpha})`;
+}
+
+function getTierEdgeColor(rankTier) {
+  const config = rankTier ? RANK_CONFIG[rankTier] : null;
+  if (!config?.color) {
+    return null;
+  }
+
+  switch (rankTier) {
+    case "S":
+      return withAlpha(config.color, 0.72);
+    case "A":
+      return withAlpha(config.color, 0.68);
+    case "B":
+      return withAlpha(config.color, 0.58);
+    case "C":
+      return withAlpha(config.color, 0.62);
+    case "D":
+      return withAlpha(config.color, 0.64);
+    case "F":
+      return withAlpha(config.color, 0.7);
+    default:
+      return null;
+  }
+}
+
+function ScoreMeter({ score, rankTier }) {
   const parsed = Number(score);
   const width = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
+  const edgeColor = getTierEdgeColor(rankTier);
   return (
     <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
       <div
-        className="h-full rounded-full"
+        className="relative h-full overflow-hidden rounded-full"
         style={{
           width: `${width}%`,
           background: "linear-gradient(90deg, rgba(20,184,166,0.7) 0%, rgba(94,234,212,0.95) 100%)",
           boxShadow: width > 0 ? "0 0 6px 1px rgba(20,184,166,0.45)" : "none",
+        }}
+      >
+        {edgeColor && width > 0 ? (
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 right-0 rounded-r-full"
+            style={{
+              width: "8%",
+              minWidth: "4px",
+              maxWidth: "12px",
+              background: `linear-gradient(90deg, ${withAlpha(edgeColor, 0)} 0%, ${edgeColor} 100%)`,
+              opacity: 0.95,
+            }}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function HorizontalBar({ widthPercent, nonzeroMin = 2 }) {
+  const width = Number.isFinite(widthPercent) ? widthPercent : 0;
+  const displayWidth = width > 0 ? Math.max(width, nonzeroMin) : 0;
+  return (
+    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
+      <div
+        className="h-full rounded-full"
+        style={{
+          width: `${displayWidth}%`,
+          background: "linear-gradient(90deg, rgba(20,184,166,0.55) 0%, rgba(94,234,212,0.85) 100%)",
         }}
       />
     </div>
@@ -140,7 +234,7 @@ function InfoPopover({ text }) {
       {open ? (
         <div
           role="tooltip"
-          className="absolute left-0 top-7 z-20 w-64 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)] text-xs text-[var(--text-secondary)] leading-relaxed"
+          className="absolute left-0 top-7 z-20 w-64 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 text-xs leading-relaxed text-[var(--text-secondary)] shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
         >
           {text}
         </div>
@@ -152,44 +246,30 @@ function InfoPopover({ text }) {
 function ScorePillarCard({ title, score, rankValue, rankTier, signals, contextMetrics, infoText, rankLabel }) {
   const parsedRank = toNumber(rankValue);
   const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
+  const flattenedMetrics = [...signals, ...contextMetrics];
 
   return (
     <article className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-2">
-          <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h3>
-            <p className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">Score</p>
-          </div>
-          {infoText ? <InfoPopover text={infoText} /> : null}
-        </div>
-        <div className="flex flex-none flex-col items-end gap-1.5">
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2 text-right">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Score</p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{formatScore(score)}</p>
-          </div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h3 className="text-base font-semibold tracking-[0.01em] text-[var(--text-secondary)]">{title}</h3>
+          <p className="text-2xl font-bold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
           <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} />
+        </div>
+        <div className="flex flex-none items-center gap-1">
+          {infoText ? <InfoPopover text={infoText} /> : null}
         </div>
       </div>
 
-      <ScoreMeter score={score} />
+      <ScoreMeter score={score} rankTier={rankTier} />
 
-      <div className="mt-4 flex-1 space-y-1">
-        {signals.map((metric) => (
+      <div className="mt-5 h-px w-full bg-[var(--border-subtle)]" />
+
+      <div className="mt-3 flex-1 space-y-1">
+        {flattenedMetrics.map((metric) => (
           <MetricRow key={metric.label} label={metric.label} value={metric.value} />
         ))}
       </div>
-
-      {contextMetrics.length > 0 ? (
-        <div className="mt-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Context metrics</p>
-          <div className="mt-2 space-y-1">
-            {contextMetrics.map((metric) => (
-              <MetricRow key={metric.label} label={metric.label} value={metric.value} />
-            ))}
-          </div>
-        </div>
-      ) : null}
     </article>
   );
 }
@@ -215,17 +295,214 @@ function SectionCard({ title, subtitle, children }) {
   );
 }
 
-function TopHitRow({ name, evContribution }) {
+function TopHitRow({ name, evContribution, evShare, imageSmallUrl, imageLargeUrl }) {
+  const imageSrc = imageSmallUrl || imageLargeUrl || null;
   return (
     <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-      <div
-        className="h-10 w-10 flex-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-panel)]"
-        aria-hidden="true"
-      />
+      <div className="h-10 w-10 flex-none overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--surface-panel)]">
+        {imageSrc ? <img src={imageSrc} alt={name || "Card"} className="h-full w-full object-cover" /> : null}
+      </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-[var(--text-primary)]">{name || "Unknown Card"}</p>
+        {evShare ? <p className="text-xs text-[var(--text-secondary)]">{evShare} of pack EV</p> : null}
       </div>
-      <p className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
+      <div className="flex-none text-right">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">EV Contribution</p>
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
+      </div>
+    </div>
+  );
+}
+
+function TopEVDriversContent({ topHits, meanValue }) {
+  const hits = Array.isArray(topHits) ? topHits : [];
+  const totalEV = toNumber(meanValue);
+
+  if (hits.length === 0) {
+    return <p className="text-sm text-[var(--text-secondary)]">No top EV driver rows are available.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {hits.map((hit) => {
+        const ev = toNumber(hit?.ev_contribution);
+        const evShare = ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null;
+
+        return (
+          <TopHitRow
+            key={`${hit?.card_name || "unknown"}:${hit?.ev_contribution ?? "na"}`}
+            name={hit?.card_name}
+            evContribution={hit?.ev_contribution}
+            evShare={evShare}
+            imageSmallUrl={hit?.image_small_url}
+            imageLargeUrl={hit?.image_large_url}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function RarityContributionContent({ rankings }) {
+  const [mode, setMode] = useState("ev");
+  const rows = Array.isArray(rankings) ? rankings : [];
+
+  const evRows = useMemo(() => {
+    const sorted = [...rows].sort(
+      (a, b) => (toNumber(b?.total_sampled_value) ?? 0) - (toNumber(a?.total_sampled_value) ?? 0)
+    );
+    const totalEV = sorted.reduce((sum, row) => sum + (toNumber(row?.total_sampled_value) ?? 0), 0);
+    const maxEV = Math.max(...sorted.map((row) => toNumber(row?.total_sampled_value) ?? 0), 0);
+    return { sorted, totalEV, maxEV };
+  }, [rows]);
+
+  const pullRows = useMemo(() => {
+    const sorted = [...rows].sort(
+      (a, b) => (toNumber(b?.pulled_count) ?? 0) - (toNumber(a?.pulled_count) ?? 0)
+    );
+    const totalPulls = sorted.reduce((sum, row) => sum + (toNumber(row?.pulled_count) ?? 0), 0);
+    const maxPulls = Math.max(...sorted.map((row) => toNumber(row?.pulled_count) ?? 0), 0);
+    return { sorted, totalPulls, maxPulls };
+  }, [rows]);
+
+  if (rows.length === 0) {
+    return <p className="text-sm text-[var(--text-secondary)]">No rarity ranking rows are available.</p>;
+  }
+
+  return (
+    <>
+      <div className="mb-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+        <button
+          type="button"
+          onClick={() => setMode("ev")}
+          aria-pressed={mode === "ev"}
+          className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+            mode === "ev" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          }`}
+        >
+          EV Contribution
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("pull")}
+          aria-pressed={mode === "pull"}
+          className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+            mode === "pull" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          }`}
+        >
+          Pull Frequency
+        </button>
+      </div>
+
+      {mode === "ev" ? (
+        <div className="space-y-3">
+          {evRows.maxEV === 0 ? (
+            <p className="text-sm text-[var(--text-secondary)]">No EV contribution data available.</p>
+          ) : (
+            evRows.sorted.map((ranking) => {
+              const value = toNumber(ranking?.total_sampled_value) ?? 0;
+              const share = evRows.totalEV > 0 ? `${((value / evRows.totalEV) * 100).toFixed(1)}%` : null;
+
+              return (
+                <div key={`ev:${ranking?.rarity_bucket || "unknown"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-[var(--text-secondary)]">{titleCaseStateLabel(ranking?.rarity_bucket)}</span>
+                    <span className="text-sm font-medium text-[var(--text-primary)]">
+                      {formatCurrency(value)}
+                      {share ? <span className="ml-1 text-xs text-[var(--text-secondary)]">({share})</span> : null}
+                    </span>
+                  </div>
+                  <HorizontalBar widthPercent={normalizeBarWidth(value, evRows.maxEV)} />
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {pullRows.maxPulls === 0 ? (
+            <p className="text-sm text-[var(--text-secondary)]">No pull frequency data available.</p>
+          ) : (
+            pullRows.sorted.map((ranking) => {
+              const count = toNumber(ranking?.pulled_count) ?? 0;
+              const share = pullRows.totalPulls > 0 ? `${((count / pullRows.totalPulls) * 100).toFixed(1)}%` : null;
+
+              return (
+                <div key={`pull:${ranking?.rarity_bucket || "unknown"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-[var(--text-secondary)]">{titleCaseStateLabel(ranking?.rarity_bucket)}</span>
+                    <span className="text-sm font-medium text-[var(--text-primary)]">
+                      {count.toLocaleString("en-US")}
+                      {share ? <span className="ml-1 text-xs text-[var(--text-secondary)]">({share})</span> : null}
+                    </span>
+                  </div>
+                  <HorizontalBar widthPercent={normalizeBarWidth(count, pullRows.maxPulls)} />
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function PackPathBars({ packPaths }) {
+  const source = typeof packPaths === "object" && packPaths !== null ? packPaths : {};
+  const normalized = {
+    normal: toNumber(source.normal) ?? 0,
+    demi_god_pack: toNumber(source.demi_god_pack ?? source.demi_god ?? source.demigod) ?? 0,
+    god_pack: toNumber(source.god_pack ?? source.god) ?? 0,
+  };
+
+  const extras = Object.entries(source)
+    .filter(([key]) => !["normal", "demi_god_pack", "demi_god", "demigod", "god_pack", "god"].includes(key))
+    .map(([key, value]) => ({ key, count: toNumber(value) ?? 0 }));
+
+  const rows = [
+    ...REQUIRED_PACK_PATHS.map((key) => ({ key, count: normalized[key] ?? 0 })),
+    ...extras,
+  ];
+  const maxCount = Math.max(...rows.map((row) => row.count), 1);
+
+  return (
+    <div className="space-y-3">
+      {rows.map(({ key, count }) => (
+        <div key={`path:${key}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-[var(--text-secondary)]">{formatPackPathLabel(key)}</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{count.toLocaleString("en-US")}</span>
+          </div>
+          <HorizontalBar widthPercent={normalizeBarWidth(count, maxCount)} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StateBars({ stateRows }) {
+  const rows = Array.isArray(stateRows) ? stateRows : [];
+
+  if (rows.length === 0) {
+    return <p className="text-sm text-[var(--text-secondary)]">No normal-state counts are available.</p>;
+  }
+
+  const maxCount = Math.max(...rows.map(([, value]) => toNumber(value) ?? 0), 1);
+
+  return (
+    <div className="space-y-3">
+      {rows.map(([name, count]) => {
+        const numericCount = toNumber(count) ?? 0;
+        return (
+          <div key={`state:${name}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-[var(--text-secondary)]">{titleCaseStateLabel(name)}</span>
+              <span className="text-sm font-medium text-[var(--text-primary)]">{numericCount.toLocaleString("en-US")}</span>
+            </div>
+            <HorizontalBar widthPercent={normalizeBarWidth(numericCount, maxCount)} />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -259,10 +536,7 @@ export default function RipStatisticsPageClient({
 
   const selectedName = selectedTarget?.name || requestedTargetId || "Selected Set";
   const percentileP5 = getPercentileValue(percentiles, 5);
-  const percentileP25 = getPercentileValue(percentiles, 25);
   const percentileP50 = getPercentileValue(percentiles, 50);
-  const percentileP75 = getPercentileValue(percentiles, 75);
-  const percentileP90 = getPercentileValue(percentiles, 90);
   const percentileP95 = getPercentileValue(percentiles, 95);
   const percentileP99 = getPercentileValue(percentiles, 99);
   const meanValueToCostRatio = summary.mean_value_to_cost_ratio ?? null;
@@ -274,10 +548,6 @@ export default function RipStatisticsPageClient({
   const [graphMode, setGraphMode] = useState("outcome-distribution");
   const [scoreMode, setScoreMode] = useState("relative");
 
-  const packPathRows = useMemo(
-    () => sortObjectEntriesDescending(ripStatistics?.pack_paths),
-    [ripStatistics?.pack_paths]
-  );
   const normalStateRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.normal_pack_states),
     [ripStatistics?.normal_pack_states]
@@ -289,15 +559,12 @@ export default function RipStatisticsPageClient({
 
   const chartMarkers = [
     { key: "pack-cost", label: "Pack Cost", value: summary.pack_cost },
-    { key: "ev", label: "EV", value: summary.mean_value },
+    { key: "p5", label: "P5", value: percentileP5 ?? summary.tail_value_p05 },
     { key: "median", label: "Median", value: percentileP50 ?? summary.median_value },
-    { key: "p5", label: "P5", value: percentileP5 },
-    { key: "p25", label: "P25", value: percentileP25 },
-    { key: "p75", label: "P75", value: percentileP75 },
-    { key: "p90", label: "P90", value: percentileP90 },
     { key: "p95", label: "P95", value: percentileP95 },
     { key: "p99", label: "P99", value: percentileP99 },
     { key: "big-hit", label: "Big Hit", value: summary.big_hit_threshold },
+    { key: "max", label: "Max", value: summary.max_value },
   ];
 
   const displayedRelativePackScore = formatRawScore(summary.relative_pack_score);
@@ -316,7 +583,7 @@ export default function RipStatisticsPageClient({
       return;
     }
     const nextParams = new URLSearchParams(searchParams?.toString() || "");
-    nextParams.set("target_type", "set");
+    nextParams.set("target_type", requestedTargetType || "set");
     nextParams.set("target_id", nextTargetId);
     startTransition(() => {
       router.push(`${pathname}?${nextParams.toString()}`);
@@ -325,7 +592,7 @@ export default function RipStatisticsPageClient({
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="dashboard-container space-y-6">
+      <div className="dashboard-container space-y-8">
         <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4 sm:p-5">
           <div className="grid gap-3 md:grid-cols-[11rem_minmax(0,1fr)_auto] md:items-end">
             <div>
@@ -379,12 +646,22 @@ export default function RipStatisticsPageClient({
             <section className="page-hero-panel rounded-2xl px-6 py-8">
               <div className="mx-auto max-w-3xl text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">RIP Statistics</p>
-                <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">{selectedName}</h1>
+                <h1 className="mt-2 text-3xl font-semibold text-[var(--text-primary)] sm:text-4xl">{selectedName}</h1>
 
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <div className="mt-6 flex flex-col items-center gap-1.5">
+                  <p className="text-[clamp(3rem,10vw,5rem)] font-semibold leading-tight text-[var(--text-primary)]">{displayedTopScore}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Pack Score</p>
+                </div>
+
+                <div className="mx-auto mt-4 w-full max-w-md">
+                  <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
+                </div>
+
+                <div className="mt-4 flex justify-center">
                   <RankBadge
                     rank={summary.pack_tier}
                     label="Pack Rank"
+                    subtle
                     title={
                       summary.pack_rank === null || summary.pack_rank === undefined
                         ? "Pack Rank unavailable"
@@ -393,44 +670,36 @@ export default function RipStatisticsPageClient({
                   />
                 </div>
 
-                <div className="mx-auto mt-5 w-full max-w-sm rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] px-6 py-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_12px_32px_rgba(0,0,0,0.35)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                    {scoreMode === "relative" ? "Relative Pack Score" : "Pack Score"}
-                  </p>
-                  <p className="mt-1 text-[clamp(2.2rem,7vw,3.3rem)] font-semibold leading-none text-[var(--text-primary)]">{displayedTopScore}</p>
-                  <ScoreMeter score={topScoreRaw} />
-
-                  <div className="mx-auto mt-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setScoreMode("relative")}
-                      aria-pressed={scoreMode === "relative"}
-                      className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                        scoreMode === "relative"
-                          ? "bg-[var(--brand)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Relative
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setScoreMode("absolute")}
-                      aria-pressed={scoreMode === "absolute"}
-                      className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                        scoreMode === "absolute"
-                          ? "bg-[var(--brand)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Absolute
-                    </button>
-                  </div>
+                <div className="mx-auto mt-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setScoreMode("relative")}
+                    aria-pressed={scoreMode === "relative"}
+                    className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                      scoreMode === "relative"
+                        ? "bg-[var(--brand)] text-white"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    Relative
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScoreMode("absolute")}
+                    aria-pressed={scoreMode === "absolute"}
+                    className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                      scoreMode === "absolute"
+                        ? "bg-[var(--brand)] text-white"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    Absolute
+                  </button>
                 </div>
               </div>
             </section>
 
-            <section>
+            <section className="pt-8">
               <div className="grid gap-4 lg:grid-cols-3">
                 <ScorePillarCard
                   title="Profit"
@@ -441,10 +710,7 @@ export default function RipStatisticsPageClient({
                   infoText="Profit estimates upside relative to pack cost using simulated value, median-to-cost, and profit probability signals."
                   signals={[
                     { label: "Probability of Profit", value: formatPercent(summary.prob_profit, { probability: true }) },
-                    {
-                      label: "EV / Mean Value",
-                      value: formatNumber(meanValueToCostRatio, 2),
-                    },
+                    { label: "EV / Mean Value", value: formatNumber(meanValueToCostRatio, 2) },
                     { label: "Median-to-Cost Ratio", value: formatNumber(medianValueToCostRatio, 2) },
                     { label: "P95-to-Cost Ratio", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
                   ]}
@@ -491,142 +757,118 @@ export default function RipStatisticsPageClient({
               </div>
             </section>
 
-            <SectionCard
-              title={graphMode === "historical-trend" ? "Historical Trend" : "Outcome Distribution"}
-              subtitle={
-                graphMode === "historical-trend"
-                  ? "Track how simulated value-to-cost ratios move across daily snapshots."
-                  : "See how simulated pack outcomes are distributed across value ranges."
-              }
-            >
-              <div className="mb-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setGraphMode("outcome-distribution")}
-                  aria-pressed={graphMode === "outcome-distribution"}
-                  className={`min-w-[10.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                    graphMode === "outcome-distribution"
-                      ? "bg-[var(--brand)] text-white"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                  }`}
-                >
-                  Outcome Distribution
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGraphMode("historical-trend")}
-                  aria-pressed={graphMode === "historical-trend"}
-                  className={`min-w-[9.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                    graphMode === "historical-trend"
-                      ? "bg-[var(--brand)] text-white"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                  }`}
-                >
-                  Historical Trend
-                </button>
-              </div>
+            <section className="pt-7">
+              <SectionCard
+                title={
+                  graphMode === "historical-trend"
+                    ? "Historical Trend"
+                    : graphMode === "pack-breakdown"
+                    ? "Pack Breakdown"
+                    : "Outcome Distribution"
+                }
+                subtitle={
+                  graphMode === "historical-trend"
+                    ? "Track how simulated value-to-cost ratios move across daily snapshots."
+                    : graphMode === "pack-breakdown"
+                    ? "Inspect pack paths and normal-state counts from simulation runs."
+                    : "See how simulated pack outcomes are distributed across value ranges."
+                }
+              >
+                <div className="mb-1.5 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setGraphMode("outcome-distribution")}
+                    aria-pressed={graphMode === "outcome-distribution"}
+                    className={`min-w-[10.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                      graphMode === "outcome-distribution"
+                        ? "bg-[var(--brand)] text-white"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    Outcome Distribution
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGraphMode("historical-trend")}
+                    aria-pressed={graphMode === "historical-trend"}
+                    className={`min-w-[9.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                      graphMode === "historical-trend"
+                        ? "bg-[var(--brand)] text-white"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    Historical Trend
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGraphMode("pack-breakdown")}
+                    aria-pressed={graphMode === "pack-breakdown"}
+                    className={`min-w-[8.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                      graphMode === "pack-breakdown"
+                        ? "bg-[var(--brand)] text-white"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    Pack Breakdown
+                  </button>
+                </div>
 
-              {graphMode === "historical-trend" ? (
-                <PackValueHistoryChart historyTrend={historyTrend} />
-              ) : (
-                <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
-              )}
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <StatTile label="Probability of Profit" value={formatPercent(summary.prob_profit, { probability: true })} />
-                <StatTile label="Probability of Big Hit" value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                <StatTile label="Max Value" value={formatCurrency(summary.max_value)} />
-                <StatTile label="Expected Loss When Losing" value={formatCurrency(summary.expected_loss_when_losing)} />
-              </div>
-            </SectionCard>
-
-            <section className="space-y-4">
-              <div className="grid gap-4 xl:grid-cols-2">
-                <SectionCard title="Top Hits" subtitle="Image slot reserved for future payload fields.">
-                  <div className="space-y-2">
-                    {topHits.length > 0 ? (
-                      topHits.map((hit) => (
-                        <TopHitRow
-                          key={`${hit.card_name || "unknown"}:${hit.ev_contribution || "na"}`}
-                          name={hit.card_name}
-                          evContribution={hit.ev_contribution}
-                        />
-                      ))
-                    ) : (
-                      <p className="text-sm text-[var(--text-secondary)]">No top-hit rows are available.</p>
-                    )}
+                {graphMode === "historical-trend" ? (
+                  <PackValueHistoryChart historyTrend={historyTrend} />
+                ) : graphMode === "pack-breakdown" ? (
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
+                      <PackPathBars packPaths={ripStatistics?.pack_paths} />
+                    </div>
+                    <div>
+                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
+                      <StateBars stateRows={normalStateRows} />
+                    </div>
                   </div>
+                ) : (
+                  <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
+                )}
+
+                {graphMode !== "pack-breakdown" ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    <StatTile label="Probability of Profit" value={formatPercent(summary.prob_profit, { probability: true })} />
+                    <StatTile label="Probability of Big Hit" value={formatPercent(summary.prob_big_hit, { probability: true })} />
+                    <StatTile label="Median Outcome" value={formatCurrency(percentileP50 ?? summary.median_value)} />
+                    <StatTile label="Worst 5% Outcome" value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
+                    <StatTile label="Max Value" value={formatCurrency(summary.max_value)} />
+                  </div>
+                ) : null}
+              </SectionCard>
+            </section>
+
+            <section className="space-y-6 pt-1">
+              <div className="grid gap-4 xl:grid-cols-2">
+                <SectionCard title="Top EV Drivers" subtitle="These cards contribute the most to expected pack value.">
+                  <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
                 </SectionCard>
 
                 <SectionCard title="Rarity Pull Contribution" subtitle={null}>
-                  <div className="space-y-1">
-                    {rankings.length > 0 ? (
-                      rankings.map((ranking) => (
-                        <MetricRow
-                          key={ranking.rarity_bucket}
-                          label={titleCaseStateLabel(ranking.rarity_bucket)}
-                          value={`${toNumber(ranking.pulled_count)?.toLocaleString("en-US") || "—"} pulls • ${formatCurrency(ranking.avg_sampled_value)}`}
-                        />
-                      ))
-                    ) : (
-                      <p className="text-sm text-[var(--text-secondary)]">No rarity ranking rows are available.</p>
-                    )}
-                  </div>
+                  <RarityContributionContent rankings={rankings} />
                 </SectionCard>
               </div>
 
-              <SectionCard title="RIP Statistics" subtitle={null}>
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div>
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
-                    <div className="space-y-1">
-                      {packPathRows.length > 0 ? (
-                        packPathRows.map(([name, count]) => (
-                          <MetricRow
-                            key={`path:${name}`}
-                            label={titleCaseStateLabel(name)}
-                            value={toNumber(count)?.toLocaleString("en-US") || "—"}
-                          />
-                        ))
-                      ) : (
-                        <p className="text-sm text-[var(--text-secondary)]">No pack-path counts are available.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
-                    <div className="space-y-1">
-                      {normalStateRows.length > 0 ? (
-                        normalStateRows.map(([name, count]) => (
-                          <MetricRow
-                            key={`state:${name}`}
-                            label={titleCaseStateLabel(name)}
-                            value={toNumber(count)?.toLocaleString("en-US") || "—"}
-                          />
-                        ))
-                      ) : (
-                        <p className="text-sm text-[var(--text-secondary)]">No normal-state counts are available.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </SectionCard>
-
               <details className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
                 <summary className="cursor-pointer list-none text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</summary>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  <StatTile label="Expected Loss Per Pack" value={formatCurrency(summary.expected_loss_per_pack)} />
-                  <StatTile label="Expected Loss When Losing" value={formatCurrency(summary.expected_loss_when_losing)} />
-                  <StatTile label="Median Loss When Losing" value={formatCurrency(summary.median_loss_when_losing)} />
-                  <StatTile label="Coefficient of Variation" value={formatNumber(summary.coefficient_of_variation, 2)} />
-                  <StatTile label="HHI EV Concentration" value={formatNumber(summary.hhi_ev_concentration, 3)} />
-                  <StatTile label="Effective Chase Count" value={formatNumber(summary.effective_chase_count, 2)} />
-                  <StatTile label="Top 1 EV Share" value={formatPercent(summary.top1_ev_share)} />
-                  <StatTile label="Top 3 EV Share" value={formatPercent(summary.top3_ev_share)} />
-                  <StatTile label="Top 5 EV Share" value={formatPercent(summary.top5_ev_share)} />
-                  <StatTile label="P95 Value / Cost Ratio" value={formatNumber(summary.p95_value_to_cost_ratio, 2)} />
-                  <StatTile label="Tail Value P05" value={formatCurrency(summary.tail_value_p05)} />
+                <div className="mt-4 space-y-5">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <StatTile label="Expected Loss Per Pack" value={formatCurrency(summary.expected_loss_per_pack)} />
+                    <StatTile label="Expected Loss When Losing" value={formatCurrency(summary.expected_loss_when_losing)} />
+                    <StatTile label="Median Loss When Losing" value={formatCurrency(summary.median_loss_when_losing)} />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <StatTile label="Coefficient of Variation" value={formatNumber(summary.coefficient_of_variation, 2)} />
+                    <StatTile label="HHI EV Concentration" value={formatNumber(summary.hhi_ev_concentration, 3)} />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <StatTile label="P95 Value / Cost Ratio" value={formatNumber(summary.p95_value_to_cost_ratio, 2)} />
+                    <StatTile label="Effective Chase Count" value={formatNumber(summary.effective_chase_count, 2)} />
+                  </div>
                 </div>
               </details>
             </section>

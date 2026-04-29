@@ -12,7 +12,7 @@ export default function Featured({products}) {
       {/* Background Image */}
       <div
         className="absolute inset-0 bg-cover bg-center animate-zoom-in opacity-45"
-        style={{ backgroundImage: "url('/images/shinyFindsLogo.png')" }}
+        style={{ backgroundImage: "url('/images/inDex.png')" }}
       ></div>
 
       {/* Overlay */}
@@ -24,20 +24,20 @@ export default function Featured({products}) {
     className="text-5xl font-bold"
     style={{ textShadow: '2px 2px 4px rgba(0, 4, 41, 0.8)' }} 
   >
-    Welcome to Shiny Finds!
+    Welcome to inDex
   </h1>
   <p 
     className="text-xl mt-2 font-bold"
     style={{ textShadow: '2px 2px 4px rgb(0, 4, 41)' }} 
   >
-    Discover rare collectibles and amazing deals.
+    Stay in the know, stay in the Dex.
   </p>
   <div>
     <a
-      href="/products" 
+      href="/Explore" 
       className="mt-6 inline-block px-8 py-3 bg-yellow-100 text-primary font-semibold rounded-3xl shadow-lg hover:bg-accent transition duration-300"
     >
-      Shop
+      Explore
     </a>
   </div>
 </div>
