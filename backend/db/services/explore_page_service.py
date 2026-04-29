@@ -84,6 +84,102 @@ _RIP_SUMMARY_SUPPLEMENT_FIELDS = (
 )
 
 
+def _to_optional_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _resolve_top_hit_image_fields(
+    variant_row: Optional[Dict[str, Any]],
+    card_row: Optional[Dict[str, Any]],
+) -> Dict[str, Optional[str]]:
+    variant_small = _to_optional_str((variant_row or {}).get("image_small_url"))
+    card_small = _to_optional_str((card_row or {}).get("image_small_url"))
+    variant_large = _to_optional_str((variant_row or {}).get("image_large_url"))
+    card_large = _to_optional_str((card_row or {}).get("image_large_url"))
+
+    return {
+        "image_url": variant_small or card_small or variant_large or card_large,
+        "image_small_url": variant_small or card_small,
+        "image_large_url": variant_large or card_large,
+    }
+
+
+def _enrich_top_hits_with_images(top_hits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    variant_ids = sorted(
+        {
+            str(hit.get("card_variant_id"))
+            for hit in top_hits
+            if hit.get("card_variant_id") is not None
+        }
+    )
+    card_ids = sorted(
+        {
+            str(hit.get("card_id"))
+            for hit in top_hits
+            if hit.get("card_id") is not None
+        }
+    )
+
+    variant_lookup: Dict[str, Dict[str, Any]] = {}
+    card_lookup: Dict[str, Dict[str, Any]] = {}
+
+    if variant_ids:
+        variant_result = (
+            public_read_client.table("card_variants")
+            .select("id,card_id,image_small_url,image_large_url")
+            .in_("id", variant_ids)
+            .execute()
+        )
+        variant_lookup = {
+            str(row.get("id")): row
+            for row in (variant_result.data or [])
+            if row.get("id") is not None
+        }
+
+    derived_card_ids = {
+        str(row.get("card_id"))
+        for row in variant_lookup.values()
+        if row.get("card_id") is not None
+    }
+    all_card_ids = sorted(set(card_ids) | derived_card_ids)
+    if all_card_ids:
+        card_result = (
+            public_read_client.table("cards")
+            .select("id,image_small_url,image_large_url")
+            .in_("id", all_card_ids)
+            .execute()
+        )
+        card_lookup = {
+            str(row.get("id")): row
+            for row in (card_result.data or [])
+            if row.get("id") is not None
+        }
+
+    enriched_hits: List[Dict[str, Any]] = []
+    for hit in top_hits:
+        variant_id = _to_optional_str(hit.get("card_variant_id"))
+        card_id = _to_optional_str(hit.get("card_id"))
+        variant_row = variant_lookup.get(variant_id) if variant_id else None
+        card_row = None
+        if card_id:
+            card_row = card_lookup.get(card_id)
+        elif variant_row and variant_row.get("card_id") is not None:
+            card_row = card_lookup.get(str(variant_row.get("card_id")))
+
+        image_fields = _resolve_top_hit_image_fields(variant_row, card_row)
+        enriched_hits.append(
+            {
+                **hit,
+                **image_fields,
+            }
+        )
+
+    return enriched_hits
+
+
 class ExplorePageError(Exception):
     """Structured error for Explore page service."""
 
@@ -533,19 +629,14 @@ def get_explore_page_payload(
     try:
         top_hits_result = (
             public_read_client.table("simulation_input_cards")
-            .select("card_name,ev_contribution,card_variants(image_small_url,image_large_url)")
+            .select("card_id,card_variant_id,card_name,ev_contribution")
             .eq("calculation_run_id", run_id)
             .order("ev_contribution", desc=True)
             .limit(clamped_top_hits_limit)
             .execute()
         )
         raw_hits = top_hits_result.data if top_hits_result.data else []
-        # Flatten nested card_variants image fields into each hit row
-        for hit in raw_hits:
-            variant = hit.pop("card_variants", None) or {}
-            hit["image_small_url"] = variant.get("image_small_url")
-            hit["image_large_url"] = variant.get("image_large_url")
-        top_hits = raw_hits
+        top_hits = _enrich_top_hits_with_images(raw_hits)
         sources["simulation_input_cards"] = "OK"
     except Exception as exc:
         logger.warning("[explore-page] simulation_input_cards failed run_id=%s: %s", run_id, exc)

@@ -13,6 +13,7 @@ class _Query:
         self.calls = calls
         self.select_fields = None
         self.eq_filters = []
+        self.in_filters = []
         self.order_field = None
         self.order_desc = None
         self.limit_value = None
@@ -24,6 +25,10 @@ class _Query:
 
     def eq(self, field, value):
         self.eq_filters.append((field, value))
+        return self
+
+    def in_(self, field, values):
+        self.in_filters.append((field, list(values)))
         return self
 
     def order(self, field, desc=False):
@@ -104,6 +109,8 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_value_distribution_bins": lambda _q: [],
         "simulation_value_threshold_bins": lambda _q: [],
         "simulation_input_cards": lambda _q: [],
+        "card_variants": lambda _q: [],
+        "cards": lambda _q: [],
     }
 
 
@@ -372,3 +379,120 @@ def test_fallback_path_queries_summary_and_derived(monkeypatch):
     derived_calls = [c for c in client.calls if c.table_name == "simulation_derived_metrics"]
     assert len(summary_calls) == 1
     assert len(derived_calls) == 1
+
+
+def test_top_hits_are_enriched_with_variant_and_card_image_fallbacks(monkeypatch):
+    handlers = _build_success_handlers()
+    handlers["simulation_input_cards"] = lambda _q: [
+        {
+            "card_id": "card-1",
+            "card_variant_id": "variant-1",
+            "card_name": "Hit One",
+            "ev_contribution": 1.25,
+        },
+        {
+            "card_id": "card-2",
+            "card_variant_id": "variant-2",
+            "card_name": "Hit Two",
+            "ev_contribution": 0.75,
+        },
+        {
+            "card_id": "card-3",
+            "card_variant_id": None,
+            "card_name": "Hit Three",
+            "ev_contribution": 0.5,
+        },
+        {
+            "card_id": "card-4",
+            "card_variant_id": None,
+            "card_name": "Hit Four",
+            "ev_contribution": 0.25,
+        },
+    ]
+    handlers["card_variants"] = lambda _q: [
+        {
+            "id": "variant-1",
+            "card_id": "card-1",
+            "image_small_url": "https://img.test/variant-small.png",
+            "image_large_url": "https://img.test/variant-large.png",
+        },
+        {
+            "id": "variant-2",
+            "card_id": "card-2",
+            "image_small_url": None,
+            "image_large_url": "https://img.test/variant-large-only.png",
+        },
+    ]
+    handlers["cards"] = lambda _q: [
+        {
+            "id": "card-1",
+            "image_small_url": "https://img.test/card-small.png",
+            "image_large_url": "https://img.test/card-large.png",
+        },
+        {
+            "id": "card-2",
+            "image_small_url": "https://img.test/card-small-fallback.png",
+            "image_large_url": "https://img.test/card-large-fallback.png",
+        },
+        {
+            "id": "card-3",
+            "image_small_url": None,
+            "image_large_url": "https://img.test/card-large-only.png",
+        },
+        {
+            "id": "card-4",
+            "image_small_url": None,
+            "image_large_url": None,
+        },
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["top_hits"] == [
+        {
+            "card_id": "card-1",
+            "card_variant_id": "variant-1",
+            "card_name": "Hit One",
+            "ev_contribution": 1.25,
+            "image_url": "https://img.test/variant-small.png",
+            "image_small_url": "https://img.test/variant-small.png",
+            "image_large_url": "https://img.test/variant-large.png",
+        },
+        {
+            "card_id": "card-2",
+            "card_variant_id": "variant-2",
+            "card_name": "Hit Two",
+            "ev_contribution": 0.75,
+            "image_url": "https://img.test/card-small-fallback.png",
+            "image_small_url": "https://img.test/card-small-fallback.png",
+            "image_large_url": "https://img.test/variant-large-only.png",
+        },
+        {
+            "card_id": "card-3",
+            "card_variant_id": None,
+            "card_name": "Hit Three",
+            "ev_contribution": 0.5,
+            "image_url": "https://img.test/card-large-only.png",
+            "image_small_url": None,
+            "image_large_url": "https://img.test/card-large-only.png",
+        },
+        {
+            "card_id": "card-4",
+            "card_variant_id": None,
+            "card_name": "Hit Four",
+            "ev_contribution": 0.25,
+            "image_url": None,
+            "image_small_url": None,
+            "image_large_url": None,
+        },
+    ]
+
+    variant_calls = [c for c in client.calls if c.table_name == "card_variants"]
+    card_calls = [c for c in client.calls if c.table_name == "cards"]
+    assert len(variant_calls) == 1
+    assert len(card_calls) == 1
+    assert variant_calls[0].in_filters == [("id", ["variant-1", "variant-2"])]
+    assert card_calls[0].in_filters == [("id", ["card-1", "card-2", "card-3", "card-4"])]

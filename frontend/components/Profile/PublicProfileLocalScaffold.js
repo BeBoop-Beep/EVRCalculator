@@ -46,6 +46,22 @@ export default function PublicProfileLocalScaffold({
   mode = "public",
   sectionItems: sectionItemsOverride = null,
   mobileNavItems: mobileNavItemsOverride = null,
+  desktopSidebarContent = null,
+  mobileToolsPanelContent = null,
+  mobileToolsTitle = "Collection tools",
+  mobileToolsDescription = null,
+  mobileToolsPanelAriaLabel = "Tools panel",
+  mobileToolsTriggerLabel = "Open tools",
+  mobileToolsTriggerTitle = "Open tools",
+  hideBottomNav = false,
+  desktopContentOffsetClassName = "xl:flex xl:justify-center xl:transform xl:-translate-x-[130px]",
+  wrapDesktopContentInFrame = true,
+  centerContentIgnoringSidebar = false,
+  useFloatingToolsOnTablet = false,
+  desktopSidebarClassName = "",
+  floatingToolsContainerClassName = null,
+  forceCompactToolsBelow2xl = false,
+  mobileBottomNavContent = null,
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -153,6 +169,17 @@ export default function PublicProfileLocalScaffold({
       : pathname === item.href || pathname?.startsWith(`${item.href}/`);
 
   const isCollectionSection = pathname === collectionHref || pathname?.startsWith(`${collectionHref}/`);
+  const hasCustomSidebar = desktopSidebarContent !== null;
+  const hasCustomToolsPanel = mobileToolsPanelContent !== null;
+  const isToolsFeatureEnabled = isCollectionSection || hasCustomToolsPanel;
+  const desktopSidebarVisibilityClass = forceCompactToolsBelow2xl
+    ? "xl:!hidden 2xl:!block"
+    : desktopSidebarClassName;
+  const mobileToolsPanelVisibilityClass = forceCompactToolsBelow2xl ? "2xl:hidden" : "xl:hidden";
+  const floatingToolsContainerClass = floatingToolsContainerClassName
+    || (forceCompactToolsBelow2xl
+      ? "2xl:hidden"
+      : (useFloatingToolsOnTablet ? "xl:hidden" : "lg:hidden"));
 
   const localToolState = useMemo(() => ({
     q: searchParams.get("q") || "",
@@ -168,10 +195,10 @@ export default function PublicProfileLocalScaffold({
   }, [localToolState.q]);
 
   useEffect(() => {
-    if (!isCollectionSection && isToolsOpen) {
+    if (!isCollectionSection && !hasCustomToolsPanel && isToolsOpen) {
       setIsToolsOpen(false);
     }
-  }, [isCollectionSection, isToolsOpen]);
+  }, [hasCustomToolsPanel, isCollectionSection, isToolsOpen]);
 
   useEffect(() => {
     if (!isCollectionSection) return;
@@ -212,6 +239,11 @@ export default function PublicProfileLocalScaffold({
   };
 
   const handleOpenCollectionTools = () => {
+    if (hasCustomToolsPanel) {
+      setIsToolsOpen((open) => !open);
+      return;
+    }
+
     if (isCollectionSection) {
       setIsToolsOpen((open) => !open);
       return;
@@ -362,51 +394,63 @@ export default function PublicProfileLocalScaffold({
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start">
-        <aside className="hidden xl:block xl:self-stretch xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4">
-          <div className="sticky top-[calc(var(--app-header-offset,4rem)+2rem)] space-y-4">
-            <nav aria-label={mode === "owner" ? "Owner collection sections" : "Public profile sections"} className="px-1">
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-                Sections
-              </p>
-              <div className="mt-2 space-y-1">
-                {sectionItems.map((item) => {
-                  const isActive = isSectionActive(item);
+      <div className={centerContentIgnoringSidebar ? "relative xl:block" : "xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start"}>
+        <aside
+          className={centerContentIgnoringSidebar
+            ? `hidden xl:block xl:absolute xl:inset-y-0 xl:left-0 xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4 ${desktopSidebarVisibilityClass}`
+            : `hidden xl:block xl:self-stretch xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4 ${desktopSidebarVisibilityClass}`}
+        >
+          {hasCustomSidebar ? (
+            <div className="sticky top-[calc(var(--app-header-offset,4rem)+2rem)]">{desktopSidebarContent}</div>
+          ) : (
+            <div className="sticky top-[calc(var(--app-header-offset,4rem)+2rem)] space-y-4">
+              <nav aria-label={mode === "owner" ? "Owner collection sections" : "Public profile sections"} className="px-1">
+                <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                  Sections
+                </p>
+                <div className="mt-2 space-y-1">
+                  {sectionItems.map((item) => {
+                    const isActive = isSectionActive(item);
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-current={isActive ? "page" : undefined}
-                      className={[
-                        "flex items-center rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
-                        isActive
-                          ? "border-[var(--accent)] bg-[var(--surface-elevated)] text-[var(--accent)]"
-                          : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
-                      ].join(" ")}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </nav>
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        aria-current={isActive ? "page" : undefined}
+                        className={[
+                          "flex items-center rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
+                          isActive
+                            ? "border-[var(--accent)] bg-[var(--surface-elevated)] text-[var(--accent)]"
+                            : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
+                        ].join(" ")}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </nav>
 
-            {isCollectionSection ? (
-              <section className="px-1 pt-2">
-                {renderCollectionTools("desktop")}
-              </section>
-            ) : null}
-          </div>
+              {isCollectionSection ? (
+                <section className="px-1 pt-2">
+                  {renderCollectionTools("desktop")}
+                </section>
+              ) : null}
+            </div>
+          )}
         </aside>
 
-        <div className="min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-0 xl:flex xl:justify-center xl:transform xl:-translate-x-[130px]">
+        <div className={`min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-0 ${desktopContentOffsetClassName}`}>
           <div className="lg:w-full lg:max-w-7xl lg:px-6">
-            <div className="hidden xl:block xl:rounded-3xl xl:border xl:border-[var(--border-subtle)] xl:bg-[var(--surface-page)]/70 xl:p-4 2xl:p-5">
-              {desktopHeader ? <div className="mb-6">{desktopHeader}</div> : null}
-              {children}
-            </div>
-            {isCollectionSection ? (
+            {wrapDesktopContentInFrame ? (
+              <div className="hidden xl:block xl:rounded-3xl xl:border xl:border-[var(--border-subtle)] xl:bg-[var(--surface-page)]/70 xl:p-4 2xl:p-5">
+                {desktopHeader ? <div className="mb-6">{desktopHeader}</div> : null}
+                {children}
+              </div>
+            ) : (
+              <div className="hidden xl:block">{children}</div>
+            )}
+            {isToolsFeatureEnabled && !useFloatingToolsOnTablet ? (
               <div className="hidden lg:flex xl:hidden items-center mb-3">
                 <button
                   type="button"
@@ -420,7 +464,7 @@ export default function PublicProfileLocalScaffold({
                     <path d="M7 12h10" />
                     <path d="M10 17h4" />
                   </svg>
-                  Filters &amp; Tools
+                  {mobileToolsTriggerLabel}
                 </button>
               </div>
             ) : null}
@@ -429,21 +473,25 @@ export default function PublicProfileLocalScaffold({
         </div>
       </div>
 
-      {isCollectionSection && isToolsOpen ? (
+      {isToolsFeatureEnabled && isToolsOpen ? (
         <div
           id={mobileToolsPanelId}
           role="region"
-          aria-label="Collection tools panel"
-          className="xl:hidden fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:bottom-4 z-40 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 shadow-lg"
+          aria-label={mobileToolsPanelAriaLabel}
+          className={`${mobileToolsPanelVisibilityClass} fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:bottom-4 z-40 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 shadow-lg`}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Collection tools</p>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                {mode === "owner"
-                  ? "Search and filter your collection with owner tools."
-                  : "Search and filter this collection for this public profile only."}
-              </p>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">{mobileToolsTitle}</p>
+              {mobileToolsDescription ? (
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">{mobileToolsDescription}</p>
+              ) : isCollectionSection ? (
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  {mode === "owner"
+                    ? "Search and filter your collection with owner tools."
+                    : "Search and filter this collection for this public profile only."}
+                </p>
+              ) : null}
             </div>
             <button
               type="button"
@@ -458,19 +506,23 @@ export default function PublicProfileLocalScaffold({
           </div>
 
           <div className="mt-3 border-t border-[var(--border-subtle)] pt-3">
-            {renderCollectionTools("mobile")}
+            {hasCustomToolsPanel
+              ? typeof mobileToolsPanelContent === "function"
+                ? mobileToolsPanelContent({ closeToolsPanel: () => setIsToolsOpen(false) })
+                : mobileToolsPanelContent
+              : renderCollectionTools("mobile")}
           </div>
         </div>
       ) : null}
 
-      <div className="lg:hidden">
+      <div className={floatingToolsContainerClass}>
         <button
           type="button"
           onClick={handleOpenCollectionTools}
-          aria-label="Open tools and filters for this collection"
-          title="Open tools for this collection"
+          aria-label={mobileToolsTriggerLabel}
+          title={mobileToolsTriggerTitle}
           aria-controls={mobileToolsPanelId}
-          aria-expanded={isCollectionSection && isToolsOpen}
+          aria-expanded={isToolsFeatureEnabled && isToolsOpen}
           className="fixed right-4 z-40 inline-flex h-14 min-h-[56px] w-14 min-w-[56px] items-center justify-center rounded-full border border-brand bg-brand text-white shadow-[0_14px_28px_rgba(0,0,0,0.42)] backdrop-blur transition hover:border-brand-dark hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           style={{ bottom: "calc(7.5rem + env(safe-area-inset-bottom))" }}
         >
@@ -481,37 +533,45 @@ export default function PublicProfileLocalScaffold({
           </svg>
         </button>
 
-        <nav
-          aria-label={mode === "owner" ? "Owner collection navigation" : "Public profile navigation"}
-          className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur"
-          style={{ paddingBottom: "max(0.65rem, env(safe-area-inset-bottom))" }}
-        >
-          <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-3 pt-2">
-            {mobileNavItems.map((item) => {
-              const isActive = isSectionActive(item);
+        {!hideBottomNav ? (
+          <nav
+            aria-label={mode === "owner" ? "Owner collection navigation" : "Public profile navigation"}
+            className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur"
+            style={{ paddingBottom: "max(0.65rem, env(safe-area-inset-bottom))" }}
+          >
+            {mobileBottomNavContent ? (
+              typeof mobileBottomNavContent === "function"
+                ? mobileBottomNavContent()
+                : mobileBottomNavContent
+            ) : (
+              <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-3 pt-2">
+                {mobileNavItems.map((item) => {
+                  const isActive = isSectionActive(item);
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-label={`Open ${item.label} section`}
-                  aria-current={isActive ? "page" : undefined}
-                  className={[
-                    "flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
-                    isActive
-                      ? "text-[var(--accent)]"
-                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
-                  ].join(" ")}
-                >
-                  <span className={["transition-transform duration-150 ease-out", isActive ? "scale-110" : "scale-100"].join(" ")}>
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-label={`Open ${item.label} section`}
+                      aria-current={isActive ? "page" : undefined}
+                      className={[
+                        "flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
+                        isActive
+                          ? "text-[var(--accent)]"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
+                      ].join(" ")}
+                    >
+                      <span className={["transition-transform duration-150 ease-out", isActive ? "scale-110" : "scale-100"].join(" ")}>
+                        {item.icon}
+                      </span>
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </nav>
+        ) : null}
       </div>
     </div>
   );

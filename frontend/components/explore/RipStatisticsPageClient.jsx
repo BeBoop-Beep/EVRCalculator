@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
+import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
@@ -16,6 +17,9 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 const REQUIRED_PACK_PATHS = ["normal", "demi_god_pack", "god_pack"];
+const ANALYSIS_SECTION_ID = "analysis-zone";
+const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "pack-breakdown"]);
+const SECTION_SCROLL_MARGIN = { scrollMarginTop: "6.5rem" };
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -295,12 +299,30 @@ function SectionCard({ title, subtitle, children }) {
   );
 }
 
-function TopHitRow({ name, evContribution, evShare, imageSmallUrl, imageLargeUrl }) {
-  const imageSrc = imageSmallUrl || imageLargeUrl || null;
+function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, imageLargeUrl }) {
+  const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
+  const [hasImageError, setHasImageError] = useState(false);
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [imageSrc]);
+
+  const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
+
   return (
     <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
       <div className="h-10 w-10 flex-none overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--surface-panel)]">
-        {imageSrc ? <img src={imageSrc} alt={name || "Card"} className="h-full w-full object-cover" /> : null}
+        {shouldRenderImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageSrc}
+            alt={name ? `${name} card image` : "Card image"}
+            loading="lazy"
+            decoding="async"
+            onError={() => setHasImageError(true)}
+            className="h-full w-full object-cover"
+          />
+        ) : null}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-[var(--text-primary)]">{name || "Unknown Card"}</p>
@@ -334,6 +356,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
             name={hit?.card_name}
             evContribution={hit?.ev_contribution}
             evShare={evShare}
+            imageUrl={hit?.image_url}
             imageSmallUrl={hit?.image_small_url}
             imageLargeUrl={hit?.image_large_url}
           />
@@ -507,6 +530,82 @@ function StateBars({ stateRows }) {
   );
 }
 
+function SectionNavigation({ items, activeSection, onSelect, mobile = false }) {
+  return (
+    <nav aria-label="RIP statistics section navigation" className={mobile ? "space-y-1" : "space-y-1.5"}>
+      {items.map((item) => {
+        const isActive = activeSection === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item.id)}
+            aria-current={isActive ? "location" : undefined}
+            className={[
+              "group flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-colors",
+              isActive
+                ? "border-[var(--border-subtle)] bg-[var(--surface-panel)] text-[var(--text-primary)]"
+                : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]",
+            ].join(" ")}
+          >
+            <span className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className={[
+                  "h-2 w-2 rounded-full transition-colors",
+                  isActive ? "bg-[var(--brand)]" : "bg-[var(--border-subtle)] group-hover:bg-[var(--text-secondary)]",
+                ].join(" ")}
+              />
+              <span className={mobile ? "text-sm font-medium" : "text-sm font-medium leading-tight"}>{item.label}</span>
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function CompactBottomSectionNav({ activeSection, onSelect }) {
+  const items = [
+    { id: "pack-score", label: "Score" },
+    { id: "outcome-distribution", label: "Outcomes" },
+    { id: "top-ev-drivers", label: "Drivers" },
+    { id: "rarity-contribution", label: "Rarity" },
+    { id: "advanced-metrics", label: "Advanced" },
+  ];
+
+  const isItemActive = (itemId) => {
+    if (itemId === "outcome-distribution") {
+      return GRAPH_SECTION_KEYS.has(activeSection) || activeSection === ANALYSIS_SECTION_ID;
+    }
+    return activeSection === itemId;
+  };
+
+  return (
+    <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-3 pt-2">
+      {items.map((item) => {
+        const isActive = isItemActive(item.id);
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item.id)}
+            aria-current={isActive ? "location" : undefined}
+            className={[
+              "flex items-center justify-center rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
+              isActive
+                ? "text-[var(--accent)]"
+                : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
+            ].join(" ")}
+          >
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function RipStatisticsPageClient({
   targetsPayload,
   selectedTarget,
@@ -547,6 +646,8 @@ export default function RipStatisticsPageClient({
 
   const [graphMode, setGraphMode] = useState("outcome-distribution");
   const [scoreMode, setScoreMode] = useState("relative");
+  const [activeSection, setActiveSection] = useState("pack-score");
+  const visibleSectionRatiosRef = useRef({});
 
   const normalStateRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.normal_pack_states),
@@ -556,6 +657,92 @@ export default function RipStatisticsPageClient({
   const timingRows = Object.entries(explorePayload?.meta?.timings || {}).filter(
     ([, value]) => toNumber(value) !== null
   );
+
+  const sectionNavItems = useMemo(
+    () => [
+      { id: "pack-score", label: "Pack Score" },
+      { id: "outcome-distribution", label: "Outcome Distribution" },
+      { id: "historical-trend", label: "Historical Trend" },
+      { id: "pack-breakdown", label: "Pack Breakdown" },
+      { id: "top-ev-drivers", label: "Top EV Drivers" },
+      { id: "rarity-contribution", label: "Rarity Contribution" },
+      { id: "advanced-metrics", label: "Advanced Metrics" },
+    ],
+    []
+  );
+
+  const resolveActiveSection = () => {
+    const currentVisibleEntries = Object.entries(visibleSectionRatiosRef.current).filter(([, ratio]) => ratio > 0);
+    if (currentVisibleEntries.length === 0) {
+      return null;
+    }
+
+    currentVisibleEntries.sort((left, right) => right[1] - left[1]);
+    const [mostVisibleId] = currentVisibleEntries[0];
+
+    if (mostVisibleId === ANALYSIS_SECTION_ID) {
+      return graphMode;
+    }
+
+    return mostVisibleId;
+  };
+
+  const handleSectionSelect = (sectionId) => {
+    if (GRAPH_SECTION_KEYS.has(sectionId) && graphMode !== sectionId) {
+      setGraphMode(sectionId);
+    }
+
+    setActiveSection(sectionId);
+
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const target = document.getElementById(sectionId);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  useEffect(() => {
+    const nextActiveSection = resolveActiveSection();
+    if (nextActiveSection) {
+      setActiveSection(nextActiveSection);
+    }
+  }, [graphMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          visibleSectionRatiosRef.current[entry.target.id] = entry.isIntersecting ? entry.intersectionRatio : 0;
+        });
+
+        const nextActiveSection = resolveActiveSection();
+        if (nextActiveSection) {
+          setActiveSection(nextActiveSection);
+        }
+      },
+      {
+        root: null,
+        rootMargin: "-18% 0px -52% 0px",
+        threshold: [0.15, 0.3, 0.5, 0.7],
+      }
+    );
+
+    ["pack-score", ANALYSIS_SECTION_ID, "top-ev-drivers", "rarity-contribution", "advanced-metrics"].forEach((sectionId) => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        observer.observe(element);
+      }
+    });
+
+    return () => observer.disconnect();
+  }, [explorePayload, pageError, graphMode]);
 
   const chartMarkers = [
     { key: "pack-cost", label: "Pack Cost", value: summary.pack_cost },
@@ -590,50 +777,156 @@ export default function RipStatisticsPageClient({
     });
   };
 
-  return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="dashboard-container space-y-8">
-        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4 sm:p-5">
-          <div className="grid gap-3 md:grid-cols-[11rem_minmax(0,1fr)_auto] md:items-end">
-            <div>
-              <label htmlFor="rip-statistics-tcg" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                TCG
-              </label>
-              <select
-                id="rip-statistics-tcg"
-                disabled
-                value="pokemon"
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2 text-sm text-[var(--text-primary)] opacity-80"
-              >
-                <option value="pokemon">Pokemon</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="rip-statistics-target" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                Set
-              </label>
-              <select
-                id="rip-statistics-target"
-                value={requestedTargetId || ""}
-                onChange={handleTargetChange}
-                disabled={isPending || targets.length === 0}
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-2 text-sm text-[var(--text-primary)]"
-              >
-                {targets.map((target) => (
-                  <option key={`${target.target_type}:${target.target_id}`} value={target.target_id}>
-                    {target.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="inline-flex h-fit items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs text-[var(--text-secondary)]">
-              Era: {selectedTarget?.era || "—"}
-            </div>
+  const desktopSidebarContent = (
+    <div className="space-y-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/72 p-4 backdrop-blur-sm">
+      <div>
+        <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+          Explore Controls
+        </p>
+        <div className="mt-3 space-y-3">
+          <div>
+            <label
+              htmlFor="sidebar-rip-tcg"
+              className="mb-1.5 block text-xs font-medium text-[var(--text-primary)]"
+            >
+              TCG
+            </label>
+            <select
+              id="sidebar-rip-tcg"
+              disabled
+              value="pokemon"
+              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] opacity-80 outline-none"
+            >
+              <option value="pokemon">Pokemon</option>
+            </select>
           </div>
-        </section>
+          <div>
+            <label
+              htmlFor="sidebar-rip-target"
+              className="mb-1.5 block text-xs font-medium text-[var(--text-primary)]"
+            >
+              Set
+            </label>
+            <select
+              id="sidebar-rip-target"
+              value={requestedTargetId || ""}
+              onChange={handleTargetChange}
+              disabled={isPending || targets.length === 0}
+              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+            >
+              {targets.map((target) => (
+                <option key={`${target.target_type}:${target.target_id}`} value={target.target_id}>
+                  {target.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedTarget?.era ? (
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-xs font-medium text-[var(--text-secondary)]">Era</span>
+              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]">
+                {selectedTarget.era}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
 
+      <div className="h-px w-full bg-[var(--border-subtle)]" />
+
+      <div>
+        <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+          Sections
+        </p>
+        <div className="mt-2">
+          <SectionNavigation
+            items={sectionNavItems}
+            activeSection={activeSection}
+            onSelect={handleSectionSelect}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMobileToolsPanelContent = () => (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+          Explore Controls
+        </p>
+        <div className="mt-2 space-y-3">
+          <div>
+            <label htmlFor="mobile-rip-tcg" className="mb-1 block text-xs font-medium text-[var(--text-primary)]">
+              TCG
+            </label>
+            <select
+              id="mobile-rip-tcg"
+              disabled
+              value="pokemon"
+              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] opacity-80 outline-none"
+            >
+              <option value="pokemon">Pokemon</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="mobile-rip-target" className="mb-1 block text-xs font-medium text-[var(--text-primary)]">
+              Set
+            </label>
+            <select
+              id="mobile-rip-target"
+              value={requestedTargetId || ""}
+              onChange={handleTargetChange}
+              disabled={isPending || targets.length === 0}
+              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+            >
+              {targets.map((target) => (
+                <option key={`${target.target_type}:${target.target_id}`} value={target.target_id}>
+                  {target.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedTarget?.era ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-[var(--text-secondary)]">Era:</span>
+              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+                {selectedTarget.era}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <main className="w-full pb-8 pt-4 lg:py-8">
+      <PublicProfileLocalScaffold
+        profileBaseHref="/Explore/rip-statistics"
+        mode="public"
+        sectionItems={[]}
+        mobileNavItems={[]}
+        desktopSidebarContent={desktopSidebarContent}
+        mobileToolsPanelContent={renderMobileToolsPanelContent}
+        mobileToolsTitle="Explore Filters & Navigation"
+        mobileToolsDescription="Switch TCG and set filters."
+        mobileToolsPanelAriaLabel="Explore filters and navigation"
+        mobileToolsTriggerLabel="Filters & Tools"
+        mobileToolsTriggerTitle="Open filters and navigation"
+        useFloatingToolsOnTablet
+        forceCompactToolsBelow2xl
+        centerContentIgnoringSidebar
+        desktopContentOffsetClassName="xl:flex xl:justify-center"
+        wrapDesktopContentInFrame={false}
+        mobileBottomNavContent={() => (
+          <CompactBottomSectionNav
+            activeSection={activeSection}
+            onSelect={handleSectionSelect}
+          />
+        )}
+      >
+        <div className="dashboard-container space-y-8">
         {pageError ? (
           <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6">
             <p className="text-base font-semibold text-[var(--text-primary)]">RIP Statistics unavailable</p>
@@ -643,7 +936,7 @@ export default function RipStatisticsPageClient({
 
         {!pageError && explorePayload ? (
           <>
-            <section className="page-hero-panel rounded-2xl px-6 py-8">
+            <section id="pack-score" style={SECTION_SCROLL_MARGIN} className="page-hero-panel rounded-2xl px-6 py-8">
               <div className="mx-auto max-w-3xl text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">RIP Statistics</p>
                 <h1 className="mt-2 text-3xl font-semibold text-[var(--text-primary)] sm:text-4xl">{selectedName}</h1>
@@ -700,7 +993,7 @@ export default function RipStatisticsPageClient({
             </section>
 
             <section className="pt-8">
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid gap-4 xl:grid-cols-3">
                 <ScorePillarCard
                   title="Profit"
                   score={displayedProfitScore}
@@ -757,7 +1050,10 @@ export default function RipStatisticsPageClient({
               </div>
             </section>
 
-            <section className="pt-7">
+            <section id={ANALYSIS_SECTION_ID} style={SECTION_SCROLL_MARGIN} className="pt-7">
+              <div id="outcome-distribution" style={SECTION_SCROLL_MARGIN} className="h-0" aria-hidden="true" />
+              <div id="historical-trend" style={SECTION_SCROLL_MARGIN} className="h-0" aria-hidden="true" />
+              <div id="pack-breakdown" style={SECTION_SCROLL_MARGIN} className="h-0" aria-hidden="true" />
               <SectionCard
                 title={
                   graphMode === "historical-trend"
@@ -774,12 +1070,13 @@ export default function RipStatisticsPageClient({
                     : "See how simulated pack outcomes are distributed across value ranges."
                 }
               >
-                <div className="mb-1.5 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+                <div className="mb-1.5 -mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0">
+                  <div className="inline-flex min-w-max items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
                   <button
                     type="button"
-                    onClick={() => setGraphMode("outcome-distribution")}
+                    onClick={() => handleSectionSelect("outcome-distribution")}
                     aria-pressed={graphMode === "outcome-distribution"}
-                    className={`min-w-[10.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                    className={`min-w-[7.75rem] rounded-md px-2 py-1.5 text-[10px] font-semibold leading-none transition-colors sm:min-w-[10.5rem] sm:px-3 sm:text-[11px] ${
                       graphMode === "outcome-distribution"
                         ? "bg-[var(--brand)] text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -789,9 +1086,9 @@ export default function RipStatisticsPageClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setGraphMode("historical-trend")}
+                    onClick={() => handleSectionSelect("historical-trend")}
                     aria-pressed={graphMode === "historical-trend"}
-                    className={`min-w-[9.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                    className={`min-w-[7.75rem] rounded-md px-2 py-1.5 text-[10px] font-semibold leading-none transition-colors sm:min-w-[9.5rem] sm:px-3 sm:text-[11px] ${
                       graphMode === "historical-trend"
                         ? "bg-[var(--brand)] text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -801,9 +1098,9 @@ export default function RipStatisticsPageClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setGraphMode("pack-breakdown")}
+                    onClick={() => handleSectionSelect("pack-breakdown")}
                     aria-pressed={graphMode === "pack-breakdown"}
-                    className={`min-w-[8.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                    className={`min-w-[7.25rem] rounded-md px-2 py-1.5 text-[10px] font-semibold leading-none transition-colors sm:min-w-[8.5rem] sm:px-3 sm:text-[11px] ${
                       graphMode === "pack-breakdown"
                         ? "bg-[var(--brand)] text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -811,6 +1108,7 @@ export default function RipStatisticsPageClient({
                   >
                     Pack Breakdown
                   </button>
+                  </div>
                 </div>
 
                 {graphMode === "historical-trend" ? (
@@ -844,16 +1142,20 @@ export default function RipStatisticsPageClient({
 
             <section className="space-y-6 pt-1">
               <div className="grid gap-4 xl:grid-cols-2">
-                <SectionCard title="Top EV Drivers" subtitle="These cards contribute the most to expected pack value.">
-                  <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
-                </SectionCard>
+                <div id="top-ev-drivers" style={SECTION_SCROLL_MARGIN}>
+                  <SectionCard title="Top EV Drivers" subtitle="These cards contribute the most to expected pack value.">
+                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                  </SectionCard>
+                </div>
 
-                <SectionCard title="Rarity Pull Contribution" subtitle={null}>
-                  <RarityContributionContent rankings={rankings} />
-                </SectionCard>
+                <div id="rarity-contribution" style={SECTION_SCROLL_MARGIN}>
+                  <SectionCard title="Rarity Pull Contribution" subtitle={null}>
+                    <RarityContributionContent rankings={rankings} />
+                  </SectionCard>
+                </div>
               </div>
 
-              <details className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
+              <details id="advanced-metrics" style={SECTION_SCROLL_MARGIN} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
                 <summary className="cursor-pointer list-none text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</summary>
                 <div className="mt-4 space-y-5">
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -903,7 +1205,8 @@ export default function RipStatisticsPageClient({
             </section>
           </>
         ) : null}
-      </div>
+        </div>
+      </PublicProfileLocalScaffold>
     </main>
   );
 }
