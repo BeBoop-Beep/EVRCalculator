@@ -678,8 +678,8 @@ _SAFETY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "p05_shortfall_to_cost": 33.0,
 }
 _STABILITY_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "coefficient_of_variation": 50.0,
-    "effective_chase_count": 50.0,
+    "coefficient_of_variation": 65.0,
+    "effective_chase_count": 35.0,
 }
 _PACK_SCORE_V2_WEIGHTS_PCT: Dict[str, float] = {
     "profit_score": 45.0,
@@ -733,7 +733,7 @@ _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
     },
     "effective_chase_count": {
         "min": 1.0,
-        "max": 20.0,
+        "max": 40.0,
         "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
     },
 }
@@ -1199,8 +1199,8 @@ def _build_runtime_v2_pack_score_payload(
     )
 
     return {
-        "score_version": "pack_score_v2_2_runtime",
-        "normalization_mode": "fixed_anchor_runtime_v2_2",
+        "score_version": "pack_score_v2_3_runtime",
+        "normalization_mode": "fixed_anchor_runtime_v2_3",
         "pack_score_is_placeholder": False,
         "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
         "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
@@ -1704,6 +1704,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
             "pack_score_v2_runtime",
             "pack_score_v2_1_runtime",
             "pack_score_v2_2_runtime",
+            "pack_score_v2_3_runtime",
         }:
             print()
             print("[PACK_SCORE_V2_RUNTIME]")
