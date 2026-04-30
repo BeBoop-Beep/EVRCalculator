@@ -5,11 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
+import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import InfoPopover from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
-import { getPackScoreInsight, getFriendlyMetricLabel, getScoreTootip, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
+import { getFriendlyMetricLabel, getScoreTootip, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -227,7 +228,18 @@ function MetricRow({ label, value, infoText }) {
   );
 }
 
-function ScorePillarCard({ title, score, rankValue, rankTier, signals, contextMetrics, infoText, rankLabel }) {
+function ScorePillarCard({
+  title,
+  score,
+  rankValue,
+  rankTier,
+  signals,
+  contextMetrics,
+  infoText,
+  rankLabel,
+  sectionMeta,
+  fallbackSummary,
+}) {
   const parsedRank = toNumber(rankValue);
   const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
   const flattenedMetrics = [...signals, ...contextMetrics];
@@ -246,6 +258,14 @@ function ScorePillarCard({ title, score, rankValue, rankTier, signals, contextMe
       </div>
 
       <ScoreMeter score={score} rankTier={rankTier} />
+
+      <InterpretationInsight
+        sectionMeta={sectionMeta}
+        fallbackSummary={fallbackSummary}
+        compact
+        showEvidence={false}
+        className="mt-3"
+      />
 
       <div className="mt-5 h-px w-full bg-[var(--border-subtle)]" />
 
@@ -563,16 +583,39 @@ function SectionNavigation({ items, activeSection, onSelect, mobile = false }) {
   );
 }
 
-function PackScoreInsight({ tier }) {
-  const insight = getPackScoreInsight(tier);
-  if (!insight || !insight.insight) {
-    return null;
-  }
-  return (
-    <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
-      {insight.insight}
-    </p>
-  );
+function buildEvidenceMap(sectionMeta) {
+  const evidence = Array.isArray(sectionMeta?.evidence) ? sectionMeta.evidence : [];
+  const mapping = {};
+  evidence.forEach((item) => {
+    if (!item?.label) {
+      return;
+    }
+    mapping[String(item.label).toLowerCase()] = item.value;
+  });
+  return mapping;
+}
+
+function getPackBreakdownEvidence(sectionMeta) {
+  const evidenceMap = buildEvidenceMap(sectionMeta);
+  const rows = [
+    ["Dominant path", evidenceMap["dominant path"]],
+    ["Dominant path share", evidenceMap["dominant path share"]],
+    ["Special path share", evidenceMap["special path share"]],
+  ];
+
+  return rows.filter(([, value]) => value !== null && value !== undefined && String(value).trim() && String(value) !== "N/A" && String(value) !== "—");
+}
+
+function getTopEvEvidence(sectionMeta) {
+  const evidenceMap = buildEvidenceMap(sectionMeta);
+  const rows = [
+    ["Leading card", evidenceMap["leading card"]],
+    ["Top card EV share", evidenceMap["top card ev share"]],
+    ["Top 3 EV share", evidenceMap["top 3 ev share"]],
+    ["Leading value group", evidenceMap["leading value group"]],
+  ];
+
+  return rows.filter(([, value]) => value !== null && value !== undefined && String(value).trim() && String(value) !== "N/A" && String(value) !== "—");
 }
 
 function CompactBottomSectionNav({ activeSection, onSelect }) {
@@ -638,6 +681,19 @@ export default function RipStatisticsPageClient({
   const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
   const ripStatistics = explorePayload?.rip_statistics;
+  const interpretation = explorePayload?.interpretation || {};
+  const interpretationMeta = interpretation?.meta || {};
+  const packScoreMeta = interpretationMeta?.packScore;
+  const profitMeta = interpretationMeta?.profit;
+  const safetyMeta = interpretationMeta?.safety;
+  const stabilityMeta = interpretationMeta?.stability;
+  const outcomeDistributionMeta = interpretationMeta?.outcomeDistribution;
+  const historicalTrendMeta = interpretationMeta?.historicalTrend;
+  const packBreakdownMeta = interpretationMeta?.packBreakdown;
+  const topEvDriversMeta = interpretationMeta?.topEvDrivers;
+  const rarityContributionMeta = interpretationMeta?.rarityContribution;
+  const advancedMetricsMeta = interpretationMeta?.advancedMetrics;
+
   const warnings = [
     ...(targetsPayload?.meta?.warnings || []),
     ...(explorePayload?.meta?.warnings || []),
@@ -660,6 +716,30 @@ export default function RipStatisticsPageClient({
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
   const visibleSectionRatiosRef = useRef({});
   const heroSetPickerRef = useRef(null);
+
+  const graphSectionMeta =
+    graphMode === "historical-trend"
+      ? historicalTrendMeta
+      : graphMode === "pack-breakdown"
+      ? packBreakdownMeta
+      : outcomeDistributionMeta;
+
+  const graphSectionFallback =
+    graphMode === "historical-trend"
+      ? interpretation?.historicalTrend
+      : graphMode === "pack-breakdown"
+      ? interpretation?.packBreakdown
+      : interpretation?.outcomeDistribution;
+
+  const packBreakdownEvidenceRows = useMemo(
+    () => getPackBreakdownEvidence(packBreakdownMeta),
+    [packBreakdownMeta]
+  );
+
+  const topEvEvidenceRows = useMemo(
+    () => getTopEvEvidence(topEvDriversMeta),
+    [topEvDriversMeta]
+  );
 
   const normalStateRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.normal_pack_states),
@@ -1069,7 +1149,15 @@ export default function RipStatisticsPageClient({
                     }
                   />
                 </div>
-                <PackScoreInsight tier={summary.pack_tier} />
+
+                <InterpretationInsight
+                  sectionMeta={packScoreMeta}
+                  fallbackSummary={interpretation?.packScore}
+                  showEvidence
+                  maxEvidence={5}
+                  showAllWhenExpanded
+                  className="mx-auto mt-3 w-full max-w-2xl"
+                />
 
                 <div className="mx-auto mt-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
                   <button
@@ -1108,6 +1196,8 @@ export default function RipStatisticsPageClient({
                   rankValue={summary.profit_rank}
                   rankTier={summary.profit_tier}
                   rankLabel="Profit Rank"
+                  sectionMeta={profitMeta}
+                  fallbackSummary={null}
                   infoText={getFormattedTooltip("Profit")}
                   signals={[
                     { label: "Probability of Profit", value: formatPercent(summary.prob_profit, { probability: true }) },
@@ -1126,6 +1216,8 @@ export default function RipStatisticsPageClient({
                   rankValue={summary.safety_rank}
                   rankTier={summary.safety_tier}
                   rankLabel="Safety Rank"
+                  sectionMeta={safetyMeta}
+                  fallbackSummary={null}
                   infoText={getFormattedTooltip("Safety")}
                   signals={[
                     { label: "Expected Loss When Losing / Cost", value: formatPercent(expectedLossWhenLosingFraction, { probability: true }) },
@@ -1143,6 +1235,8 @@ export default function RipStatisticsPageClient({
                   rankValue={summary.stability_rank}
                   rankTier={summary.stability_tier}
                   rankLabel="Stability Rank"
+                  sectionMeta={stabilityMeta}
+                  fallbackSummary={null}
                   infoText={getFormattedTooltip("Stability")}
                   signals={[
                     { label: "Coefficient of Variation", value: formatNumber(summary.coefficient_of_variation, 2) },
@@ -1219,6 +1313,28 @@ export default function RipStatisticsPageClient({
                   </div>
                 </div>
 
+                <InterpretationInsight
+                  sectionMeta={graphSectionMeta}
+                  fallbackSummary={graphSectionFallback}
+                  compact
+                  showEvidence={false}
+                  className="mb-3"
+                />
+
+                {graphMode === "pack-breakdown" && packBreakdownEvidenceRows.length > 0 ? (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {packBreakdownEvidenceRows.map(([label, value]) => (
+                      <span
+                        key={`${label}:${value}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                      >
+                        <span className="text-[var(--text-secondary)]">{label}</span>
+                        <span className="font-medium text-[var(--text-primary)]">{String(value)}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
                 {graphMode === "historical-trend" ? (
                   <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} />
                 ) : graphMode === "pack-breakdown" ? (
@@ -1252,6 +1368,28 @@ export default function RipStatisticsPageClient({
               <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
                 <div id="top-ev-drivers" style={SECTION_SCROLL_MARGIN}>
                   <SectionCard title="Top EV Drivers" subtitle="These cards contribute the most to expected pack value.">
+                    <InterpretationInsight
+                      sectionMeta={topEvDriversMeta}
+                      fallbackSummary={interpretation?.topEvDrivers}
+                      compact
+                      showEvidence={false}
+                      className="mb-3"
+                    />
+
+                    {topEvEvidenceRows.length > 0 ? (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {topEvEvidenceRows.map(([label, value]) => (
+                          <span
+                            key={`${label}:${value}`}
+                            className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                          >
+                            <span>{label}</span>
+                            <span className="font-medium text-[var(--text-primary)]">{String(value)}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
                     <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
                   </SectionCard>
                 </div>
@@ -1259,6 +1397,14 @@ export default function RipStatisticsPageClient({
                 <div className="space-y-4">
                   <div id="rarity-contribution" style={SECTION_SCROLL_MARGIN}>
                     <SectionCard title="Rarity Pull Contribution" subtitle={null}>
+                      <InterpretationInsight
+                        sectionMeta={rarityContributionMeta}
+                        fallbackSummary={interpretation?.rarityContribution}
+                        compact
+                        showEvidence
+                        maxEvidence={4}
+                        className="mb-3"
+                      />
                       <RarityContributionContent rankings={rankings} />
                     </SectionCard>
                   </div>
@@ -1284,6 +1430,16 @@ export default function RipStatisticsPageClient({
                       }
                     `}</style>
                     <p className="mt-1 text-sm text-[var(--text-secondary)]">Deeper technical indicators for experienced users</p>
+
+                    <InterpretationInsight
+                      sectionMeta={advancedMetricsMeta}
+                      fallbackSummary={interpretation?.advancedMetrics}
+                      compact
+                      showEvidence
+                      maxEvidence={5}
+                      className="mt-3"
+                    />
+
                     <div className="mt-4 space-y-5">
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         <StatTile label="Expected Loss Per Pack" value={formatCurrency(summary.expected_loss_per_pack)} valueClassName="text-base" />

@@ -7,6 +7,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
 
@@ -629,7 +630,7 @@ def get_explore_page_payload(
     try:
         top_hits_result = (
             public_read_client.table("simulation_input_cards")
-            .select("card_id,card_variant_id,card_name,ev_contribution")
+            .select("card_id,card_variant_id,card_name,rarity_bucket,ev_contribution")
             .eq("calculation_run_id", run_id)
             .order("ev_contribution", desc=True)
             .limit(clamped_top_hits_limit)
@@ -677,6 +678,19 @@ def get_explore_page_payload(
 
     total_ms = (time.perf_counter() - total_started) * 1000
 
+    interpretation = build_rip_interpretation(
+        {
+            "summary": summary,
+            "rankings": rankings,
+            "rip_statistics": rip_statistics,
+            "percentiles": percentiles,
+            "distribution_bins": distribution_bins,
+            "threshold_bins": threshold_bins,
+            "top_hits": top_hits,
+            "history_trend": history_trend,
+        }
+    )
+
     return {
         "summary": summary,
         "rankings": rankings,
@@ -686,6 +700,7 @@ def get_explore_page_payload(
         "threshold_bins": threshold_bins,
         "top_hits": top_hits,
         "history_trend": history_trend,
+        "interpretation": interpretation,
         "meta": {
             "request": {
                 "target_type": requested_target_type,
