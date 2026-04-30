@@ -1,0 +1,96 @@
+import Image from "next/image";
+import Link from "next/link";
+
+const NAV_COLUMNS = [
+  {
+    heading: "Product",
+    links: [
+      { label: "Explore", href: "/Explore" },
+      { label: "TCGs", href: "/TCGs" },
+      { label: "Learn", href: "/Learn" },
+      { label: "My Portfolio", href: "/my-collection" },
+    ],
+  },
+  {
+    heading: "Company",
+    links: [
+      { label: "About", href: "#" },
+      { label: "Blog", href: "#" },
+      { label: "Careers", href: "#" },
+      { label: "Contact", href: "#" },
+    ],
+  },
+  {
+    heading: "Legal",
+    links: [
+      { label: "Terms of Service", href: "#" },
+      { label: "Privacy Policy", href: "#" },
+      { label: "Cookie Policy", href: "#" },
+    ],
+  },
+  {
+    heading: "Support",
+    links: [
+      { label: "Help Center", href: "#" },
+      { label: "Contact Us", href: "#" },
+      { label: "Status", href: "#" },
+    ],
+  },
+];
+
+export default function Footer() {
+  return (
+    <footer className="border-t border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)]">
+      <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
+        {/* Main grid */}
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+          {/* Brand column */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Image
+                src="/images/inDex.png"
+                alt="inDex logo"
+                width={40}
+                height={40}
+                className="rounded-sm opacity-90"
+              />
+              <span className="text-base font-semibold text-[var(--text-primary)]">inDex</span>
+            </div>
+            <p className="text-sm leading-relaxed">
+              The intelligence layer for collectible portfolios.
+            </p>
+            <p className="text-sm leading-relaxed">
+              Built for collectors who think like investors.
+            </p>
+          </div>
+
+          {/* Nav columns */}
+          {NAV_COLUMNS.map((col) => (
+            <div key={col.heading}>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-primary)]">
+                {col.heading}
+              </p>
+              <ul className="space-y-3">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="text-sm transition-colors hover:text-[var(--text-primary)]"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom row */}
+        <div className="mt-12 border-t border-[var(--border-subtle)] pt-6 text-center text-xs text-[var(--text-secondary)]">
+          © 2025 inDex. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  );
+}

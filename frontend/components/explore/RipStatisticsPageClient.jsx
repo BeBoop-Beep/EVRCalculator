@@ -6,8 +6,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
+import InfoPopover from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
+import { getPackScoreInsight, getFriendlyMetricLabel, getScoreTootip, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -166,26 +168,28 @@ function ScoreMeter({ score, rankTier }) {
   const parsed = Number(score);
   const width = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
   const edgeColor = getTierEdgeColor(rankTier);
+  const endColor = edgeColor || "rgba(94,234,212,0.98)";
+  const transitionColor = withAlpha(endColor, 0.54);
+  const brightEndColor = withAlpha(endColor, 0.74);
+  const glowColor = withAlpha(endColor, 0.42);
   return (
     <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
       <div
         className="relative h-full overflow-hidden rounded-full"
         style={{
           width: `${width}%`,
-          background: "linear-gradient(90deg, rgba(20,184,166,0.7) 0%, rgba(94,234,212,0.95) 100%)",
-          boxShadow: width > 0 ? "0 0 6px 1px rgba(20,184,166,0.45)" : "none",
+          background: `linear-gradient(90deg, rgba(20,184,166,0.66) 0%, rgba(45,212,191,0.82) 50%, ${transitionColor} 85%, ${brightEndColor} 100%)`,
+          boxShadow: width > 0 ? `0 0 4px 0px rgba(20,184,166,0.22), inset 0 0 2px ${withAlpha(endColor, 0.12)}` : "none",
         }}
       >
-        {edgeColor && width > 0 ? (
+        {width > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute inset-y-0 right-0 rounded-r-full"
+            className="absolute top-1/2 right-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full"
             style={{
-              width: "8%",
-              minWidth: "4px",
-              maxWidth: "12px",
-              background: `linear-gradient(90deg, ${withAlpha(edgeColor, 0)} 0%, ${edgeColor} 100%)`,
-              opacity: 0.95,
+              background: brightEndColor,
+              boxShadow: `0 0 3px ${glowColor}`,
+              opacity: 0.9,
             }}
           />
         ) : null}
@@ -210,39 +214,15 @@ function HorizontalBar({ widthPercent, nonzeroMin = 2 }) {
   );
 }
 
-function MetricRow({ label, value }) {
+function MetricRow({ label, value, infoText }) {
+  const friendlyLabel = getFriendlyMetricLabel(label);
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] py-2 last:border-b-0 last:pb-0 first:pt-0">
-      <span className="text-sm text-[var(--text-secondary)]">{label}</span>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className="text-sm text-[var(--text-secondary)]">{friendlyLabel}</span>
+        {infoText ? <InfoPopover text={infoText} /> : null}
+      </div>
       <span className="text-sm font-medium text-[var(--text-primary)]">{value}</span>
-    </div>
-  );
-}
-
-function InfoPopover({ text }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative flex-none">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-        aria-label="More info"
-        className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] transition-all hover:border-[rgba(20,184,166,0.6)] hover:text-[rgba(20,184,166,0.95)] hover:shadow-[0_0_6px_rgba(20,184,166,0.35)]"
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <circle cx="6" cy="6" r="5.5" stroke="currentColor" />
-          <text x="6" y="9" textAnchor="middle" fontSize="7.5" fill="currentColor" fontWeight="600">i</text>
-        </svg>
-      </button>
-      {open ? (
-        <div
-          role="tooltip"
-          className="absolute left-0 top-7 z-20 w-64 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 text-xs leading-relaxed text-[var(--text-secondary)] shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
-        >
-          {text}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -258,7 +238,7 @@ function ScorePillarCard({ title, score, rankValue, rankTier, signals, contextMe
         <div className="flex min-w-0 items-center gap-2.5">
           <h3 className="text-base font-semibold tracking-[0.01em] text-[var(--text-secondary)]">{title}</h3>
           <p className="text-2xl font-bold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
-          <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} />
+          <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} size="supporting" subtle />
         </div>
         <div className="flex flex-none items-center gap-1">
           {infoText ? <InfoPopover text={infoText} /> : null}
@@ -271,18 +251,23 @@ function ScorePillarCard({ title, score, rankValue, rankTier, signals, contextMe
 
       <div className="mt-3 flex-1 space-y-1">
         {flattenedMetrics.map((metric) => (
-          <MetricRow key={metric.label} label={metric.label} value={metric.value} />
+          <MetricRow
+            key={metric.label}
+            label={metric.label}
+            value={metric.value}
+            infoText={getMetricTooltip(metric.label)}
+          />
         ))}
       </div>
     </article>
   );
 }
 
-function StatTile({ label, value }) {
+function StatTile({ label, value, valueClassName = "text-lg" }) {
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{value}</p>
+      <p className={`mt-2 font-semibold text-[var(--text-primary)] ${valueClassName}`}>{value}</p>
     </div>
   );
 }
@@ -311,7 +296,7 @@ function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, ima
 
   return (
     <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-      <div className="h-10 w-10 flex-none overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--surface-panel)]">
+      <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
         {shouldRenderImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -320,7 +305,7 @@ function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, ima
             loading="lazy"
             decoding="async"
             onError={() => setHasImageError(true)}
-            className="h-full w-full object-cover"
+            className="h-full w-full rounded-[5px] object-contain"
           />
         ) : null}
       </div>
@@ -339,6 +324,10 @@ function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, ima
 function TopEVDriversContent({ topHits, meanValue }) {
   const hits = Array.isArray(topHits) ? topHits : [];
   const totalEV = toNumber(meanValue);
+  const visibleTopEV = hits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
+  const hasPackTotalEV = totalEV !== null;
+  const totalLabel = hasPackTotalEV ? "Total Pack EV" : "Top 10 EV";
+  const totalValue = hasPackTotalEV ? totalEV : visibleTopEV;
 
   if (hits.length === 0) {
     return <p className="text-sm text-[var(--text-secondary)]">No top EV driver rows are available.</p>;
@@ -346,6 +335,9 @@ function TopEVDriversContent({ topHits, meanValue }) {
 
   return (
     <div className="space-y-2">
+      <p className="mb-2 text-xs text-[var(--text-secondary)]">
+        {totalLabel}: {formatCurrency(totalValue)}
+      </p>
       {hits.map((hit) => {
         const ev = toNumber(hit?.ev_contribution);
         const evShare = ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null;
@@ -416,6 +408,12 @@ function RarityContributionContent({ rankings }) {
           Pull Frequency
         </button>
       </div>
+
+      <p className="mb-3 text-xs text-[var(--text-secondary)]">
+        {mode === "ev"
+          ? `Total EV Represented: ${formatCurrency(evRows.totalEV)}`
+          : `Total Pull Events: ${pullRows.totalPulls.toLocaleString("en-US")} pulls`}
+      </p>
 
       {mode === "ev" ? (
         <div className="space-y-3">
@@ -565,6 +563,18 @@ function SectionNavigation({ items, activeSection, onSelect, mobile = false }) {
   );
 }
 
+function PackScoreInsight({ tier }) {
+  const insight = getPackScoreInsight(tier);
+  if (!insight || !insight.insight) {
+    return null;
+  }
+  return (
+    <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+      {insight.insight}
+    </p>
+  );
+}
+
 function CompactBottomSectionNav({ activeSection, onSelect }) {
   const items = [
     { id: "pack-score", label: "Score" },
@@ -647,7 +657,9 @@ export default function RipStatisticsPageClient({
   const [graphMode, setGraphMode] = useState("outcome-distribution");
   const [scoreMode, setScoreMode] = useState("relative");
   const [activeSection, setActiveSection] = useState("pack-score");
+  const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
   const visibleSectionRatiosRef = useRef({});
+  const heroSetPickerRef = useRef(null);
 
   const normalStateRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.normal_pack_states),
@@ -764,8 +776,7 @@ export default function RipStatisticsPageClient({
   const displayedStabilityScore =
     scoreMode === "relative" ? summary.relative_stability_score : summary.stability_score;
 
-  const handleTargetChange = (event) => {
-    const nextTargetId = String(event.target.value || "").trim();
+  const handleTargetIdChange = (nextTargetId) => {
     if (!nextTargetId) {
       return;
     }
@@ -776,6 +787,43 @@ export default function RipStatisticsPageClient({
       router.push(`${pathname}?${nextParams.toString()}`);
     });
   };
+
+  const handleTargetChange = (event) => {
+    const nextTargetId = String(event.target.value || "").trim();
+    handleTargetIdChange(nextTargetId);
+  };
+
+  useEffect(() => {
+    if (!heroSetPickerOpen || typeof document === "undefined") {
+      return undefined;
+    }
+
+    const handleOutsideClick = (event) => {
+      if (!heroSetPickerRef.current?.contains(event.target)) {
+        setHeroSetPickerOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setHeroSetPickerOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick, { passive: true });
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [heroSetPickerOpen]);
+
+  useEffect(() => {
+    setHeroSetPickerOpen(false);
+  }, [requestedTargetId]);
 
   const desktopSidebarContent = (
     <div className="space-y-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/72 p-4 backdrop-blur-sm">
@@ -939,11 +987,70 @@ export default function RipStatisticsPageClient({
             <section id="pack-score" style={SECTION_SCROLL_MARGIN} className="page-hero-panel rounded-2xl px-6 py-8">
               <div className="mx-auto max-w-3xl text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">RIP Statistics</p>
-                <h1 className="mt-2 text-3xl font-semibold text-[var(--text-primary)] sm:text-4xl">{selectedName}</h1>
+                <div ref={heroSetPickerRef} className="relative mt-2 inline-flex max-w-full justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setHeroSetPickerOpen((open) => !open)}
+                    disabled={isPending || targets.length === 0}
+                    aria-expanded={heroSetPickerOpen}
+                    aria-haspopup="listbox"
+                    aria-controls="hero-set-picker-list"
+                    className="inline-flex max-w-full items-center gap-2 rounded-lg px-2 py-1 text-3xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:text-4xl disabled:cursor-not-allowed disabled:opacity-90"
+                    title={targets.length > 0 ? "Switch set" : "No sets available"}
+                  >
+                    <span className="truncate">{selectedName}</span>
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 20 20"
+                      className={`h-4 w-4 flex-none text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
+                      fill="currentColor"
+                    >
+                      <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                    </svg>
+                  </button>
+
+                  {heroSetPickerOpen ? (
+                    <div
+                      id="hero-set-picker-list"
+                      role="listbox"
+                      aria-label="Available sets"
+                      className="absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
+                    >
+                      {targets.map((target) => {
+                        const isSelected = String(target.target_id) === String(requestedTargetId || "");
+                        return (
+                          <button
+                            key={`hero-set-option:${target.target_type}:${target.target_id}`}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              handleTargetIdChange(String(target.target_id || ""));
+                              setHeroSetPickerOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                              isSelected
+                                ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
+                                : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                            }`}
+                          >
+                            <span className="truncate">{target.name}</span>
+                            {isSelected ? (
+                              <span className="ml-2 text-xs font-medium text-[var(--accent)]">Current</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className="mt-6 flex flex-col items-center gap-1.5">
                   <p className="text-[clamp(3rem,10vw,5rem)] font-semibold leading-tight text-[var(--text-primary)]">{displayedTopScore}</p>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Pack Score</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Pack Score</p>
+                    <InfoPopover text={getFormattedTooltip("Pack Score")} />
+                  </div>
                 </div>
 
                 <div className="mx-auto mt-4 w-full max-w-md">
@@ -954,7 +1061,7 @@ export default function RipStatisticsPageClient({
                   <RankBadge
                     rank={summary.pack_tier}
                     label="Pack Rank"
-                    subtle
+                    size="hero"
                     title={
                       summary.pack_rank === null || summary.pack_rank === undefined
                         ? "Pack Rank unavailable"
@@ -962,6 +1069,7 @@ export default function RipStatisticsPageClient({
                     }
                   />
                 </div>
+                <PackScoreInsight tier={summary.pack_tier} />
 
                 <div className="mx-auto mt-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
                   <button
@@ -1000,7 +1108,7 @@ export default function RipStatisticsPageClient({
                   rankValue={summary.profit_rank}
                   rankTier={summary.profit_tier}
                   rankLabel="Profit Rank"
-                  infoText="Profit estimates upside relative to pack cost using simulated value, median-to-cost, and profit probability signals."
+                  infoText={getFormattedTooltip("Profit")}
                   signals={[
                     { label: "Probability of Profit", value: formatPercent(summary.prob_profit, { probability: true }) },
                     { label: "EV / Mean Value", value: formatNumber(meanValueToCostRatio, 2) },
@@ -1008,8 +1116,8 @@ export default function RipStatisticsPageClient({
                     { label: "P95-to-Cost Ratio", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
                   ]}
                   contextMetrics={[
-                    { label: "ROI", value: formatPercent(summary.roi_percent) },
                     { label: "Pack Cost", value: formatCurrency(summary.pack_cost) },
+                    { label: "ROI", value: formatPercent(summary.roi_percent) },
                   ]}
                 />
                 <ScorePillarCard
@@ -1018,7 +1126,7 @@ export default function RipStatisticsPageClient({
                   rankValue={summary.safety_rank}
                   rankTier={summary.safety_tier}
                   rankLabel="Safety Rank"
-                  infoText="Safety estimates downside protection by looking at expected losses, tail value, and how often packs miss."
+                  infoText={getFormattedTooltip("Safety")}
                   signals={[
                     { label: "Expected Loss When Losing / Cost", value: formatPercent(expectedLossWhenLosingFraction, { probability: true }) },
                     { label: "Median Loss When Losing / Cost", value: formatPercent(medianLossWhenLosingFraction, { probability: true }) },
@@ -1035,7 +1143,7 @@ export default function RipStatisticsPageClient({
                   rankValue={summary.stability_rank}
                   rankTier={summary.stability_tier}
                   rankLabel="Stability Rank"
-                  infoText="Stability estimates how concentrated or volatile outcomes are. Higher stability means returns are less dependent on a tiny number of chase hits."
+                  infoText={getFormattedTooltip("Stability")}
                   signals={[
                     { label: "Coefficient of Variation", value: formatNumber(summary.coefficient_of_variation, 2) },
                     { label: "HHI EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
@@ -1112,7 +1220,7 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {graphMode === "historical-trend" ? (
-                  <PackValueHistoryChart historyTrend={historyTrend} />
+                  <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} />
                 ) : graphMode === "pack-breakdown" ? (
                   <div className="grid gap-5 md:grid-cols-2">
                     <div>
@@ -1140,39 +1248,60 @@ export default function RipStatisticsPageClient({
               </SectionCard>
             </section>
 
-            <section className="space-y-6 pt-1">
-              <div className="grid gap-4 xl:grid-cols-2">
+            <section className="pt-1">
+              <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
                 <div id="top-ev-drivers" style={SECTION_SCROLL_MARGIN}>
                   <SectionCard title="Top EV Drivers" subtitle="These cards contribute the most to expected pack value.">
                     <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
                   </SectionCard>
                 </div>
 
-                <div id="rarity-contribution" style={SECTION_SCROLL_MARGIN}>
-                  <SectionCard title="Rarity Pull Contribution" subtitle={null}>
-                    <RarityContributionContent rankings={rankings} />
-                  </SectionCard>
+                <div className="space-y-4">
+                  <div id="rarity-contribution" style={SECTION_SCROLL_MARGIN}>
+                    <SectionCard title="Rarity Pull Contribution" subtitle={null}>
+                      <RarityContributionContent rankings={rankings} />
+                    </SectionCard>
+                  </div>
+
+                  <details id="advanced-metrics" style={SECTION_SCROLL_MARGIN} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-5 sm:p-6 group">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-1 transition-colors hover:text-white">
+                      <span className="text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</span>
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 20 20"
+                        className="h-5 w-5 flex-none text-[var(--text-secondary)] transition-transform duration-150"
+                        fill="currentColor"
+                      >
+                        <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                      </svg>
+                    </summary>
+                    <style>{`
+                      #advanced-metrics svg {
+                        transform: rotate(0deg);
+                      }
+                      #advanced-metrics[open] svg {
+                        transform: rotate(180deg);
+                      }
+                    `}</style>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">Deeper technical indicators for experienced users</p>
+                    <div className="mt-4 space-y-5">
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <StatTile label="Expected Loss Per Pack" value={formatCurrency(summary.expected_loss_per_pack)} valueClassName="text-base" />
+                        <StatTile label="Expected Loss When Losing" value={formatCurrency(summary.expected_loss_when_losing)} valueClassName="text-base" />
+                        <StatTile label="Median Loss When Losing" value={formatCurrency(summary.median_loss_when_losing)} valueClassName="text-base" />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <StatTile label="Coefficient of Variation" value={formatNumber(summary.coefficient_of_variation, 2)} valueClassName="text-base" />
+                        <StatTile label="P95 Value / Cost Ratio" value={formatNumber(summary.p95_value_to_cost_ratio, 2)} valueClassName="text-base" />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <StatTile label="HHI EV Concentration" value={formatNumber(summary.hhi_ev_concentration, 3)} valueClassName="text-base" />
+                        <StatTile label="Effective Chase Count" value={formatNumber(summary.effective_chase_count, 2)} valueClassName="text-base" />
+                      </div>
+                    </div>
+                  </details>
                 </div>
               </div>
-
-              <details id="advanced-metrics" style={SECTION_SCROLL_MARGIN} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
-                <summary className="cursor-pointer list-none text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</summary>
-                <div className="mt-4 space-y-5">
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatTile label="Expected Loss Per Pack" value={formatCurrency(summary.expected_loss_per_pack)} />
-                    <StatTile label="Expected Loss When Losing" value={formatCurrency(summary.expected_loss_when_losing)} />
-                    <StatTile label="Median Loss When Losing" value={formatCurrency(summary.median_loss_when_losing)} />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatTile label="Coefficient of Variation" value={formatNumber(summary.coefficient_of_variation, 2)} />
-                    <StatTile label="HHI EV Concentration" value={formatNumber(summary.hhi_ev_concentration, 3)} />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatTile label="P95 Value / Cost Ratio" value={formatNumber(summary.p95_value_to_cost_ratio, 2)} />
-                    <StatTile label="Effective Chase Count" value={formatNumber(summary.effective_chase_count, 2)} />
-                  </div>
-                </div>
-              </details>
             </section>
 
             {warnings.length > 0 ? (

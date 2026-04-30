@@ -12,6 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissing
 from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from pydantic import BaseModel  # type: ignore[reportMissingImports]
 
+from backend.db.services.waitlist_signup_service import (
+    insert_waitlist_signup,
+    verify_waitlist_signup_token,
+)
 from backend.db.services.collection_holdings_service import mutate_holding
 from backend.db.services.collection_freshness_service import ensure_fresh_user_collection_summary
 from backend.db.services.collection_portfolio_service import (
@@ -71,6 +75,15 @@ class HoldingMutateRequest(BaseModel):
     holding_type: str   # "card" | "sealed_product" | "graded_card"
     holding_id: str
     action: str         # "increment" | "decrement" | "remove"
+
+
+class WaitlistSignupRequest(BaseModel):
+    email: str
+    source: str = "landing_page"
+
+
+class WaitlistVerifyRequest(BaseModel):
+    token: str
 
 
 def _auth_env_presence() -> Dict[str, bool]:
@@ -227,6 +240,33 @@ async def collection_holdings_mutate(
     if error:
         return JSONResponse(content={"message": error["message"]}, status_code=error["status"])
 
+    return JSONResponse(content=result, status_code=200)
+
+
+@app.post("/waitlist/signup")
+async def waitlist_signup(payload: WaitlistSignupRequest):
+    """Create or update a pending waitlist signup only. Never creates an auth user."""
+    result, error = insert_waitlist_signup(
+        email=payload.email,
+        source=payload.source or "landing_page",
+    )
+    if error:
+        return JSONResponse(
+            content={"status": error["status"], "message": error["message"]},
+            status_code=error["http_status"],
+        )
+    return JSONResponse(content=result, status_code=200)
+
+
+@app.post("/waitlist/verify")
+async def waitlist_verify(payload: WaitlistVerifyRequest):
+    """Verify waitlist token and activate signup only."""
+    result, error = verify_waitlist_signup_token(token=payload.token)
+    if error:
+        return JSONResponse(
+            content={"status": error["status"], "message": error["message"]},
+            status_code=error["http_status"],
+        )
     return JSONResponse(content=result, status_code=200)
 
 

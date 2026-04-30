@@ -14,6 +14,8 @@ import {
   YAxis,
 } from "recharts";
 
+import InfoPopover from "@/components/ui/InfoPopover";
+
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -263,6 +265,19 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   const [showBars, setShowBars] = useState(true);
   const [showLine, setShowLine] = useState(true);
   const hasThresholdBins = Array.isArray(thresholdBins) && thresholdBins.length > 0;
+
+  const outcomeDistributionInfo = (
+    <div className="space-y-1.5 text-left">
+      <p className="font-semibold text-[var(--text-primary)]">Outcome Distribution</p>
+      <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often simulated packs land in each value range.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows the chance of reaching at least each value.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Hovering shows exact frequency, count, and chance.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Percentile chips like P5, Median, P95, P99 summarize the distribution.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Big Hit is the configured high-value threshold.</span></li>
+      </ul>
+    </div>
+  );
 
   const chartData = useMemo(() => {
     const rows = hasThresholdBins
@@ -528,11 +543,9 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Outcome Distribution</p>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Bars show the shape of outcome frequency. Line shows the chance of reaching at least each value.
-          </p>
+          <InfoPopover text={outcomeDistributionInfo} />
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 text-[11px]">
@@ -705,10 +718,6 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
         activeMarkerKey={activeMarkerKey}
         onMarkerClick={(markerKey) => setActiveMarkerKey((current) => (current === markerKey ? null : markerKey))}
       />
-
-      <p className="mt-2 text-xs text-[var(--text-secondary)]">
-        Bars are grouped to reveal the distribution shape. Hover for exact frequencies and odds.
-      </p>
     </div>
   );
 }

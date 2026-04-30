@@ -7,7 +7,7 @@ import requests
 
 
 DEFAULT_BASE_URL = "https://api.pokemontcg.io/v2"
-DEFAULT_PAGE_SIZE = 250
+DEFAULT_PAGE_SIZE = 100
 DEFAULT_SELECT_FIELDS = "id,name,number,images.small,images.large,set.id,set.name"
 
 
@@ -58,16 +58,24 @@ class PokemonTCGAPIClient:
         page = 1
 
         while True:
-            response = self._request_json(
-                "/cards",
-                {
-                    "q": f"set.id:{set_id}",
-                    "page": page,
-                    "pageSize": min(page_size, DEFAULT_PAGE_SIZE),
-                    "orderBy": "number",
-                    # "select": select_fields,
-                },
-            )
+            requested_page_size = min(page_size, DEFAULT_PAGE_SIZE)
+            params = {
+                "q": f"set.id:{set_id}",
+                "page": page,
+                "pageSize": requested_page_size,
+                "orderBy": "number",
+                # "select": select_fields,
+            }
+
+            try:
+                response = self._request_json("/cards", params)
+            except PokemonTCGAPIError as exc:
+                if requested_page_size > 50 and "404" in str(exc):
+                    params["pageSize"] = 50
+                    response = self._request_json("/cards", params)
+                else:
+                    raise
+
             cards = response.get("data") or []
             if not cards:
                 break

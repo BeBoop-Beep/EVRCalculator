@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Featured from "@/components/Featured";
 import NewProducts from "@/components/Products/NewProducts/NewProducts";
+import Footer from "@/components/Footer";
 
 export default function HomePage() {
   const products = null;
@@ -15,9 +16,10 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="bg-[linear-gradient(180deg,#020817_0%,#06122a_28%,#0a1a37_46%,#f8fafc_72%,#f8fafc_100%)]">
+    <div>
       <Featured products={products} />
       <NewProducts products={products} />
+      <Footer />
     </div>
   );
 }  
