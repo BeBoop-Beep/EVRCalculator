@@ -45,7 +45,14 @@ def _to_optional_float(value: Any) -> Optional[float]:
     return parsed
 
 
-def _build_sort_key(row: Dict[str, Any]) -> tuple[int, float, str]:
+def _to_optional_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _build_rank_sort_key(row: Dict[str, Any]) -> tuple[int, float, str]:
     placeholder = bool(row.get("pack_score_is_placeholder"))
     pack_score = _to_optional_float(row.get("pack_score"))
     run_at = str(row.get("run_at") or "")
@@ -53,6 +60,20 @@ def _build_sort_key(row: Dict[str, Any]) -> tuple[int, float, str]:
         1 if placeholder else 0,
         -(pack_score if pack_score is not None else float("-inf")),
         run_at,
+    )
+
+
+def _build_set_order_key(target_id: str, set_row: Dict[str, Any]) -> tuple[int, str, int, str, str, str]:
+    release_date = _to_optional_str(set_row.get("release_date"))
+    pokemon_api_set_id = _to_optional_str(set_row.get("pokemon_api_set_id"))
+    set_name = _to_optional_str(set_row.get("name")) or target_id
+    return (
+        1 if release_date is None else 0,
+        release_date or "",
+        1 if pokemon_api_set_id is None else 0,
+        pokemon_api_set_id or "",
+        set_name.casefold(),
+        target_id,
     )
 
 
@@ -156,32 +177,47 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             code="TARGETS_NOT_FOUND",
         )
 
-    sorted_rows = sorted(raw_rows, key=_build_sort_key)
+    ranked_rows = sorted(raw_rows, key=_build_rank_sort_key)
 
     # Calculate ranks and tiers for each score type
-    pack_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "pack_score")
-    profit_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "profit_score")
-    safety_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "safety_score")
-    stability_rank_tier = _calculate_score_ranks_and_tiers(sorted_rows, "stability_score")
+    pack_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "pack_score")
+    profit_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "profit_score")
+    safety_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "safety_score")
+    stability_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "stability_score")
 
-    set_lookup: Dict[str, Dict[str, Any]] = {}
+    set_lookup_by_target_id: Dict[str, Dict[str, Any]] = {}
     era_lookup: Dict[str, Dict[str, Any]] = {}
 
-    set_ids = sorted({str(row.get("target_id")) for row in sorted_rows if row.get("target_id")})
+    set_ids = sorted({str(row.get("target_id")) for row in ranked_rows if row.get("target_id")})
     if set_ids:
         set_started = time.perf_counter()
         try:
             set_result = (
                 public_read_client.table("sets")
-                .select("id,name,release_date,era_id")
+                .select("id,name,canonical_key,release_date,pokemon_api_set_id,era_id")
                 .in_("id", set_ids)
                 .execute()
             )
-            set_lookup = {
-                str(row.get("id")): row
-                for row in (set_result.data or [])
-                if row.get("id") is not None
-            }
+            for row in (set_result.data or []):
+                set_id = _to_optional_str(row.get("id"))
+                if set_id:
+                    set_lookup_by_target_id[set_id] = row
+
+            unresolved_target_ids = [
+                target_id for target_id in set_ids if target_id not in set_lookup_by_target_id
+            ]
+            if unresolved_target_ids:
+                canonical_result = (
+                    public_read_client.table("sets")
+                    .select("id,name,canonical_key,release_date,pokemon_api_set_id,era_id")
+                    .in_("canonical_key", unresolved_target_ids)
+                    .execute()
+                )
+                for row in (canonical_result.data or []):
+                    canonical_key = _to_optional_str(row.get("canonical_key"))
+                    if canonical_key and canonical_key in unresolved_target_ids:
+                        set_lookup_by_target_id[canonical_key] = row
+
             sources["sets"] = "OK"
         except Exception as exc:
             logger.warning("[rip-statistics-targets] set enrichment failed: %s", exc)
@@ -195,7 +231,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     era_ids = sorted(
         {
             str(row.get("era_id"))
-            for row in set_lookup.values()
+            for row in set_lookup_by_target_id.values()
             if row.get("era_id") is not None
         }
     )
@@ -223,10 +259,27 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         era_ms = 0.0
         sources["eras"] = "SKIPPED"
 
+    ordered_rows = sorted(
+        ranked_rows,
+        key=lambda row: _build_set_order_key(
+            str(row.get("target_id")),
+            set_lookup_by_target_id.get(str(row.get("target_id"))) or {},
+        ),
+    )
+
+    default_target_id: Optional[str] = None
+    for row in ranked_rows:
+        target_id = _to_optional_str(row.get("target_id"))
+        if target_id and _to_optional_float(row.get("pack_score")) is not None:
+            default_target_id = target_id
+            break
+    if default_target_id is None and ranked_rows:
+        default_target_id = _to_optional_str(ranked_rows[0].get("target_id"))
+
     targets: List[Dict[str, Any]] = []
-    for row in sorted_rows:
+    for row in ordered_rows:
         target_id = str(row.get("target_id"))
-        set_row = set_lookup.get(target_id) or {}
+        set_row = set_lookup_by_target_id.get(target_id) or {}
         era_row = era_lookup.get(str(set_row.get("era_id"))) if set_row.get("era_id") is not None else None
         
         # Get rank/tier for each score type
@@ -263,13 +316,10 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             }
         )
 
-    default_target_row = None
-    for target in targets:
-        if _to_optional_float(target.get("pack_score")) is not None:
-            default_target_row = target
-            break
-    if default_target_row is None:
-        default_target_row = targets[0]
+    default_target_row = next(
+        (target for target in targets if target.get("target_id") == default_target_id),
+        targets[0],
+    )
 
     total_ms = (time.perf_counter() - total_started) * 1000
     return {

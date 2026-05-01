@@ -1270,7 +1270,211 @@ def test_top_ev_drivers_broad_or_mixed_only_when_no_leader_above_35():
     result = build_rip_interpretation(data)
     top_ev_meta = result["meta"]["topEvDrivers"]
     assert top_ev_meta["signals"]["leading_rarity_ev_share"] < 0.35
-    assert top_ev_meta["reason_code"] in {"broad_value_base", "mixed_hit_base", "top_cards_carry_value"}
+    assert top_ev_meta["reason_code"] in {
+        "broad_value_base", "mixed_hit_base", "top_cards_carry_value", "top_three_carry_value"
+    }
+
+
+# ── New concentration-pattern tests ───────────────────────────────────────────
+
+
+def test_top_ev_drivers_top_card_led_obsidian_flames_style():
+    """Top card is clearly ahead of second card but share < 0.40 → top_card_led."""
+    data = {
+        "summary": _make_summary(top1_ev_share=0.265, top3_ev_share=0.543, top5_ev_share=0.70),
+        "top_hits": [
+            # Charizard EV ~1.9x the next card to trigger ratio >= 1.75
+            {"card_name": "Charizard ex", "ev_contribution": 3.8, "rarity_bucket": "ultra rare"},
+            {"card_name": "Pidgeot ex", "ev_contribution": 2.0, "rarity_bucket": "ultra rare"},
+            {"card_name": "Tyranitar ex", "ev_contribution": 1.4, "rarity_bucket": "illustration rare"},
+            {"card_name": "Blissey ex", "ev_contribution": 1.1, "rarity_bucket": "double rare"},
+            {"card_name": "Dragonite ex", "ev_contribution": 0.9, "rarity_bucket": "double rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    assert top_ev_meta["reason_code"] == "top_card_led", (
+        f"Expected top_card_led, got {top_ev_meta['reason_code']}"
+    )
+    assert top_ev_meta["label"] == "Top card leads value"
+    assert "charizard ex" in top_ev_meta["summary"].lower()
+    assert "several hit types help" not in top_ev_meta["summary"].lower()
+    # ratio signal should be present
+    assert top_ev_meta["signals"]["top_card_to_second_ratio"] is not None
+    assert top_ev_meta["signals"]["top_card_to_second_ratio"] >= 1.75
+
+
+def test_top_ev_drivers_single_card_dependent_extreme():
+    """Top card share >= 0.40 → single_card_dependent."""
+    data = {
+        "summary": _make_summary(top1_ev_share=0.665, top3_ev_share=0.80, top5_ev_share=0.90),
+        "top_hits": [
+            {"card_name": "Dragapult ex", "ev_contribution": 8.0, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Flareon ex", "ev_contribution": 2.0, "rarity_bucket": "ultra rare"},
+            {"card_name": "Jolteon ex", "ev_contribution": 1.5, "rarity_bucket": "ultra rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    assert top_ev_meta["reason_code"] == "single_card_dependent"
+    assert top_ev_meta["label"] == "One card carries value"
+    assert "dragapult ex" in top_ev_meta["summary"].lower()
+
+
+def test_top_ev_drivers_top_three_heavy_no_leader_gap():
+    """top3_share >= 0.50 but no leader gap → top_three or rarity-specific, not top_card_led."""
+    data = {
+        "summary": _make_summary(top1_ev_share=0.22, top3_ev_share=0.52, top5_ev_share=0.68),
+        "top_hits": [
+            # Ratio: 3.0 / 2.5 = 1.2 < 1.75, so no leader gap
+            {"card_name": "Umbreon ex", "ev_contribution": 3.0, "rarity_bucket": "illustration rare"},
+            {"card_name": "Sylveon ex", "ev_contribution": 2.5, "rarity_bucket": "illustration rare"},
+            {"card_name": "Glaceon ex", "ev_contribution": 2.0, "rarity_bucket": "illustration rare"},
+            {"card_name": "Espeon ex", "ev_contribution": 1.5, "rarity_bucket": "ultra rare"},
+            {"card_name": "Vaporeon ex", "ev_contribution": 1.2, "rarity_bucket": "double rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    assert top_ev_meta["reason_code"] != "top_card_led"
+    assert top_ev_meta["reason_code"] != "broad_value_base"
+    assert top_ev_meta["reason_code"] in {
+        "top_three_carry_value", "ir_led_top3", "sir_led_top3", "ex_ultra_led_top3",
+    }, f"Unexpected reason_code: {top_ev_meta['reason_code']}"
+
+
+def test_top_ev_drivers_top_five_heavy_top_three_below_threshold():
+    """top3_share < 0.45 but top5_share >= 0.65 → top_five_carry_value."""
+    data = {
+        "summary": _make_summary(top1_ev_share=0.15, top3_ev_share=0.42, top5_ev_share=0.68),
+        "top_hits": [
+            {"card_name": "Card A", "ev_contribution": 2.0, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card B", "ev_contribution": 1.9, "rarity_bucket": "ultra rare"},
+            {"card_name": "Card C", "ev_contribution": 1.7, "rarity_bucket": "double rare"},
+            {"card_name": "Card D", "ev_contribution": 1.6, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Card E", "ev_contribution": 1.5, "rarity_bucket": "hyper rare"},
+            {"card_name": "Card F", "ev_contribution": 1.3, "rarity_bucket": "ultra rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    assert top_ev_meta["reason_code"] == "top_five_carry_value", (
+        f"Expected top_five_carry_value, got {top_ev_meta['reason_code']}"
+    )
+    assert top_ev_meta["reason_code"] != "broad_value_base"
+
+
+def test_top_ev_drivers_dominant_rarity_below_concentration_threshold():
+    """Leading rarity >= 0.35 but all top-N thresholds below limits → dominant rarity language."""
+    data = {
+        # All effective shares below concentration thresholds
+        "summary": _make_summary(top1_ev_share=0.18, top3_ev_share=0.35, top5_ev_share=0.50),
+        "top_hits": [
+            # IR dominates with ~40% but EVs are spread enough
+            {"card_name": "IR 1", "ev_contribution": 2.5, "rarity_bucket": "illustration rare"},
+            {"card_name": "IR 2", "ev_contribution": 2.0, "rarity_bucket": "illustration rare"},
+            {"card_name": "UR 1", "ev_contribution": 1.8, "rarity_bucket": "ultra rare"},
+            {"card_name": "DR 1", "ev_contribution": 1.5, "rarity_bucket": "double rare"},
+            {"card_name": "HR 1", "ev_contribution": 1.2, "rarity_bucket": "hyper rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    # IR at 4.5 / (2.5+2.0+1.8+1.5+1.2) = 4.5/9.0 = 50% → illustration_led fires
+    assert top_ev_meta["signals"]["leading_rarity_ev_share"] >= 0.35
+    assert top_ev_meta["reason_code"] in {
+        "illustration_led", "ir_led_top3", "sir_led", "sir_led_top3",
+        "ex_ultra_led", "ex_ultra_led_top3",
+    }, f"Unexpected reason_code: {top_ev_meta['reason_code']}"
+    assert top_ev_meta["reason_code"] not in {"broad_value_base", "mixed_hit_base"}
+
+
+def test_top_ev_drivers_true_broad_fallback():
+    """All concentration signals below threshold → broad_value_base or mixed_hit_base."""
+    data = {
+        # All effective shares below broad-fallback thresholds; force via summary
+        "summary": _make_summary(top1_ev_share=0.12, top3_ev_share=0.30, top5_ev_share=0.48),
+        "top_hits": [
+            # 5 different rarities each contributing a small, equal-ish share
+            {"card_name": "Card A", "ev_contribution": 1.5, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card B", "ev_contribution": 1.4, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Card C", "ev_contribution": 1.3, "rarity_bucket": "ultra rare"},
+            {"card_name": "Card D", "ev_contribution": 1.2, "rarity_bucket": "double rare"},
+            {"card_name": "Card E", "ev_contribution": 1.1, "rarity_bucket": "hyper rare"},
+            {"card_name": "Card F", "ev_contribution": 1.0, "rarity_bucket": "ace spec rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    # Leading rarity share: IR at 1.5 / 7.5 = 20% < 0.35
+    assert top_ev_meta["signals"]["leading_rarity_ev_share"] < 0.35
+    assert top_ev_meta["reason_code"] in {"broad_value_base", "mixed_hit_base"}, (
+        f"Expected broad/mixed fallback, got {top_ev_meta['reason_code']}"
+    )
+
+
+def test_top_ev_drivers_no_broad_when_leader_gap():
+    """Broad language must not appear when top_card_to_second_ratio >= 1.75 and top_card_share >= 0.25."""
+    data = {
+        "summary": _make_summary(top1_ev_share=0.28, top3_ev_share=0.48, top5_ev_share=0.62),
+        "top_hits": [
+            {"card_name": "Zacian V", "ev_contribution": 4.5, "rarity_bucket": "ultra rare"},
+            {"card_name": "Zamazenta V", "ev_contribution": 2.4, "rarity_bucket": "ultra rare"},
+            {"card_name": "Arceus V", "ev_contribution": 1.6, "rarity_bucket": "double rare"},
+            {"card_name": "Dialga V", "ev_contribution": 1.2, "rarity_bucket": "double rare"},
+            {"card_name": "Palkia V", "ev_contribution": 1.0, "rarity_bucket": "hyper rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    assert top_ev_meta["reason_code"] not in {"broad_value_base", "mixed_hit_base"}, (
+        f"Broad language should be blocked, got {top_ev_meta['reason_code']}"
+    )
+    assert "several hit types help" not in top_ev_meta["summary"].lower()
+    assert top_ev_meta["reason_code"] == "top_card_led"
+
+
+def test_top_ev_drivers_no_broad_when_top3_high():
+    """Broad language must not appear when top3_share >= 0.45."""
+    data = {
+        "summary": _make_summary(top1_ev_share=0.19, top3_ev_share=0.50, top5_ev_share=0.68),
+        "top_hits": [
+            {"card_name": "Card A", "ev_contribution": 2.8, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card B", "ev_contribution": 2.5, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card C", "ev_contribution": 2.0, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Card D", "ev_contribution": 1.5, "rarity_bucket": "ultra rare"},
+            {"card_name": "Card E", "ev_contribution": 1.3, "rarity_bucket": "double rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    assert top_ev_meta["reason_code"] not in {"broad_value_base", "mixed_hit_base"}, (
+        f"Broad language should be blocked when top3 >= 0.45, got {top_ev_meta['reason_code']}"
+    )
 
 
 def test_rarity_contribution_illustration_led_copy():

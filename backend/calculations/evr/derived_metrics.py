@@ -667,10 +667,10 @@ _PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.40, 0.30, 0.30)
 # Runtime V2 component weights are declared as percentage-style values and
 # normalized internally for weighted averages.
 _PROFIT_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "prob_profit": 32.5,
+    "prob_profit": 27.5,
     "mean_value_to_cost_ratio": 25.0,
-    "median_value_to_cost_ratio": 17.5,
-    "p95_value_to_cost_ratio": 25.0,
+    "median_value_to_cost_ratio": 20.0,
+    "p95_value_to_cost_ratio": 27.5,
 }
 _SAFETY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "expected_loss_when_losing_ratio": 34.0,
@@ -1199,8 +1199,8 @@ def _build_runtime_v2_pack_score_payload(
     )
 
     return {
-        "score_version": "pack_score_v2_3_runtime",
-        "normalization_mode": "fixed_anchor_runtime_v2_3",
+        "score_version": "pack_score_v2_chase_weighted",
+        "normalization_mode": "fixed_anchor_runtime_v2_chase_weighted",
         "pack_score_is_placeholder": False,
         "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
         "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
@@ -1705,6 +1705,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
             "pack_score_v2_1_runtime",
             "pack_score_v2_2_runtime",
             "pack_score_v2_3_runtime",
+            "pack_score_v2_chase_weighted",
         }:
             print()
             print("[PACK_SCORE_V2_RUNTIME]")

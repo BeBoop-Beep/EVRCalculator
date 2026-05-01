@@ -770,12 +770,12 @@ class TestComputeAllDerivedMetrics:
     def test_pack_score_always_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert "pack_score" in result
-        assert result["pack_score"]["score_version"] == "pack_score_v2_3_runtime"
+        assert result["pack_score"]["score_version"] == "pack_score_v2_chase_weighted"
 
     def test_pack_score_runtime_v2_flags(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         score = result["pack_score"]
-        assert score["normalization_mode"] == "fixed_anchor_runtime_v2_3"
+        assert score["normalization_mode"] == "fixed_anchor_runtime_v2_chase_weighted"
         assert score["pack_score_is_placeholder"] is False
         assert 0.0 <= score["pack_score"] <= 100.0
 
@@ -1117,7 +1117,7 @@ class TestPackSimulationSummary:
 
     def test_score_version_stored(self):
         s = self._build_summary()
-        assert s.score_version == "pack_score_v2_3_runtime"
+        assert s.score_version == "pack_score_v2_chase_weighted"
 
     def test_p95_fields_stored(self):
         s = self._build_summary()

@@ -69,7 +69,42 @@ _TOP3_PROFILE_MAP: Dict[str, str] = {
 
 
 def _reason_to_copy(reason_code: str, leading_label: str, *, strong: bool) -> tuple[str, str, str]:
-    # ── Tier 2: top-three concentration, rarity-specific ──────────────────
+    # ── Tier 0: single-card heavy ─────────────────────────────────────────
+    if reason_code == "single_card_dependent":
+        return (
+            "One card carries value",
+            "One card carries a huge share of the value, so this set depends heavily on landing that card.",
+            "caution",
+        )
+
+    # ── Tier 1: top-card led (clear leader gap) ───────────────────────────
+    if reason_code == "top_card_led":
+        return (
+            "Top card leads value",
+            "The top card is well ahead of the next card, so this set leans heavily on that top hit "
+            "even though other cards still add value.",
+            "caution",
+        )
+
+    # ── Tier 2a: top-three carry value ────────────────────────────────────
+    if reason_code == "top_three_carry_value":
+        return (
+            "Top cards carry value",
+            "The top three cards carry a large share of the value, so this set depends heavily on "
+            "landing one of the best hits.",
+            "caution",
+        )
+
+    # ── Tier 2b: top-five carry value ─────────────────────────────────────
+    if reason_code == "top_five_carry_value":
+        return (
+            "Top five carry value",
+            "The top five cards carry much of the value, so this set is still driven by a small "
+            "group of key hits.",
+            "caution",
+        )
+
+    # ── Tier 2c: top-three concentration, rarity-specific ─────────────────
     if reason_code == "sir_led_top3":
         return (
             "Special Illustration Rares drive value",
@@ -94,6 +129,7 @@ def _reason_to_copy(reason_code: str, leading_label: str, *, strong: bool) -> tu
             "positive",
         )
 
+    # Legacy alias kept for backward compat
     if reason_code == "top_cards_carry_value":
         return (
             "Top cards carry value",
@@ -148,14 +184,6 @@ def _reason_to_copy(reason_code: str, leading_label: str, *, strong: bool) -> tu
         label = "Low rarities carry value"
         summary = "Lower-rarity cards are doing more value work than usual, so returns are less tied to elite chase hits."
         return label, summary, "positive"
-
-    # ── Tier 1: single-card heavy ─────────────────────────────────────────
-    if reason_code == "single_card_dependent":
-        return (
-            "One card carries value",
-            "One card carries a large share of the value, so this set depends heavily on landing that card.",
-            "caution",
-        )
 
     if reason_code == "broad_value_base":
         return (
@@ -218,6 +246,14 @@ def interpret_top_ev_drivers(data: Dict[str, Any]) -> SectionInterpretation:
     total = sum(row["ev"] for row in rows)
     top_share = safe_percent_share(rows[0]["ev"], total) or 0.0
     top3_share = safe_percent_share(sum(row["ev"] for row in rows[:3]), total) or 0.0
+    top5_share = safe_percent_share(sum(row["ev"] for row in rows[:5]), total) or 0.0
+
+    # Leader-gap ratio: how far ahead is the top card vs the second card
+    top_card_ev = rows[0]["ev"] if rows else 0.0
+    second_card_ev = rows[1]["ev"] if len(rows) >= 2 else None
+    top_card_to_second_ratio: Optional[float] = None
+    if second_card_ev is not None and second_card_ev > 0:
+        top_card_to_second_ratio = top_card_ev / second_card_ev
 
     rarity_available = any(row["rarity_bucket"] != "unknown" for row in rows)
     rarity_source = "top_hits"
@@ -268,26 +304,50 @@ def interpret_top_ev_drivers(data: Dict[str, Any]) -> SectionInterpretation:
     effective_top3_share = _to_float((summary_data or {}).get("top3_ev_share"))
     if effective_top3_share is None:
         effective_top3_share = top3_share
+    effective_top5_share = _to_float((summary_data or {}).get("top5_ev_share"))
+    if effective_top5_share is None:
+        effective_top5_share = top5_share
 
     # Detect dominant rarity in top 3 cards for concentration-first copy
     top3_lead_rarity, top3_lead_count, top3_lead_profile = _top3_leading_rarity(rows)
 
-    concentration_risk = effective_top_share >= 0.30
+    concentration_risk = effective_top_share >= 0.25
 
-    # Priority 1: single-card heavy
-    if effective_top_share >= 0.30:
+    # ── Decision priority ─────────────────────────────────────────────────
+    # 1. One-card dependent: extreme top-card concentration (full-pool share)
+    if effective_top_share >= 0.40:
         reason_code = "single_card_dependent"
-    # Priority 2: top-three heavy — concentration beats broadness
+    # 2. Top-card led: clear leader gap — use within-hits share since the ratio
+    #    is also computed from within-hits data; effective_top_share from the full
+    #    pool dilutes the signal with commons/uncommons.
+    elif top_share >= 0.25 and top_card_to_second_ratio is not None and top_card_to_second_ratio >= 1.75:
+        reason_code = "top_card_led"
+    # 3. Top-three heavy (strong threshold)
+    elif effective_top3_share >= 0.50:
+        if top3_lead_count >= 2 and top3_lead_profile not in ("mixed_hit_base", "data_limited"):
+            reason_code = _TOP3_PROFILE_MAP.get(top3_lead_profile, "top_three_carry_value")
+        else:
+            reason_code = "top_three_carry_value"
+    # 4. Top-five heavy
+    elif effective_top5_share >= 0.65:
+        reason_code = "top_five_carry_value"
+    # 5. Top-three moderate concentration
     elif effective_top3_share >= 0.45:
         if top3_lead_count >= 2 and top3_lead_profile not in ("mixed_hit_base", "data_limited"):
-            reason_code = _TOP3_PROFILE_MAP.get(top3_lead_profile, "top_cards_carry_value")
+            reason_code = _TOP3_PROFILE_MAP.get(top3_lead_profile, "top_three_carry_value")
         else:
-            reason_code = "top_cards_carry_value"
-    # Priority 3: dominant rarity across full hit pool
+            reason_code = "top_three_carry_value"
+    # 6. Dominant rarity across full hit pool
     elif lead_rarity_share >= 0.35:
         reason_code = profile
-    # Priority 4: broad — only when all concentration signals are low
-    elif effective_top_share < 0.20 and effective_top3_share < 0.40 and lead_rarity_share < 0.35 and rarity_diversity >= 4:
+    # 7. Broad — only when ALL concentration signals are low
+    elif (
+        effective_top_share < 0.20
+        and effective_top3_share < 0.40
+        and effective_top5_share < 0.60
+        and lead_rarity_share < 0.35
+        and rarity_diversity >= 4
+    ):
         reason_code = "broad_value_base"
     else:
         reason_code = "mixed_hit_base"
@@ -299,8 +359,14 @@ def interpret_top_ev_drivers(data: Dict[str, Any]) -> SectionInterpretation:
         strong=lead_rarity_share >= 0.45,
     )
 
+    # Inject card name into single-card and top-card-led summaries
     if reason_code == "single_card_dependent" and lead_name:
-        summary = f"{lead_name} carries a large share of the value, so this set depends heavily on landing that card."
+        summary = f"{lead_name} carries a huge share of the value, so this set depends heavily on landing that card."
+    if reason_code == "top_card_led" and lead_name:
+        summary = (
+            f"{lead_name} is well ahead of the next card, so this set leans heavily on that top hit "
+            "even though other cards still add value."
+        )
 
     if reason_code == "mixed_hit_base" and lead_rarity_share >= 0.35 and lead_label != "Unknown":
         label = f"{lead_label}s lead value" if not lead_label.endswith("s") else f"{lead_label} lead value"
@@ -311,15 +377,14 @@ def interpret_top_ev_drivers(data: Dict[str, Any]) -> SectionInterpretation:
     evidence: List[EvidenceItem] = []
     if lead_name:
         evidence.append(EvidenceItem("Leading card", lead_name))
-    evidence.append(EvidenceItem("Top card EV share", format_percent(top_share if rows else None)))
-    evidence.append(EvidenceItem("Top 3 EV share", format_percent(top3_share if len(rows) >= 2 else None)))
+    evidence.append(EvidenceItem("Top card EV share", format_percent(effective_top_share if rows else None)))
+    evidence.append(EvidenceItem("Top 3 EV share", format_percent(effective_top3_share if len(rows) >= 2 else None)))
+    if len(rows) >= 5:
+        evidence.append(EvidenceItem("Top 5 EV share", format_percent(effective_top5_share)))
+    if top_card_to_second_ratio is not None:
+        evidence.append(EvidenceItem("Lead over next card", f"{top_card_to_second_ratio:.1f}x"))
     if lead_rarity:
         evidence.append(EvidenceItem("Leading value type", format_rarity_label(lead_rarity)))
-        evidence.append(EvidenceItem("Value type share", format_percent(lead_rarity_share)))
-    if rarity_diversity:
-        evidence.append(EvidenceItem("Value type diversity", str(rarity_diversity)))
-    if concentration_risk:
-        evidence.append(EvidenceItem("Read", "Top card is a concentration risk"))
 
     return SectionInterpretation(
         summary=summary,
@@ -331,8 +396,11 @@ def interpret_top_ev_drivers(data: Dict[str, Any]) -> SectionInterpretation:
         signals={
             "top_share": top_share,
             "top3_share": top3_share,
+            "top5_share": top5_share,
             "effective_top_share": effective_top_share,
             "effective_top3_share": effective_top3_share,
+            "effective_top5_share": effective_top5_share,
+            "top_card_to_second_ratio": top_card_to_second_ratio,
             "top3_lead_rarity": top3_lead_rarity,
             "top3_lead_count": top3_lead_count,
             "rarity_source": rarity_source,
