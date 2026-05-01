@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 
 import { getPublicProfileIdentity } from "@/lib/profile/publicIdentity";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_PROFILE_CACHE_TTL_MS = 120_000;
 const PUBLIC_PROFILE_NOT_FOUND_TTL_MS = 10_000;
@@ -14,7 +15,7 @@ function toCacheKey(usernameParam) {
 }
 
 function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return getBackendApiBaseUrl();
 }
 
 async function fetchPublicProfilePagePayloadFromBackend(username) {

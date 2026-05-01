@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return getBackendApiBaseUrl();
 }
 
 function buildProxyHeaders(request) {
@@ -36,10 +37,17 @@ export async function POST(req) {
     });
 
     const payload = await proxyResponse.json().catch(() => ({}));
-    const response = NextResponse.json(payload, { status: proxyResponse.status });
+    const responsePayload = { ...payload };
+    const token = responsePayload?.token;
 
-    if (proxyResponse.ok && payload?.token) {
-      response.cookies.set("token", payload.token, {
+    if (token) {
+      delete responsePayload.token;
+    }
+
+    const response = NextResponse.json(responsePayload, { status: proxyResponse.status });
+
+    if (proxyResponse.ok && token) {
+      response.cookies.set("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

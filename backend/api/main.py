@@ -4,14 +4,20 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Request  # type: ignore[reportMissingImports]
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissingImports]
 from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
 from pydantic import BaseModel  # type: ignore[reportMissingImports]
 
+from backend.db.services.waitlist_signup_service import (
+    insert_waitlist_signup,
+    verify_waitlist_signup_token,
+)
 from backend.db.services.collection_holdings_service import mutate_holding
+from backend.db.services.collection_freshness_service import ensure_fresh_user_collection_summary
 from backend.db.services.collection_portfolio_service import (
     get_collection_items_for_user_id,
     get_current_user_portfolio_dashboard_data,
@@ -28,26 +34,23 @@ from backend.db.services.frontend_proxy_service import (
     get_tcg_options,
     login_user,
     login_user_legacy,
-    signup_user,
     update_customer_password,
     update_customer_profile,
     update_profile,
 )
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
+from backend.db.services.explore_rip_statistics_service import (
+    ExploreRipStatisticsTargetsError,
+    get_rip_statistics_targets_payload,
+)
 
 
 app = FastAPI(title="EVR Collection API")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 logger = logging.getLogger(__name__)
+
+_DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
 
 
 class LoginRequest(BaseModel):
@@ -67,6 +70,15 @@ class HoldingMutateRequest(BaseModel):
     action: str         # "increment" | "decrement" | "remove"
 
 
+class WaitlistSignupRequest(BaseModel):
+    email: str
+    source: str = "landing_page"
+
+
+class WaitlistVerifyRequest(BaseModel):
+    token: str
+
+
 def _auth_env_presence() -> Dict[str, bool]:
     return {
         "JWT_SECRET": bool(os.getenv("JWT_SECRET")),
@@ -81,11 +93,12 @@ def _is_truthy(value: Optional[str]) -> bool:
     return normalized in {"1", "true", "yes"}
 
 
-def _require_user_id(user_id_query: Optional[str], user_id_header: Optional[str]) -> str:
-    user_id = (user_id_header or user_id_query or "").strip()
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return user_id
+def _parse_allowed_origins(raw_value: Optional[str]) -> List[str]:
+    if not raw_value:
+        return list(_DEFAULT_ALLOWED_ORIGINS)
+
+    origins = [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+    return origins or list(_DEFAULT_ALLOWED_ORIGINS)
 
 
 def _extract_token(authorization: Optional[str], token_cookie: Optional[str]) -> Optional[str]:
@@ -96,14 +109,90 @@ def _extract_token(authorization: Optional[str], token_cookie: Optional[str]) ->
     return None
 
 
+def _require_authenticated_user_id(
+    *,
+    authorization: Optional[str],
+    token_cookie: Optional[str],
+    user_id_query: Optional[str] = None,
+    user_id_header: Optional[str] = None,
+) -> str:
+    token = _extract_token(authorization, token_cookie)
+    token_user, token_error = decode_token(token)
+    if token_error:
+        message = token_error[0].get("message", "Not authenticated")
+        raise HTTPException(status_code=token_error[1], detail=message)
+
+    authenticated_user_id = str((token_user or {}).get("id") or "").strip()
+    if not authenticated_user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    supplied_user_id = (user_id_header or user_id_query or "").strip()
+    if supplied_user_id and supplied_user_id != authenticated_user_id:
+        logger.warning(
+            "private_collection.user_id_mismatch authenticated_user_id=%s supplied_user_id=%s",
+            authenticated_user_id,
+            supplied_user_id,
+        )
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    return authenticated_user_id
+
+
+def _get_authenticated_user_id_if_present(
+    *,
+    authorization: Optional[str],
+    token_cookie: Optional[str],
+) -> Optional[str]:
+    token = _extract_token(authorization, token_cookie)
+    if not token:
+        return None
+
+    token_user, token_error = decode_token(token)
+    if token_error:
+        logger.warning(
+            "public_viewer.invalid_token status=%s",
+            token_error[1],
+        )
+        return None
+
+    authenticated_user_id = str((token_user or {}).get("id") or "").strip()
+    return authenticated_user_id or None
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_parse_allowed_origins(os.getenv("ALLOWED_ORIGINS")),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 @app.get("/collection/dashboard")
 def get_collection_dashboard(
     include_collection_items: Optional[str] = Query(default=None),
     user_id: Optional[str] = Query(default=None),
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    resolved_user_id = _require_user_id(user_id_query=user_id, user_id_header=x_user_id)
+    resolved_user_id = _require_authenticated_user_id(
+        authorization=authorization,
+        token_cookie=token_cookie,
+        user_id_query=user_id,
+        user_id_header=x_user_id,
+    )
     include_items = _is_truthy(include_collection_items)
+
+    # Keep reads fresh without blocking mutation flows on heavy recompute work.
+    try:
+        ensure_fresh_user_collection_summary(UUID(resolved_user_id))
+    except Exception as exc:
+        logger.warning(
+            "collection_dashboard.ensure_fresh failed user_id=%s error=%s",
+            resolved_user_id,
+            exc,
+        )
 
     dashboard_payload = get_current_user_portfolio_dashboard_data(resolved_user_id)
     if not include_items:
@@ -120,8 +209,15 @@ def get_collection_dashboard(
 def get_collection_items(
     user_id: Optional[str] = Query(default=None),
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    resolved_user_id = _require_user_id(user_id_query=user_id, user_id_header=x_user_id)
+    resolved_user_id = _require_authenticated_user_id(
+        authorization=authorization,
+        token_cookie=token_cookie,
+        user_id_query=user_id,
+        user_id_header=x_user_id,
+    )
     items = get_collection_items_for_user_id(resolved_user_id, include_private_fields=True)
     return {
         "collection_items": items,
@@ -132,11 +228,14 @@ def get_collection_items(
 def get_public_collection_items(
     username: str,
     include_collection_items: Optional[str] = Query(default=None),
-    user_id: Optional[str] = Query(default=None),
-    x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     include_items = _is_truthy(include_collection_items)
-    viewer_user_id = (x_user_id or user_id or "").strip() or None
+    viewer_user_id = _get_authenticated_user_id_if_present(
+        authorization=authorization,
+        token_cookie=token_cookie,
+    )
 
     payload, error = get_public_collection_data_by_username(
         username=username,
@@ -160,15 +259,20 @@ def get_public_collection_items(
 def get_public_profile_page(
     username: str,
     include_collection_items: Optional[str] = Query(default="1"),
-    viewer_user_id: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     include_items = _is_truthy(include_collection_items if include_collection_items is not None else "1")
+    viewer_user_id = _get_authenticated_user_id_if_present(
+        authorization=authorization,
+        token_cookie=token_cookie,
+    )
 
     try:
         payload = get_public_profile_page_payload(
             username=username,
             include_collection_items=include_items,
-            viewer_user_id=(viewer_user_id or "").strip() or None,
+            viewer_user_id=viewer_user_id,
         )
         return payload
     except PublicProfilePageError as exc:
@@ -214,6 +318,33 @@ async def collection_holdings_mutate(
     return JSONResponse(content=result, status_code=200)
 
 
+@app.post("/waitlist/signup")
+async def waitlist_signup(payload: WaitlistSignupRequest):
+    """Create or update a pending waitlist signup only. Never creates an auth user."""
+    result, error = insert_waitlist_signup(
+        email=payload.email,
+        source=payload.source or "landing_page",
+    )
+    if error:
+        return JSONResponse(
+            content={"status": error["status"], "message": error["message"]},
+            status_code=error["http_status"],
+        )
+    return JSONResponse(content=result, status_code=200)
+
+
+@app.post("/waitlist/verify")
+async def waitlist_verify(payload: WaitlistVerifyRequest):
+    """Verify waitlist token and activate signup only."""
+    result, error = verify_waitlist_signup_token(token=payload.token)
+    if error:
+        return JSONResponse(
+            content={"status": error["status"], "message": error["message"]},
+            status_code=error["http_status"],
+        )
+    return JSONResponse(content=result, status_code=200)
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -234,8 +365,8 @@ def get_latest_evr_run(
 def get_explore_page(
     target_type: str = Query(...),
     target_id: str = Query(...),
-    limit_distribution_bins: int = Query(default=50, ge=1, le=200),
-    limit_top_hits: int = Query(default=10, ge=1, le=100),
+    limit_distribution_bins: Optional[str] = Query(default=None),
+    limit_top_hits: Optional[str] = Query(default=None),
 ):
     """Return complete Explore page payload for a target (set, edition, pack, etc.)."""
     try:
@@ -259,6 +390,26 @@ def get_explore_page(
         )
         return JSONResponse(
             content={"message": "Unable to load explore page data", "code": "EXPLORE_PAGE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/explore/rip-statistics/targets")
+def get_explore_rip_statistics_targets(
+    limit: Optional[str] = Query(default=None),
+):
+    """Return available RIP Statistics targets plus the best default target."""
+    try:
+        return get_rip_statistics_targets_payload(limit=limit)
+    except ExploreRipStatisticsTargetsError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/explore/rip-statistics/targets unexpected error")
+        return JSONResponse(
+            content={"message": "Unable to load RIP Statistics targets", "code": "RIP_STATISTICS_TARGETS_FAILED"},
             status_code=500,
         )
 
@@ -299,16 +450,13 @@ async def auth_login_legacy(payload: LoginRequest):
 
 
 @app.post("/auth/signup")
-async def auth_signup(payload: SignupRequest):
+async def auth_signup(_payload: SignupRequest):
     logger.info("/auth/signup: started, env_presence=%s", _auth_env_presence())
     logger.info("/auth/signup: request body parsed successfully")
-
-    try:
-        response_payload, status = signup_user(payload.name, payload.email, payload.password)
-        return JSONResponse(content=response_payload, status_code=status)
-    except Exception:
-        logger.exception("/auth/signup: unexpected error")
-        return JSONResponse(content={"message": "Unexpected server error"}, status_code=500)
+    return JSONResponse(
+        content={"detail": "Account creation is currently invite-only."},
+        status_code=403,
+    )
 
 
 @app.put("/customer/update")

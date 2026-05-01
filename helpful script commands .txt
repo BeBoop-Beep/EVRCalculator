@@ -1,30 +1,38 @@
-uvicorn backend auth run
+uvicorn backend auth run:
 d:/EVRCalculator/backend/.venv/Scripts/python.exe -m uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 api local host:
 http://localhost:8000/docs#/
 
-run data scrape all
+run data scrape all:
 python backend/scripts/run_pokemon_set_scrape.py --run
 
-run data scrape era 
+run data scrape era:
 python backend/scripts/run_pokemon_set_scrape.py --run --era scarletAndVioletEra
 
-run calc/simulations
+run calc/simulations:
 python backend/scripts/run_all_v2_sets.py
 ./infra/local/run_simulations.sh
 
-ssh key pathing
+run sync images script:
+python backend/scripts/sync_pokemon_images.py --sets "Prismatic Evolutions" 
+python backend/scripts/sync_pokemon_images.py --sets "Temporal Forces" --apply
+main sync images run:
+python backend/scripts/sync_pokemon_images.py
+python backend/scripts/sync_pokemon_images.py --apply
+
+ssh key pathing:
 C:\Users\Owner\.ssh
 
-generate ssh key
+generate ssh key:
 ssh-keygen
 
-run simulator tests
+run simulator tests:
 d:/EVRCalculator/backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/simulations -vv
 
-activate venv
+activate venv:
 source .venv/Scripts/activate
+source .venv-1/Scripts/activate
 
-scraper login
+scraper login:
 ssh -i ~/.ssh/id_rsa ubuntu@129.146.130.104

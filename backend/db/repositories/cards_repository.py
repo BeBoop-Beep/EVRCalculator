@@ -161,8 +161,95 @@ def get_all_cards_for_set(set_id: int) -> list:
     """Return all card records for a given set."""
     res = (
         supabase.table("cards")
-        .select("id, set_id, name, rarity, card_number")
+        .select(
+            "id, set_id, name, rarity, card_number, image_small_url, image_large_url, pokemon_tcg_api_id, image_last_synced_at"
+        )
         .eq("set_id", set_id)
         .execute()
     )
     return res.data if res and res.data else []
+
+
+def update_card_image_sync_fields(card_id: str, update_fields: Dict[str, Any]) -> Dict[str, Any]:
+    """Update card image sync fields for a single card row."""
+    payload = {
+        key: value
+        for key, value in update_fields.items()
+        if key in {"pokemon_tcg_api_id", "image_small_url", "image_large_url", "image_last_synced_at"}
+        and value is not None
+    }
+
+    if not payload:
+        raise ValueError("No non-null card sync fields were provided")
+
+    max_retries = 3
+    last_error = None
+
+    for attempt in range(max_retries):
+        try:
+            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            res = (
+                fresh_client.table("cards")
+                .update(payload)
+                .eq("id", card_id)
+                .execute()
+            )
+            if res is None:
+                raise RuntimeError("Update card returned no response object")
+            updated = res.data
+            if not updated:
+                raise RuntimeError(f"Update returned no data for card_id={card_id}")
+            return updated[0]
+        except APIError as e:
+            error_msg = str(e)
+            last_error = error_msg
+            duplicate_api_id_conflict = (
+                "23505" in error_msg
+                and "pokemon_tcg_api_id" in payload
+            )
+
+            if duplicate_api_id_conflict:
+                fallback_payload = {k: v for k, v in payload.items() if k != "pokemon_tcg_api_id"}
+                if fallback_payload:
+                    try:
+                        fallback_res = (
+                            fresh_client.table("cards")
+                            .update(fallback_payload)
+                            .eq("id", card_id)
+                            .execute()
+                        )
+                        if fallback_res and fallback_res.data:
+                            return fallback_res.data[0]
+                    except Exception:
+                        # Fall through to the regular error path below.
+                        pass
+
+            if "schema cache" in error_msg.lower() and attempt < max_retries - 1:
+                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
+                time.sleep(1)
+                continue
+            raise RuntimeError(f"Failed to update card sync fields: {error_msg}")
+        except RuntimeError as e:
+            last_error = str(e)
+            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            raise
+
+    raise RuntimeError(f"Failed to update card after {max_retries} retries: {last_error}")
+
+
+def update_card_image_sync_fields_batch(updates: List[Dict[str, Any]]) -> int:
+    """Apply card image sync field updates sequentially and return the number of updated rows."""
+    updated_count = 0
+
+    for update in updates:
+        card_id = update.get("card_id")
+        if not card_id:
+            raise ValueError("Each card sync update must include card_id")
+
+        payload = {key: value for key, value in update.items() if key != "card_id"}
+        update_card_image_sync_fields(card_id, payload)
+        updated_count += 1
+
+    return updated_count

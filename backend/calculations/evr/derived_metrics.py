@@ -667,19 +667,19 @@ _PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.40, 0.30, 0.30)
 # Runtime V2 component weights are declared as percentage-style values and
 # normalized internally for weighted averages.
 _PROFIT_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "prob_profit": 32.5,
+    "prob_profit": 27.5,
     "mean_value_to_cost_ratio": 25.0,
-    "median_value_to_cost_ratio": 17.5,
-    "p95_value_to_cost_ratio": 25.0,
+    "median_value_to_cost_ratio": 20.0,
+    "p95_value_to_cost_ratio": 27.5,
 }
 _SAFETY_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "expected_loss_when_losing_fraction": 34.0,
-    "median_loss_when_losing_fraction": 33.0,
+    "expected_loss_when_losing_ratio": 34.0,
+    "median_loss_when_losing_ratio": 33.0,
     "p05_shortfall_to_cost": 33.0,
 }
 _STABILITY_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "coefficient_of_variation": 50.0,
-    "effective_chase_count": 50.0,
+    "coefficient_of_variation": 65.0,
+    "effective_chase_count": 35.0,
 }
 _PACK_SCORE_V2_WEIGHTS_PCT: Dict[str, float] = {
     "profit_score": 45.0,
@@ -709,13 +709,13 @@ _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
         "max": 5.00,
         "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
     },
-    # Safety anchors (all normalized downside fractions)
-    "expected_loss_when_losing_fraction": {
+    # Safety anchors (all normalized downside ratios)
+    "expected_loss_when_losing_ratio": {
         "min": 0.00,
         "max": 1.00,
         "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
     },
-    "median_loss_when_losing_fraction": {
+    "median_loss_when_losing_ratio": {
         "min": 0.00,
         "max": 1.00,
         "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
@@ -728,12 +728,12 @@ _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
     # Stability anchors
     "coefficient_of_variation": {
         "min": 0.25,
-        "max": 10.00,
+        "max": 6.00,
         "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,
     },
     "effective_chase_count": {
         "min": 1.0,
-        "max": 30.0,
+        "max": 40.0,
         "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
     },
 }
@@ -1097,8 +1097,8 @@ def _build_runtime_v2_pack_score_payload(
         "p95_value_to_cost_ratio": _safe_ratio(p95_value, pack_cost),
         "expected_loss_when_losing": expected_loss_when_losing,
         "median_loss_when_losing": median_loss_when_losing,
-        "expected_loss_when_losing_fraction": _safe_ratio(expected_loss_when_losing, pack_cost),
-        "median_loss_when_losing_fraction": _safe_ratio(median_loss_when_losing, pack_cost),
+        "expected_loss_when_losing_ratio": _safe_ratio(expected_loss_when_losing, pack_cost),
+        "median_loss_when_losing_ratio": _safe_ratio(median_loss_when_losing, pack_cost),
         "p05_shortfall_to_cost": _compute_p05_shortfall_to_cost(tail_value_p05, pack_cost),
         "coefficient_of_variation": _to_finite_float(pack_metrics.get("coefficient_of_variation")),
         "hhi_ev_concentration": _to_finite_float(
@@ -1139,13 +1139,13 @@ def _build_runtime_v2_pack_score_payload(
             "p95_value_to_cost_ratio",
             raw_inputs["p95_value_to_cost_ratio"],
         ),
-        "expected_loss_when_losing_fraction": _score_metric(
-            "expected_loss_when_losing_fraction",
-            raw_inputs["expected_loss_when_losing_fraction"],
+        "expected_loss_when_losing_ratio": _score_metric(
+            "expected_loss_when_losing_ratio",
+            raw_inputs["expected_loss_when_losing_ratio"],
         ),
-        "median_loss_when_losing_fraction": _score_metric(
-            "median_loss_when_losing_fraction",
-            raw_inputs["median_loss_when_losing_fraction"],
+        "median_loss_when_losing_ratio": _score_metric(
+            "median_loss_when_losing_ratio",
+            raw_inputs["median_loss_when_losing_ratio"],
         ),
         "p05_shortfall_to_cost": _score_metric(
             "p05_shortfall_to_cost",
@@ -1172,11 +1172,11 @@ def _build_runtime_v2_pack_score_payload(
     )
     safety_score = _weighted_average(
         {
-            "expected_loss_when_losing_fraction": normalized_inputs[
-                "expected_loss_when_losing_fraction"
+            "expected_loss_when_losing_ratio": normalized_inputs[
+                "expected_loss_when_losing_ratio"
             ]["score"],
-            "median_loss_when_losing_fraction": normalized_inputs[
-                "median_loss_when_losing_fraction"
+            "median_loss_when_losing_ratio": normalized_inputs[
+                "median_loss_when_losing_ratio"
             ]["score"],
             "p05_shortfall_to_cost": normalized_inputs["p05_shortfall_to_cost"]["score"],
         },
@@ -1199,8 +1199,8 @@ def _build_runtime_v2_pack_score_payload(
     )
 
     return {
-        "score_version": "pack_score_v2_1_runtime",
-        "normalization_mode": "fixed_anchor_runtime_v2_1",
+        "score_version": "pack_score_v2_chase_weighted",
+        "normalization_mode": "fixed_anchor_runtime_v2_chase_weighted",
         "pack_score_is_placeholder": False,
         "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
         "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
@@ -1700,7 +1700,13 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
             f"{_fmt_float(idx.get('stability_score'))}"
         )
 
-        if idx.get("score_version") in {"pack_score_v2_runtime", "pack_score_v2_1_runtime"}:
+        if idx.get("score_version") in {
+            "pack_score_v2_runtime",
+            "pack_score_v2_1_runtime",
+            "pack_score_v2_2_runtime",
+            "pack_score_v2_3_runtime",
+            "pack_score_v2_chase_weighted",
+        }:
             print()
             print("[PACK_SCORE_V2_RUNTIME]")
             print(f"  score_version:               {idx.get('score_version')}")
@@ -1718,8 +1724,8 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
                 "p95_value_to_cost_ratio",
                 "expected_loss_when_losing",
                 "median_loss_when_losing",
-                "expected_loss_when_losing_fraction",
-                "median_loss_when_losing_fraction",
+                "expected_loss_when_losing_ratio",
+                "median_loss_when_losing_ratio",
                 "p05_shortfall_to_cost",
                 "coefficient_of_variation",
                 "hhi_ev_concentration",

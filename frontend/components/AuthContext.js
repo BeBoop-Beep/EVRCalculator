@@ -30,8 +30,9 @@ export function AuthProvider({ children, initialUser = null }) {
   }, []);
 
   useEffect(() => {
+    setUser(initialUser);
+
     if (!initialUser) {
-      refreshUser();
       return;
     }
 
@@ -39,7 +40,7 @@ export function AuthProvider({ children, initialUser = null }) {
       authResolution: "reused_server_state",
       hasInitialUser: Boolean(initialUser?.id),
     });
-  }, [initialUser, refreshUser]);
+  }, [initialUser]);
 
   const login = async (email, password) => {
     try {

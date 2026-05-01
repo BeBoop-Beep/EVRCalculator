@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PROFILE_ME_PATH = "/profile/me";
 
 function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return getBackendApiBaseUrl();
 }
 
 function buildProxyHeaders(request, includeJsonContentType = false) {

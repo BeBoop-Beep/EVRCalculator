@@ -16,3 +16,13 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# Generated logs and debug artifacts
+logs/
+*.log
+*_debug.json
+payload_debug.json
+cleaned_cards_debug.json
+debug/
+tmp/
+temp/
