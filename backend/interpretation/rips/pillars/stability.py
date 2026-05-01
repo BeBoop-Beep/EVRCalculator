@@ -6,116 +6,109 @@ from typing import Any, Dict
 
 from ..models import EvidenceItem, SectionInterpretation, StabilityInterpretation
 from ..thresholds import (
-    classify_ratio_high_medium_low,
-    classify_share_concentration,
-    classify_score_strength,
-    format_cardinality,
+    build_stability_context,
     format_percent,
-    format_ratio,
-    format_score,
     get_numeric,
+    get_summary_data,
 )
 
 
 def interpret_stability(data: Dict[str, Any]) -> StabilityInterpretation:
-    summary_data = data.get("summary") if isinstance(data.get("summary"), dict) else data
+    summary_data = get_summary_data(data)
+    context = build_stability_context(summary_data)
 
-    score = get_numeric(summary_data, "stability_score", "relative_stability_score")
+    score = context["score"]
+    tier = context["tier"]
+    strength = context["strength"]
     coefficient_of_variation = get_numeric(summary_data, "coefficient_of_variation")
     hhi_ev_concentration = get_numeric(summary_data, "hhi_ev_concentration")
     top1_share = get_numeric(summary_data, "top1_ev_share")
     top3_share = get_numeric(summary_data, "top3_ev_share")
-    top5_share = get_numeric(summary_data, "top5_ev_share")
     effective_chase_count = get_numeric(summary_data, "effective_chase_count")
-    p95_to_cost = get_numeric(summary_data, "p95_value_to_cost_ratio")
+    top1_extreme = top1_share is not None and top1_share >= 0.30
+    top3_extreme = top3_share is not None and top3_share >= 0.45
+    high_tier = strength is not None and strength >= 4
+    low_tier = strength is not None and strength <= 1
 
-    score_strength = classify_score_strength(score)
-
-    volatility = classify_ratio_high_medium_low(
-        coefficient_of_variation,
-        high_min=1.6,
-        medium_min=0.9,
-        missing=score_strength,
-    )
-
-    share_concentration = classify_share_concentration(top1_share, missing=score_strength)
-    hhi_concentration = classify_ratio_high_medium_low(
-        hhi_ev_concentration,
-        high_min=0.22,
-        medium_min=0.12,
-        missing=score_strength,
-    )
-    concentration = "high" if "high" in {share_concentration, hhi_concentration} else (
-        "medium" if "medium" in {share_concentration, hhi_concentration} else "low"
-    )
-
-    if effective_chase_count is not None and effective_chase_count >= 12:
-        distribution_quality = "broad"
-    elif effective_chase_count is not None and effective_chase_count >= 6:
-        distribution_quality = "moderate"
-    else:
-        distribution_quality = "narrow"
-
-    single_card_dependence = top1_share is not None and top1_share >= 0.40
-    top_heavy_cluster = (top3_share is not None and top3_share >= 0.70) or (
-        top5_share is not None and top5_share >= 0.85
-    )
-
-    if volatility == "high" and concentration == "high":
-        summary = "Results can swing a lot because too much value depends on a small number of cards."
-        label = "High swings, few key cards"
-        reason_code = "volatile_concentrated"
-        severity = "caution"
-    elif single_card_dependence:
-        summary = "One card carries too much of the value, so the set depends heavily on hitting it."
-        label = "Single-card dependence"
+    if top1_extreme:
+        label = "One card carries value"
+        summary = "One card carries too much of the value, so this set depends heavily on landing it."
         reason_code = "single_card_dominance"
-        severity = "caution"
-    elif concentration == "high" or top_heavy_cluster:
-        summary = "Most of the value is tied up in just a few cards, so the set is top-heavy."
-        label = "Top-heavy value"
+        profile = "single_card_dependent"
+    elif top3_extreme:
+        label = "Top cards carry value"
+        summary = "A small group of cards carries a large share of the value, so results depend heavily on landing the right hits."
         reason_code = "top_heavy_concentration"
-        severity = "caution"
-    elif distribution_quality == "broad" and concentration == "low" and volatility in {"low", "medium"}:
-        summary = "Value is spread across several good cards, so the set is not relying on one card only."
-        label = "Broad, stable value base"
-        reason_code = "broad_distribution"
-        severity = "positive"
-    elif volatility == "low" and distribution_quality in {"moderate", "broad"} and p95_to_cost is not None and p95_to_cost < 1.25:
-        summary = "Results are steady here, but that steadiness comes at the cost of big wins."
-        label = "Stable but capped upside"
-        reason_code = "stable_low_upside"
-        severity = "neutral"
+        profile = "top_heavy"
+    elif effective_chase_count is not None and effective_chase_count >= 25:
+        label = "Value is well spread"
+        summary = "Value is spread across many cards, so the set is not relying on one perfect pull."
+        reason_code = "well_spread_value"
+        profile = "well_spread"
+    elif effective_chase_count is not None and effective_chase_count >= 15:
+        label = "Decent value spread"
+        summary = "Value is spread across a decent group of cards, though the best hits still matter."
+        reason_code = "decent_spread"
+        profile = "decent_spread"
     else:
-        summary = "Results are somewhat predictable, but there is still enough swing to keep things uncertain."
-        label = "Moderate stability"
-        reason_code = "moderate_stability"
+        label = "Thin value spread"
+        summary = "Value is not spread across enough cards, so the set needs the right hits to feel strong."
+        reason_code = "thin_spread"
+        profile = "thin_spread"
+
+    if high_tier and not top1_extreme and not top3_extreme and label == "Thin value spread":
+        label = "Decent value spread"
+        summary = "Compared to other sets, value is spread well enough to avoid leaning on one perfect pull."
+        reason_code = "high_tier_relative_spread"
+        profile = "high_tier_relative"
+
+    if low_tier and not top1_extreme and not top3_extreme and effective_chase_count is not None and effective_chase_count < 25:
+        summary = "Value is spread thin for this tier, so the path to strong returns stays fragile without the right hits."
+
+    if high_tier:
+        severity = "positive"
+    elif low_tier and (top1_extreme or top3_extreme or (effective_chase_count is not None and effective_chase_count < 15)):
+        severity = "caution"
+    else:
         severity = "neutral"
 
     confidence: str
-    if score is not None and coefficient_of_variation is not None and hhi_ev_concentration is not None:
+    if score is not None and top1_share is not None and top3_share is not None and effective_chase_count is not None:
         confidence = "high"
     elif score is not None:
         confidence = "medium"
     else:
         confidence = "low"
 
-    cv_str = f"{coefficient_of_variation:.2f}" if coefficient_of_variation is not None else "N/A"
-    hhi_str = f"{hhi_ev_concentration:.3f}" if hhi_ev_concentration is not None else "N/A"
+    concentration_proxy = max(
+        [value for value in (top1_share, top3_share, hhi_ev_concentration) if value is not None],
+        default=None,
+    )
+    if concentration_proxy is None:
+        value_spread = "Unknown"
+    elif concentration_proxy >= 0.45:
+        value_spread = "Concentrated"
+    elif concentration_proxy >= 0.25:
+        value_spread = "Moderate"
+    else:
+        value_spread = "Broad"
+
     evidence = [
-        EvidenceItem("Stability score", format_score(score)),
-        EvidenceItem("Coefficient of variation", cv_str),
-        EvidenceItem("Value spread", hhi_str),
         EvidenceItem("Top card share", format_percent(top1_share)),
-        EvidenceItem("Top card share", format_percent(top1_share)),
-        EvidenceItem("Top 5 EV share", format_percent(top5_share)),
-        EvidenceItem("Effective contributor count", format_cardinality(effective_chase_count)),
+        EvidenceItem("Top 3 card share", format_percent(top3_share)),
+        EvidenceItem("Chase depth", f"{effective_chase_count:.1f}" if effective_chase_count is not None else "N/A"),
+        EvidenceItem("Value spread", value_spread),
     ]
 
     signals: Dict[str, Any] = {
-        "volatility": volatility,
-        "concentration": concentration,
-        "distribution_quality": distribution_quality,
+        "profile": profile,
+        "top1_ev_share": top1_share,
+        "top3_ev_share": top3_share,
+        "effective_chase_count": effective_chase_count,
+        "hhi_ev_concentration": hhi_ev_concentration,
+        "coefficient_of_variation": coefficient_of_variation,
+        "tier": tier,
+        "strength": strength,
     }
 
     meta = SectionInterpretation(

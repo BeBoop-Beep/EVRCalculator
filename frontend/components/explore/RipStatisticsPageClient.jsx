@@ -20,9 +20,17 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 const REQUIRED_PACK_PATHS = ["normal", "demi_god_pack", "god_pack"];
-const ANALYSIS_SECTION_ID = "analysis-zone";
+const ANALYSIS_SECTION_ID = "explore-outcomes";
 const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "pack-breakdown"]);
-const SECTION_SCROLL_MARGIN = { scrollMarginTop: "6.5rem" };
+const SECTION_ID_MAP = {
+  "pack-score": "explore-score",
+  "outcome-distribution": "explore-outcomes",
+  "historical-trend": "explore-outcomes",
+  "pack-breakdown": "explore-outcomes",
+  "top-ev-drivers": "explore-drivers",
+  "rarity-contribution": "explore-rarity",
+  "advanced-metrics": "explore-advanced",
+};
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -259,13 +267,15 @@ function ScorePillarCard({
 
       <ScoreMeter score={score} rankTier={rankTier} />
 
-      <InterpretationInsight
-        sectionMeta={sectionMeta}
-        fallbackSummary={fallbackSummary}
-        compact
-        showEvidence={false}
-        className="mt-3"
-      />
+      <div className="min-h-[116px]">
+        <InterpretationInsight
+          sectionMeta={sectionMeta}
+          fallbackSummary={fallbackSummary}
+          compact
+          showEvidence={false}
+          className="mt-3"
+        />
+      </div>
 
       <div className="mt-5 h-px w-full bg-[var(--border-subtle)]" />
 
@@ -620,11 +630,114 @@ function getTopEvEvidence(sectionMeta) {
 
 function CompactBottomSectionNav({ activeSection, onSelect }) {
   const items = [
-    { id: "pack-score", label: "Score" },
-    { id: "outcome-distribution", label: "Outcomes" },
-    { id: "top-ev-drivers", label: "Drivers" },
-    { id: "rarity-contribution", label: "Rarity" },
-    { id: "advanced-metrics", label: "Advanced" },
+    {
+      id: "pack-score",
+      label: "Score",
+      icon: (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4.5 18.25h15" />
+          <path d="M7.5 16v-2.8" />
+          <path d="M11.5 16v-5.1" />
+          <path d="M15.5 16v-7.3" />
+          <path d="M6.9 10.6 10.8 8l3.2 1.9 3.4-3.9" />
+          <path d="M15.7 6h2.8v2.8" />
+        </svg>
+      ),
+    },
+    {
+      id: "outcome-distribution",
+      label: "Outcomes",
+      icon: (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4.5 18.25h15" />
+          <path d="M7.5 14.5v-4" />
+          <path d="M11.5 16v-7" />
+          <path d="M15.5 12.5V8" />
+          <path d="M4.5 8.5h15" />
+        </svg>
+      ),
+    },
+    {
+      id: "top-ev-drivers",
+      label: "Drivers",
+      icon: (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 12h3.5l2.1-4.1 4.2 8.2 2.2-4.1H20" />
+          <circle cx="13.55" cy="16.1" r="0.85" fill="currentColor" stroke="none" />
+        </svg>
+      ),
+    },
+    {
+      id: "rarity-contribution",
+      label: "Rarity",
+      icon: (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 4.5 14.7 9.8l5.8.8-4.2 4.1 1 5.8L12 17.7l-5.3 2.8 1-5.8-4.2-4.1 5.8-.8Z" />
+        </svg>
+      ),
+    },
+    {
+      id: "advanced-metrics",
+      label: "Advanced",
+      icon: (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 3.75v3" />
+          <path d="M12 17.25v3" />
+          <path d="M4.93 6.43 7.05 8.55" />
+          <path d="M16.95 18.45 19.07 20.57" />
+          <path d="M3.75 12h3" />
+          <path d="M17.25 12h3" />
+          <path d="M4.93 20.57 7.05 18.45" />
+          <path d="M16.95 8.55 19.07 6.43" />
+          <circle cx="12" cy="12" r="3.25" />
+        </svg>
+      ),
+    },
   ];
 
   const isItemActive = (itemId) => {
@@ -645,12 +758,15 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
             onClick={() => onSelect(item.id)}
             aria-current={isActive ? "location" : undefined}
             className={[
-              "flex items-center justify-center rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
+              "flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
               isActive
                 ? "text-[var(--accent)]"
                 : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
             ].join(" ")}
           >
+            <span className={["transition-transform duration-150 ease-out", isActive ? "scale-110" : "scale-100"].join(" ")}>
+              {item.icon}
+            </span>
             <span>{item.label}</span>
           </button>
         );
@@ -779,21 +895,50 @@ export default function RipStatisticsPageClient({
     return mostVisibleId;
   };
 
+  const getVisibleSectionElement = (sectionId) => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return null;
+    }
+
+    const escapedSectionId = typeof window.CSS?.escape === "function"
+      ? window.CSS.escape(sectionId)
+      : sectionId;
+
+    const matches = Array.from(document.querySelectorAll(`#${escapedSectionId}`));
+    if (matches.length === 0) {
+      return null;
+    }
+
+    const visibleMatch = matches.find((element) => {
+      const styles = window.getComputedStyle(element);
+      return styles.display !== "none" && styles.visibility !== "hidden" && element.getClientRects().length > 0;
+    });
+
+    return visibleMatch || matches[0] || null;
+  };
+
+  const scrollToExploreSection = (sectionId) => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    const targetId = SECTION_ID_MAP[sectionId] || sectionId;
+    const target = getVisibleSectionElement(targetId);
+    if (!target) {
+      console.warn(`[Explore mobile nav] Missing section target: ${targetId}`);
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const handleSectionSelect = (sectionId) => {
     if (GRAPH_SECTION_KEYS.has(sectionId) && graphMode !== sectionId) {
       setGraphMode(sectionId);
     }
 
     setActiveSection(sectionId);
-
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const target = document.getElementById(sectionId);
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    scrollToExploreSection(sectionId);
   };
 
   useEffect(() => {
@@ -826,8 +971,8 @@ export default function RipStatisticsPageClient({
       }
     );
 
-    ["pack-score", ANALYSIS_SECTION_ID, "top-ev-drivers", "rarity-contribution", "advanced-metrics"].forEach((sectionId) => {
-      const element = document.getElementById(sectionId);
+    ["explore-score", ANALYSIS_SECTION_ID, "explore-drivers", "explore-rarity", "explore-advanced"].forEach((sectionId) => {
+      const element = getVisibleSectionElement(sectionId);
       if (element) {
         observer.observe(element);
       }
@@ -879,7 +1024,7 @@ export default function RipStatisticsPageClient({
     }
 
     const handleOutsideClick = (event) => {
-      if (!heroSetPickerRef.current?.contains(event.target)) {
+      if (!event.target.closest?.('[data-hero-picker]')) {
         setHeroSetPickerOpen(false);
       }
     };
@@ -1064,10 +1209,10 @@ export default function RipStatisticsPageClient({
 
         {!pageError && explorePayload ? (
           <>
-            <section id="pack-score" style={SECTION_SCROLL_MARGIN} className="page-hero-panel rounded-2xl px-6 py-8">
+            <section id="explore-score" className="page-hero-panel scroll-mt-24 rounded-2xl px-6 py-8 md:scroll-mt-28">
               <div className="mx-auto max-w-3xl text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">RIP Statistics</p>
-                <div ref={heroSetPickerRef} className="relative mt-2 inline-flex max-w-full justify-center">
+                <div ref={heroSetPickerRef} data-hero-picker className="relative mt-2 inline-flex max-w-full justify-center">
                   <button
                     type="button"
                     onClick={() => setHeroSetPickerOpen((open) => !open)}
@@ -1154,8 +1299,8 @@ export default function RipStatisticsPageClient({
                   sectionMeta={packScoreMeta}
                   fallbackSummary={interpretation?.packScore}
                   showEvidence
-                  maxEvidence={5}
-                  showAllWhenExpanded
+                  maxEvidence={3}
+                  evidenceLabel="Why this matters"
                   className="mx-auto mt-3 w-full max-w-2xl"
                 />
 
@@ -1252,10 +1397,7 @@ export default function RipStatisticsPageClient({
               </div>
             </section>
 
-            <section id={ANALYSIS_SECTION_ID} style={SECTION_SCROLL_MARGIN} className="pt-7">
-              <div id="outcome-distribution" style={SECTION_SCROLL_MARGIN} className="h-0" aria-hidden="true" />
-              <div id="historical-trend" style={SECTION_SCROLL_MARGIN} className="h-0" aria-hidden="true" />
-              <div id="pack-breakdown" style={SECTION_SCROLL_MARGIN} className="h-0" aria-hidden="true" />
+            <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 pt-7 md:scroll-mt-28">
               <SectionCard
                 title={
                   graphMode === "historical-trend"
@@ -1272,43 +1414,43 @@ export default function RipStatisticsPageClient({
                     : "See how simulated pack outcomes are distributed across value ranges."
                 }
               >
-                <div className="mb-1.5 -mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0">
-                  <div className="inline-flex min-w-max items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+                <div className="mb-1.5 w-full max-w-full overflow-hidden">
+                  <div className="grid w-full grid-cols-3 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
                   <button
                     type="button"
                     onClick={() => handleSectionSelect("outcome-distribution")}
                     aria-pressed={graphMode === "outcome-distribution"}
-                    className={`min-w-[7.75rem] rounded-md px-2 py-1.5 text-[10px] font-semibold leading-none transition-colors sm:min-w-[10.5rem] sm:px-3 sm:text-[11px] ${
+                    className={`min-w-0 rounded-md px-1.5 py-2 text-[10px] font-semibold leading-none transition-colors sm:px-3 sm:text-[11px] ${
                       graphMode === "outcome-distribution"
                         ? "bg-[var(--brand)] text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    Outcome Distribution
+                    <span className="block truncate">Outcome Distribution</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSectionSelect("historical-trend")}
                     aria-pressed={graphMode === "historical-trend"}
-                    className={`min-w-[7.75rem] rounded-md px-2 py-1.5 text-[10px] font-semibold leading-none transition-colors sm:min-w-[9.5rem] sm:px-3 sm:text-[11px] ${
+                    className={`min-w-0 rounded-md px-1.5 py-2 text-[10px] font-semibold leading-none transition-colors sm:px-3 sm:text-[11px] ${
                       graphMode === "historical-trend"
                         ? "bg-[var(--brand)] text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    Historical Trend
+                    <span className="block truncate">Historical Trend</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSectionSelect("pack-breakdown")}
                     aria-pressed={graphMode === "pack-breakdown"}
-                    className={`min-w-[7.25rem] rounded-md px-2 py-1.5 text-[10px] font-semibold leading-none transition-colors sm:min-w-[8.5rem] sm:px-3 sm:text-[11px] ${
+                    className={`min-w-0 rounded-md px-1.5 py-2 text-[10px] font-semibold leading-none transition-colors sm:px-3 sm:text-[11px] ${
                       graphMode === "pack-breakdown"
                         ? "bg-[var(--brand)] text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    Pack Breakdown
+                    <span className="block truncate">Pack Breakdown</span>
                   </button>
                   </div>
                 </div>
@@ -1366,7 +1508,7 @@ export default function RipStatisticsPageClient({
 
             <section className="pt-1">
               <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
-                <div id="top-ev-drivers" style={SECTION_SCROLL_MARGIN}>
+                <div id="explore-drivers" className="scroll-mt-24 md:scroll-mt-28">
                   <SectionCard title="Top EV Drivers" subtitle="These cards contribute the most to expected pack value.">
                     <InterpretationInsight
                       sectionMeta={topEvDriversMeta}
@@ -1395,7 +1537,7 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 <div className="space-y-4">
-                  <div id="rarity-contribution" style={SECTION_SCROLL_MARGIN}>
+                  <div id="explore-rarity" className="scroll-mt-24 md:scroll-mt-28">
                     <SectionCard title="Rarity Pull Contribution" subtitle={null}>
                       <InterpretationInsight
                         sectionMeta={rarityContributionMeta}
@@ -1409,7 +1551,7 @@ export default function RipStatisticsPageClient({
                     </SectionCard>
                   </div>
 
-                  <details id="advanced-metrics" style={SECTION_SCROLL_MARGIN} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-5 sm:p-6 group">
+                  <details id="explore-advanced" className="group scroll-mt-24 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-5 sm:p-6 md:scroll-mt-28">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-1 transition-colors hover:text-white">
                       <span className="text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</span>
                       <svg
@@ -1422,10 +1564,10 @@ export default function RipStatisticsPageClient({
                       </svg>
                     </summary>
                     <style>{`
-                      #advanced-metrics svg {
+                      #explore-advanced svg {
                         transform: rotate(0deg);
                       }
-                      #advanced-metrics[open] svg {
+                      #explore-advanced[open] svg {
                         transform: rotate(180deg);
                       }
                     `}</style>

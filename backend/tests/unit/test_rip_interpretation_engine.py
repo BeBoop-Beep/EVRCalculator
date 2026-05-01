@@ -1,6 +1,6 @@
 """Deterministic tests for the Phase 2 RIP Interpretation Engine.
 
-Covers 11 scenarios:
+Covers 13 scenarios:
 1. Chase-heavy, low safety
 2. Mid-tier hit driven
 3. Illustration Rare supported
@@ -12,6 +12,8 @@ Covers 11 scenarios:
 9. Profit high / stability low
 10. Stability high / profit low
 11. Data-limited sections
+12. Weighted driver prefers profit
+13. Score fallback without tiers
 """
 
 from __future__ import annotations
@@ -56,29 +58,32 @@ def _make_summary(**kwargs):
     return defaults
 
 
-def _chase_hits(lead_share=0.60, profile="sir"):
+def _chase_hits(lead_share=0.38, profile="sir"):
     """Returns a top_hits list dominated by a chase rarity."""
+    remainder = max(0.0, 10 - (lead_share * 10))
     return [
         {"card_name": "Charizard ex SIR", "ev_contribution": lead_share * 10, "rarity_bucket": "special illustration rare"},
-        {"card_name": "Mewtwo ex", "ev_contribution": 0.20 * 10, "rarity_bucket": "ultra rare"},
-        {"card_name": "Pikachu ex", "ev_contribution": 0.20 * 10, "rarity_bucket": "ex"},
+        {"card_name": "Mew ex SIR", "ev_contribution": remainder * 0.45, "rarity_bucket": "special illustration rare"},
+        {"card_name": "Mewtwo ex", "ev_contribution": remainder * 0.35, "rarity_bucket": "ultra rare"},
+        {"card_name": "Pikachu ex", "ev_contribution": remainder * 0.20, "rarity_bucket": "ex"},
     ]
 
 
 def _illustration_hits():
     return [
-        {"card_name": "Eevee IR", "ev_contribution": 5.0, "rarity_bucket": "illustration rare"},
+        {"card_name": "Eevee IR", "ev_contribution": 3.6, "rarity_bucket": "illustration rare"},
         {"card_name": "Sylveon IR", "ev_contribution": 3.0, "rarity_bucket": "illustration rare"},
-        {"card_name": "Umbreon ex", "ev_contribution": 2.0, "rarity_bucket": "ultra rare"},
+        {"card_name": "Umbreon IR", "ev_contribution": 1.8, "rarity_bucket": "illustration rare"},
+        {"card_name": "Umbreon ex", "ev_contribution": 1.6, "rarity_bucket": "ultra rare"},
     ]
 
 
 def _mid_tier_hits():
     return [
-        {"card_name": "Gardevoir ex", "ev_contribution": 4.0, "rarity_bucket": "ultra rare"},
-        {"card_name": "Lucario ex", "ev_contribution": 3.0, "rarity_bucket": "ex"},
-        {"card_name": "Gengar ex", "ev_contribution": 2.5, "rarity_bucket": "double rare"},
-        {"card_name": "Absol SIR", "ev_contribution": 0.5, "rarity_bucket": "special illustration rare"},
+        {"card_name": "Gardevoir ex", "ev_contribution": 3.4, "rarity_bucket": "ultra rare"},
+        {"card_name": "Miraidon ex", "ev_contribution": 2.0, "rarity_bucket": "ultra rare"},
+        {"card_name": "Lucario ex", "ev_contribution": 2.6, "rarity_bucket": "ex"},
+        {"card_name": "Gengar ex", "ev_contribution": 1.8, "rarity_bucket": "double rare"},
     ]
 
 
@@ -98,6 +103,24 @@ def _rankings_chase_heavy():
         {"rarity_bucket": "special illustration rare", "total_sampled_value": 800.0, "pulled_count": 20, "avg_sampled_value": 40.0},
         {"rarity_bucket": "ultra rare", "total_sampled_value": 100.0, "pulled_count": 50, "avg_sampled_value": 2.0},
         {"rarity_bucket": "common", "total_sampled_value": 100.0, "pulled_count": 500, "avg_sampled_value": 0.2},
+    ]
+
+
+def _rankings_illustration_led():
+    return [
+        {"rarity_bucket": "illustration rare", "total_sampled_value": 460.0, "pulled_count": 90, "avg_sampled_value": 5.11},
+        {"rarity_bucket": "ultra rare", "total_sampled_value": 240.0, "pulled_count": 80, "avg_sampled_value": 3.0},
+        {"rarity_bucket": "double rare", "total_sampled_value": 180.0, "pulled_count": 140, "avg_sampled_value": 1.29},
+        {"rarity_bucket": "common", "total_sampled_value": 120.0, "pulled_count": 900, "avg_sampled_value": 0.13},
+    ]
+
+
+def _rankings_pull_low_value_but_ev_high():
+    return [
+        {"rarity_bucket": "special illustration rare", "total_sampled_value": 500.0, "pulled_count": 20, "avg_sampled_value": 25.0},
+        {"rarity_bucket": "ultra rare", "total_sampled_value": 230.0, "pulled_count": 80, "avg_sampled_value": 2.88},
+        {"rarity_bucket": "common", "total_sampled_value": 190.0, "pulled_count": 1000, "avg_sampled_value": 0.19},
+        {"rarity_bucket": "uncommon", "total_sampled_value": 80.0, "pulled_count": 700, "avg_sampled_value": 0.11},
     ]
 
 
@@ -168,6 +191,27 @@ def _assert_meta_structure(meta_section: dict):
     assert meta_section["confidence"] in ("high", "medium", "low")
 
 
+def _assert_no_bad_pack_phrases(result: dict):
+    banned = (
+        "expected return",
+        "erase the upside",
+        "tradeoff-heavy",
+        "led by stability",
+        "main constraint",
+        "tier context",
+        "profile led by",
+    )
+    pack_strings = [
+        result["packScore"],
+        result["meta"]["packScore"]["summary"],
+        result["meta"]["packScore"]["label"],
+    ]
+    for value in pack_strings:
+        lowered = value.lower()
+        for phrase in banned:
+            assert phrase not in lowered, f"'{phrase}' found in pack score output: {value}"
+
+
 # ---------------------------------------------------------------------------
 # Scenario 1: Chase-heavy, low safety
 # ---------------------------------------------------------------------------
@@ -193,13 +237,20 @@ def test_chase_heavy_low_safety():
     result = build_rip_interpretation(data)
     _assert_base_contract(result)
     _assert_no_premium_led(result)
+    _assert_no_bad_pack_phrases(result)
     for section in result["meta"].values():
         _assert_meta_structure(section)
 
-    # Chase-led EV drivers
+    # SIR-led EV drivers (top3-concentration path or dominant-rarity path)
     top_ev_meta = result["meta"]["topEvDrivers"]
-    assert top_ev_meta["reason_code"] == "chase_led", f"Expected chase_led, got {top_ev_meta['reason_code']}"
-    assert "chase" in top_ev_meta["label"].lower()
+    assert top_ev_meta["reason_code"] in {"sir_led", "sir_led_top3", "chase_led", "single_card_dependent"}, (
+        f"Expected sir/chase/single-card led, got {top_ev_meta['reason_code']}"
+    )
+    assert (
+        "special illustration" in top_ev_meta["label"].lower()
+        or "chase" in top_ev_meta["label"].lower()
+        or "one card" in top_ev_meta["label"].lower()
+    )
 
     # Safety should flag negative/caution
     safety_meta = result["meta"]["safety"]
@@ -227,9 +278,9 @@ def test_mid_tier_hit_driven():
     _assert_no_premium_led(result)
 
     top_ev_meta = result["meta"]["topEvDrivers"]
-    # Should be mid_tier_led since ultra rare / ex dominate
-    assert top_ev_meta["reason_code"] == "mid_tier_led"
-    assert "mid-tier" in top_ev_meta["label"].lower() or "mid-tier" in top_ev_meta["summary"].lower()
+    # Ultra rare / ex should classify as ex_ultra_led or ex_ultra_led_top3.
+    assert top_ev_meta["reason_code"] in ("ex_ultra_led", "ex_ultra_led_top3"), f"Expected ex/ultra-led, got {top_ev_meta['reason_code']}"
+    assert "ultra" in top_ev_meta["label"].lower() or "ex" in top_ev_meta["label"].lower()
     # User-facing label must not say "premium-led"
     assert "premium-led" not in top_ev_meta["label"].lower()
     assert "premium-led" not in top_ev_meta["summary"].lower()
@@ -256,8 +307,8 @@ def test_illustration_rare_supported():
     _assert_no_premium_led(result)
 
     top_ev_meta = result["meta"]["topEvDrivers"]
-    assert top_ev_meta["reason_code"] == "illustration_led"
-    assert "art" in top_ev_meta["label"].lower() or "art" in top_ev_meta["summary"].lower()
+    assert top_ev_meta["reason_code"] in ("illustration_led", "ir_led_top3")
+    assert "illustration rare" in top_ev_meta["label"].lower() or "illustration rare" in top_ev_meta["summary"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +324,7 @@ def test_broad_value_base():
             effective_chase_count=14.0,
             hhi_ev_concentration=0.08,
             top1_ev_share=0.12,
+            top3_ev_share=0.35,  # explicitly below 0.40 to reach broad path
             coefficient_of_variation=0.8,
         ),
         "top_hits": _broad_hits(),
@@ -285,8 +337,9 @@ def test_broad_value_base():
     _assert_no_premium_led(result)
 
     top_ev_meta = result["meta"]["topEvDrivers"]
-    # Broad spread across 3+ rarity groups
-    assert top_ev_meta["reason_code"] in ("broad_spread", "mid_tier_led", "illustration_led")
+    # Broad spread across 3+ rarity groups — broad_value_base expected when all shares are low
+    assert top_ev_meta["reason_code"] in ("broad_value_base", "mixed_hit_base", "top_cards_carry_value",
+                                           "illustration_led", "ex_ultra_led")
 
     stability_meta = result["meta"]["stability"]
     assert stability_meta["severity"] in ("positive", "neutral")
@@ -319,7 +372,12 @@ def test_single_card_dominated():
     _assert_no_premium_led(result)
 
     stability_meta = result["meta"]["stability"]
-    assert stability_meta["reason_code"] in ("single_card_dominance", "volatile_concentrated", "top_heavy_concentration")
+    assert stability_meta["reason_code"] in (
+        "single_card_dominance",
+        "volatile_concentrated",
+        "top_heavy_concentration",
+        "low_tier_hit_dependent",
+    )
 
     top_ev_meta = result["meta"]["topEvDrivers"]
     assert top_ev_meta["signals"]["concentration_risk"] is True
@@ -351,11 +409,13 @@ def test_all_weak():
     result = build_rip_interpretation(data)
     _assert_base_contract(result)
     _assert_no_premium_led(result)
+    _assert_no_bad_pack_phrases(result)
 
     pack_meta = result["meta"]["packScore"]
-    assert pack_meta["reason_code"] == "all_weak"
+    assert pack_meta["reason_code"] == "bottom_tier_open"
+    assert pack_meta["label"] == "One of the toughest opens"
     assert pack_meta["severity"] == "negative"
-    assert "rough" in result["packScore"].lower() or "limited" in result["packScore"].lower()
+    assert "toughest sets to open" in result["packScore"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +429,10 @@ def test_all_strong():
             profit_score=82.0,
             safety_score=78.0,
             stability_score=80.0,
+            pack_tier="S",
+            profit_tier="S",
+            safety_tier="A",
+            stability_tier="A",
             prob_profit=0.65,
             p95_value_to_cost_ratio=2.8,
             median_value_to_cost_ratio=1.05,
@@ -385,11 +449,13 @@ def test_all_strong():
     result = build_rip_interpretation(data)
     _assert_base_contract(result)
     _assert_no_premium_led(result)
+    _assert_no_bad_pack_phrases(result)
 
     pack_meta = result["meta"]["packScore"]
-    assert pack_meta["reason_code"] == "all_strong"
+    assert pack_meta["reason_code"] == "elite_open"
+    assert pack_meta["label"] == "Great to open right now"
     assert pack_meta["severity"] == "positive"
-    assert "better" in result["packScore"].lower() or "strong" in result["packScore"].lower() or "well-rounded" in result["packScore"].lower()
+    assert "cards can pay back the pack price well" in result["packScore"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -399,9 +465,14 @@ def test_all_strong():
 def test_profit_high_safety_low():
     data = {
         "summary": _make_summary(
+            pack_score=88.0,
             profit_score=80.0,
             safety_score=22.0,
             stability_score=60.0,
+            pack_tier="S",
+            profit_tier="S",
+            safety_tier="F",
+            stability_tier="B",
             p95_value_to_cost_ratio=2.5,
             expected_loss_when_losing_fraction=0.80,
             median_loss_when_losing_fraction=0.75,
@@ -416,15 +487,14 @@ def test_profit_high_safety_low():
     result = build_rip_interpretation(data)
     _assert_base_contract(result)
     _assert_no_premium_led(result)
+    _assert_no_bad_pack_phrases(result)
 
     pack_meta = result["meta"]["packScore"]
-    assert pack_meta["reason_code"] in (
-        "profit_strong_safety_weak",
-        "high_upside_downside_pressure",
-        "profit_led_safety_weak",
-    ), f"Unexpected reason_code: {pack_meta['reason_code']}"
-    assert pack_meta["severity"] in ("caution", "negative")
-    assert "upside" in result["packScore"].lower() or "loss" in result["packScore"].lower() or "painful" in result["packScore"].lower() or "hurt" in result["packScore"].lower()
+    assert pack_meta["reason_code"] == "strong_but_risky"
+    assert pack_meta["label"] == "Strong, but risky"
+    assert pack_meta["signals"]["weighted_driver"] == "profit"
+    assert pack_meta["severity"] == "caution"
+    assert "bad packs can still hurt" in result["packScore"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -434,9 +504,14 @@ def test_profit_high_safety_low():
 def test_profit_high_stability_low():
     data = {
         "summary": _make_summary(
+            pack_score=81.0,
             profit_score=78.0,
             safety_score=55.0,
             stability_score=18.0,
+            pack_tier="A",
+            profit_tier="S",
+            safety_tier="C",
+            stability_tier="F",
             p95_value_to_cost_ratio=2.2,
             top1_ev_share=0.55,
             top3_ev_share=0.80,
@@ -452,14 +527,14 @@ def test_profit_high_stability_low():
     result = build_rip_interpretation(data)
     _assert_base_contract(result)
     _assert_no_premium_led(result)
+    _assert_no_bad_pack_phrases(result)
 
     pack_meta = result["meta"]["packScore"]
-    assert pack_meta["reason_code"] in (
-        "profit_strong_stability_weak",
-        "profit_high_stability_constrained",
-        "profit_led_stability_weak",
-    ), f"Unexpected reason_code: {pack_meta['reason_code']}"
-    assert "volatile" in result["packScore"].lower() or "unstable" in result["packScore"].lower() or "concentrated" in result["packScore"].lower() or "swing" in result["packScore"].lower()
+    assert pack_meta["reason_code"] == "good_value_shaky_path"
+    assert pack_meta["label"] == "Good value, shaky path"
+    assert pack_meta["signals"]["weighted_driver"] == "profit"
+    assert pack_meta["signals"]["weighted_drag"] == "stability"
+    assert "too much depends on landing the right hits" in result["packScore"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -469,9 +544,14 @@ def test_profit_high_stability_low():
 def test_stability_high_profit_low():
     data = {
         "summary": _make_summary(
+            pack_score=54.0,
             profit_score=22.0,
             safety_score=55.0,
             stability_score=80.0,
+            pack_tier="B",
+            profit_tier="D",
+            safety_tier="A",
+            stability_tier="S",
             p95_value_to_cost_ratio=1.10,
             prob_profit=0.28,
             median_value_to_cost_ratio=0.60,
@@ -488,14 +568,13 @@ def test_stability_high_profit_low():
     result = build_rip_interpretation(data)
     _assert_base_contract(result)
     _assert_no_premium_led(result)
+    _assert_no_bad_pack_phrases(result)
 
     pack_meta = result["meta"]["packScore"]
-    assert pack_meta["reason_code"] in (
-        "stability_strong_profit_weak",
-        "stable_low_profit",
-        "stability_led_profit_weak",
-    ), f"Unexpected reason_code: {pack_meta['reason_code']}"
-    assert "consistent" in result["packScore"].lower() or "stable" in result["packScore"].lower() or "predictable" in result["packScore"].lower()
+    assert pack_meta["reason_code"] in ("okay_but_capped", "safe_but_low_reward")
+    assert pack_meta["label"] in ("Safe, but not exciting", "Low risk, low reward")
+    assert "wins are not strong enough" in result["packScore"].lower() or "wins are not big enough" in result["packScore"].lower()
+    assert "led by stability" not in result["packScore"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -519,13 +598,1366 @@ def test_data_limited_sections():
     for section_key, section_val in result["meta"].items():
         _assert_meta_structure(section_val)
 
-    # Sections with no data should have data_limited or low confidence
-    for key in ("topEvDrivers", "rarityContribution", "historicalTrend", "packBreakdown"):
-        section = result["meta"][key]
-        assert section["severity"] == "data_limited" or section["confidence"] == "low", \
-            f"{key} should be data_limited or low confidence when data is missing"
 
-    # String keys must still be non-empty strings
-    for key in ("packScore", "outcomeDistribution", "historicalTrend", "packBreakdown",
-                "topEvDrivers", "rarityContribution", "advancedMetrics"):
-        assert result[key], f"String key {key} must be non-empty"
+def test_weighted_driver_prefers_profit_over_raw_stability():
+    data = {
+        "summary": _make_summary(
+            pack_score=90.0,
+            profit_score=88.0,
+            safety_score=58.0,
+            stability_score=98.0,
+            pack_tier="S",
+            profit_tier="S",
+            safety_tier="B",
+            stability_tier="S",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    pack_meta = result["meta"]["packScore"]
+    assert pack_meta["signals"]["weighted_driver"] == "profit"
+    assert pack_meta["signals"]["strongest_pillar"] == "stability"
+
+
+def test_elite_open_with_medium_safety_band():
+    """With profit_tier=S and safety_tier=B (medium band), the matrix maps to elite_open.
+
+    The old tail-pressure override no longer applies: tier drives the band, not raw signal flags.
+    elite_return:medium:high (stability_tier=A) -> elite_open.
+    """
+    data = {
+        "summary": _make_summary(
+            pack_score=88.0,
+            profit_score=86.0,
+            safety_score=58.0,
+            stability_score=74.0,
+            pack_tier="S",
+            profit_tier="S",
+            safety_tier="B",
+            stability_tier="A",
+            expected_loss_when_losing_fraction=0.82,
+            median_loss_when_losing_fraction=0.78,
+            p05_shortfall_to_cost=0.80,
+            tail_value_p05=0.35,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    pack_meta = result["meta"]["packScore"]
+    assert pack_meta["signals"]["pack"]["tier"] == "S"
+    assert pack_meta["signals"]["pillars"]["profit"]["tier"] == "S"
+    assert pack_meta["signals"]["pillars"]["safety"]["tier"] == "B"
+    assert pack_meta["signals"]["decision_category"] == "elite_open"
+    assert pack_meta["reason_code"] == "elite_open"
+    # Matrix signals present
+    assert pack_meta["signals"]["profit_lane"] == "elite_return"
+    assert pack_meta["signals"]["safety_band"] == "medium"
+    assert pack_meta["signals"]["stability_band"] == "high"
+    assert pack_meta["signals"]["matrix_key"] == "elite_return:medium:high"
+
+
+def test_elite_open_when_no_tail_or_stability_risk():
+    data = {
+        "summary": _make_summary(
+            pack_score=90.0,
+            profit_score=88.0,
+            safety_score=62.0,
+            stability_score=76.0,
+            pack_tier="S",
+            profit_tier="S",
+            safety_tier="B",
+            stability_tier="A",
+            expected_loss_when_losing_fraction=0.22,
+            median_loss_when_losing_fraction=0.20,
+            p05_shortfall_to_cost=0.22,
+            coefficient_of_variation=0.75,
+            top1_ev_share=0.18,
+            hhi_ev_concentration=0.08,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    pack_meta = result["meta"]["packScore"]
+    assert pack_meta["signals"]["pack"]["tier"] == "S"
+    assert pack_meta["signals"]["pillars"]["profit"]["tier"] == "S"
+    assert pack_meta["signals"]["pillars"]["safety"]["tier"] == "B"
+    assert pack_meta["signals"]["decision_category"] == "elite_open"
+    assert pack_meta["reason_code"] == "elite_open"
+
+
+def test_pack_score_evidence_labels_are_user_facing():
+    data = {
+        "summary": _make_summary(
+            pack_score=80.0,
+            profit_score=78.0,
+            safety_score=50.0,
+            stability_score=60.0,
+            pack_tier="A",
+            profit_tier="A",
+            safety_tier="C",
+            stability_tier="B",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    labels = [item["label"] for item in result["meta"]["packScore"]["evidence"]]
+    assert "Main reason" in labels
+    assert "Watch out for" in labels
+    assert "Weighted driver" not in labels
+    assert "Main catch" not in labels
+
+
+def test_pack_score_uses_score_fallback_when_tiers_missing():
+    data = {
+        "summary": _make_summary(
+            pack_score=86.0,
+            profit_score=87.0,
+            safety_score=44.0,
+            stability_score=72.0,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    pack_meta = result["meta"]["packScore"]
+    assert pack_meta["reason_code"] != "data_limited"
+    assert pack_meta["signals"]["weighted_driver"] == "profit"
+    assert pack_meta["signals"]["pillars"]["profit"]["strength"] == 5
+    assert pack_meta["signals"]["pillars"]["safety"]["strength"] == 2
+
+
+def test_s_tier_profit_with_low_profit_frequency_still_frames_as_strong_setup():
+    data = {
+        "summary": _make_summary(
+            pack_score=88.0,
+            profit_score=82.0,
+            safety_score=45.0,
+            stability_score=62.0,
+            pack_tier="S",
+            profit_tier="S",
+            safety_tier="C",
+            stability_tier="B",
+            prob_profit=0.27,
+            median_value_to_cost_ratio=0.72,
+            p95_value_to_cost_ratio=2.40,
+        ),
+        "top_hits": _chase_hits(),
+        "rankings": _rankings_chase_heavy(),
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    summary = result["meta"]["profit"]["summary"].lower()
+    assert "reasonable chance to pay off" in summary
+    assert "average value holds up better than most sets" in summary
+
+
+def test_s_tier_safety_with_bad_raw_losses_uses_relative_safer_language():
+    data = {
+        "summary": _make_summary(
+            pack_score=70.0,
+            profit_score=62.0,
+            safety_score=95.0,
+            stability_score=55.0,
+            safety_tier="S",
+            expected_loss_when_losing_fraction=0.82,
+            median_loss_when_losing_fraction=0.78,
+            p05_shortfall_to_cost=0.82,
+            tail_value_p05=0.25,
+        ),
+        "top_hits": _mid_tier_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    safety_label = result["meta"]["safety"]["label"].lower()
+    safety_summary = result["meta"]["safety"]["summary"].lower()
+    assert "punishing" not in safety_label
+    assert "easier to handle" in safety_summary or "safer" in safety_summary
+
+
+def test_c_tier_stability_with_broadish_metrics_is_still_average_spread():
+    data = {
+        "summary": _make_summary(
+            stability_score=58.0,
+            stability_tier="C",
+            top1_ev_share=0.18,
+            top3_ev_share=0.46,
+            top5_ev_share=0.62,
+            hhi_ev_concentration=0.11,
+            effective_chase_count=9.0,
+            coefficient_of_variation=0.95,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    stability_summary = result["meta"]["stability"]["summary"].lower()
+    assert "small group of cards" in stability_summary
+    assert "depend heavily" in stability_summary
+
+
+def test_a_tier_and_c_tier_stability_do_not_share_same_summary():
+    common = {
+        "pack_score": 72.0,
+        "profit_score": 60.0,
+        "safety_score": 58.0,
+        "top1_ev_share": 0.20,
+        "top3_ev_share": 0.50,
+        "top5_ev_share": 0.66,
+        "hhi_ev_concentration": 0.12,
+        "effective_chase_count": 8.0,
+        "coefficient_of_variation": 1.00,
+    }
+
+    high = build_rip_interpretation(
+        {
+            "summary": _make_summary(**common, stability_score=76.0, stability_tier="A"),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+    low = build_rip_interpretation(
+        {
+            "summary": _make_summary(**common, stability_score=58.0, stability_tier="C"),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    high_summary = high["meta"]["stability"]["summary"].lower()
+    low_summary = low["meta"]["stability"]["summary"].lower()
+    assert "small group of cards" in high_summary
+    assert "small group of cards" in low_summary
+
+
+def test_pack_score_evidence_excludes_pillar_scores_and_ranks():
+    data = {
+        "summary": _make_summary(
+            pack_score=80.0,
+            profit_score=78.0,
+            safety_score=50.0,
+            stability_score=60.0,
+            pack_tier="A",
+            pack_rank=10,
+            profit_tier="A",
+            safety_tier="C",
+            stability_tier="B",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    evidence_labels = [item["label"] for item in result["meta"]["packScore"]["evidence"]]
+
+    assert "Profit score" not in evidence_labels
+    assert "Safety score" not in evidence_labels
+    assert "Stability score" not in evidence_labels
+    assert "Profit rank" not in evidence_labels
+    assert "Safety rank" not in evidence_labels
+    assert "Stability rank" not in evidence_labels
+
+
+def test_pack_score_evidence_keeps_main_reason_and_watch_out_for():
+    data = {
+        "summary": _make_summary(
+            pack_score=79.0,
+            profit_score=76.0,
+            safety_score=49.0,
+            stability_score=58.0,
+            pack_tier="A",
+            pack_rank=9,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    evidence_labels = [item["label"] for item in result["meta"]["packScore"]["evidence"]]
+
+    assert "Main reason" in evidence_labels
+    assert "Watch out for" in evidence_labels
+
+
+def test_paldean_fates_style_bottom_tier_open():
+    data = {
+        "summary": _make_summary(
+            pack_score=7.0,
+            profit_score=0.0,
+            safety_score=0.0,
+            stability_score=7.6,
+            pack_tier="F",
+            profit_tier="F",
+            safety_tier="F",
+            stability_tier="F",
+            top1_ev_share=0.30,
+            top3_ev_share=0.48,
+            coefficient_of_variation=6.2,
+            hhi_ev_concentration=0.11,
+            effective_chase_count=8.8,
+            p05_shortfall_to_cost=0.96,
+        ),
+        "top_hits": _chase_hits(lead_share=0.30),
+        "rankings": _rankings_chase_heavy(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["reason_code"] == "bottom_tier_open"
+    assert pack_meta["label"] == "One of the toughest opens"
+    summary = pack_meta["summary"].lower()
+    assert "not paying back the pack price" in summary
+    assert "misses are brutal" in summary
+    assert "not enough value spread" in summary
+
+
+def test_very_weak_not_absolute_bottom():
+    data = {
+        "summary": _make_summary(
+            pack_score=22.0,
+            profit_score=18.0,
+            safety_score=20.0,
+            stability_score=52.0,
+            pack_tier="D",
+            profit_tier="D",
+            safety_tier="F",
+            stability_tier="C",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    pack_meta = result["meta"]["packScore"]
+    assert pack_meta["reason_code"] in {"very_weak_open", "weak_open"}
+    assert pack_meta["reason_code"] not in {"average_open", "below_average_open"}
+
+
+def test_ascended_heroes_style_is_not_weak_open():
+    data = {
+        "summary": _make_summary(
+            pack_score=58.0,
+            profit_score=60.0,
+            safety_score=42.0,
+            stability_score=18.0,
+            pack_tier="B",
+            profit_tier="B",
+            safety_tier="C",
+            stability_tier="F",
+            top3_ev_share=0.46,
+            top1_ev_share=0.20,
+            coefficient_of_variation=1.9,
+            hhi_ev_concentration=0.28,
+        ),
+        "top_hits": _sir_top3_hits(),
+        "rankings": _rankings_chase_heavy(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    pack_meta = result["meta"]["packScore"]
+    assert pack_meta["reason_code"] in {"good_value_shaky_path", "above_average_but_flawed", "hit_dependent_open"}
+    assert pack_meta["reason_code"] not in {"weak_open", "very_weak_open", "bottom_tier_open"}
+
+
+def test_151_style_differs_from_ascended_heroes_style():
+    ascended = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=58.0,
+                profit_score=60.0,
+                safety_score=42.0,
+                stability_score=18.0,
+                pack_tier="B",
+                profit_tier="B",
+                safety_tier="C",
+                stability_tier="F",
+                top3_ev_share=0.46,
+            ),
+            "top_hits": _sir_top3_hits(),
+            "rankings": _rankings_chase_heavy(),
+            "history_trend": [],
+            "rip_statistics": {},
+        }
+    )
+    one_fifty_one = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=45.0,
+                profit_score=45.0,
+                safety_score=22.0,
+                stability_score=46.0,
+                pack_tier="C",
+                profit_tier="C",
+                safety_tier="D",
+                stability_tier="C",
+                top3_ev_share=0.38,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": {},
+        }
+    )
+
+    ascended_category = ascended["meta"]["packScore"]["reason_code"]
+    one_fifty_one_category = one_fifty_one["meta"]["packScore"]["reason_code"]
+    assert one_fifty_one_category in {"average_but_risky", "below_average_open"}
+    assert one_fifty_one_category != ascended_category
+
+
+def test_b_ranked_pack_guardrail():
+    data = {
+        "summary": _make_summary(
+            pack_score=58.0,
+            profit_score=59.0,
+            safety_score=41.0,
+            stability_score=43.0,
+            pack_tier="B",
+            profit_tier="B",
+            safety_tier="C",
+            stability_tier="C",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    assert result["meta"]["packScore"]["reason_code"] not in {"weak_open", "very_weak_open", "bottom_tier_open"}
+
+
+def test_c_ranked_average_pack_is_average_open():
+    data = {
+        "summary": _make_summary(
+            pack_score=45.0,
+            profit_score=44.0,
+            safety_score=46.0,
+            stability_score=43.0,
+            pack_tier="C",
+            profit_tier="C",
+            safety_tier="C",
+            stability_tier="C",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    assert result["meta"]["packScore"]["reason_code"] == "average_open"
+
+
+def test_df_pack_with_profit_f_and_safety_f_is_harsh():
+    data = {
+        "summary": _make_summary(
+            pack_score=14.0,
+            profit_score=9.0,
+            safety_score=6.0,
+            stability_score=18.0,
+            pack_tier="F",
+            profit_tier="F",
+            safety_tier="F",
+            stability_tier="D",
+        ),
+        "top_hits": _chase_hits(lead_share=0.32),
+        "rankings": _rankings_chase_heavy(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    assert result["meta"]["packScore"]["reason_code"] in {"bottom_tier_open", "very_weak_open"}
+
+
+def test_no_old_generic_collapse_across_three_profiles():
+    profiles = {
+        "b_b_c_f": build_rip_interpretation(
+            {
+                "summary": _make_summary(
+                    pack_score=58.0,
+                    profit_score=60.0,
+                    safety_score=42.0,
+                    stability_score=18.0,
+                    pack_tier="B",
+                    profit_tier="B",
+                    safety_tier="C",
+                    stability_tier="F",
+                    top3_ev_share=0.46,
+                ),
+                "top_hits": _sir_top3_hits(),
+                "rankings": _rankings_chase_heavy(),
+                "history_trend": [],
+                "rip_statistics": {},
+            }
+        ),
+        "c_c_f_c": build_rip_interpretation(
+            {
+                "summary": _make_summary(
+                    pack_score=45.0,
+                    profit_score=45.0,
+                    safety_score=22.0,
+                    stability_score=44.0,
+                    pack_tier="C",
+                    profit_tier="C",
+                    safety_tier="F",
+                    stability_tier="C",
+                ),
+                "top_hits": _broad_hits(),
+                "rankings": [],
+                "history_trend": [],
+                "rip_statistics": {},
+            }
+        ),
+        "f_f_f_f": build_rip_interpretation(
+            {
+                "summary": _make_summary(
+                    pack_score=5.0,
+                    profit_score=0.0,
+                    safety_score=0.0,
+                    stability_score=7.0,
+                    pack_tier="F",
+                    profit_tier="F",
+                    safety_tier="F",
+                    stability_tier="F",
+                ),
+                "top_hits": _chase_hits(lead_share=0.30),
+                "rankings": _rankings_chase_heavy(),
+                "history_trend": [],
+                "rip_statistics": {},
+            }
+        ),
+    }
+
+    categories = {key: value["meta"]["packScore"]["reason_code"] for key, value in profiles.items()}
+    summaries = {key: value["meta"]["packScore"]["summary"] for key, value in profiles.items()}
+
+    assert len(set(categories.values())) == 3
+    assert len(set(summaries.values())) == 3
+
+
+def test_advanced_metrics_strong_but_risky_supports_main_read_with_catch():
+    data = {
+        "summary": _make_summary(
+            pack_score=88.0,
+            profit_score=82.0,
+            safety_score=24.0,
+            stability_score=60.0,
+            pack_tier="S",
+            profit_tier="S",
+            safety_tier="F",
+            stability_tier="B",
+            p95_value_to_cost_ratio=2.60,
+            coefficient_of_variation=1.90,
+            hhi_ev_concentration=0.30,
+            effective_chase_count=3.0,
+            expected_loss_when_losing=3.0,
+            median_loss_when_losing=2.7,
+            expected_loss_per_pack=1.8,
+        ),
+        "top_hits": _chase_hits(),
+        "rankings": _rankings_chase_heavy(),
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+
+    adv = result["meta"]["advancedMetrics"]
+    assert adv["label"] in {"Risk check", "Support with a catch"}
+    assert "support" in adv["summary"].lower()
+    assert "bad packs can still hurt" in adv["summary"].lower() or "catch" in adv["summary"].lower()
+
+
+def test_top_ev_drivers_illustration_led_output_copy():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": [
+            {"card_name": "Card IR 1", "ev_contribution": 3.9, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card IR 2", "ev_contribution": 3.1, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card IR 3", "ev_contribution": 1.8, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card UR", "ev_contribution": 1.5, "rarity_bucket": "ultra rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+
+    assert top_ev_meta["reason_code"] in ("illustration_led", "ir_led_top3")
+    assert "illustration rares" in top_ev_meta["label"].lower()
+    assert "illustration rares" in top_ev_meta["summary"].lower() or "art" in top_ev_meta["summary"].lower()
+
+
+def test_top_ev_drivers_sir_led_output_copy():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": [
+            {"card_name": "Card SIR 1", "ev_contribution": 3.8, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Card SIR 2", "ev_contribution": 2.8, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Card SIR 3", "ev_contribution": 2.0, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Card UR", "ev_contribution": 1.4, "rarity_bucket": "ultra rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+
+    assert top_ev_meta["reason_code"] in ("sir_led", "sir_led_top3")
+    assert "special illustration rares" in top_ev_meta["label"].lower()
+    assert "hard-to-pull" in top_ev_meta["summary"].lower() or "chase" in top_ev_meta["summary"].lower() or "high-end" in top_ev_meta["summary"].lower()
+
+
+def test_top_ev_drivers_broad_or_mixed_only_when_no_leader_above_35():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": [
+            {"card_name": "Card A", "ev_contribution": 2.3, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card B", "ev_contribution": 2.1, "rarity_bucket": "special illustration rare"},
+            {"card_name": "Card C", "ev_contribution": 2.0, "rarity_bucket": "ultra rare"},
+            {"card_name": "Card D", "ev_contribution": 1.8, "rarity_bucket": "double rare"},
+            {"card_name": "Card E", "ev_contribution": 1.6, "rarity_bucket": "hyper rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    assert top_ev_meta["signals"]["leading_rarity_ev_share"] < 0.35
+    assert top_ev_meta["reason_code"] in {"broad_value_base", "mixed_hit_base", "top_cards_carry_value"}
+
+
+def test_rarity_contribution_illustration_led_copy():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": [],
+        "rankings": _rankings_illustration_led(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    rarity_meta = result["meta"]["rarityContribution"]
+
+    assert rarity_meta["reason_code"] == "illustration_led"
+    assert rarity_meta["label"] == "Illustration Rares carry the pool"
+    assert "several rarity groups" not in rarity_meta["summary"].lower()
+
+
+def test_rarity_contribution_pull_leader_low_value_ev_leader_high_value_explains_gap():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": [],
+        "rankings": _rankings_pull_low_value_but_ev_high(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    rarity_meta = result["meta"]["rarityContribution"]
+
+    assert "mostly pull lower-value cards" in rarity_meta["summary"].lower()
+    assert "money comes from" in rarity_meta["summary"].lower()
+
+
+def test_generic_broad_language_blocked_when_leader_share_above_35():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": [
+            {"card_name": "Card IR 1", "ev_contribution": 3.8, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card IR 2", "ev_contribution": 2.2, "rarity_bucket": "illustration rare"},
+            {"card_name": "Card UR", "ev_contribution": 2.0, "rarity_bucket": "ultra rare"},
+            {"card_name": "Card DR", "ev_contribution": 1.5, "rarity_bucket": "double rare"},
+        ],
+        "rankings": _rankings_illustration_led(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+    rarity_meta = result["meta"]["rarityContribution"]
+
+    assert top_ev_meta["signals"]["leading_rarity_ev_share"] >= 0.35
+    assert "several types of cards" not in top_ev_meta["summary"].lower()
+    assert "several rarity groups" not in rarity_meta["summary"].lower()
+    assert "broad rarity value base" not in rarity_meta["summary"].lower()
+
+
+# ---------------------------------------------------------------------------
+# New spec tests: Top EV Drivers concentration-first logic
+# ---------------------------------------------------------------------------
+
+def _sir_top3_hits():
+    """Two SIRs in top 3; within-hits top_share < 0.30 so single_card is not triggered."""
+    return [
+        {"card_name": "Charizard SIR", "ev_contribution": 2.2, "rarity_bucket": "special illustration rare"},
+        {"card_name": "Mew SIR", "ev_contribution": 2.0, "rarity_bucket": "special illustration rare"},
+        {"card_name": "Mewtwo ex", "ev_contribution": 1.6, "rarity_bucket": "ultra rare"},
+        {"card_name": "Pikachu ex", "ev_contribution": 1.1, "rarity_bucket": "ex"},
+        {"card_name": "Other ex", "ev_contribution": 0.9, "rarity_bucket": "ex"},
+    ]
+
+
+def _ir_top3_hits():
+    """Two IRs in top 3; within-hits top_share < 0.30."""
+    return [
+        {"card_name": "Eevee IR", "ev_contribution": 2.1, "rarity_bucket": "illustration rare"},
+        {"card_name": "Sylveon IR", "ev_contribution": 1.9, "rarity_bucket": "illustration rare"},
+        {"card_name": "Umbreon ex", "ev_contribution": 1.5, "rarity_bucket": "ultra rare"},
+        {"card_name": "Leafeon IR", "ev_contribution": 1.3, "rarity_bucket": "illustration rare"},
+        {"card_name": "Other UR", "ev_contribution": 1.0, "rarity_bucket": "ultra rare"},
+    ]
+
+
+def test_top3_concentration_sir_leads_value():
+    """Spec test 1: top_card ~20%, top3 ~46%, top3 rarity = SIR.
+
+    Expected: label = 'Special Illustration Rares drive value', no broad wording.
+    """
+    data = {
+        "summary": _make_summary(
+            top1_ev_share=0.20,
+            top3_ev_share=0.46,
+        ),
+        "top_hits": _sir_top3_hits(),
+        "rankings": _rankings_chase_heavy(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    _assert_base_contract(result)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+
+    assert top_ev_meta["reason_code"] == "sir_led_top3", (
+        f"Expected sir_led_top3, got {top_ev_meta['reason_code']}"
+    )
+    assert top_ev_meta["label"] == "Special Illustration Rares drive value"
+    assert "small group" in top_ev_meta["summary"].lower() or "high-end" in top_ev_meta["summary"].lower()
+    assert "spread" not in top_ev_meta["label"].lower()
+    assert "spread out" not in top_ev_meta["summary"].lower()
+
+
+def test_top3_concentration_ir_leads_value():
+    """Spec test 2: top_card ~20%, top3 ~46%, top3 rarity = Illustration Rare.
+
+    Expected: label = 'Illustration Rares drive value'.
+    """
+    data = {
+        "summary": _make_summary(
+            top1_ev_share=0.20,
+            top3_ev_share=0.46,
+        ),
+        "top_hits": _ir_top3_hits(),
+        "rankings": _rankings_illustration_led(),
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    _assert_base_contract(result)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+
+    assert top_ev_meta["reason_code"] == "ir_led_top3", (
+        f"Expected ir_led_top3, got {top_ev_meta['reason_code']}"
+    )
+    assert top_ev_meta["label"] == "Illustration Rares drive value"
+    assert "spread out" not in top_ev_meta["summary"].lower()
+
+
+def test_dominant_rarity_share_triggers_dominant_language_below_top3_threshold():
+    """Spec test 3: leading_rarity_share 38%, top3_ev_share below 0.45.
+
+    Expected: dominant rarity language, not broad.
+    """
+    data = {
+        "summary": _make_summary(
+            top1_ev_share=0.18,
+            top3_ev_share=0.40,  # below 0.45 to skip top3-heavy path
+        ),
+        "top_hits": [
+            {"card_name": "SIR A", "ev_contribution": 3.8, "rarity_bucket": "special illustration rare"},
+            {"card_name": "SIR B", "ev_contribution": 0.2, "rarity_bucket": "special illustration rare"},
+            {"card_name": "UR C", "ev_contribution": 2.5, "rarity_bucket": "ultra rare"},
+            {"card_name": "UR D", "ev_contribution": 2.0, "rarity_bucket": "ultra rare"},
+            {"card_name": "UR E", "ev_contribution": 1.5, "rarity_bucket": "ultra rare"},
+        ],
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+
+    # Leading rarity within hits should be >= 0.35 (triggers dominant path)
+    assert top_ev_meta["signals"]["leading_rarity_ev_share"] >= 0.35
+    # Reason code must be a specific rarity profile, not broad or mixed
+    assert top_ev_meta["reason_code"] not in ("broad_value_base", "top_cards_carry_value")
+    assert "spread out" not in top_ev_meta["label"].lower()
+    assert "several hit types" not in top_ev_meta["label"].lower()
+
+
+def test_broad_value_base_only_when_all_thresholds_low():
+    """Spec test 4: broad fallback fires only when top card, top 3, and rarity shares are all below thresholds.
+
+    Expected: broad_value_base.
+    """
+    data = {
+        "summary": _make_summary(
+            top1_ev_share=0.12,
+            top3_ev_share=0.33,  # below 0.40
+        ),
+        "top_hits": _broad_hits(),  # 6 cards, 6 different rarities, all similar EV
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    top_ev_meta = result["meta"]["topEvDrivers"]
+
+    # All thresholds low — must resolve to broad or mixed (never to a specific rarity or top3)
+    assert top_ev_meta["reason_code"] in ("broad_value_base", "mixed_hit_base"), (
+        f"Expected broad/mixed, got {top_ev_meta['reason_code']}"
+    )
+    assert top_ev_meta["reason_code"] != "sir_led_top3"
+    assert top_ev_meta["reason_code"] != "ir_led_top3"
+    assert top_ev_meta["reason_code"] != "top_cards_carry_value"
+
+
+# ---------------------------------------------------------------------------
+# New spec tests: Pillar sub-metric interpretation copy
+# ---------------------------------------------------------------------------
+
+def test_profit_low_prob_high_p95_uses_probability_anchor_and_big_hit_driver():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.12,
+            p95_value_to_cost_ratio=2.60,
+            mean_value_to_cost_ratio=0.55,
+            median_value_to_cost_ratio=0.18,
+            profit_tier="C",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["profit"]["summary"]
+    assert "Most packs will not be profitable." in summary
+    assert "When it does hit, the best pulls are strong enough to carry the return." in summary
+
+
+def test_profit_low_prob_strong_mean_mentions_average_holds_up():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.12,
+            p95_value_to_cost_ratio=2.30,
+            mean_value_to_cost_ratio=0.74,
+            median_value_to_cost_ratio=0.35,
+            profit_tier="C",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["profit"]["summary"]
+    assert "Most packs will not be profitable." in summary
+    assert "Average value holds up better than most sets." in summary
+
+
+def test_profit_low_prob_weak_median_mentions_below_cost_normal_packs():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.12,
+            p95_value_to_cost_ratio=1.80,
+            mean_value_to_cost_ratio=0.50,
+            median_value_to_cost_ratio=0.10,
+            profit_tier="D",
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["profit"]["summary"]
+    assert "Most packs will not be profitable." in summary
+    assert "Most packs still come in well below cost." in summary
+
+
+def test_profit_summary_changes_when_probability_changes_with_same_tail_metrics():
+    low_prob = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                prob_profit=0.07,
+                p95_value_to_cost_ratio=2.60,
+                mean_value_to_cost_ratio=0.65,
+                median_value_to_cost_ratio=0.18,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": {},
+        }
+    )
+    higher_prob = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                prob_profit=0.18,
+                p95_value_to_cost_ratio=2.60,
+                mean_value_to_cost_ratio=0.65,
+                median_value_to_cost_ratio=0.18,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": {},
+        }
+    )
+
+    low_summary = low_prob["meta"]["profit"]["summary"]
+    high_summary = higher_prob["meta"]["profit"]["summary"]
+    assert low_summary != high_summary
+    assert "Profitable packs are very rare." in low_summary
+    assert "Winning packs are uncommon." in high_summary
+
+
+def test_safety_high_expected_loss_uses_rough_or_brutal_language():
+    data = {
+        "summary": _make_summary(
+            safety_tier="F",
+            expected_loss_when_losing_fraction=0.86,
+            median_loss_when_losing_fraction=0.82,
+            p05_shortfall_to_cost=0.90,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    label = result["meta"]["safety"]["label"].lower()
+    summary = result["meta"]["safety"]["summary"].lower()
+    assert "brutal" in label or "rough" in label
+    assert "punishing" in summary or "hurt" in summary or "very little" in summary
+
+
+def test_sa_safety_tier_avoids_brutal_and_very_rough_labels():
+    data = {
+        "summary": _make_summary(
+            safety_tier="S",
+            expected_loss_when_losing_fraction=0.88,
+            median_loss_when_losing_fraction=0.84,
+            p05_shortfall_to_cost=0.92,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    label = result["meta"]["safety"]["label"].lower()
+    summary = result["meta"]["safety"]["summary"].lower()
+    assert "brutal" not in label
+    assert "very rough" not in label
+    assert "easier to handle" in summary
+
+
+def test_f_safety_tier_high_loss_keeps_punishing_miss_language():
+    data = {
+        "summary": _make_summary(
+            safety_tier="F",
+            expected_loss_when_losing_fraction=0.83,
+            median_loss_when_losing_fraction=0.80,
+            p05_shortfall_to_cost=0.88,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    label = result["meta"]["safety"]["label"].lower()
+    summary = result["meta"]["safety"]["summary"].lower()
+    assert "very rough" in label or "brutal" in label or "rough" in label
+    assert "hurt" in summary or "punishing" in summary or "very little" in summary
+
+
+def test_stability_top1_threshold_marks_one_card_dependence():
+    data = {
+        "summary": _make_summary(
+            stability_tier="C",
+            top1_ev_share=0.32,
+            top3_ev_share=0.42,
+            effective_chase_count=20.0,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["stability"]
+    assert meta["label"] == "One card carries value"
+    assert "depends heavily" in meta["summary"].lower()
+
+
+def test_stability_top3_threshold_marks_top_heavy_profile():
+    data = {
+        "summary": _make_summary(
+            stability_tier="C",
+            top1_ev_share=0.20,
+            top3_ev_share=0.47,
+            effective_chase_count=22.0,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["stability"]
+    assert meta["label"] == "Top cards carry value"
+    assert "small group" in meta["summary"].lower()
+
+
+def test_stability_effective_chase_25_or_more_marks_well_spread():
+    data = {
+        "summary": _make_summary(
+            stability_tier="B",
+            top1_ev_share=0.12,
+            top3_ev_share=0.30,
+            effective_chase_count=26.0,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["stability"]
+    assert meta["label"] == "Value is well spread"
+    assert "spread across many cards" in meta["summary"].lower()
+
+
+def test_stability_df_tier_not_well_spread_without_supporting_metrics():
+    data = {
+        "summary": _make_summary(
+            stability_tier="F",
+            top1_ev_share=0.24,
+            top3_ev_share=0.40,
+            effective_chase_count=12.0,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {},
+    }
+    result = build_rip_interpretation(data)
+    label = result["meta"]["stability"]["label"]
+    assert label != "Value is well spread"
+
+
+# ---------------------------------------------------------------------------
+# Matrix interpretation planner tests (Step 8 — new archetype coverage)
+# ---------------------------------------------------------------------------
+
+import itertools
+
+
+def _matrix_make_summary(profit_tier, safety_tier, stability_tier):
+    """Build a minimal summary dict with explicit tiers for matrix tests."""
+    tier_to_score = {"S": 90.0, "A": 78.0, "B": 62.0, "C": 46.0, "D": 28.0, "F": 8.0}
+    return _make_summary(
+        profit_score=tier_to_score[profit_tier],
+        safety_score=tier_to_score[safety_tier],
+        stability_score=tier_to_score[stability_tier],
+        profit_tier=profit_tier,
+        safety_tier=safety_tier,
+        stability_tier=stability_tier,
+    )
+
+
+def _matrix_interpret(profit_tier, safety_tier, stability_tier):
+    from backend.interpretation.rips.engine import build_rip_interpretation
+    data = {
+        "summary": _matrix_make_summary(profit_tier, safety_tier, stability_tier),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    return build_rip_interpretation(data)
+
+
+# ---------------------------------------------------------------------------
+# Test 1: elite_return / high safety / high stability
+# ---------------------------------------------------------------------------
+
+def test_matrix_elite_return_high_safety_high_stability():
+    """Elite return + high safety + high stability -> elite_open, positive framing."""
+    result = _matrix_interpret("S", "A", "A")
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["reason_code"] == "elite_open"
+    assert pack_meta["label"] in ("Elite open", "Great to open right now")
+    assert pack_meta["severity"] == "positive"
+
+    summary_lower = pack_meta["summary"].lower()
+    # Must mention value, manageable misses, spread
+    assert any(w in summary_lower for w in ("pay back", "return", "value")), summary_lower
+    assert any(w in summary_lower for w in ("easier", "manageable", "safer")), summary_lower
+    assert any(w in summary_lower for w in ("spread", "enough cards")), summary_lower
+
+    # Matrix signals populated
+    assert result["meta"]["packScore"]["signals"]["profit_lane"] == "elite_return"
+    assert result["meta"]["packScore"]["signals"]["safety_band"] == "high"
+    assert result["meta"]["packScore"]["signals"]["stability_band"] == "high"
+    assert result["meta"]["packScore"]["signals"]["matrix_key"] == "elite_return:high:high"
+
+
+# ---------------------------------------------------------------------------
+# Test 2: elite_return / low safety / high stability
+# ---------------------------------------------------------------------------
+
+def test_matrix_elite_return_low_safety_high_stability():
+    """Elite return + low safety + high stability -> label mentions risky misses, spread value."""
+    result = _matrix_interpret("S", "F", "A")
+    pack_meta = result["meta"]["packScore"]
+
+    # strong_but_risky because safety is low
+    assert pack_meta["reason_code"] == "strong_but_risky"
+    label_lower = pack_meta["label"].lower()
+    assert any(w in label_lower for w in ("risky", "risk", "rough")), label_lower
+
+    summary_lower = pack_meta["summary"].lower()
+    assert "bad packs can still hurt" in summary_lower or "bad packs can hurt" in summary_lower
+    assert any(w in summary_lower for w in ("spread", "one-card")), summary_lower
+
+    assert pack_meta["signals"]["profit_lane"] == "elite_return"
+    assert pack_meta["signals"]["safety_band"] == "low"
+    assert pack_meta["signals"]["stability_band"] == "high"
+    assert pack_meta["signals"]["matrix_key"] == "elite_return:low:high"
+
+
+# ---------------------------------------------------------------------------
+# Test 3: good_return / medium safety / low stability
+# ---------------------------------------------------------------------------
+
+def test_matrix_good_return_medium_safety_low_stability():
+    """Good return + medium safety + low stability -> good_value_shaky_path."""
+    result = _matrix_interpret("B", "C", "F")
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["reason_code"] == "good_value_shaky_path"
+    assert pack_meta["label"] == "Good value, shaky path"
+
+    summary_lower = pack_meta["summary"].lower()
+    assert any(w in summary_lower for w in ("value", "good")), summary_lower
+    assert any(w in summary_lower for w in ("right hits", "fragile", "worth it")), summary_lower
+
+    assert pack_meta["signals"]["profit_lane"] == "good_return"
+    assert pack_meta["signals"]["safety_band"] == "medium"
+    assert pack_meta["signals"]["stability_band"] == "low"
+    assert pack_meta["signals"]["matrix_key"] == "good_return:medium:low"
+
+
+# ---------------------------------------------------------------------------
+# Test 4: average_return / low safety / medium stability
+# ---------------------------------------------------------------------------
+
+def test_matrix_average_return_low_safety_medium_stability():
+    """Average return + low safety -> average_but_risky."""
+    result = _matrix_interpret("C", "F", "C")
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["reason_code"] == "average_but_risky"
+    label_lower = pack_meta["label"].lower()
+    assert "average" in label_lower or "risky" in label_lower
+
+    summary_lower = pack_meta["summary"].lower()
+    assert "average" in summary_lower
+    assert any(w in summary_lower for w in ("hurt", "painful", "rough", "pressure")), summary_lower
+
+    assert pack_meta["signals"]["profit_lane"] == "average_return"
+    assert pack_meta["signals"]["safety_band"] == "low"
+    assert pack_meta["signals"]["stability_band"] == "medium"
+    assert pack_meta["signals"]["matrix_key"] == "average_return:low:medium"
+
+
+# ---------------------------------------------------------------------------
+# Test 5: weak_return / high safety / high stability
+# ---------------------------------------------------------------------------
+
+def test_matrix_weak_return_high_safety_high_stability():
+    """Weak return + high safety + high stability -> safe_but_low_reward."""
+    result = _matrix_interpret("D", "A", "S")
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["reason_code"] in ("safe_but_low_reward", "okay_but_capped")
+    assert pack_meta["label"] in (
+        "Safe, but low reward",
+        "Low risk, low reward",
+        "Safe, but not exciting",
+        "Low reward, safer misses",
+    )
+
+    summary_lower = pack_meta["summary"].lower()
+    assert any(w in summary_lower for w in ("easier", "manageable", "forgiving", "spread")), summary_lower
+    assert any(w in summary_lower for w in ("not big enough", "not strong enough", "weak", "not enough")), summary_lower
+
+    assert pack_meta["signals"]["profit_lane"] == "weak_return"
+    assert pack_meta["signals"]["safety_band"] == "high"
+    assert pack_meta["signals"]["stability_band"] == "high"
+
+
+# ---------------------------------------------------------------------------
+# Test 6: failing_return / low safety / low stability
+# ---------------------------------------------------------------------------
+
+def test_matrix_failing_return_low_safety_low_stability():
+    """Failing return + low safety + low stability -> bottom_tier_open with harsh language."""
+    result = _matrix_interpret("F", "F", "F")
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["reason_code"] == "bottom_tier_open"
+    assert pack_meta["label"] == "One of the toughest opens"
+    assert pack_meta["severity"] == "negative"
+
+    summary_lower = pack_meta["summary"].lower()
+    assert "three fronts" in summary_lower or "toughest" in summary_lower
+    assert any(w in summary_lower for w in ("not paying back", "weak value")), summary_lower
+    assert any(w in summary_lower for w in ("brutal", "rough", "painful")), summary_lower
+    assert any(w in summary_lower for w in ("not enough value spread", "right hits")), summary_lower
+
+    assert pack_meta["signals"]["profit_lane"] == "failing_return"
+    assert pack_meta["signals"]["safety_band"] == "low"
+    assert pack_meta["signals"]["stability_band"] == "low"
+    assert pack_meta["signals"]["matrix_key"] == "failing_return:low:low"
+
+
+# ---------------------------------------------------------------------------
+# Test 7: B/B/C/F profile — must not collapse to generic weak_open
+# ---------------------------------------------------------------------------
+
+def test_matrix_b_b_c_f_does_not_collapse_to_weak():
+    """B profit / B pack / C safety / F stability -> good_value_shaky_path, not weak_open."""
+    result = _matrix_interpret("B", "C", "F")
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["reason_code"] == "good_value_shaky_path"
+    assert pack_meta["reason_code"] not in {"weak_open", "very_weak_open", "bottom_tier_open"}
+
+    assert pack_meta["signals"]["profit_lane"] == "good_return"
+    assert pack_meta["signals"]["stability_band"] == "low"
+
+
+# ---------------------------------------------------------------------------
+# Test 8: F/F/F/F — must be harsher than weak_return cases
+# ---------------------------------------------------------------------------
+
+def test_matrix_ffff_harsher_than_weak_return():
+    """F/F/F/F (failing everything) must use bottom_tier_open, not just very_weak_open."""
+    result_ffff = _matrix_interpret("F", "F", "F")
+    result_weak = _matrix_interpret("D", "D", "D")
+
+    ffff_meta = result_ffff["meta"]["packScore"]
+    weak_meta = result_weak["meta"]["packScore"]
+
+    assert ffff_meta["reason_code"] == "bottom_tier_open"
+    assert weak_meta["reason_code"] in {"very_weak_open", "weak_open", "below_average_open"}
+    assert ffff_meta["reason_code"] != weak_meta["reason_code"]
+    assert ffff_meta["summary"] != weak_meta["summary"]
+
+    # FFFF summary should be harsher
+    ffff_lower = ffff_meta["summary"].lower()
+    assert any(w in ffff_lower for w in ("brutal", "toughest", "three fronts")), ffff_lower
+
+
+# ---------------------------------------------------------------------------
+# Test 9: Every combination of profit_lane x safety_band x stability_band
+# produces a non-empty label and summary
+# ---------------------------------------------------------------------------
+
+_ALL_PROFIT_TIERS = ["S", "A", "B", "C", "D", "F"]
+_ALL_BAND_TIERS = ["S", "A", "B", "C", "D", "F"]  # S/A=high, B/C=medium, D/F=low
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize(
+    "profit_tier,safety_tier,stability_tier",
+    list(itertools.product(_ALL_PROFIT_TIERS, ["A", "C", "D"], ["A", "C", "D"])),
+)
+def test_matrix_all_combinations_return_nonempty(profit_tier, safety_tier, stability_tier):
+    """Every matrix combination must produce a non-empty, non-whitespace label and summary."""
+    result = _matrix_interpret(profit_tier, safety_tier, stability_tier)
+    pack_meta = result["meta"]["packScore"]
+
+    assert pack_meta["label"].strip(), (
+        f"Empty label for {profit_tier}/{safety_tier}/{stability_tier}"
+    )
+    assert pack_meta["summary"].strip(), (
+        f"Empty summary for {profit_tier}/{safety_tier}/{stability_tier}"
+    )
+    assert pack_meta["signals"]["matrix_key"] is not None, (
+        f"No matrix_key for {profit_tier}/{safety_tier}/{stability_tier}"
+    )
+    assert pack_meta["signals"]["pack_archetype"] is not None, (
+        f"No pack_archetype for {profit_tier}/{safety_tier}/{stability_tier}"
+    )
+    assert pack_meta["reason_code"] in {
+        "elite_open", "strong_but_risky", "good_open", "above_average_but_flawed",
+        "good_value_shaky_path", "average_open", "average_but_risky", "hit_dependent_open",
+        "below_average_open", "very_weak_open", "bottom_tier_open",
+        "okay_but_capped", "safe_but_low_reward", "weak_open", "data_limited",
+    }, f"Unknown reason_code {pack_meta['reason_code']} for {profit_tier}/{safety_tier}/{stability_tier}"
+

@@ -7,33 +7,33 @@ const NAV_COLUMNS = [
     links: [
       { label: "Explore", href: "/Explore" },
       { label: "TCGs", href: "/TCGs" },
-      { label: "Learn", href: "/Learn" },
+      { label: "Tools", href: "/tools" },
       { label: "My Portfolio", href: "/my-collection" },
     ],
   },
   {
     heading: "Company",
     links: [
-      { label: "About", href: "#" },
-      { label: "Blog", href: "#" },
-      { label: "Careers", href: "#" },
-      { label: "Contact", href: "#" },
+      { label: "About", href: "/about" },
+      { label: "Blog", href: "/blog" },
+      { label: "Careers", href: "/careers" },
+      { label: "Contact", href: "/contact" },
     ],
   },
   {
     heading: "Legal",
     links: [
-      { label: "Terms of Service", href: "#" },
-      { label: "Privacy Policy", href: "#" },
-      { label: "Cookie Policy", href: "#" },
+      { label: "Terms of Service", href: "/terms" },
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Cookie Policy", href: "/cookies" },
     ],
   },
   {
     heading: "Support",
     links: [
-      { label: "Help Center", href: "#" },
-      { label: "Contact Us", href: "#" },
-      { label: "Status", href: "#" },
+      { label: "Help Center", href: "/help" },
+      { label: "Contact Us", href: "/contact-us" },
+      { label: "Status", href: "/status" },
     ],
   },
 ];

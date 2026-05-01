@@ -34,7 +34,6 @@ from backend.db.services.frontend_proxy_service import (
     get_tcg_options,
     login_user,
     login_user_legacy,
-    signup_user,
     update_customer_password,
     update_customer_profile,
     update_profile,
@@ -375,16 +374,13 @@ async def auth_login_legacy(payload: LoginRequest):
 
 
 @app.post("/auth/signup")
-async def auth_signup(payload: SignupRequest):
+async def auth_signup(_payload: SignupRequest):
     logger.info("/auth/signup: started, env_presence=%s", _auth_env_presence())
     logger.info("/auth/signup: request body parsed successfully")
-
-    try:
-        response_payload, status = signup_user(payload.name, payload.email, payload.password)
-        return JSONResponse(content=response_payload, status_code=status)
-    except Exception:
-        logger.exception("/auth/signup: unexpected error")
-        return JSONResponse(content={"message": "Unexpected server error"}, status_code=500)
+    return JSONResponse(
+        content={"detail": "Account creation is currently invite-only."},
+        status_code=403,
+    )
 
 
 @app.put("/customer/update")

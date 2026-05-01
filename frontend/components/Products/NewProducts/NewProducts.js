@@ -4,7 +4,7 @@ import Spinner from "@/utils/Spinner";
 import styles from "./NewProducts.module.css";
 import Image from "next/image";
 
-export default function NewProducts({ products }) {
+export default function NewProducts({ products, isLoading = false }) {
   const router = useRouter(); // Initialize the router
 
   const sortedProducts = Array.isArray(products)
@@ -13,8 +13,12 @@ export default function NewProducts({ products }) {
         .slice(0, 2) // Get the first TWO products
     : [];
 
-  if (!Array.isArray(products)) {
+  if (isLoading) {
     return <Spinner />;
+  }
+
+  if (sortedProducts.length === 0) {
+    return null;
   }
 
   // Function to handle product click
@@ -66,9 +70,7 @@ export default function NewProducts({ products }) {
               </div>
             </div>
           ))
-        ) : (
-          <p>No image available</p>
-        )}
+        ) : null}
       </div>
     </div>
   );

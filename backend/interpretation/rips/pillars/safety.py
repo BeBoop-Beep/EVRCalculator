@@ -6,93 +6,68 @@ from typing import Any, Dict
 
 from ..models import EvidenceItem, SafetyInterpretation, SectionInterpretation
 from ..thresholds import (
-    P05_TAIL_RECOVERY_SEVERE_MULTIPLIER,
-    classify_probability,
-    classify_ratio_high_medium_low,
-    classify_score_strength,
+    build_safety_context,
     format_currency,
     format_percent,
-    format_ratio,
-    format_score,
     get_numeric,
+    get_summary_data,
 )
 
 
 def interpret_safety(data: Dict[str, Any]) -> SafetyInterpretation:
-    summary_data = data.get("summary") if isinstance(data.get("summary"), dict) else data
+    summary_data = get_summary_data(data)
+    context = build_safety_context(summary_data)
 
-    score = get_numeric(summary_data, "safety_score", "relative_safety_score")
+    score = context["score"]
+    tier = context["tier"]
+    strength = context["strength"]
     pack_cost = get_numeric(summary_data, "pack_cost")
     expected_loss_fraction = get_numeric(summary_data, "expected_loss_when_losing_fraction")
     median_loss_fraction = get_numeric(summary_data, "median_loss_when_losing_fraction")
     p05_shortfall = get_numeric(summary_data, "p05_shortfall_to_cost")
-    expected_loss_when_losing = get_numeric(summary_data, "expected_loss_when_losing")
-    median_loss_when_losing = get_numeric(summary_data, "median_loss_when_losing")
-    tail_value_p05 = get_numeric(summary_data, "tail_value_p05")
+    expected_loss_per_pack = get_numeric(summary_data, "expected_loss_per_pack")
 
-    score_strength = classify_score_strength(score)
-
-    loss_depth_driver = max(
-        [value for value in (expected_loss_fraction, median_loss_fraction, p05_shortfall) if value is not None],
-        default=None,
-    )
-    # downside_pressure: high means more downside pressure (worse safety); high safety_score means safer
-    downside_pressure = classify_ratio_high_medium_low(
-        loss_depth_driver,
-        high_min=0.70,
-        medium_min=0.35,
-        missing=score_strength,
-    )
-
-    absolute_loss_ratio = None
-    if pack_cost and pack_cost > 0 and expected_loss_when_losing is not None:
-        absolute_loss_ratio = expected_loss_when_losing / pack_cost
-
-    # loss_depth: high means losses are deeper (worse)
-    loss_depth = classify_ratio_high_medium_low(
-        median_loss_fraction if median_loss_fraction is not None else absolute_loss_ratio,
-        high_min=0.65,
-        medium_min=0.35,
-        missing=score_strength,
-    )
-
-    severe_tail_recovery = (
-        tail_value_p05 is not None
-        and pack_cost is not None
-        and pack_cost > 0
-        and tail_value_p05 < (pack_cost * P05_TAIL_RECOVERY_SEVERE_MULTIPLIER)
-    )
-    severe_shortfall = p05_shortfall is not None and p05_shortfall >= 0.75
-    low_loss_probability_support = classify_probability(get_numeric(summary_data, "prob_profit"), missing="medium") == "low"
-
-    if severe_tail_recovery and severe_shortfall:
-        summary = "Risk is high because the worst packs give back very little of what you paid."
-        label = "Severe downside tail"
-        reason_code = "severe_tail_recovery"
-        severity = "negative"
-    elif downside_pressure == "high" and loss_depth == "high":
-        summary = "When this set misses, it usually gives back much less than the pack cost."
-        label = "Deep losses when behind"
-        reason_code = "high_downside_pressure"
-        severity = "negative"
-    elif downside_pressure in {"low", "medium"} and loss_depth == "low":
-        summary = "Misses still happen, but they are not as painful as most risky sets."
-        label = "Controlled losses"
-        reason_code = "controlled_downside"
-        severity = "positive"
-    elif low_loss_probability_support and median_loss_when_losing is not None and median_loss_when_losing < (pack_cost or 0):
-        summary = "Even when packs lose, they do not lose too much — the damage is limited."
-        label = "Manageable losses"
-        reason_code = "manageable_loss_depth"
-        severity = "neutral"
+    if expected_loss_fraction is None:
+        label = "Miss profile unclear"
+        summary = "Loss behavior on misses is unclear with the available sample."
+        reason_code = "missing_expected_loss_fraction"
+    elif expected_loss_fraction >= 0.85:
+        label = "Brutal misses"
+        summary = "Misses are extremely punishing. Most losing packs give back almost nothing."
+        reason_code = "brutal_misses"
+    elif expected_loss_fraction >= 0.80:
+        label = "Very rough misses"
+        summary = "Bad packs give back very little, so cold streaks can hurt fast."
+        reason_code = "very_rough_misses"
+    elif expected_loss_fraction >= 0.75:
+        label = "Rough misses"
+        summary = "Misses are rough. Losing packs give back very little for the cost."
+        reason_code = "rough_misses"
+    elif expected_loss_fraction >= 0.70:
+        label = "Manageable misses"
+        summary = "Misses still lose money, but they are easier to handle than most sets."
+        reason_code = "manageable_misses"
     else:
-        summary = "Risk is in the middle — packs miss often enough, but the worst outcomes are not catastrophic."
-        label = "Mixed safety"
-        reason_code = "mixed_safety"
+        label = "Safer misses"
+        summary = "Misses are easier to handle. Losing packs give back more than most sets."
+        reason_code = "safer_misses"
+
+    # Keep S/A safety framing relative and avoid alarmist wording.
+    if strength is not None and strength >= 4:
+        summary = "Misses still lose money, but compared to other sets, they are easier to handle here."
+        if label in {"Brutal misses", "Very rough misses", "Rough misses"}:
+            label = "Manageable misses"
+            reason_code = "high_tier_relative_manageable_misses"
+
+    if strength is not None and strength >= 4:
+        severity = "positive"
+    elif strength is not None and strength <= 1:
+        severity = "negative"
+    else:
         severity = "neutral"
 
     confidence: str
-    if score is not None and expected_loss_fraction is not None and tail_value_p05 is not None:
+    if score is not None and expected_loss_fraction is not None and p05_shortfall is not None:
         confidence = "high"
     elif score is not None:
         confidence = "medium"
@@ -100,17 +75,19 @@ def interpret_safety(data: Dict[str, Any]) -> SafetyInterpretation:
         confidence = "low"
 
     evidence = [
-        EvidenceItem("Safety score", format_score(score)),
-        EvidenceItem("Avg loss fraction (when losing)", format_percent(expected_loss_fraction)),
-        EvidenceItem("Median loss fraction (when losing)", format_percent(median_loss_fraction)),
-        EvidenceItem("Worst-case shortfall to cost", format_percent(p05_shortfall)),
-        EvidenceItem("Worst-case pack value (p05)", format_currency(tail_value_p05)),
-        EvidenceItem("Pack cost", format_currency(pack_cost)),
+        EvidenceItem("Loss on losing packs", format_percent(expected_loss_fraction)),
+        EvidenceItem("Typical loss", format_percent(median_loss_fraction)),
+        EvidenceItem("Worst-pack shortfall", format_percent(p05_shortfall)),
+        EvidenceItem("Loss per pack", format_currency(expected_loss_per_pack)),
     ]
 
     signals: Dict[str, Any] = {
-        "downside_pressure": downside_pressure,
-        "loss_depth": loss_depth,
+        "expected_loss_when_losing_fraction": expected_loss_fraction,
+        "median_loss_when_losing_fraction": median_loss_fraction,
+        "p05_shortfall_to_cost": p05_shortfall,
+        "pack_cost": pack_cost,
+        "tier": tier,
+        "strength": strength,
     }
 
     meta = SectionInterpretation(

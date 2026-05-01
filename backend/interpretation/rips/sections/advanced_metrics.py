@@ -1,20 +1,42 @@
-"""Advanced Metrics interpretation — statistical check layer."""
+"""Advanced Metrics interpretation - consistency-check layer."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..models import EvidenceItem, SectionInterpretation
-from ..thresholds import classify_tail_strength, format_currency, format_ratio, format_score, get_numeric
+from ..thresholds import classify_tail_strength, format_currency, format_ratio, get_numeric
 
 
-def interpret_advanced_metrics(data: Dict[str, Any]) -> SectionInterpretation:
+def _resolve_decision_category(
+    data: Dict[str, Any],
+    pack_context: Optional[Dict[str, Any]],
+) -> str:
+    if isinstance(pack_context, dict):
+        signals = pack_context.get("signals")
+        if isinstance(signals, dict):
+            category = signals.get("decision_category")
+            if isinstance(category, str) and category:
+                return category
+
     summary_data = data.get("summary") if isinstance(data.get("summary"), dict) else data
-    headline_score = get_numeric(summary_data, "pack_score", "relative_pack_score")
-    profit_score = get_numeric(summary_data, "profit_score", "relative_profit_score")
-    safety_score = get_numeric(summary_data, "safety_score", "relative_safety_score")
-    stability_score = get_numeric(summary_data, "stability_score", "relative_stability_score")
+    pack_tier = str(summary_data.get("pack_tier") or "").strip().upper()
+    pack_score = get_numeric(summary_data, "pack_score", "relative_pack_score")
 
+    if pack_tier == "S" or (pack_score is not None and pack_score >= 85.0):
+        return "elite_open"
+    if pack_tier == "A" or (pack_score is not None and pack_score >= 70.0):
+        return "good_open"
+    if pack_tier in {"D", "F"} or (pack_score is not None and pack_score < 40.0):
+        return "weak_open"
+    return "good_open"
+
+
+def interpret_advanced_metrics(
+    data: Dict[str, Any],
+    pack_context: Optional[Dict[str, Any]] = None,
+) -> SectionInterpretation:
+    summary_data = data.get("summary") if isinstance(data.get("summary"), dict) else data
     expected_loss_per_pack = get_numeric(summary_data, "expected_loss_per_pack")
     expected_loss_when_losing = get_numeric(summary_data, "expected_loss_when_losing")
     median_loss_when_losing = get_numeric(summary_data, "median_loss_when_losing")
@@ -36,41 +58,44 @@ def interpret_advanced_metrics(data: Dict[str, Any]) -> SectionInterpretation:
         and expected_loss_when_losing > 0
     )
     strong_tail = classify_tail_strength(p95_ratio, missing="medium") == "high"
+    decision_category = _resolve_decision_category(data, pack_context)
+    risk_flags = high_volatility or high_concentration or severe_losing_profile or thin_depth or loss_drag
+    clean_profile = low_volatility and broad_depth and not high_concentration and not severe_losing_profile
 
-    headline_is_strong = any(
-        score is not None and score >= 70.0
-        for score in (headline_score, profit_score, safety_score, stability_score)
-    )
-
-    if high_volatility and strong_tail and loss_drag:
-        summary = "The numbers swing a lot and there is real upside, but the losses are also real \u2014 this is not a smooth set to rip."
-        label = "High swings, real upside and losses"
-        reason_code = "volatile_tail_loss_drag"
+    if decision_category == "strong_but_risky" and risk_flags:
+        summary = "The deeper numbers support the main read: this set has strong hits, but bad packs can still hurt."
+        label = "Risk check"
+        reason_code = "supports_strong_but_risky"
         severity = "caution"
-    elif low_volatility and broad_depth and not high_concentration and not severe_losing_profile:
-        summary = "The deeper numbers back up the headline score \u2014 the set is consistent and spread out."
-        label = "Stats support the headline"
-        reason_code = "stats_confirm_headline"
+    elif decision_category == "elite_open" and clean_profile:
+        summary = "The deeper numbers support the high score: value is strong and the risk is not enough to cancel it out."
+        label = "Numbers back it up"
+        reason_code = "supports_elite_open"
         severity = "positive"
-    elif high_concentration and thin_depth:
-        summary = "The headline score looks good, but the deeper numbers show extra risk \u2014 value depends on too few cards."
-        label = "Good score, but concentrated risk"
-        reason_code = "high_concentration_thin_depth"
+    elif decision_category in {"elite_open", "strong_but_risky"} and risk_flags:
+        summary = "The deeper numbers still support the main read, but they flag a catch: results depend on avoiding rough packs."
+        label = "Support with a catch"
+        reason_code = "supports_with_catch"
         severity = "caution"
-    elif low_volatility and (p95_ratio is not None and p95_ratio < 1.3) and loss_drag:
-        summary = "Losses are kept in check here, but big wins are limited \u2014 this is a safer but not exciting set."
-        label = "Controlled losses, limited upside"
-        reason_code = "low_volatility_capped_upside"
+    elif decision_category == "good_open" and (high_concentration or thin_depth):
+        summary = "The set still looks solid, but more of the value depends on landing the right hits."
+        label = "Watch the hit spread"
+        reason_code = "good_open_concentration_catch"
         severity = "neutral"
-    elif headline_is_strong and (high_concentration or high_volatility) and severe_losing_profile:
-        summary = "The headline score looks good, but the deeper numbers show extra risk."
-        label = "Headline vs. hidden risk"
-        reason_code = "stats_flag_caution"
-        severity = "caution"
+    elif decision_category == "weak_open":
+        summary = "The deeper numbers agree with the low score: the set is not paying back the pack price well enough."
+        label = "Numbers confirm the weakness"
+        reason_code = "confirms_weak_open"
+        severity = "negative"
+    elif clean_profile:
+        summary = "The deeper numbers mostly confirm the read: value is spread well enough and downside stays controlled."
+        label = "Mostly confirms the read"
+        reason_code = "mostly_confirms_read"
+        severity = "positive"
     else:
-        summary = "The deeper numbers are mixed: there is some upside, but the risk is still noticeable."
-        label = "Mixed stats"
-        reason_code = "mixed_stats"
+        summary = "The deeper numbers are mixed: they do not overturn the main read, but they do highlight some risk concentration."
+        label = "Mixed confirmation"
+        reason_code = "mixed_confirmation"
         severity = "neutral"
 
     key_fields = [cv, hhi, effective_chase_count, p95_ratio]
@@ -98,6 +123,7 @@ def interpret_advanced_metrics(data: Dict[str, Any]) -> SectionInterpretation:
         confidence=confidence,
         evidence=evidence,
         signals={
+            "decision_category": decision_category,
             "high_volatility": high_volatility,
             "high_concentration": high_concentration,
             "broad_depth": broad_depth,

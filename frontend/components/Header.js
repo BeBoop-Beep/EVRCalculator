@@ -58,6 +58,10 @@ export default function Header() {
 
   const isTopNavActive = (path) => pathname === path || pathname.startsWith(`${path}/`);
   const isTcgsRouteActive = isTopNavActive('/TCGs');
+  const isToolsRouteActive =
+    isTopNavActive('/tools') ||
+    isTopNavActive('/Learn') ||
+    isTopNavActive('/learn');
   const isMyCollectionRouteActive = isTopNavActive('/my-portfolio') || isTopNavActive('/dashboard');
   const publicProfileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile";
 
@@ -182,12 +186,12 @@ export default function Header() {
                 )}
               </div>
               <Link
-                href="/Learn"
+                href="/tools"
                 className={`${navTabBase} inline-flex items-center justify-center ${
-                  isTopNavActive('/Learn') ? navTabActive : navTabInactive
+                  isToolsRouteActive ? navTabActive : navTabInactive
                 }`}
               >
-                Learn
+                Tools
               </Link>
             </nav>
 
@@ -343,10 +347,10 @@ export default function Header() {
                 </Link>
               </div>
 
-              <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">LEARN</div>
+              <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">TOOLS</div>
               <div className="border-y border-[var(--border-subtle)]">
-                <Link href="/Learn" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Learn
+                <Link href="/tools" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                  Tools
                 </Link>
               </div>
 
