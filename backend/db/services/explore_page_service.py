@@ -653,7 +653,8 @@ def get_explore_page_payload(
             public_read_client.table("calculation_history_trend")
             .select(
                 "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
-                "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id"
+                "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id,"
+                "p95_value_to_cost_ratio"
             )
             .eq("target_type", requested_target_type)
             .eq("target_id", requested_target_id)
@@ -667,13 +668,38 @@ def get_explore_page_payload(
         sources["calculation_history_trend"] = "OK"
     except Exception as exc:
         logger.warning(
-            "[explore-page] calculation_history_trend failed target_type=%s target_id=%s: %s",
+            "[explore-page] calculation_history_trend failed (with p95) target_type=%s target_id=%s: %s – retrying without p95",
             requested_target_type,
             requested_target_id,
             exc,
         )
-        warnings.append("Failed to load historical trend")
-        sources["calculation_history_trend"] = "FAILED"
+        # Fallback: retry without p95_value_to_cost_ratio in case the view does not expose that column yet.
+        try:
+            history_result_fallback = (
+                public_read_client.table("calculation_history_trend")
+                .select(
+                    "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
+                    "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id"
+                )
+                .eq("target_type", requested_target_type)
+                .eq("target_id", requested_target_id)
+                .order("snapshot_date", desc=True)
+                .limit(history_trend_limit)
+                .execute()
+            )
+            history_rows_fb = history_result_fallback.data if history_result_fallback and history_result_fallback.data else []
+            history_rows_fb.sort(key=lambda row: (str(row.get("snapshot_date") or ""), str(row.get("run_created_at") or "")))
+            history_trend = history_rows_fb
+            sources["calculation_history_trend"] = "OK_NO_P95"
+        except Exception as exc2:
+            logger.warning(
+                "[explore-page] calculation_history_trend fallback also failed target_type=%s target_id=%s: %s",
+                requested_target_type,
+                requested_target_id,
+                exc2,
+            )
+            warnings.append("Failed to load historical trend")
+            sources["calculation_history_trend"] = "FAILED"
     history_ms = (time.perf_counter() - history_started) * 1000
 
     total_ms = (time.perf_counter() - total_started) * 1000

@@ -14,6 +14,216 @@ from ..thresholds import (
 )
 
 
+def _probability_band(prob_profit: float | None) -> str:
+    if prob_profit is None:
+        return "unknown"
+    if prob_profit < 0.06:
+        return "very_low"
+    if prob_profit < 0.10:
+        return "low"
+    if prob_profit < 0.14:
+        return "moderate"
+    return "strong"
+
+
+def _impact_band(p95_to_cost: float | None) -> str:
+    if p95_to_cost is None:
+        return "unknown"
+    if p95_to_cost < 1.25:
+        return "weak_impact"
+    if p95_to_cost < 1.75:
+        return "modest_impact"
+    if p95_to_cost < 2.50:
+        return "good_impact"
+    if p95_to_cost < 3.50:
+        return "high_impact"
+    return "huge_impact"
+
+
+def _median_band(median_to_cost: float | None) -> str:
+    if median_to_cost is None:
+        return "unknown"
+    if median_to_cost < 0.15:
+        return "very_weak"
+    if median_to_cost < 0.25:
+        return "weak"
+    return "holds_up"
+
+
+def _mean_band(mean_to_cost: float | None) -> str:
+    if mean_to_cost is None:
+        return "unknown"
+    if mean_to_cost >= 0.70:
+        return "strong"
+    if mean_to_cost >= 0.55:
+        return "decent"
+    return "weak"
+
+
+def _profit_quality_phrase(tier: Any, strength: Any, prob_profit: float | None) -> str:
+    tier_key = str(tier or "").strip().upper()
+    tier_map = {
+        "S": "This is one of the strongest profit setups right now.",
+        "A": "This is a strong profit setup compared to most sets.",
+        "B": "This is an above-average profit setup.",
+        "C": "This is a middle-of-the-pack profit setup.",
+        "D": "This is a below-average profit setup.",
+        "F": "This is a weak profit setup.",
+    }
+    if tier_key in tier_map:
+        return tier_map[tier_key]
+
+    try:
+        strength_value = int(strength) if strength is not None else None
+    except (TypeError, ValueError):
+        strength_value = None
+
+    if strength_value is None:
+        return "This is a middle-of-the-pack profit setup."
+    if strength_value >= 5:
+        return tier_map["S"]
+    if strength_value == 4:
+        return tier_map["A"]
+    if strength_value == 3:
+        if prob_profit is not None and prob_profit >= 0.10:
+            return tier_map["B"]
+        return tier_map["C"]
+    if strength_value == 2:
+        return tier_map["D"]
+    return tier_map["F"]
+
+
+def _upside_phrase(p95_to_cost: float | None) -> str:
+    if p95_to_cost is None:
+        return ""
+    if p95_to_cost >= 3.50:
+        return "The high-end upside is huge when the right hits land."
+    if p95_to_cost >= 2.50:
+        return "The high-end upside is strong when the right hits land."
+    if p95_to_cost >= 1.25:
+        return "The upside can still beat the pack price, but it is not as explosive as the best sets."
+    if p95_to_cost >= 1.00:
+        return "The better outcomes can beat the pack price, but the ceiling is modest."
+    return "Even the stronger outcomes struggle to clear the pack price."
+
+
+def _profit_why_phrase(
+    profile: str,
+    prob_profit: float | None,
+    mean_to_cost: float | None,
+    median_to_cost: float | None,
+    p95_to_cost: float | None,
+) -> str:
+    if profile == "strong_average_capped_upside":
+        return "Average return is doing most of the work, even though normal packs still come in below cost."
+    if profile == "rare_wins_huge_upside":
+        return "The score is carried by big-hit potential, not by normal packs."
+    if profile == "rare_wins_good_upside":
+        return "The score is helped by strong hits, even though profitable packs are not common."
+    if profile == "decent_chance_modest_upside":
+        return "The score holds up because the win chance is better than many sets."
+    if profile == "weak_chance_weak_upside":
+        return "The score is weak because wins are rare and the better outcomes do not pay back enough."
+    if profile == "weak_normal_packs_big_hits":
+        return "The score depends on the better hits, because normal packs are weak."
+    if profile == "average_return_mixed":
+        return "The score lands in the middle because no single profit signal clearly stands out."
+    if profile == "strong_chance_strong_upside":
+        return "The score is strong because both win rate and upside are better than most sets."
+    if profile == "steady_but_capped":
+        return "The score comes from a better chance to win, even though big wins are limited."
+    if profile == "data_limited":
+        return ""
+
+    # Fallback keeps copy concise while still explaining the grade driver.
+    if prob_profit is not None and prob_profit >= 0.10:
+        return "The score holds up because the win chance is better than many sets."
+    if p95_to_cost is not None and p95_to_cost >= 2.50:
+        return "The score is carried more by upside than by normal packs."
+    if mean_to_cost is not None and mean_to_cost >= 0.70:
+        return "Average return is doing most of the work in this score."
+    if median_to_cost is not None and median_to_cost < 0.25:
+        return "Normal packs are still below cost often enough to cap the score."
+    return "The score lands in the middle because no single profit signal clearly stands out."
+
+
+def _profile_summary_and_label(
+    *,
+    prob_profit: float | None,
+    p95_to_cost: float | None,
+    median_to_cost: float | None,
+    mean_to_cost: float | None,
+) -> tuple[str, str, str]:
+    if prob_profit is None or p95_to_cost is None:
+        return (
+            "data_limited",
+            "Profit setup unclear",
+            "There is not enough data to judge how often packs profit or how big the better wins can be.",
+        )
+
+    if prob_profit >= 0.14 and p95_to_cost >= 2.50:
+        return (
+            "strong_chance_strong_upside",
+            "Strong profit setup",
+            "This set has one of the better profit profiles because it combines a better chance to win with strong high-end hits.",
+        )
+
+    if prob_profit < 0.14 and p95_to_cost >= 3.50:
+        return (
+            "rare_wins_huge_upside",
+            "Rare wins, huge upside",
+            "Most packs will not profit, but the best hits can pay back several times the pack price.",
+        )
+
+    if prob_profit < 0.14 and p95_to_cost >= 2.50:
+        return (
+            "rare_wins_good_upside",
+            "Rare wins, strong upside",
+            "Profitable packs are not common, but strong hits can still make the return attractive.",
+        )
+
+    if prob_profit >= 0.14 and p95_to_cost < 1.75:
+        return (
+            "steady_but_capped",
+            "Better chance, capped upside",
+            "This set gives you a better shot at profit, but the bigger wins are more limited.",
+        )
+
+    if prob_profit >= 0.10 and 1.75 <= p95_to_cost < 2.50:
+        return (
+            "decent_chance_modest_upside",
+            "Decent chance, modest upside",
+            "This set has a decent chance to return value, but the high-end wins are not as strong as the best sets.",
+        )
+
+    if mean_to_cost is not None and mean_to_cost >= 0.70 and p95_to_cost < 1.75 and prob_profit < 0.14:
+        return (
+            "strong_average_capped_upside",
+            "Strong average, capped upside",
+            "Average value is strong, but the biggest wins are more limited than the top upside sets.",
+        )
+
+    if median_to_cost is not None and median_to_cost < 0.20 and p95_to_cost >= 2.50:
+        return (
+            "weak_normal_packs_big_hits",
+            "Weak normal packs, big hits",
+            "Normal packs are weak, but the better hits are strong enough to keep profit interesting.",
+        )
+
+    if prob_profit < 0.10 and p95_to_cost < 1.25:
+        return (
+            "weak_chance_weak_upside",
+            "Weak profit setup",
+            "Profitable packs are rare, and even the stronger outcomes are not paying back enough.",
+        )
+
+    return (
+        "average_return_mixed",
+        "Mixed profit profile",
+        "This set has some return potential, but neither the win chance nor the high-end upside clearly stands out.",
+    )
+
+
 def interpret_profit(data: Dict[str, Any]) -> ProfitInterpretation:
     summary_data = get_summary_data(data)
     context = build_profit_context(summary_data)
@@ -26,73 +236,34 @@ def interpret_profit(data: Dict[str, Any]) -> ProfitInterpretation:
     median_to_cost = get_numeric(summary_data, "median_value_to_cost_ratio")
     p95_to_cost = get_numeric(summary_data, "p95_value_to_cost_ratio")
 
-    if prob_profit is None:
-        probability_anchor = "Profit frequency is unclear from the available sample."
-        profit_frequency = "unknown"
-    elif prob_profit < 0.08:
-        probability_anchor = "Profitable packs are very rare."
-        profit_frequency = "very_low"
-    elif prob_profit < 0.15:
-        probability_anchor = "Most packs will not be profitable."
-        profit_frequency = "low"
-    elif prob_profit < 0.25:
-        probability_anchor = "Winning packs are uncommon."
-        profit_frequency = "uncommon"
-    else:
-        probability_anchor = "This set has a reasonable chance to pay off."
-        profit_frequency = "reasonable"
+    probability_band = _probability_band(prob_profit)
+    impact_band = _impact_band(p95_to_cost)
+    median_band = _median_band(median_to_cost)
+    mean_band = _mean_band(mean_to_cost)
 
-    p95_high = p95_to_cost is not None and p95_to_cost >= 2.5
-    mean_strong = mean_to_cost is not None and mean_to_cost >= 0.70
-    median_weak = median_to_cost is not None and median_to_cost < 0.20
+    profit_profile, label, base_summary = _profile_summary_and_label(
+        prob_profit=prob_profit,
+        p95_to_cost=p95_to_cost,
+        median_to_cost=median_to_cost,
+        mean_to_cost=mean_to_cost,
+    )
 
-    if p95_high:
-        ev_structure = "When it does hit, the best pulls are strong enough to carry the return."
-        structure_code = "high_p95"
-    elif mean_strong:
-        ev_structure = "Average value holds up better than most sets."
-        structure_code = "strong_mean"
-    elif median_weak:
-        ev_structure = "Most packs still come in well below cost."
-        structure_code = "weak_median"
-    else:
-        ev_structure = "Returns are modest and not consistent."
-        structure_code = "modest_returns"
+    quality_phrase = _profit_quality_phrase(tier=tier, strength=strength, prob_profit=prob_profit)
+    upside_phrase = _upside_phrase(p95_to_cost)
+    why_phrase = _profit_why_phrase(
+        profile=profit_profile,
+        prob_profit=prob_profit,
+        mean_to_cost=mean_to_cost,
+        median_to_cost=median_to_cost,
+        p95_to_cost=p95_to_cost,
+    )
 
-    summary = f"{probability_anchor} {ev_structure}"
+    summary = " ".join([part for part in [quality_phrase, upside_phrase, why_phrase] if part]).strip()
+    reason_code = profit_profile
 
-    high_tier = strength is not None and strength >= 4
-    low_tier = strength is not None and strength <= 1
-
-    if profit_frequency == "very_low" and p95_high:
-        label = "Rare wins, big hits"
-        reason_code = "rare_wins_big_hits"
-    elif prob_profit is not None and prob_profit < 0.25 and mean_strong:
-        label = "Low hit rate, solid average"
-        reason_code = "low_hit_rate_solid_average"
-    elif prob_profit is not None and prob_profit < 0.25 and median_weak:
-        label = "Low hit rate, weak normal packs"
-        reason_code = "low_hit_rate_weak_normal"
-    elif high_tier and p95_high:
-        label = "Strong hits carry return"
-        reason_code = "high_tier_hits_carry_return"
-    elif low_tier:
-        label = "Weak return"
-        reason_code = "low_tier_weak_return"
-    elif p95_high:
-        label = "Strong hits carry return"
-        reason_code = "hits_carry_return"
-    elif mean_strong:
-        label = "Solid average return"
-        reason_code = "solid_average_return"
-    elif median_weak:
-        label = "Weak normal pack returns"
-        reason_code = "weak_normal_pack_returns"
-    else:
-        label = "Mixed return profile"
-        reason_code = "mixed_return_profile"
-
-    if strength is not None and strength >= 4:
+    if profit_profile == "data_limited":
+        severity = "data_limited"
+    elif strength is not None and strength >= 4:
         severity = "positive"
     elif strength is not None and strength <= 1:
         severity = "negative"
@@ -109,15 +280,17 @@ def interpret_profit(data: Dict[str, Any]) -> ProfitInterpretation:
 
     evidence = [
         EvidenceItem("Chance to profit", format_percent(prob_profit)),
+        EvidenceItem("High-end upside vs cost", format_ratio(p95_to_cost)),
         EvidenceItem("Average pack return", format_ratio(mean_to_cost)),
         EvidenceItem("Typical pack return", format_ratio(median_to_cost)),
-        EvidenceItem("Big-hit range", format_ratio(p95_to_cost)),
     ]
 
     signals: Dict[str, Any] = {
-        "profit_frequency": profit_frequency,
-        "ev_structure": structure_code,
-        "probability_anchor": probability_anchor,
+        "profit_profile": profit_profile,
+        "probability_band": probability_band,
+        "impact_band": impact_band,
+        "median_band": median_band,
+        "mean_band": mean_band,
         "tier": tier,
         "strength": strength,
     }

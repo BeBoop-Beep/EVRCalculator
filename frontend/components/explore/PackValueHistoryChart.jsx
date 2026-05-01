@@ -15,6 +15,18 @@ import {
 
 import InfoPopover from "@/components/ui/InfoPopover";
 
+// ─── Color tokens for this chart only ────────────────────────────────────────
+const HISTORICAL_TREND_COLORS = {
+  meanToCost:   "rgba(20,184,166,0.98)",      // emerald/teal — primary value signal
+  meanLabel:    "rgba(183,245,231,0.86)",
+  medianToCost: "rgba(99,130,191,0.90)",      // blue-slate — secondary, visible but not competing
+  medianLabel:  "rgba(180,200,230,0.82)",
+  p95ToCost:    "rgba(34,211,238,0.95)",      // electric cyan — high-end upside/chase signal
+  p95Label:     "rgba(165,243,252,0.86)",
+  breakEven:    "rgba(255,255,255,0.42)",
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -41,11 +53,38 @@ function formatCurrency(value) {
   }).format(parsed);
 }
 
+/**
+ * Compute a clean Y-axis upper bound for ratio series that may include P95
+ * values well above 1.25x. Uses a stepped ceiling so the axis reads naturally.
+ */
+function getHistoricalRatioYAxisMax(points) {
+  let maxRatio = 1;
+  for (const pt of points) {
+    const mean   = toNumber(pt.simulated_mean_pack_value_vs_pack_cost);
+    const median = toNumber(pt.simulated_median_pack_value_vs_pack_cost);
+    const p95    = toNumber(pt.p95_value_to_cost_ratio);
+    if (mean   !== null) maxRatio = Math.max(maxRatio, mean);
+    if (median !== null) maxRatio = Math.max(maxRatio, median);
+    if (p95    !== null) maxRatio = Math.max(maxRatio, p95);
+  }
+
+  const padded = maxRatio * 1.12;
+
+  if (padded <= 1.25) return 1.25;
+  if (padded <= 2.0)  return 2.0;
+  if (padded <= 3.0)  return 3.0;
+  if (padded <= 4.0)  return 4.0;
+  if (padded <= 5.0)  return 5.0;
+  return Math.ceil(padded);
+}
+
 function buildRatioTicks(upperBound) {
   const safeUpper = Number.isFinite(upperBound) ? upperBound : 1.25;
-  const roundedUpper = Math.ceil(safeUpper / 0.25) * 0.25;
+  // Use 0.5-step ticks for larger scales to avoid a crowded axis
+  const step = safeUpper > 2.5 ? 0.5 : 0.25;
+  const roundedUpper = Math.ceil(safeUpper / step) * step;
   const ticks = [];
-  for (let value = 0; value <= roundedUpper + 0.0001; value += 0.25) {
+  for (let value = 0; value <= roundedUpper + 0.0001; value += step) {
     ticks.push(Number(value.toFixed(2)));
   }
   return ticks;
@@ -77,6 +116,7 @@ function formatLongDate(value) {
   }).format(date);
 }
 
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
 function TrendTooltip({ active, payload, packCost }) {
   if (!active || !payload?.length) {
     return null;
@@ -86,6 +126,8 @@ function TrendTooltip({ active, payload, packCost }) {
   if (!row) {
     return null;
   }
+
+  const p95 = toNumber(row.p95_value_to_cost_ratio);
 
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
@@ -97,6 +139,11 @@ function TrendTooltip({ active, payload, packCost }) {
       <p className="text-xs text-[var(--text-secondary)]">
         Median / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(row.simulated_median_pack_value_vs_pack_cost)}</span>
       </p>
+      {p95 !== null && (
+        <p className="text-xs text-[var(--text-secondary)]">
+          P95 / Cost <span className="font-semibold" style={{ color: HISTORICAL_TREND_COLORS.p95Label }}>{formatRatio(p95)}</span>
+        </p>
+      )}
       <p className="text-xs text-[var(--text-secondary)]">
         Break-even <span className="font-semibold text-[var(--text-primary)]">1.00x</span>
       </p>
@@ -107,6 +154,7 @@ function TrendTooltip({ active, payload, packCost }) {
   );
 }
 
+// ─── Final-point labels ───────────────────────────────────────────────────────
 function RatioPointLabel({ x, y, value, fillColor, dy = -10 }) {
   const parsed = toNumber(value);
   if (parsed === null || !Number.isFinite(x) || !Number.isFinite(y)) {
@@ -120,6 +168,7 @@ function RatioPointLabel({ x, y, value, fillColor, dy = -10 }) {
   );
 }
 
+// ─── Empty state ──────────────────────────────────────────────────────────────
 function EmptyTrendState() {
   return (
     <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-6 py-10 text-center">
@@ -130,9 +179,33 @@ function EmptyTrendState() {
   );
 }
 
+// ─── Legend toggle button ─────────────────────────────────────────────────────
+function LegendToggle({ active, onToggle, activeColor, inactiveColor, label }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors ${
+        active
+          ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          : "text-[var(--text-secondary)]/50 hover:text-[var(--text-secondary)]"
+      }`}
+    >
+      <span
+        className="inline-block h-0.5 w-5 rounded"
+        style={{ backgroundColor: active ? activeColor : inactiveColor }}
+      />
+      {label}
+    </button>
+  );
+}
+
+// ─── Main chart ───────────────────────────────────────────────────────────────
 export default function PackValueHistoryChart({ historyTrend = [], packCost = null }) {
-  const [showMeanLine, setShowMeanLine] = useState(true);
+  const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
+  const [showP95Line,    setShowP95Line]    = useState(true);
 
   const historicalTrendInfo = (
     <div className="space-y-1.5 text-left">
@@ -140,8 +213,8 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
         <li className="flex gap-2"><span className="flex-none">•</span><span>Mean / Cost compares average simulated pack value to pack cost over time.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>Median / Cost compares typical simulated pack value to pack cost over time.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>1.0x is break-even.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Above 1.0x means simulated value exceeded pack cost.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>P95 / Cost shows the 95th-percentile outcome versus pack cost — the high-end chase signal.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>1.0x is break-even. Above 1.0x means simulated value exceeded pack cost.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>The break-even label includes the current pack cost when available.</span></li>
       </ul>
     </div>
@@ -150,18 +223,18 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
   const chartData = useMemo(
     () =>
       (Array.isArray(historyTrend) ? historyTrend : [])
-        .map((row, index) => ({
-          id: `${index}:${row?.snapshot_date || "na"}:${row?.calculation_run_id || "na"}`,
-          snapshot_date: row?.snapshot_date || null,
-          run_created_at: row?.run_created_at || null,
-          calculation_run_id: row?.calculation_run_id || null,
-          simulated_mean_pack_value_vs_pack_cost: toNumber(
-            row?.simulated_mean_pack_value_vs_pack_cost
-          ),
-          simulated_median_pack_value_vs_pack_cost: toNumber(
-            row?.simulated_median_pack_value_vs_pack_cost
-          ),
-        }))
+        .map((row, index) => {
+          const p95Raw = toNumber(row?.p95_value_to_cost_ratio);
+          return {
+            id: `${index}:${row?.snapshot_date || "na"}:${row?.calculation_run_id || "na"}`,
+            snapshot_date:          row?.snapshot_date || null,
+            run_created_at:         row?.run_created_at || null,
+            calculation_run_id:     row?.calculation_run_id || null,
+            simulated_mean_pack_value_vs_pack_cost:   toNumber(row?.simulated_mean_pack_value_vs_pack_cost),
+            simulated_median_pack_value_vs_pack_cost: toNumber(row?.simulated_median_pack_value_vs_pack_cost),
+            p95_value_to_cost_ratio: p95Raw,
+          };
+        })
         .filter(
           (row) =>
             row.snapshot_date &&
@@ -171,16 +244,15 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
     [historyTrend]
   );
 
-  const yAxisUpperBound = useMemo(() => {
-    const observedMax = chartData.reduce((maxValue, row) => {
-      const meanValue = toNumber(row.simulated_mean_pack_value_vs_pack_cost);
-      const medianValue = toNumber(row.simulated_median_pack_value_vs_pack_cost);
-      return Math.max(maxValue, meanValue ?? 0, medianValue ?? 0);
-    }, 1);
-    return Math.max(1.25, observedMax * 1.15);
-  }, [chartData]);
+  // Determine whether any row actually has P95 data so we can hide the toggle
+  // gracefully when the backend view does not yet expose that column.
+  const hasP95Data = useMemo(
+    () => chartData.some((row) => row.p95_value_to_cost_ratio !== null),
+    [chartData]
+  );
 
-  const yAxisTicks = useMemo(() => buildRatioTicks(yAxisUpperBound), [yAxisUpperBound]);
+  const yAxisUpperBound = useMemo(() => getHistoricalRatioYAxisMax(chartData), [chartData]);
+  const yAxisTicks      = useMemo(() => buildRatioTicks(yAxisUpperBound), [yAxisUpperBound]);
 
   const latestDataIndex = chartData.length - 1;
 
@@ -204,42 +276,30 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
           <InfoPopover text={historicalTrendInfo} />
         </div>
 
-        <div className="flex items-center gap-3 text-[11px]">
-          <button
-            type="button"
-            onClick={() => setShowMeanLine((current) => !current)}
-            aria-pressed={showMeanLine}
-            className={`inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors ${
-              showMeanLine
-                ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                : "text-[var(--text-secondary)]/50 hover:text-[var(--text-secondary)]"
-            }`}
-          >
-            <span
-              className={`inline-block h-0.5 w-5 rounded ${
-                showMeanLine ? "bg-[rgba(20,184,166,0.98)]" : "bg-[rgba(20,184,166,0.3)]"
-              }`}
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <LegendToggle
+            active={showMeanLine}
+            onToggle={() => setShowMeanLine((c) => !c)}
+            activeColor={HISTORICAL_TREND_COLORS.meanToCost}
+            inactiveColor="rgba(20,184,166,0.25)"
+            label="Mean / Cost"
+          />
+          <LegendToggle
+            active={showMedianLine}
+            onToggle={() => setShowMedianLine((c) => !c)}
+            activeColor={HISTORICAL_TREND_COLORS.medianToCost}
+            inactiveColor="rgba(99,130,191,0.25)"
+            label="Median / Cost"
+          />
+          {hasP95Data && (
+            <LegendToggle
+              active={showP95Line}
+              onToggle={() => setShowP95Line((c) => !c)}
+              activeColor={HISTORICAL_TREND_COLORS.p95ToCost}
+              inactiveColor="rgba(34,211,238,0.20)"
+              label="P95 / Cost"
             />
-            Mean / Cost
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowMedianLine((current) => !current)}
-            aria-pressed={showMedianLine}
-            className={`inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors ${
-              showMedianLine
-                ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                : "text-[var(--text-secondary)]/50 hover:text-[var(--text-secondary)]"
-            }`}
-          >
-            <span
-              className={`inline-block h-0.5 w-5 rounded ${
-                showMedianLine ? "bg-[rgba(148,163,184,0.9)]" : "bg-[rgba(148,163,184,0.3)]"
-              }`}
-            />
-            Median / Cost
-          </button>
+          )}
         </div>
       </div>
 
@@ -272,7 +332,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
 
             <ReferenceLine
               y={1}
-              stroke="rgba(255,255,255,0.52)"
+              stroke={HISTORICAL_TREND_COLORS.breakEven}
               strokeDasharray="6 6"
               strokeWidth={1}
               label={{
@@ -283,17 +343,37 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               }}
             />
 
+            {/* P95 / Cost — rendered below Mean so Mean sits visually on top */}
+            {hasP95Data && showP95Line ? (
+              <Line
+                type="monotone"
+                dataKey="p95_value_to_cost_ratio"
+                name="P95 / Cost"
+                stroke={HISTORICAL_TREND_COLORS.p95ToCost}
+                strokeWidth={2.5}
+                dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.p95ToCost, strokeWidth: 0 }}
+                label={({ x, y, value, index }) =>
+                  index === latestDataIndex
+                    ? <RatioPointLabel x={x} y={y} value={value} fillColor={HISTORICAL_TREND_COLORS.p95Label} dy={-10} />
+                    : null
+                }
+                activeDot={{ r: 4, stroke: "var(--surface-page)", strokeWidth: 2 }}
+                connectNulls
+                isAnimationActive={false}
+              />
+            ) : null}
+
             {showMeanLine ? (
               <Line
                 type="monotone"
                 dataKey="simulated_mean_pack_value_vs_pack_cost"
                 name="Mean / Cost"
-                stroke="rgba(20,184,166,0.98)"
+                stroke={HISTORICAL_TREND_COLORS.meanToCost}
                 strokeWidth={2.5}
-                dot={{ r: 2.5, fill: "rgba(20,184,166,0.98)", strokeWidth: 0 }}
+                dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.meanToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
                   index === latestDataIndex
-                    ? <RatioPointLabel x={x} y={y} value={value} fillColor="rgba(183,245,231,0.86)" dy={-10} />
+                    ? <RatioPointLabel x={x} y={y} value={value} fillColor={HISTORICAL_TREND_COLORS.meanLabel} dy={hasP95Data ? 12 : -10} />
                     : null
                 }
                 activeDot={{ r: 4, stroke: "var(--surface-page)", strokeWidth: 2 }}
@@ -307,12 +387,12 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
                 type="monotone"
                 dataKey="simulated_median_pack_value_vs_pack_cost"
                 name="Median / Cost"
-                stroke="rgba(148,163,184,0.9)"
+                stroke={HISTORICAL_TREND_COLORS.medianToCost}
                 strokeWidth={2}
-                dot={{ r: 2, fill: "rgba(148,163,184,0.9)", strokeWidth: 0 }}
+                dot={{ r: 2, fill: HISTORICAL_TREND_COLORS.medianToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
                   index === latestDataIndex
-                    ? <RatioPointLabel x={x} y={y} value={value} fillColor="rgba(203,213,225,0.82)" dy={12} />
+                    ? <RatioPointLabel x={x} y={y} value={value} fillColor={HISTORICAL_TREND_COLORS.medianLabel} dy={24} />
                     : null
                 }
                 activeDot={{ r: 3.5, stroke: "var(--surface-page)", strokeWidth: 2 }}

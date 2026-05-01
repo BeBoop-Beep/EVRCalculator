@@ -267,7 +267,7 @@ function ScorePillarCard({
 
       <ScoreMeter score={score} rankTier={rankTier} />
 
-      <div className="min-h-[116px]">
+      <div className="min-h-[140px]">
         <InterpretationInsight
           sectionMeta={sectionMeta}
           fallbackSummary={fallbackSummary}
@@ -872,7 +872,7 @@ export default function RipStatisticsPageClient({
       { id: "outcome-distribution", label: "Outcome Distribution" },
       { id: "historical-trend", label: "Historical Trend" },
       { id: "pack-breakdown", label: "Pack Breakdown" },
-      { id: "top-ev-drivers", label: "Top EV Drivers" },
+      { id: "top-ev-drivers", label: "Top Expected Value (EV) Drivers" },
       { id: "rarity-contribution", label: "Rarity Contribution" },
       { id: "advanced-metrics", label: "Advanced Metrics" },
     ],
@@ -1509,7 +1509,7 @@ export default function RipStatisticsPageClient({
             <section className="pt-1">
               <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
                 <div id="explore-drivers" className="scroll-mt-24 md:scroll-mt-28">
-                  <SectionCard title="Top EV Drivers" subtitle="These cards contribute the most to expected pack value.">
+                  <SectionCard title="Top Expected Value (EV) Drivers" subtitle="These cards contribute the most to expected pack value.">
                     <InterpretationInsight
                       sectionMeta={topEvDriversMeta}
                       fallbackSummary={interpretation?.topEvDrivers}

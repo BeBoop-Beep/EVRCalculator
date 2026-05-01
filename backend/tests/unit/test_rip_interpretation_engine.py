@@ -768,8 +768,227 @@ def test_s_tier_profit_with_low_profit_frequency_still_frames_as_strong_setup():
     result = build_rip_interpretation(data)
 
     summary = result["meta"]["profit"]["summary"].lower()
-    assert "reasonable chance to pay off" in summary
-    assert "average value holds up better than most sets" in summary
+    assert "one of the strongest profit setups" in summary
+    assert "upside can still beat the pack price" in summary
+
+
+def test_profit_profile_low_probability_huge_upside():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.11,
+            p95_value_to_cost_ratio=3.65,
+            mean_value_to_cost_ratio=0.58,
+            median_value_to_cost_ratio=0.18,
+        ),
+        "top_hits": _chase_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    profit_meta = result["meta"]["profit"]
+    summary = profit_meta["summary"].lower()
+    label = profit_meta["label"].lower()
+
+    assert profit_meta["signals"]["profit_profile"] in {
+        "rare_wins_huge_upside",
+        "weak_normal_packs_big_hits",
+    }
+    assert "rare wins" in label or "big hits" in label or "huge upside" in label
+    assert "high-end upside is huge" in summary
+    assert "carried by big-hit potential" in summary
+    assert "High-end upside vs cost" in [item["label"] for item in profit_meta["evidence"]]
+
+
+def test_profit_profile_low_probability_good_upside():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.10,
+            p95_value_to_cost_ratio=2.70,
+            mean_value_to_cost_ratio=0.56,
+            median_value_to_cost_ratio=0.19,
+        ),
+        "top_hits": _chase_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    profile = result["meta"]["profit"]["signals"]["profit_profile"]
+    assert profile in {"rare_wins_good_upside", "weak_normal_packs_big_hits"}
+
+
+def test_profit_profile_better_probability_weak_upside():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.15,
+            p95_value_to_cost_ratio=1.20,
+            mean_value_to_cost_ratio=0.54,
+            median_value_to_cost_ratio=0.24,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    profit_meta = result["meta"]["profit"]
+    assert profit_meta["signals"]["profit_profile"] == "steady_but_capped"
+    summary = profit_meta["summary"].lower()
+    assert "ceiling is modest" in summary
+    assert "score comes from a better chance to win" in summary
+
+
+def test_profit_profile_low_probability_weak_upside():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.04,
+            p95_value_to_cost_ratio=0.70,
+            mean_value_to_cost_ratio=0.36,
+            median_value_to_cost_ratio=0.08,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    assert result["meta"]["profit"]["signals"]["profit_profile"] == "weak_chance_weak_upside"
+
+
+def test_profit_profile_strong_mean_but_modest_upside_mentions_average_support():
+    data = {
+        "summary": _make_summary(
+            prob_profit=0.13,
+            p95_value_to_cost_ratio=1.79,
+            mean_value_to_cost_ratio=0.73,
+            median_value_to_cost_ratio=0.23,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    profit_meta = result["meta"]["profit"]
+    summary = profit_meta["summary"].lower()
+    assert "upside can still beat the pack price" in summary
+    assert "score holds up because the win chance is better than many sets" in summary
+    assert "huge upside" not in summary
+
+
+def test_profit_profile_strong_average_capped_upside():
+    data = {
+        "summary": _make_summary(
+            profit_tier="A",
+            prob_profit=0.078,
+            mean_value_to_cost_ratio=0.88,
+            p95_value_to_cost_ratio=1.28,
+            median_value_to_cost_ratio=0.23,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    profit_meta = result["meta"]["profit"]
+    assert profit_meta["signals"]["profit_profile"] == "strong_average_capped_upside"
+    assert profit_meta["label"] == "Strong average, capped upside"
+    summary = profit_meta["summary"].lower()
+    assert "strong profit setup compared to most sets" in summary
+    assert "upside can still beat the pack price" in summary
+    assert "average return is doing most of the work" in summary
+    assert "average value holds up well because stronger hits pull results up" not in summary
+
+
+def test_profit_summary_s_tier_huge_upside_is_clearly_elite():
+    data = {
+        "summary": _make_summary(
+            profit_tier="S",
+            prob_profit=0.113,
+            p95_value_to_cost_ratio=3.60,
+            mean_value_to_cost_ratio=0.57,
+            median_value_to_cost_ratio=0.17,
+        ),
+        "top_hits": _chase_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["profit"]["summary"].lower()
+    assert "one of the strongest profit setups" in summary
+    assert "high-end upside is huge" in summary
+    assert "carried by big-hit potential" in summary
+
+
+def test_profit_summary_b_tier_calls_out_above_average_setup():
+    data = {
+        "summary": _make_summary(
+            profit_tier="B",
+            prob_profit=0.11,
+            p95_value_to_cost_ratio=1.85,
+            mean_value_to_cost_ratio=0.60,
+            median_value_to_cost_ratio=0.22,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["profit"]["summary"].lower()
+    assert "above-average profit setup" in summary
+
+
+def test_profit_summary_c_tier_calls_out_middle_setup():
+    data = {
+        "summary": _make_summary(
+            profit_tier="C",
+            prob_profit=0.09,
+            p95_value_to_cost_ratio=1.40,
+            mean_value_to_cost_ratio=0.53,
+            median_value_to_cost_ratio=0.20,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["profit"]["summary"].lower()
+    assert "middle-of-the-pack profit setup" in summary
+
+
+def test_profit_summary_f_tier_calls_out_weak_setup_and_driver():
+    data = {
+        "summary": _make_summary(
+            profit_tier="F",
+            prob_profit=0.03,
+            p95_value_to_cost_ratio=0.80,
+            mean_value_to_cost_ratio=0.38,
+            median_value_to_cost_ratio=0.10,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["profit"]["summary"].lower()
+    assert "weak profit setup" in summary
+    assert "wins are rare" in summary or "do not pay back enough" in summary
 
 
 def test_s_tier_safety_with_bad_raw_losses_uses_relative_safer_language():
@@ -1693,8 +1912,9 @@ def test_profit_low_prob_high_p95_uses_probability_anchor_and_big_hit_driver():
     }
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"]
-    assert "Most packs will not be profitable." in summary
-    assert "When it does hit, the best pulls are strong enough to carry the return." in summary
+    assert "middle-of-the-pack profit setup" in summary
+    assert "high-end upside is strong" in summary
+    assert "helped by strong hits" in summary
 
 
 def test_profit_low_prob_strong_mean_mentions_average_holds_up():
@@ -1713,8 +1933,9 @@ def test_profit_low_prob_strong_mean_mentions_average_holds_up():
     }
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"]
-    assert "Most packs will not be profitable." in summary
-    assert "Average value holds up better than most sets." in summary
+    assert "middle-of-the-pack profit setup" in summary
+    assert "upside can still beat the pack price" in summary
+    assert "score holds up because the win chance is better than many sets" in summary
 
 
 def test_profit_low_prob_weak_median_mentions_below_cost_normal_packs():
@@ -1733,8 +1954,8 @@ def test_profit_low_prob_weak_median_mentions_below_cost_normal_packs():
     }
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"]
-    assert "Most packs will not be profitable." in summary
-    assert "Most packs still come in well below cost." in summary
+    assert "below-average profit setup" in summary
+    assert "upside can still beat the pack price" in summary
 
 
 def test_profit_summary_changes_when_probability_changes_with_same_tail_metrics():
@@ -1770,8 +1991,8 @@ def test_profit_summary_changes_when_probability_changes_with_same_tail_metrics(
     low_summary = low_prob["meta"]["profit"]["summary"]
     high_summary = higher_prob["meta"]["profit"]["summary"]
     assert low_summary != high_summary
-    assert "Profitable packs are very rare." in low_summary
-    assert "Winning packs are uncommon." in high_summary
+    assert "below-average profit setup" in low_summary
+    assert "score is strong because both win rate and upside are better than most sets" in high_summary
 
 
 def test_safety_high_expected_loss_uses_rough_or_brutal_language():
@@ -1908,6 +2129,262 @@ def test_stability_df_tier_not_well_spread_without_supporting_metrics():
     result = build_rip_interpretation(data)
     label = result["meta"]["stability"]["label"]
     assert label != "Value is well spread"
+
+
+# ---------------------------------------------------------------------------
+# New spec tests: Outcome Distribution / Historical Trend / Pack Breakdown
+# ---------------------------------------------------------------------------
+
+def test_outcome_distribution_low_median_high_p95_is_low_floor_big_ceiling():
+    data = {
+        "summary": _make_summary(
+            pack_cost=5.0,
+            median_value_to_cost_ratio=0.22,
+            p95_value_to_cost_ratio=3.05,
+            p99_value_to_cost_ratio=7.0,
+            max_value=120.0,
+            prob_big_hit=0.015,
+            prob_profit=0.09,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["outcomeDistribution"]
+    assert meta["reason_code"] == "low_floor_big_ceiling"
+    assert meta["label"] == "Low floor, big ceiling"
+
+
+def test_outcome_distribution_huge_max_outlier_is_extreme_outlier_shape():
+    data = {
+        "summary": _make_summary(
+            pack_cost=5.0,
+            median_value_to_cost_ratio=0.33,
+            p95_value_to_cost_ratio=2.20,
+            p99_value_to_cost_ratio=10.0,
+            max_value=700.0,
+            prob_big_hit=0.02,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["outcomeDistribution"]
+    assert meta["reason_code"] == "extreme_outlier_shape"
+
+
+def test_outcome_distribution_extreme_outlier_shape_when_p99_missing_and_max_extreme():
+    data = {
+        "summary": _make_summary(
+            pack_cost=12.20,
+            median_value=2.89,
+            median_value_to_cost_ratio=0.237,
+            p95_value_to_cost_ratio=1.30,
+            max_value=4240.06,
+            p99_value_to_cost_ratio=None,
+            prob_big_hit=0.006,
+            prob_profit=0.078,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["outcomeDistribution"]
+    assert meta["reason_code"] == "extreme_outlier_shape"
+    assert meta["label"] == "Extreme outlier at the top"
+    summary = meta["summary"].lower()
+    assert "rare outlier" in summary
+    assert "stretches the chart" in summary
+
+
+def test_outcome_distribution_low_big_hit_prob_high_p95_is_chase_heavy_distribution():
+    data = {
+        "summary": _make_summary(
+            pack_cost=5.0,
+            median_value_to_cost_ratio=0.31,
+            p95_value_to_cost_ratio=2.30,
+            p99_value_to_cost_ratio=8.0,
+            max_value=70.0,
+            prob_big_hit=0.005,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["outcomeDistribution"]
+    assert meta["reason_code"] == "chase_heavy_distribution"
+    assert "hard to reach" in meta["summary"].lower()
+
+
+def test_outcome_distribution_weak_median_weak_p95_is_weak_distribution():
+    data = {
+        "summary": _make_summary(
+            pack_cost=5.0,
+            median_value_to_cost_ratio=0.16,
+            p95_value_to_cost_ratio=1.20,
+            p99_value_to_cost_ratio=2.0,
+            max_value=20.0,
+            prob_big_hit=0.01,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["outcomeDistribution"]
+    assert meta["reason_code"] == "weak_distribution"
+    assert meta["signals"]["outcome_profile"] == "weak_distribution"
+
+
+def test_historical_trend_flat_mean_far_below_break_even_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [
+            {"simulated_mean_pack_value_vs_pack_cost": 0.56, "simulated_median_pack_value_vs_pack_cost": 0.20},
+            {"simulated_mean_pack_value_vs_pack_cost": 0.57, "simulated_median_pack_value_vs_pack_cost": 0.21},
+            {"simulated_mean_pack_value_vs_pack_cost": 0.57, "simulated_median_pack_value_vs_pack_cost": 0.21},
+        ],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["historicalTrend"]
+    assert meta["reason_code"] in {"flat_far_below_break_even", "flat_below_break_even"}
+
+
+def test_historical_trend_flat_mean_near_break_even_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [
+            {"simulated_mean_pack_value_vs_pack_cost": 0.87, "simulated_median_pack_value_vs_pack_cost": 0.23},
+            {"simulated_mean_pack_value_vs_pack_cost": 0.88, "simulated_median_pack_value_vs_pack_cost": 0.23},
+            {"simulated_mean_pack_value_vs_pack_cost": 0.88, "simulated_median_pack_value_vs_pack_cost": 0.24},
+        ],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["historicalTrend"]
+    assert meta["reason_code"] == "flat_near_break_even"
+
+
+def test_historical_trend_improving_but_below_break_even_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [
+            {"simulated_mean_pack_value_vs_pack_cost": 0.70, "simulated_median_pack_value_vs_pack_cost": 0.50},
+            {"simulated_mean_pack_value_vs_pack_cost": 0.74, "simulated_median_pack_value_vs_pack_cost": 0.53},
+            {"simulated_mean_pack_value_vs_pack_cost": 0.76, "simulated_median_pack_value_vs_pack_cost": 0.55},
+        ],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["historicalTrend"]
+    assert meta["reason_code"] == "improving_below_break_even"
+
+
+def test_historical_trend_data_limited_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [
+            {"simulated_mean_pack_value_vs_pack_cost": 0.70, "simulated_median_pack_value_vs_pack_cost": 0.50},
+            {"simulated_mean_pack_value_vs_pack_cost": 0.72, "simulated_median_pack_value_vs_pack_cost": 0.52},
+        ],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["historicalTrend"]
+    assert meta["reason_code"] == "trend_still_forming"
+    assert meta["label"] == "Trend still forming"
+
+
+def test_pack_breakdown_normal_only_high_baseline_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {
+            "pack_paths": {"normal": 10000},
+            "normal_pack_states": {
+                "baseline": 7000,
+                "small_hit": 2000,
+                "big_hit": 1000,
+            },
+        },
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["packBreakdown"]
+    assert meta["reason_code"] in {"one_path_only", "mostly_normal_baseline"}
+
+
+def test_pack_breakdown_god_pack_present_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {
+            "pack_paths": {"normal": 999500, "god": 500},
+            "normal_pack_states": {"baseline": 600000, "hit": 399500},
+        },
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["packBreakdown"]
+    assert meta["reason_code"] == "god_pack_present"
+
+
+def test_pack_breakdown_normal_with_hit_variety_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {
+            "pack_paths": {"normal": 10000},
+            "normal_pack_states": {
+                "baseline": 5000,
+                "small_hit": 1800,
+                "mid_hit": 1500,
+                "big_hit": 1100,
+                "ultra_hit": 600,
+            },
+        },
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["packBreakdown"]
+    assert meta["reason_code"] == "normal_with_hit_variety"
+
+
+def test_pack_breakdown_special_path_matters_profile():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": {
+            "pack_paths": {"normal": 9850, "special": 150},
+            "normal_pack_states": {"baseline": 6500, "hit": 3350},
+        },
+    }
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["packBreakdown"]
+    assert meta["reason_code"] == "special_path_matters"
 
 
 # ---------------------------------------------------------------------------

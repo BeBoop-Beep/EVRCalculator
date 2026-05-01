@@ -104,7 +104,11 @@ export default function InterpretationInsight({
         </div>
       ) : null}
 
-      {summary ? <p className={[bodyTextClass, "text-[var(--text-primary)]"].join(" ")}>{summary}</p> : null}
+      {summary ? (
+        <p className={[bodyTextClass, "text-[var(--text-primary)]"].join(" ")}>
+          {summary}
+        </p>
+      ) : null}
 
       {showEvidence && evidence.length > 0 ? (
         <div className="mt-2.5">

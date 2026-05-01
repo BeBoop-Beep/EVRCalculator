@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from ..models import EvidenceItem, SectionInterpretation
-from ..thresholds import classify_probability, classify_tail_strength, format_currency, format_percent, format_ratio, get_numeric
+from ..thresholds import format_currency, format_percent, format_ratio, get_numeric
 
 
 def _read_p99_ratio(data: Dict[str, Any], pack_cost: Optional[float]) -> Optional[float]:
@@ -24,6 +24,12 @@ def _read_p99_ratio(data: Dict[str, Any], pack_cost: Optional[float]) -> Optiona
     return None
 
 
+def _to_ratio(value: Optional[float], pack_cost: Optional[float]) -> Optional[float]:
+    if value is None or pack_cost is None or pack_cost <= 0:
+        return None
+    return value / pack_cost
+
+
 def interpret_outcome_distribution(data: Dict[str, Any]) -> SectionInterpretation:
     summary_data = data.get("summary") if isinstance(data.get("summary"), dict) else data
     pack_cost = get_numeric(summary_data, "pack_cost")
@@ -31,64 +37,77 @@ def interpret_outcome_distribution(data: Dict[str, Any]) -> SectionInterpretatio
     prob_big_hit = get_numeric(summary_data, "prob_big_hit")
     median_value = get_numeric(summary_data, "median_value")
     tail_value_p05 = get_numeric(summary_data, "tail_value_p05")
+    p5_value = get_numeric(summary_data, "p5_value")
     max_value = get_numeric(summary_data, "max_value")
+    big_hit_threshold = get_numeric(summary_data, "big_hit_threshold")
     p95_ratio = get_numeric(summary_data, "p95_value_to_cost_ratio")
     p99_ratio = _read_p99_ratio(data, pack_cost)
     median_to_cost_ratio = get_numeric(summary_data, "median_value_to_cost_ratio")
+    p95_value = get_numeric(summary_data, "p95_value")
 
     median_to_cost = median_to_cost_ratio
     if median_to_cost is None and median_value is not None and pack_cost and pack_cost > 0:
         median_to_cost = median_value / pack_cost
-    p05_recovery_share = (tail_value_p05 / pack_cost) if (tail_value_p05 is not None and pack_cost and pack_cost > 0) else None
+    p95_to_cost = p95_ratio if p95_ratio is not None else _to_ratio(p95_value, pack_cost)
+    p5_value_effective = p5_value if p5_value is not None else tail_value_p05
+    p5_to_cost = _to_ratio(p5_value_effective, pack_cost)
+    max_to_cost = _to_ratio(max_value, pack_cost)
+    big_hit_to_cost = _to_ratio(big_hit_threshold, pack_cost)
 
-    profit_frequency = classify_probability(prob_profit, missing="medium")
-    tail_strength = classify_tail_strength(p95_ratio, missing="medium")
-    big_hit_access = classify_probability(prob_big_hit, strong_min=0.20, low_max=0.07, missing="medium")
-
-    if median_to_cost is not None and median_to_cost < 1.0 and tail_strength == "high" and profit_frequency == "low":
-        summary = "Most packs are below cost, but a few big hits pull the average higher."
-        label = "Most packs miss, tail carries value"
-        reason_code = "tail_heavy_below_cost"
+    if median_to_cost is not None and median_to_cost < 0.20 and p95_to_cost is not None and p95_to_cost < 1.50:
+        summary = "Most packs come in low, and even the stronger outcomes do not separate much from the pack price."
+        label = "Weak payout shape"
+        reason_code = "weak_distribution"
+        severity = "negative"
+    elif max_to_cost is not None and max_to_cost >= 100 and (
+        (p99_ratio is not None and p99_ratio < 15)
+        or (p99_ratio is None and median_to_cost is not None and median_to_cost < 0.35)
+    ):
+        summary = "Most outcomes stay low, but the very top end has a rare outlier that stretches the chart."
+        label = "Extreme outlier at the top"
+        reason_code = "extreme_outlier_shape"
         severity = "neutral"
-    elif p05_recovery_share is not None and p05_recovery_share < 0.25 and tail_strength == "high":
-        summary = "The best hits are much stronger than you would expect, but the worst packs give back almost nothing."
-        label = "Strong top end, painful misses"
-        reason_code = "strong_tail_weak_floor"
-        severity = "caution"
-    elif median_to_cost is not None and median_to_cost >= 0.92 and profit_frequency in {"medium", "high"} and tail_strength in {"medium", "high"}:
-        summary = "Normal packs hold up close to cost and there is still room to hit something good \u2014 this is one of the better distributions."
-        label = "Typical packs stay near cost"
-        reason_code = "near_cost_healthy"
+    elif prob_big_hit is not None and prob_big_hit < 0.01 and p95_to_cost is not None and p95_to_cost >= 2.00:
+        summary = "There is real upside here, but the stronger outcomes are hard to reach and most packs stay below them."
+        label = "Big hits are hard to reach"
+        reason_code = "chase_heavy_distribution"
+        severity = "neutral"
+    elif median_to_cost is not None and median_to_cost < 0.30 and p95_to_cost is not None and p95_to_cost >= 2.50:
+        summary = "Most packs land well below cost, but the better outcomes can jump several times above the pack price."
+        label = "Low floor, big ceiling"
+        reason_code = "low_floor_big_ceiling"
+        severity = "neutral"
+    elif median_to_cost is not None and median_to_cost >= 0.35 and p95_to_cost is not None and p95_to_cost < 2.50:
+        summary = "Normal packs hold up better than most, but the high-end jump is more limited."
+        label = "Smoother, lower ceiling"
+        reason_code = "smoother_midrange"
         severity = "positive"
-    elif tail_strength == "high" and p99_ratio is not None and p95_ratio is not None and p99_ratio >= (p95_ratio * 1.25):
-        summary = "The best hits are much stronger than the normal good hits, so the top end can jump fast."
-        label = "Top-end can jump fast"
-        reason_code = "extreme_tail_extension"
-        severity = "positive"
-    elif big_hit_access == "low" and max_value is not None and max_value > (pack_cost or 0) * 2:
-        summary = "There are strong hits in the set, but they are hard to pull \u2014 most packs end up well below the best outcomes."
-        label = "Strong hits, hard to access"
-        reason_code = "low_big_hit_access"
+    elif median_to_cost is not None and median_to_cost >= 0.25 and p95_to_cost is not None and p95_to_cost >= 1.75:
+        summary = "Typical packs still trail the price, but the better outcomes give the set some room to run."
+        label = "Some floor, some upside"
+        reason_code = "midrange_with_some_upside"
         severity = "neutral"
     else:
-        summary = "Most packs are below cost, but some upside is still there \u2014 just unevenly spread."
-        label = "Mixed distribution"
-        reason_code = "mixed_distribution"
+        summary = "Most packs are below cost, but a few bigger outcomes pull the average higher."
+        label = "Most packs miss, hits carry value"
+        reason_code = "most_packs_miss_hits_carry"
         severity = "neutral"
 
+    outcome_profile = reason_code
+
     confidence: str
-    key_fields = [prob_profit, p95_ratio, median_to_cost]
+    key_fields = [prob_profit, p95_to_cost, median_to_cost]
     filled = sum(1 for f in key_fields if f is not None)
     confidence = "high" if filled == 3 else ("medium" if filled >= 1 else "low")
 
     evidence: List[EvidenceItem] = [
-        EvidenceItem("Typical pack return", format_ratio(median_to_cost)),
-        EvidenceItem("Worst-pack value (p05)", format_percent(p05_recovery_share)),
-        EvidenceItem("Big-hit range (p95)", format_ratio(p95_ratio)),
-        EvidenceItem("p99 value-to-cost", format_ratio(p99_ratio)),
-        EvidenceItem("Chance to profit", format_percent(prob_profit)),
-        EvidenceItem("Chase hit frequency", format_percent(prob_big_hit)),
-        EvidenceItem("Max observed value", format_currency(max_value)),
+        EvidenceItem("Pack Cost", format_currency(pack_cost)),
+        EvidenceItem("P5", format_currency(p5_value_effective)),
+        EvidenceItem("Median", format_currency(median_value)),
+        EvidenceItem("P95", format_ratio(p95_to_cost)),
+        EvidenceItem("P99", format_ratio(p99_ratio)),
+        EvidenceItem("Big Hit", format_currency(big_hit_threshold)),
+        EvidenceItem("Max", format_currency(max_value)),
     ]
 
     return SectionInterpretation(
@@ -99,10 +118,14 @@ def interpret_outcome_distribution(data: Dict[str, Any]) -> SectionInterpretatio
         confidence=confidence,
         evidence=evidence,
         signals={
-            "profit_frequency": profit_frequency,
-            "tail_strength": tail_strength,
-            "big_hit_access": big_hit_access,
+            "outcome_profile": outcome_profile,
             "median_to_cost": median_to_cost,
-            "p05_recovery_share": p05_recovery_share,
+            "p95_to_cost": p95_to_cost,
+            "p99_to_cost": p99_ratio,
+            "max_to_cost": max_to_cost,
+            "p5_to_cost": p5_to_cost,
+            "big_hit_to_cost": big_hit_to_cost,
+            "prob_big_hit": prob_big_hit,
+            "prob_profit": prob_profit,
         },
     )
