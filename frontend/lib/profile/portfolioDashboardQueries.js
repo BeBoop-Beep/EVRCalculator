@@ -1,7 +1,7 @@
-import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return getBackendApiBaseUrl();
 }
 
 function buildBackendUrl(path, searchParams = null) {
@@ -18,31 +18,38 @@ function buildBackendUrl(path, searchParams = null) {
   return url;
 }
 
-async function buildBackendHeaders(overrideUserId = null) {
+async function buildBackendHeaders() {
   const requestHeaders = {
     Accept: "application/json",
   };
 
-  if (overrideUserId) {
-    requestHeaders["x-user-id"] = String(overrideUserId);
-    return requestHeaders;
-  }
+  try {
+    const mod = await import("next/headers");
+    const incomingHeaders = await mod.headers();
+    const cookieHeader = incomingHeaders.get("cookie");
+    const authorizationHeader = incomingHeaders.get("authorization");
 
-  const authResult = await getAuthenticatedUserFromCookies();
-  if (authResult?.user?.id) {
-    requestHeaders["x-user-id"] = String(authResult.user.id);
+    if (cookieHeader) {
+      requestHeaders.cookie = cookieHeader;
+    }
+
+    if (authorizationHeader) {
+      requestHeaders.authorization = authorizationHeader;
+    }
+  } catch {
+    // Ignore header extraction failures in non-request contexts.
   }
 
   return requestHeaders;
 }
 
 async function fetchBackendJson(path, options = {}) {
-  const { searchParams = null, overrideUserId = null } = options;
+  const { searchParams = null } = options;
   const url = buildBackendUrl(path, searchParams);
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: await buildBackendHeaders(overrideUserId),
+    headers: await buildBackendHeaders(),
     credentials: "include",
     cache: "no-store",
   });

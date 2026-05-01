@@ -155,10 +155,10 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     interpretation: "Shows whether the middle outcome usually beats cost.",
   }),
   "P95-to-Cost Ratio": buildMetricTooltip({
-    meaning: "95th percentile simulated pack outcome divided by pack cost.",
+    meaning: "Shows the 95th-percentile simulated outcome compared to pack cost. In plain English: when the pack lands in its better outcomes, this shows whether that payoff is large enough to justify the price.",
     impact: PROFIT_SCORE_TOOLTIP_IMPACTS.p95_value_to_cost_ratio,
     direction: "Higher is better",
-    interpretation: "Captures realistic high-end chase upside in strong outcome tails.",
+    interpretation: "Top 5% outcome compared to pack cost.",
   }),
   ROI: buildMetricTooltip({
     meaning: "Expected return on investment relative to pack cost.",

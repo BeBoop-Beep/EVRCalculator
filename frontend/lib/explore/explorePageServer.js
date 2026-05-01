@@ -1,7 +1,7 @@
 import { cache } from "react";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const BACKEND_URL =
-  process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000";
+const BACKEND_URL = getBackendApiBaseUrl();
 
 const SUCCESS_TTL_MS = 120_000; // 120s
 const NOT_FOUND_TTL_MS = 10_000; // 10s

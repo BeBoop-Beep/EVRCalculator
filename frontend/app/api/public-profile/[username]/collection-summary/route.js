@@ -1,9 +1,10 @@
 // Active route handler for public profile collection summary. Consumed via publicCollectionSummaryAccessor.js.
 import { NextResponse } from "next/server";
 import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return getBackendApiBaseUrl();
 }
 
 async function buildProxyHeaders(request) {

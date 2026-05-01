@@ -25,11 +25,6 @@ from backend.db.services.waitlist_email_service import send_waitlist_verificatio
 logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{3,}$", re.IGNORECASE)
-_FRONTEND_BASE_URL = (
-        os.getenv("FRONTEND_BASE_URL")
-        or os.getenv("NEXT_PUBLIC_FRONTEND_BASE_URL")
-        or "http://localhost:3000"
-).rstrip("/")
 _TOKEN_HASH_SECRET = os.getenv("WAITLIST_TOKEN_HASH_SECRET", "")
 _TOKEN_TTL_HOURS = 24
 _RESEND_COOLDOWN_SECONDS = int(os.getenv("WAITLIST_VERIFICATION_RESEND_COOLDOWN_SECONDS", "600"))
@@ -42,6 +37,27 @@ _RESEND_SENT_MESSAGE = "Verification email sent. Check your inbox."
 _INVALID_TOKEN_MESSAGE = "Verification link is invalid or expired."
 
 logger.info("waitlist_service: token_hash_secret_present=%s", bool(_TOKEN_HASH_SECRET))
+
+
+def _frontend_base_url() -> str:
+    configured = (
+        os.getenv("FRONTEND_BASE_URL")
+        or os.getenv("NEXT_PUBLIC_FRONTEND_BASE_URL")
+        or ""
+    ).strip()
+    if configured:
+        return configured.rstrip("/")
+
+    environment = (
+        os.getenv("APP_ENV")
+        or os.getenv("ENVIRONMENT")
+        or os.getenv("NODE_ENV")
+        or ""
+    ).strip().lower()
+    if environment == "production":
+        raise RuntimeError("FRONTEND_BASE_URL must be configured in production.")
+
+    return "http://localhost:3000"
 
 # --------------------------------------------------------------------------- #
 # Private helpers                                                              #
@@ -93,7 +109,7 @@ def _hash_prefix(value: str) -> str:
 
 def _build_verification_url(raw_token: str) -> str:
     query = urlencode({"token": raw_token})
-    return f"{_FRONTEND_BASE_URL}/waitlist/verify?{query}"
+    return f"{_frontend_base_url()}/waitlist/verify?{query}"
 
 
 def _fetch_signup_by_email(email: str) -> dict | None:

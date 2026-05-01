@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { getBackendApiBaseUrl, getFrontendBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_COLLECTION_DIRECT_FETCH_TIMEOUT_MS = 7_000;
 
@@ -18,7 +19,7 @@ function toCurrencyLabel(value) {
 }
 
 function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return getBackendApiBaseUrl();
 }
 
 function buildApiUrl(path) {
@@ -26,10 +27,8 @@ function buildApiUrl(path) {
     return path;
   }
 
-  const fallbackBaseUrl = process.env.NEXT_PUBLIC_BASE_URL
-    || process.env.NEXT_PUBLIC_API_URL
-    || "http://localhost:3000";
-  const baseUrl = fallbackBaseUrl.endsWith("/") ? fallbackBaseUrl : `${fallbackBaseUrl}/`;
+  const frontendBaseUrl = getFrontendBaseUrl();
+  const baseUrl = frontendBaseUrl.endsWith("/") ? frontendBaseUrl : `${frontendBaseUrl}/`;
   return new URL(path.startsWith("/") ? path.slice(1) : path, baseUrl).toString();
 }
 

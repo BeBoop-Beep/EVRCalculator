@@ -30,20 +30,20 @@ PILLAR_LABELS = {
 }
 
 DECISION_LABELS = {
-    "elite_open": "Great to open right now",
+    "elite_open": "Elite rip profile",
     "strong_but_risky": "Strong, but risky",
-    "good_open": "Solid open",
+    "good_open": "Solid rip profile",
     "above_average_but_flawed": "Better than average, with a catch",
     "good_value_shaky_path": "Good value, shaky path",
     "average_open": "Middle of the pack",
     "average_but_risky": "Average, but risky",
     "hit_dependent_open": "Needs the right hits",
-    "below_average_open": "Below-average open",
-    "very_weak_open": "Very weak open",
-    "bottom_tier_open": "One of the toughest opens",
+    "below_average_open": "Below-average profile",
+    "very_weak_open": "Very weak value profile",
+    "bottom_tier_open": "Tough value profile",
     "okay_but_capped": "Safe, but not exciting",
     "safe_but_low_reward": "Low risk, low reward",
-    "weak_open": "Weak open",
+    "weak_open": "Weak value profile",
     "data_limited": "Not enough data",
 }
 
@@ -283,9 +283,9 @@ def classify_pillar_band(tier: Optional[str], strength: Optional[int]) -> str:
 PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     # ── ELITE RETURN ─────────────────────────────────────────────────────────
     "elite_return:high:high": {
-        "label": "Great to open right now",
+        "label": "Elite rip profile",
         "summary": (
-            "This is one of the better sets to open right now because the cards can pay back the pack price well, "
+            "This is one of the strongest rip profiles in the current data. The cards pay back the pack price well, "
             "the misses are easier to handle than most sets, and value is spread across enough cards to avoid "
             "relying on one lucky pull."
         ),
@@ -294,7 +294,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     "elite_return:high:medium": {
         "label": "Elite, some path risk",
         "summary": (
-            "This set has elite return potential and the misses are more manageable than most. "
+            "The return profile here is elite, and the misses are more manageable than most. "
             "The right hits still matter for the best outcomes, but the floor here is strong enough "
             "to keep the risk reasonable."
         ),
@@ -303,25 +303,25 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     "elite_return:high:low": {
         "label": "Elite value, hit dependent",
         "summary": (
-            "This set has elite return potential and misses are easier to handle than most. "
+            "The return profile here is elite, and misses are easier to handle than most. "
             "The catch is that too much of that value depends on landing the right hits, "
             "so results can swing significantly from session to session."
         ),
         "reason_code": "elite_open",
     },
     "elite_return:medium:high": {
-        "label": "Strong open, watch misses",
+        "label": "Strong profile, watch misses",
         "summary": (
-            "This set has elite return potential and value is spread well across cards. "
+            "The return profile here is elite, and value is spread well across cards. "
             "Misses are about average, so bad packs are not painless, "
-            "but the overall profile still stands out as a strong open."
+            "but the overall profile still stands out."
         ),
         "reason_code": "elite_open",
     },
     "elite_return:medium:medium": {
         "label": "Elite return, average risk",
         "summary": (
-            "This set has elite return potential for the price. "
+            "The return profile is elite for the price. "
             "Misses and value spread are both about average, which means the upside is real "
             "but results can vary meaningfully from session to session."
         ),
@@ -330,7 +330,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     "elite_return:medium:low": {
         "label": "Good value, shaky path",
         "summary": (
-            "This set has elite return potential, but the path to it is fragile. "
+            "The return profile is elite, but the path to it is fragile. "
             "Too much depends on landing the right hits, and missing them at this price point "
             "will leave the pack feeling thin."
         ),
@@ -348,14 +348,14 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "label": "Strong, but risky",
         "summary": (
             "This set has strong value for the price, and the value is spread well enough to avoid one-card dependence. "
-            "The catch is that bad packs can still hurt, so opening this set comes with real downside risk."
+            "The catch is that bad packs can still hurt, so this profile comes with real downside risk."
         ),
         "reason_code": "strong_but_risky",
     },
     "elite_return:low:low": {
         "label": "High upside, high risk",
         "summary": (
-            "This set has elite return potential, but it is a rough ride on both sides. "
+            "The return profile is elite, but it is a rough ride on both sides. "
             "Bad packs can hurt and too much of the value depends on landing the right hits. "
             "The ceiling is high, but so is the variance."
         ),
@@ -363,11 +363,11 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     },
     # ── STRONG RETURN ─────────────────────────────────────────────────────────
     "strong_return:high:high": {
-        "label": "Great to open right now",
+        "label": "Elite rip profile",
         "summary": (
             "This set has strong return potential for the price. "
             "Misses are easier to handle than most sets and value is spread across enough cards "
-            "to avoid over-reliance on one pull. A genuinely strong open."
+            "to avoid over-reliance on one pull. A genuinely strong profile."
         ),
         "reason_code": "elite_open",
     },
@@ -394,15 +394,15 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "summary": (
             "This set has strong return potential and value is spread well across cards. "
             "Misses are about average, which keeps the floor reasonable. "
-            "This is a genuinely solid open at the current pack price."
+            "This is a genuinely solid profile at the current pack price."
         ),
         "reason_code": "good_open",
     },
     "strong_return:medium:medium": {
-        "label": "Solid open",
+        "label": "Solid rip profile",
         "summary": (
-            "This set is a solid open. Return potential is strong, misses are about average, "
-            "and value has decent spread. Not elite, but a consistently worthwhile choice at the current pack price."
+            "This is a solid rip profile. Return potential is strong, misses are about average, "
+            "and value has decent spread. Not elite, but consistently strong value at the current pack price."
         ),
         "reason_code": "good_open",
     },
@@ -443,7 +443,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     },
     # ── GOOD RETURN ───────────────────────────────────────────────────────────
     "good_return:high:high": {
-        "label": "Good, solid open",
+        "label": "Good, solid profile",
         "summary": (
             "This set has good value for the price. "
             "Misses are manageable and value is spread well enough to make this a consistent option, "
@@ -474,14 +474,14 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "summary": (
             "This set has good value for the price and spreads it well across cards. "
             "Misses are about average, which keeps the floor reasonable without being painless. "
-            "A dependable open."
+            "A dependable profile."
         ),
         "reason_code": "good_open",
     },
     "good_return:medium:medium": {
-        "label": "Solid open",
+        "label": "Solid rip profile",
         "summary": (
-            "This set looks solid to open. Value is good for the price, misses are about average, "
+            "This is a solid rip profile. Value is good for the price, misses are about average, "
             "and value has some spread. Not elite, but a genuinely decent option at the current pack cost."
         ),
         "reason_code": "good_open",
@@ -561,7 +561,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     "average_return:medium:medium": {
         "label": "Middle of the pack",
         "summary": (
-            "This set is about average to open. "
+            "This is an average value profile. "
             "There is some value, but it does not clearly stand out from other sets at this price point."
         ),
         "reason_code": "average_open",
@@ -640,9 +640,9 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "reason_code": "below_average_open",
     },
     "weak_return:medium:medium": {
-        "label": "Weak open",
+        "label": "Weak value profile",
         "summary": (
-            "This is a weak set to open right now because the cards are not paying back the pack price well enough."
+            "This is a weak value profile at the current pack price. The cards are not paying back the pack price well enough."
         ),
         "reason_code": "weak_open",
     },
@@ -673,9 +673,9 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "reason_code": "very_weak_open",
     },
     "weak_return:low:low": {
-        "label": "Very weak open",
+        "label": "Very weak value profile",
         "summary": (
-            "This is a very weak set to open right now. "
+            "This is a very weak value profile at the current pack price. "
             "The cards are not paying back the pack price, the misses are painful, "
             "and too much depends on landing the right hits."
         ),
@@ -718,7 +718,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "reason_code": "bottom_tier_open",
     },
     "failing_return:medium:medium": {
-        "label": "One of the tougher opens",
+        "label": "Tough value profile",
         "summary": (
             "This set is failing on return because the cards are not coming close enough to the pack price. "
             "Misses are about average and value concentration adds more pressure on an already difficult profile."
@@ -729,7 +729,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "label": "Failing, shaky path",
         "summary": (
             "This set is failing on return and the value depends too much on the right hits. "
-            "The combination of weak value and concentration risk makes this one of the harder sets to justify opening."
+            "The combination of weak value and concentration risk makes this one of the harder profiles to justify at the current price."
         ),
         "reason_code": "bottom_tier_open",
     },
@@ -752,12 +752,12 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
         "reason_code": "bottom_tier_open",
     },
     "failing_return:low:low": {
-        "label": "One of the toughest opens",
+        "label": "Tough value profile",
         "summary": (
-            "This set is fighting you on all three fronts: "
+            "This profile is fighting you on all three fronts: "
             "the cards are not paying back the pack price, the misses are brutal, "
             "and there is not enough value spread to help. "
-            "This is one of the toughest sets to open right now."
+            "One of the toughest value profiles in the current data."
         ),
         "reason_code": "bottom_tier_open",
     },
@@ -765,7 +765,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
 
 _FALLBACK_ARCHETYPE: Dict[str, str] = {
     "label": "Middle of the pack",
-    "summary": "This set is about average to open. There is some value, but it does not clearly stand out.",
+    "summary": "This is an average value profile. There is some value, but it does not clearly stand out.",
     "reason_code": "average_open",
 }
 
@@ -777,21 +777,21 @@ def _resolve_archetype(matrix_key: str) -> Dict[str, str]:
 
 def _decision_summary(category: str) -> str:
     summaries = {
-        "elite_open": "This is one of the better sets to open right now because the cards can pay back the pack price well, and the bad packs are not bad enough to ruin it.",
+        "elite_open": "This is one of the stronger rip profiles in the current data. The cards pay back the pack price well and the bad packs are not bad enough to ruin it.",
         "strong_but_risky": "This set has good hits for the price, but bad packs can still hurt. It ranks well because the winning pulls are strong enough to carry that risk.",
-        "good_open": "This set looks solid to open because the cards pay back better than many sets at the current pack price.",
-        "above_average_but_flawed": "This set is better than average to open, but it has a clear catch: either misses hurt or the value depends on specific hits.",
+        "good_open": "This is a solid rip profile. The cards pay back better than many sets at the current pack price.",
+        "above_average_but_flawed": "This is a better-than-average value profile, but it has a clear catch: either misses hurt or the value depends on specific hits.",
         "good_value_shaky_path": "This set has enough value to be interesting, but too much depends on landing the right hits.",
-        "average_open": "This set is about average to open. There is some value, but it does not clearly stand out.",
-        "average_but_risky": "This set has some value, but the misses are rough enough to make opening it risky.",
+        "average_open": "This is an average value profile. There is some value, but it does not clearly stand out.",
+        "average_but_risky": "This is an average value profile with real downside risk. The misses are rough enough to factor in.",
         "hit_dependent_open": "This set can pay off, but too much of the value depends on landing specific cards.",
-        "below_average_open": "This set is below average to open right now because either the return is weak or the misses are too harsh.",
-        "weak_open": "This is a weak set to open right now because the cards are not paying back the pack price well enough.",
-        "very_weak_open": "This is a very weak set to open right now because the cards are not paying back the price, and the misses are still painful.",
-        "bottom_tier_open": "This is one of the toughest sets to open right now: the cards are not paying back the pack price, the misses are brutal, and there is not enough value spread to help.",
+        "below_average_open": "This is a below-average value profile. Either the return is weak or the misses are too harsh to offset it.",
+        "weak_open": "This is a weak value profile at the current pack price. The cards are not paying back the pack price well enough.",
+        "very_weak_open": "This is a very weak value profile at the current pack price. The cards are not paying back the price, and the misses are still painful.",
+        "bottom_tier_open": "This is one of the toughest value profiles in the current data: the cards are not paying back the pack price, the misses are brutal, and there is not enough value spread to help.",
         "okay_but_capped": "This set has some protection when you miss, but the rewards are too limited to stand out.",
-        "safe_but_low_reward": "The misses are more manageable than most sets, but the wins are not big enough to make opening it exciting.",
-        "data_limited": "There is not enough data yet to say if this set is good to open.",
+        "safe_but_low_reward": "The misses are more manageable than most sets, but the wins are not big enough to make the top end exciting.",
+        "data_limited": "There is not enough data yet to evaluate this profile.",
     }
     return summaries[category]
 
@@ -819,7 +819,7 @@ def _resolve_reason_and_catch(category: str, weighted_driver: str, weighted_drag
     if category == "bottom_tier_open":
         return (
             "Too many parts of the rip look weak.",
-            "Opening this set gives very little help from price, misses, or value spread.",
+            "This profile gets very little help from price, misses, or value spread.",
         )
 
     if category == "very_weak_open":
@@ -931,6 +931,12 @@ def interpret_pack_score(
         archetype = _resolve_archetype(matrix_key)  # type: ignore[arg-type]
         summary = archetype["summary"]
         label = archetype["label"]
+
+    p95_to_cost = get_numeric(summary_data, "p95_value_to_cost_ratio")
+    if decision_category != "data_limited" and p95_to_cost is not None and p95_to_cost < 1.0:
+        caveat = "High-end payoff is weak at the current pack price."
+        if caveat not in summary:
+            summary = f"{summary} {caveat}".strip()
 
     reason_code = decision_category
     severity = DECISION_SEVERITY[decision_category]

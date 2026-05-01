@@ -134,7 +134,7 @@ def _reason_to_copy(reason_code: str, leading_label: str, *, strong: bool) -> tu
         return (
             "Top cards carry value",
             "A small group of cards carries a large share of the value, "
-            "so opening this set depends heavily on landing one of them.",
+            "so this profile depends heavily on landing one of them.",
             "caution",
         )
 

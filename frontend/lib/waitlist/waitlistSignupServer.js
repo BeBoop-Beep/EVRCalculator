@@ -1,3 +1,5 @@
+import { getPublicBackendApiBaseUrl } from "@/lib/runtimeUrls";
+
 /**
  * waitlistSignupServer.js
  *
@@ -16,10 +18,7 @@
 
 const EMAIL_RE = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{3,}$/i;
 
-const BACKEND_API_BASE_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ||
-  "http://127.0.0.1:8000"
-).replace(/\/$/, "");
+const BACKEND_API_BASE_URL = getPublicBackendApiBaseUrl();
 
 export function isLikelyValidEmail(email) {
   return EMAIL_RE.test(String(email || "").trim());

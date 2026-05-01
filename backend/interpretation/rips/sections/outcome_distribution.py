@@ -54,7 +54,17 @@ def interpret_outcome_distribution(data: Dict[str, Any]) -> SectionInterpretatio
     max_to_cost = _to_ratio(max_value, pack_cost)
     big_hit_to_cost = _to_ratio(big_hit_threshold, pack_cost)
 
-    if median_to_cost is not None and median_to_cost < 0.20 and p95_to_cost is not None and p95_to_cost < 1.50:
+    if median_to_cost is not None and median_to_cost < 0.30 and p95_to_cost is not None and p95_to_cost < 1.00:
+        summary = "Normal packs are weak, and even the better outcomes struggle to clear the pack price."
+        label = "Low floor, weak ceiling"
+        reason_code = "low_floor_weak_ceiling"
+        severity = "negative"
+    elif median_to_cost is not None and median_to_cost < 0.30 and p95_to_cost is not None and p95_to_cost < 1.25:
+        summary = "Normal packs are weak, and the better outcomes only barely clear the pack price."
+        label = "Low floor, thin upside"
+        reason_code = "low_floor_thin_upside"
+        severity = "caution"
+    elif median_to_cost is not None and median_to_cost < 0.20 and p95_to_cost is not None and p95_to_cost < 1.50:
         summary = "Most packs come in low, and even the stronger outcomes do not separate much from the pack price."
         label = "Weak payout shape"
         reason_code = "weak_distribution"

@@ -413,9 +413,9 @@ def test_all_weak():
 
     pack_meta = result["meta"]["packScore"]
     assert pack_meta["reason_code"] == "bottom_tier_open"
-    assert pack_meta["label"] == "One of the toughest opens"
+    assert pack_meta["label"] == "Tough value profile"
     assert pack_meta["severity"] == "negative"
-    assert "toughest sets to open" in result["packScore"].lower()
+    assert "toughest value profiles" in result["packScore"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -453,9 +453,9 @@ def test_all_strong():
 
     pack_meta = result["meta"]["packScore"]
     assert pack_meta["reason_code"] == "elite_open"
-    assert pack_meta["label"] == "Great to open right now"
+    assert pack_meta["label"] == "Elite rip profile"
     assert pack_meta["severity"] == "positive"
-    assert "cards can pay back the pack price well" in result["packScore"].lower()
+    assert "pay back the pack price well" in result["packScore"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -768,8 +768,8 @@ def test_s_tier_profit_with_low_profit_frequency_still_frames_as_strong_setup():
     result = build_rip_interpretation(data)
 
     summary = result["meta"]["profit"]["summary"].lower()
-    assert "one of the strongest profit setups" in summary
-    assert "upside can still beat the pack price" in summary
+    assert "one of the strongest profit profiles" in summary
+    assert "clear cost with solid payoff" in summary
 
 
 def test_profit_profile_low_probability_huge_upside():
@@ -838,7 +838,7 @@ def test_profit_profile_better_probability_weak_upside():
     profit_meta = result["meta"]["profit"]
     assert profit_meta["signals"]["profit_profile"] == "steady_but_capped"
     summary = profit_meta["summary"].lower()
-    assert "ceiling is modest" in summary
+    assert "only by a thin margin" in summary
     assert "score comes from a better chance to win" in summary
 
 
@@ -857,7 +857,16 @@ def test_profit_profile_low_probability_weak_upside():
     }
 
     result = build_rip_interpretation(data)
-    assert result["meta"]["profit"]["signals"]["profit_profile"] == "weak_chance_weak_upside"
+    profit_meta = result["meta"]["profit"]
+    summary = profit_meta["summary"].lower()
+    assert profit_meta["signals"]["profit_profile"] == "low_impact_profit_profile"
+    assert profit_meta["signals"]["impact_band"] == "no_payoff"
+    assert (
+        "better outcomes are not clearing" in summary
+        or "strong outcomes struggle" in summary
+        or "not clearing the pack price" in summary
+    )
+    assert any(term in profit_meta["label"].lower() for term in ("low payoff", "weak payoff", "weak profit"))
 
 
 def test_profit_profile_strong_mean_but_modest_upside_mentions_average_support():
@@ -877,7 +886,7 @@ def test_profit_profile_strong_mean_but_modest_upside_mentions_average_support()
     result = build_rip_interpretation(data)
     profit_meta = result["meta"]["profit"]
     summary = profit_meta["summary"].lower()
-    assert "upside can still beat the pack price" in summary
+    assert "clear cost with solid payoff" in summary
     assert "score holds up because the win chance is better than many sets" in summary
     assert "huge upside" not in summary
 
@@ -902,8 +911,8 @@ def test_profit_profile_strong_average_capped_upside():
     assert profit_meta["signals"]["profit_profile"] == "strong_average_capped_upside"
     assert profit_meta["label"] == "Strong average, capped upside"
     summary = profit_meta["summary"].lower()
-    assert "strong profit setup compared to most sets" in summary
-    assert "upside can still beat the pack price" in summary
+    assert "strong profit profile compared to most sets" in summary
+    assert "clear cost with solid payoff" in summary
     assert "average return is doing most of the work" in summary
     assert "average value holds up well because stronger hits pull results up" not in summary
 
@@ -925,7 +934,7 @@ def test_profit_summary_s_tier_huge_upside_is_clearly_elite():
 
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"].lower()
-    assert "one of the strongest profit setups" in summary
+    assert "one of the strongest profit profiles" in summary
     assert "high-end upside is huge" in summary
     assert "carried by big-hit potential" in summary
 
@@ -947,7 +956,7 @@ def test_profit_summary_b_tier_calls_out_above_average_setup():
 
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"].lower()
-    assert "above-average profit setup" in summary
+    assert "above-average profit profile" in summary
 
 
 def test_profit_summary_c_tier_calls_out_middle_setup():
@@ -967,7 +976,7 @@ def test_profit_summary_c_tier_calls_out_middle_setup():
 
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"].lower()
-    assert "middle-of-the-pack profit setup" in summary
+    assert "middle-of-the-pack profit profile" in summary
 
 
 def test_profit_summary_f_tier_calls_out_weak_setup_and_driver():
@@ -987,8 +996,32 @@ def test_profit_summary_f_tier_calls_out_weak_setup_and_driver():
 
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"].lower()
-    assert "weak profit setup" in summary
-    assert "wins are rare" in summary or "do not pay back enough" in summary
+    assert "weak" in summary or "low payoff" in summary
+    assert "not clearing the pack price" in summary or "struggle to clear" in summary
+
+
+def test_profit_high_tier_but_low_p95_has_guardrail_wording():
+    data = {
+        "summary": _make_summary(
+            profit_tier="B",
+            prob_profit=0.12,
+            p95_value_to_cost_ratio=0.95,
+            mean_value_to_cost_ratio=0.85,
+            median_value_to_cost_ratio=0.33,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    profit_meta = result["meta"]["profit"]
+    summary = profit_meta["summary"].lower()
+    assert profit_meta["signals"]["impact_band"] == "no_payoff"
+    assert profit_meta["signals"]["profit_profile"] == "low_impact_profit_profile"
+    assert "support from other metrics" in summary
+    assert "high-end payoff is weak" in summary
 
 
 def test_s_tier_safety_with_bad_raw_losses_uses_relative_safer_language():
@@ -1158,7 +1191,7 @@ def test_paldean_fates_style_bottom_tier_open():
     pack_meta = result["meta"]["packScore"]
 
     assert pack_meta["reason_code"] == "bottom_tier_open"
-    assert pack_meta["label"] == "One of the toughest opens"
+    assert pack_meta["label"] == "Tough value profile"
     summary = pack_meta["summary"].lower()
     assert "not paying back the pack price" in summary
     assert "misses are brutal" in summary
@@ -1912,7 +1945,7 @@ def test_profit_low_prob_high_p95_uses_probability_anchor_and_big_hit_driver():
     }
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"]
-    assert "middle-of-the-pack profit setup" in summary
+    assert "middle-of-the-pack profit profile" in summary
     assert "high-end upside is strong" in summary
     assert "helped by strong hits" in summary
 
@@ -1933,8 +1966,8 @@ def test_profit_low_prob_strong_mean_mentions_average_holds_up():
     }
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"]
-    assert "middle-of-the-pack profit setup" in summary
-    assert "upside can still beat the pack price" in summary
+    assert "middle-of-the-pack profit profile" in summary
+    assert "better outcomes can clear cost with solid payoff" in summary
     assert "score holds up because the win chance is better than many sets" in summary
 
 
@@ -1954,8 +1987,8 @@ def test_profit_low_prob_weak_median_mentions_below_cost_normal_packs():
     }
     result = build_rip_interpretation(data)
     summary = result["meta"]["profit"]["summary"]
-    assert "below-average profit setup" in summary
-    assert "upside can still beat the pack price" in summary
+    assert "below-average profit profile" in summary
+    assert "better outcomes can clear cost with solid payoff" in summary
 
 
 def test_profit_summary_changes_when_probability_changes_with_same_tail_metrics():
@@ -1991,7 +2024,7 @@ def test_profit_summary_changes_when_probability_changes_with_same_tail_metrics(
     low_summary = low_prob["meta"]["profit"]["summary"]
     high_summary = higher_prob["meta"]["profit"]["summary"]
     assert low_summary != high_summary
-    assert "below-average profit setup" in low_summary
+    assert "below-average profit profile" in low_summary
     assert "score is strong because both win rate and upside are better than most sets" in high_summary
 
 
@@ -2229,7 +2262,7 @@ def test_outcome_distribution_weak_median_weak_p95_is_weak_distribution():
         "summary": _make_summary(
             pack_cost=5.0,
             median_value_to_cost_ratio=0.16,
-            p95_value_to_cost_ratio=1.20,
+            p95_value_to_cost_ratio=1.35,
             p99_value_to_cost_ratio=2.0,
             max_value=20.0,
             prob_big_hit=0.01,
@@ -2243,6 +2276,55 @@ def test_outcome_distribution_weak_median_weak_p95_is_weak_distribution():
     meta = result["meta"]["outcomeDistribution"]
     assert meta["reason_code"] == "weak_distribution"
     assert meta["signals"]["outcome_profile"] == "weak_distribution"
+
+
+def test_outcome_distribution_low_floor_weak_ceiling_profile():
+    data = {
+        "summary": _make_summary(
+            pack_cost=5.0,
+            median_value_to_cost_ratio=0.22,
+            p95_value_to_cost_ratio=0.92,
+            p99_value_to_cost_ratio=1.60,
+            max_value=18.0,
+            prob_big_hit=0.008,
+            prob_profit=0.05,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["outcomeDistribution"]
+    summary = meta["summary"].lower()
+    assert meta["reason_code"] == "low_floor_weak_ceiling"
+    assert meta["label"] == "Low floor, weak ceiling"
+    assert "normal packs are weak" in summary
+    assert "better outcomes struggle to clear the pack price" in summary
+
+
+def test_outcome_distribution_low_floor_thin_upside_profile():
+    data = {
+        "summary": _make_summary(
+            pack_cost=5.0,
+            median_value_to_cost_ratio=0.24,
+            p95_value_to_cost_ratio=1.10,
+            p99_value_to_cost_ratio=1.95,
+            max_value=21.0,
+            prob_big_hit=0.010,
+            prob_profit=0.08,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    meta = result["meta"]["outcomeDistribution"]
+    assert meta["reason_code"] == "low_floor_thin_upside"
+    assert meta["label"] == "Low floor, thin upside"
 
 
 def test_historical_trend_flat_mean_far_below_break_even_profile():
@@ -2311,6 +2393,63 @@ def test_historical_trend_data_limited_profile():
     meta = result["meta"]["historicalTrend"]
     assert meta["reason_code"] == "trend_still_forming"
     assert meta["label"] == "Trend still forming"
+
+
+def test_historical_trend_low_p95_wording_avoids_repeat_harder_to_justify():
+    data = {
+        "summary": _make_summary(),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [
+            {
+                "simulated_mean_pack_value_vs_pack_cost": 0.92,
+                "simulated_median_pack_value_vs_pack_cost": 0.40,
+                "p95_value_to_cost_ratio": 1.20,
+            },
+            {
+                "simulated_mean_pack_value_vs_pack_cost": 0.88,
+                "simulated_median_pack_value_vs_pack_cost": 0.37,
+                "p95_value_to_cost_ratio": 0.98,
+            },
+            {
+                "simulated_mean_pack_value_vs_pack_cost": 0.84,
+                "simulated_median_pack_value_vs_pack_cost": 0.34,
+                "p95_value_to_cost_ratio": 0.89,
+            },
+        ],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["historicalTrend"]["summary"].lower()
+    assert "high-end outcome is not clearing pack cost" in summary
+    assert summary.count("harder to justify") <= 1
+
+
+def test_pack_score_summary_adds_low_p95_caveat_when_profile_is_otherwise_positive():
+    data = {
+        "summary": _make_summary(
+            pack_score=78.0,
+            profit_score=70.0,
+            safety_score=72.0,
+            stability_score=69.0,
+            profit_tier="B",
+            safety_tier="B",
+            stability_tier="B",
+            p95_value_to_cost_ratio=0.95,
+            mean_value_to_cost_ratio=0.85,
+            median_value_to_cost_ratio=0.36,
+            prob_profit=0.12,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    summary = result["meta"]["packScore"]["summary"].lower()
+    assert "high-end payoff is weak at the current pack price" in summary
 
 
 def test_pack_breakdown_normal_only_high_baseline_profile():
@@ -2429,7 +2568,7 @@ def test_matrix_elite_return_high_safety_high_stability():
     pack_meta = result["meta"]["packScore"]
 
     assert pack_meta["reason_code"] == "elite_open"
-    assert pack_meta["label"] in ("Elite open", "Great to open right now")
+    assert pack_meta["label"] in ("Elite rip profile",)
     assert pack_meta["severity"] == "positive"
 
     summary_lower = pack_meta["summary"].lower()
@@ -2550,7 +2689,7 @@ def test_matrix_failing_return_low_safety_low_stability():
     pack_meta = result["meta"]["packScore"]
 
     assert pack_meta["reason_code"] == "bottom_tier_open"
-    assert pack_meta["label"] == "One of the toughest opens"
+    assert pack_meta["label"] == "Tough value profile"
     assert pack_meta["severity"] == "negative"
 
     summary_lower = pack_meta["summary"].lower()
@@ -2641,4 +2780,49 @@ def test_matrix_all_combinations_return_nonempty(profit_tier, safety_tier, stabi
         "below_average_open", "very_weak_open", "bottom_tier_open",
         "okay_but_capped", "safe_but_low_reward", "weak_open", "data_limited",
     }, f"Unknown reason_code {pack_meta['reason_code']} for {profit_tier}/{safety_tier}/{stability_tier}"
+
+
+# ---------------------------------------------------------------------------
+# Wording guardrail: no direct-action / recommendation language in visible copy
+# ---------------------------------------------------------------------------
+
+_FORBIDDEN_PHRASES = [
+    "great to open",
+    "best to open",
+    "good to open",
+    "bad to open",
+    "set to open",
+    "pack to open",
+    "should open",
+    "do not open",
+    "avoid opening",
+    "worth opening",
+    "not worth opening",
+]
+
+_ALL_MATRIX_KEYS = list(itertools.product(
+    ["S", "A", "B", "C", "D", "F"],  # profit tiers
+    ["A", "C", "F"],                   # safety tiers (high / medium / low band)
+    ["A", "C", "F"],                   # stability tiers
+))
+
+
+@_pytest.mark.parametrize("profit_tier,safety_tier,stability_tier", _ALL_MATRIX_KEYS)
+def test_no_forbidden_action_wording_in_labels_and_summaries(profit_tier, safety_tier, stability_tier):
+    """No visible label or summary should contain direct recommendation/action language."""
+    result = _matrix_interpret(profit_tier, safety_tier, stability_tier)
+    pack_meta = result["meta"]["packScore"]
+
+    label_lower = pack_meta["label"].lower()
+    summary_lower = pack_meta["summary"].lower()
+
+    for phrase in _FORBIDDEN_PHRASES:
+        assert phrase not in label_lower, (
+            f"Forbidden phrase '{phrase}' found in label '{pack_meta['label']}' "
+            f"for {profit_tier}/{safety_tier}/{stability_tier}"
+        )
+        assert phrase not in summary_lower, (
+            f"Forbidden phrase '{phrase}' found in summary for "
+            f"{profit_tier}/{safety_tier}/{stability_tier}: {pack_meta['summary']!r}"
+        )
 

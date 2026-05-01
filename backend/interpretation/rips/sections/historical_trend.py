@@ -49,14 +49,13 @@ def _p95_supplement(
         )
     if last_p95 >= 3.0:
         return (
-            "The high-end tail is very strong relative to pack cost, "
+            "High-end upside is very strong relative to pack cost, "
             "so the set can still attract chase demand even if average returns are not favorable."
         )
     if weakening and last_p95 >= 1.0:
         if p95_falling:
             return (
-                "Both average value and high-end upside are weakening, "
-                "which makes the current pack price harder to justify."
+                "High-end upside is weakening too, so the current pack price is getting harder to justify."
             )
         return (
             "Average and typical outcomes are weak, but high-end upside still clears pack cost, "
@@ -69,7 +68,7 @@ def _p95_supplement(
                 "suggesting the set is becoming more top-heavy."
             )
         return (
-            "Typical outcomes remain low, but the high-end tail is still strong, "
+            "Typical outcomes remain low, but high-end upside is still strong, "
             "meaning most of the appeal is concentrated in chase outcomes."
         )
     if p95_rising:
@@ -156,7 +155,7 @@ def interpret_historical_trend(data: Dict[str, Any]) -> SectionInterpretation:
         reason_code = "improving_below_break_even"
         severity = "neutral"
     elif weakening:
-        summary = "Average value has been slipping, which makes the set harder to justify at the current pack price."
+        summary = "Average value has been slipping."
         label = "Weakening trend"
         reason_code = "weakening_below_break_even"
         severity = "negative"

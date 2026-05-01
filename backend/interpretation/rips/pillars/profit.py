@@ -26,18 +26,20 @@ def _probability_band(prob_profit: float | None) -> str:
     return "strong"
 
 
-def _impact_band(p95_to_cost: float | None) -> str:
+def _classify_high_end_impact(p95_to_cost: float | None) -> str:
     if p95_to_cost is None:
-        return "unknown"
+        return "missing"
+    if p95_to_cost < 1.00:
+        return "no_payoff"
     if p95_to_cost < 1.25:
-        return "weak_impact"
+        return "barely_clears"
     if p95_to_cost < 1.75:
-        return "modest_impact"
+        return "modest"
     if p95_to_cost < 2.50:
-        return "good_impact"
+        return "solid"
     if p95_to_cost < 3.50:
-        return "high_impact"
-    return "huge_impact"
+        return "strong"
+    return "huge"
 
 
 def _median_band(median_to_cost: float | None) -> str:
@@ -63,12 +65,12 @@ def _mean_band(mean_to_cost: float | None) -> str:
 def _profit_quality_phrase(tier: Any, strength: Any, prob_profit: float | None) -> str:
     tier_key = str(tier or "").strip().upper()
     tier_map = {
-        "S": "This is one of the strongest profit setups right now.",
-        "A": "This is a strong profit setup compared to most sets.",
-        "B": "This is an above-average profit setup.",
-        "C": "This is a middle-of-the-pack profit setup.",
-        "D": "This is a below-average profit setup.",
-        "F": "This is a weak profit setup.",
+        "S": "This is one of the strongest profit profiles in the current data.",
+        "A": "This is a strong profit profile compared to most sets.",
+        "B": "This is an above-average profit profile.",
+        "C": "This is a middle-of-the-pack profit profile.",
+        "D": "This is a below-average profit profile.",
+        "F": "This is a weak profit profile.",
     }
     if tier_key in tier_map:
         return tier_map[tier_key]
@@ -79,7 +81,7 @@ def _profit_quality_phrase(tier: Any, strength: Any, prob_profit: float | None) 
         strength_value = None
 
     if strength_value is None:
-        return "This is a middle-of-the-pack profit setup."
+        return "This is a middle-of-the-pack profit profile."
     if strength_value >= 5:
         return tier_map["S"]
     if strength_value == 4:
@@ -101,10 +103,10 @@ def _upside_phrase(p95_to_cost: float | None) -> str:
     if p95_to_cost >= 2.50:
         return "The high-end upside is strong when the right hits land."
     if p95_to_cost >= 1.25:
-        return "The upside can still beat the pack price, but it is not as explosive as the best sets."
+        return "The better outcomes can clear cost with solid payoff, but they are not as explosive as the very best sets."
     if p95_to_cost >= 1.00:
-        return "The better outcomes can beat the pack price, but the ceiling is modest."
-    return "Even the stronger outcomes struggle to clear the pack price."
+        return "The better outcomes can clear cost, but only by a thin margin."
+    return "Even the better outcomes are not clearing the pack price."
 
 
 def _profit_why_phrase(
@@ -124,6 +126,8 @@ def _profit_why_phrase(
         return "The score holds up because the win chance is better than many sets."
     if profile == "weak_chance_weak_upside":
         return "The score is weak because wins are rare and the better outcomes do not pay back enough."
+    if profile == "low_impact_profit_profile":
+        return "High-end payoff is weak at the current pack price."
     if profile == "weak_normal_packs_big_hits":
         return "The score depends on the better hits, because normal packs are weak."
     if profile == "average_return_mixed":
@@ -153,18 +157,40 @@ def _profile_summary_and_label(
     p95_to_cost: float | None,
     median_to_cost: float | None,
     mean_to_cost: float | None,
+    tier: Any,
+    strength: Any,
 ) -> tuple[str, str, str]:
     if prob_profit is None or p95_to_cost is None:
         return (
             "data_limited",
-            "Profit setup unclear",
+            "Profit profile unclear",
             "There is not enough data to judge how often packs profit or how big the better wins can be.",
+        )
+
+    tier_key = str(tier or "").strip().upper()
+    try:
+        strength_value = int(strength) if strength is not None else None
+    except (TypeError, ValueError):
+        strength_value = None
+    high_tier_read = tier_key in {"S", "A", "B"} or (strength_value is not None and strength_value >= 3)
+
+    if p95_to_cost < 1.00:
+        if high_tier_read:
+            return (
+                "low_impact_profit_profile",
+                "Low payoff ceiling",
+                "The score has support from other metrics, but high-end payoff is weak because even better outcomes struggle to clear the pack price.",
+            )
+        return (
+            "low_impact_profit_profile",
+            "Low payoff ceiling",
+            "This is a weak value-rip signal because even better outcomes are not clearing the pack price.",
         )
 
     if prob_profit >= 0.14 and p95_to_cost >= 2.50:
         return (
             "strong_chance_strong_upside",
-            "Strong profit setup",
+            "Strong profit profile",
             "This set has one of the better profit profiles because it combines a better chance to win with strong high-end hits.",
         )
 
@@ -213,7 +239,7 @@ def _profile_summary_and_label(
     if prob_profit < 0.10 and p95_to_cost < 1.25:
         return (
             "weak_chance_weak_upside",
-            "Weak profit setup",
+            "Weak profit profile",
             "Profitable packs are rare, and even the stronger outcomes are not paying back enough.",
         )
 
@@ -237,7 +263,7 @@ def interpret_profit(data: Dict[str, Any]) -> ProfitInterpretation:
     p95_to_cost = get_numeric(summary_data, "p95_value_to_cost_ratio")
 
     probability_band = _probability_band(prob_profit)
-    impact_band = _impact_band(p95_to_cost)
+    impact_band = _classify_high_end_impact(p95_to_cost)
     median_band = _median_band(median_to_cost)
     mean_band = _mean_band(mean_to_cost)
 
@@ -246,6 +272,8 @@ def interpret_profit(data: Dict[str, Any]) -> ProfitInterpretation:
         p95_to_cost=p95_to_cost,
         median_to_cost=median_to_cost,
         mean_to_cost=mean_to_cost,
+        tier=tier,
+        strength=strength,
     )
 
     quality_phrase = _profit_quality_phrase(tier=tier, strength=strength, prob_profit=prob_profit)
@@ -259,6 +287,8 @@ def interpret_profit(data: Dict[str, Any]) -> ProfitInterpretation:
     )
 
     summary = " ".join([part for part in [quality_phrase, upside_phrase, why_phrase] if part]).strip()
+    if profit_profile == "low_impact_profit_profile" and base_summary:
+        summary = base_summary
     reason_code = profit_profile
 
     if profit_profile == "data_limited":
@@ -289,6 +319,7 @@ def interpret_profit(data: Dict[str, Any]) -> ProfitInterpretation:
         "profit_profile": profit_profile,
         "probability_band": probability_band,
         "impact_band": impact_band,
+        "high_end_impact_band": impact_band,
         "median_band": median_band,
         "mean_band": mean_band,
         "tier": tier,
