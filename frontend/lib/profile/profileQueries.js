@@ -1,6 +1,7 @@
 // Profile data queries backed by backend API endpoints.
 import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
 import { normalizeUsernameForRoute } from "@/lib/profile/publicIdentity";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 /** @typedef {import("@/types/profile").UserProfileRow} UserProfileRow */
 /** @typedef {import("@/types/profile").TcgOption} TcgOption */
@@ -17,7 +18,7 @@ function createError(message, status, code) {
 }
 
 function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return getBackendApiBaseUrl();
 }
 
 function buildBackendUrl(path) {

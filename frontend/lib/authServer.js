@@ -1,6 +1,7 @@
 import { cache } from "react";
+import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const API_URL = process.env.BACKEND_API_BASE_URL || "http://127.0.0.1:8000";
+const API_URL = getBackendApiBaseUrl();
 
 async function getRequestHeadersStore() {
   try {

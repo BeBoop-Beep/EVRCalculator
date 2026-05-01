@@ -15,11 +15,13 @@ from backend.db.repositories.calculation_runs_repository import (
     create_simulation_run_summary,
     create_simulation_state_counts,
     create_simulation_value_distribution_bins,
+    create_simulation_value_threshold_bins,
     create_calculation_price_snapshot,
     create_parent_calculation_run,
     get_or_create_calculation_config,
 )
 from backend.simulations.value_distribution_bins import compute_simulation_value_distribution_bins
+from backend.simulations.value_threshold_bins import compute_simulation_value_threshold_bins
 from backend.db.repositories.sets_repository import get_set_by_canonical_key
 
 
@@ -351,6 +353,24 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         "derived.pack_score.raw_inputs.p95_value_to_cost_ratio",
     )
 
+    mean_value_to_cost_ratio = _coerce_optional_float(
+        _first_present(pack_score_raw_inputs_map, ("mean_value_to_cost_ratio",)),
+        "derived.pack_score.raw_inputs.mean_value_to_cost_ratio",
+    )
+
+    expected_loss_when_losing_fraction = _coerce_optional_float(
+        _first_present(
+            pack_score_raw_inputs_map,
+            ("expected_loss_when_losing_ratio", "expected_loss_when_losing_fraction"),
+        ),
+        "derived.pack_score.raw_inputs.expected_loss_when_losing_ratio",
+    )
+
+    p05_shortfall_to_cost = _coerce_optional_float(
+        _first_present(pack_score_raw_inputs_map, ("p05_shortfall_to_cost",)),
+        "derived.pack_score.raw_inputs.p05_shortfall_to_cost",
+    )
+
     if pack_score_is_placeholder:
         canonical_pack_score = None
         canonical_profit_score = None
@@ -410,6 +430,9 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         "safety_score": canonical_safety_score,
         "stability_score": canonical_stability_score,
         "p95_value_to_cost_ratio": p95_value_to_cost_ratio,
+        "mean_value_to_cost_ratio": mean_value_to_cost_ratio,
+        "expected_loss_when_losing_fraction": expected_loss_when_losing_fraction,
+        "p05_shortfall_to_cost": p05_shortfall_to_cost,
         "score_version": _require_nonempty_str(
             _first_present(pack_score, ("score_version",)),
             "derived.pack_score.score_version",
@@ -551,13 +574,16 @@ def persist_simulation_outputs(
     if raw_values:
         distribution_bins = compute_simulation_value_distribution_bins(raw_values)
         bin_rows = create_simulation_value_distribution_bins(run_id, distribution_bins)
+        threshold_bins = compute_simulation_value_threshold_bins(raw_values)
+        threshold_bin_rows = create_simulation_value_threshold_bins(run_id, threshold_bins)
     else:
         logger.warning(
             "persist_simulation_outputs: no simulated values found in sim_results for run_id=%s; "
-            "skipping simulation_value_distribution_bins persistence.",
+            "skipping simulation_value_distribution_bins and simulation_value_threshold_bins persistence.",
             run_id,
         )
         bin_rows = []
+        threshold_bin_rows = []
 
     return {
         "run_summary_id": run_summary_row.get("id"),
@@ -566,6 +592,7 @@ def persist_simulation_outputs(
         "state_count": len(state_count_rows),
         "derived_metric_count": len(derived_metric_rows),
         "distribution_bin_count": len(bin_rows),
+        "threshold_bin_count": len(threshold_bin_rows),
     }
 
 

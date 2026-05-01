@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
@@ -134,12 +133,7 @@ export default function LoginPage() {
             Login
           </button>
           <div className="mt-4 text-center text-[var(--text-secondary)]">
-            <p>
-              Don&apos;t have an account yet?{" "}
-              <Link href="/signup" className="text-accent font-semibold hover:underline transition-colors duration-200 ease-in-out">
-                Sign up
-              </Link>
-            </p>
+            <p>Account creation is currently invite-only.</p>
           </div>
         </form>
       </div>

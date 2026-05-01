@@ -13,6 +13,7 @@ from backend.db.services.collection_freshness_service import (
     refresh_user_collection_summary_live,
     refresh_all_stale_user_collection_summaries,
     run_nightly_portfolio_refresh,
+    refresh_user_portfolio_summary_and_deltas,
 )
 
 
@@ -247,3 +248,80 @@ class TestRunNightlyPortfolioRefresh:
             assert result["status"] == "incomplete"
             assert result["nightly_refresh_executed"] is False
             assert result["pricing_freshness"]["check_completed"] is False
+
+
+class TestRefreshUserPortfolioSummaryAndDeltas:
+    """Tests for refresh_user_portfolio_summary_and_deltas (consistency boundary wrapper)."""
+
+    def test_success_calls_repo_function(self, sample_user_id, mock_logger):
+        """Should call repo function with correct user_id."""
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas"
+        ) as mock_repo:
+            refresh_user_portfolio_summary_and_deltas(sample_user_id)
+            mock_repo.assert_called_once_with(sample_user_id, None)
+
+    def test_success_calls_repo_with_snapshot_date(self, sample_user_id, mock_logger):
+        """Should call repo function with snapshot_date when provided."""
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas"
+        ) as mock_repo:
+            refresh_user_portfolio_summary_and_deltas(sample_user_id, snapshot_date="2026-04-25")
+            mock_repo.assert_called_once_with(sample_user_id, "2026-04-25")
+
+    def test_success_logs_info(self, sample_user_id, mock_logger):
+        """Should log info on success."""
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas"
+        ):
+            refresh_user_portfolio_summary_and_deltas(sample_user_id)
+            mock_logger.info.assert_called_once()
+            call_args = mock_logger.info.call_args[0]
+            assert "refresh_summary_and_deltas" in call_args[0]
+            assert sample_user_id in call_args
+
+    def test_logs_snapshot_date_in_info(self, sample_user_id, mock_logger):
+        """Should include snapshot_date in log when provided."""
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas"
+        ):
+            refresh_user_portfolio_summary_and_deltas(sample_user_id, snapshot_date="2026-04-25")
+            mock_logger.info.assert_called_once()
+            call_args = mock_logger.info.call_args[0]
+            assert "2026-04-25" in str(call_args)
+
+    def test_logs_default_for_missing_snapshot_date(self, sample_user_id, mock_logger):
+        """Should log '(default)' when snapshot_date is None."""
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas"
+        ):
+            refresh_user_portfolio_summary_and_deltas(sample_user_id)
+            mock_logger.info.assert_called_once()
+            call_args = mock_logger.info.call_args[0]
+            assert "(default)" in str(call_args)
+
+    def test_exception_handling(self, sample_user_id, mock_logger):
+        """Should log exception and reraise."""
+        test_error = RuntimeError("Consistency boundary refresh failed")
+        with patch(
+            "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas",
+            side_effect=test_error,
+        ):
+            with pytest.raises(RuntimeError):
+                refresh_user_portfolio_summary_and_deltas(sample_user_id)
+            mock_logger.exception.assert_called_once()
+
+    def test_handles_various_exceptions(self, sample_user_id):
+        """Should handle various exception types."""
+        exceptions = [
+            RuntimeError("DB error"),
+            ValueError("Invalid snapshot_date"),
+            Exception("Unknown error"),
+        ]
+        for exc in exceptions:
+            with patch(
+                "backend.db.services.collection_freshness_service.repo_refresh_summary_and_deltas",
+                side_effect=exc,
+            ):
+                with pytest.raises(type(exc)):
+                    refresh_user_portfolio_summary_and_deltas(sample_user_id)

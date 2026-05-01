@@ -728,9 +728,9 @@ class TestComputeAllDerivedMetrics:
         assert _RUNTIME_V2_ANCHORS["p95_value_to_cost_ratio"]["min"] == pytest.approx(0.25)
         assert _RUNTIME_V2_ANCHORS["p95_value_to_cost_ratio"]["max"] == pytest.approx(5.0)
         assert _RUNTIME_V2_ANCHORS["effective_chase_count"]["min"] == pytest.approx(1.0)
-        assert _RUNTIME_V2_ANCHORS["effective_chase_count"]["max"] == pytest.approx(30.0)
+        assert _RUNTIME_V2_ANCHORS["effective_chase_count"]["max"] == pytest.approx(40.0)
         assert _RUNTIME_V2_ANCHORS["coefficient_of_variation"]["min"] == pytest.approx(0.25)
-        assert _RUNTIME_V2_ANCHORS["coefficient_of_variation"]["max"] == pytest.approx(10.0)
+        assert _RUNTIME_V2_ANCHORS["coefficient_of_variation"]["max"] == pytest.approx(6.0)
 
     def test_pack_decision_metrics_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
@@ -770,12 +770,12 @@ class TestComputeAllDerivedMetrics:
     def test_pack_score_always_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert "pack_score" in result
-        assert result["pack_score"]["score_version"] == "pack_score_v2_1_runtime"
+        assert result["pack_score"]["score_version"] == "pack_score_v2_chase_weighted"
 
     def test_pack_score_runtime_v2_flags(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         score = result["pack_score"]
-        assert score["normalization_mode"] == "fixed_anchor_runtime_v2_1"
+        assert score["normalization_mode"] == "fixed_anchor_runtime_v2_chase_weighted"
         assert score["pack_score_is_placeholder"] is False
         assert 0.0 <= score["pack_score"] <= 100.0
 
@@ -789,8 +789,8 @@ class TestComputeAllDerivedMetrics:
             "p95_value_to_cost_ratio",
             "expected_loss_when_losing",
             "median_loss_when_losing",
-            "expected_loss_when_losing_fraction",
-            "median_loss_when_losing_fraction",
+            "expected_loss_when_losing_ratio",
+            "median_loss_when_losing_ratio",
             "p05_shortfall_to_cost",
             "coefficient_of_variation",
             "hhi_ev_concentration",
@@ -907,13 +907,13 @@ class TestComputeAllDerivedMetrics:
         expected = max(PACK_COST - p05, 0.0) / PACK_COST
         assert result["pack_score"]["raw_inputs"]["p05_shortfall_to_cost"] == pytest.approx(expected)
 
-    def test_safety_fraction_formulas(self):
+    def test_safety_ratio_formulas(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         raw = result["pack_score"]["raw_inputs"]
-        assert raw["expected_loss_when_losing_fraction"] == pytest.approx(
+        assert raw["expected_loss_when_losing_ratio"] == pytest.approx(
             raw["expected_loss_when_losing"] / PACK_COST
         )
-        assert raw["median_loss_when_losing_fraction"] == pytest.approx(
+        assert raw["median_loss_when_losing_ratio"] == pytest.approx(
             raw["median_loss_when_losing"] / PACK_COST
         )
 
@@ -999,10 +999,10 @@ class TestComputeAllDerivedMetrics:
         assert normalized["prob_profit"]["max"] == pytest.approx(1.0)
 
         assert normalized["effective_chase_count"]["min"] == pytest.approx(1.0)
-        assert normalized["effective_chase_count"]["max"] == pytest.approx(30.0)
+        assert normalized["effective_chase_count"]["max"] == pytest.approx(40.0)
 
         assert normalized["coefficient_of_variation"]["min"] == pytest.approx(0.25)
-        assert normalized["coefficient_of_variation"]["max"] == pytest.approx(10.0)
+        assert normalized["coefficient_of_variation"]["max"] == pytest.approx(6.0)
 
         assert normalized["p95_value_to_cost_ratio"]["min"] == pytest.approx(0.25)
         assert normalized["p95_value_to_cost_ratio"]["max"] == pytest.approx(5.0)
@@ -1117,7 +1117,7 @@ class TestPackSimulationSummary:
 
     def test_score_version_stored(self):
         s = self._build_summary()
-        assert s.score_version == "pack_score_v2_1_runtime"
+        assert s.score_version == "pack_score_v2_chase_weighted"
 
     def test_p95_fields_stored(self):
         s = self._build_summary()
