@@ -122,6 +122,15 @@ function buildMetricTooltip({ meaning, impact, direction, interpretation }) {
   );
 }
 
+// TODO: Keep these tooltip percentages aligned with backend pack_score.weights_pct.profit_score
+// until the Explore page consumes the live weights payload directly.
+const PROFIT_SCORE_TOOLTIP_IMPACTS = {
+  prob_profit: "Direct (27.5% of Profit Score)",
+  mean_value_to_cost_ratio: "Direct (25% of Profit Score)",
+  median_value_to_cost_ratio: "Direct (20% of Profit Score)",
+  p95_value_to_cost_ratio: "Direct (27.5% of Profit Score)",
+};
+
 /**
  * Tooltip explanations for metrics.
  * Provides short, plain-English descriptions of what each metric means.
@@ -129,27 +138,27 @@ function buildMetricTooltip({ meaning, impact, direction, interpretation }) {
 export const METRIC_TOOLTIP_EXPLANATIONS = {
   "Probability of Profit": buildMetricTooltip({
     meaning: "Estimated chance a simulated pack returns at least pack cost.",
-    impact: "Direct (32.5% of Profit Score)",
+    impact: PROFIT_SCORE_TOOLTIP_IMPACTS.prob_profit,
     direction: "Higher is better",
     interpretation: "Higher values mean profit outcomes occur more frequently.",
   }),
   "EV / Mean Value": buildMetricTooltip({
     meaning: "Average simulated return divided by pack cost.",
-    impact: "Direct (25% of Profit Score)",
+    impact: PROFIT_SCORE_TOOLTIP_IMPACTS.mean_value_to_cost_ratio,
     direction: "Higher is better",
     interpretation: "Values above 1.00 indicate average return exceeds cost.",
   }),
   "Median-to-Cost Ratio": buildMetricTooltip({
     meaning: "Typical (median) simulated return divided by pack cost.",
-    impact: "Direct (17.5% of Profit Score)",
+    impact: PROFIT_SCORE_TOOLTIP_IMPACTS.median_value_to_cost_ratio,
     direction: "Higher is better",
     interpretation: "Shows whether the middle outcome usually beats cost.",
   }),
   "P95-to-Cost Ratio": buildMetricTooltip({
-    meaning: "95th percentile outcome divided by pack cost.",
-    impact: "Direct (25% of Profit Score)",
+    meaning: "95th percentile simulated pack outcome divided by pack cost.",
+    impact: PROFIT_SCORE_TOOLTIP_IMPACTS.p95_value_to_cost_ratio,
     direction: "Higher is better",
-    interpretation: "Captures high-end upside in strong outcome tails.",
+    interpretation: "Captures realistic high-end chase upside in strong outcome tails.",
   }),
   ROI: buildMetricTooltip({
     meaning: "Expected return on investment relative to pack cost.",
