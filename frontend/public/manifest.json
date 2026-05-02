@@ -1,7 +1,7 @@
 {
   "name": "inDex",
   "short_name": "inDex",
-  "description": "Your go-to Pokemon TCG store!",
+  "description": "Your collectible intelligence platform for pack simulations, EV insights, market signals, and collection analytics.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

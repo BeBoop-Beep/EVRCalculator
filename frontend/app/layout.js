@@ -12,8 +12,19 @@ const manrope = Manrope({
 });
 
 export const metadata = {
-  title: "inDex",
-  description: "Your go-to Pokémon TCG store!",
+  title: "inDex — Collectible Intelligence",
+  description: "Your collectible intelligence platform for pack simulations, EV insights, market signals, and collection analytics.",
+  openGraph: {
+    title: "inDex — Collectible Intelligence",
+    description: "Your collectible intelligence platform for pack simulations, EV insights, market signals, and collection analytics.",
+    type: "website",
+    url: "https://www.inthedex.io",
+  },
+  twitter: {
+    card: "summary",
+    title: "inDex — Collectible Intelligence",
+    description: "Your collectible intelligence platform for pack simulations, EV insights, market signals, and collection analytics.",
+  },
   manifest: "/manifest.json",
   icons: {
     icon: [{ url: "/inDex.png", type: "image/png" }],

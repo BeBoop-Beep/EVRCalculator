@@ -48,7 +48,7 @@ export default function Header() {
   const navTabInactive = "text-[var(--text-secondary)] opacity-85 hover:text-[var(--text-primary)] hover:opacity-100";
   const navDropdownSurface = "bg-[var(--surface-panel)]";
   const navDropTrigger = "inline-flex items-center gap-1.5 px-2 py-2 text-sm xl:text-[15px] font-medium leading-5 rounded-md border border-transparent transition-[color,background-color,opacity] duration-150 ease-out";
-  const navDropPanel = `absolute top-full mt-1 rounded-xl ${navDropdownSurface} text-[var(--text-primary)] z-50 border border-[var(--border-subtle)] whitespace-nowrap py-1 dropdown-enter`;
+  const navDropPanel = `absolute top-full mt-1 rounded-xl ${navDropdownSurface} text-[var(--text-primary)] z-[1100] border border-[var(--border-subtle)] whitespace-nowrap py-1 dropdown-enter`;
   const navDropPanelCompact = "w-36";
   const navDropPanelAccount = "w-48";
   const navDropItem = "block w-full px-4 py-2 text-[15px] leading-5 text-left text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors";
@@ -119,9 +119,9 @@ export default function Header() {
   }, []);
 
   return (
-    <header>
+    <header className="relative z-[1000]">
       <div className="relative text-[var(--text-primary)] py-1">
-        <div className="w-full max-w-full overflow-hidden flex items-center gap-2 px-2 sm:px-4 lg:px-6 xl:px-10">
+        <div className="w-full min-w-0 max-w-full flex items-center gap-2 px-2 sm:px-4 lg:px-6 xl:px-10">
           <div className="flex shrink-0 items-center sm:mr-3 lg:mr-6">
             <Link
               href="/"
@@ -330,7 +330,7 @@ export default function Header() {
         {isMobileMenuOpen && (
           <div
             id="mobile-header-menu"
-            className="lg:hidden absolute left-0 right-0 top-full z-40 border-t border-[var(--border-subtle)] bg-[var(--surface-panel)] max-h-[calc(100vh-var(--app-header-offset,57px))] overflow-y-auto"
+            className="lg:hidden absolute left-0 right-0 top-full z-[1000] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)] max-h-[calc(100vh-var(--app-header-offset,57px))] overflow-y-auto"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <nav
