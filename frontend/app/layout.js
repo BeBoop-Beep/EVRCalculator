@@ -17,11 +17,12 @@ export const metadata = {
   openGraph: {
     title: "inDex — Collectible Intelligence",
     description: "Your collectible intelligence platform for pack simulations, EV insights, market signals, and collection analytics.",
+    siteName: "inDex",
     type: "website",
-    url: "https://www.inthedex.io",
+    url: "https://www.inthedex.io/",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "inDex — Collectible Intelligence",
     description: "Your collectible intelligence platform for pack simulations, EV insights, market signals, and collection analytics.",
   },
