@@ -44,7 +44,7 @@ def send_waitlist_verification_email(
     recipient_email: str,
     verification_url: str,
     source: str,
-) -> bool:
+) -> bool | dict:
     """Send waitlist verification email (stub if provider is not configured)."""
     provider = (os.getenv("WAITLIST_EMAIL_PROVIDER") or "").strip().lower()
     redacted_url = _redacted_url(verification_url)
@@ -77,13 +77,40 @@ def send_waitlist_verification_email(
         )
         return False
 
+    resend_from_email = (os.getenv("RESEND_FROM_EMAIL") or "").strip()
+    node_env = (os.getenv("NODE_ENV") or "").strip().lower()
+
+    logger.info(
+        "[waitlist] email config %s",
+        {
+            "hasResendKey": bool(os.getenv("RESEND_API_KEY")),
+            "hasFromEmail": bool(os.getenv("RESEND_FROM_EMAIL")),
+            "fromEmail": os.getenv("RESEND_FROM_EMAIL"),
+            "nodeEnv": os.getenv("NODE_ENV"),
+        },
+    )
+
+    if not resend_from_email:
+        if node_env == "production":
+            logger.error(
+                "waitlist_email: provider=resend but RESEND_FROM_EMAIL is missing in production recipient=%s source=%s",
+                recipient_email,
+                source,
+            )
+            return {
+                "ok": False,
+                "code": "email_config_missing",
+                "message": "Verification email sender is not configured.",
+            }
+        resend_from_email = "inDex <onboarding@resend.dev>"
+
     frontend_base_url = (os.getenv("FRONTEND_BASE_URL") or "").strip()
     if not frontend_base_url:
         parts = urlsplit(verification_url)
         frontend_base_url = f"{parts.scheme}://{parts.netloc}" if parts.scheme and parts.netloc else ""
 
     payload = {
-        "from": "inDex <onboarding@resend.dev>",
+        "from": resend_from_email,
         "to": [recipient_email],
         "subject": "Confirm your spot on the inDex waitlist",
         "html": _build_waitlist_email_html(verification_url, frontend_base_url),

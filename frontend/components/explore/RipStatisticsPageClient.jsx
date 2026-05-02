@@ -1174,7 +1174,7 @@ export default function RipStatisticsPageClient({
   );
 
   return (
-    <main className="w-full pb-8 pt-4 lg:py-8">
+    <main className="w-full overflow-x-hidden pb-8 pt-4 lg:py-8">
       <PublicProfileLocalScaffold
         profileBaseHref="/Explore/rip-statistics"
         mode="public"
@@ -1199,7 +1199,7 @@ export default function RipStatisticsPageClient({
           />
         )}
       >
-        <div className="dashboard-container space-y-8">
+        <div className="dashboard-container space-y-8 w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border">
         {pageError ? (
           <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6">
             <p className="text-base font-semibold text-[var(--text-primary)]">RIP Statistics unavailable</p>
@@ -1209,7 +1209,7 @@ export default function RipStatisticsPageClient({
 
         {!pageError && explorePayload ? (
           <>
-            <section id="explore-score" className="page-hero-panel scroll-mt-24 rounded-2xl px-6 py-8 md:scroll-mt-28">
+            <section id="explore-score" className="page-hero-panel scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
               <div className="mx-auto max-w-3xl text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">RIP Statistics</p>
                 <div ref={heroSetPickerRef} data-hero-picker className="relative mt-2 inline-flex max-w-full justify-center">

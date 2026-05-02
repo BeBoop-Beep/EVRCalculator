@@ -125,7 +125,7 @@ def _fetch_signup_by_email(email: str) -> dict | None:
     return None
 
 
-def _send_verification(email: str, source: str) -> str:
+def _send_verification(email: str, source: str) -> tuple[str | None, dict | None]:
     raw_token = secrets.token_urlsafe(32)
     token_hash = _hash_token(raw_token)
     logger.info(
@@ -137,12 +137,20 @@ def _send_verification(email: str, source: str) -> str:
         source,
     )
     verification_url = _build_verification_url(raw_token)
-    send_waitlist_verification_email(
+    send_result = send_waitlist_verification_email(
         recipient_email=email,
         verification_url=verification_url,
         source=source,
     )
-    return token_hash
+    if isinstance(send_result, dict) and not send_result.get("ok", True):
+        return None, send_result
+    if send_result is False:
+        return None, {
+            "ok": False,
+            "code": "email_send_failed",
+            "message": "Verification email could not be sent.",
+        }
+    return token_hash, None
 
 
 def _is_resend_allowed(signup_row: dict) -> bool:
@@ -181,6 +189,14 @@ def _server_error_response() -> tuple[dict, dict]:
     }
 
 
+def _email_send_error_response(send_error: dict) -> tuple[dict, dict]:
+    return {}, {
+        "status": send_error.get("code") or "server_error",
+        "message": send_error.get("message") or "Signup failed. Please try again.",
+        "http_status": 500,
+    }
+
+
 def _handle_existing_signup(signup_row: dict, source: str) -> tuple[dict, dict | None]:
     signup_id = signup_row.get("id")
     status = str(signup_row.get("status") or "").strip().lower()
@@ -195,7 +211,9 @@ def _handle_existing_signup(signup_row: dict, source: str) -> tuple[dict, dict |
         if not _is_resend_allowed(signup_row):
             return _pending_response()
 
-        token_hash = _send_verification(str(signup_row.get("email") or ""), source)
+        token_hash, send_error = _send_verification(str(signup_row.get("email") or ""), source)
+        if send_error:
+            return _email_send_error_response(send_error)
         supabase.table("waitlist_signups").update(
             {
                 "verification_token_hash": token_hash,
@@ -205,7 +223,9 @@ def _handle_existing_signup(signup_row: dict, source: str) -> tuple[dict, dict |
         ).eq("id", signup_id).execute()
         return _resend_sent_response()
 
-    token_hash = _send_verification(str(signup_row.get("email") or ""), source)
+    token_hash, send_error = _send_verification(str(signup_row.get("email") or ""), source)
+    if send_error:
+        return _email_send_error_response(send_error)
     supabase.table("waitlist_signups").update(
         {
             "status": _STATUS_PENDING_VERIFICATION,
@@ -242,7 +262,9 @@ def insert_waitlist_signup(
         if existing_signup:
             return _handle_existing_signup(existing_signup, source)
 
-        token_hash = _send_verification(normalised, source)
+        token_hash, send_error = _send_verification(normalised, source)
+        if send_error:
+            return _email_send_error_response(send_error)
         response = (
             supabase.table("waitlist_signups")
             .insert(

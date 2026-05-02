@@ -468,7 +468,7 @@ export default function PublicProfileLocalScaffold({
                 </button>
               </div>
             ) : null}
-            <div className="px-6 pt-3 xl:hidden">{children}</div>
+            <div className="px-6 pt-3 xl:hidden overflow-x-hidden min-w-0">{children}</div>
           </div>
         </div>
       </div>

@@ -121,8 +121,8 @@ export default function Header() {
   return (
     <header>
       <div className="relative text-[var(--text-primary)] py-1">
-        <div className="w-full flex items-center justify-between gap-3 lg:gap-4 px-2 sm:px-4 lg:px-6 xl:px-10">
-          <div className="flex items-center min-w-0 mr-6">
+        <div className="w-full max-w-full overflow-hidden flex items-center gap-2 px-2 sm:px-4 lg:px-6 xl:px-10">
+          <div className="flex shrink-0 items-center sm:mr-3 lg:mr-6">
             <Link
               href="/"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -147,7 +147,7 @@ export default function Header() {
 
           </div>
 
-          <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,22rem)_1fr] xl:grid-cols-[1fr_minmax(0,30rem)_1fr] items-center lg:gap-4 xl:gap-6">
+          <div className="flex-1 min-w-0 flex items-center lg:grid lg:grid-cols-[1fr_minmax(0,22rem)_1fr] xl:grid-cols-[1fr_minmax(0,30rem)_1fr] lg:gap-4 xl:gap-6">
             <nav className="hidden lg:flex items-center justify-end gap-2.5 xl:gap-4 whitespace-nowrap">
               <Link
                 href="/Explore"
@@ -196,14 +196,14 @@ export default function Header() {
             </nav>
 
             <div
-              className="w-full flex items-center justify-self-center"
+              className="flex-1 min-w-0 max-w-full flex items-center lg:justify-self-center"
               onClickCapture={() => setIsMobileMenuOpen(false)}
               onFocusCapture={() => setIsMobileMenuOpen(false)}
             >
               <SearchBar
                 onSearch={handleHeaderSearch}
-                className="relative flex items-center w-full lg:w-[360px] xl:w-[420px]"
-                inputClassName="w-full px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                className="relative flex items-center w-full min-w-0 max-w-full lg:w-[360px] xl:w-[420px]"
+                inputClassName="w-full min-w-0 px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 buttonClassName="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors duration-200 ease-in-out flex items-center justify-center"
                 placeholder="Search"
               />
@@ -247,7 +247,7 @@ export default function Header() {
             </div>
           </div>
 
-          <div className="flex items-center text-sm whitespace-nowrap gap-3 lg:gap-4 xl:gap-6">
+          <div className="flex shrink-0 items-center text-sm whitespace-nowrap gap-2 sm:gap-3 lg:gap-4 xl:gap-6">
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}

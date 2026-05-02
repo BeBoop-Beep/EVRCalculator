@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Bar,
@@ -264,7 +264,17 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   const [activeMarkerKey, setActiveMarkerKey] = useState(null);
   const [showBars, setShowBars] = useState(true);
   const [showLine, setShowLine] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const hasThresholdBins = Array.isArray(thresholdBins) && thresholdBins.length > 0;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
@@ -541,7 +551,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3 sm:p-4 md:p-5 w-full max-w-full min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Outcome Distribution</p>
@@ -589,9 +599,9 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
         </div>
       </div>
 
-      <div className="mt-4 h-[20rem] w-full sm:h-[23rem]">
+      <div className="mt-4 h-[20rem] w-full max-w-full min-w-0 sm:h-[23rem]">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={combinedData} margin={{ top: 8, right: 56, left: 4, bottom: 8 }}>
+          <ComposedChart data={combinedData} margin={isMobile ? { top: 8, right: 8, left: 0, bottom: 8 } : { top: 8, right: 56, left: 4, bottom: 8 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
 
             <XAxis
@@ -614,7 +624,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
               orientation="left"
               tickLine={false}
               axisLine={false}
-              width={12}
+              width={isMobile ? 0 : 12}
               tick={false}
             />
 
@@ -624,8 +634,8 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
               domain={[0, 100]}
               tickLine={false}
               axisLine={false}
-              width={44}
-              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+              width={isMobile ? 32 : 44}
+              tick={{ fill: "var(--text-secondary)", fontSize: isMobile ? 10 : 11 }}
               tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
             />
 
