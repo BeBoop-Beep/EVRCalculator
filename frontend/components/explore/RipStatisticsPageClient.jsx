@@ -31,6 +31,13 @@ const SECTION_ID_MAP = {
   "rarity-contribution": "explore-rarity",
   "advanced-metrics": "explore-advanced",
 };
+const SECTION_SCROLL_ORDER = [
+  { sectionId: "explore-score", navId: "pack-score" },
+  { sectionId: ANALYSIS_SECTION_ID, navId: "outcome-distribution" },
+  { sectionId: "explore-drivers", navId: "top-ev-drivers" },
+  { sectionId: "explore-rarity", navId: "rarity-contribution" },
+  { sectionId: "explore-advanced", navId: "advanced-metrics" },
+];
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -302,14 +309,17 @@ function StatTile({ label, value, valueClassName = "text-lg" }) {
   );
 }
 
-function SectionCard({ title, subtitle, children }) {
+function SectionCard({ title, subtitle, titleInfoText, children }) {
   return (
-    <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
+    <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
       <div>
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
-        {subtitle ? <p className="mt-1 text-sm text-[var(--text-secondary)]">{subtitle}</p> : null}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
+          {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
+        </div>
+        {subtitle ? <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">{subtitle}</p> : null}
       </div>
-      <div className="mt-4">{children}</div>
+      <div className="mt-4 min-w-0 max-w-full">{children}</div>
     </article>
   );
 }
@@ -325,7 +335,8 @@ function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, ima
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+      <div className="grid w-full max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:flex sm:items-center sm:gap-3">
       <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
         {shouldRenderImage ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -339,13 +350,17 @@ function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, ima
           />
         ) : null}
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 max-w-full sm:flex-1">
         <p className="truncate text-sm font-medium text-[var(--text-primary)]">{name || "Unknown Card"}</p>
-        {evShare ? <p className="text-xs text-[var(--text-secondary)]">{evShare} of pack EV</p> : null}
+        {evShare ? <p className="break-words text-xs text-[var(--text-secondary)]">{evShare} of pack EV</p> : null}
       </div>
-      <div className="flex-none text-right">
-        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">EV Contribution</p>
-        <p className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
+      <div className="col-span-2 min-w-0 max-w-full text-left sm:col-auto sm:ml-auto sm:text-right">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">Average Impact</p>
+        <p className="mt-0.5 text-[11px] leading-tight text-[var(--text-secondary)] sm:max-w-[12rem] sm:text-right">
+          How much this card adds to the average pack after rarity is considered.
+        </p>
+        <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
+      </div>
       </div>
     </div>
   );
@@ -364,7 +379,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="w-full max-w-full min-w-0 space-y-2">
       <p className="mb-2 text-xs text-[var(--text-secondary)]">
         {totalLabel}: {formatCurrency(totalValue)}
       </p>
@@ -644,12 +659,10 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M4.5 18.25h15" />
-          <path d="M7.5 16v-2.8" />
-          <path d="M11.5 16v-5.1" />
-          <path d="M15.5 16v-7.3" />
-          <path d="M6.9 10.6 10.8 8l3.2 1.9 3.4-3.9" />
-          <path d="M15.7 6h2.8v2.8" />
+          <path d="M4.5 16.25a7.5 7.5 0 1 1 15 0" />
+          <path d="M12 12.25l3-2.5" />
+          <circle cx="12" cy="12.25" r="1" fill="currentColor" stroke="none" />
+          <path d="M6.25 18.25h11.5" />
         </svg>
       ),
     },
@@ -668,10 +681,10 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
           strokeLinejoin="round"
         >
           <path d="M4.5 18.25h15" />
-          <path d="M7.5 14.5v-4" />
-          <path d="M11.5 16v-7" />
-          <path d="M15.5 12.5V8" />
-          <path d="M4.5 8.5h15" />
+          <path d="M7.5 16v-3" />
+          <path d="M11.5 16v-5.5" />
+          <path d="M15.5 16v-7.5" />
+          <path d="M5.2 11.25 9.3 9l2.7 1.6 4.3-3.4" />
         </svg>
       ),
     },
@@ -696,7 +709,7 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
     },
     {
       id: "rarity-contribution",
-      label: "Rarity",
+      label: "Pools",
       icon: (
         <svg
           aria-hidden="true"
@@ -714,7 +727,7 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
     },
     {
       id: "advanced-metrics",
-      label: "Advanced",
+      label: "More",
       icon: (
         <svg
           aria-hidden="true"
@@ -748,29 +761,31 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
   };
 
   return (
-    <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-3 pt-2">
-      {items.map((item) => {
-        const isActive = isItemActive(item.id);
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelect(item.id)}
-            aria-current={isActive ? "location" : undefined}
-            className={[
-              "flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
-              isActive
-                ? "text-[var(--accent)]"
-                : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
-            ].join(" ")}
-          >
-            <span className={["transition-transform duration-150 ease-out", isActive ? "scale-110" : "scale-100"].join(" ")}>
-              {item.icon}
-            </span>
-            <span>{item.label}</span>
-          </button>
-        );
-      })}
+    <div className="w-full max-w-full overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex w-full min-w-[23rem] gap-1.5">
+        {items.map((item) => {
+          const isActive = isItemActive(item.id);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              aria-current={isActive ? "location" : undefined}
+              className={[
+                "inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors duration-150 ease-out",
+                isActive
+                  ? "border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
+                  : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
+              ].join(" ")}
+            >
+              <span className={["transition-transform duration-150 ease-out max-[380px]:hidden", isActive ? "scale-105" : "scale-100"].join(" ")}>
+                {item.icon}
+              </span>
+              <span className="truncate">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -830,8 +845,10 @@ export default function RipStatisticsPageClient({
   const [scoreMode, setScoreMode] = useState("relative");
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
-  const visibleSectionRatiosRef = useRef({});
   const heroSetPickerRef = useRef(null);
+  const pendingNavSelectionRef = useRef(null);
+  const pendingNavTimeoutRef = useRef(null);
+  const pendingNavStartedAtRef = useRef(0);
 
   const graphSectionMeta =
     graphMode === "historical-trend"
@@ -846,6 +863,43 @@ export default function RipStatisticsPageClient({
       : graphMode === "pack-breakdown"
       ? interpretation?.packBreakdown
       : interpretation?.outcomeDistribution;
+
+  const outcomeDistributionInfo = (
+    <div className="space-y-1.5 text-left">
+      <p className="font-semibold text-[var(--text-primary)]">Outcome Distribution</p>
+      <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often simulated packs land in each value range.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows the chance of reaching at least each value.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Hovering shows exact frequency, count, and chance.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Percentile chips like P5, Median, P95, and P99 summarize the spread.</span></li>
+      </ul>
+    </div>
+  );
+
+  const topEvDriversInfo = (
+    <div className="space-y-1.5 text-left">
+      <p className="font-semibold text-[var(--text-primary)]">Cards That Move the Average</p>
+      <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
+        <li className="flex gap-2"><span className="flex-none">•</span><span>These are the cards that have the biggest effect on the average pack value.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>The dollar amount is not the card&apos;s price.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>It means: &quot;When we include how rare this card is, this is about how much it adds to the average pack.&quot;</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>A very expensive card can still add only a little if it is very hard to pull.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>The percent shows how much of the pack&apos;s average value comes from that card.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>This helps show if one big chase card is carrying the set, or if many cards are helping.</span></li>
+      </ul>
+    </div>
+  );
+
+  const rarityContributionInfo = (
+    <div className="space-y-1.5 text-left">
+      <p className="font-semibold text-[var(--text-primary)]">Rarity Pool Contribution</p>
+      <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Shows which rarity groups contribute most to expected pack value.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Higher contribution means that rarity bucket drives more of the average return.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Use this to see if EV is broad-based or concentrated in narrow chase pools.</span></li>
+      </ul>
+    </div>
+  );
 
   const packBreakdownEvidenceRows = useMemo(
     () => getPackBreakdownEvidence(packBreakdownMeta),
@@ -879,22 +933,6 @@ export default function RipStatisticsPageClient({
     []
   );
 
-  const resolveActiveSection = () => {
-    const currentVisibleEntries = Object.entries(visibleSectionRatiosRef.current).filter(([, ratio]) => ratio > 0);
-    if (currentVisibleEntries.length === 0) {
-      return null;
-    }
-
-    currentVisibleEntries.sort((left, right) => right[1] - left[1]);
-    const [mostVisibleId] = currentVisibleEntries[0];
-
-    if (mostVisibleId === ANALYSIS_SECTION_ID) {
-      return graphMode;
-    }
-
-    return mostVisibleId;
-  };
-
   const getVisibleSectionElement = (sectionId) => {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return null;
@@ -917,6 +955,64 @@ export default function RipStatisticsPageClient({
     return visibleMatch || matches[0] || null;
   };
 
+  const getExploreStickyOffset = () => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return 0;
+    }
+
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    const headerOffsetRaw = rootStyles.getPropertyValue("--app-header-offset") || "64";
+    const parsedHeaderOffset = Number.parseFloat(headerOffsetRaw);
+    const headerOffset = Number.isFinite(parsedHeaderOffset) ? parsedHeaderOffset : 64;
+
+    const subNav = document.querySelector('nav[aria-label="Profile section navigation"]');
+    const subNavHeight = subNav instanceof HTMLElement ? subNav.offsetHeight : 0;
+
+    return headerOffset + subNavHeight + 8;
+  };
+
+  const resolveActiveSectionFromScroll = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const activationLine = getExploreStickyOffset() + 24;
+    let passedSection = null;
+    let upcomingSection = null;
+
+    SECTION_SCROLL_ORDER.forEach((entry) => {
+      const element = getVisibleSectionElement(entry.sectionId);
+      if (!element) {
+        return;
+      }
+
+      const top = element.getBoundingClientRect().top;
+      if (top <= activationLine) {
+        passedSection = { navId: entry.navId, top };
+      } else if (!upcomingSection) {
+        upcomingSection = { navId: entry.navId, top };
+      }
+    });
+
+    let nextActive = passedSection?.navId || "pack-score";
+
+    if (passedSection && upcomingSection) {
+      const passedDistance = activationLine - passedSection.top;
+      const upcomingDistance = upcomingSection.top - activationLine;
+      if (upcomingDistance < passedDistance) {
+        nextActive = upcomingSection.navId;
+      }
+    } else if (!passedSection && upcomingSection) {
+      nextActive = upcomingSection.navId;
+    }
+
+    if (nextActive === "outcome-distribution") {
+      return graphMode;
+    }
+
+    return nextActive;
+  };
+
   const scrollToExploreSection = (sectionId) => {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
@@ -929,10 +1025,25 @@ export default function RipStatisticsPageClient({
       return;
     }
 
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    const stickyOffset = getExploreStickyOffset();
+    const targetTop = target.getBoundingClientRect().top + window.scrollY - stickyOffset;
+    window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
   };
 
   const handleSectionSelect = (sectionId) => {
+    pendingNavSelectionRef.current = sectionId;
+    pendingNavStartedAtRef.current = Date.now();
+    if (pendingNavTimeoutRef.current !== null && typeof window !== "undefined") {
+      window.clearTimeout(pendingNavTimeoutRef.current);
+    }
+    if (typeof window !== "undefined") {
+      pendingNavTimeoutRef.current = window.setTimeout(() => {
+        pendingNavSelectionRef.current = null;
+        pendingNavStartedAtRef.current = 0;
+        pendingNavTimeoutRef.current = null;
+      }, 1200);
+    }
+
     if (GRAPH_SECTION_KEYS.has(sectionId) && graphMode !== sectionId) {
       setGraphMode(sectionId);
     }
@@ -942,7 +1053,7 @@ export default function RipStatisticsPageClient({
   };
 
   useEffect(() => {
-    const nextActiveSection = resolveActiveSection();
+    const nextActiveSection = resolveActiveSectionFromScroll();
     if (nextActiveSection) {
       setActiveSection(nextActiveSection);
     }
@@ -953,32 +1064,71 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          visibleSectionRatiosRef.current[entry.target.id] = entry.isIntersecting ? entry.intersectionRatio : 0;
-        });
+    let frameId = null;
+    const updateActiveFromScroll = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      frameId = window.requestAnimationFrame(() => {
+        const pendingNavSelection = pendingNavSelectionRef.current;
+        if (pendingNavSelection) {
+          if (pendingNavStartedAtRef.current > 0 && Date.now() - pendingNavStartedAtRef.current > 1200) {
+            pendingNavSelectionRef.current = null;
+            pendingNavStartedAtRef.current = 0;
+            if (pendingNavTimeoutRef.current !== null) {
+              window.clearTimeout(pendingNavTimeoutRef.current);
+              pendingNavTimeoutRef.current = null;
+            }
+          }
 
-        const nextActiveSection = resolveActiveSection();
+        }
+
+        const nextPendingNavSelection = pendingNavSelectionRef.current;
+        if (nextPendingNavSelection) {
+          const pendingTargetId = SECTION_ID_MAP[nextPendingNavSelection] || nextPendingNavSelection;
+          const pendingTarget = getVisibleSectionElement(pendingTargetId);
+          const activationLine = getExploreStickyOffset() + 24;
+          if (pendingTarget) {
+            const targetTop = pendingTarget.getBoundingClientRect().top;
+            setActiveSection(nextPendingNavSelection);
+            if (targetTop <= activationLine) {
+              pendingNavSelectionRef.current = null;
+              pendingNavStartedAtRef.current = 0;
+              if (pendingNavTimeoutRef.current !== null) {
+                window.clearTimeout(pendingNavTimeoutRef.current);
+                pendingNavTimeoutRef.current = null;
+              }
+            }
+            frameId = null;
+            return;
+          }
+        }
+
+        const nextActiveSection = resolveActiveSectionFromScroll();
         if (nextActiveSection) {
           setActiveSection(nextActiveSection);
         }
-      },
-      {
-        root: null,
-        rootMargin: "-18% 0px -52% 0px",
-        threshold: [0.15, 0.3, 0.5, 0.7],
-      }
-    );
+        frameId = null;
+      });
+    };
 
-    ["explore-score", ANALYSIS_SECTION_ID, "explore-drivers", "explore-rarity", "explore-advanced"].forEach((sectionId) => {
-      const element = getVisibleSectionElement(sectionId);
-      if (element) {
-        observer.observe(element);
-      }
-    });
+    updateActiveFromScroll();
+    window.addEventListener("scroll", updateActiveFromScroll, { passive: true });
+    window.addEventListener("resize", updateActiveFromScroll);
 
-    return () => observer.disconnect();
+    return () => {
+      window.removeEventListener("scroll", updateActiveFromScroll);
+      window.removeEventListener("resize", updateActiveFromScroll);
+      pendingNavSelectionRef.current = null;
+      pendingNavStartedAtRef.current = 0;
+      if (pendingNavTimeoutRef.current !== null) {
+        window.clearTimeout(pendingNavTimeoutRef.current);
+        pendingNavTimeoutRef.current = null;
+      }
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
   }, [explorePayload, pageError, graphMode]);
 
   const chartMarkers = [
@@ -1174,7 +1324,7 @@ export default function RipStatisticsPageClient({
   );
 
   return (
-    <main className="w-full overflow-x-hidden pb-8 pt-4 lg:py-8">
+    <main className="w-full max-w-full pb-8 pt-0 lg:py-8">
       <PublicProfileLocalScaffold
         profileBaseHref="/Explore/rip-statistics"
         mode="public"
@@ -1192,6 +1342,7 @@ export default function RipStatisticsPageClient({
         centerContentIgnoringSidebar
         desktopContentOffsetClassName="xl:flex xl:justify-center"
         wrapDesktopContentInFrame={false}
+        mobileBottomNavVariant="flat"
         mobileBottomNavContent={() => (
           <CompactBottomSectionNav
             activeSection={activeSection}
@@ -1209,7 +1360,7 @@ export default function RipStatisticsPageClient({
 
         {!pageError && explorePayload ? (
           <>
-            <section id="explore-score" className="page-hero-panel scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
+            <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
               <div className="mx-auto max-w-3xl text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">RIP Statistics</p>
                 <div ref={heroSetPickerRef} data-hero-picker className="relative mt-2 inline-flex max-w-full justify-center">
@@ -1397,7 +1548,7 @@ export default function RipStatisticsPageClient({
               </div>
             </section>
 
-            <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 pt-7 md:scroll-mt-28">
+            <section id={ANALYSIS_SECTION_ID} style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 pt-7 md:scroll-mt-28">
               <SectionCard
                 title={
                   graphMode === "historical-trend"
@@ -1406,13 +1557,8 @@ export default function RipStatisticsPageClient({
                     ? "Pack Breakdown"
                     : "Outcome Distribution"
                 }
-                subtitle={
-                  graphMode === "historical-trend"
-                    ? "Track how simulated value-to-cost ratios move across daily snapshots."
-                    : graphMode === "pack-breakdown"
-                    ? "Inspect pack paths and normal-state counts from simulation runs."
-                    : "See how simulated pack outcomes are distributed across value ranges."
-                }
+                subtitle={null}
+                titleInfoText={graphMode === "outcome-distribution" ? outcomeDistributionInfo : null}
               >
                 <div className="mb-1.5 w-full max-w-full overflow-hidden">
                   <div className="grid w-full grid-cols-3 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
@@ -1464,14 +1610,14 @@ export default function RipStatisticsPageClient({
                 />
 
                 {graphMode === "pack-breakdown" && packBreakdownEvidenceRows.length > 0 ? (
-                  <div className="mb-4 flex flex-wrap gap-2">
+                  <div className="mb-4 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
                     {packBreakdownEvidenceRows.map(([label, value]) => (
                       <span
                         key={`${label}:${value}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                        className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
                       >
-                        <span className="text-[var(--text-secondary)]">{label}</span>
-                        <span className="font-medium text-[var(--text-primary)]">{String(value)}</span>
+                        <span className="shrink-0 text-[var(--text-secondary)]">{label}</span>
+                        <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
                       </span>
                     ))}
                   </div>
@@ -1506,10 +1652,10 @@ export default function RipStatisticsPageClient({
               </SectionCard>
             </section>
 
-            <section className="pt-1">
-              <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
-                <div id="explore-drivers" className="scroll-mt-24 md:scroll-mt-28">
-                  <SectionCard title="Top Expected Value (EV) Drivers" subtitle="These cards contribute the most to expected pack value.">
+            <section className="w-full max-w-full min-w-0 pt-1">
+              <div className="grid w-full max-w-full min-w-0 gap-4 xl:grid-cols-2 xl:items-start">
+                <div id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                  <SectionCard title="Top Expected Value (EV) Drivers" subtitle={null} titleInfoText={topEvDriversInfo}>
                     <InterpretationInsight
                       sectionMeta={topEvDriversMeta}
                       fallbackSummary={interpretation?.topEvDrivers}
@@ -1519,14 +1665,14 @@ export default function RipStatisticsPageClient({
                     />
 
                     {topEvEvidenceRows.length > 0 ? (
-                      <div className="mb-3 flex flex-wrap gap-2">
+                      <div className="mb-3 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
                         {topEvEvidenceRows.map(([label, value]) => (
                           <span
                             key={`${label}:${value}`}
-                            className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                            className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
                           >
-                            <span>{label}</span>
-                            <span className="font-medium text-[var(--text-primary)]">{String(value)}</span>
+                            <span className="shrink-0">{label}</span>
+                            <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
                           </span>
                         ))}
                       </div>
@@ -1536,9 +1682,9 @@ export default function RipStatisticsPageClient({
                   </SectionCard>
                 </div>
 
-                <div className="space-y-4">
-                  <div id="explore-rarity" className="scroll-mt-24 md:scroll-mt-28">
-                    <SectionCard title="Rarity Pull Contribution" subtitle={null}>
+                <div className="min-w-0 space-y-4">
+                  <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                    <SectionCard title="Rarity Pool Contribution" subtitle={null} titleInfoText={rarityContributionInfo}>
                       <InterpretationInsight
                         sectionMeta={rarityContributionMeta}
                         fallbackSummary={interpretation?.rarityContribution}
@@ -1551,9 +1697,9 @@ export default function RipStatisticsPageClient({
                     </SectionCard>
                   </div>
 
-                  <details id="explore-advanced" className="group scroll-mt-24 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-5 sm:p-6 md:scroll-mt-28">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-1 transition-colors hover:text-white">
-                      <span className="text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</span>
+                  <details id="explore-advanced" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="group w-full max-w-full min-w-0 scroll-mt-24 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-5 sm:p-6 md:scroll-mt-28">
+                    <summary className="flex min-w-0 max-w-full cursor-pointer list-none items-center justify-between gap-3 py-1 transition-colors hover:text-white">
+                      <span className="min-w-0 max-w-full break-words text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</span>
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 20 20"
@@ -1571,7 +1717,7 @@ export default function RipStatisticsPageClient({
                         transform: rotate(180deg);
                       }
                     `}</style>
-                    <p className="mt-1 text-sm text-[var(--text-secondary)]">Deeper technical indicators for experienced users</p>
+                    <p className="mt-1 min-w-0 max-w-full break-words text-sm text-[var(--text-secondary)]">Deeper technical indicators for experienced users</p>
 
                     <InterpretationInsight
                       sectionMeta={advancedMetricsMeta}

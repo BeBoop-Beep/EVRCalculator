@@ -14,7 +14,6 @@ import {
   YAxis,
 } from "recharts";
 
-import InfoPopover from "@/components/ui/InfoPopover";
 
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -276,18 +275,6 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const outcomeDistributionInfo = (
-    <div className="space-y-1.5 text-left">
-      <p className="font-semibold text-[var(--text-primary)]">Outcome Distribution</p>
-      <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often simulated packs land in each value range.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows the chance of reaching at least each value.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Hovering shows exact frequency, count, and chance.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Percentile chips like P5, Median, P95, P99 summarize the distribution.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Big Hit is the configured high-value threshold.</span></li>
-      </ul>
-    </div>
-  );
 
   const chartData = useMemo(() => {
     const rows = hasThresholdBins
@@ -555,7 +542,6 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Outcome Distribution</p>
-          <InfoPopover text={outcomeDistributionInfo} />
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 text-[11px]">

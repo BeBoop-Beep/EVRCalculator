@@ -337,55 +337,30 @@ export default function Header() {
               className="w-full px-0 py-0 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-4 pt-3 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">EXPLORE</div>
-              <div className="border-y border-[var(--border-subtle)]">
-                <Link href="/Explore" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Explore
-                </Link>
-                <Link href="/TCGs/Pokemon" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  TCGs
-                </Link>
-              </div>
-
-              <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">TOOLS</div>
-              <div className="border-y border-[var(--border-subtle)]">
-                <Link href="/tools" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Tools
-                </Link>
-              </div>
-
-              <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">MY PORTFOLIO</div>
-              <div className="border-y border-[var(--border-subtle)]">
-                <Link href="/my-portfolio" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Overview
-                </Link>
-                <Link href="/my-portfolio/collection" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Collection
-                </Link>
-                <Link href="/my-portfolio/wishlist" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                  Wishlist
-                </Link>
-              </div>
-
               <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-[0.16em] text-[var(--text-secondary)]">ACCOUNT</div>
               <div className="border-y border-[var(--border-subtle)] mb-6">
                 {!isAuthenticated ? (
-                  <Link href="/login" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                    <span className="inline-flex items-center gap-1">
-                      Login
-                      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
-                        <path d="M11 4.5H14.25C15.2165 4.5 16 5.2835 16 6.25V13.75C16 14.7165 15.2165 15.5 14.25 15.5H11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M4 10H12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M9.5 7.5L12 10L9.5 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                  </Link>
+                  <>
+                    <Link href="/login" className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      <span className="inline-flex items-center gap-1">
+                        Login
+                        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
+                          <path d="M11 4.5H14.25C15.2165 4.5 16 5.2835 16 6.25V13.75C16 14.7165 15.2165 15.5 14.25 15.5H11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M4 10H12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M9.5 7.5L12 10L9.5 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                    </Link>
+                    <Link href="/signup" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                      Sign Up
+                    </Link>
+                  </>
                 ) : (
                   <>
                     <Link href={publicProfileHref} className="block w-full px-4 py-3 text-[18px] font-semibold hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                       Public Profile
                     </Link>
-                    <Link href="/my-portfolio" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Link href="/my-collection/collection" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                       My Portfolio
                     </Link>
                     <Link href="/account-settings" className="block w-full px-4 py-3 text-[18px] font-semibold border-t border-[var(--border-subtle)] hover:bg-[var(--surface-hover)] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>

@@ -1,13 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function InfoPopover({ text }) {
   const [open, setOpen] = useState(false);
+  const [popoverTop, setPopoverTop] = useState(36);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const updatePopoverTop = () => {
+      const triggerRect = triggerRef.current?.getBoundingClientRect();
+      if (!triggerRect) {
+        return;
+      }
+      // Keep a small gap below the info icon for mobile fixed placement.
+      setPopoverTop(Math.round(triggerRect.bottom + 8));
+    };
+
+    updatePopoverTop();
+    window.addEventListener("scroll", updatePopoverTop, { passive: true });
+    window.addEventListener("resize", updatePopoverTop);
+
+    return () => {
+      window.removeEventListener("scroll", updatePopoverTop);
+      window.removeEventListener("resize", updatePopoverTop);
+    };
+  }, [open]);
 
   return (
     <div className="relative flex-none">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setOpen(false)}
@@ -22,7 +49,8 @@ export default function InfoPopover({ text }) {
       {open ? (
         <div
           role="tooltip"
-          className="absolute left-0 top-7 z-20 w-64 max-w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 text-left text-xs leading-relaxed text-[var(--text-secondary)] shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
+          className="fixed left-1/2 top-[var(--info-popover-top)] z-[70] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 text-left text-xs leading-relaxed text-[var(--text-secondary)] shadow-[0_8px_32px_rgba(0,0,0,0.45)] sm:absolute sm:left-0 sm:top-7 sm:z-20 sm:w-64 sm:max-w-[min(20rem,calc(100vw-2rem))] sm:translate-x-0"
+          style={{ "--info-popover-top": `${popoverTop}px` }}
         >
           {text}
         </div>
