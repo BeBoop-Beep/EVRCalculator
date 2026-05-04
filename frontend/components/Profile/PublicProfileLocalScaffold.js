@@ -62,6 +62,7 @@ export default function PublicProfileLocalScaffold({
   floatingToolsContainerClassName = null,
   forceCompactToolsBelow2xl = false,
   mobileBottomNavContent = null,
+  mobileBottomNavVariant = "card",
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -180,6 +181,9 @@ export default function PublicProfileLocalScaffold({
     || (forceCompactToolsBelow2xl
       ? "2xl:hidden"
       : (useFloatingToolsOnTablet ? "xl:hidden" : "lg:hidden"));
+  const mobileBottomNavClassName = mobileBottomNavVariant === "flat"
+    ? "xl:hidden page-sticky-bar z-30 mb-2 w-full max-w-full overflow-x-auto bg-[var(--surface-page)]/92 px-3 py-2 backdrop-blur sm:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    : "xl:hidden page-sticky-bar z-30 mx-3 mb-2 overflow-x-auto max-w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/92 px-2 py-2 backdrop-blur sm:mx-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const localToolState = useMemo(() => ({
     q: searchParams.get("q") || "",
@@ -440,7 +444,7 @@ export default function PublicProfileLocalScaffold({
           )}
         </aside>
 
-        <div className={`min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-0 ${desktopContentOffsetClassName}`}>
+        <div className={`min-w-0 pb-4 lg:pb-0 ${desktopContentOffsetClassName}`}>
           <div className="lg:w-full lg:max-w-7xl lg:px-6">
             {wrapDesktopContentInFrame ? (
               <div className="hidden xl:block xl:rounded-3xl xl:border xl:border-[var(--border-subtle)] xl:bg-[var(--surface-page)]/70 xl:p-4 2xl:p-5">
@@ -468,7 +472,43 @@ export default function PublicProfileLocalScaffold({
                 </button>
               </div>
             ) : null}
-            <div className="px-6 pt-3 xl:hidden overflow-x-hidden min-w-0">{children}</div>
+            {!hideBottomNav ? (
+              <nav
+                aria-label={mode === "owner" ? "Owner collection section navigation" : "Profile section navigation"}
+                className={mobileBottomNavClassName}
+              >
+                {mobileBottomNavContent ? (
+                  typeof mobileBottomNavContent === "function"
+                    ? mobileBottomNavContent()
+                    : mobileBottomNavContent
+                ) : (
+                  <div className="flex min-w-max gap-2 pr-1">
+                    {mobileNavItems.map((item) => {
+                      const isActive = isSectionActive(item);
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          aria-label={`Open ${item.label} section`}
+                          aria-current={isActive ? "page" : undefined}
+                          className={[
+                            "inline-flex flex-none min-w-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors duration-150 ease-out",
+                            isActive
+                              ? "border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
+                              : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
+                          ].join(" ")}
+                        >
+                          <span className="max-[380px]:hidden">{item.icon}</span>
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </nav>
+            ) : null}
+            <div className="px-3 pt-3 xl:hidden overflow-x-hidden min-w-0 sm:px-6">{children}</div>
           </div>
         </div>
       </div>
@@ -524,7 +564,7 @@ export default function PublicProfileLocalScaffold({
           aria-controls={mobileToolsPanelId}
           aria-expanded={isToolsFeatureEnabled && isToolsOpen}
           className="fixed right-4 z-40 inline-flex h-14 min-h-[56px] w-14 min-w-[56px] items-center justify-center rounded-full border border-brand bg-brand text-white shadow-[0_14px_28px_rgba(0,0,0,0.42)] backdrop-blur transition hover:border-brand-dark hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          style={{ bottom: "calc(7.5rem + env(safe-area-inset-bottom))" }}
+          style={{ bottom: "calc(6rem + env(safe-area-inset-bottom))" }}
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 7h16" />
@@ -533,45 +573,6 @@ export default function PublicProfileLocalScaffold({
           </svg>
         </button>
 
-        {!hideBottomNav ? (
-          <nav
-            aria-label={mode === "owner" ? "Owner collection navigation" : "Public profile navigation"}
-            className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur"
-            style={{ paddingBottom: "max(0.65rem, env(safe-area-inset-bottom))" }}
-          >
-            {mobileBottomNavContent ? (
-              typeof mobileBottomNavContent === "function"
-                ? mobileBottomNavContent()
-                : mobileBottomNavContent
-            ) : (
-              <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-3 pt-2">
-                {mobileNavItems.map((item) => {
-                  const isActive = isSectionActive(item);
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-label={`Open ${item.label} section`}
-                      aria-current={isActive ? "page" : undefined}
-                      className={[
-                        "flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
-                        isActive
-                          ? "text-[var(--accent)]"
-                          : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
-                      ].join(" ")}
-                    >
-                      <span className={["transition-transform duration-150 ease-out", isActive ? "scale-110" : "scale-100"].join(" ")}>
-                        {item.icon}
-                      </span>
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </nav>
-        ) : null}
       </div>
     </div>
   );
