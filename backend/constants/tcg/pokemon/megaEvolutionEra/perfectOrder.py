@@ -10,8 +10,8 @@ class SetPerfectOrderConfig(BaseSetConfig):
     RELEASE_DATE = '2026/03/27'
     PRINTED_TOTAL = 88
     TOTAL = 124
-    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/me3/symbol.png'
-    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/me3/logo.png'
+    SYMBOL_IMAGE_URL = 'https://images.scrydex.com/pokemon/me3-symbol/symbol'
+    LOGO_IMAGE_URL = 'https://images.scrydex.com/pokemon/me3-logo/logo'
 
     # TODO: Populate scrape targets once TCGplayer set links are resolved.
     CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/24587/cards/?rows=5000&productTypeID=1'

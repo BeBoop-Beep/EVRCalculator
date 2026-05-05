@@ -42,10 +42,11 @@ const SIZE_STYLES = {
  * All dynamic colors use inline styles to prevent Tailwind purging
  * class strings that are constructed at runtime from config objects.
  */
-export default function RankBadge({ rank, label, title: titleProp, subtle = false, size = "default" }) {
+export default function RankBadge({ rank, label, title: titleProp, subtle = false, size = "default", format = "letter" }) {
   const config = rank ? RANK_CONFIG[rank] : null;
   const sizeStyle = SIZE_STYLES[size] || SIZE_STYLES.default;
   const isHero = size === "hero";
+  const rankDisplay = format === "tier" && rank ? `${rank} Tier` : rank;
   const borderAlpha = subtle ? (isHero ? 0.32 : 0.22) : isHero ? 0.46 : 0.3;
   const glowStrength = subtle ? (isHero ? 0.3 : 0.18) : isHero ? 0.46 : 0.27;
   const textColor = isHero ? withAlpha(config?.color, 0.95) : subtle ? withAlpha(config?.color, 0.86) : config?.color;
@@ -93,17 +94,23 @@ export default function RankBadge({ rank, label, title: titleProp, subtle = fals
             {label}:
           </span>
         ) : null}
-        <span
-          className="font-bold tracking-wide"
-          style={{
-            background: config.gradientText,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          S
-        </span>
+        {format === "tier" ? (
+          <span className="font-bold tracking-wide" style={{ color: textColor }}>
+            {rankDisplay}
+          </span>
+        ) : (
+          <span
+            className="font-bold tracking-wide"
+            style={{
+              background: config.gradientText,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            S
+          </span>
+        )}
       </span>
     );
   }
@@ -125,7 +132,7 @@ export default function RankBadge({ rank, label, title: titleProp, subtle = fals
           {label}:
         </span>
       ) : null}
-      <span className="font-bold tracking-wide">{rank}</span>
+      <span className="font-bold tracking-wide">{rankDisplay}</span>
     </span>
   );
 }

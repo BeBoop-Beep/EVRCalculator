@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 
+import InterpretationBadge from "@/components/ui/InterpretationBadge";
+import { getCalloutAccentStyle, getInterpretationTone } from "@/lib/explore/interpretationTone";
+
 function isMeaningfulEvidenceValue(value) {
   if (value === null || value === undefined) {
     return false;
@@ -13,41 +16,6 @@ function isMeaningfulEvidenceValue(value) {
   return text !== "N/A" && text !== "—";
 }
 
-function getSeverityStyles(severity) {
-  switch (severity) {
-    case "positive":
-      return {
-        leftBorder: "border-l-[rgba(45,212,191,0.7)]",
-        dot: "bg-[rgba(45,212,191,0.9)]",
-        badge: "border-[rgba(45,212,191,0.35)] text-[rgba(153,246,228,0.95)]",
-      };
-    case "neutral":
-      return {
-        leftBorder: "border-l-[rgba(96,165,250,0.6)]",
-        dot: "bg-[rgba(125,211,252,0.9)]",
-        badge: "border-[rgba(125,211,252,0.35)] text-[rgba(186,230,253,0.95)]",
-      };
-    case "caution":
-      return {
-        leftBorder: "border-l-[rgba(251,191,36,0.8)]",
-        dot: "bg-[rgba(251,191,36,0.95)]",
-        badge: "border-[rgba(251,191,36,0.35)] text-[rgba(253,230,138,0.95)]",
-      };
-    case "negative":
-      return {
-        leftBorder: "border-l-[rgba(251,113,133,0.8)]",
-        dot: "bg-[rgba(251,113,133,0.95)]",
-        badge: "border-[rgba(251,113,133,0.35)] text-[rgba(254,205,211,0.95)]",
-      };
-    default:
-      return {
-        leftBorder: "border-l-[var(--border-subtle)]",
-        dot: "bg-[rgba(148,163,184,0.85)]",
-        badge: "border-[var(--border-subtle)] text-[var(--text-secondary)]",
-      };
-  }
-}
-
 export default function InterpretationInsight({
   sectionMeta,
   fallbackSummary,
@@ -57,6 +25,7 @@ export default function InterpretationInsight({
   maxEvidence = 5,
   showAllWhenExpanded = false,
   evidenceLabel = "Why this matters",
+  rankTier = null,
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -74,11 +43,15 @@ export default function InterpretationInsight({
     return null;
   }
 
-  const severityStyles = getSeverityStyles(sectionMeta?.severity);
+  const tone = getInterpretationTone({
+    label,
+    rankTier,
+    severity: sectionMeta?.severity,
+  });
   const bodyTextClass = compact ? "text-sm leading-snug" : "text-sm leading-relaxed";
   const wrapperClass = compact
-    ? ["border-l-2", severityStyles.leftBorder, "pl-3 py-1.5 bg-transparent"].join(" ")
-    : ["border-l-2", severityStyles.leftBorder, "pl-4 py-2.5 bg-[rgba(255,255,255,0.025)] rounded-r-lg"].join(" ");
+    ? ["border-l-2", "pl-3 py-1.5 bg-transparent"].join(" ")
+    : ["border-l-2 rounded-r-lg pl-4 py-2.5"].join(" ");
 
   const visibleEvidence = !showAllWhenExpanded || !isOpen ? evidence.slice(0, maxEvidence) : evidence;
   const hasHiddenEvidence = evidence.length > visibleEvidence.length;
@@ -89,18 +62,20 @@ export default function InterpretationInsight({
         wrapperClass,
         className,
       ].join(" ")}
+      style={
+        compact
+          ? {
+              borderLeftColor: tone.accentColor,
+              backgroundColor: "transparent",
+              boxShadow: "none",
+            }
+          : getCalloutAccentStyle({ label, rankTier, severity: sectionMeta?.severity })
+      }
     >
       {label ? (
         <div className="mb-1.5 flex items-center gap-2">
-          <span className={["h-1.5 w-1.5 rounded-full", severityStyles.dot].join(" ")} aria-hidden="true" />
-          <span
-            className={[
-              "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
-              severityStyles.badge,
-            ].join(" ")}
-          >
-            {label}
-          </span>
+          <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: tone.dotColor }} />
+          <InterpretationBadge label={label} rankTier={rankTier} severity={sectionMeta?.severity} className="px-2 py-0.5 text-[10px] tracking-[0.08em]" />
         </div>
       ) : null}
 

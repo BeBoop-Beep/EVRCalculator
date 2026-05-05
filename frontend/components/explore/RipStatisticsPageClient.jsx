@@ -8,9 +8,11 @@ import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalS
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import InfoPopover from "@/components/ui/InfoPopover";
+import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getScoreTootip, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
+import { getCalloutAccentStyle, getDangerValueStyle, getInterpretationTone } from "@/lib/explore/interpretationTone";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -39,6 +41,54 @@ const SECTION_SCROLL_ORDER = [
   { sectionId: "explore-advanced", navId: "advanced-metrics" },
 ];
 
+const RIP_COPY = {
+  scoreLabel: "Rip Score",
+  scoreRankLabel: "Rip Rank",
+  summaryQuestion: "Should You Open This Set?",
+  summaryWhyTitle: "Why It Ranks Here",
+  scoreDetailsLabel: "Show details",
+  advancedLabel: "Advanced Score Details",
+  recommendationLabel: "Recommendation",
+  simpleMetrics: {
+    chanceToBeatPackCost: "Chance to Beat Pack Cost",
+    averagePackValue: "Average Pack Value",
+    currentPackCost: "Current Pack Cost",
+    averageLoss: "Average Loss",
+    chanceAtBigPull: "Chance at a Big Pull",
+  },
+  sections: {
+    packScore: "Rip Score",
+    outcomeDistribution: "What Usually Happens",
+    historicalTrend: "Is This Set Getting Better?",
+    packBreakdown: "Pack Breakdown",
+    topEvDrivers: "Cards Carrying the Set",
+    rarityContribution: "Where the Value Comes From",
+    advancedMetrics: "Advanced Score Details",
+  },
+  chartMarkers: {
+    packCost: "Pack Cost",
+    typicalPack: "Typical Pack Value",
+    bigHit: "Big Hit",
+    bestPull: "Best Simulated Pull",
+  },
+  chartStats: {
+    typicalPack: "Typical Pack Value",
+    badPackFloor: "Bad Pack Floor Value",
+    chanceToBeatPackCost: "Chance to Beat Pack Cost",
+    chanceAtBigPull: "Chance at a Big Pull",
+    bestPull: "Best Simulated Pull",
+  },
+  advancedStats: {
+    bigHitUpside: "Big Hit Upside",
+    expectedLossPerPack: "Average Loss per Pack",
+    expectedLossWhenLosing: "Average Loss When You Miss",
+    medianLossWhenLosing: "Typical Loss When You Miss",
+    coefficientOfVariation: "Coefficient of Variation",
+    hhiEvConcentration: "Value Concentration",
+    effectiveChaseCount: "Chase Depth",
+  },
+};
+
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -55,6 +105,25 @@ function normalizeProbability(value) {
 function formatCurrency(value) {
   const parsed = toNumber(value);
   return parsed === null ? "—" : currencyFormatter.format(parsed);
+}
+
+function formatLossCurrency(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return "—";
+  }
+  return `-${currencyFormatter.format(Math.abs(parsed))}`;
+}
+
+function formatSignedCurrency(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return "—";
+  }
+  if (Math.abs(parsed) < 0.005) {
+    return currencyFormatter.format(0);
+  }
+  return `${parsed < 0 ? "-" : "+"}${currencyFormatter.format(Math.abs(parsed))}`;
 }
 
 function formatPercent(value, options = {}) {
@@ -82,6 +151,18 @@ function formatNumber(value, decimals = 2) {
     return "—";
   }
   return parsed.toFixed(decimals);
+}
+
+function getSimpleAverageLossValue(summary) {
+  const meanValue = toNumber(summary?.mean_value);
+  const packCost = toNumber(summary?.pack_cost);
+
+  if (meanValue !== null && packCost !== null) {
+    return Math.min(meanValue - packCost, 0);
+  }
+
+  const expectedLossPerPack = toNumber(summary?.expected_loss_per_pack);
+  return expectedLossPerPack === null ? null : -Math.abs(expectedLossPerPack);
 }
 
 function titleCaseStateLabel(value) {
@@ -232,14 +313,215 @@ function HorizontalBar({ widthPercent, nonzeroMin = 2 }) {
 
 function MetricRow({ label, value, infoText }) {
   const friendlyLabel = getFriendlyMetricLabel(label);
+  const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] py-2 last:border-b-0 last:pb-0 first:pt-0">
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="text-sm text-[var(--text-secondary)]">{friendlyLabel}</span>
         {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
-      <span className="text-sm font-medium text-[var(--text-primary)]">{value}</span>
+      <span className="text-sm font-medium" style={isNegativeValue ? getDangerValueStyle() : undefined}>{value}</span>
     </div>
+  );
+}
+
+function CenteredSuffixInline({
+  as: Component = "button",
+  children,
+  suffix = null,
+  className = "",
+  contentClassName = "",
+  suffixWrapperClassName = "",
+  ...props
+}) {
+  return (
+    <Component
+      {...props}
+      className={[
+        "relative inline-grid min-w-0 grid-cols-[1fr_auto_1fr] items-center text-center",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span aria-hidden="true" className="pointer-events-none invisible col-start-1 inline-flex min-w-[1rem] items-center justify-center">
+        {suffix}
+      </span>
+      <span className={["col-start-2 min-w-0 truncate text-center", contentClassName].filter(Boolean).join(" ")}>
+        {children}
+      </span>
+      {suffix ? (
+        <span
+          aria-hidden="true"
+          className={[
+            "pointer-events-none col-start-3 inline-flex min-w-[1rem] items-center justify-center",
+            suffixWrapperClassName,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {suffix}
+        </span>
+      ) : (
+        <span aria-hidden="true" className="pointer-events-none invisible col-start-3 inline-flex min-w-[1rem] items-center justify-center" />
+      )}
+    </Component>
+  );
+}
+
+function ScoreModeToggle({ scoreMode, onChange }) {
+  return (
+    <div className="inline-grid w-full max-w-xs grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/92 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_10px_24px_rgba(15,23,42,0.14)] sm:inline-flex sm:w-auto sm:max-w-none">
+      <button
+        type="button"
+        onClick={() => onChange("relative")}
+        aria-pressed={scoreMode === "relative"}
+        className={`min-w-0 rounded-full px-3 py-2 text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+          scoreMode === "relative"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        Relative
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("absolute")}
+        aria-pressed={scoreMode === "absolute"}
+        className={`min-w-0 rounded-full px-3 py-2 text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+          scoreMode === "absolute"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        Absolute
+      </button>
+    </div>
+  );
+}
+
+function CompactMetricModeToggle({ mode, onChange }) {
+  return (
+    <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/90 p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+      <button
+        type="button"
+        onClick={() => onChange("overview")}
+        aria-pressed={mode === "overview"}
+        aria-label="Simple metrics"
+        title="Simple metrics"
+        className={`rounded-full px-2 py-1 text-[10px] font-semibold leading-none transition-colors ${
+          mode === "overview"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        Overview
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("details")}
+        aria-pressed={mode === "details"}
+        aria-label="Score details"
+        title="Score details"
+        className={`rounded-full px-2 py-1 text-[10px] font-semibold leading-none transition-colors ${
+          mode === "details"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        Details
+      </button>
+    </div>
+  );
+}
+
+function MetricViewToggle({ metricView, onChange, detailsLabel = "Score Details" }) {
+  return (
+    <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/90 p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+      <button
+        type="button"
+        onClick={() => onChange("overview")}
+        aria-pressed={metricView === "overview"}
+        className={`min-w-[4.75rem] rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none transition-colors ${
+          metricView === "overview"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        Overview
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("details")}
+        aria-pressed={metricView === "details"}
+        className={`min-w-[6rem] rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none transition-colors ${
+          metricView === "details"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        {detailsLabel}
+      </button>
+    </div>
+  );
+}
+
+function RecommendationBadge({ label, rankTier }) {
+  if (!label) {
+    return null;
+  }
+
+  return <InterpretationBadge label={label} rankTier={rankTier} className="px-2.5 py-0.5 text-[10px] tracking-[0.08em]" />;
+}
+
+function EvidencePills({ title, rows }) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
+      <div className="mt-2 grid gap-2 md:grid-cols-3">
+        {rows.map(([label, value]) => (
+          <div
+            key={`${label}:${value}`}
+            className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-3 py-2.5 text-left"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+            <p className="mt-1 text-sm leading-snug text-[var(--text-primary)]">{String(value)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DisclosureSection({ title, description = null, children, defaultOpen = false, className = "" }) {
+  return (
+    <details
+      open={defaultOpen}
+      className={[
+        "group rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-4 sm:p-5",
+        className,
+      ].join(" ")}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-left transition-colors hover:text-white">
+        <div>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
+          {description ? <p className="mt-1 text-xs text-[var(--text-secondary)]">{description}</p> : null}
+        </div>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          className="h-5 w-5 flex-none text-[var(--text-secondary)] transition-transform duration-150 group-open:rotate-180"
+          fill="currentColor"
+        >
+          <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+        </svg>
+      </summary>
+      <div className="mt-4">{children}</div>
+    </details>
   );
 }
 
@@ -248,24 +530,27 @@ function ScorePillarCard({
   score,
   rankValue,
   rankTier,
-  signals,
-  contextMetrics,
+  simpleMetrics,
+  advancedMetrics,
   infoText,
   rankLabel,
   sectionMeta,
   fallbackSummary,
 }) {
+  const [metricMode, setMetricMode] = useState("overview");
   const parsedRank = toNumber(rankValue);
   const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
-  const flattenedMetrics = [...signals, ...contextMetrics];
+  const metricsToDisplay = metricMode === "overview" ? simpleMetrics : advancedMetrics;
 
   return (
     <article className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <h3 className="text-base font-semibold tracking-[0.01em] text-[var(--text-secondary)]">{title}</h3>
-          <p className="text-2xl font-bold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
-          <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} size="supporting" subtle />
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+            <h3 className="text-base font-semibold tracking-[0.01em] text-[var(--text-secondary)]">{title}</h3>
+            <p className="text-2xl font-bold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
+            <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} size="supporting" subtle />
+          </div>
         </div>
         <div className="flex flex-none items-center gap-1">
           {infoText ? <InfoPopover text={infoText} /> : null}
@@ -274,27 +559,35 @@ function ScorePillarCard({
 
       <ScoreMeter score={score} rankTier={rankTier} />
 
-      <div className="min-h-[140px]">
+      <div className="mt-4 min-h-[74px]">
         <InterpretationInsight
           sectionMeta={sectionMeta}
           fallbackSummary={fallbackSummary}
+          rankTier={rankTier}
           compact
           showEvidence={false}
           className="mt-3"
         />
       </div>
 
-      <div className="mt-5 h-px w-full bg-[var(--border-subtle)]" />
-
-      <div className="mt-3 flex-1 space-y-1">
-        {flattenedMetrics.map((metric) => (
+      <div className="mt-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+            <InfoPopover text="Switch between simple collector-facing metrics and score details." />
+          </div>
+          <CompactMetricModeToggle mode={metricMode} onChange={setMetricMode} />
+        </div>
+        <div className="min-h-[12.5rem] space-y-1">
+          {metricsToDisplay.map((metric) => (
           <MetricRow
             key={metric.label}
             label={metric.label}
             value={metric.value}
             infoText={getMetricTooltip(metric.label)}
           />
-        ))}
+          ))}
+        </div>
       </div>
     </article>
   );
@@ -336,31 +629,30 @@ function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, ima
 
   return (
     <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-      <div className="grid w-full max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:flex sm:items-center sm:gap-3">
-      <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
-        {shouldRenderImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageSrc}
-            alt={name ? `${name} card image` : "Card image"}
-            loading="lazy"
-            decoding="async"
-            onError={() => setHasImageError(true)}
-            className="h-full w-full rounded-[5px] object-contain"
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0 max-w-full sm:flex-1">
-        <p className="truncate text-sm font-medium text-[var(--text-primary)]">{name || "Unknown Card"}</p>
-        {evShare ? <p className="break-words text-xs text-[var(--text-secondary)]">{evShare} of pack EV</p> : null}
-      </div>
-      <div className="col-span-2 min-w-0 max-w-full text-left sm:col-auto sm:ml-auto sm:text-right">
-        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">Average Impact</p>
-        <p className="mt-0.5 text-[11px] leading-tight text-[var(--text-secondary)] sm:max-w-[12rem] sm:text-right">
-          How much this card adds to the average pack after rarity is considered.
-        </p>
-        <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
-      </div>
+      <div className="flex min-w-0 flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
+            {shouldRenderImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageSrc}
+                alt={name ? `${name} card image` : "Card image"}
+                loading="lazy"
+                decoding="async"
+                onError={() => setHasImageError(true)}
+                className="h-full w-full rounded-[5px] object-contain"
+              />
+            ) : null}
+          </div>
+          <div className="min-w-0 max-w-full">
+            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name || "Unknown Card"}</p>
+            {evShare ? <p className="break-words text-xs text-[var(--text-secondary)]">{evShare} of pack value</p> : null}
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-col items-start text-left sm:items-end sm:text-right">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Value Contribution</p>
+          <p className="break-words text-lg font-semibold text-[var(--text-primary)] sm:text-xl">{formatCurrency(evContribution)}</p>
+        </div>
       </div>
     </div>
   );
@@ -371,18 +663,23 @@ function TopEVDriversContent({ topHits, meanValue }) {
   const totalEV = toNumber(meanValue);
   const visibleTopEV = hits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
   const hasPackTotalEV = totalEV !== null;
-  const totalLabel = hasPackTotalEV ? "Total Pack EV" : "Top 10 EV";
+  const totalLabel = hasPackTotalEV ? "Simulated Average Pack Value" : "Top 10 Simulated Value";
   const totalValue = hasPackTotalEV ? totalEV : visibleTopEV;
 
   if (hits.length === 0) {
-    return <p className="text-sm text-[var(--text-secondary)]">No top EV driver rows are available.</p>;
+    return <p className="text-sm text-[var(--text-secondary)]">No card contribution rows are available.</p>;
   }
 
   return (
     <div className="w-full max-w-full min-w-0 space-y-2">
-      <p className="mb-2 text-xs text-[var(--text-secondary)]">
-        {totalLabel}: {formatCurrency(totalValue)}
-      </p>
+      <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{totalLabel}</span>
+          <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} />
+        </div>
+        <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
+      </div>
+
       {hits.map((hit) => {
         const ev = toNumber(hit?.ev_contribution);
         const evShare = ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null;
@@ -406,6 +703,19 @@ function TopEVDriversContent({ topHits, meanValue }) {
 function RarityContributionContent({ rankings }) {
   const [mode, setMode] = useState("ev");
   const rows = Array.isArray(rankings) ? rankings : [];
+
+  const RarityMetricRow = ({ label, primaryValue, share, barWidth }) => (
+    <div className="py-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-[var(--text-primary)]">{label}</span>
+        <span className="text-right text-sm text-[var(--text-primary)]">
+          <span className="font-semibold">{primaryValue}</span>
+          {share ? <span className="text-[var(--text-secondary)]"> {`(${share})`}</span> : null}
+        </span>
+      </div>
+      <HorizontalBar widthPercent={barWidth} />
+    </div>
+  );
 
   const evRows = useMemo(() => {
     const sorted = [...rows].sort(
@@ -440,7 +750,7 @@ function RarityContributionContent({ rankings }) {
             mode === "ev" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
           }`}
         >
-          EV Contribution
+          Value Contribution
         </button>
         <button
           type="button"
@@ -454,38 +764,41 @@ function RarityContributionContent({ rankings }) {
         </button>
       </div>
 
-      <p className="mb-3 text-xs text-[var(--text-secondary)]">
-        {mode === "ev"
-          ? `Total EV Represented: ${formatCurrency(evRows.totalEV)}`
-          : `Total Pull Events: ${pullRows.totalPulls.toLocaleString("en-US")} pulls`}
-      </p>
+      <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            {mode === "ev" ? "Total Simulated Value" : "Total Simulated Pulls"}
+          </span>
+          {mode === "ev" ? <InfoPopover text={TOTAL_SIMULATED_VALUE_INFO_TEXT} /> : null}
+        </div>
+        <span className="text-lg font-semibold text-[var(--text-primary)]">
+          {mode === "ev" ? formatCurrency(evRows.totalEV) : pullRows.totalPulls.toLocaleString("en-US")}
+        </span>
+      </div>
 
       {mode === "ev" ? (
-        <div className="space-y-3">
+        <div className="space-y-1">
           {evRows.maxEV === 0 ? (
-            <p className="text-sm text-[var(--text-secondary)]">No EV contribution data available.</p>
+            <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
           ) : (
             evRows.sorted.map((ranking) => {
               const value = toNumber(ranking?.total_sampled_value) ?? 0;
               const share = evRows.totalEV > 0 ? `${((value / evRows.totalEV) * 100).toFixed(1)}%` : null;
 
               return (
-                <div key={`ev:${ranking?.rarity_bucket || "unknown"}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm text-[var(--text-secondary)]">{titleCaseStateLabel(ranking?.rarity_bucket)}</span>
-                    <span className="text-sm font-medium text-[var(--text-primary)]">
-                      {formatCurrency(value)}
-                      {share ? <span className="ml-1 text-xs text-[var(--text-secondary)]">({share})</span> : null}
-                    </span>
-                  </div>
-                  <HorizontalBar widthPercent={normalizeBarWidth(value, evRows.maxEV)} />
-                </div>
+                <RarityMetricRow
+                  key={`ev:${ranking?.rarity_bucket || "unknown"}`}
+                  label={titleCaseStateLabel(ranking?.rarity_bucket)}
+                  primaryValue={formatCurrency(value)}
+                  share={share}
+                  barWidth={normalizeBarWidth(value, evRows.maxEV)}
+                />
               );
             })
           )}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-1">
           {pullRows.maxPulls === 0 ? (
             <p className="text-sm text-[var(--text-secondary)]">No pull frequency data available.</p>
           ) : (
@@ -494,16 +807,13 @@ function RarityContributionContent({ rankings }) {
               const share = pullRows.totalPulls > 0 ? `${((count / pullRows.totalPulls) * 100).toFixed(1)}%` : null;
 
               return (
-                <div key={`pull:${ranking?.rarity_bucket || "unknown"}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm text-[var(--text-secondary)]">{titleCaseStateLabel(ranking?.rarity_bucket)}</span>
-                    <span className="text-sm font-medium text-[var(--text-primary)]">
-                      {count.toLocaleString("en-US")}
-                      {share ? <span className="ml-1 text-xs text-[var(--text-secondary)]">({share})</span> : null}
-                    </span>
-                  </div>
-                  <HorizontalBar widthPercent={normalizeBarWidth(count, pullRows.maxPulls)} />
-                </div>
+                <RarityMetricRow
+                  key={`pull:${ranking?.rarity_bucket || "unknown"}`}
+                  label={titleCaseStateLabel(ranking?.rarity_bucket)}
+                  primaryValue={count.toLocaleString("en-US")}
+                  share={share}
+                  barWidth={normalizeBarWidth(count, pullRows.maxPulls)}
+                />
               );
             })
           )}
@@ -574,10 +884,17 @@ function StateBars({ stateRows }) {
 }
 
 function SectionNavigation({ items, activeSection, onSelect, mobile = false }) {
+  const isItemActive = (itemId) => {
+    if (itemId === "outcome-distribution") {
+      return GRAPH_SECTION_KEYS.has(activeSection) || activeSection === ANALYSIS_SECTION_ID;
+    }
+    return activeSection === itemId;
+  };
+
   return (
     <nav aria-label="RIP statistics section navigation" className={mobile ? "space-y-1" : "space-y-1.5"}>
       {items.map((item) => {
-        const isActive = activeSection === item.id;
+        const isActive = isItemActive(item.id);
         return (
           <button
             key={item.id}
@@ -620,6 +937,53 @@ function buildEvidenceMap(sectionMeta) {
   return mapping;
 }
 
+const SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT = (
+  <div className="space-y-1.5 text-left">
+    <p className="font-semibold text-[var(--text-primary)]">How cards impact pack value</p>
+    <p className="text-[var(--text-secondary)]">
+      Simulated Average Pack Value is the average value generated per simulated pack using current card values and pull odds. Value Contribution shows how much each card adds to that average after pull odds are considered.
+    </p>
+  </div>
+);
+const TOTAL_SIMULATED_VALUE_INFO_TEXT = "The combined simulated value used to compare rarity groups.";
+
+function collectorFriendlyText(text) {
+  if (text === null || text === undefined) {
+    return text;
+  }
+
+  return String(text)
+    .replace(/Top EV driver data/gi, "Card contribution data")
+    .replace(/Top EV drivers/gi, "Top contributing cards")
+    .replace(/Top card EV share/gi, "Top Card Share")
+    .replace(/Top 3 EV share/gi, "Top 3 Share")
+    .replace(/Top 5 EV share/gi, "Top 5 Share")
+    .replace(/EV-leading rarity share/gi, "Top Rarity Share")
+    .replace(/EV-leading rarity/gi, "Top Value Rarity")
+    .replace(/EV and pull aligned/gi, "Value and Pulls Align")
+    .replace(/expected pack value/gi, "simulated average pack value")
+    .replace(/expected value/gi, "simulated value")
+    .replace(/\bEV\b/g, "value");
+}
+
+function toCollectorFriendlySectionMeta(sectionMeta) {
+  if (!sectionMeta) {
+    return sectionMeta;
+  }
+
+  return {
+    ...sectionMeta,
+    summary: collectorFriendlyText(sectionMeta.summary),
+    evidence: Array.isArray(sectionMeta.evidence)
+      ? sectionMeta.evidence.map((item) => ({
+          ...item,
+          label: collectorFriendlyText(item?.label),
+          value: collectorFriendlyText(item?.value),
+        }))
+      : sectionMeta.evidence,
+  };
+}
+
 function getPackBreakdownEvidence(sectionMeta) {
   const evidenceMap = buildEvidenceMap(sectionMeta);
   const rows = [
@@ -635,19 +999,33 @@ function getTopEvEvidence(sectionMeta) {
   const evidenceMap = buildEvidenceMap(sectionMeta);
   const rows = [
     ["Leading card", evidenceMap["leading card"]],
-    ["Top card EV share", evidenceMap["top card ev share"]],
-    ["Top 3 EV share", evidenceMap["top 3 ev share"]],
-    ["Leading value group", evidenceMap["leading value group"]],
+    ["Top Card Share", evidenceMap["top card ev share"]],
+    ["Top 3 Share", evidenceMap["top 3 ev share"]],
+    ["Leading value group", evidenceMap["leading value group"] ?? evidenceMap["leading value type"]],
   ];
 
   return rows.filter(([, value]) => value !== null && value !== undefined && String(value).trim() && String(value) !== "N/A" && String(value) !== "—");
+}
+
+function getTopEvidenceRows(sectionMeta, limit = 3) {
+  const evidence = Array.isArray(sectionMeta?.evidence) ? sectionMeta.evidence : [];
+  return evidence
+    .filter((item) => item?.label && item?.value !== null && item?.value !== undefined)
+    .map((item) => [item.label, item.value])
+    .filter(([, value]) => String(value).trim() && String(value) !== "N/A" && String(value) !== "—")
+    .slice(0, limit);
+}
+
+function getHeroEvidenceRows(sectionMeta) {
+  const labels = ["Main reason", "Watch out for", "Compared with other sets"];
+  return getTopEvidenceRows(sectionMeta, 3).map(([, value], index) => [labels[index], value]);
 }
 
 function CompactBottomSectionNav({ activeSection, onSelect }) {
   const items = [
     {
       id: "pack-score",
-      label: "Score",
+      label: "Rip Score",
       icon: (
         <svg
           aria-hidden="true"
@@ -690,7 +1068,7 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
     },
     {
       id: "top-ev-drivers",
-      label: "Drivers",
+      label: "Cards",
       icon: (
         <svg
           aria-hidden="true"
@@ -709,7 +1087,7 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
     },
     {
       id: "rarity-contribution",
-      label: "Pools",
+      label: "Value",
       icon: (
         <svg
           aria-hidden="true"
@@ -821,8 +1199,14 @@ export default function RipStatisticsPageClient({
   const outcomeDistributionMeta = interpretationMeta?.outcomeDistribution;
   const historicalTrendMeta = interpretationMeta?.historicalTrend;
   const packBreakdownMeta = interpretationMeta?.packBreakdown;
-  const topEvDriversMeta = interpretationMeta?.topEvDrivers;
-  const rarityContributionMeta = interpretationMeta?.rarityContribution;
+  const topEvDriversMeta = useMemo(
+    () => toCollectorFriendlySectionMeta(interpretationMeta?.topEvDrivers),
+    [interpretationMeta?.topEvDrivers]
+  );
+  const rarityContributionMeta = useMemo(
+    () => toCollectorFriendlySectionMeta(interpretationMeta?.rarityContribution),
+    [interpretationMeta?.rarityContribution]
+  );
   const advancedMetricsMeta = interpretationMeta?.advancedMetrics;
 
   const warnings = [
@@ -843,6 +1227,7 @@ export default function RipStatisticsPageClient({
 
   const [graphMode, setGraphMode] = useState("outcome-distribution");
   const [scoreMode, setScoreMode] = useState("relative");
+  const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
   const heroSetPickerRef = useRef(null);
@@ -866,37 +1251,23 @@ export default function RipStatisticsPageClient({
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
-      <p className="font-semibold text-[var(--text-primary)]">Outcome Distribution</p>
+      <p className="font-semibold text-[var(--text-primary)]">What Usually Happens</p>
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often simulated packs land in each value range.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows the chance of reaching at least each value.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Hovering shows exact frequency, count, and chance.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Percentile chips like P5, Median, P95, and P99 summarize the spread.</span></li>
-      </ul>
-    </div>
-  );
-
-  const topEvDriversInfo = (
-    <div className="space-y-1.5 text-left">
-      <p className="font-semibold text-[var(--text-primary)]">Cards That Move the Average</p>
-      <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
-        <li className="flex gap-2"><span className="flex-none">•</span><span>These are the cards that have the biggest effect on the average pack value.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The dollar amount is not the card&apos;s price.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>It means: &quot;When we include how rare this card is, this is about how much it adds to the average pack.&quot;</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>A very expensive card can still add only a little if it is very hard to pull.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The percent shows how much of the pack&apos;s average value comes from that card.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>This helps show if one big chase card is carrying the set, or if many cards are helping.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often packs land in each value range.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows how often a pack reaches at least a given value.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>The markers highlight pack cost, a typical pack value, a big hit, and the best simulated pull in the run.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Extra percentile markers stay available under chart details when you want the technical view.</span></li>
       </ul>
     </div>
   );
 
   const rarityContributionInfo = (
     <div className="space-y-1.5 text-left">
-      <p className="font-semibold text-[var(--text-primary)]">Rarity Pool Contribution</p>
+      <p className="font-semibold text-[var(--text-primary)]">Where the Value Comes From</p>
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Shows which rarity groups contribute most to expected pack value.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Higher contribution means that rarity bucket drives more of the average return.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Use this to see if EV is broad-based or concentrated in narrow chase pools.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Shows which rarity groups contribute most to the simulated value in the run.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Higher contribution means that rarity bucket drives more of the pack&apos;s simulated average value.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Use this to see whether value is spread across many rarities or concentrated in a narrow chase tier.</span></li>
       </ul>
     </div>
   );
@@ -911,6 +1282,11 @@ export default function RipStatisticsPageClient({
     [topEvDriversMeta]
   );
 
+  const topScoreEvidenceRows = useMemo(
+    () => getHeroEvidenceRows(packScoreMeta),
+    [packScoreMeta]
+  );
+
   const normalStateRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.normal_pack_states),
     [ripStatistics?.normal_pack_states]
@@ -920,15 +1296,15 @@ export default function RipStatisticsPageClient({
     ([, value]) => toNumber(value) !== null
   );
 
+  const showDebugTimings = process.env.NODE_ENV !== "production";
+
   const sectionNavItems = useMemo(
     () => [
-      { id: "pack-score", label: "Pack Score" },
-      { id: "outcome-distribution", label: "Outcome Distribution" },
-      { id: "historical-trend", label: "Historical Trend" },
-      { id: "pack-breakdown", label: "Pack Breakdown" },
-      { id: "top-ev-drivers", label: "Top Expected Value (EV) Drivers" },
-      { id: "rarity-contribution", label: "Rarity Contribution" },
-      { id: "advanced-metrics", label: "Advanced Metrics" },
+      { id: "pack-score", label: RIP_COPY.sections.packScore },
+      { id: "outcome-distribution", label: RIP_COPY.sections.outcomeDistribution },
+      { id: "top-ev-drivers", label: RIP_COPY.sections.topEvDrivers },
+      { id: "rarity-contribution", label: RIP_COPY.sections.rarityContribution },
+      { id: "advanced-metrics", label: RIP_COPY.sections.advancedMetrics },
     ],
     []
   );
@@ -1132,13 +1508,10 @@ export default function RipStatisticsPageClient({
   }, [explorePayload, pageError, graphMode]);
 
   const chartMarkers = [
-    { key: "pack-cost", label: "Pack Cost", value: summary.pack_cost },
-    { key: "p5", label: "P5", value: percentileP5 ?? summary.tail_value_p05 },
-    { key: "median", label: "Median", value: percentileP50 ?? summary.median_value },
-    { key: "p95", label: "P95", value: percentileP95 },
-    { key: "p99", label: "P99", value: percentileP99 },
-    { key: "big-hit", label: "Big Hit", value: summary.big_hit_threshold },
-    { key: "max", label: "Max", value: summary.max_value },
+    { key: "pack-cost", label: RIP_COPY.chartMarkers.packCost, value: summary.pack_cost },
+    { key: "median", label: RIP_COPY.chartMarkers.typicalPack, value: percentileP50 ?? summary.median_value },
+    { key: "big-hit", label: RIP_COPY.chartMarkers.bigHit, value: summary.big_hit_threshold },
+    { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
   const displayedRelativePackScore = formatRawScore(summary.relative_pack_score);
@@ -1150,6 +1523,28 @@ export default function RipStatisticsPageClient({
   const displayedSafetyScore = scoreMode === "relative" ? summary.relative_safety_score : summary.safety_score;
   const displayedStabilityScore =
     scoreMode === "relative" ? summary.relative_stability_score : summary.stability_score;
+  const heroLogoUrl =
+    selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
+
+  const recommendationSummary = packScoreMeta?.summary || interpretation?.packScore || null;
+  const recommendationBadge = packScoreMeta?.label || null;
+  const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: summary.pack_tier });
+  const simpleAverageLossValue = getSimpleAverageLossValue(summary);
+  const decisionMetrics = [
+    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
+    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
+    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
+    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
+    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
+  ];
+  const technicalScoreMetrics = [
+    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
+    { label: "Typical Outcome vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
+    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
+    { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
+    { label: "Value Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
+    { label: "Chase Depth", value: formatNumber(summary.effective_chase_count, 2) },
+  ];
 
   const handleTargetIdChange = (nextTargetId) => {
     if (!nextTargetId) {
@@ -1360,37 +1755,53 @@ export default function RipStatisticsPageClient({
 
         {!pageError && explorePayload ? (
           <>
-            <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
-              <div className="mx-auto max-w-3xl text-center">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">RIP Statistics</p>
-                <div ref={heroSetPickerRef} data-hero-picker className="relative mt-2 inline-flex max-w-full justify-center">
-                  <button
+            <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
+              {heroLogoUrl ? (
+                <div className="pointer-events-none absolute left-1/2 top-[18%] z-0 h-[100%] w-[100%] -translate-x-1/2 -translate-y-1/2 select-none sm:top-1/2 sm:h-[107%] sm:w-[107%]">
+                  <img
+                    src={heroLogoUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-full w-full object-contain opacity-[0.1] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.16))]"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+              ) : null}
+              <div className="relative z-10 mx-auto mt-2 flex w-full max-w-[42rem] flex-col items-center text-center">
+                <div ref={heroSetPickerRef} data-hero-picker className="relative w-full">
+                  <CenteredSuffixInline
+                    as="button"
                     type="button"
                     onClick={() => setHeroSetPickerOpen((open) => !open)}
                     disabled={isPending || targets.length === 0}
                     aria-expanded={heroSetPickerOpen}
                     aria-haspopup="listbox"
                     aria-controls="hero-set-picker-list"
-                    className="inline-flex max-w-full items-center gap-2 rounded-lg px-2 py-1 text-3xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:text-4xl disabled:cursor-not-allowed disabled:opacity-90"
+                    className="block w-full rounded-lg px-10 py-1 text-3xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:px-12 sm:text-4xl disabled:cursor-not-allowed disabled:opacity-90"
+                    contentClassName="mx-auto max-w-full whitespace-normal break-words text-center leading-tight text-balance"
+                    suffixWrapperClassName="right-3 sm:right-4"
+                    suffix={
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 20 20"
+                        className={`h-4 w-4 flex-none text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
+                        fill="currentColor"
+                      >
+                        <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                      </svg>
+                    }
                     title={targets.length > 0 ? "Switch set" : "No sets available"}
                   >
-                    <span className="truncate">{selectedName}</span>
-                    <svg
-                      aria-hidden="true"
-                      viewBox="0 0 20 20"
-                      className={`h-4 w-4 flex-none text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
-                      fill="currentColor"
-                    >
-                      <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
-                    </svg>
-                  </button>
+                    <span>{selectedName}</span>
+                  </CenteredSuffixInline>
 
                   {heroSetPickerOpen ? (
                     <div
                       id="hero-set-picker-list"
                       role="listbox"
                       aria-label="Available sets"
-                      className="absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
+                      className="index-scrollbar absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
                     >
                       {targets.map((target) => {
                         const isSelected = String(target.target_id) === String(requestedTargetId || "");
@@ -1421,65 +1832,79 @@ export default function RipStatisticsPageClient({
                   ) : null}
                 </div>
 
-                <div className="mt-6 flex flex-col items-center gap-1.5">
-                  <p className="text-[clamp(3rem,10vw,5rem)] font-semibold leading-tight text-[var(--text-primary)]">{displayedTopScore}</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Pack Score</p>
-                    <InfoPopover text={getFormattedTooltip("Pack Score")} />
-                  </div>
-                </div>
+                <div className="mt-6 flex w-full flex-col items-center text-center">
+                  <div className="mt-4 flex w-full flex-col items-center text-center">
+                      <div className="mt-1 flex w-full justify-center">
+                        <div className="relative inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                          <span>{RIP_COPY.scoreLabel}</span>
+                          <span className="absolute left-full top-1/2 ml-2 inline-flex -translate-y-1/2 items-center">
+                            <InfoPopover text={getFormattedTooltip("Pack Score")} />
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex w-full justify-center">
+                        <div className="relative inline-block leading-none">
+                          <span className="text-[clamp(3.25rem,10vw,5rem)] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
+                            {displayedTopScore}
+                          </span>
+                          <span className="pointer-events-none absolute bottom-2 left-full ml-2 text-sm font-medium text-[var(--text-secondary)] sm:bottom-3">/100</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex w-full justify-center self-center">
+                        <ScoreModeToggle scoreMode={scoreMode} onChange={setScoreMode} />
+                      </div>
+                      <div className="mt-4 w-full max-w-lg">
+                        <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
+                      </div>
+                      <div className="mt-4 flex w-full justify-center self-center">
+                        <RankBadge
+                          rank={summary.pack_tier}
+                          label="Rank"
+                          size="hero"
+                          title={
+                            summary.pack_rank === null || summary.pack_rank === undefined
+                              ? "Rank unavailable"
+                              : `Rank #${summary.pack_rank}`
+                          }
+                        />
+                      </div>
+                    </div>
 
-                <div className="mx-auto mt-4 w-full max-w-md">
-                  <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
-                </div>
+                    <div className="mx-auto mt-6 w-full max-w-2xl">
+                      <div
+                        className="border-l-2 px-4 py-3 text-left sm:px-5"
+                        style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: summary.pack_tier })}
+                      >
+                        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                          <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: recommendationTone.dotColor }} />
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
+                          <RecommendationBadge label={recommendationBadge} rankTier={summary.pack_tier} />
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
+                      </div>
+                    </div>
 
-                <div className="mt-4 flex justify-center">
-                  <RankBadge
-                    rank={summary.pack_tier}
-                    label="Pack Rank"
-                    size="hero"
-                    title={
-                      summary.pack_rank === null || summary.pack_rank === undefined
-                        ? "Pack Rank unavailable"
-                        : `Pack rank #${summary.pack_rank}`
-                    }
-                  />
-                </div>
+                    <div className="mx-auto mt-5 w-full max-w-2xl text-left">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+                          <InfoPopover text="Overview shows collector-friendly metrics. Score Details shows the technical inputs behind the score." />
+                        </div>
+                        <MetricViewToggle metricView={heroMetricView} onChange={setHeroMetricView} />
+                      </div>
+                      {(heroMetricView === "overview" ? decisionMetrics : technicalScoreMetrics).map((metric) => (
+                        <MetricRow
+                          key={metric.label}
+                          label={metric.label}
+                          value={metric.value}
+                          infoText={getMetricTooltip(metric.label)}
+                        />
+                      ))}
+                    </div>
 
-                <InterpretationInsight
-                  sectionMeta={packScoreMeta}
-                  fallbackSummary={interpretation?.packScore}
-                  showEvidence
-                  maxEvidence={3}
-                  evidenceLabel="Why this matters"
-                  className="mx-auto mt-3 w-full max-w-2xl"
-                />
-
-                <div className="mx-auto mt-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setScoreMode("relative")}
-                    aria-pressed={scoreMode === "relative"}
-                    className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                      scoreMode === "relative"
-                        ? "bg-[var(--brand)] text-white"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    Relative
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScoreMode("absolute")}
-                    aria-pressed={scoreMode === "absolute"}
-                    className={`min-w-[7.5rem] rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                      scoreMode === "absolute"
-                        ? "bg-[var(--brand)] text-white"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    Absolute
-                  </button>
+                    <div className="mx-auto mt-5 max-w-2xl text-left">
+                      <EvidencePills title={RIP_COPY.summaryWhyTitle} rows={topScoreEvidenceRows} />
+                    </div>
                 </div>
               </div>
             </section>
@@ -1495,14 +1920,16 @@ export default function RipStatisticsPageClient({
                   sectionMeta={profitMeta}
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Profit")}
-                  signals={[
-                    { label: "Probability of Profit", value: formatPercent(summary.prob_profit, { probability: true }) },
-                    { label: "EV / Mean Value", value: formatNumber(meanValueToCostRatio, 2) },
-                    { label: "Median-to-Cost Ratio", value: formatNumber(medianValueToCostRatio, 2) },
-                    { label: "P95-to-Cost Ratio", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
+                  simpleMetrics={[
+                    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
+                    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
+                    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
+                    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
                   ]}
-                  contextMetrics={[
-                    { label: "Pack Cost", value: formatCurrency(summary.pack_cost) },
+                  advancedMetrics={[
+                    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
+                    { label: "Typical Outcome vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
+                    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
                     { label: "ROI", value: formatPercent(summary.roi_percent) },
                   ]}
                 />
@@ -1515,14 +1942,16 @@ export default function RipStatisticsPageClient({
                   sectionMeta={safetyMeta}
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Safety")}
-                  signals={[
-                    { label: "Expected Loss When Losing / Cost", value: formatPercent(expectedLossWhenLosingFraction, { probability: true }) },
-                    { label: "Median Loss When Losing / Cost", value: formatPercent(medianLossWhenLosingFraction, { probability: true }) },
-                    { label: "P05 Shortfall to Cost", value: formatPercent(p05ShortfallToCost, { probability: true }) },
+                  simpleMetrics={[
+                    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing) },
+                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value) },
+                    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05) },
                   ]}
-                  contextMetrics={[
-                    { label: "Median Loss When Losing", value: formatCurrency(summary.median_loss_when_losing) },
-                    { label: "Tail Value P5", value: formatCurrency(summary.tail_value_p05) },
+                  advancedMetrics={[
+                    { label: "Expected Loss Per Pack", value: formatLossCurrency(summary.expected_loss_per_pack) },
+                    { label: "Expected Loss When Losing", value: formatLossCurrency(summary.expected_loss_when_losing) },
+                    { label: "Median Loss When Losing", value: formatLossCurrency(summary.median_loss_when_losing) },
+                    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05) },
                   ]}
                 />
                 <ScorePillarCard
@@ -1534,15 +1963,17 @@ export default function RipStatisticsPageClient({
                   sectionMeta={stabilityMeta}
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Stability")}
-                  signals={[
-                    { label: "Coefficient of Variation", value: formatNumber(summary.coefficient_of_variation, 2) },
-                    { label: "HHI EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
-                    { label: "Effective Chase Count", value: formatNumber(summary.effective_chase_count, 2) },
+                  simpleMetrics={[
+                    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2) },
+                    { label: "Top Chase Share", value: formatPercent(summary.top1_ev_share) },
+                    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3) },
                   ]}
-                  contextMetrics={[
-                    { label: "Top 1 EV Share", value: formatPercent(summary.top1_ev_share) },
-                    { label: "Top 3 EV Share", value: formatPercent(summary.top3_ev_share) },
-                    { label: "Top 5 EV Share", value: formatPercent(summary.top5_ev_share) },
+                  advancedMetrics={[
+                    { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
+                    { label: "EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
+                    { label: "Effective Chase Count", value: formatNumber(summary.effective_chase_count, 2) },
+                    { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share) },
+                    { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share) },
                   ]}
                 />
               </div>
@@ -1552,15 +1983,19 @@ export default function RipStatisticsPageClient({
               <SectionCard
                 title={
                   graphMode === "historical-trend"
-                    ? "Historical Trend"
+                    ? RIP_COPY.sections.historicalTrend
                     : graphMode === "pack-breakdown"
-                    ? "Pack Breakdown"
-                    : "Outcome Distribution"
+                    ? RIP_COPY.sections.packBreakdown
+                    : RIP_COPY.sections.outcomeDistribution
                 }
-                subtitle={null}
+                subtitle={
+                  graphMode === "outcome-distribution"
+                    ? "See where a typical pack lands, how often packs miss, and how far the best hits can run."
+                    : null
+                }
                 titleInfoText={graphMode === "outcome-distribution" ? outcomeDistributionInfo : null}
               >
-                <div className="mb-1.5 w-full max-w-full overflow-hidden">
+                <div className="mb-4">
                   <div className="grid w-full grid-cols-3 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
                   <button
                     type="button"
@@ -1572,7 +2007,7 @@ export default function RipStatisticsPageClient({
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    <span className="block truncate">Outcome Distribution</span>
+                    <span className="block truncate">{RIP_COPY.sections.outcomeDistribution}</span>
                   </button>
                   <button
                     type="button"
@@ -1584,7 +2019,7 @@ export default function RipStatisticsPageClient({
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    <span className="block truncate">Historical Trend</span>
+                    <span className="block truncate">{RIP_COPY.sections.historicalTrend}</span>
                   </button>
                   <button
                     type="button"
@@ -1596,7 +2031,7 @@ export default function RipStatisticsPageClient({
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    <span className="block truncate">Pack Breakdown</span>
+                    <span className="block truncate">{RIP_COPY.sections.packBreakdown}</span>
                   </button>
                   </div>
                 </div>
@@ -1642,11 +2077,11 @@ export default function RipStatisticsPageClient({
 
                 {graphMode !== "pack-breakdown" ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                    <StatTile label="Probability of Profit" value={formatPercent(summary.prob_profit, { probability: true })} />
-                    <StatTile label="Probability of Big Hit" value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                    <StatTile label="Median Outcome" value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                    <StatTile label="Worst 5% Outcome" value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
-                    <StatTile label="Max Value" value={formatCurrency(summary.max_value)} />
+                    <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
+                    <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
+                    <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
+                    <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
+                    <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
                   </div>
                 ) : null}
               </SectionCard>
@@ -1655,10 +2090,10 @@ export default function RipStatisticsPageClient({
             <section className="w-full max-w-full min-w-0 pt-1">
               <div className="grid w-full max-w-full min-w-0 gap-4 xl:grid-cols-2 xl:items-start">
                 <div id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                  <SectionCard title="Top Expected Value (EV) Drivers" subtitle={null} titleInfoText={topEvDriversInfo}>
+                  <SectionCard title={RIP_COPY.sections.topEvDrivers} subtitle={null}>
                     <InterpretationInsight
                       sectionMeta={topEvDriversMeta}
-                      fallbackSummary={interpretation?.topEvDrivers}
+                      fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
                       compact
                       showEvidence={false}
                       className="mb-3"
@@ -1684,10 +2119,10 @@ export default function RipStatisticsPageClient({
 
                 <div className="min-w-0 space-y-4">
                   <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                    <SectionCard title="Rarity Pool Contribution" subtitle={null} titleInfoText={rarityContributionInfo}>
+                    <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
                       <InterpretationInsight
                         sectionMeta={rarityContributionMeta}
-                        fallbackSummary={interpretation?.rarityContribution}
+                        fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
                         compact
                         showEvidence
                         maxEvidence={4}
@@ -1699,7 +2134,7 @@ export default function RipStatisticsPageClient({
 
                   <details id="explore-advanced" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="group w-full max-w-full min-w-0 scroll-mt-24 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-5 sm:p-6 md:scroll-mt-28">
                     <summary className="flex min-w-0 max-w-full cursor-pointer list-none items-center justify-between gap-3 py-1 transition-colors hover:text-white">
-                      <span className="min-w-0 max-w-full break-words text-lg font-semibold text-[var(--text-primary)]">Advanced Metrics</span>
+                      <span className="min-w-0 max-w-full break-words text-lg font-semibold text-[var(--text-primary)]">{RIP_COPY.advancedLabel}</span>
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 20 20"
@@ -1730,17 +2165,17 @@ export default function RipStatisticsPageClient({
 
                     <div className="mt-4 space-y-5">
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <StatTile label="Expected Loss Per Pack" value={formatCurrency(summary.expected_loss_per_pack)} valueClassName="text-base" />
-                        <StatTile label="Expected Loss When Losing" value={formatCurrency(summary.expected_loss_when_losing)} valueClassName="text-base" />
-                        <StatTile label="Median Loss When Losing" value={formatCurrency(summary.median_loss_when_losing)} valueClassName="text-base" />
+                        <StatTile label={RIP_COPY.advancedStats.expectedLossPerPack} value={formatLossCurrency(summary.expected_loss_per_pack)} valueClassName="text-base" />
+                        <StatTile label={RIP_COPY.advancedStats.expectedLossWhenLosing} value={formatLossCurrency(summary.expected_loss_when_losing)} valueClassName="text-base" />
+                        <StatTile label={RIP_COPY.advancedStats.medianLossWhenLosing} value={formatLossCurrency(summary.median_loss_when_losing)} valueClassName="text-base" />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <StatTile label="Coefficient of Variation" value={formatNumber(summary.coefficient_of_variation, 2)} valueClassName="text-base" />
-                        <StatTile label="P95 Value / Cost Ratio" value={formatNumber(summary.p95_value_to_cost_ratio, 2)} valueClassName="text-base" />
+                        <StatTile label={RIP_COPY.advancedStats.coefficientOfVariation} value={formatNumber(summary.coefficient_of_variation, 2)} valueClassName="text-base" />
+                        <StatTile label={RIP_COPY.advancedStats.bigHitUpside} value={formatNumber(summary.p95_value_to_cost_ratio, 2)} valueClassName="text-base" />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <StatTile label="HHI EV Concentration" value={formatNumber(summary.hhi_ev_concentration, 3)} valueClassName="text-base" />
-                        <StatTile label="Effective Chase Count" value={formatNumber(summary.effective_chase_count, 2)} valueClassName="text-base" />
+                        <StatTile label={RIP_COPY.advancedStats.hhiEvConcentration} value={formatNumber(summary.hhi_ev_concentration, 3)} valueClassName="text-base" />
+                        <StatTile label={RIP_COPY.advancedStats.effectiveChaseCount} value={formatNumber(summary.effective_chase_count, 2)} valueClassName="text-base" />
                       </div>
                     </div>
                   </details>
@@ -1759,23 +2194,25 @@ export default function RipStatisticsPageClient({
               </section>
             ) : null}
 
-            <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Backend Timings</span>
-                {timingRows.length > 0 ? (
-                  timingRows.map(([key, value]) => (
-                    <span
-                      key={key}
-                      className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-xs text-[var(--text-secondary)]"
-                    >
-                      {key.replace(/_/g, " ")}: {toNumber(value)?.toFixed(2)}ms
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--text-secondary)]">No backend timings are available.</span>
-                )}
-              </div>
-            </section>
+            {showDebugTimings ? (
+              <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Backend Timings</span>
+                  {timingRows.length > 0 ? (
+                    timingRows.map(([key, value]) => (
+                      <span
+                        key={key}
+                        className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-xs text-[var(--text-secondary)]"
+                      >
+                        {key.replace(/_/g, " ")}: {toNumber(value)?.toFixed(2)}ms
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-[var(--text-secondary)]">No backend timings are available.</span>
+                  )}
+                </div>
+              </section>
+            ) : null}
           </>
         ) : null}
         </div>

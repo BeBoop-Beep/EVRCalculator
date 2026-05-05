@@ -219,6 +219,30 @@ link[rel="icon"] {
   }
 }
 
+.index-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(45, 212, 191, 0.45) rgba(15, 23, 42, 0.58);
+}
+
+.index-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.index-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.58);
+  border-radius: 999px;
+}
+
+.index-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(45, 212, 191, 0.45);
+  border-radius: 999px;
+}
+
+.index-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(94, 234, 212, 0.62);
+}
+
 .dropdown-enter {
   transform-origin: top center;
   animation: dropdown-enter 120ms ease-out;
