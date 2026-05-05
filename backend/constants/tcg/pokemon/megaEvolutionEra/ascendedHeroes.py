@@ -11,8 +11,8 @@ class SetAscendedHeroesConfig(BaseSetConfig):
     RELEASE_DATE = '2026/01/30'
     PRINTED_TOTAL = 217
     TOTAL = 295
-    SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/me2pt5/symbol.png'
-    LOGO_IMAGE_URL = 'https://images.pokemontcg.io/me2pt5/logo.png'
+    SYMBOL_IMAGE_URL = 'https://images.scrydex.com/pokemon/me2pt5-symbol/symbol'
+    LOGO_IMAGE_URL = 'https://images.scrydex.com/pokemon/me2pt5-logo/logo'
 
     # TODO: Populate scrape targets once TCGplayer set links are resolved.
     CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/24541/cards/?rows=5000&productTypeID=1'

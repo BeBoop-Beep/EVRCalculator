@@ -13,7 +13,7 @@ export default function ExploreTop10PlaceholderPage() {
               Top 10 is coming soon
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">
-              We&rsquo;re building ranked views for the strongest sets, cards, Pack Scores, market value, and chase potential.
+              We&rsquo;re building ranked views for the strongest sets, cards, Rip Scores, market value, and chase potential.
             </p>
 
             <div className="mt-8">

@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -65,6 +67,49 @@ def _drop_none_values(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _validate_image_url(url: Optional[str], field_name: str = "image_url", timeout: float = 5.0) -> bool:
+    """Validate that a set image URL returns HTTP 200. Returns True if valid or None/empty.
+    
+    Args:
+        url: URL to validate
+        field_name: Field name for logging
+        timeout: Request timeout in seconds
+        
+    Returns:
+        True if URL is None/empty or returns HTTP 200, False if it fails validation
+    """
+    if url is None or not str(url).strip():
+        return True  # None/empty URLs are valid (no error)
+    
+    try:
+        req = urllib.request.Request(
+            url,
+            method='HEAD',
+            headers={'User-Agent': 'Pokemon-Set-Sync/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            if response.status == 200:
+                return True
+            logger.warning(
+                "pokemon_era_set_sync: %s validation failed with HTTP %d: %s",
+                field_name, response.status, url
+            )
+            return False
+    except urllib.error.HTTPError as e:
+        logger.warning(
+            "pokemon_era_set_sync: %s validation failed with HTTP %d: %s",
+            field_name, e.code, url
+        )
+        return False
+    except Exception as e:
+        # Don't fail the entire sync for transient network issues, but log it
+        logger.warning(
+            "pokemon_era_set_sync: %s validation error: %s (url: %s)",
+            field_name, str(e), url
+        )
+        return False
+
+
 def _load_era_sort_order() -> Dict[str, int]:
     if not DEFAULT_BOOTSTRAP_REPORT_PATH.exists():
         return {}
@@ -99,9 +144,19 @@ def discover_pokemon_era_and_set_metadata() -> Dict[str, List[Dict[str, Any]]]:
     sets: List[Dict[str, Any]] = []
 
     for position, era_dir in enumerate(sorted(era_dirs, key=sort_key), start=1):
-        set_map_module = importlib.import_module(
-            f"backend.constants.tcg.pokemon.{era_dir.name}.setMap"
-        )
+        # Skip directories that don't have a setMap.py file (e.g., scrape_job_reports)
+        set_map_path = era_dir / "setMap.py"
+        if not set_map_path.exists():
+            continue
+        
+        try:
+            set_map_module = importlib.import_module(
+                f"backend.constants.tcg.pokemon.{era_dir.name}.setMap"
+            )
+        except ImportError as e:
+            logger.warning("pokemon_era_set_sync: failed to import setMap for era %s: %s", era_dir.name, str(e))
+            continue
+        
         set_config_map = getattr(set_map_module, "SET_CONFIG_MAP", {})
 
         era_name: Optional[str] = None
@@ -236,6 +291,31 @@ def _build_set_payload(
         source.get("sealed_details_url"),
         existing.get("sealed_details_url") if existing else None,
     )
+    
+    # Validate and merge image URLs
+    source_logo_url = _clean_str(source.get("logo_image_url"))
+    source_symbol_url = _clean_str(source.get("symbol_image_url"))
+    existing_logo_url = existing.get("logo_image_url") if existing else None
+    existing_symbol_url = existing.get("symbol_image_url") if existing else None
+    
+    # Use source URL if valid, otherwise preserve existing working URL
+    logo_url = source_logo_url if source_logo_url else existing_logo_url
+    if source_logo_url and source_logo_url != existing_logo_url:
+        # New logo URL provided - validate it before using
+        if not _validate_image_url(source_logo_url, "logo_image_url"):
+            # Validation failed - preserve existing URL if available
+            logo_url = existing_logo_url
+        else:
+            logo_url = source_logo_url
+    
+    symbol_url = source_symbol_url if source_symbol_url else existing_symbol_url
+    if source_symbol_url and source_symbol_url != existing_symbol_url:
+        # New symbol URL provided - validate it before using
+        if not _validate_image_url(source_symbol_url, "symbol_image_url"):
+            # Validation failed - preserve existing URL if available
+            symbol_url = existing_symbol_url
+        else:
+            symbol_url = source_symbol_url
 
     payload = {
         "tcg_id": tcg_id,
@@ -246,8 +326,8 @@ def _build_set_payload(
         "abbreviation": _coalesce_value(source.get("abbreviation"), existing.get("abbreviation") if existing else None),
         "set_code": _coalesce_value(source.get("set_code"), existing.get("set_code") if existing else None),
         "canonical_key": source["canonical_key"],
-        "symbol_image_url": _coalesce_value(source.get("symbol_image_url"), existing.get("symbol_image_url") if existing else None),
-        "logo_image_url": _coalesce_value(source.get("logo_image_url"), existing.get("logo_image_url") if existing else None),
+        "symbol_image_url": symbol_url,
+        "logo_image_url": logo_url,
         "pokemon_api_set_id": _coalesce_value(source.get("pokemon_api_set_id"), existing.get("pokemon_api_set_id") if existing else None),
         "source_config_path": source.get("source_config_path"),
         "has_card_details_url": bool(merged_card_details_url),

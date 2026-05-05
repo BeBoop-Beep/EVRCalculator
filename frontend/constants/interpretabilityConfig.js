@@ -58,35 +58,79 @@ export const PACK_SCORE_INSIGHTS = {
  */
 export const FRIENDLY_METRIC_LABELS = {
   // Profit card
-  "Probability of Profit": "Probability of Profit",
+  "Probability of Profit": "Chance to Beat Pack Cost",
+  "Chance to Beat Pack Cost": "Chance to Beat Pack Cost",
   "EV / Mean Value": "Average Return vs Cost",
   "Median-to-Cost Ratio": "Typical Outcome vs Cost",
-  "P95-to-Cost Ratio": "High-End Upside vs Cost",
+  "P95-to-Cost Ratio": "Big Hit Upside",
+  "P95 Value / Cost Ratio": "Big Hit Upside",
   ROI: "Return on Investment",
-  "Pack Cost": "Pack Cost",
+  "Pack Cost": "Current Pack Cost",
+  "Average Pack Value": "Average Pack Value",
+  "Current Pack Cost": "Current Pack Cost",
+  "Average Loss": "Average Loss",
+  "Chance at a Big Pull": "Chance at a Big Pull",
 
   // Safety card
-  "Expected Loss When Losing / Cost": "Average Loss vs Cost",
+  "Expected Loss When Losing / Cost": "Average Loss When You Miss vs Cost",
   "Median Loss When Losing / Cost": "Typical Loss vs Cost",
   "P05 Shortfall to Cost": "Worst 5% Loss Pressure",
-  "Median Loss When Losing": "Typical Loss Amount",
-  "Tail Value P5": "Worst 5% Outcome",
+  "Expected Loss Per Pack": "Average Loss per Pack",
+  "Expected Loss When Losing": "Average Loss When You Miss",
+  "Median Loss When Losing": "Typical Loss When You Miss",
+  "Tail Value P5": "Bad Pack Floor Value",
+  "Typical Pack": "Typical Pack Value",
+  "Typical Pack Value": "Typical Pack Value",
+  "Bad Pack Floor": "Bad Pack Floor Value",
+  "Bad Pack Floor Value": "Bad Pack Floor Value",
 
   // Stability card
   "Coefficient of Variation": "Outcome Volatility",
-  "HHI EV Concentration": "EV Concentration",
-  "Effective Chase Count": "Effective Chase Depth",
-  "Top 1 EV Share": "Top Card EV Share",
-  "Top 3 EV Share": "Top 3 Cards EV Share",
-  "Top 5 EV Share": "Top 5 Cards EV Share",
+  "HHI EV Concentration": "Value Spread",
+  "Effective Chase Count": "Cards Carrying Value",
+  "Top 1 EV Share": "Top Chase Share",
+  "Top 3 EV Share": "Top 3 Share",
+  "Top 5 EV Share": "Top 5 Share",
+  "Chase Depth": "Cards Carrying Value",
+  "Cards Carrying Value": "Cards Carrying Value",
+  "Top Card Share": "Top Chase Share",
+  "Top Chase Share": "Top Chase Share",
+  "Top 3 Share": "Top 3 Share",
+  "Top 5 Share": "Top 5 Share",
+  "Value Concentration": "Value Spread",
+  "Value Spread": "Value Spread",
+  "Best Pull": "Best Simulated Pull",
+  "Best Simulated Pull": "Best Simulated Pull",
 
   // Advanced metrics (same mappings if they appear there)
-  "Expected Loss Per Pack": "Expected Loss Per Pack",
-  "Expected Loss When Losing": "Expected Loss When Losing",
+  "Average Loss per Pack": "Average Loss per Pack",
+  "Average Loss When You Miss": "Average Loss When You Miss",
   "Coefficient of Variation": "Outcome Volatility",
-  "HHI EV Concentration": "EV Concentration",
-  "P95 Value / Cost Ratio": "P95 Value / Cost Ratio",
-  "Effective Chase Count": "Effective Chase Depth",
+  "HHI EV Concentration": "Value Concentration",
+  "P95 Value / Cost Ratio": "Big Hit Upside",
+  "Effective Chase Count": "Chase Depth",
+};
+
+const METRIC_TOOLTIP_ALIASES = {
+  "Chance to Beat Pack Cost": "Probability of Profit",
+  "Current Pack Cost": "Pack Cost",
+  "Big Hit Upside": "P95-to-Cost Ratio",
+  "Average Loss per Pack": "Expected Loss Per Pack",
+  "Average Loss When You Miss": "Expected Loss When Losing",
+  "Typical Loss When You Miss": "Median Loss When Losing",
+  "Typical Pack Value": "Typical Pack Value",
+  "Bad Pack Floor Value": "Bad Pack Floor Value",
+  "Chase Depth": "Effective Chase Count",
+  "Cards Carrying Value": "Effective Chase Count",
+  "Top Card Share": "Top 1 EV Share",
+  "Top Chase Share": "Top 1 EV Share",
+  "Top 3 Share": "Top 3 EV Share",
+  "Top 5 Share": "Top 5 EV Share",
+  "Value Concentration": "HHI EV Concentration",
+  "Value Spread": "HHI EV Concentration",
+  "Best Simulated Pull": "Best Simulated Pull",
+  "Average Loss": "Average Loss",
+  "Chance at a Big Pull": "Chance at a Big Pull",
 };
 
 function buildMetricTooltip({ meaning, impact, direction, interpretation }) {
@@ -172,6 +216,18 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     direction: "Lower is better",
     interpretation: "Used as a denominator for ratios, not scored directly.",
   }),
+  "Average Loss": buildMetricTooltip({
+    meaning: "Simple gap between average pack value and pack cost, shown as a loss when average value is below cost.",
+    impact: "Context only",
+    direction: "Closer to zero is better",
+    interpretation: "Useful collector-facing shorthand for how far the average pack sits below cost.",
+  }),
+  "Chance at a Big Pull": buildMetricTooltip({
+    meaning: "Estimated chance a simulated pack clears the page's big-hit threshold.",
+    impact: "Context only",
+    direction: "Higher is better",
+    interpretation: "Shows how often the set lands one of its higher-end outcomes.",
+  }),
 
   "Expected Loss When Losing / Cost": buildMetricTooltip({
     meaning: "Average loss on losing packs as a fraction of pack cost.",
@@ -197,11 +253,29 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     direction: "Lower is better",
     interpretation: "Displayed for readability; ratio metrics drive Safety scoring.",
   }),
+  "Expected Loss Per Pack": buildMetricTooltip({
+    meaning: "Average loss across all simulated packs, including winners and losers.",
+    impact: "Context only",
+    direction: "Closer to zero is better",
+    interpretation: "This is the unconditional downside drag per pack.",
+  }),
   "Tail Value P5": buildMetricTooltip({
     meaning: "Dollar value at the 5th percentile of simulated outcomes.",
     impact: "Context only",
     direction: "Higher is better",
     interpretation: "Shows tail outcome level, while shortfall ratio drives scoring.",
+  }),
+  "Typical Pack Value": buildMetricTooltip({
+    meaning: "The middle simulated pack result. Half the packs did better, half did worse.",
+    impact: "Context only",
+    direction: "Higher is better",
+    interpretation: "Useful shorthand for what a normal rip looks like.",
+  }),
+  "Bad Pack Floor Value": buildMetricTooltip({
+    meaning: "A low-end pack result from the worse side of simulations.",
+    impact: "Context only",
+    direction: "Higher is better",
+    interpretation: "Shows how ugly bad runs can get near the left tail.",
   }),
 
   "Coefficient of Variation": buildMetricTooltip({
@@ -211,19 +285,19 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     interpretation: "Lower volatility implies more consistent expected outcomes.",
   }),
   "HHI EV Concentration": buildMetricTooltip({
-    meaning: "Concentration index of EV shares across cards.",
+    meaning: "Lower concentration means value is spread across more cards.",
     impact: "Indirect",
     direction: "Lower is better",
     interpretation: "Higher concentration reduces effective chase depth used in scoring.",
   }),
   "Effective Chase Count": buildMetricTooltip({
-    meaning: "Effective number of meaningful EV contributors (1/HHI).",
+    meaning: "Higher means more cards meaningfully help the set's value.",
     impact: "Direct (35% of Stability Score)",
     direction: "Higher is better",
     interpretation: "Higher values indicate value is spread across more cards.",
   }),
   "Top 1 EV Share": buildMetricTooltip({
-    meaning: "Share of total EV coming from the single top card.",
+    meaning: "How much the biggest card carries the set by itself.",
     impact: "Context only",
     direction: "Lower is better",
     interpretation: "Higher concentration signals dependence on one chase card.",
@@ -239,6 +313,12 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     impact: "Context only",
     direction: "Lower is better",
     interpretation: "Context metric for EV concentration profile.",
+  }),
+  "Best Simulated Pull": buildMetricTooltip({
+    meaning: "Highest simulated pack result observed in the run.",
+    impact: "Context only",
+    direction: "Higher is better",
+    interpretation: "Shows the ceiling, not the typical outcome.",
   }),
 };
 
@@ -277,7 +357,7 @@ export function getFriendlyMetricLabel(label) {
  */
 export function getMetricTooltip(label) {
   if (!label) return null;
-  return METRIC_TOOLTIP_EXPLANATIONS[label] || null;
+  return METRIC_TOOLTIP_EXPLANATIONS[label] || METRIC_TOOLTIP_EXPLANATIONS[METRIC_TOOLTIP_ALIASES[label]] || null;
 }
 
 /**
@@ -297,7 +377,7 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Pack Score") {
     return (
       <div className="space-y-2 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Pack Score (PACK)</p>
+        <p className="font-semibold text-[var(--text-primary)]">Rip Score</p>
         <p className="text-[var(--text-secondary)]">Measures overall pack rip quality by combining:</p>
         <ul className="space-y-1.5 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
@@ -333,7 +413,8 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Profit") {
     return (
       <div className="space-y-1.5 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Profit Score</p>
+        <p className="font-semibold text-[var(--text-primary)]">Can You Win?</p>
+        <p className="text-[var(--text-secondary)]">This shows how often packs beat their cost and how much upside the better pulls create.</p>
         <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -342,7 +423,7 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Weight: 45%</span> of Pack Score
+              <span className="font-semibold text-[var(--text-primary)]">Weight: 45%</span> of Rip Score
             </span>
           </li>
           <li className="flex gap-2">
@@ -373,7 +454,8 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Safety") {
     return (
       <div className="space-y-1.5 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Safety Score</p>
+        <p className="font-semibold text-[var(--text-primary)]">How Bad Are Misses?</p>
+        <p className="text-[var(--text-secondary)]">This shows how painful losing packs are compared with other sets.</p>
         <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -382,7 +464,7 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Weight: 30%</span> of Pack Score
+              <span className="font-semibold text-[var(--text-primary)]">Weight: 30%</span> of Rip Score
             </span>
           </li>
           <li className="flex gap-2">
@@ -405,7 +487,8 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Stability") {
     return (
       <div className="space-y-1.5 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Stability Score</p>
+        <p className="font-semibold text-[var(--text-primary)]">How Balanced Is This Set?</p>
+        <p className="text-[var(--text-secondary)]">This shows whether value is spread across multiple cards or mostly depends on one chase.</p>
         <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -414,7 +497,7 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Weight: 25%</span> of Pack Score
+              <span className="font-semibold text-[var(--text-primary)]">Weight: 25%</span> of Rip Score
             </span>
           </li>
           <li className="flex gap-2">
