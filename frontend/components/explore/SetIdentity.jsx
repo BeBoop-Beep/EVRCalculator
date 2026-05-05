@@ -34,6 +34,7 @@ export default function SetIdentity({
   interpretationLabel = null,
   tier = null,
   recommendationSeverity = null,
+  interpretationBadgeClassName = "",
 }) {
   const name = String(target?.name || target?.target_id || "Unknown Set");
 
@@ -74,8 +75,13 @@ export default function SetIdentity({
       <p className="truncate text-sm font-semibold text-[var(--text-primary)] sm:text-base">{name}</p>
       {target?.era ? <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{target.era}</p> : null}
       {interpretationLabel ? (
-        <div className="mt-2">
-          <InterpretationBadge label={interpretationLabel} rankTier={tier} severity={recommendationSeverity} />
+        <div className="mt-2 min-w-0 max-w-full overflow-hidden">
+          <InterpretationBadge
+            label={interpretationLabel}
+            rankTier={tier}
+            severity={recommendationSeverity}
+            className={interpretationBadgeClassName}
+          />
         </div>
       ) : null}
     </div>
