@@ -125,6 +125,20 @@ def get_card_variants_by_card_ids(card_ids: List[int]) -> List[Dict[str, Any]]:
     return res.data if res and res.data else []
 
 
+def load_active_simulation_excluded_variant_ids(client) -> set[str]:
+    result = (
+        client.table("simulation_card_variant_exclusions")
+        .select("card_variant_id")
+        .eq("active", True)
+        .execute()
+    )
+    return {
+        str(row["card_variant_id"])
+        for row in (result.data or [])
+        if row.get("card_variant_id")
+    }
+
+
 def update_card_variant_image_sync_fields(card_id: str, update_fields: Dict[str, Any]) -> Dict[str, Any]:
     """Update card image sync fields for a single card variant."""
     payload = {

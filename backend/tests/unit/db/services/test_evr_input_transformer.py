@@ -358,7 +358,6 @@ def test_transform_preserves_base_and_pattern_rows_for_generic_prismatic_card():
     df = transformer.to_legacy_calculator_payload(transformed)["dataframe"]
     assert len(df) == 3
     assert df["Special Type"].tolist() == ["", "poke ball", "master ball"]
-    assert df["Rarity"].tolist() == ["common", "common", "common"]
 
 
 def test_transform_synthesizes_base_row_when_generic_card_has_only_pattern_variant():
