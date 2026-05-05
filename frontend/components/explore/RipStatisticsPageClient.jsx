@@ -45,7 +45,6 @@ const RIP_COPY = {
   scoreLabel: "Rip Score",
   scoreRankLabel: "Rip Rank",
   summaryQuestion: "Should You Open This Set?",
-  summaryWhyTitle: "Why It Ranks Here",
   scoreDetailsLabel: "Show details",
   advancedLabel: "Advanced Score Details",
   recommendationLabel: "Recommendation",
@@ -325,6 +324,23 @@ function MetricRow({ label, value, infoText }) {
   );
 }
 
+function HeroMetricTile({ label, value }) {
+  const friendlyLabel = getFriendlyMetricLabel(label);
+  const infoText = getMetricTooltip(label);
+  const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
+  return (
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{friendlyLabel}</p>
+        {infoText ? <InfoPopover text={infoText} /> : null}
+      </div>
+      <p className="mt-2 text-base font-semibold" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function CenteredSuffixInline({
   as: Component = "button",
   children,
@@ -371,12 +387,12 @@ function CenteredSuffixInline({
 
 function ScoreModeToggle({ scoreMode, onChange }) {
   return (
-    <div className="inline-grid w-full max-w-xs grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/92 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_10px_24px_rgba(15,23,42,0.14)] sm:inline-flex sm:w-auto sm:max-w-none">
+    <div className="inline-grid w-full max-w-[14rem] grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/88 p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)] sm:inline-flex sm:w-auto sm:max-w-none">
       <button
         type="button"
         onClick={() => onChange("relative")}
         aria-pressed={scoreMode === "relative"}
-        className={`min-w-0 rounded-full px-3 py-2 text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+        className={`min-w-0 rounded-full px-2.5 py-1.5 text-[9px] font-semibold leading-none transition-colors sm:min-w-[4rem] sm:px-2.5 sm:py-1.5 ${
           scoreMode === "relative"
             ? "bg-[var(--brand)] text-white"
             : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -388,13 +404,44 @@ function ScoreModeToggle({ scoreMode, onChange }) {
         type="button"
         onClick={() => onChange("absolute")}
         aria-pressed={scoreMode === "absolute"}
-        className={`min-w-0 rounded-full px-3 py-2 text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+        className={`min-w-0 rounded-full px-2.5 py-1.5 text-[9px] font-semibold leading-none transition-colors sm:min-w-[4rem] sm:px-2.5 sm:py-1.5 ${
           scoreMode === "absolute"
             ? "bg-[var(--brand)] text-white"
             : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         }`}
       >
         Absolute
+      </button>
+    </div>
+  );
+}
+
+function ViewModeToggle({ viewMode, onChange }) {
+  return (
+    <div className="inline-grid w-full max-w-xs grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/92 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_10px_24px_rgba(15,23,42,0.14)] sm:inline-flex sm:w-auto sm:max-w-none">
+      <button
+        type="button"
+        onClick={() => onChange("simple")}
+        aria-pressed={viewMode === "simple"}
+        className={`min-w-0 rounded-full px-3 py-2 text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+          viewMode === "simple"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        Simple
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("expert")}
+        aria-pressed={viewMode === "expert"}
+        className={`min-w-0 rounded-full px-3 py-2 text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+          viewMode === "expert"
+            ? "bg-[var(--brand)] text-white"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        }`}
+      >
+        Expert
       </button>
     </div>
   );
@@ -472,29 +519,6 @@ function RecommendationBadge({ label, rankTier }) {
   }
 
   return <InterpretationBadge label={label} rankTier={rankTier} className="px-2.5 py-0.5 text-[10px] tracking-[0.08em]" />;
-}
-
-function EvidencePills({ title, rows }) {
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return null;
-  }
-
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
-      <div className="mt-2 grid gap-2 md:grid-cols-3">
-        {rows.map(([label, value]) => (
-          <div
-            key={`${label}:${value}`}
-            className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-3 py-2.5 text-left"
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
-            <p className="mt-1 text-sm leading-snug text-[var(--text-primary)]">{String(value)}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function DisclosureSection({ title, description = null, children, defaultOpen = false, className = "" }) {
@@ -593,6 +617,41 @@ function ScorePillarCard({
   );
 }
 
+function SimplePillarSummaryCard({
+  title,
+  score,
+  rankValue,
+  rankTier,
+  rankLabel,
+  sectionMeta,
+  fallbackSummary,
+}) {
+  const parsedRank = toNumber(rankValue);
+  const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
+
+  return (
+    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+            <h4 className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</h4>
+            <p className="text-xl font-semibold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
+            <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} size="supporting" subtle />
+          </div>
+        </div>
+      </div>
+      <InterpretationInsight
+        sectionMeta={sectionMeta}
+        fallbackSummary={fallbackSummary}
+        rankTier={rankTier}
+        compact
+        showEvidence={false}
+        className="mt-3"
+      />
+    </article>
+  );
+}
+
 function StatTile({ label, value, valueClassName = "text-lg" }) {
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
@@ -617,7 +676,7 @@ function SectionCard({ title, subtitle, titleInfoText, children }) {
   );
 }
 
-function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, imageLargeUrl }) {
+function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
 
@@ -649,11 +708,93 @@ function TopHitRow({ name, evContribution, evShare, imageUrl, imageSmallUrl, ima
             {evShare ? <p className="break-words text-xs text-[var(--text-secondary)]">{evShare} of pack value</p> : null}
           </div>
         </div>
-        <div className="flex min-w-0 flex-col items-start text-left sm:items-end sm:text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Value Contribution</p>
-          <p className="break-words text-lg font-semibold text-[var(--text-primary)] sm:text-xl">{formatCurrency(evContribution)}</p>
+        <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 text-left sm:mt-0 sm:min-w-[13rem] sm:text-right">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Near Mint Price</p>
+            <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{nearMintPrice === null ? "—" : formatCurrency(nearMintPrice)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Value Contribution</p>
+            <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function getTopHitNearMintPrice(hit) {
+  return toNumber(hit?.current_near_mint_price);
+}
+
+function getTopHitCardPrice(hit) {
+  // TODO: If top_hits never includes a price field, wire a backend payload field (for example price_used) in a later API-safe pass.
+  return (
+    toNumber(hit?.current_near_mint_price) ??
+    toNumber(hit?.price_used) ??
+    toNumber(hit?.market_price) ??
+    toNumber(hit?.card_price) ??
+    toNumber(hit?.card_market_price) ??
+    toNumber(hit?.price)
+  );
+}
+
+function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPrice }) {
+  const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
+  const [hasImageError, setHasImageError] = useState(false);
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [imageSrc]);
+
+  const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
+
+  return (
+    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
+          {shouldRenderImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageSrc}
+              alt={name ? `${name} card image` : "Card image"}
+              loading="lazy"
+              decoding="async"
+              onError={() => setHasImageError(true)}
+              className="h-full w-full rounded-[5px] object-contain"
+            />
+          ) : null}
+        </div>
+
+        <div className="min-w-0 max-w-full flex-1">
+          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name || "Unknown Card"}</p>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Card Price</p>
+          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{cardPrice === null ? "—" : formatCurrency(cardPrice)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SimpleTopCardsContent({ topHits }) {
+  const hits = Array.isArray(topHits) ? topHits.slice(0, 10) : [];
+
+  if (hits.length === 0) {
+    return <p className="text-sm text-[var(--text-secondary)]">No cards are available yet for this set.</p>;
+  }
+
+  return (
+    <div className="w-full max-w-full min-w-0 space-y-2">
+      {hits.map((hit, index) => (
+        <SimpleTopHitRow
+          key={`simple-hit:${hit?.card_name || "unknown"}:${index}`}
+          name={hit?.card_name}
+          cardPrice={getTopHitCardPrice(hit)}
+          imageUrl={hit?.image_url}
+          imageSmallUrl={hit?.image_small_url}
+          imageLargeUrl={hit?.image_large_url}
+        />
+      ))}
     </div>
   );
 }
@@ -683,6 +824,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
       {hits.map((hit) => {
         const ev = toNumber(hit?.ev_contribution);
         const evShare = ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null;
+        const nearMintPrice = getTopHitNearMintPrice(hit);
 
         return (
           <TopHitRow
@@ -690,6 +832,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
             name={hit?.card_name}
             evContribution={hit?.ev_contribution}
             evShare={evShare}
+            nearMintPrice={nearMintPrice}
             imageUrl={hit?.image_url}
             imageSmallUrl={hit?.image_small_url}
             imageLargeUrl={hit?.image_large_url}
@@ -1007,25 +1150,11 @@ function getTopEvEvidence(sectionMeta) {
   return rows.filter(([, value]) => value !== null && value !== undefined && String(value).trim() && String(value) !== "N/A" && String(value) !== "—");
 }
 
-function getTopEvidenceRows(sectionMeta, limit = 3) {
-  const evidence = Array.isArray(sectionMeta?.evidence) ? sectionMeta.evidence : [];
-  return evidence
-    .filter((item) => item?.label && item?.value !== null && item?.value !== undefined)
-    .map((item) => [item.label, item.value])
-    .filter(([, value]) => String(value).trim() && String(value) !== "N/A" && String(value) !== "—")
-    .slice(0, limit);
-}
-
-function getHeroEvidenceRows(sectionMeta) {
-  const labels = ["Main reason", "Watch out for", "Compared with other sets"];
-  return getTopEvidenceRows(sectionMeta, 3).map(([, value], index) => [labels[index], value]);
-}
-
 function CompactBottomSectionNav({ activeSection, onSelect }) {
   const items = [
     {
       id: "pack-score",
-      label: "Rip Score",
+      label: "Score",
       icon: (
         <svg
           aria-hidden="true"
@@ -1046,7 +1175,7 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
     },
     {
       id: "outcome-distribution",
-      label: "Outcomes",
+      label: "Graph",
       icon: (
         <svg
           aria-hidden="true"
@@ -1139,8 +1268,8 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
   };
 
   return (
-    <div className="w-full max-w-full overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex w-full min-w-[23rem] gap-1.5">
+    <div className="w-full max-w-full min-w-0 overflow-hidden">
+      <div className="grid w-full max-w-full min-w-0 grid-cols-5 gap-1">
         {items.map((item) => {
           const isActive = isItemActive(item.id);
           return (
@@ -1150,16 +1279,16 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
               onClick={() => onSelect(item.id)}
               aria-current={isActive ? "location" : undefined}
               className={[
-                "inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors duration-150 ease-out",
+                "inline-flex min-w-0 items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-medium leading-none transition-colors duration-150 ease-out",
                 isActive
                   ? "border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
                   : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
               ].join(" ")}
             >
-              <span className={["transition-transform duration-150 ease-out max-[380px]:hidden", isActive ? "scale-105" : "scale-100"].join(" ")}>
+              <span className={["transition-transform duration-150 ease-out max-[360px]:hidden", isActive ? "scale-105" : "scale-100"].join(" ")}>
                 {item.icon}
               </span>
-              <span className="truncate">{item.label}</span>
+              <span className="min-w-0 truncate whitespace-nowrap">{item.label}</span>
             </button>
           );
         })}
@@ -1227,6 +1356,7 @@ export default function RipStatisticsPageClient({
 
   const [graphMode, setGraphMode] = useState("outcome-distribution");
   const [scoreMode, setScoreMode] = useState("relative");
+  const [viewMode, setViewMode] = useState("simple");
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
@@ -1282,11 +1412,6 @@ export default function RipStatisticsPageClient({
     [topEvDriversMeta]
   );
 
-  const topScoreEvidenceRows = useMemo(
-    () => getHeroEvidenceRows(packScoreMeta),
-    [packScoreMeta]
-  );
-
   const normalStateRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.normal_pack_states),
     [ripStatistics?.normal_pack_states]
@@ -1295,6 +1420,10 @@ export default function RipStatisticsPageClient({
   const timingRows = Object.entries(explorePayload?.meta?.timings || {}).filter(
     ([, value]) => toNumber(value) !== null
   );
+  const topHitsRequestLimit = toNumber(explorePayload?.meta?.request?.limit_top_hits);
+  const topCardsSectionTitle = topHitsRequestLimit === 10
+    ? "Top 10 Cards Carrying the Set"
+    : RIP_COPY.sections.topEvDrivers;
 
   const showDebugTimings = process.env.NODE_ENV !== "production";
 
@@ -1308,6 +1437,9 @@ export default function RipStatisticsPageClient({
     ],
     []
   );
+  const displayedSectionNavItems = viewMode === "simple"
+    ? [{ id: "pack-score", label: RIP_COPY.sections.packScore }]
+    : sectionNavItems;
 
   const getVisibleSectionElement = (sectionId) => {
     if (typeof document === "undefined" || typeof window === "undefined") {
@@ -1537,6 +1669,17 @@ export default function RipStatisticsPageClient({
     { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
   ];
+  const primaryDecisionMetricOrder = [
+    RIP_COPY.simpleMetrics.averagePackValue,
+    RIP_COPY.simpleMetrics.currentPackCost,
+    RIP_COPY.simpleMetrics.averageLoss,
+  ];
+  const primaryDecisionMetrics = primaryDecisionMetricOrder
+    .map((label) => decisionMetrics.find((metric) => metric.label === label))
+    .filter(Boolean);
+  const secondaryDecisionMetrics = decisionMetrics.filter(
+    (metric) => !primaryDecisionMetricOrder.includes(metric.label)
+  );
   const technicalScoreMetrics = [
     { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
     { label: "Typical Outcome vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
@@ -1546,10 +1689,15 @@ export default function RipStatisticsPageClient({
     { label: "Chase Depth", value: formatNumber(summary.effective_chase_count, 2) },
   ];
 
-  const handleTargetIdChange = (nextTargetId) => {
+  const handleTargetIdChange = (nextTargetId, options = {}) => {
     if (!nextTargetId) {
       return;
     }
+
+    if (typeof options.closeToolsPanel === "function") {
+      options.closeToolsPanel();
+    }
+
     const nextParams = new URLSearchParams(searchParams?.toString() || "");
     nextParams.set("target_type", requestedTargetType || "set");
     nextParams.set("target_id", nextTargetId);
@@ -1558,9 +1706,9 @@ export default function RipStatisticsPageClient({
     });
   };
 
-  const handleTargetChange = (event) => {
+  const handleTargetChange = (event, options = {}) => {
     const nextTargetId = String(event.target.value || "").trim();
-    handleTargetIdChange(nextTargetId);
+    handleTargetIdChange(nextTargetId, options);
   };
 
   useEffect(() => {
@@ -1658,7 +1806,7 @@ export default function RipStatisticsPageClient({
         </p>
         <div className="mt-2">
           <SectionNavigation
-            items={sectionNavItems}
+            items={displayedSectionNavItems}
             activeSection={activeSection}
             onSelect={handleSectionSelect}
           />
@@ -1667,7 +1815,7 @@ export default function RipStatisticsPageClient({
     </div>
   );
 
-  const renderMobileToolsPanelContent = () => (
+  const renderMobileToolsPanelContent = ({ closeToolsPanel } = {}) => (
     <div className="space-y-4">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
@@ -1694,7 +1842,7 @@ export default function RipStatisticsPageClient({
             <select
               id="mobile-rip-target"
               value={requestedTargetId || ""}
-              onChange={handleTargetChange}
+              onChange={(event) => handleTargetChange(event, { closeToolsPanel })}
               disabled={isPending || targets.length === 0}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             >
@@ -1739,10 +1887,12 @@ export default function RipStatisticsPageClient({
         wrapDesktopContentInFrame={false}
         mobileBottomNavVariant="flat"
         mobileBottomNavContent={() => (
-          <CompactBottomSectionNav
-            activeSection={activeSection}
-            onSelect={handleSectionSelect}
-          />
+          viewMode === "expert" ? (
+            <CompactBottomSectionNav
+              activeSection={activeSection}
+              onSelect={handleSectionSelect}
+            />
+          ) : null
         )}
       >
         <div className="dashboard-container space-y-8 w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border">
@@ -1833,6 +1983,9 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 <div className="mt-6 flex w-full flex-col items-center text-center">
+                  <div className="mb-1 mt-1 flex w-full justify-center">
+                    <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+                  </div>
                   <div className="mt-4 flex w-full flex-col items-center text-center">
                       <div className="mt-1 flex w-full justify-center">
                         <div className="relative inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -1850,9 +2003,11 @@ export default function RipStatisticsPageClient({
                           <span className="pointer-events-none absolute bottom-2 left-full ml-2 text-sm font-medium text-[var(--text-secondary)] sm:bottom-3">/100</span>
                         </div>
                       </div>
-                      <div className="mt-4 flex w-full justify-center self-center">
-                        <ScoreModeToggle scoreMode={scoreMode} onChange={setScoreMode} />
-                      </div>
+                      {viewMode === "expert" ? (
+                        <div className="mt-4 flex w-full justify-center self-center">
+                          <ScoreModeToggle scoreMode={scoreMode} onChange={setScoreMode} />
+                        </div>
+                      ) : null}
                       <div className="mt-4 w-full max-w-lg">
                         <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
                       </div>
@@ -1885,30 +2040,105 @@ export default function RipStatisticsPageClient({
                     </div>
 
                     <div className="mx-auto mt-5 w-full max-w-2xl text-left">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
-                          <InfoPopover text="Overview shows collector-friendly metrics. Score Details shows the technical inputs behind the score." />
-                        </div>
-                        <MetricViewToggle metricView={heroMetricView} onChange={setHeroMetricView} />
-                      </div>
-                      {(heroMetricView === "overview" ? decisionMetrics : technicalScoreMetrics).map((metric) => (
-                        <MetricRow
-                          key={metric.label}
-                          label={metric.label}
-                          value={metric.value}
-                          infoText={getMetricTooltip(metric.label)}
-                        />
-                      ))}
+                      {viewMode === "simple" ? (
+                        <>
+                          <div className="mb-3 flex items-center gap-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+                            <InfoPopover text="Core decision metrics first. Expand to view more context metrics." />
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {primaryDecisionMetrics.map((metric) => (
+                              <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                            ))}
+                          </div>
+                          {secondaryDecisionMetrics.length > 0 ? (
+                            <details className="group mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-3 py-2.5">
+                              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[var(--text-primary)]">
+                                <span>View score breakdown</span>
+                                <span className="text-xs text-[var(--text-secondary)] transition-transform duration-150 group-open:rotate-180">▾</span>
+                              </summary>
+                              <div className="mt-3 space-y-3">
+                                <div className="grid gap-3">
+                                  <SimplePillarSummaryCard
+                                    title="Profit"
+                                    score={displayedProfitScore}
+                                    rankValue={summary.profit_rank}
+                                    rankTier={summary.profit_tier}
+                                    rankLabel="Profit Rank"
+                                    sectionMeta={profitMeta}
+                                    fallbackSummary={interpretation?.profit}
+                                  />
+                                  <SimplePillarSummaryCard
+                                    title="Safety"
+                                    score={displayedSafetyScore}
+                                    rankValue={summary.safety_rank}
+                                    rankTier={summary.safety_tier}
+                                    rankLabel="Safety Rank"
+                                    sectionMeta={safetyMeta}
+                                    fallbackSummary={interpretation?.safety}
+                                  />
+                                  <SimplePillarSummaryCard
+                                    title="Stability"
+                                    score={displayedStabilityScore}
+                                    rankValue={summary.stability_rank}
+                                    rankTier={summary.stability_tier}
+                                    rankLabel="Stability Rank"
+                                    sectionMeta={stabilityMeta}
+                                    fallbackSummary={interpretation?.stability}
+                                  />
+                                </div>
+                              </div>
+                            </details>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+                              <InfoPopover text="Overview shows collector-friendly metrics. Score Details shows the technical inputs behind the score." />
+                            </div>
+                            <MetricViewToggle metricView={heroMetricView} onChange={setHeroMetricView} />
+                          </div>
+                          {(heroMetricView === "overview" ? decisionMetrics : technicalScoreMetrics).map((metric) => (
+                            <MetricRow
+                              key={metric.label}
+                              label={metric.label}
+                              value={metric.value}
+                              infoText={getMetricTooltip(metric.label)}
+                            />
+                          ))}
+                        </>
+                      )}
                     </div>
 
-                    <div className="mx-auto mt-5 max-w-2xl text-left">
-                      <EvidencePills title={RIP_COPY.summaryWhyTitle} rows={topScoreEvidenceRows} />
-                    </div>
+                    {viewMode === "expert" ? (
+                      <>
+                        <div className="mx-auto mt-4 w-full max-w-2xl">
+                          <button
+                            type="button"
+                            onClick={() => handleSectionSelect("top-ev-drivers")}
+                            className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-4 py-3 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] md:flex md:items-center md:justify-between"
+                          >
+                            <span>Want to see what cards drive this score?</span>
+                            <span className="mt-1 inline-flex font-medium text-[var(--accent)] md:mt-0">View top cards →</span>
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
                 </div>
               </div>
             </section>
 
+            {viewMode === "simple" ? (
+            <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
+              <SectionCard title={topCardsSectionTitle} subtitle={null}>
+                <SimpleTopCardsContent topHits={topHits} />
+              </SectionCard>
+            </section>
+            ) : null}
+
+            {viewMode === "expert" ? (
             <section className="pt-8">
               <div className="grid gap-4 xl:grid-cols-3">
                 <ScorePillarCard
@@ -1978,7 +2208,9 @@ export default function RipStatisticsPageClient({
                 />
               </div>
             </section>
+            ) : null}
 
+            {viewMode === "expert" ? (
             <section id={ANALYSIS_SECTION_ID} style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 pt-7 md:scroll-mt-28">
               <SectionCard
                 title={
@@ -2086,11 +2318,13 @@ export default function RipStatisticsPageClient({
                 ) : null}
               </SectionCard>
             </section>
+            ) : null}
 
+            {viewMode === "expert" ? (
             <section className="w-full max-w-full min-w-0 pt-1">
               <div className="grid w-full max-w-full min-w-0 gap-4 xl:grid-cols-2 xl:items-start">
                 <div id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                  <SectionCard title={RIP_COPY.sections.topEvDrivers} subtitle={null}>
+                  <SectionCard title={topCardsSectionTitle} subtitle={null}>
                     <InterpretationInsight
                       sectionMeta={topEvDriversMeta}
                       fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
@@ -2182,6 +2416,7 @@ export default function RipStatisticsPageClient({
                 </div>
               </div>
             </section>
+            ) : null}
 
             {warnings.length > 0 ? (
               <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">

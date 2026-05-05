@@ -629,8 +629,8 @@ def get_explore_page_payload(
     top_hits: List[Dict[str, Any]] = []
     try:
         top_hits_result = (
-            public_read_client.table("simulation_input_cards")
-            .select("card_id,card_variant_id,card_name,rarity_bucket,ev_contribution")
+            public_read_client.table("simulation_input_cards_with_near_mint_price")
+            .select("card_id,card_variant_id,card_name,rarity_bucket,ev_contribution,current_near_mint_price")
             .eq("calculation_run_id", run_id)
             .order("ev_contribution", desc=True)
             .limit(clamped_top_hits_limit)
