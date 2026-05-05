@@ -268,48 +268,37 @@ export default async function ExplorePage({ searchParams }) {
         </section>
 
         <section className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(16,26,40,0.95)_0%,rgba(10,16,28,0.95)_100%)] p-4 sm:p-5 lg:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-4">
-            <div>
+          <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[var(--text-primary)]">Best Sets to Rip Right Now</h2>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                A quick read on which sets offer the strongest opening profile based on simulated outcomes.
-              </p>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Relative compares sets against each other. Absolute shows the raw score.
-              </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                {scoreMode === "absolute" ? "Absolute Rip Score" : "Relative Rip Score"}
-              </div>
+            <div className="flex flex-col items-start gap-2 sm:items-end">
               {canToggleScoreMode ? (
-                <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/90 p-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                  <Link
-                    href={buildScoreModeHref(resolvedSearchParams, "relative")}
-                    className={`rounded-full px-2.5 py-1 transition-colors ${
-                      scoreMode === "relative"
-                        ? "bg-white/12 text-[var(--text-primary)]"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    Relative
-                  </Link>
-                  <Link
-                    href={buildScoreModeHref(resolvedSearchParams, "absolute")}
-                    className={`rounded-full px-2.5 py-1 transition-colors ${
-                      scoreMode === "absolute"
-                        ? "bg-white/12 text-[var(--text-primary)]"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    Absolute
-                  </Link>
+                <div className="hidden md:flex">
+                  <div className="inline-grid w-full max-w-xs grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/92 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_10px_24px_rgba(15,23,42,0.14)] sm:inline-flex sm:w-auto sm:max-w-none">
+                    <Link
+                      href={buildScoreModeHref(resolvedSearchParams, "relative")}
+                      className={`min-w-0 rounded-full px-3 py-2 text-center text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+                        scoreMode === "relative"
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Relative
+                    </Link>
+                    <Link
+                      href={buildScoreModeHref(resolvedSearchParams, "absolute")}
+                      className={`min-w-0 rounded-full px-3 py-2 text-center text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
+                        scoreMode === "absolute"
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Absolute
+                    </Link>
+                  </div>
                 </div>
-              ) : (
-                <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                  {hasRelativeScore ? "Relative Rip Score" : "Absolute Rip Score"}
-                </div>
-              )}
+              ) : null}
 
               <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
                 {leaderboardTargets.length} ranked sets
@@ -384,6 +373,7 @@ export default async function ExplorePage({ searchParams }) {
                         interpretationLabel={displayRecommendationLabel}
                         tier={tier}
                         recommendationSeverity={target?.recommendation_severity || null}
+                        interpretationBadgeClassName="inline-flex max-w-full min-w-0 items-center whitespace-nowrap truncate px-3 py-1 text-[10px] leading-none tracking-[0.08em] sm:px-2.5 sm:py-1 sm:text-[11px]"
                       />
                       <div className="flex flex-none items-center self-start pt-1">
                         <RankBadge
