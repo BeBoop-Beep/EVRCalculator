@@ -53,6 +53,7 @@ def test_resolve_set_fallbacks_to_api_id_then_name(
 @patch("backend.db.services.evr_input_repository.get_sealed_products_for_set")
 @patch("backend.db.services.evr_input_repository.get_latest_prices_for_variants")
 @patch("backend.db.services.evr_input_repository.get_card_variants_by_card_ids")
+@patch("backend.db.services.evr_input_repository.load_active_simulation_excluded_variant_ids")
 @patch("backend.db.services.evr_input_repository.get_all_cards_for_set")
 @patch("backend.db.services.evr_input_repository.get_condition_by_name")
 @patch("backend.db.services.evr_input_repository.get_set_by_name")
@@ -64,6 +65,7 @@ def test_load_inputs_returns_structured_payload_with_diagnostics(
     _mock_get_by_name,
     mock_get_condition,
     mock_get_cards,
+    mock_get_excluded_variant_ids,
     mock_get_variants,
     mock_get_latest_variant_prices,
     mock_get_sealed_products,
@@ -76,6 +78,7 @@ def test_load_inputs_returns_structured_payload_with_diagnostics(
         "pokemon_api_set_id": "sv1",
     }
     mock_get_condition.return_value = {"id": 1, "name": "Near Mint"}
+    mock_get_excluded_variant_ids.return_value = set()
 
     mock_get_cards.return_value = [
         {"id": 10, "name": "Charizard", "card_number": "4", "rarity": "Rare"},
@@ -123,6 +126,7 @@ def test_load_inputs_returns_structured_payload_with_diagnostics(
     assert len(result["cards"]) == 3
     assert result["diagnostics"]["total_cards_loaded"] == 3
     assert result["diagnostics"]["cards_missing_prices"] == 2
+    assert result["diagnostics"]["excluded_variants_filtered"] == 0
     assert result["diagnostics"]["duplicate_card_mappings"] == 1
     assert result["diagnostics"]["pack_price_resolution_status"] == "priced"
     assert result["diagnostics"]["etb_price_resolution_status"] == "priced"
@@ -193,3 +197,53 @@ def test_resolve_pack_target_raises_when_no_canonical_single_pack_row_exists():
 
     with pytest.raises(ValueError, match="PACK target missing canonical single booster pack row"):
         service._resolve_single_sealed_target(sealed_rows, {}, "pack")
+
+
+@patch("backend.db.services.evr_input_repository.get_latest_prices_for_variants")
+@patch("backend.db.services.evr_input_repository.get_card_variants_by_card_ids")
+def test_load_card_payload_filters_excluded_variant_ids(
+    mock_get_variants,
+    mock_get_latest_variant_prices,
+):
+    service = EVRInputRepository()
+    cards = [
+        {"id": "card-metal", "name": "Mew ex - 205/165 (151 Metal Card)", "card_number": "205/165", "rarity": "double rare"},
+        {"id": "card-hyper", "name": "Mew ex", "card_number": "205/165", "rarity": "hyper rare"},
+    ]
+    excluded_variant_id = "c382a7b6-1e6b-427e-8a92-b19c0c5d9496"
+    included_variant_id = "f688b463-5963-4740-b45f-f3da75a7325a"
+
+    mock_get_variants.return_value = [
+        {
+            "id": excluded_variant_id,
+            "card_id": "card-metal",
+            "pokemon_tcg_api_id": None,
+            "printing_type": "non-holo",
+            "special_type": None,
+            "edition": None,
+        },
+        {
+            "id": included_variant_id,
+            "card_id": "card-hyper",
+            "pokemon_tcg_api_id": "sv3pt5-205",
+            "printing_type": "holo",
+            "special_type": None,
+            "edition": None,
+        },
+    ]
+    mock_get_latest_variant_prices.return_value = [
+        {"variant_id": excluded_variant_id, "condition_id": 1, "market_price": 39.81},
+        {"variant_id": included_variant_id, "condition_id": 1, "market_price": 30.00},
+    ]
+
+    payload, cards_missing_prices, excluded_count = service._load_card_payload(
+        cards,
+        near_mint_condition_id=1,
+        excluded_variant_ids={excluded_variant_id},
+    )
+
+    assert excluded_count == 1
+    assert cards_missing_prices == 1
+    assert len(payload) == 2
+    assert payload[0]["variants"] == []
+    assert payload[1]["variants"][0]["variant_id"] == included_variant_id
