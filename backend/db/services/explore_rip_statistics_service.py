@@ -7,6 +7,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,35 @@ def _to_optional_str(value: Any) -> Optional[str]:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _shorten_canonical_label(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    for separator in (",", " - ", " — "):
+        if separator in text:
+            head = text.split(separator, 1)[0].strip()
+            return head or text
+    return text
+
+
+def _build_recommendation_labels(summary_row: Dict[str, Any]) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    try:
+        interpretation = build_rip_interpretation(summary_row)
+    except Exception:
+        logger.warning("[rip-statistics-targets] failed to build interpretation for target row")
+        return None, None, None
+
+    pack_score_meta = ((interpretation or {}).get("meta") or {}).get("packScore") or {}
+    canonical_header = _to_optional_str(pack_score_meta.get("label"))
+    quick_label = _shorten_canonical_label(canonical_header)
+    severity = _to_optional_str(pack_score_meta.get("severity"))
+    return canonical_header, quick_label, severity
 
 
 def _build_rank_sort_key(row: Dict[str, Any]) -> tuple[int, float, str]:
@@ -124,8 +154,10 @@ def _calculate_score_ranks_and_tiers(
             tier = "B"
         elif percentile <= 75:
             tier = "C"
-        else:
+        elif percentile <= 90:
             tier = "D"
+        else:
+            tier = "F"
         
         result[target_id] = {"rank": rank, "tier": tier}
     
@@ -148,21 +180,18 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     query_started = time.perf_counter()
     try:
         targets_result = (
-            public_read_client.table("simulation_latest_by_target")
-            .select(
-                "target_type,target_id,run_at,pack_score,profit_score,safety_score,stability_score,"
-                "pack_score_is_placeholder,pack_cost,mean_value,median_value,roi_percent,prob_profit,prob_big_hit"
-            )
-            .eq("target_type", "set")
+            public_read_client.table("explore_rip_statistics_latest")
+            .select("*")
             .order("pack_score", desc=True)
             .order("run_at", desc=True)
             .limit(clamped_limit)
             .execute()
         )
-        raw_rows = [row for row in (targets_result.data or []) if row.get("target_id")]
-        sources["simulation_latest_by_target"] = "OK"
+        raw_rows = [row for row in (targets_result.data or []) if row.get("set_id")]
+        sources["explore_rip_statistics_latest"] = "OK"
+        sources["simulation_latest_by_target"] = "SKIPPED_RIP_SUMMARY"
     except Exception as exc:
-        logger.exception("[rip-statistics-targets] simulation_latest_by_target query failed")
+        logger.exception("[rip-statistics-targets] explore_rip_statistics_latest query failed")
         raise ExploreRipStatisticsTargetsError(
             status_code=500,
             message="Failed to load RIP Statistics targets",
@@ -179,22 +208,18 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
 
     ranked_rows = sorted(raw_rows, key=_build_rank_sort_key)
 
-    # Calculate ranks and tiers for each score type
-    pack_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "pack_score")
-    profit_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "profit_score")
-    safety_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "safety_score")
-    stability_rank_tier = _calculate_score_ranks_and_tiers(ranked_rows, "stability_score")
-
     set_lookup_by_target_id: Dict[str, Dict[str, Any]] = {}
     era_lookup: Dict[str, Dict[str, Any]] = {}
 
-    set_ids = sorted({str(row.get("target_id")) for row in ranked_rows if row.get("target_id")})
+    set_ids = sorted({str(row.get("set_id")) for row in ranked_rows if row.get("set_id")})
     if set_ids:
         set_started = time.perf_counter()
         try:
             set_result = (
                 public_read_client.table("sets")
-                .select("id,name,canonical_key,release_date,pokemon_api_set_id,era_id")
+                .select(
+                    "id,name,canonical_key,release_date,pokemon_api_set_id,era_id,logo_image_url,symbol_image_url,hero_image_url"
+                )
                 .in_("id", set_ids)
                 .execute()
             )
@@ -209,7 +234,9 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             if unresolved_target_ids:
                 canonical_result = (
                     public_read_client.table("sets")
-                    .select("id,name,canonical_key,release_date,pokemon_api_set_id,era_id")
+                    .select(
+                        "id,name,canonical_key,release_date,pokemon_api_set_id,era_id,logo_image_url,symbol_image_url,hero_image_url"
+                    )
                     .in_("canonical_key", unresolved_target_ids)
                     .execute()
                 )
@@ -262,14 +289,14 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     ordered_rows = sorted(
         ranked_rows,
         key=lambda row: _build_set_order_key(
-            str(row.get("target_id")),
-            set_lookup_by_target_id.get(str(row.get("target_id"))) or {},
+            str(row.get("set_id")),
+            set_lookup_by_target_id.get(str(row.get("set_id"))) or {},
         ),
     )
 
     default_target_id: Optional[str] = None
     for row in ranked_rows:
-        target_id = _to_optional_str(row.get("target_id"))
+        target_id = _to_optional_str(row.get("set_id"))
         if target_id and _to_optional_float(row.get("pack_score")) is not None:
             default_target_id = target_id
             break
@@ -278,34 +305,45 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
 
     targets: List[Dict[str, Any]] = []
     for row in ordered_rows:
-        target_id = str(row.get("target_id"))
+        target_id = str(row.get("set_id"))
         set_row = set_lookup_by_target_id.get(target_id) or {}
         era_row = era_lookup.get(str(set_row.get("era_id"))) if set_row.get("era_id") is not None else None
-        
-        # Get rank/tier for each score type
-        pack_rt = pack_rank_tier.get(target_id, {})
-        profit_rt = profit_rank_tier.get(target_id, {})
-        safety_rt = safety_rank_tier.get(target_id, {})
-        stability_rt = stability_rank_tier.get(target_id, {})
+        summary_row = {
+            key: value
+            for key, value in row.items()
+            if key not in {"set_id", "calculation_run_id", "run_at", "created_at", "updated_at"}
+        }
+        canonical_recommendation_header, leaderboard_label, recommendation_severity = _build_recommendation_labels(
+            summary_row
+        )
+        pack_rank = row.get("pack_rank")
+        pack_tier = _to_optional_str(row.get("pack_tier"))
         
         targets.append(
             {
-                "target_type": str(row.get("target_type") or "set"),
+                "target_type": "set",
                 "target_id": target_id,
                 "name": str(set_row.get("name") or target_id),
                 "era": era_row.get("name") if era_row else None,
+                "logo_image_url": set_row.get("logo_image_url"),
+                "symbol_image_url": set_row.get("symbol_image_url"),
+                "hero_image_url": set_row.get("hero_image_url"),
+                "leaderboard_label": leaderboard_label,
+                "canonical_recommendation_header": canonical_recommendation_header,
+                "recommendation_severity": recommendation_severity,
+                "relative_pack_score": row.get("relative_pack_score"),
                 "pack_score": row.get("pack_score"),
-                "pack_rank": pack_rt.get("rank"),
-                "pack_tier": pack_rt.get("tier"),
+                "pack_rank": pack_rank,
+                "pack_tier": pack_tier,
                 "profit_score": row.get("profit_score"),
-                "profit_rank": profit_rt.get("rank"),
-                "profit_tier": profit_rt.get("tier"),
+                "profit_rank": row.get("profit_rank"),
+                "profit_tier": row.get("profit_tier"),
                 "safety_score": row.get("safety_score"),
-                "safety_rank": safety_rt.get("rank"),
-                "safety_tier": safety_rt.get("tier"),
+                "safety_rank": row.get("safety_rank"),
+                "safety_tier": row.get("safety_tier"),
                 "stability_score": row.get("stability_score"),
-                "stability_rank": stability_rt.get("rank"),
-                "stability_tier": stability_rt.get("tier"),
+                "stability_rank": row.get("stability_rank"),
+                "stability_tier": row.get("stability_tier"),
                 "pack_cost": row.get("pack_cost"),
                 "mean_value": row.get("mean_value"),
                 "median_value": row.get("median_value"),

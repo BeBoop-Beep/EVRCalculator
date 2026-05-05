@@ -1,7 +1,7 @@
 {
   "summary": {
-    "generated_at_utc": "2026-04-10T23:41:59.260735+00:00",
-    "apply_changes": false,
+    "generated_at_utc": "2026-05-05T18:39:01.439179+00:00",
+    "apply_changes": true,
     "tcg_id": "b2e55c39-b4f7-4dcf-a98e-e1afc5df94f8",
     "eras_discovered": 17,
     "eras_inserted": 0,
@@ -9,8 +9,8 @@
     "eras_skipped": 17,
     "sets_discovered": 170,
     "sets_inserted": 0,
-    "sets_updated": 0,
-    "sets_skipped": 170,
+    "sets_updated": 2,
+    "sets_skipped": 168,
     "total_scrape_ready_sets_from_constants": 165,
     "total_scrape_ready_sets_in_db": 165,
     "total_sets_with_card_details_urls": 165,
@@ -630,9 +630,12 @@
     {
       "canonical_key": "ascendedHeroes",
       "name": "Ascended Heroes",
-      "action": "skipped",
+      "action": "updated",
       "row_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
-      "changes": [],
+      "changes": [
+        "logo_image_url",
+        "symbol_image_url"
+      ],
       "reason": null
     },
     {
@@ -646,9 +649,12 @@
     {
       "canonical_key": "perfectOrder",
       "name": "Perfect Order",
-      "action": "skipped",
+      "action": "updated",
       "row_id": "5e99f658-39f0-4845-9228-db8db3965f32",
-      "changes": [],
+      "changes": [
+        "logo_image_url",
+        "symbol_image_url"
+      ],
       "reason": null
     },
     {

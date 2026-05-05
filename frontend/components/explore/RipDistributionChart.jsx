@@ -126,22 +126,22 @@ function CombinedTooltip({ active, payload }) {
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
       {hasBin ? (
         <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Outcome Range</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Outcome Range</p>
           <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
             {String(row.range_label || "").trim() || `${formatCompactCurrency(row.bin_floor)} – ${formatCompactCurrency(row.bin_ceiling)}`}
           </p>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
-            Frequency&nbsp;
+            How often this happens&nbsp;
             <span className="font-semibold text-[var(--text-primary)]">
               {Number.isFinite(row.exact_frequency_percent) ? `${row.exact_frequency_percent.toFixed(2)}%` : "—"}
             </span>
           </p>
           {Number.isFinite(row.occurrence_count) ? (
-            <p className="text-xs text-[var(--text-secondary)]">Count {formatCount(row.occurrence_count)}</p>
+            <p className="text-xs text-[var(--text-secondary)]">Simulated packs {formatCount(row.occurrence_count)}</p>
           ) : null}
           {Number.isFinite(row.survival_probability) ? (
             <p className="text-xs text-[var(--text-secondary)]">
-              Chance at least this value {formatChancePercent(row.survival_probability * 100)}
+              Chance to reach this value {formatChancePercent(row.survival_probability * 100)}
             </p>
           ) : null}
         </>

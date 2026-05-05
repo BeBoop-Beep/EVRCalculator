@@ -12,6 +12,30 @@ function getCleanText(value) {
   return trimmed.length ? trimmed : null;
 }
 
+function normalizePath(value) {
+  if (typeof value !== "string" || value.length === 0) {
+    return "/";
+  }
+
+  const [pathOnly] = value.split("?");
+  const withoutTrailingSlash = pathOnly.replace(/\/+$/, "");
+  return withoutTrailingSlash || "/";
+}
+
+function isPathMatch(pathname, targets, { caseInsensitive = false } = {}) {
+  if (!pathname) return false;
+
+  const normalizedPathname = normalizePath(pathname);
+  const source = caseInsensitive ? normalizedPathname.toLowerCase() : normalizedPathname;
+
+  return targets.some((targetPath) => {
+    const normalizedTarget = normalizePath(targetPath);
+    const target = caseInsensitive ? normalizedTarget.toLowerCase() : normalizedTarget;
+
+    return source === target || source.startsWith(`${target}/`);
+  });
+}
+
 function navItemIcon(id, isActive) {
   const activeClass = isActive ? "text-[var(--accent)]" : "text-current";
 
@@ -73,12 +97,12 @@ export default function GlobalMobileBottomNav() {
   const { user } = useAuth();
   const accountUsername = getCleanText(user?.username);
   const profileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile";
+  const normalizedPathname = useMemo(() => normalizePath(pathname), [pathname]);
 
   const shouldHide = useMemo(() => {
-    if (!pathname) return false;
-    const hiddenPrefixes = ["/login", "/signup", "/checkout"];
-    return hiddenPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-  }, [pathname]);
+    const hiddenPrefixes = ["/signup", "/checkout"];
+    return isPathMatch(normalizedPathname, hiddenPrefixes);
+  }, [normalizedPathname]);
 
   const items = useMemo(
     () => [
@@ -86,37 +110,34 @@ export default function GlobalMobileBottomNav() {
         id: "home",
         label: "Home",
         href: "/",
-        isActive: pathname === "/",
+        isActive: normalizedPathname === "/",
       },
       {
         id: "explore",
         label: "Explore",
         href: "/Explore",
-        isActive: pathname === "/Explore" || pathname?.startsWith("/Explore/"),
+        isActive: isPathMatch(normalizedPathname, ["/Explore", "/explore"], { caseInsensitive: true }),
       },
       {
         id: "portfolio",
         label: "Portfolio",
         href: "/my-collection/collection",
-        isActive: pathname?.startsWith("/my-collection") || pathname?.startsWith("/my-portfolio"),
+        isActive: isPathMatch(normalizedPathname, ["/my-collection", "/my-portfolio", "/portfolio"], { caseInsensitive: true }),
       },
       {
         id: "tools",
         label: "Tools",
         href: "/tools",
-        isActive: pathname === "/tools" || pathname?.startsWith("/tools/"),
+        isActive: isPathMatch(normalizedPathname, ["/tools"], { caseInsensitive: true }),
       },
       {
         id: "profile",
         label: "Profile",
         href: profileHref,
-        isActive:
-          pathname === "/profile"
-          || pathname?.startsWith("/profile/")
-          || pathname?.startsWith("/u/"),
+        isActive: isPathMatch(normalizedPathname, ["/profile", "/u"], { caseInsensitive: true }),
       },
     ],
-    [pathname, profileHref]
+    [normalizedPathname, profileHref]
   );
 
   if (shouldHide) {
