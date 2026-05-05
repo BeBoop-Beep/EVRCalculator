@@ -2,8 +2,12 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.db.clients.supabase_client import supabase
 from backend.db.repositories.cards_repository import get_all_cards_for_set
-from backend.db.repositories.card_variant_repository import get_card_variants_by_card_ids
+from backend.db.repositories.card_variant_repository import (
+    get_card_variants_by_card_ids,
+    load_active_simulation_excluded_variant_ids,
+)
 from backend.db.repositories.card_variant_prices_repository import get_latest_prices_for_variants
 from backend.db.repositories.conditions_repository import get_condition_by_name
 from backend.db.repositories.sealed_product_prices_repository import (
@@ -88,6 +92,7 @@ class EVRInputRepository:
                     "set_resolution": "not_found",
                     "total_cards_loaded": 0,
                     "cards_missing_prices": 0,
+                    "excluded_variants_filtered": 0,
                     "duplicate_card_mappings": 0,
                     "pack_price_resolution_status": "not_found",
                     "etb_price_resolution_status": "not_found",
@@ -100,7 +105,12 @@ class EVRInputRepository:
         near_mint_condition_id = near_mint["id"] if near_mint else None
 
         cards = get_all_cards_for_set(set_row["id"])
-        card_payload, cards_missing_prices = self._load_card_payload(cards, near_mint_condition_id)
+        excluded_variant_ids = load_active_simulation_excluded_variant_ids(supabase)
+        card_payload, cards_missing_prices, excluded_variants_filtered = self._load_card_payload(
+            cards,
+            near_mint_condition_id,
+            excluded_variant_ids,
+        )
         duplicate_card_mappings = self._count_duplicate_card_keys(cards)
 
         sealed_resolution = self._resolve_sealed_prices(set_row["id"])
@@ -125,6 +135,7 @@ class EVRInputRepository:
                 "set_resolution": set_resolution_path,
                 "total_cards_loaded": len(card_payload),
                 "cards_missing_prices": cards_missing_prices,
+                "excluded_variants_filtered": excluded_variants_filtered,
                 "duplicate_card_mappings": duplicate_card_mappings,
                 "pack_price_resolution_status": sealed_resolution["pack"]["status"],
                 "etb_price_resolution_status": sealed_resolution["etb"]["status"],
@@ -162,20 +173,27 @@ class EVRInputRepository:
         self,
         cards: List[Dict[str, Any]],
         near_mint_condition_id: Optional[int],
-    ) -> Tuple[List[Dict[str, Any]], int]:
+        excluded_variant_ids: set[str],
+    ) -> Tuple[List[Dict[str, Any]], int, int]:
         if not cards:
-            return [], 0
+            return [], 0, 0
 
         card_ids = [card["id"] for card in cards if card.get("id") is not None]
         variants = get_card_variants_by_card_ids(card_ids)
+        filtered_variants = [
+            variant
+            for variant in variants
+            if str(variant.get("id") or "") not in excluded_variant_ids
+        ]
+        excluded_variants_filtered = max(0, len(variants) - len(filtered_variants))
 
         variants_by_card: Dict[int, List[Dict[str, Any]]] = {}
-        for variant in variants:
+        for variant in filtered_variants:
             variants_by_card.setdefault(variant["card_id"], []).append(variant)
 
         price_by_variant: Dict[int, Dict[str, Any]] = {}
         if near_mint_condition_id is not None:
-            variant_ids = [variant["id"] for variant in variants if variant.get("id") is not None]
+            variant_ids = [variant["id"] for variant in filtered_variants if variant.get("id") is not None]
             latest_prices = get_latest_prices_for_variants(variant_ids, near_mint_condition_id)
             price_by_variant = {
                 row["variant_id"]: row
@@ -214,7 +232,7 @@ class EVRInputRepository:
                 }
             )
 
-        return payload, cards_missing_prices
+        return payload, cards_missing_prices, excluded_variants_filtered
 
     def _resolve_sealed_prices(self, set_id: str) -> Dict[str, Dict[str, Any]]:
         sealed_rows = get_sealed_products_for_set(set_id)
