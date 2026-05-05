@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import RankBadge from "@/components/ui/RankBadge";
 import SetIdentity from "@/components/explore/SetIdentity";
+import InfoPopover from "@/components/ui/InfoPopover";
 import { getDangerValueStyle } from "@/lib/explore/interpretationTone";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -257,20 +258,21 @@ export default async function ExplorePage({ searchParams }) {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 pb-24 sm:px-6 lg:px-8">
-      <div className="dashboard-container space-y-6">
-        <section className="page-hero-panel rounded-2xl px-6 py-7">
-          <div>
+      <div className="dashboard-container space-y-6 !border-0 !bg-transparent !p-0 md:!rounded-2xl md:!border md:!border-[rgba(255,255,255,0.04)] md:!bg-[rgba(255,255,255,0.02)] md:!p-6">
+        <div className="px-1 sm:px-0">
+          <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Explore</h1>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Discover the best sets to rip, the strongest chases, and the market signals behind them.
-            </p>
+            <InfoPopover text="Explore highlights the strongest sets, cards, chases, and market signals based on current data." />
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(16,26,40,0.95)_0%,rgba(10,16,28,0.95)_100%)] p-4 sm:p-5 lg:p-6">
+        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(16,26,40,0.95)_0%,rgba(10,16,28,0.95)_100%)] p-4 lg:p-6">
           <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Best Sets to Rip Right Now</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Best Sets to Rip Right Now</h2>
+                <InfoPopover text="Rankings compare simulated pack outcomes against the current market cost of each pack. A set can rank highly when its cards are paying back well relative to what the pack costs, even if the set is not the most popular." />
+              </div>
             </div>
             <div className="flex flex-col items-start gap-2 sm:items-end">
               {canToggleScoreMode ? (
@@ -303,6 +305,8 @@ export default async function ExplorePage({ searchParams }) {
               <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
                 {leaderboardTargets.length} ranked sets
               </div>
+
+              <p className="text-xs text-[var(--text-secondary)]">Tap a set to see the full rip breakdown.</p>
             </div>
           </div>
 
