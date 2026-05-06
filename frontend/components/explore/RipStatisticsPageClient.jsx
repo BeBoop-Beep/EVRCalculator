@@ -630,7 +630,7 @@ function SimplePillarSummaryCard({
   const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
 
   return (
-    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
+    <article className="flex h-full min-w-0 flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
@@ -1907,12 +1907,12 @@ export default function RipStatisticsPageClient({
           <>
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
               {heroLogoUrl ? (
-                <div className="pointer-events-none absolute left-1/2 top-[18%] z-0 h-[100%] w-[100%] -translate-x-1/2 -translate-y-1/2 select-none sm:top-1/2 sm:h-[107%] sm:w-[107%]">
+                <div className="pointer-events-none absolute left-1/2 top-[8.75rem] z-0 w-full max-w-[46.2rem] -translate-x-1/2 select-none sm:top-[9.75rem] sm:max-w-[49.5rem] lg:top-[10.25rem] lg:max-w-[52.8rem]">
                   <img
                     src={heroLogoUrl}
                     alt=""
                     aria-hidden="true"
-                    className="h-full w-full object-contain opacity-[0.1] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.16))]"
+                    className="h-auto w-full object-contain opacity-[0.1] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.16))]"
                     loading="lazy"
                     decoding="async"
                   />
@@ -2058,7 +2058,7 @@ export default function RipStatisticsPageClient({
                                 <span className="text-xs text-[var(--text-secondary)] transition-transform duration-150 group-open:rotate-180">▾</span>
                               </summary>
                               <div className="mt-3 space-y-3">
-                                <div className="grid gap-3">
+                                <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-3">
                                   <SimplePillarSummaryCard
                                     title="Profit"
                                     score={displayedProfitScore}

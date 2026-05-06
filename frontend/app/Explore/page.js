@@ -40,10 +40,6 @@ function formatLossCurrency(value) {
   return parsed === null ? "-" : `-${currencyFormatter.format(Math.abs(parsed))}`;
 }
 
-function normalizeScoreMode(value) {
-  return String(value || "").toLowerCase() === "absolute" ? "absolute" : "relative";
-}
-
 function shortenCanonicalLabel(value) {
   const text = String(value || "").trim();
   if (!text) {
@@ -69,44 +65,9 @@ function getLeaderboardRecommendationLabel(target) {
 function getExploreRankingBadgeLabel(label) {
   return String(label || "").replace(/\s+PROFILE$/i, "").trim();
 }
-
-function buildScoreModeHref(searchParams, scoreMode) {
-  const mode = normalizeScoreMode(scoreMode);
-  const params = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(searchParams || {})) {
-    if (key === "score_mode") {
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      value.forEach((entry) => {
-        if (entry !== undefined && entry !== null && String(entry).trim() !== "") {
-          params.append(key, String(entry));
-        }
-      });
-      continue;
-    }
-
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      params.set(key, String(value));
-    }
-  }
-
-  params.set("score_mode", mode);
-  const queryString = params.toString();
-  return queryString ? `/Explore?${queryString}` : "/Explore";
-}
-
-function getDisplayedScoreValue(target, scoreMode) {
+function getDisplayedScoreValue(target) {
   const relativeScore = toNumber(target?.relative_pack_score);
-  const absoluteScore = toNumber(target?.pack_score);
-
-  if (scoreMode === "absolute") {
-    return absoluteScore ?? relativeScore;
-  }
-
-  return relativeScore ?? absoluteScore;
+  return relativeScore;
 }
 
 function formatPercent(value, probability = false) {
@@ -244,16 +205,12 @@ function TopRankingsPreview() {
 }
 
 export default async function ExplorePage({ searchParams }) {
-  const resolvedSearchParams = (await searchParams) || {};
-  const scoreMode = normalizeScoreMode(resolvedSearchParams?.score_mode);
+  await searchParams;
   const payload = await getRipStatisticsTargets({ limit: 60 }).catch(() => null);
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   const sortedTargets = rankTargets(targets);
   const leaderboardTargets = sortedTargets;
   const isScrollable = leaderboardTargets.length > 5;
-  const hasRelativeScore = leaderboardTargets.some((target) => toNumber(target?.relative_pack_score) !== null);
-  const hasAbsoluteScore = leaderboardTargets.some((target) => toNumber(target?.pack_score) !== null);
-  const canToggleScoreMode = hasRelativeScore && hasAbsoluteScore;
   const leaderboardScrollClass = "index-scrollbar";
 
   return (
@@ -274,41 +231,16 @@ export default async function ExplorePage({ searchParams }) {
                 <InfoPopover text="Rankings compare simulated pack outcomes against the current market cost of each pack. A set can rank highly when its cards are paying back well relative to what the pack costs, even if the set is not the most popular." />
               </div>
             </div>
-            <div className="flex flex-col items-start gap-2 sm:items-end">
-              {canToggleScoreMode ? (
-                <div className="hidden md:flex">
-                  <div className="inline-grid w-full max-w-xs grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/92 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_10px_24px_rgba(15,23,42,0.14)] sm:inline-flex sm:w-auto sm:max-w-none">
-                    <Link
-                      href={buildScoreModeHref(resolvedSearchParams, "relative")}
-                      className={`min-w-0 rounded-full px-3 py-2 text-center text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
-                        scoreMode === "relative"
-                          ? "bg-[var(--brand)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Relative
-                    </Link>
-                    <Link
-                      href={buildScoreModeHref(resolvedSearchParams, "absolute")}
-                      className={`min-w-0 rounded-full px-3 py-2 text-center text-[10px] font-semibold leading-none transition-colors sm:min-w-[4.5rem] sm:px-3 sm:py-1.5 ${
-                        scoreMode === "absolute"
-                          ? "bg-[var(--brand)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Absolute
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
-
+            <div className="flex items-start sm:items-center">
               <div className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
                 {leaderboardTargets.length} ranked sets
               </div>
-
-              <p className="text-xs text-[var(--text-secondary)]">Tap a set to see the full rip breakdown.</p>
             </div>
           </div>
+
+          <p className="mt-3 text-xs text-[var(--text-secondary)] md:text-center">
+            Tap a set to see the full rip breakdown.
+          </p>
 
           {leaderboardTargets.length > 0 ? (
             <>
@@ -324,7 +256,7 @@ export default async function ExplorePage({ searchParams }) {
                 <div className={isScrollable ? `max-h-[34rem] space-y-2 overflow-y-auto pr-1 ${leaderboardScrollClass}` : "space-y-2"}>
                   {leaderboardTargets.map((target) => {
                     const averageLoss = estimateAverageLoss(target);
-                    const displayedScore = getDisplayedScoreValue(target, scoreMode);
+                    const displayedScore = getDisplayedScoreValue(target);
                     const recommendationLabel = getLeaderboardRecommendationLabel(target);
                     const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
                     const tier = String(target?.pack_tier || "").toUpperCase() || null;
