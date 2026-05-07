@@ -18,3 +18,29 @@ Task started at Tue 05/05/2026 10:00:01.87
 Current dir: D:\EVRCalculator 
 Task finished at Tue 05/05/2026 10:34:50.62 with exit code 0 
 ================================ 
+================================ 
+Task started at Wed 05/06/2026 10:00:01.70 
+Current dir: D:\EVRCalculator 
+      0 [main] bash 3306 C:\Program Files\Git\usr\bin\bash.exe: *** fatal error - console device allocation failure - too many consoles in use, max consoles is 32
+ 140238 [main] bash 3306 cygwin_exception::open_stackdumpfile: Dumping stack trace to bash.exe.stackdump
+Task finished at Wed 05/06/2026 10:00:06.55 with exit code 256 
+================================ 
+================================ 
+Task started at Wed 05/06/2026 15:59:48.56 
+Current dir: D:\EVRCalculator 
+      0 [main] bash 3620 C:\Program Files\Git\usr\bin\bash.exe: *** fatal error - console device allocation failure - too many consoles in use, max consoles is 32
+  44595 [main] bash 3620 cygwin_exception::open_stackdumpfile: Dumping stack trace to bash.exe.stackdump
+Task finished at Wed 05/06/2026 15:59:50.19 with exit code 256 
+================================ 
+================================ 
+Task started at Wed 05/06/2026 16:00:09.92 
+Current dir: D:\EVRCalculator 
+      0 [main] bash 3621 C:\Program Files\Git\usr\bin\bash.exe: *** fatal error - console device allocation failure - too many consoles in use, max consoles is 32
+  32009 [main] bash 3621 cygwin_exception::open_stackdumpfile: Dumping stack trace to bash.exe.stackdump
+Task finished at Wed 05/06/2026 16:00:11.50 with exit code 256 
+================================ 
+================================ 
+Task started at Wed 05/06/2026 16:01:36.76 
+Current dir: D:\EVRCalculator 
+Task finished at Wed 05/06/2026 16:35:28.22 with exit code 0 
+================================ 

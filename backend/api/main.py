@@ -44,6 +44,14 @@ from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
     get_rip_statistics_targets_payload,
 )
+from backend.db.services.card_detail_page_service import (
+    CardDetailPageError,
+    get_card_detail_page_payload,
+)
+from backend.db.services.user_pack_simulation_service import (
+    UserPackSimulationError,
+    simulate_with_custom_price,
+)
 
 
 app = FastAPI(title="EVR Collection API")
@@ -77,6 +85,14 @@ class WaitlistSignupRequest(BaseModel):
 
 class WaitlistVerifyRequest(BaseModel):
     token: str
+
+
+class PackSimulatorRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    target_type: str
+    target_id: str
+    custom_pack_cost: float
+    mode: str = "fast"
 
 
 def _auth_env_presence() -> Dict[str, bool]:
@@ -410,6 +426,82 @@ def get_explore_rip_statistics_targets(
         logger.exception("/explore/rip-statistics/targets unexpected error")
         return JSONResponse(
             content={"message": "Unable to load RIP Statistics targets", "code": "RIP_STATISTICS_TARGETS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/cards/{card_variant_id}/page")
+def get_card_detail_page(
+    card_variant_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Return backend-first card detail page payload keyed by card_variant_id."""
+    viewer_user_id = _get_authenticated_user_id_if_present(
+        authorization=authorization,
+        token_cookie=token_cookie,
+    )
+
+    try:
+        payload = get_card_detail_page_payload(
+            card_variant_id=card_variant_id,
+            viewer_user_id=viewer_user_id,
+        )
+        return payload
+    except CardDetailPageError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/cards/%s/page unexpected error", card_variant_id)
+        return JSONResponse(
+            content={"message": "Unable to load card detail page", "code": "CARD_DETAIL_PAGE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.post("/tools/pack-simulator")
+def tools_pack_simulator(payload: PackSimulatorRequest):
+    requested_target_type = str(payload.target_type or "").strip()
+    requested_target_id = str(payload.target_id or "").strip()
+    requested_mode = str(payload.mode or "fast").strip() or "fast"
+
+    if requested_target_type != "set":
+        raise HTTPException(status_code=400, detail="target_type currently only supports 'set'")
+    if not requested_target_id:
+        raise HTTPException(status_code=400, detail="target_id is required")
+
+    try:
+        requested_cost = float(payload.custom_pack_cost)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="custom_pack_cost must be numeric")
+
+    if requested_cost <= 0:
+        raise HTTPException(status_code=400, detail="custom_pack_cost must be greater than 0")
+    if requested_cost >= 1000:
+        raise HTTPException(status_code=400, detail="custom_pack_cost must be less than 1000")
+
+    try:
+        return simulate_with_custom_price(
+            target_type=requested_target_type,
+            target_id=requested_target_id,
+            custom_pack_cost=requested_cost,
+            mode=requested_mode,
+        )
+    except UserPackSimulationError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception(
+            "/tools/pack-simulator unexpected error target_type=%s target_id=%s",
+            requested_target_type,
+            requested_target_id,
+        )
+        return JSONResponse(
+            content={"message": "Unable to run tools pack simulator", "code": "TOOLS_PACK_SIMULATOR_FAILED"},
             status_code=500,
         )
 

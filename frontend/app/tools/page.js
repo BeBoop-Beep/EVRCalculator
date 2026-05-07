@@ -1,13 +1,12 @@
-import ComingSoonPage from "@/components/coming-soon/ComingSoonPage";
+import PackSimulator from "@/components/tools/PackSimulator";
+import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 
-export default function ToolsPage() {
+export default async function ToolsPage() {
+  const targetsPayload = await getRipStatisticsTargets({ limit: 150 });
+  const targets = Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [];
+  const defaultTargetId = String(targetsPayload?.default_target?.target_id || "");
+
   return (
-    <ComingSoonPage
-      title="Tools are coming soon"
-      body="We&rsquo;re building tools to help collectors analyze sets, track value, compare opportunities, and make smarter collecting decisions. Stay tuned - and join the waitlist from the homepage for updates."
-      variant="feature"
-      ctaLabel="Back to home"
-      ctaHref="/"
-    />
+    <PackSimulator targets={targets} defaultTargetId={defaultTargetId} />
   );
 }

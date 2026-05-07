@@ -259,7 +259,7 @@ function EmptyChartState({ title, body }) {
   );
 }
 
-export default function RipDistributionChart({ bins = [], thresholdBins = [], markers = [] }) {
+export default function RipDistributionChart({ bins = [], thresholdBins = [], markers = [], markerStyleMap = {} }) {
   const [activeMarkerKey, setActiveMarkerKey] = useState(null);
   const [showBars, setShowBars] = useState(true);
   const [showLine, setShowLine] = useState(true);
@@ -631,6 +631,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
               const markersInSlot = markersBySlot.get(slot) || [];
               const isActiveInSlot = activeMarkerKey && activeMarkerKey === markerKey;
               const hasMultipleInSlot = markersInSlot.length > 1;
+              const markerStyle = markerStyleMap?.[markerKey] || null;
 
               // When multiple markers share a slot, only render the active one prominently.
               if (hasMultipleInSlot && activeMarkerKey && !isActiveInSlot) {
@@ -654,14 +655,21 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
                   yAxisId="left"
                   x={slot}
                   stroke={
-                    isActiveInSlot
+                    markerStyle?.stroke ||
+                    (isActiveInSlot
                       ? "rgba(20,184,166,0.98)"
                       : hasMultipleInSlot && activeMarkerKey
                       ? "rgba(255,255,255,0.08)"
-                      : "rgba(255,255,255,0.16)"
+                      : "rgba(255,255,255,0.16)")
                   }
-                  strokeWidth={isActiveInSlot ? 2.5 : 1}
-                  strokeDasharray={isActiveInSlot ? "6 3" : "2 6"}
+                  strokeWidth={
+                    markerStyle?.strokeWidth ??
+                    (isActiveInSlot ? 2.5 : 1)
+                  }
+                  strokeDasharray={
+                    markerStyle?.strokeDasharray ??
+                    (isActiveInSlot ? "6 3" : "2 6")
+                  }
                   ifOverflow="extendDomain"
                   label={isActiveInSlot && activeMarker ? (
                     <ActiveMarkerLabel

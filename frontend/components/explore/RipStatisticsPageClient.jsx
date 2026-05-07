@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
@@ -676,9 +677,28 @@ function SectionCard({ title, subtitle, titleInfoText, children }) {
   );
 }
 
-function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl }) {
+function TopHitRow({
+  hit,
+  name,
+  evContribution,
+  evShare,
+  nearMintPrice,
+  imageUrl,
+  imageSmallUrl,
+  imageLargeUrl,
+  cardVariantId,
+}) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
+  const isClickable = Boolean(cardVariantId);
+  const rowClassName = [
+    "w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3",
+    isClickable
+      ? "cursor-pointer transition-transform group-hover:-translate-y-px group-hover:border-brand/50 group-hover:bg-[var(--surface-page)]/75 group-hover:shadow-[0_0_0_1px_rgba(20,184,166,0.18)]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     setHasImageError(false);
@@ -686,8 +706,8 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
 
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
 
-  return (
-    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+  const content = (
+    <div className={rowClassName}>
       <div className="flex min-w-0 flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="flex min-w-0 items-center gap-3">
           <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
@@ -721,6 +741,31 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
       </div>
     </div>
   );
+
+  if (!cardVariantId) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[rip-top-hit-click-missing]", {
+        view: "expert",
+        card_name: name,
+        card_id: hit?.card_id,
+        card_variant_id: cardVariantId,
+        hit_keys: Object.keys(hit || {}),
+      });
+    }
+    return content;
+  }
+
+  return (
+    <Link
+      href={`/cards/${encodeURIComponent(String(cardVariantId))}`}
+      className="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+      title="Open card detail"
+      aria-label={`Open ${name || "card"} detail page`}
+      prefetch={false}
+    >
+      {content}
+    </Link>
+  );
 }
 
 function getTopHitNearMintPrice(hit) {
@@ -739,9 +784,18 @@ function getTopHitCardPrice(hit) {
   );
 }
 
-function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPrice }) {
+function SimpleTopHitRow({ hit, name, imageUrl, imageSmallUrl, imageLargeUrl, cardPrice, cardVariantId }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
+  const isClickable = Boolean(cardVariantId);
+  const rowClassName = [
+    "w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3",
+    isClickable
+      ? "cursor-pointer transition-transform group-hover:-translate-y-px group-hover:border-brand/50 group-hover:bg-[var(--surface-page)]/75 group-hover:shadow-[0_0_0_1px_rgba(20,184,166,0.18)]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     setHasImageError(false);
@@ -749,8 +803,8 @@ function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPri
 
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
 
-  return (
-    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+  const content = (
+    <div className={rowClassName}>
       <div className="flex min-w-0 items-center gap-3">
         <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
           {shouldRenderImage ? (
@@ -774,6 +828,31 @@ function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPri
       </div>
     </div>
   );
+
+  if (!cardVariantId) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[rip-top-hit-click-missing]", {
+        view: "simple",
+        card_name: name,
+        card_id: hit?.card_id,
+        card_variant_id: cardVariantId,
+        hit_keys: Object.keys(hit || {}),
+      });
+    }
+    return content;
+  }
+
+  return (
+    <Link
+      href={`/cards/${encodeURIComponent(String(cardVariantId))}`}
+      className="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+      title="Open card detail"
+      aria-label={`Open ${name || "card"} detail page`}
+      prefetch={false}
+    >
+      {content}
+    </Link>
+  );
 }
 
 function SimpleTopCardsContent({ topHits }) {
@@ -785,16 +864,20 @@ function SimpleTopCardsContent({ topHits }) {
 
   return (
     <div className="w-full max-w-full min-w-0 space-y-2">
-      {hits.map((hit, index) => (
-        <SimpleTopHitRow
-          key={`simple-hit:${hit?.card_name || "unknown"}:${index}`}
-          name={hit?.card_name}
-          cardPrice={getTopHitCardPrice(hit)}
-          imageUrl={hit?.image_url}
-          imageSmallUrl={hit?.image_small_url}
-          imageLargeUrl={hit?.image_large_url}
-        />
-      ))}
+      {hits.map((hit, index) => {
+        return (
+          <SimpleTopHitRow
+            key={`simple-hit:${hit?.card_name || "unknown"}:${index}`}
+            hit={hit}
+            name={hit?.card_name}
+            cardPrice={getTopHitCardPrice(hit)}
+            imageUrl={hit?.image_url}
+            imageSmallUrl={hit?.image_small_url}
+            imageLargeUrl={hit?.image_large_url}
+            cardVariantId={hit?.card_variant_id}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -829,6 +912,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
         return (
           <TopHitRow
             key={`${hit?.card_name || "unknown"}:${hit?.ev_contribution ?? "na"}`}
+            hit={hit}
             name={hit?.card_name}
             evContribution={hit?.ev_contribution}
             evShare={evShare}
@@ -836,6 +920,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
             imageUrl={hit?.image_url}
             imageSmallUrl={hit?.image_small_url}
             imageLargeUrl={hit?.image_large_url}
+            cardVariantId={hit?.card_variant_id}
           />
         );
       })}
