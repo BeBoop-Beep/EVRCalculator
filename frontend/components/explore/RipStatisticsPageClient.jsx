@@ -32,14 +32,12 @@ const SECTION_ID_MAP = {
   "pack-breakdown": "explore-outcomes",
   "top-ev-drivers": "explore-drivers",
   "rarity-contribution": "explore-rarity",
-  "advanced-metrics": "explore-advanced",
 };
 const SECTION_SCROLL_ORDER = [
   { sectionId: "explore-score", navId: "pack-score" },
   { sectionId: ANALYSIS_SECTION_ID, navId: "outcome-distribution" },
   { sectionId: "explore-drivers", navId: "top-ev-drivers" },
   { sectionId: "explore-rarity", navId: "rarity-contribution" },
-  { sectionId: "explore-advanced", navId: "advanced-metrics" },
 ];
 
 const RIP_COPY = {
@@ -59,11 +57,10 @@ const RIP_COPY = {
   sections: {
     packScore: "Rip Score",
     outcomeDistribution: "What Usually Happens",
-    historicalTrend: "Is This Set Getting Better?",
+    historicalTrend: "Performance vs Cost",
     packBreakdown: "Pack Breakdown",
     topEvDrivers: "Cards Carrying the Set",
     rarityContribution: "Where the Value Comes From",
-    advancedMetrics: "Advanced Score Details",
   },
   chartMarkers: {
     packCost: "Pack Cost",
@@ -677,22 +674,14 @@ function SectionCard({ title, subtitle, titleInfoText, children }) {
   );
 }
 
-function TopHitRow({
-  hit,
-  name,
-  evContribution,
-  evShare,
-  nearMintPrice,
-  imageUrl,
-  imageSmallUrl,
-  imageLargeUrl,
-  cardVariantId,
-}) {
+const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
+
+function TopHitRow({ hit, name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, cardVariantId }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
   const isClickable = Boolean(cardVariantId);
   const rowClassName = [
-    "w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3",
+    "w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-2.5",
     isClickable
       ? "cursor-pointer transition-transform group-hover:-translate-y-px group-hover:border-brand/50 group-hover:bg-[var(--surface-page)]/75 group-hover:shadow-[0_0_0_1px_rgba(20,184,166,0.18)]"
       : "",
@@ -705,12 +694,11 @@ function TopHitRow({
   }, [imageSrc]);
 
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
-
   const content = (
     <div className={rowClassName}>
       <div className="flex min-w-0 flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
+          <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
             {shouldRenderImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -728,7 +716,7 @@ function TopHitRow({
             {evShare ? <p className="break-words text-xs text-[var(--text-secondary)]">{evShare} of pack value</p> : null}
           </div>
         </div>
-        <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 text-left sm:mt-0 sm:min-w-[13rem] sm:text-right">
+        <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 text-left sm:mt-0 sm:min-w-[14rem] sm:text-right">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Near Mint Price</p>
             <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{nearMintPrice === null ? "—" : formatCurrency(nearMintPrice)}</p>
@@ -802,11 +790,10 @@ function SimpleTopHitRow({ hit, name, imageUrl, imageSmallUrl, imageLargeUrl, ca
   }, [imageSrc]);
 
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
-
   const content = (
     <div className={rowClassName}>
       <div className="flex min-w-0 items-center gap-3">
-        <div className="h-[4.5rem] w-[3.125rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]">
+        <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
           {shouldRenderImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -928,8 +915,9 @@ function TopEVDriversContent({ topHits, meanValue }) {
   );
 }
 
-function RarityContributionContent({ rankings }) {
-  const [mode, setMode] = useState("ev");
+function RarityContributionContent({ rankings, mode: controlledMode = null, showToggle = true }) {
+  const [uncontrolledMode, setUncontrolledMode] = useState("ev");
+  const mode = controlledMode === "ev" || controlledMode === "pull" ? controlledMode : uncontrolledMode;
   const rows = Array.isArray(rankings) ? rankings : [];
 
   const RarityMetricRow = ({ label, primaryValue, share, barWidth }) => (
@@ -969,28 +957,30 @@ function RarityContributionContent({ rankings }) {
 
   return (
     <>
-      <div className="mb-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-        <button
-          type="button"
-          onClick={() => setMode("ev")}
-          aria-pressed={mode === "ev"}
-          className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-            mode === "ev" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          }`}
-        >
-          Value Contribution
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("pull")}
-          aria-pressed={mode === "pull"}
-          className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-            mode === "pull" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          }`}
-        >
-          Pull Frequency
-        </button>
-      </div>
+      {showToggle ? (
+        <div className="mb-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+          <button
+            type="button"
+            onClick={() => setUncontrolledMode("ev")}
+            aria-pressed={mode === "ev"}
+            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+              mode === "ev" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            Value Contribution
+          </button>
+          <button
+            type="button"
+            onClick={() => setUncontrolledMode("pull")}
+            aria-pressed={mode === "pull"}
+            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+              mode === "pull" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            Pull Frequency
+          </button>
+        </div>
+      ) : null}
 
       <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
@@ -1317,32 +1307,6 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
         </svg>
       ),
     },
-    {
-      id: "advanced-metrics",
-      label: "More",
-      icon: (
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.85"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 3.75v3" />
-          <path d="M12 17.25v3" />
-          <path d="M4.93 6.43 7.05 8.55" />
-          <path d="M16.95 18.45 19.07 20.57" />
-          <path d="M3.75 12h3" />
-          <path d="M17.25 12h3" />
-          <path d="M4.93 20.57 7.05 18.45" />
-          <path d="M16.95 8.55 19.07 6.43" />
-          <circle cx="12" cy="12" r="3.25" />
-        </svg>
-      ),
-    },
   ];
 
   const isItemActive = (itemId) => {
@@ -1354,7 +1318,7 @@ function CompactBottomSectionNav({ activeSection, onSelect }) {
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <div className="grid w-full max-w-full min-w-0 grid-cols-5 gap-1">
+      <div className="grid w-full max-w-full min-w-0 grid-cols-4 gap-1">
         {items.map((item) => {
           const isActive = isItemActive(item.id);
           return (
@@ -1421,7 +1385,6 @@ export default function RipStatisticsPageClient({
     () => toCollectorFriendlySectionMeta(interpretationMeta?.rarityContribution),
     [interpretationMeta?.rarityContribution]
   );
-  const advancedMetricsMeta = interpretationMeta?.advancedMetrics;
 
   const warnings = [
     ...(targetsPayload?.meta?.warnings || []),
@@ -1443,6 +1406,9 @@ export default function RipStatisticsPageClient({
   const [scoreMode, setScoreMode] = useState("relative");
   const [viewMode, setViewMode] = useState("simple");
   const [heroMetricView, setHeroMetricView] = useState("overview");
+  const [activeValueView, setActiveValueView] = useState("cards");
+  const isExpertMode = viewMode === "expert";
+  const effectiveValueView = isExpertMode ? activeValueView : "cards";
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
   const heroSetPickerRef = useRef(null);
@@ -1505,10 +1471,6 @@ export default function RipStatisticsPageClient({
   const timingRows = Object.entries(explorePayload?.meta?.timings || {}).filter(
     ([, value]) => toNumber(value) !== null
   );
-  const topHitsRequestLimit = toNumber(explorePayload?.meta?.request?.limit_top_hits);
-  const topCardsSectionTitle = topHitsRequestLimit === 10
-    ? "Top 10 Cards Carrying the Set"
-    : RIP_COPY.sections.topEvDrivers;
 
   const showDebugTimings = process.env.NODE_ENV !== "production";
 
@@ -1518,7 +1480,6 @@ export default function RipStatisticsPageClient({
       { id: "outcome-distribution", label: RIP_COPY.sections.outcomeDistribution },
       { id: "top-ev-drivers", label: RIP_COPY.sections.topEvDrivers },
       { id: "rarity-contribution", label: RIP_COPY.sections.rarityContribution },
-      { id: "advanced-metrics", label: RIP_COPY.sections.advancedMetrics },
     ],
     []
   );
@@ -1639,6 +1600,12 @@ export default function RipStatisticsPageClient({
 
     if (GRAPH_SECTION_KEYS.has(sectionId) && graphMode !== sectionId) {
       setGraphMode(sectionId);
+    }
+
+    if (sectionId === "top-ev-drivers") {
+      setActiveValueView("cards");
+    } else if (sectionId === "rarity-contribution") {
+      setActiveValueView("value");
     }
 
     setActiveSection(sectionId);
@@ -2217,7 +2184,31 @@ export default function RipStatisticsPageClient({
 
             {viewMode === "simple" ? (
             <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
-              <SectionCard title={topCardsSectionTitle} subtitle={null}>
+              <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
+                <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
+
+                <InterpretationInsight
+                  sectionMeta={topEvDriversMeta}
+                  fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
+                  compact
+                  showEvidence={false}
+                  className="mb-3"
+                />
+
+                {topEvEvidenceRows.length > 0 ? (
+                  <div className="mb-3 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
+                    {topEvEvidenceRows.map(([label, value]) => (
+                      <span
+                        key={`${label}:${value}`}
+                        className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                      >
+                        <span className="shrink-0">{label}</span>
+                        <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
                 <SimpleTopCardsContent topHits={topHits} />
               </SectionCard>
             </section>
@@ -2406,10 +2397,53 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {viewMode === "expert" ? (
-            <section className="w-full max-w-full min-w-0 pt-1">
-              <div className="grid w-full max-w-full min-w-0 gap-4 xl:grid-cols-2 xl:items-start">
-                <div id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                  <SectionCard title={topCardsSectionTitle} subtitle={null}>
+            <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
+              <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
+                <div className="mb-4 overflow-x-auto">
+                  <div className="inline-flex min-w-max items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveValueView("cards")}
+                      aria-pressed={activeValueView === "cards"}
+                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                        activeValueView === "cards"
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Cards Carrying the Set
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveValueView("value")}
+                      aria-pressed={activeValueView === "value"}
+                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                        activeValueView === "value"
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Value Contribution
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveValueView("frequency")}
+                      aria-pressed={activeValueView === "frequency"}
+                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
+                        activeValueView === "frequency"
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Pull Frequency
+                    </button>
+                  </div>
+                </div>
+
+                <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
+
+                {effectiveValueView === "cards" ? (
+                  <>
                     <InterpretationInsight
                       sectionMeta={topEvDriversMeta}
                       fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
@@ -2433,75 +2467,29 @@ export default function RipStatisticsPageClient({
                     ) : null}
 
                     <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
-                  </SectionCard>
-                </div>
-
-                <div className="min-w-0 space-y-4">
-                  <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                    <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
-                      <InterpretationInsight
-                        sectionMeta={rarityContributionMeta}
-                        fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
-                        compact
-                        showEvidence
-                        maxEvidence={4}
-                        className="mb-3"
-                      />
-                      <RarityContributionContent rankings={rankings} />
-                    </SectionCard>
-                  </div>
-
-                  <details id="explore-advanced" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="group w-full max-w-full min-w-0 scroll-mt-24 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-5 sm:p-6 md:scroll-mt-28">
-                    <summary className="flex min-w-0 max-w-full cursor-pointer list-none items-center justify-between gap-3 py-1 transition-colors hover:text-white">
-                      <span className="min-w-0 max-w-full break-words text-lg font-semibold text-[var(--text-primary)]">{RIP_COPY.advancedLabel}</span>
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 20 20"
-                        className="h-5 w-5 flex-none text-[var(--text-secondary)] transition-transform duration-150"
-                        fill="currentColor"
-                      >
-                        <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
-                      </svg>
-                    </summary>
-                    <style>{`
-                      #explore-advanced svg {
-                        transform: rotate(0deg);
-                      }
-                      #explore-advanced[open] svg {
-                        transform: rotate(180deg);
-                      }
-                    `}</style>
-                    <p className="mt-1 min-w-0 max-w-full break-words text-sm text-[var(--text-secondary)]">Deeper technical indicators for experienced users</p>
-
+                  </>
+                ) : (
+                  <>
                     <InterpretationInsight
-                      sectionMeta={advancedMetricsMeta}
-                      fallbackSummary={interpretation?.advancedMetrics}
+                      sectionMeta={rarityContributionMeta}
+                      fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
                       compact
                       showEvidence
-                      maxEvidence={5}
-                      className="mt-3"
+                      maxEvidence={4}
+                      className="mb-3"
                     />
-
-                    <div className="mt-4 space-y-5">
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <StatTile label={RIP_COPY.advancedStats.expectedLossPerPack} value={formatLossCurrency(summary.expected_loss_per_pack)} valueClassName="text-base" />
-                        <StatTile label={RIP_COPY.advancedStats.expectedLossWhenLosing} value={formatLossCurrency(summary.expected_loss_when_losing)} valueClassName="text-base" />
-                        <StatTile label={RIP_COPY.advancedStats.medianLossWhenLosing} value={formatLossCurrency(summary.median_loss_when_losing)} valueClassName="text-base" />
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <StatTile label={RIP_COPY.advancedStats.coefficientOfVariation} value={formatNumber(summary.coefficient_of_variation, 2)} valueClassName="text-base" />
-                        <StatTile label={RIP_COPY.advancedStats.bigHitUpside} value={formatNumber(summary.p95_value_to_cost_ratio, 2)} valueClassName="text-base" />
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <StatTile label={RIP_COPY.advancedStats.hhiEvConcentration} value={formatNumber(summary.hhi_ev_concentration, 3)} valueClassName="text-base" />
-                        <StatTile label={RIP_COPY.advancedStats.effectiveChaseCount} value={formatNumber(summary.effective_chase_count, 2)} valueClassName="text-base" />
-                      </div>
-                    </div>
-                  </details>
-                </div>
-              </div>
+                    <RarityContributionContent
+                      rankings={rankings}
+                      mode={effectiveValueView === "value" ? "ev" : "pull"}
+                      showToggle={false}
+                    />
+                  </>
+                )}
+              </SectionCard>
             </section>
             ) : null}
+
+
 
             {warnings.length > 0 ? (
               <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">

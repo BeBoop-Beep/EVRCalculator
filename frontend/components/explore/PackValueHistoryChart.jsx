@@ -32,6 +32,16 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function firstFiniteNumber(raw, keys) {
+  for (const key of keys) {
+    const value = toNumber(raw?.[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
 function formatRatio(value) {
   const parsed = toNumber(value);
   if (parsed === null) {
@@ -53,6 +63,67 @@ function formatCurrency(value) {
   }).format(parsed);
 }
 
+function resolveDollarValue(explicitValue, ratioValue, packCostValue) {
+  const explicit = toNumber(explicitValue);
+  const ratio = toNumber(ratioValue);
+  const packCost = toNumber(packCostValue);
+
+  if (explicit !== null) {
+    if (ratio !== null && packCost !== null) {
+      const derived = ratio * packCost;
+      if (Math.abs(explicit) < 1e-9 && Math.abs(derived) > 1e-6) {
+        return derived;
+      }
+    }
+    return explicit;
+  }
+
+  if (ratio === null || packCost === null) {
+    return null;
+  }
+
+  return ratio * packCost;
+}
+
+function normalizeHistoryPoint(raw, index, fallbackPackCost) {
+  const meanCostRatio = firstFiniteNumber(raw, [
+    "simulated_mean_pack_value_vs_pack_cost",
+    "mean_cost_ratio",
+    "mean_value_to_cost_ratio",
+  ]);
+  const medianCostRatio = firstFiniteNumber(raw, [
+    "simulated_median_pack_value_vs_pack_cost",
+    "median_cost_ratio",
+    "median_value_to_cost_ratio",
+  ]);
+  const p95CostRatio = firstFiniteNumber(raw, [
+    "p95_value_to_cost_ratio",
+    "p95_cost_ratio",
+  ]);
+  const packCostValue = firstFiniteNumber(raw, ["pack_cost", "packCost", "cost"]) ?? toNumber(fallbackPackCost);
+
+  // Audited backend view currently provides ratio fields for history_trend.
+  // Keep direct-value keys strict to avoid treating unrelated zero defaults as real values.
+  const meanValueDirect = firstFiniteNumber(raw, ["simulated_mean_pack_value", "mean_pack_value", "mean_value"]);
+  const medianValueDirect = firstFiniteNumber(raw, ["simulated_median_pack_value", "median_pack_value", "median_value"]);
+  const p95ValueDirect = firstFiniteNumber(raw, ["simulated_p95_pack_value", "p95_pack_value", "p95_value"]);
+
+  return {
+    id: `${index}:${raw?.snapshot_date || "na"}:${raw?.calculation_run_id || "na"}`,
+    rawPoint: raw,
+    snapshotDate: raw?.snapshot_date || null,
+    runCreatedAt: raw?.run_created_at || null,
+    calculationRunId: raw?.calculation_run_id || null,
+    packCost: packCostValue,
+    meanCostRatio,
+    medianCostRatio,
+    p95CostRatio,
+    meanValue: resolveDollarValue(meanValueDirect, meanCostRatio, packCostValue),
+    medianValue: resolveDollarValue(medianValueDirect, medianCostRatio, packCostValue),
+    p95Value: resolveDollarValue(p95ValueDirect, p95CostRatio, packCostValue),
+  };
+}
+
 /**
  * Compute a clean Y-axis upper bound for ratio series that may include P95
  * values well above 1.25x. Uses a stepped ceiling so the axis reads naturally.
@@ -60,9 +131,9 @@ function formatCurrency(value) {
 function getHistoricalRatioYAxisMax(points) {
   let maxRatio = 1;
   for (const pt of points) {
-    const mean   = toNumber(pt.simulated_mean_pack_value_vs_pack_cost);
-    const median = toNumber(pt.simulated_median_pack_value_vs_pack_cost);
-    const p95    = toNumber(pt.p95_value_to_cost_ratio);
+    const mean   = toNumber(pt.meanCostRatio);
+    const median = toNumber(pt.medianCostRatio);
+    const p95    = toNumber(pt.p95CostRatio);
     if (mean   !== null) maxRatio = Math.max(maxRatio, mean);
     if (median !== null) maxRatio = Math.max(maxRatio, median);
     if (p95    !== null) maxRatio = Math.max(maxRatio, p95);
@@ -127,28 +198,34 @@ function TrendTooltip({ active, payload, packCost }) {
     return null;
   }
 
-  const p95 = toNumber(row.p95_value_to_cost_ratio);
+  const meanRatio = toNumber(row.meanCostRatio);
+  const medianRatio = toNumber(row.medianCostRatio);
+  const p95Ratio = toNumber(row.p95CostRatio);
+  const effectivePackCost = toNumber(row.packCost) ?? toNumber(packCost);
 
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Date</p>
-      <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.snapshot_date)}</p>
+      <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.snapshotDate)}</p>
       <p className="mt-2 text-xs text-[var(--text-secondary)]">
-        Mean / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(row.simulated_mean_pack_value_vs_pack_cost)}</span>
+        Mean / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(meanRatio)}</span>{" "}
+        <span className="text-[var(--text-secondary)]">({formatCurrency(row.meanValue)})</span>
       </p>
       <p className="text-xs text-[var(--text-secondary)]">
-        Median / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(row.simulated_median_pack_value_vs_pack_cost)}</span>
+        Typical / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(medianRatio)}</span>{" "}
+        <span className="text-[var(--text-secondary)]">({formatCurrency(row.medianValue)})</span>
       </p>
-      {p95 !== null && (
+      {p95Ratio !== null && (
         <p className="text-xs text-[var(--text-secondary)]">
-          P95 / Cost <span className="font-semibold" style={{ color: HISTORICAL_TREND_COLORS.p95Label }}>{formatRatio(p95)}</span>
+          High-End / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(p95Ratio)}</span>{" "}
+          <span className="text-[var(--text-secondary)]">({formatCurrency(row.p95Value)})</span>
         </p>
       )}
       <p className="text-xs text-[var(--text-secondary)]">
         Break-even <span className="font-semibold text-[var(--text-primary)]">1.00x</span>
       </p>
       <p className="text-xs text-[var(--text-secondary)]">
-        Pack Cost <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(packCost)}</span>
+        Pack Cost <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(effectivePackCost)}</span>
       </p>
     </div>
   );
@@ -223,31 +300,19 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
   const chartData = useMemo(
     () =>
       (Array.isArray(historyTrend) ? historyTrend : [])
-        .map((row, index) => {
-          const p95Raw = toNumber(row?.p95_value_to_cost_ratio);
-          return {
-            id: `${index}:${row?.snapshot_date || "na"}:${row?.calculation_run_id || "na"}`,
-            snapshot_date:          row?.snapshot_date || null,
-            run_created_at:         row?.run_created_at || null,
-            calculation_run_id:     row?.calculation_run_id || null,
-            simulated_mean_pack_value_vs_pack_cost:   toNumber(row?.simulated_mean_pack_value_vs_pack_cost),
-            simulated_median_pack_value_vs_pack_cost: toNumber(row?.simulated_median_pack_value_vs_pack_cost),
-            p95_value_to_cost_ratio: p95Raw,
-          };
-        })
+        .map((row, index) => normalizeHistoryPoint(row, index, packCost))
         .filter(
           (row) =>
-            row.snapshot_date &&
-            (row.simulated_mean_pack_value_vs_pack_cost !== null ||
-              row.simulated_median_pack_value_vs_pack_cost !== null)
+            row.snapshotDate &&
+            (row.meanCostRatio !== null || row.medianCostRatio !== null)
         ),
-    [historyTrend]
+    [historyTrend, packCost]
   );
 
   // Determine whether any row actually has P95 data so we can hide the toggle
   // gracefully when the backend view does not yet expose that column.
   const hasP95Data = useMemo(
-    () => chartData.some((row) => row.p95_value_to_cost_ratio !== null),
+    () => chartData.some((row) => row.p95CostRatio !== null),
     [chartData]
   );
 
@@ -289,7 +354,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             onToggle={() => setShowMedianLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.medianToCost}
             inactiveColor="rgba(99,130,191,0.25)"
-            label="Median / Cost"
+            label="Typical / Cost"
           />
           {hasP95Data && (
             <LegendToggle
@@ -297,7 +362,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               onToggle={() => setShowP95Line((c) => !c)}
               activeColor={HISTORICAL_TREND_COLORS.p95ToCost}
               inactiveColor="rgba(34,211,238,0.20)"
-              label="P95 / Cost"
+              label="High-End / Cost"
             />
           )}
         </div>
@@ -309,7 +374,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
 
             <XAxis
-              dataKey="snapshot_date"
+              dataKey="snapshotDate"
               tickLine={false}
               axisLine={false}
               tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
@@ -347,7 +412,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             {hasP95Data && showP95Line ? (
               <Line
                 type="monotone"
-                dataKey="p95_value_to_cost_ratio"
+                dataKey="p95CostRatio"
                 name="P95 / Cost"
                 stroke={HISTORICAL_TREND_COLORS.p95ToCost}
                 strokeWidth={2.5}
@@ -366,7 +431,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             {showMeanLine ? (
               <Line
                 type="monotone"
-                dataKey="simulated_mean_pack_value_vs_pack_cost"
+                dataKey="meanCostRatio"
                 name="Mean / Cost"
                 stroke={HISTORICAL_TREND_COLORS.meanToCost}
                 strokeWidth={2.5}
@@ -385,7 +450,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             {showMedianLine ? (
               <Line
                 type="monotone"
-                dataKey="simulated_median_pack_value_vs_pack_cost"
+                dataKey="medianCostRatio"
                 name="Median / Cost"
                 stroke={HISTORICAL_TREND_COLORS.medianToCost}
                 strokeWidth={2}
