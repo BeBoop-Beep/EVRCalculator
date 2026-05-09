@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
@@ -627,7 +628,7 @@ function SimplePillarSummaryCard({
   const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
 
   return (
-    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
+    <article className="flex h-full min-w-0 flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
@@ -675,18 +676,26 @@ function SectionCard({ title, subtitle, titleInfoText, children }) {
 
 const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 
-function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl }) {
+function TopHitRow({ hit, name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, cardVariantId }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
+  const isClickable = Boolean(cardVariantId);
+  const rowClassName = [
+    "w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-2.5",
+    isClickable
+      ? "cursor-pointer transition-transform group-hover:-translate-y-px group-hover:border-brand/50 group-hover:bg-[var(--surface-page)]/75 group-hover:shadow-[0_0_0_1px_rgba(20,184,166,0.18)]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     setHasImageError(false);
   }, [imageSrc]);
 
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
-
-  return (
-    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-2.5">
+  const content = (
+    <div className={rowClassName}>
       <div className="flex min-w-0 flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="flex min-w-0 items-center gap-3">
           <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
@@ -720,6 +729,31 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
       </div>
     </div>
   );
+
+  if (!cardVariantId) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[rip-top-hit-click-missing]", {
+        view: "expert",
+        card_name: name,
+        card_id: hit?.card_id,
+        card_variant_id: cardVariantId,
+        hit_keys: Object.keys(hit || {}),
+      });
+    }
+    return content;
+  }
+
+  return (
+    <Link
+      href={`/cards/${encodeURIComponent(String(cardVariantId))}`}
+      className="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+      title="Open card detail"
+      aria-label={`Open ${name || "card"} detail page`}
+      prefetch={false}
+    >
+      {content}
+    </Link>
+  );
 }
 
 function getTopHitNearMintPrice(hit) {
@@ -738,18 +772,26 @@ function getTopHitCardPrice(hit) {
   );
 }
 
-function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPrice }) {
+function SimpleTopHitRow({ hit, name, imageUrl, imageSmallUrl, imageLargeUrl, cardPrice, cardVariantId }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
+  const isClickable = Boolean(cardVariantId);
+  const rowClassName = [
+    "w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3",
+    isClickable
+      ? "cursor-pointer transition-transform group-hover:-translate-y-px group-hover:border-brand/50 group-hover:bg-[var(--surface-page)]/75 group-hover:shadow-[0_0_0_1px_rgba(20,184,166,0.18)]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     setHasImageError(false);
   }, [imageSrc]);
 
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
-
-  return (
-    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-2.5">
+  const content = (
+    <div className={rowClassName}>
       <div className="flex min-w-0 items-center gap-3">
         <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
           {shouldRenderImage ? (
@@ -773,6 +815,31 @@ function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPri
       </div>
     </div>
   );
+
+  if (!cardVariantId) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[rip-top-hit-click-missing]", {
+        view: "simple",
+        card_name: name,
+        card_id: hit?.card_id,
+        card_variant_id: cardVariantId,
+        hit_keys: Object.keys(hit || {}),
+      });
+    }
+    return content;
+  }
+
+  return (
+    <Link
+      href={`/cards/${encodeURIComponent(String(cardVariantId))}`}
+      className="group block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+      title="Open card detail"
+      aria-label={`Open ${name || "card"} detail page`}
+      prefetch={false}
+    >
+      {content}
+    </Link>
+  );
 }
 
 function SimpleTopCardsContent({ topHits }) {
@@ -784,16 +851,20 @@ function SimpleTopCardsContent({ topHits }) {
 
   return (
     <div className="w-full max-w-full min-w-0 space-y-2">
-      {hits.map((hit, index) => (
-        <SimpleTopHitRow
-          key={`simple-hit:${hit?.card_name || "unknown"}:${index}`}
-          name={hit?.card_name}
-          cardPrice={getTopHitCardPrice(hit)}
-          imageUrl={hit?.image_url}
-          imageSmallUrl={hit?.image_small_url}
-          imageLargeUrl={hit?.image_large_url}
-        />
-      ))}
+      {hits.map((hit, index) => {
+        return (
+          <SimpleTopHitRow
+            key={`simple-hit:${hit?.card_name || "unknown"}:${index}`}
+            hit={hit}
+            name={hit?.card_name}
+            cardPrice={getTopHitCardPrice(hit)}
+            imageUrl={hit?.image_url}
+            imageSmallUrl={hit?.image_small_url}
+            imageLargeUrl={hit?.image_large_url}
+            cardVariantId={hit?.card_variant_id}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -828,6 +899,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
         return (
           <TopHitRow
             key={`${hit?.card_name || "unknown"}:${hit?.ev_contribution ?? "na"}`}
+            hit={hit}
             name={hit?.card_name}
             evContribution={hit?.ev_contribution}
             evShare={evShare}
@@ -835,6 +907,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
             imageUrl={hit?.image_url}
             imageSmallUrl={hit?.image_small_url}
             imageLargeUrl={hit?.image_large_url}
+            cardVariantId={hit?.card_variant_id}
           />
         );
       })}
@@ -1886,12 +1959,12 @@ export default function RipStatisticsPageClient({
           <>
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
               {heroLogoUrl ? (
-                <div className="pointer-events-none absolute left-1/2 top-[18%] z-0 h-[100%] w-[100%] -translate-x-1/2 -translate-y-1/2 select-none sm:top-1/2 sm:h-[107%] sm:w-[107%]">
+                <div className="pointer-events-none absolute left-1/2 top-[8.75rem] z-0 w-full max-w-[46.2rem] -translate-x-1/2 select-none sm:top-[9.75rem] sm:max-w-[49.5rem] lg:top-[10.25rem] lg:max-w-[52.8rem]">
                   <img
                     src={heroLogoUrl}
                     alt=""
                     aria-hidden="true"
-                    className="h-full w-full object-contain opacity-[0.1] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.16))]"
+                    className="h-auto w-full object-contain opacity-[0.1] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.16))]"
                     loading="lazy"
                     decoding="async"
                   />
@@ -2037,7 +2110,7 @@ export default function RipStatisticsPageClient({
                                 <span className="text-xs text-[var(--text-secondary)] transition-transform duration-150 group-open:rotate-180">▾</span>
                               </summary>
                               <div className="mt-3 space-y-3">
-                                <div className="grid gap-3">
+                                <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-3">
                                   <SimplePillarSummaryCard
                                     title="Profit"
                                     score={displayedProfitScore}
