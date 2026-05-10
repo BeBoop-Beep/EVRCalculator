@@ -26,9 +26,17 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "safety_score",
     "stability_score",
     "p95_value_to_cost_ratio",
+    "mean_value_to_cost_ratio",
+    "expected_loss_when_losing_fraction",
+    "p05_shortfall_to_cost",
     "score_version",
     "normalization_mode",
     "pack_score_is_placeholder",
+    "chase_potential_score",
+    "experience_score",
+    "chase_potential_tier",
+    "experience_tier",
+    "derived_metric_version",
 ]
 
 COMPARISON_METRIC_FIELDS: List[str] = [
@@ -367,6 +375,12 @@ def _coerce_optional_int(value: Any) -> Optional[int]:
         return None
 
 
+def _coerce_optional_bool(value: Any) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    return None
+
+
 def _parse_percentile_rank(label: str) -> Optional[float]:
     normalized = (label or "").strip().lower()
     if not normalized:
@@ -666,36 +680,17 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
     if not isinstance(derived, Mapping):
         raise ValueError("Missing required field: derived")
 
-    _require_fields(
-        derived,
-        [
-            "hit_ev",
-            "non_hit_ev",
-            "hit_ev_share",
-            "hit_cards_tracked",
-            "cards_tracked",
-            "total_card_ev",
-            "top1_ev_share",
-            "top3_ev_share",
-            "top5_ev_share",
-            "score_version",
-            "normalization_mode",
-            "pack_score_is_placeholder",
-        ],
-        "simulation_derived_metrics",
-    )
-
     payload = {
         "calculation_run_id": _require_present(run_id, "calculation_run_id"),
-        "hit_ev": _require_float(derived.get("hit_ev"), "hit_ev"),
-        "non_hit_ev": _require_float(derived.get("non_hit_ev"), "non_hit_ev"),
-        "hit_ev_share": _require_float(derived.get("hit_ev_share"), "hit_ev_share"),
-        "hit_cards_tracked": _require_int(derived.get("hit_cards_tracked"), "hit_cards_tracked"),
-        "cards_tracked": _require_int(derived.get("cards_tracked"), "cards_tracked"),
-        "total_card_ev": _require_float(derived.get("total_card_ev"), "total_card_ev"),
-        "top1_ev_share": _require_float(derived.get("top1_ev_share"), "top1_ev_share"),
-        "top3_ev_share": _require_float(derived.get("top3_ev_share"), "top3_ev_share"),
-        "top5_ev_share": _require_float(derived.get("top5_ev_share"), "top5_ev_share"),
+        "hit_ev": _coerce_optional_float(derived.get("hit_ev")),
+        "non_hit_ev": _coerce_optional_float(derived.get("non_hit_ev")),
+        "hit_ev_share": _coerce_optional_float(derived.get("hit_ev_share")),
+        "hit_cards_tracked": _coerce_optional_int(derived.get("hit_cards_tracked")),
+        "cards_tracked": _coerce_optional_int(derived.get("cards_tracked")),
+        "total_card_ev": _coerce_optional_float(derived.get("total_card_ev")),
+        "top1_ev_share": _coerce_optional_float(derived.get("top1_ev_share")),
+        "top3_ev_share": _coerce_optional_float(derived.get("top3_ev_share")),
+        "top5_ev_share": _coerce_optional_float(derived.get("top5_ev_share")),
         "hhi_ev_concentration": _coerce_optional_float(derived.get("hhi_ev_concentration")),
         "effective_chase_count": _coerce_optional_float(derived.get("effective_chase_count")),
         "pack_score": _coerce_optional_float(derived.get("pack_score")),
@@ -704,11 +699,18 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
         "stability_score": _coerce_optional_float(derived.get("stability_score")),
         "p95_value_to_cost_ratio": _coerce_optional_float(derived.get("p95_value_to_cost_ratio")),
         "mean_value_to_cost_ratio": _coerce_optional_float(derived.get("mean_value_to_cost_ratio")),
-        "expected_loss_when_losing_fraction": _coerce_optional_float(derived.get("expected_loss_when_losing_fraction")),
+        "expected_loss_when_losing_fraction": _coerce_optional_float(
+            derived.get("expected_loss_when_losing_fraction")
+        ),
         "p05_shortfall_to_cost": _coerce_optional_float(derived.get("p05_shortfall_to_cost")),
-        "score_version": _require_non_empty_str(derived.get("score_version"), "score_version"),
-        "normalization_mode": _require_non_empty_str(derived.get("normalization_mode"), "normalization_mode"),
-        "pack_score_is_placeholder": _require_bool(derived.get("pack_score_is_placeholder"), "pack_score_is_placeholder"),
+        "score_version": _coerce_optional_str(derived.get("score_version")),
+        "normalization_mode": _coerce_optional_str(derived.get("normalization_mode")),
+        "pack_score_is_placeholder": _coerce_optional_bool(derived.get("pack_score_is_placeholder")),
+        "chase_potential_score": _coerce_optional_float(derived.get("chase_potential_score")),
+        "experience_score": _coerce_optional_float(derived.get("experience_score")),
+        "chase_potential_tier": _coerce_optional_str(derived.get("chase_potential_tier")),
+        "experience_tier": _coerce_optional_str(derived.get("experience_tier")),
+        "derived_metric_version": _coerce_optional_str(derived.get("derived_metric_version")),
     }
 
     inserted = _insert_required_payload(

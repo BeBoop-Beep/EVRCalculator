@@ -43,7 +43,7 @@ export default function Header() {
 
   const avatarLetter = (accountLabel || "A").charAt(0).toUpperCase();
 
-  const navTabBase = "min-w-[96px] xl:min-w-[110px] px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out";
+  const navTabBase = "px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out";
   const navTabActive = "text-[var(--accent)] relative after:content-[''] after:absolute after:left-4 after:right-4 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
   const navTabInactive = "text-[var(--text-secondary)] opacity-85 hover:text-[var(--text-primary)] hover:opacity-100";
   const navDropdownSurface = "bg-[var(--surface-panel)]";
@@ -121,7 +121,7 @@ export default function Header() {
   return (
     <header className="relative z-[1000]">
       <div className="relative text-[var(--text-primary)] py-1">
-        <div className="w-full min-w-0 max-w-full flex items-center gap-2 px-2 sm:px-4 lg:px-6 xl:px-10">
+        <div className="w-full min-w-0 max-w-full relative flex items-center gap-2 px-2 sm:px-4 lg:px-6 xl:px-10">
           <div className="flex shrink-0 items-center sm:mr-3 lg:mr-6">
             <Link
               href="/"
@@ -147,8 +147,24 @@ export default function Header() {
 
           </div>
 
-          <div className="flex-1 min-w-0 flex items-center lg:grid lg:grid-cols-[1fr_minmax(0,22rem)_1fr] xl:grid-cols-[1fr_minmax(0,30rem)_1fr] lg:gap-4 xl:gap-6">
-            <nav className="hidden lg:flex items-center justify-end gap-2.5 xl:gap-4 whitespace-nowrap">
+          <div className="hidden xl:block flex-1" />
+
+          <div
+            className="xl:hidden flex flex-1 min-w-0 items-center"
+            onClickCapture={() => setIsMobileMenuOpen(false)}
+            onFocusCapture={() => setIsMobileMenuOpen(false)}
+          >
+            <SearchBar
+              onSearch={handleHeaderSearch}
+              className="relative flex items-center w-full min-w-0"
+              inputClassName="w-full min-w-0 px-3 py-2 pr-10 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] text-sm"
+              buttonClassName="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors duration-200 ease-in-out flex items-center justify-center"
+              placeholder="Search"
+            />
+          </div>
+
+          <div className="absolute right-[calc(50%+260px)] 2xl:right-[calc(50%+280px)] top-1/2 hidden -translate-y-1/2 xl:flex items-center">
+            <nav className="flex items-center gap-4 whitespace-nowrap">
               <Link
                 href="/Explore"
                 className={`${navTabBase} inline-flex items-center justify-center ${
@@ -156,6 +172,14 @@ export default function Header() {
                 }`}
               >
                 Explore
+              </Link>
+              <Link
+                href="/tools"
+                className={`${navTabBase} inline-flex items-center justify-center ${
+                  isToolsRouteActive ? navTabActive : navTabInactive
+                }`}
+              >
+                Tools
               </Link>
               <div ref={tcgsDropdownRef} className="relative">
                 <button
@@ -185,31 +209,11 @@ export default function Header() {
                   </div>
                 )}
               </div>
-              <Link
-                href="/tools"
-                className={`${navTabBase} inline-flex items-center justify-center ${
-                  isToolsRouteActive ? navTabActive : navTabInactive
-                }`}
-              >
-                Tools
-              </Link>
             </nav>
+          </div>
 
-            <div
-              className="flex-1 min-w-0 max-w-full flex items-center lg:justify-self-center"
-              onClickCapture={() => setIsMobileMenuOpen(false)}
-              onFocusCapture={() => setIsMobileMenuOpen(false)}
-            >
-              <SearchBar
-                onSearch={handleHeaderSearch}
-                className="relative flex items-center w-full min-w-0 max-w-full lg:w-[360px] xl:w-[420px]"
-                inputClassName="w-full min-w-0 px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                buttonClassName="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors duration-200 ease-in-out flex items-center justify-center"
-                placeholder="Search"
-              />
-            </div>
-
-            <div className="hidden lg:flex justify-start">
+          <div className="absolute left-[calc(50%+260px)] 2xl:left-[calc(50%+280px)] top-1/2 hidden -translate-y-1/2 xl:flex items-center">
+            <div className="hidden xl:flex justify-end">
               <div ref={collectionDropdownRef} className="relative">
                 <button
                   onClick={() => {
@@ -247,11 +251,25 @@ export default function Header() {
             </div>
           </div>
 
+          <div
+            className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center"
+            onClickCapture={() => setIsMobileMenuOpen(false)}
+            onFocusCapture={() => setIsMobileMenuOpen(false)}
+          >
+            <SearchBar
+              onSearch={handleHeaderSearch}
+              className="relative flex items-center w-full min-w-0 max-w-full lg:w-[360px] xl:w-[420px]"
+              inputClassName="w-full min-w-0 px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              buttonClassName="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors duration-200 ease-in-out flex items-center justify-center"
+              placeholder="Search"
+            />
+          </div>
+
           <div className="flex shrink-0 items-center text-sm whitespace-nowrap gap-2 sm:gap-3 lg:gap-4 xl:gap-6">
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className="lg:hidden inline-flex flex-col justify-center items-center gap-1.5 w-10 h-10"
+              className="xl:hidden inline-flex flex-col justify-center items-center gap-1.5 w-10 h-10"
               aria-label="Toggle menu"
               aria-expanded={isMobileMenuOpen}
               aria-controls="mobile-header-menu"
@@ -261,7 +279,7 @@ export default function Header() {
               <span className={`block h-0.5 w-6 bg-[var(--text-primary)] transition-transform duration-200 ${isMobileMenuOpen ? "-translate-y-2 -rotate-45" : ""}`} />
             </button>
 
-            <div className="hidden lg:flex items-center">
+            <div className="hidden xl:flex items-center">
               {!isAuthenticated ? (
                 <Link href="/login" className="pl-4 pr-2.5 py-2 text-[16px] font-semibold border-2 border-brand rounded-xl bg-brand text-white hover:bg-brand-dark hover:border-brand-dark transition-colors duration-200 ease-in-out">
                   <span className="inline-flex items-center gap-1">
@@ -330,7 +348,7 @@ export default function Header() {
         {isMobileMenuOpen && (
           <div
             id="mobile-header-menu"
-            className="lg:hidden absolute left-0 right-0 top-full z-[1000] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)] max-h-[calc(100vh-var(--app-header-offset,57px))] overflow-y-auto"
+            className="xl:hidden absolute left-0 right-0 top-full z-[1000] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)] max-h-[calc(100vh-var(--app-header-offset,57px))] overflow-y-auto"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <nav

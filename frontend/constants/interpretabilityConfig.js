@@ -65,9 +65,9 @@ export const FRIENDLY_METRIC_LABELS = {
   "P95-to-Cost Ratio": "Big Hit Upside",
   "P95 Value / Cost Ratio": "Big Hit Upside",
   ROI: "Return on Investment",
-  "Pack Cost": "Current Pack Cost",
+  "Pack Cost": "Estimated Pack Market Price",
   "Average Pack Value": "Average Pack Value",
-  "Current Pack Cost": "Current Pack Cost",
+  "Current Pack Cost": "Estimated Pack Market Price",
   "Average Loss": "Average Loss",
   "Chance at a Big Pull": "Chance at a Big Pull",
 
@@ -146,7 +146,7 @@ function buildMetricTooltip({ meaning, impact, direction, interpretation }) {
         <li className="flex gap-2">
           <span className="flex-none">•</span>
           <span>
-            <span className="font-semibold text-[var(--text-primary)]">Score impact:</span> {impact}
+            <span className="font-semibold text-[var(--text-primary)]">Score role:</span> {impact}
           </span>
         </li>
         <li className="flex gap-2">
@@ -166,13 +166,11 @@ function buildMetricTooltip({ meaning, impact, direction, interpretation }) {
   );
 }
 
-// TODO: Keep these tooltip percentages aligned with backend pack_score.weights_pct.profit_score
-// until the Explore page consumes the live weights payload directly.
 const PROFIT_SCORE_TOOLTIP_IMPACTS = {
-  prob_profit: "Direct (27.5% of Profit Score)",
-  mean_value_to_cost_ratio: "Direct (25% of Profit Score)",
-  median_value_to_cost_ratio: "Direct (20% of Profit Score)",
-  p95_value_to_cost_ratio: "Direct (27.5% of Profit Score)",
+  prob_profit: "Core profit signal",
+  mean_value_to_cost_ratio: "Core profit signal",
+  median_value_to_cost_ratio: "Core profit signal",
+  p95_value_to_cost_ratio: "Core profit signal",
 };
 
 /**
@@ -199,124 +197,130 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     interpretation: "Shows whether the middle outcome usually beats cost.",
   }),
   "P95-to-Cost Ratio": buildMetricTooltip({
-    meaning: "Shows the 95th-percentile simulated outcome compared to pack cost. In plain English: when the pack lands in its better outcomes, this shows whether that payoff is large enough to justify the price.",
+    meaning: "Shows the stronger upside outcomes when a pack lands in its better results.",
     impact: PROFIT_SCORE_TOOLTIP_IMPACTS.p95_value_to_cost_ratio,
-    direction: "Higher is better",
-    interpretation: "Top 5% outcome compared to pack cost.",
+    direction: "Higher is better.",
+    interpretation: "Higher values mean the set has stronger high-end payoff relative to pack cost.",
   }),
   ROI: buildMetricTooltip({
     meaning: "Expected return on investment relative to pack cost.",
-    impact: "Context only",
+    impact: "Context signal",
     direction: "Higher is better",
-    interpretation: "Useful snapshot of expected gain/loss, but not directly scored.",
+    interpretation: "Useful snapshot of expected gain/loss.",
   }),
   "Pack Cost": buildMetricTooltip({
-    meaning: "Estimated market cost to open one pack.",
-    impact: "Context only",
+    meaning: "Estimated market snapshot for this pack. Prices may be incomplete, delayed, noisy, or change quickly. This is used as an input to the simulation, not a guaranteed sale or purchase price.",
+    impact: "Context signal",
     direction: "Lower is better",
-    interpretation: "Used as a denominator for ratios, not scored directly.",
+    interpretation: "Used as a denominator for ratio metrics.",
   }),
   "Average Loss": buildMetricTooltip({
     meaning: "Simple gap between average pack value and pack cost, shown as a loss when average value is below cost.",
-    impact: "Context only",
+    impact: "Context signal",
     direction: "Closer to zero is better",
     interpretation: "Useful collector-facing shorthand for how far the average pack sits below cost.",
   }),
+  "Average Pack Value": buildMetricTooltip({
+    meaning: "The average simulated value of one pack using current price inputs and pull-rate assumptions. Real openings can be much higher or much lower.",
+    impact: "Context signal",
+    direction: "Higher is better",
+    interpretation: "This is a statistical average from simulations, not a guarantee or typical outcome.",
+  }),
   "Chance at a Big Pull": buildMetricTooltip({
     meaning: "Estimated chance a simulated pack clears the page's big-hit threshold.",
-    impact: "Context only",
+    impact: "Context signal",
     direction: "Higher is better",
     interpretation: "Shows how often the set lands one of its higher-end outcomes.",
   }),
 
   "Expected Loss When Losing / Cost": buildMetricTooltip({
     meaning: "Average loss on losing packs as a fraction of pack cost.",
-    impact: "Direct (34% of Safety Score)",
+    impact: "Core safety signal",
     direction: "Lower is better",
     interpretation: "Lower values indicate smaller losses when outcomes are negative.",
   }),
   "Median Loss When Losing / Cost": buildMetricTooltip({
     meaning: "Median loss on losing packs as a fraction of pack cost.",
-    impact: "Direct (33% of Safety Score)",
+    impact: "Core safety signal",
     direction: "Lower is better",
     interpretation: "Represents the typical downside severity when a pack loses.",
   }),
   "P05 Shortfall to Cost": buildMetricTooltip({
     meaning: "Worst 5% shortfall relative to pack cost.",
-    impact: "Direct (33% of Safety Score)",
+    impact: "Core safety signal",
     direction: "Lower is better",
     interpretation: "Lower values mean less severe downside in the left tail.",
   }),
   "Median Loss When Losing": buildMetricTooltip({
     meaning: "Typical dollar loss amount when a pack outcome is negative.",
-    impact: "Context only",
+    impact: "Core safety signal",
     direction: "Lower is better",
-    interpretation: "Displayed for readability; ratio metrics drive Safety scoring.",
+    interpretation: "Shows the typical downside amount on losing outcomes.",
   }),
   "Expected Loss Per Pack": buildMetricTooltip({
     meaning: "Average loss across all simulated packs, including winners and losers.",
-    impact: "Context only",
+    impact: "Core safety signal",
     direction: "Closer to zero is better",
     interpretation: "This is the unconditional downside drag per pack.",
   }),
   "Tail Value P5": buildMetricTooltip({
     meaning: "Dollar value at the 5th percentile of simulated outcomes.",
-    impact: "Context only",
+    impact: "Core safety signal",
     direction: "Higher is better",
-    interpretation: "Shows tail outcome level, while shortfall ratio drives scoring.",
+    interpretation: "Shows the low-end outcome level in weaker runs.",
   }),
   "Typical Pack Value": buildMetricTooltip({
     meaning: "The middle simulated pack result. Half the packs did better, half did worse.",
-    impact: "Context only",
+    impact: "Context signal",
     direction: "Higher is better",
     interpretation: "Useful shorthand for what a normal rip looks like.",
   }),
   "Bad Pack Floor Value": buildMetricTooltip({
     meaning: "A low-end pack result from the worse side of simulations.",
-    impact: "Context only",
+    impact: "Core safety signal",
     direction: "Higher is better",
     interpretation: "Shows how ugly bad runs can get near the left tail.",
   }),
 
   "Coefficient of Variation": buildMetricTooltip({
     meaning: "Outcome dispersion relative to mean return.",
-    impact: "Direct (65% of Stability Score)",
+    impact: "Core stability signal",
     direction: "Lower is better",
     interpretation: "Lower volatility implies more consistent expected outcomes.",
   }),
   "HHI EV Concentration": buildMetricTooltip({
     meaning: "Lower concentration means value is spread across more cards.",
-    impact: "Indirect",
+    impact: "Core stability signal",
     direction: "Lower is better",
     interpretation: "Higher concentration reduces effective chase depth used in scoring.",
   }),
   "Effective Chase Count": buildMetricTooltip({
     meaning: "Higher means more cards meaningfully help the set's value.",
-    impact: "Direct (35% of Stability Score)",
+    impact: "Core stability signal",
     direction: "Higher is better",
     interpretation: "Higher values indicate value is spread across more cards.",
   }),
   "Top 1 EV Share": buildMetricTooltip({
     meaning: "How much the biggest card carries the set by itself.",
-    impact: "Context only",
+    impact: "Support signal",
     direction: "Lower is better",
     interpretation: "Higher concentration signals dependence on one chase card.",
   }),
   "Top 3 EV Share": buildMetricTooltip({
     meaning: "Share of total EV coming from the top three cards.",
-    impact: "Context only",
+    impact: "Support signal",
     direction: "Lower is better",
     interpretation: "Helps gauge concentration beyond only the top card.",
   }),
   "Top 5 EV Share": buildMetricTooltip({
     meaning: "Share of total EV coming from the top five cards.",
-    impact: "Context only",
+    impact: "Support signal",
     direction: "Lower is better",
     interpretation: "Context metric for EV concentration profile.",
   }),
   "Best Simulated Pull": buildMetricTooltip({
     meaning: "Highest simulated pack result observed in the run.",
-    impact: "Context only",
+    impact: "Reference signal",
     direction: "Higher is better",
     interpretation: "Shows the ceiling, not the typical outcome.",
   }),
@@ -383,7 +387,7 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Profit (45%)</span>
+              <span className="font-semibold text-[var(--text-primary)]">Profit</span>
               <br />
               <span className="text-[11px]">Upside and return potential</span>
             </span>
@@ -391,7 +395,7 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Safety (30%)</span>
+              <span className="font-semibold text-[var(--text-primary)]">Safety</span>
               <br />
               <span className="text-[11px]">Downside risk and loss severity</span>
             </span>
@@ -399,7 +403,7 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Stability (25%)</span>
+              <span className="font-semibold text-[var(--text-primary)]">Stability</span>
               <br />
               <span className="text-[11px]">Consistency of outcomes</span>
             </span>
@@ -422,9 +426,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>
-              <span className="font-semibold text-[var(--text-primary)]">Weight: 45%</span> of Rip Score
-            </span>
+            <span>Core component of Rip Score</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -463,9 +465,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>
-              <span className="font-semibold text-[var(--text-primary)]">Weight: 30%</span> of Rip Score
-            </span>
+            <span>Core component of Rip Score</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -496,9 +496,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>
-              <span className="font-semibold text-[var(--text-primary)]">Weight: 25%</span> of Rip Score
-            </span>
+            <span>Core component of Rip Score</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>

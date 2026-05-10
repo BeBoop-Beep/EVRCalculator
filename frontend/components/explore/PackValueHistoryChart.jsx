@@ -292,7 +292,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         <li className="flex gap-2"><span className="flex-none">•</span><span>Median / Cost compares typical simulated pack value to pack cost over time.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>P95 / Cost shows the 95th-percentile outcome versus pack cost — the high-end chase signal.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>1.0x is break-even. Above 1.0x means simulated value exceeded pack cost.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The break-even label includes the current pack cost when available.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>The break-even label includes the estimated pack market price when available.</span></li>
       </ul>
     </div>
   );

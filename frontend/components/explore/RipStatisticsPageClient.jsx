@@ -49,7 +49,7 @@ const RIP_COPY = {
   simpleMetrics: {
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     averagePackValue: "Average Pack Value",
-    currentPackCost: "Current Pack Cost",
+    currentPackCost: "Estimated Pack Market Price",
     averageLoss: "Average Loss",
     chanceAtBigPull: "Chance at a Big Pull",
   },
@@ -382,37 +382,6 @@ function CenteredSuffixInline({
   );
 }
 
-function ScoreModeToggle({ scoreMode, onChange }) {
-  return (
-    <div className="inline-grid w-full max-w-[14rem] grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/88 p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)] sm:inline-flex sm:w-auto sm:max-w-none">
-      <button
-        type="button"
-        onClick={() => onChange("relative")}
-        aria-pressed={scoreMode === "relative"}
-        className={`min-w-0 rounded-full px-2.5 py-1.5 text-[9px] font-semibold leading-none transition-colors sm:min-w-[4rem] sm:px-2.5 sm:py-1.5 ${
-          scoreMode === "relative"
-            ? "bg-[var(--brand)] text-white"
-            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-        }`}
-      >
-        Relative
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("absolute")}
-        aria-pressed={scoreMode === "absolute"}
-        className={`min-w-0 rounded-full px-2.5 py-1.5 text-[9px] font-semibold leading-none transition-colors sm:min-w-[4rem] sm:px-2.5 sm:py-1.5 ${
-          scoreMode === "absolute"
-            ? "bg-[var(--brand)] text-white"
-            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-        }`}
-      >
-        Absolute
-      </button>
-    </div>
-  );
-}
-
 function ViewModeToggle({ viewMode, onChange }) {
   return (
     <div className="inline-grid w-full max-w-xs grid-cols-2 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/92 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_10px_24px_rgba(15,23,42,0.14)] sm:inline-flex sm:w-auto sm:max-w-none">
@@ -543,6 +512,277 @@ function DisclosureSection({ title, description = null, children, defaultOpen = 
       </summary>
       <div className="mt-4">{children}</div>
     </details>
+  );
+}
+
+const SET_INTELLIGENCE_LENSES = [
+  {
+    key: "experience",
+    label: "Opening Experience",
+    scoreField: "relative_experience_score",
+    tierField: "experience_tier",
+    rankField: "experience_rank",
+    format: "score",
+    heading: "How this set feels to open",
+    description:
+      "This lens weighs typical pack value, chance to beat cost, miss protection, big-pull frequency, and consistency.",
+    evidenceKeys: ["prob_profit", "mean_value", "expected_loss_when_losing"],
+  },
+  {
+    key: "chase",
+    label: "Chase Potential",
+    scoreField: "relative_chase_potential_score",
+    tierField: "chase_potential_tier",
+    rankField: "chase_potential_rank",
+    format: "score",
+    heading: "How strong the chase setup is",
+    description:
+      "This lens weighs big-pull frequency, high-end upside, chase depth, affordability, and profit profile.",
+    evidenceKeys: ["prob_big_hit", "p95_value_to_cost_ratio", "effective_chase_count"],
+  },
+  {
+    key: "upside",
+    label: "Biggest Upside",
+    scoreField: "p95_value_to_cost_ratio",
+    tierField: "p95_value_to_cost_tier",
+    rankField: "p95_value_to_cost_rank",
+    format: "multiplier",
+    heading: "How high the top outcomes can run",
+    description:
+      "This lens uses the high-end simulated outcome compared with pack cost.",
+    evidenceKeys: ["p95_value_to_cost_ratio", "big_hit_threshold", "max_value"],
+  },
+  {
+    key: "averageReturn",
+    label: "Average Return",
+    scoreField: "mean_value_to_cost_ratio",
+    tierField: "mean_value_to_cost_tier",
+    rankField: "mean_value_to_cost_rank",
+    format: "multiplier",
+    heading: "Average value compared with cost",
+    description:
+      "This lens compares average simulated pack value against current estimated pack cost.",
+    evidenceKeys: ["mean_value", "pack_cost", "expected_loss_per_pack"],
+  },
+];
+
+function formatLensScore(value, format) {
+  const parsed = toNumber(value);
+  if (parsed === null) return "—";
+  if (format === "multiplier") return `${parsed.toFixed(1)}x`;
+  return parsed.toFixed(1);
+}
+
+function getLensEvidenceRow(key, summary) {
+  const fmtMult = (v) => {
+    const p = toNumber(v);
+    return p === null ? "—" : `${p.toFixed(1)}x`;
+  };
+  switch (key) {
+    case "prob_profit":
+      return { label: "Chance to beat cost", value: formatPercent(summary.prob_profit, { probability: true }) };
+    case "mean_value":
+      return { label: "Average pack value", value: formatCurrency(summary.mean_value) };
+    case "expected_loss_when_losing":
+      return { label: "Avg loss when missing", value: formatLossCurrency(summary.expected_loss_when_losing) };
+    case "prob_big_hit":
+      return { label: "Chance at a big pull", value: formatPercent(summary.prob_big_hit, { probability: true }) };
+    case "p95_value_to_cost_ratio":
+      return { label: "Big hit upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
+    case "effective_chase_count":
+      return { label: "Chase depth", value: formatNumber(summary.effective_chase_count, 2) };
+    case "big_hit_threshold":
+      return { label: "Big hit threshold", value: formatCurrency(summary.big_hit_threshold) };
+    case "max_value":
+      return { label: "Best simulated pull", value: formatCurrency(summary.max_value) };
+    case "pack_cost":
+      return { label: "Pack cost", value: formatCurrency(summary.pack_cost) };
+    case "expected_loss_per_pack":
+      return { label: "Avg loss per pack", value: formatLossCurrency(summary.expected_loss_per_pack) };
+    default:
+      return null;
+  }
+}
+
+function toOptionalUpper(value) {
+  if (value == null) return null;
+  const s = String(value).trim().toUpperCase();
+  return s || null;
+}
+
+function getLensTagline(lens, summary) {
+  const tier = toOptionalUpper(summary[lens.tierField]);
+  const score = toNumber(summary[lens.scoreField]);
+  if (score === null) return "No data available for this lens.";
+  if (lens.key === "experience") {
+    if (tier === "S" || tier === "A") return "Strong pack feel compared with the field.";
+    if (tier === "B") return "Above-average opening experience.";
+    if (tier === "C") return "Average opening experience.";
+    return "Below-average pack feel compared with the field.";
+  }
+  if (lens.key === "chase") {
+    if (tier === "S" || tier === "A") return "Elite chase setup — top of the field.";
+    if (tier === "B") return "Strong chase setup compared with peers.";
+    if (tier === "C") return "Good chase setup, but not top of field.";
+    return "Limited chase depth compared with the field.";
+  }
+  if (lens.key === "upside") {
+    if (tier === "S" || tier === "A") return "High-end outcomes can run far above pack cost.";
+    if (tier === "B") return "Solid upside when the pack hits.";
+    if (tier === "C") return "Moderate upside compared with the field.";
+    return "Limited high-end upside relative to pack cost.";
+  }
+  if (lens.key === "averageReturn") {
+    const ratio = toNumber(summary.mean_value_to_cost_ratio);
+    if (ratio !== null && ratio >= 1.0) return "Average value meets or exceeds pack cost.";
+    if (tier === "B" || tier === "A" || tier === "S") return "Above-average value recovery compared with peers.";
+    if (tier === "C") return "Average value trails pack cost modestly.";
+    return "Average value still trails pack cost.";
+  }
+  return "";
+}
+
+function SetIntelligenceSection({ summary }) {
+  const [selectedLensKey, setSelectedLensKey] = useState("experience");
+  const selectedLens =
+    SET_INTELLIGENCE_LENSES.find((l) => l.key === selectedLensKey) || SET_INTELLIGENCE_LENSES[0];
+  const selectedTier = toOptionalUpper(summary[selectedLens.tierField]);
+  const selectedTierConfig = selectedTier ? RANK_CONFIG[selectedTier] : null;
+  const selectedDetailBorder = selectedTierConfig?.color
+    ? withAlpha(selectedTierConfig.color, 0.36)
+    : undefined;
+
+  const setIntelligenceInfo = (
+    <div className="space-y-1.5 text-left">
+      <p className="font-semibold text-[var(--text-primary)]">Set Intelligence</p>
+      <p className="text-[var(--text-secondary)]">
+        Quick lenses for how this set opens, chases, and returns value. Select a lens to see what is driving that view.
+      </p>
+    </div>
+  );
+
+  return (
+    <section className="pt-4 md:pt-5">
+      <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Set Intelligence</h2>
+            <InfoPopover text={setIntelligenceInfo} />
+          </div>
+          <p className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] opacity-75 sm:justify-end">
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              aria-hidden="true"
+              className="h-3.5 w-3.5 flex-none"
+            >
+              <path
+                d="M4.75 2.75L9.8 14.2L11.95 9.95L16.2 7.8L4.75 2.75Z"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Select a lens to understand more.</span>
+          </p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          {SET_INTELLIGENCE_LENSES.map((lens) => {
+            const score = toNumber(summary[lens.scoreField]);
+            const tier = toOptionalUpper(summary[lens.tierField]);
+            const rank = toNumber(summary[lens.rankField]);
+            const isSelected = selectedLensKey === lens.key;
+            const tierConfig = tier ? RANK_CONFIG[tier] : null;
+            const tierEdgeColor = tierConfig?.color
+              ? withAlpha(tierConfig.color, isSelected ? 0.52 : 0.24)
+              : null;
+
+            return (
+              <button
+                key={lens.key}
+                type="button"
+                onClick={() => setSelectedLensKey(lens.key)}
+                aria-pressed={isSelected}
+                className={[
+                  "relative flex cursor-pointer flex-col rounded-xl border px-3.5 py-3 text-left transition-colors",
+                  isSelected
+                    ? "bg-[var(--surface-page)]/70 border-[var(--border-subtle)]"
+                    : "bg-[var(--surface-page)]/45 border-[var(--border-subtle)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]",
+                ].join(" ")}
+                style={
+                  isSelected && tierEdgeColor
+                    ? {
+                        borderColor: tierEdgeColor,
+                        boxShadow: `0 0 0 1px ${withAlpha(tierConfig.color, 0.12)}`,
+                      }
+                    : undefined
+                }
+              >
+                <span className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+                  {lens.label}
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-lg font-bold leading-none text-[var(--text-primary)]">
+                    {formatLensScore(score, lens.format)}
+                  </span>
+                  {tier ? (
+                    <RankBadge rank={tier} format="tier" size="default" subtle />
+                  ) : (
+                    <span className="text-xs text-[var(--text-secondary)] opacity-60">Not ranked</span>
+                  )}
+                </div>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-2.5 top-2 text-[var(--text-secondary)] opacity-40"
+                >
+                  ›
+                </span>
+                {rank !== null ? (
+                  <span className="mt-1.5 text-[10px] text-[var(--text-secondary)] opacity-70">
+                    Rank #{Math.round(rank)}
+                  </span>
+                ) : null}
+                <span className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                  {getLensTagline(lens, summary)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          className="mt-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-4 py-3.5"
+          style={selectedDetailBorder ? { borderLeftColor: selectedDetailBorder, borderLeftWidth: "2px" } : undefined}
+        >
+          <div className="mb-1 flex items-start justify-between gap-3">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedLens.heading}</p>
+            <span className="flex-none text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] opacity-70">
+              {selectedLens.label}
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+            {selectedLens.description}
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {selectedLens.evidenceKeys.map((key) => {
+              const row = getLensEvidenceRow(key, summary);
+              if (!row) return null;
+              return (
+                <span
+                  key={key}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                >
+                  <span className="flex-none">{row.label}:</span>
+                  <span className="font-medium text-[var(--text-primary)]">{row.value}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </article>
+    </section>
   );
 }
 
@@ -709,7 +949,7 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
         </div>
         <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 text-left sm:mt-0 sm:min-w-[14rem] sm:text-right">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Near Mint Price</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Estimated Card Market Price</p>
             <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{nearMintPrice === null ? "—" : formatCurrency(nearMintPrice)}</p>
           </div>
           <div className="min-w-0">
@@ -767,7 +1007,7 @@ function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPri
 
         <div className="min-w-0 max-w-full flex-1">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name || "Unknown Card"}</p>
-          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Card Price</p>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Est. Card Market Price</p>
           <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{cardPrice === null ? "—" : formatCurrency(cardPrice)}</p>
         </div>
       </div>
@@ -819,6 +1059,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
         </div>
         <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
       </div>
+      <p className="text-xs text-[var(--text-secondary)]">Price-based metrics use estimated third-party market snapshots and may change over time.</p>
 
       {hits.map((hit) => {
         const ev = toNumber(hit?.ev_contribution);
@@ -1330,7 +1571,6 @@ export default function RipStatisticsPageClient({
   const p05ShortfallToCost = summary.p05_shortfall_to_cost ?? null;
 
   const [graphMode, setGraphMode] = useState("outcome-distribution");
-  const [scoreMode, setScoreMode] = useState("relative");
   const [viewMode, setViewMode] = useState("simple");
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
@@ -1625,15 +1865,15 @@ export default function RipStatisticsPageClient({
     { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
-  const displayedRelativePackScore = formatRawScore(summary.relative_pack_score);
-  const displayedAbsolutePackScore = formatRawScore(summary.pack_score);
-  const topScoreRaw = scoreMode === "relative" ? summary.relative_pack_score : summary.pack_score;
-  const displayedTopScore = scoreMode === "relative" ? displayedRelativePackScore : displayedAbsolutePackScore;
+  const topScoreRaw = toNumber(summary.relative_pack_score) ?? toNumber(summary.pack_score);
+  const displayedTopScore = formatRawScore(topScoreRaw);
 
-  const displayedProfitScore = scoreMode === "relative" ? summary.relative_profit_score : summary.profit_score;
-  const displayedSafetyScore = scoreMode === "relative" ? summary.relative_safety_score : summary.safety_score;
+  const displayedProfitScore =
+    toNumber(summary.relative_profit_score) ?? toNumber(summary.profit_score);
+  const displayedSafetyScore =
+    toNumber(summary.relative_safety_score) ?? toNumber(summary.safety_score);
   const displayedStabilityScore =
-    scoreMode === "relative" ? summary.relative_stability_score : summary.stability_score;
+    toNumber(summary.relative_stability_score) ?? toNumber(summary.stability_score);
   const heroLogoUrl =
     selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
 
@@ -1982,11 +2222,6 @@ export default function RipStatisticsPageClient({
                           <span className="pointer-events-none absolute bottom-2 left-full ml-2 text-sm font-medium text-[var(--text-secondary)] sm:bottom-3">/100</span>
                         </div>
                       </div>
-                      {viewMode === "expert" ? (
-                        <div className="mt-4 flex w-full justify-center self-center">
-                          <ScoreModeToggle scoreMode={scoreMode} onChange={setScoreMode} />
-                        </div>
-                      ) : null}
                       <div className="mt-4 w-full max-w-lg">
                         <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
                       </div>
@@ -2211,6 +2446,10 @@ export default function RipStatisticsPageClient({
                 />
               </div>
             </section>
+            ) : null}
+
+            {viewMode === "expert" ? (
+              <SetIntelligenceSection summary={summary} />
             ) : null}
 
             {viewMode === "expert" ? (
