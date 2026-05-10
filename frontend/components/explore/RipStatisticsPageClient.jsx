@@ -49,7 +49,7 @@ const RIP_COPY = {
   simpleMetrics: {
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     averagePackValue: "Average Pack Value",
-    currentPackCost: "Current Pack Cost",
+    currentPackCost: "Estimated Pack Market Price",
     averageLoss: "Average Loss",
     chanceAtBigPull: "Chance at a Big Pull",
   },
@@ -709,7 +709,7 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
         </div>
         <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 text-left sm:mt-0 sm:min-w-[14rem] sm:text-right">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Near Mint Price</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Estimated Card Market Price</p>
             <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{nearMintPrice === null ? "—" : formatCurrency(nearMintPrice)}</p>
           </div>
           <div className="min-w-0">
@@ -767,7 +767,7 @@ function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPri
 
         <div className="min-w-0 max-w-full flex-1">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name || "Unknown Card"}</p>
-          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Card Price</p>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Est. Card Market Price</p>
           <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{cardPrice === null ? "—" : formatCurrency(cardPrice)}</p>
         </div>
       </div>
@@ -819,6 +819,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
         </div>
         <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
       </div>
+      <p className="text-xs text-[var(--text-secondary)]">Price-based metrics use estimated third-party market snapshots and may change over time.</p>
 
       {hits.map((hit) => {
         const ev = toNumber(hit?.ev_contribution);

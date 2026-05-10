@@ -87,8 +87,15 @@ export default function Footer() {
         </div>
 
         {/* Bottom row */}
-        <div className="mt-12 border-t border-[var(--border-subtle)] pt-6 text-center text-xs text-[var(--text-secondary)]">
-          © 2025 inDex. All rights reserved.
+        <div className="mt-12 border-t border-[var(--border-subtle)] pt-6">
+          <div className="text-center text-xs text-[var(--text-secondary)]">
+            © 2025 inDex. All rights reserved.
+          </div>
+          <div className="mx-auto mt-4 max-w-3xl text-center text-[11px] leading-relaxed text-[var(--text-secondary)]">
+            <p>
+              Pricing and simulation results are estimates for informational and entertainment purposes only. Pricing inputs use third-party market snapshots where available and may be incomplete, delayed, inaccurate, or change without notice. inDex is not endorsed, certified, sponsored, or affiliated with any marketplace, card manufacturer, grading company, or rights holder referenced on this site.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

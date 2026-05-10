@@ -5,7 +5,7 @@ export default function MarketModule({ market }) {
     <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-5">
       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Market Intelligence</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Metric label="Market Price" value={`$${market.market_price}`} />
+        <Metric label="Estimated Card Market Price" value={`$${market.market_price}`} />
         <Metric label="Estimated Value" value={`$${market.estimated_value}`} />
         <Metric label="Liquidity" value={market.liquidity_indicator} />
         <Metric label="Trend Points" value={market.price_trend.join(" -> ")} />

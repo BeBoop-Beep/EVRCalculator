@@ -65,9 +65,9 @@ export const FRIENDLY_METRIC_LABELS = {
   "P95-to-Cost Ratio": "Big Hit Upside",
   "P95 Value / Cost Ratio": "Big Hit Upside",
   ROI: "Return on Investment",
-  "Pack Cost": "Current Pack Cost",
+  "Pack Cost": "Estimated Pack Market Price",
   "Average Pack Value": "Average Pack Value",
-  "Current Pack Cost": "Current Pack Cost",
+  "Current Pack Cost": "Estimated Pack Market Price",
   "Average Loss": "Average Loss",
   "Chance at a Big Pull": "Chance at a Big Pull",
 
@@ -211,7 +211,7 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     interpretation: "Useful snapshot of expected gain/loss, but not directly scored.",
   }),
   "Pack Cost": buildMetricTooltip({
-    meaning: "Estimated market cost to open one pack.",
+    meaning: "Estimated market snapshot for this pack. Prices may be incomplete, delayed, noisy, or change quickly. This is used as an input to the simulation, not a guaranteed sale or purchase price.",
     impact: "Context only",
     direction: "Lower is better",
     interpretation: "Used as a denominator for ratios, not scored directly.",
@@ -221,6 +221,12 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     impact: "Context only",
     direction: "Closer to zero is better",
     interpretation: "Useful collector-facing shorthand for how far the average pack sits below cost.",
+  }),
+  "Average Pack Value": buildMetricTooltip({
+    meaning: "The average simulated value of one pack using current price inputs and pull-rate assumptions. Real openings can be much higher or much lower.",
+    impact: "Context only",
+    direction: "Higher is better",
+    interpretation: "This is a statistical average from simulations, not a guarantee or typical outcome.",
   }),
   "Chance at a Big Pull": buildMetricTooltip({
     meaning: "Estimated chance a simulated pack clears the page's big-hit threshold.",
