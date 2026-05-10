@@ -115,6 +115,16 @@ def _coerce_optional_float(value: Any, field_name: str) -> float | None:
         raise ValueError(f"Invalid numeric field: {field_name}") from exc
 
 
+def _coerce_optional_str(value: Any, field_name: str) -> str | None:
+    """Coerce a value to optional string (None or trimmed text)."""
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text
+
+
 def _require_score_0_100(value: Any, field_name: str) -> float:
     score = _require_float(value, field_name)
     if score < 0.0 or score > 100.0:
@@ -442,6 +452,26 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
             "derived.pack_score.normalization_mode",
         ),
         "pack_score_is_placeholder": pack_score_is_placeholder,
+        "chase_potential_score": _coerce_optional_float(
+            _first_present(pack_score, ("chase_potential_score",)),
+            "derived.pack_score.chase_potential_score",
+        ),
+        "chase_potential_tier": _coerce_optional_str(
+            _first_present(pack_score, ("chase_potential_tier",)),
+            "derived.pack_score.chase_potential_tier",
+        ),
+        "experience_score": _coerce_optional_float(
+            _first_present(pack_score, ("experience_score",)),
+            "derived.pack_score.experience_score",
+        ),
+        "experience_tier": _coerce_optional_str(
+            _first_present(pack_score, ("experience_tier",)),
+            "derived.pack_score.experience_tier",
+        ),
+        "derived_metric_version": _coerce_optional_str(
+            _first_present(pack_score, ("derived_metric_version",)),
+            "derived.pack_score.derived_metric_version",
+        ),
     }
 
 

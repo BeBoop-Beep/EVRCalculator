@@ -286,6 +286,30 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         era_ms = 0.0
         sources["eras"] = "SKIPPED"
 
+    # Fetch ratio rank/tier fields not exposed by explore_rip_statistics_latest
+    ratio_rank_tier_lookup: Dict[str, Dict[str, Any]] = {}
+    if set_ids:
+        ratio_started = time.perf_counter()
+        try:
+            ratio_result = (
+                public_read_client.table("set_pack_score_rankings_latest")
+                .select(
+                    "target_id,mean_value_to_cost_rank,mean_value_to_cost_tier,"
+                    "p95_value_to_cost_rank,p95_value_to_cost_tier"
+                )
+                .in_("target_id", set_ids)
+                .execute()
+            )
+            for ratio_row in (ratio_result.data or []):
+                tid = _to_optional_str(ratio_row.get("target_id"))
+                if tid:
+                    ratio_rank_tier_lookup[tid] = ratio_row
+            sources["ratio_rank_tiers"] = "OK"
+        except Exception as exc:
+            logger.warning("[rip-statistics-targets] ratio rank/tier enrichment failed: %s", exc)
+            warnings.append("Failed to load ratio rank/tier data for one or more RIP targets")
+            sources["ratio_rank_tiers"] = "FAILED"
+
     ordered_rows = sorted(
         ranked_rows,
         key=lambda row: _build_set_order_key(
@@ -335,15 +359,32 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "pack_score": row.get("pack_score"),
                 "pack_rank": pack_rank,
                 "pack_tier": pack_tier,
+                "relative_profit_score": row.get("relative_profit_score"),
                 "profit_score": row.get("profit_score"),
                 "profit_rank": row.get("profit_rank"),
                 "profit_tier": row.get("profit_tier"),
+                "relative_safety_score": row.get("relative_safety_score"),
                 "safety_score": row.get("safety_score"),
                 "safety_rank": row.get("safety_rank"),
                 "safety_tier": row.get("safety_tier"),
+                "relative_stability_score": row.get("relative_stability_score"),
                 "stability_score": row.get("stability_score"),
                 "stability_rank": row.get("stability_rank"),
                 "stability_tier": row.get("stability_tier"),
+                "relative_experience_score": row.get("relative_experience_score"),
+                "experience_score": row.get("experience_score"),
+                "experience_rank": row.get("experience_rank"),
+                "experience_tier": row.get("experience_tier"),
+                "relative_chase_potential_score": row.get("relative_chase_potential_score"),
+                "chase_potential_score": row.get("chase_potential_score"),
+                "chase_potential_rank": row.get("chase_potential_rank"),
+                "chase_potential_tier": row.get("chase_potential_tier"),
+                "mean_value_to_cost_ratio": row.get("mean_value_to_cost_ratio"),
+                "mean_value_to_cost_rank": ratio_rank_tier_lookup.get(target_id, {}).get("mean_value_to_cost_rank"),
+                "mean_value_to_cost_tier": ratio_rank_tier_lookup.get(target_id, {}).get("mean_value_to_cost_tier"),
+                "p95_value_to_cost_ratio": row.get("p95_value_to_cost_ratio"),
+                "p95_value_to_cost_rank": ratio_rank_tier_lookup.get(target_id, {}).get("p95_value_to_cost_rank"),
+                "p95_value_to_cost_tier": ratio_rank_tier_lookup.get(target_id, {}).get("p95_value_to_cost_tier"),
                 "pack_cost": row.get("pack_cost"),
                 "mean_value": row.get("mean_value"),
                 "median_value": row.get("median_value"),

@@ -82,6 +82,15 @@ _RIP_SUMMARY_SUPPLEMENT_FIELDS = (
     "relative_stability_score",
     "median_value_to_cost_ratio",
     "median_loss_when_losing_fraction",
+    "experience_score",
+    "chase_potential_score",
+    "experience_tier",
+    "chase_potential_tier",
+    "mean_value_to_cost_rank",
+    "mean_value_to_cost_tier",
+    "p95_value_to_cost_rank",
+    "p95_value_to_cost_tier",
+    "derived_metric_version",
 )
 
 

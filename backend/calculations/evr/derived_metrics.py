@@ -687,6 +687,22 @@ _PACK_SCORE_V2_WEIGHTS_PCT: Dict[str, float] = {
     "stability_score": 25.0,
 }
 
+# Stage 1 derived metrics component weights (percentage-style)
+_CHASE_POTENTIAL_V1_WEIGHTS_PCT: Dict[str, float] = {
+    "big_hit_frequency_score": 30.0,
+    "big_hit_upside_score": 30.0,
+    "chase_depth_score": 20.0,
+    "pack_affordability_score": 10.0,
+    "profit_score": 10.0,
+}
+_EXPERIENCE_V1_WEIGHTS_PCT: Dict[str, float] = {
+    "prob_profit_score": 35.0,
+    "median_value_to_cost_score": 25.0,
+    "safety_score": 20.0,
+    "big_hit_frequency_score": 10.0,
+    "stability_score": 10.0,
+}
+
 _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
     # Profit anchors
     "prob_profit": {
@@ -735,6 +751,27 @@ _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
         "min": 1.0,
         "max": 40.0,
         "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+    },
+    # Stage 1 derived intelligence metrics component anchors
+    "pack_affordability_score": {
+        "min": 5.0,
+        "max": 50.0,
+        "direction": _SCORE_DIRECTION_LOWER_IS_BETTER,  # cheaper = better, so lower pack cost is better
+    },
+    "big_hit_frequency_score": {
+        "min": 0.0,
+        "max": 1.0,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,  # probability, higher is better
+    },
+    "big_hit_upside_score": {
+        "min": 0.25,
+        "max": 5.0,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,  # p95_value_to_cost, higher is better
+    },
+    "chase_depth_score": {
+        "min": 1.0,
+        "max": 40.0,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,  # effective chase count, higher is better
     },
 }
 
@@ -1076,6 +1113,112 @@ def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -
     return results
 
 
+# ---------------------------------------------------------------------------
+# Stage 1 Derived Intelligence Metrics
+# ---------------------------------------------------------------------------
+
+def _compute_pack_affordability_component(
+    pack_cost: Optional[float],
+) -> Optional[float]:
+    """Compute the raw pack affordability component (pack cost in dollars).
+
+    Lower pack cost = more affordable = higher score when normalized.
+    Returns the pack_cost to be normalized by anchors (lower_is_better direction).
+    """
+    return _to_finite_float(pack_cost)
+
+
+def _compute_big_hit_frequency_component(
+    prob_big_hit_dynamic: Optional[float],
+) -> Optional[float]:
+    """Compute the raw big hit frequency component.
+
+    Uses prob_big_hit_dynamic (probability of hitting a big value threshold).
+    """
+    return _to_finite_float(prob_big_hit_dynamic)
+
+
+def _compute_big_hit_upside_component(
+    p95_value_to_cost_ratio: Optional[float],
+) -> Optional[float]:
+    """Compute the raw big hit upside component.
+
+    Uses p95_value_to_cost_ratio (strength of the p95 outcome relative to cost).
+    """
+    return _to_finite_float(p95_value_to_cost_ratio)
+
+
+def _compute_chase_depth_component(
+    effective_chase_count: Optional[float],
+) -> Optional[float]:
+    """Compute the raw chase depth component.
+
+    Uses effective_chase_count (concentration-adjusted count of meaningful chase outcomes).
+    Returns None if effective_chase_count is None or invalid.
+    """
+    return _to_finite_float(effective_chase_count)
+
+
+# ---------------------------------------------------------------------------
+# Stage 1 Composite Metrics Assembly
+# ---------------------------------------------------------------------------
+
+def _assemble_chase_potential_score(
+    *,
+    big_hit_frequency_normalized: float,
+    big_hit_upside_normalized: float,
+    chase_depth_normalized: float,
+    pack_affordability_normalized: float,
+    profit_score: float,
+) -> float:
+    """Assemble chase_potential_score from normalized component scores.
+
+    Formula v1:
+        30% big_hit_frequency + 30% big_hit_upside + 20% chase_depth
+        + 10% pack_affordability + 10% profit_score
+
+    All inputs should be 0-100 normalized scores.
+    """
+    return _weighted_average(
+        {
+            "big_hit_frequency_score": big_hit_frequency_normalized,
+            "big_hit_upside_score": big_hit_upside_normalized,
+            "chase_depth_score": chase_depth_normalized,
+            "pack_affordability_score": pack_affordability_normalized,
+            "profit_score": profit_score,
+        },
+        _CHASE_POTENTIAL_V1_WEIGHTS_PCT,
+    )
+
+
+def _assemble_experience_score(
+    *,
+    prob_profit_normalized: float,
+    median_value_to_cost_normalized: float,
+    safety_score: float,
+    big_hit_frequency_normalized: float,
+    stability_score: float,
+) -> float:
+    """Assemble experience_score from normalized component scores.
+
+    Formula v1:
+        35% prob_profit + 25% median_value_to_cost + 20% safety_score
+        + 10% big_hit_frequency + 10% stability_score
+
+    All inputs should be 0-100 normalized scores.
+    """
+    return _weighted_average(
+        {
+            "prob_profit_score": prob_profit_normalized,
+            "median_value_to_cost_score": median_value_to_cost_normalized,
+            "safety_score": safety_score,
+            "big_hit_frequency_score": big_hit_frequency_normalized,
+            "stability_score": stability_score,
+        },
+        _EXPERIENCE_V1_WEIGHTS_PCT,
+    )
+
+
 def _build_runtime_v2_pack_score_payload(
     *,
     pack_metrics: Dict[str, Any],
@@ -1198,6 +1341,66 @@ def _build_runtime_v2_pack_score_payload(
         _PACK_SCORE_V2_WEIGHTS_PCT,
     )
 
+    # =========================================================================
+    # Stage 1: Derived Intelligence Metrics
+    # =========================================================================
+    # Compute raw component values for the new derived metrics
+    pack_affordability_raw = _compute_pack_affordability_component(pack_cost)
+    big_hit_frequency_raw = _compute_big_hit_frequency_component(
+        pack_metrics.get("prob_big_hit_dynamic")
+    )
+    big_hit_upside_raw = _compute_big_hit_upside_component(
+        raw_inputs.get("p95_value_to_cost_ratio")
+    )
+    chase_depth_raw = _compute_chase_depth_component(
+        raw_inputs.get("effective_chase_count")
+    )
+
+    # Normalize the new component metrics using fixed anchors
+    pack_affordability_score = _normalize_fixed_anchor_0_100(
+        pack_affordability_raw,
+        min_anchor=float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["min"]),
+        max_anchor=float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["max"]),
+        direction=str(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["direction"]),
+    )
+    big_hit_frequency_score = _normalize_fixed_anchor_0_100(
+        big_hit_frequency_raw,
+        min_anchor=float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["min"]),
+        max_anchor=float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["max"]),
+        direction=str(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["direction"]),
+    )
+    big_hit_upside_score = _normalize_fixed_anchor_0_100(
+        big_hit_upside_raw,
+        min_anchor=float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["min"]),
+        max_anchor=float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["max"]),
+        direction=str(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["direction"]),
+    )
+    chase_depth_score = _normalize_fixed_anchor_0_100(
+        chase_depth_raw,
+        min_anchor=float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["min"]),
+        max_anchor=float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["max"]),
+        direction=str(_RUNTIME_V2_ANCHORS["chase_depth_score"]["direction"]),
+    )
+
+    # Assemble composite metrics from normalized components
+    chase_potential_score = _assemble_chase_potential_score(
+        big_hit_frequency_normalized=big_hit_frequency_score,
+        big_hit_upside_normalized=big_hit_upside_score,
+        chase_depth_normalized=chase_depth_score,
+        pack_affordability_normalized=pack_affordability_score,
+        profit_score=profit_score,
+    )
+
+    experience_score = _assemble_experience_score(
+        prob_profit_normalized=normalized_inputs["prob_profit"]["score"],
+        median_value_to_cost_normalized=normalized_inputs["median_value_to_cost_ratio"]["score"],
+        safety_score=safety_score,
+        big_hit_frequency_normalized=big_hit_frequency_score,
+        stability_score=stability_score,
+    )
+
+    # =========================================================================
+
     return {
         "score_version": "pack_score_v2_chase_weighted",
         "normalization_mode": "fixed_anchor_runtime_v2_chase_weighted",
@@ -1206,17 +1409,26 @@ def _build_runtime_v2_pack_score_payload(
         "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
         "stability_score": round(_clamp(stability_score, 0.0, 100.0), 2),
         "pack_score": round(_clamp(pack_score, 0.0, 100.0), 2),
+        "chase_potential_score": round(_clamp(chase_potential_score, 0.0, 100.0), 2),
+        "experience_score": round(_clamp(experience_score, 0.0, 100.0), 2),
+        "chase_potential_tier": None,
+        "experience_tier": None,
+        "derived_metric_version": "derived_intelligence_v1",
         "weights_pct": {
             "pack_score": dict(_PACK_SCORE_V2_WEIGHTS_PCT),
             "profit_score": dict(_PROFIT_V2_WEIGHTS_PCT),
             "safety_score": dict(_SAFETY_V2_WEIGHTS_PCT),
             "stability_score": dict(_STABILITY_V2_WEIGHTS_PCT),
+            "chase_potential_score": dict(_CHASE_POTENTIAL_V1_WEIGHTS_PCT),
+            "experience_score": dict(_EXPERIENCE_V1_WEIGHTS_PCT),
         },
         "weights_normalized": {
             "pack_score": _normalize_weights_from_percent(_PACK_SCORE_V2_WEIGHTS_PCT),
             "profit_score": _normalize_weights_from_percent(_PROFIT_V2_WEIGHTS_PCT),
             "safety_score": _normalize_weights_from_percent(_SAFETY_V2_WEIGHTS_PCT),
             "stability_score": _normalize_weights_from_percent(_STABILITY_V2_WEIGHTS_PCT),
+            "chase_potential_score": _normalize_weights_from_percent(_CHASE_POTENTIAL_V1_WEIGHTS_PCT),
+            "experience_score": _normalize_weights_from_percent(_EXPERIENCE_V1_WEIGHTS_PCT),
         },
         "raw_inputs": raw_inputs,
         "normalized_inputs": {
@@ -1225,6 +1437,37 @@ def _build_runtime_v2_pack_score_payload(
                 "score": round(float(entry["score"]), 4),
             }
             for key, entry in normalized_inputs.items()
+        }
+        | {
+            # Keep Stage 1 components nested for debugging/explanation only.
+            "pack_affordability_score": {
+                "value": pack_affordability_raw,
+                "min": float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["min"]),
+                "max": float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["max"]),
+                "direction": str(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["direction"]),
+                "score": round(float(pack_affordability_score), 4),
+            },
+            "big_hit_frequency_score": {
+                "value": big_hit_frequency_raw,
+                "min": float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["min"]),
+                "max": float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["max"]),
+                "direction": str(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["direction"]),
+                "score": round(float(big_hit_frequency_score), 4),
+            },
+            "big_hit_upside_score": {
+                "value": big_hit_upside_raw,
+                "min": float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["min"]),
+                "max": float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["max"]),
+                "direction": str(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["direction"]),
+                "score": round(float(big_hit_upside_score), 4),
+            },
+            "chase_depth_score": {
+                "value": chase_depth_raw,
+                "min": float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["min"]),
+                "max": float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["max"]),
+                "direction": str(_RUNTIME_V2_ANCHORS["chase_depth_score"]["direction"]),
+                "score": round(float(chase_depth_score), 4),
+            },
         },
     }
 
@@ -1716,7 +1959,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
             raw_inputs = idx.get("raw_inputs") or {}
             normalized_inputs = idx.get("normalized_inputs") or {}
 
-            print("  raw_inputs:")
+            print("  raw.inputs:")
             for key in (
                 "prob_profit",
                 "mean_value_to_cost_ratio",
@@ -1735,7 +1978,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
                     print(f"    {key}: {raw_inputs.get(key)}")
 
             if normalized_inputs:
-                print("  normalized_inputs:")
+                print("  normalized.inputs:")
                 for key, payload in normalized_inputs.items():
                     print(
                         "    "

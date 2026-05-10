@@ -132,6 +132,11 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "score_version": "pack_score_v1_singleton_placeholder",
             "normalization_mode": "singleton_placeholder",
             "pack_score_is_placeholder": True,
+            "chase_potential_score": None,
+            "experience_score": None,
+            "chase_potential_tier": None,
+            "experience_tier": None,
+            "derived_metric_version": None,
         },
     )
 
@@ -238,6 +243,11 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "score_version": "pack_score_v1_singleton_placeholder",
             "normalization_mode": "singleton_placeholder",
             "pack_score_is_placeholder": True,
+            "chase_potential_score": None,
+            "experience_score": None,
+            "chase_potential_tier": None,
+            "experience_tier": None,
+            "derived_metric_version": None,
         },
     )
 
@@ -350,6 +360,11 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
             "score_version": "pack_score_v1_singleton_placeholder",
             "normalization_mode": "singleton_placeholder",
             "pack_score_is_placeholder": True,
+            "chase_potential_score": None,
+            "experience_score": None,
+            "chase_potential_tier": None,
+            "experience_tier": None,
+            "derived_metric_version": None,
         },
     )
 
@@ -660,6 +675,11 @@ def test_persist_simulation_derived_metrics_accepts_runtime_v2_and_ignores_runti
                 "profit_score": 71.0,
                 "safety_score": 37.0,
                 "stability_score": 65.0,
+                "chase_potential_score": 64.0,
+                "experience_score": 59.0,
+                "chase_potential_tier": None,
+                "experience_tier": None,
+                "derived_metric_version": "derived_intelligence_v1",
                 "score_version": "pack_score_v2_1_runtime",
                 "normalization_mode": "fixed_anchor_runtime_v2_1",
                 "pack_score_is_placeholder": False,
@@ -682,10 +702,21 @@ def test_persist_simulation_derived_metrics_accepts_runtime_v2_and_ignores_runti
     assert persisted_payload["hhi_ev_concentration"] == pytest.approx(0.30)
     assert persisted_payload["effective_chase_count"] == pytest.approx(3.3333)
     assert persisted_payload["p95_value_to_cost_ratio"] is None
+    assert persisted_payload["chase_potential_score"] == pytest.approx(64.0)
+    assert persisted_payload["experience_score"] == pytest.approx(59.0)
+    assert persisted_payload["chase_potential_tier"] is None
+    assert persisted_payload["experience_tier"] is None
+    assert persisted_payload["derived_metric_version"] == "derived_intelligence_v1"
     assert "raw_inputs" not in persisted_payload
     assert "normalized_inputs" not in persisted_payload
     assert "weights_pct" not in persisted_payload
     assert "weights_normalized" not in persisted_payload
+    assert "pack_affordability_score" not in persisted_payload
+    assert "big_hit_frequency_score" not in persisted_payload
+    assert "big_hit_upside_score" not in persisted_payload
+    assert "chase_depth_score" not in persisted_payload
+    assert "relative_chase_potential_score" not in persisted_payload
+    assert "relative_experience_score" not in persisted_payload
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
