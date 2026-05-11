@@ -284,6 +284,129 @@ body::-webkit-scrollbar-thumb:hover {
   }
 }
 
+@keyframes index-logo-glow {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.48;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes index-loader-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: translateY(0) scale(0.9);
+  }
+  45% {
+    opacity: 0.95;
+    transform: translateY(-1px) scale(1.06);
+  }
+}
+
+.index-loader-shell {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.25rem 1rem;
+}
+
+.index-loader-shell--fullscreen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.index-loader-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.index-loader-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(7.5rem, 12vw, 10rem);
+  height: clamp(7.5rem, 12vw, 10rem);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at center, rgba(5, 150, 105, 0.44) 0%, rgba(5, 150, 105, 0.14) 46%, rgba(5, 150, 105, 0) 78%);
+  filter: blur(7px);
+  animation: index-logo-glow 1.7s ease-in-out infinite;
+}
+
+.index-loader-logo-frame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.index-loader-logo {
+  width: clamp(5.5rem, 10vw, 8rem);
+  height: clamp(5.5rem, 10vw, 8rem);
+  object-fit: contain;
+  opacity: 0.985;
+}
+
+.index-loader-dots {
+  margin-top: clamp(1.1rem, 2.4vw, 1.5rem);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.index-loader-dot {
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 999px;
+  background: rgba(94, 234, 212, 0.85);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+  animation: index-loader-dot-pulse 1.3s ease-in-out infinite;
+}
+
+.index-loader-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.index-loader-dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.index-loader-copy {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 238, 247, 0.74);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .index-loader-glow,
+  .index-loader-dot {
+    animation: none;
+  }
+
+  .index-loader-glow {
+    opacity: 0.36;
+  }
+
+  .index-loader-dot {
+    opacity: 0.65;
+    transform: none;
+  }
+}
+
 /* For page-level sticky controls that should sit below the global sticky header. */
 .page-sticky-bar {
   position: sticky;
