@@ -363,6 +363,11 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         "derived.pack_score.raw_inputs.p95_value_to_cost_ratio",
     )
 
+    p99_value_to_cost_ratio = _coerce_optional_float(
+        _first_present(pack_score_raw_inputs_map, ("p99_value_to_cost_ratio",)),
+        "derived.pack_score.raw_inputs.p99_value_to_cost_ratio",
+    )
+
     mean_value_to_cost_ratio = _coerce_optional_float(
         _first_present(pack_score_raw_inputs_map, ("mean_value_to_cost_ratio",)),
         "derived.pack_score.raw_inputs.mean_value_to_cost_ratio",
@@ -440,6 +445,7 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         "safety_score": canonical_safety_score,
         "stability_score": canonical_stability_score,
         "p95_value_to_cost_ratio": p95_value_to_cost_ratio,
+        "p99_value_to_cost_ratio": p99_value_to_cost_ratio,
         "mean_value_to_cost_ratio": mean_value_to_cost_ratio,
         "expected_loss_when_losing_fraction": expected_loss_when_losing_fraction,
         "p05_shortfall_to_cost": p05_shortfall_to_cost,

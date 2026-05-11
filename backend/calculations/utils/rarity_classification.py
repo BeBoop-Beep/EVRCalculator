@@ -11,6 +11,8 @@ Key principle:
     "rares and above" or any other shortcut.
 """
 
+
+from typing import Set
 import re
 
 import pandas as pd
@@ -134,7 +136,7 @@ def is_hit_row(row: pd.Series, config) -> bool:
     return is_hit_rarity(row.get("Rarity", ""), config)
 
 
-def get_chase_metrics_excluded_rarities(config) -> set[str]:
+def get_chase_metrics_excluded_rarities(config) -> Set[str]:
     """Return normalized raw rarities excluded from chase/hit-derived metrics."""
     configured = getattr(config, "CHASE_METRICS_EXCLUDED_RARITIES", set())
     if configured is None:

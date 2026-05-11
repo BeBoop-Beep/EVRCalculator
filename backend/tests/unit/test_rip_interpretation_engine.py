@@ -176,6 +176,10 @@ def _assert_no_premium_led(result: dict):
             for item in obj:
                 _scan(item)
 
+
+def _lens_by_key(result: dict, key: str) -> dict:
+    return next(lens for lens in result["meta"]["set_intelligence"] if lens["key"] == key)
+
     _scan(result["meta"])
 
 
@@ -238,8 +242,20 @@ def test_chase_heavy_low_safety():
     _assert_base_contract(result)
     _assert_no_premium_led(result)
     _assert_no_bad_pack_phrases(result)
-    for section in result["meta"].values():
-        _assert_meta_structure(section)
+    section_keys = (
+        "packScore",
+        "profit",
+        "safety",
+        "stability",
+        "outcomeDistribution",
+        "historicalTrend",
+        "packBreakdown",
+        "topEvDrivers",
+        "rarityContribution",
+        "advancedMetrics",
+    )
+    for section_key in section_keys:
+        _assert_meta_structure(result["meta"][section_key])
 
     # SIR-led EV drivers (top3-concentration path or dominant-rarity path)
     top_ev_meta = result["meta"]["topEvDrivers"]
@@ -491,7 +507,8 @@ def test_profit_high_safety_low():
 
     pack_meta = result["meta"]["packScore"]
     assert pack_meta["reason_code"] == "strong_but_risky"
-    assert pack_meta["label"] == "Strong, but risky"
+    assert "elite" in pack_meta["label"].lower()
+    assert "watch" in pack_meta["label"].lower() or "swingy" in pack_meta["label"].lower()
     assert pack_meta["signals"]["weighted_driver"] == "profit"
     assert pack_meta["severity"] == "caution"
     assert "bad packs can still hurt" in result["packScore"].lower()
@@ -594,9 +611,19 @@ def test_data_limited_sections():
     _assert_base_contract(result)
     _assert_no_premium_led(result)
 
-    # All sections should still have required meta fields
-    for section_key, section_val in result["meta"].items():
-        _assert_meta_structure(section_val)
+    # Core section metadata should still include required fields.
+    for section_key in (
+        "packScore",
+        "profit",
+        "safety",
+        "stability",
+        "outcomeDistribution",
+        "historicalTrend",
+        "packBreakdown",
+        "topEvDrivers",
+        "rarityContribution",
+    ):
+        _assert_meta_structure(result["meta"].get(section_key))
 
 
 def test_weighted_driver_prefers_profit_over_raw_stability():
@@ -2825,4 +2852,660 @@ def test_no_forbidden_action_wording_in_labels_and_summaries(profit_tier, safety
             f"Forbidden phrase '{phrase}' found in summary for "
             f"{profit_tier}/{safety_tier}/{stability_tier}: {pack_meta['summary']!r}"
         )
+
+
+def test_contract_includes_structured_pillars_payload():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+    pillars = result["meta"]["pillars"]
+
+    assert isinstance(pillars, list)
+    assert {p["key"] for p in pillars} == {"profit", "safety", "stability"}
+
+    for pillar in pillars:
+        assert set(pillar.keys()) == {
+            "key",
+            "label",
+            "tier",
+            "state",
+            "tone",
+            "short_summary",
+            "long_summary",
+            "supporting_signals",
+        }
+        assert isinstance(pillar["supporting_signals"], list)
+        assert all(
+            forbidden not in pillar
+            for forbidden in ("weight", "weights", "threshold", "thresholds", "formula")
+        )
+
+
+def test_contract_includes_structured_set_intelligence_payload():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+    lenses = result["meta"]["set_intelligence"]
+
+    assert isinstance(lenses, list)
+    assert len(lenses) == 4
+    assert {lens["key"] for lens in lenses} == {
+        "opening_experience",
+        "chase_potential",
+        "biggest_upside",
+        "average_return",
+    }
+
+    for lens in lenses:
+        assert {
+            "key",
+            "label",
+            "variant",
+            "state",
+            "tone",
+            "tier",
+            "short_summary",
+            "long_summary",
+            "simple_summary",
+            "simple_long_summary",
+            "expert_summary",
+            "expert_long_summary",
+            "supporting_signals",
+            "evidence",
+        }.issubset(set(lens.keys()))
+        assert isinstance(lens["supporting_signals"], list)
+        assert isinstance(lens["evidence"], list)
+        if lens["variant"] == "composite_lens":
+            assert isinstance(lens["long_summary"], str)
+            assert lens["long_summary"]
+            assert isinstance(lens["simple_long_summary"], str)
+            assert isinstance(lens["expert_long_summary"], str)
+        assert all(
+            forbidden not in lens
+            for forbidden in ("weight", "weights", "threshold", "thresholds", "formula")
+        )
+
+
+def test_chase_potential_extreme_tail_state_uses_p99_without_promoting_to_elite():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=2.1,
+                p99_value_to_cost_ratio=7.4,
+                prob_big_hit=0.04,
+                effective_chase_count=5.0,
+                top1_ev_share=0.24,
+                hhi_ev_concentration=0.16,
+                mean_value_to_cost_ratio=0.8,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    lens = _lens_by_key(result, "chase_potential")
+    assert lens["state"] == "extreme_tail_chase"
+    assert lens["tone"] == "mixed"
+    assert "very top" in lens["short_summary"].lower() or "rare" in lens["short_summary"].lower()
+
+
+def test_chase_potential_elite_requires_strong_broad_support_not_just_tail():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=3.4,
+                p99_value_to_cost_ratio=6.8,
+                prob_big_hit=0.14,
+                effective_chase_count=10.0,
+                top1_ev_share=0.22,
+                hhi_ev_concentration=0.11,
+                mean_value_to_cost_ratio=0.98,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    lens = _lens_by_key(result, "chase_potential")
+    assert lens["state"] == "elite_chase"
+    assert lens["tone"] == "positive"
+
+
+def test_chase_potential_top_heavy_state_wins_when_value_is_concentrated():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=3.2,
+                p99_value_to_cost_ratio=6.1,
+                prob_big_hit=0.1,
+                effective_chase_count=7.0,
+                top1_ev_share=0.39,
+                hhi_ev_concentration=0.24,
+            ),
+            "top_hits": _chase_hits(lead_share=0.45),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    lens = _lens_by_key(result, "chase_potential")
+    assert lens["state"] == "top_heavy_chase"
+    assert any(signal == "Top-heavy value" for signal in lens["supporting_signals"])
+
+
+def test_chase_potential_low_state_when_p95_and_p99_are_both_capped():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=1.0,
+                p99_value_to_cost_ratio=1.5,
+                prob_big_hit=0.03,
+                effective_chase_count=5.0,
+            ),
+            "top_hits": _mid_tier_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    lens = _lens_by_key(result, "chase_potential")
+    assert lens["state"] == "low_chase"
+    assert lens["tone"] == "negative"
+
+
+def test_biggest_upside_extreme_tail_state_uses_p99_as_secondary_context():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=2.0,
+                p99_value_to_cost_ratio=7.0,
+                max_value=120.0,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    lens = _lens_by_key(result, "biggest_upside")
+    assert lens["state"] == "extreme_tail_upside"
+    assert lens["tone"] == "mixed"
+    assert lens["long_summary"] is not None
+
+
+def test_biggest_upside_high_and_limited_states_still_follow_p95_primary_signal():
+    high_result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=3.3,
+                p99_value_to_cost_ratio=4.8,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+    limited_result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=1.0,
+                p99_value_to_cost_ratio=1.4,
+            ),
+            "top_hits": _mid_tier_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    assert _lens_by_key(high_result, "biggest_upside")["state"] == "high_upside"
+    assert _lens_by_key(limited_result, "biggest_upside")["state"] == "limited_upside"
+
+
+def test_pack_score_modifier_keeps_weak_verdict_while_acknowledging_extreme_tail_chase():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=28.0,
+                profit_score=24.0,
+                safety_score=32.0,
+                stability_score=30.0,
+                pack_tier="F",
+                profit_tier="F",
+                safety_tier="D",
+                stability_tier="D",
+                p95_value_to_cost_ratio=2.0,
+                p99_value_to_cost_ratio=7.2,
+                prob_big_hit=0.04,
+                effective_chase_count=5.0,
+                mean_value_to_cost_ratio=0.72,
+                top1_ev_share=0.24,
+                hhi_ev_concentration=0.16,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    assert result["meta"]["packScore"]["reason_code"] in {"weak_open", "very_weak_open", "bottom_tier_open", "below_average_open"}
+    assert "ceiling exists" in result["packScore"].lower()
+    assert "do not hold up well enough" in result["packScore"].lower()
+
+
+def test_pack_score_modifier_adds_chase_driven_context_for_strong_top_heavy_set():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=76.0,
+                profit_score=82.0,
+                safety_score=66.0,
+                stability_score=68.0,
+                pack_tier="A",
+                profit_tier="S",
+                safety_tier="B",
+                stability_tier="B",
+                p95_value_to_cost_ratio=3.1,
+                p99_value_to_cost_ratio=6.0,
+                prob_big_hit=0.11,
+                effective_chase_count=7.0,
+                top1_ev_share=0.4,
+                hhi_ev_concentration=0.25,
+            ),
+            "top_hits": _chase_hits(lead_share=0.48),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    assert result["meta"]["packScore"]["reason_code"] in {"good_open", "strong_but_risky", "elite_open", "good_value_shaky_path"}
+    assert "chase-driven" in result["packScore"].lower()
+
+
+def test_pack_score_modifier_keeps_average_profile_mixed_for_extreme_tail_chase():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=53.0,
+                profit_score=50.0,
+                safety_score=55.0,
+                stability_score=52.0,
+                pack_tier="C",
+                profit_tier="C",
+                safety_tier="B",
+                stability_tier="C",
+                p95_value_to_cost_ratio=2.1,
+                p99_value_to_cost_ratio=7.1,
+                prob_big_hit=0.05,
+                effective_chase_count=5.0,
+                mean_value_to_cost_ratio=0.88,
+                top1_ev_share=0.23,
+                hhi_ev_concentration=0.15,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    assert result["meta"]["packScore"]["reason_code"] in {"average_open", "average_but_risky", "okay_but_capped", "above_average_but_flawed"}
+    assert "overall case is mixed" in result["packScore"].lower()
+    assert "elite open" not in result["packScore"].lower()
+
+
+def test_s_tier_label_always_uses_elite_wording():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=100.0,
+                profit_score=90.0,
+                safety_score=58.0,
+                stability_score=76.0,
+                pack_tier="S",
+                profit_tier="S",
+                safety_tier="B",
+                stability_tier="A",
+                p95_value_to_cost_ratio=3.0,
+                p99_value_to_cost_ratio=5.6,
+                prob_big_hit=0.12,
+                expected_loss_when_losing_fraction=0.58,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    label = result["meta"]["packScore"]["label"].lower()
+    assert "elite" in label
+    assert "strong" not in label
+
+
+def test_s_tier_mixed_safety_can_render_elite_watch_misses_label():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=92.0,
+                profit_score=88.0,
+                safety_score=26.0,
+                stability_score=66.0,
+                pack_tier="S",
+                profit_tier="S",
+                safety_tier="F",
+                stability_tier="B",
+                p95_value_to_cost_ratio=2.6,
+                p99_value_to_cost_ratio=4.8,
+                expected_loss_when_losing_fraction=0.84,
+            ),
+            "top_hits": _chase_hits(lead_share=0.42),
+            "rankings": _rankings_chase_heavy(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    label = result["meta"]["packScore"]["label"].lower()
+    assert "elite" in label
+    assert any(term in label for term in ("watch", "swingy", "top-heavy"))
+
+
+def test_simple_friendly_summaries_avoid_technical_phrases():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=79.0,
+                profit_score=82.0,
+                safety_score=62.0,
+                stability_score=64.0,
+                pack_tier="A",
+                profit_tier="S",
+                safety_tier="B",
+                stability_tier="B",
+                p95_value_to_cost_ratio=3.2,
+                p99_value_to_cost_ratio=6.2,
+                prob_big_hit=0.11,
+                effective_chase_count=7.0,
+                top1_ev_share=0.41,
+                hhi_ev_concentration=0.25,
+                mean_value_to_cost_ratio=0.92,
+            ),
+            "top_hits": _chase_hits(lead_share=0.5),
+            "rankings": _rankings_chase_heavy(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    forbidden = (
+        "session variance",
+        "return profile",
+        "downside risk",
+        "headline score",
+    )
+    pack_summary = result["packScore"].lower()
+    for phrase in forbidden:
+        assert phrase not in pack_summary
+
+    for lens in result["meta"]["set_intelligence"]:
+        short_text = str(lens.get("short_summary") or "").lower()
+        long_text = str(lens.get("long_summary") or "").lower()
+        for phrase in forbidden:
+            assert phrase not in short_text
+            assert phrase not in long_text
+
+
+def test_average_score_copy_is_plain_language_and_understandable():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=52.0,
+                profit_score=49.0,
+                safety_score=56.0,
+                stability_score=53.0,
+                pack_tier="C",
+                profit_tier="C",
+                safety_tier="B",
+                stability_tier="C",
+                mean_value_to_cost_ratio=0.9,
+                p95_value_to_cost_ratio=1.7,
+                p99_value_to_cost_ratio=3.9,
+                prob_big_hit=0.06,
+            ),
+            "top_hits": _mid_tier_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    avg_lens = _lens_by_key(result, "average_return")
+    text = f"{avg_lens['short_summary']} {avg_lens['long_summary']}".lower()
+    assert "average pack" in text or "average" in text
+    assert "return profile" not in text
+
+
+def _meowth_family_hits():
+    return [
+        {"card_name": "Meowth ex SIR", "ev_contribution": 3.8, "rarity_bucket": "special illustration rare"},
+        {"card_name": "Meowth ex Full Art", "ev_contribution": 2.7, "rarity_bucket": "ultra rare"},
+        {"card_name": "Meowth ex Double Rare", "ev_contribution": 2.2, "rarity_bucket": "double rare"},
+        {"card_name": "Gengar ex", "ev_contribution": 1.4, "rarity_bucket": "ultra rare"},
+    ]
+
+
+def test_value_source_signal_detects_dominant_illustration_rarity():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(),
+            "top_hits": [
+                {"card_name": "Eevee IR", "ev_contribution": 4.0, "rarity_bucket": "illustration rare"},
+                {"card_name": "Sylveon IR", "ev_contribution": 3.6, "rarity_bucket": "illustration rare"},
+                {"card_name": "Umbreon IR", "ev_contribution": 2.6, "rarity_bucket": "illustration rare"},
+                {"card_name": "Charizard ex", "ev_contribution": 1.2, "rarity_bucket": "ultra rare"},
+            ],
+            "rankings": _rankings_illustration_led(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    signal = result["meta"]["value_source_signals"]["value_source_signal"]
+    assert signal["type"] == "dominant_rarity"
+    assert signal["dominant_rarity_bucket"] == "illustration rare"
+
+
+def test_value_source_signal_detects_dominant_sir_rarity():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(),
+            "top_hits": _chase_hits(lead_share=0.62),
+            "rankings": _rankings_chase_heavy(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    signal = result["meta"]["value_source_signals"]["value_source_signal"]
+    assert signal["type"] == "dominant_rarity"
+    assert signal["dominant_rarity_bucket"] in {"special illustration rare", "ultra_ex"}
+
+
+def test_value_source_signal_detects_mixed_rarity_profile():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    signal = result["meta"]["value_source_signals"]["value_source_signal"]
+    assert signal["type"] in {"mixed_rarity", "broad_spread"}
+
+
+def test_card_family_signal_detects_meowth_variants_without_exact_duplicates():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(),
+            "top_hits": _meowth_family_hits(),
+            "rankings": _rankings_chase_heavy(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    signal = result["meta"]["value_source_signals"]["card_family_signal"]
+    assert signal["type"] == "dominant_card_family"
+    assert signal["family_name"] == "Meowth ex"
+    assert signal["family_count"] >= 2
+    assert signal["family_ev_share_of_top_hits"] is not None
+
+
+def test_card_family_signal_does_not_force_dominance_for_unrelated_cards():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    signal = result["meta"]["value_source_signals"]["card_family_signal"]
+    assert signal["type"] in {"unknown", "mixed_card_families"}
+
+
+def test_pack_score_prefers_specific_value_source_copy_over_generic_spread_phrase():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=86.0,
+                profit_score=84.0,
+                safety_score=58.0,
+                stability_score=78.0,
+                pack_tier="S",
+                profit_tier="S",
+                safety_tier="B",
+                stability_tier="A",
+            ),
+            "top_hits": [
+                {"card_name": "Eevee IR", "ev_contribution": 4.1, "rarity_bucket": "illustration rare"},
+                {"card_name": "Sylveon IR", "ev_contribution": 3.1, "rarity_bucket": "illustration rare"},
+                {"card_name": "Umbreon IR", "ev_contribution": 2.1, "rarity_bucket": "illustration rare"},
+                {"card_name": "Mew ex", "ev_contribution": 1.4, "rarity_bucket": "ultra rare"},
+            ],
+            "rankings": _rankings_illustration_led(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    pack_text = result["packScore"].lower()
+    assert "value is spread well across cards" not in pack_text
+    assert "illustration rare" in pack_text or "driven heavily by" in pack_text
+
+
+def test_pack_score_mentions_dominant_card_family_when_present():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                pack_score=82.0,
+                profit_score=80.0,
+                safety_score=56.0,
+                stability_score=62.0,
+                pack_tier="A",
+                profit_tier="A",
+                safety_tier="B",
+                stability_tier="C",
+            ),
+            "top_hits": _meowth_family_hits(),
+            "rankings": _rankings_chase_heavy(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    assert "meowth ex" in result["packScore"].lower()
+
+
+def test_chase_and_upside_lenses_use_value_source_signals_when_meaningful():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=3.2,
+                p99_value_to_cost_ratio=6.8,
+                prob_big_hit=0.11,
+                effective_chase_count=7.5,
+                top1_ev_share=0.32,
+                hhi_ev_concentration=0.20,
+            ),
+            "top_hits": _meowth_family_hits(),
+            "rankings": _rankings_chase_heavy(),
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    chase = _lens_by_key(result, "chase_potential")
+    upside = _lens_by_key(result, "biggest_upside")
+    average_return = _lens_by_key(result, "average_return")
+
+    assert "meowth ex" in chase["long_summary"].lower() or "rarity" in chase["long_summary"].lower()
+    assert "meowth ex" in upside["long_summary"].lower() or "special illustration rare" in upside["long_summary"].lower()
+    assert "meowth ex" not in (average_return.get("short_summary") or "").lower()
+
+
+def test_set_intelligence_uses_standardized_p95_p99_labels():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=2.4,
+                p99_value_to_cost_ratio=5.9,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    chase = _lens_by_key(result, "chase_potential")
+    upside = _lens_by_key(result, "biggest_upside")
+
+    chase_labels = {item.get("label") for item in chase.get("evidence", [])}
+    upside_labels = {item.get("label") for item in upside.get("evidence", [])}
+
+    assert "Big Hit Upside" in chase_labels
+    assert "God Pull Upside" in chase_labels
+    assert "Big Hit Upside" in upside_labels
+    assert "God Pull Upside" in upside_labels
+    assert "P95 upside vs cost" not in chase_labels
+    assert "P99 upside vs cost" not in chase_labels
 

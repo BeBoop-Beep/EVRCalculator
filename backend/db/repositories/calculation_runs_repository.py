@@ -26,6 +26,7 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "safety_score",
     "stability_score",
     "p95_value_to_cost_ratio",
+    "p99_value_to_cost_ratio",
     "mean_value_to_cost_ratio",
     "expected_loss_when_losing_fraction",
     "p05_shortfall_to_cost",
@@ -698,6 +699,7 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
         "safety_score": _coerce_optional_float(derived.get("safety_score")),
         "stability_score": _coerce_optional_float(derived.get("stability_score")),
         "p95_value_to_cost_ratio": _coerce_optional_float(derived.get("p95_value_to_cost_ratio")),
+        "p99_value_to_cost_ratio": _coerce_optional_float(derived.get("p99_value_to_cost_ratio")),
         "mean_value_to_cost_ratio": _coerce_optional_float(derived.get("mean_value_to_cost_ratio")),
         "expected_loss_when_losing_fraction": _coerce_optional_float(
             derived.get("expected_loss_when_losing_fraction")
@@ -883,14 +885,42 @@ def get_latest_run_snapshot_for_target(target_type: str, target_id: str) -> Opti
             "calculation_run_id,value",
             "calculation_run_id",
         ],
-        filters=[("eq", "calculation_run_id", run_id), ("eq", "percentile", 95.0)],
-        limit=1,
+        filters=[("eq", "calculation_run_id", run_id)],
+        limit=50,
     )
 
     derived_row = derived_rows[0] if derived_rows else {}
     summary_row = dict(summary_rows[0]) if summary_rows else {}
-    p95_row = percentile_rows[0] if percentile_rows else {}
-    summary_row["p95_value"] = p95_row.get("value") if isinstance(p95_row, dict) else None
+
+    p95_value: Optional[float] = None
+    p99_value: Optional[float] = None
+    for row in percentile_rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            percentile_value = float(row.get("percentile"))
+            metric_value = float(row.get("value"))
+        except (TypeError, ValueError):
+            continue
+        if abs(percentile_value - 95.0) < 0.001:
+            p95_value = metric_value
+        elif abs(percentile_value - 99.0) < 0.001:
+            p99_value = metric_value
+
+    summary_row["p95_value"] = p95_value
+    summary_row["p99_value"] = p99_value
+
+    try:
+        pack_cost = float(summary_row.get("pack_cost"))
+    except (TypeError, ValueError):
+        pack_cost = None
+
+    summary_row["p95_value_to_cost_ratio"] = (
+        (p95_value / pack_cost) if p95_value is not None and pack_cost is not None and pack_cost > 0 else None
+    )
+    summary_row["p99_value_to_cost_ratio"] = (
+        (p99_value / pack_cost) if p99_value is not None and pack_cost is not None and pack_cost > 0 else None
+    )
 
     for field in ETB_COMPARISON_METRIC_FIELDS:
         if field in run_row:

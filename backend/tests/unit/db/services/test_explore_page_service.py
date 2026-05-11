@@ -108,7 +108,7 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_percentiles": lambda _q: [],
         "simulation_value_distribution_bins": lambda _q: [],
         "simulation_value_threshold_bins": lambda _q: [],
-        "simulation_input_cards": lambda _q: [],
+        "simulation_input_cards_with_near_mint_price": lambda _q: [],
         "card_variants": lambda _q: [],
         "cards": lambda _q: [],
     }
@@ -136,6 +136,7 @@ def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
             "roi_percent": 11.2,
             "prob_profit": 0.54,
             "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
             "mean_value_to_cost_ratio": 1.11,
             "median_value_to_cost_ratio": 1.02,
             "expected_loss_when_losing_fraction": 0.33,
@@ -250,7 +251,7 @@ def test_limit_values_are_safely_clamped(monkeypatch):
     assert payload["meta"]["request"]["limit_top_hits"] == 1
 
     distribution_calls = [c for c in client.calls if c.table_name == "simulation_value_distribution_bins"]
-    top_hits_calls = [c for c in client.calls if c.table_name == "simulation_input_cards"]
+    top_hits_calls = [c for c in client.calls if c.table_name == "simulation_input_cards_with_near_mint_price"]
 
     assert len(distribution_calls) == 1
     assert len(top_hits_calls) == 1
@@ -383,7 +384,7 @@ def test_fallback_path_queries_summary_and_derived(monkeypatch):
 
 def test_top_hits_are_enriched_with_variant_and_card_image_fallbacks(monkeypatch):
     handlers = _build_success_handlers()
-    handlers["simulation_input_cards"] = lambda _q: [
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: [
         {
             "card_id": "card-1",
             "card_variant_id": "variant-1",
@@ -496,3 +497,113 @@ def test_top_hits_are_enriched_with_variant_and_card_image_fallbacks(monkeypatch
     assert len(card_calls) == 1
     assert variant_calls[0].in_filters == [("id", ["variant-1", "variant-2"])]
     assert card_calls[0].in_filters == [("id", ["card-1", "card-2", "card-3", "card-4"])]
+
+
+def test_summary_populates_p99_value_to_cost_ratio_from_percentiles(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-p99")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-p99",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 5.0,
+            "mean_value": 5.55,
+            "median_value": 5.1,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+    handlers["simulation_percentiles"] = lambda _q: [
+        {"percentile": 95.0, "value": 9.5},
+        {"percentile": 99.0, "value": 12.5},
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["summary"]["p99_value"] == 12.5
+    assert payload["summary"]["p99_value_to_cost_ratio"] == 2.5
+
+
+def test_rip_summary_keeps_direct_p99_ratio_without_percentile_recompute(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-p99-direct")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-p99-direct",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 5.0,
+            "mean_value": 5.55,
+            "median_value": 5.1,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value": 11.0,
+            "p99_value_to_cost_ratio": 2.2,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+    handlers["simulation_percentiles"] = lambda _q: [
+        {"percentile": 95.0, "value": 9.5},
+        {"percentile": 99.0, "value": 25.0},
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["summary"]["p99_value"] == 11.0
+    assert payload["summary"]["p99_value_to_cost_ratio"] == 2.2
+    assert payload["meta"]["sources"]["summary_source"] == "explore_rip_statistics_latest"
+    assert payload["meta"]["sources"]["simulation_derived_metrics"] == "SKIPPED_RIP_SUMMARY"

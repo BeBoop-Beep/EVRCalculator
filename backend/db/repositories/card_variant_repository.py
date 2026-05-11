@@ -1,7 +1,7 @@
 from ..clients.supabase_client import supabase, SUPABASE_URL, SUPABASE_KEY
 from supabase import create_client
 from postgrest.exceptions import APIError
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Set
 import time
 
 
@@ -125,7 +125,7 @@ def get_card_variants_by_card_ids(card_ids: List[int]) -> List[Dict[str, Any]]:
     return res.data if res and res.data else []
 
 
-def load_active_simulation_excluded_variant_ids(client) -> set[str]:
+def load_active_simulation_excluded_variant_ids(client) -> Set[str]:
     result = (
         client.table("simulation_card_variant_exclusions")
         .select("card_variant_id")

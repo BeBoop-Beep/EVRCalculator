@@ -787,6 +787,7 @@ class TestComputeAllDerivedMetrics:
             "mean_value_to_cost_ratio",
             "median_value_to_cost_ratio",
             "p95_value_to_cost_ratio",
+            "p99_value_to_cost_ratio",
             "expected_loss_when_losing",
             "median_loss_when_losing",
             "expected_loss_when_losing_ratio",
@@ -816,6 +817,7 @@ class TestComputeAllDerivedMetrics:
         assert result["pack_score"]["raw_inputs"]["mean_value_to_cost_ratio"] is None
         assert result["pack_score"]["raw_inputs"]["median_value_to_cost_ratio"] is None
         assert result["pack_score"]["raw_inputs"]["p95_value_to_cost_ratio"] is None
+        assert result["pack_score"]["raw_inputs"]["p99_value_to_cost_ratio"] is None
 
     @patch("backend.calculations.evr.derived_metrics.compute_pack_decision_metrics")
     def test_cost_ratios_respect_missing_mean_or_median(self, mock_compute_pack_decision_metrics):
@@ -858,6 +860,13 @@ class TestComputeAllDerivedMetrics:
         p95_val = result["pack_decision_metrics"]["p95"]
         assert result["pack_score"]["raw_inputs"]["p95_value_to_cost_ratio"] == pytest.approx(
             p95_val / PACK_COST
+        )
+
+    def test_p99_value_to_cost_ratio_is_p99_over_pack_cost(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        p99_val = result["pack_decision_metrics"]["p99"]
+        assert result["pack_score"]["raw_inputs"]["p99_value_to_cost_ratio"] == pytest.approx(
+            p99_val / PACK_COST
         )
 
     @patch("backend.calculations.evr.derived_metrics.compute_pack_decision_metrics")

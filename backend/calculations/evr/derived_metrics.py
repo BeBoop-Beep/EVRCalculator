@@ -669,8 +669,9 @@ _PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.40, 0.30, 0.30)
 _PROFIT_V2_WEIGHTS_PCT: Dict[str, float] = {
     "prob_profit": 27.5,
     "mean_value_to_cost_ratio": 25.0,
-    "median_value_to_cost_ratio": 20.0,
-    "p95_value_to_cost_ratio": 27.5,
+    "median_value_to_cost_ratio": 17.5,
+    "p95_value_to_cost_ratio": 22.5,
+    "p99_value_to_cost_ratio": 7.5,
 }
 _SAFETY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "expected_loss_when_losing_ratio": 34.0,
@@ -723,6 +724,11 @@ _RUNTIME_V2_ANCHORS: Dict[str, Dict[str, float | str]] = {
     "p95_value_to_cost_ratio": {
         "min": 0.25,
         "max": 5.00,
+        "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+    },
+    "p99_value_to_cost_ratio": {
+        "min": 0.25,
+        "max": 10.00,
         "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
     },
     # Safety anchors (all normalized downside ratios)
@@ -1229,6 +1235,7 @@ def _build_runtime_v2_pack_score_payload(
     mean_value = _to_finite_float(pack_metrics.get("mean"))
     median_value = _to_finite_float(pack_metrics.get("median"))
     p95_value = _to_finite_float(pack_metrics.get("p95"))
+    p99_value = _to_finite_float(pack_metrics.get("p99"))
     expected_loss_when_losing = _to_finite_float(pack_metrics.get("expected_loss_given_loss"))
     median_loss_when_losing = _to_finite_float(pack_metrics.get("median_loss_given_loss"))
     tail_value_p05 = _to_finite_float(pack_metrics.get("tail_value_p05"))
@@ -1238,6 +1245,7 @@ def _build_runtime_v2_pack_score_payload(
         "mean_value_to_cost_ratio": _safe_ratio(mean_value, pack_cost),
         "median_value_to_cost_ratio": _safe_ratio(median_value, pack_cost),
         "p95_value_to_cost_ratio": _safe_ratio(p95_value, pack_cost),
+        "p99_value_to_cost_ratio": _safe_ratio(p99_value, pack_cost),
         "expected_loss_when_losing": expected_loss_when_losing,
         "median_loss_when_losing": median_loss_when_losing,
         "expected_loss_when_losing_ratio": _safe_ratio(expected_loss_when_losing, pack_cost),
@@ -1282,6 +1290,10 @@ def _build_runtime_v2_pack_score_payload(
             "p95_value_to_cost_ratio",
             raw_inputs["p95_value_to_cost_ratio"],
         ),
+        "p99_value_to_cost_ratio": _score_metric(
+            "p99_value_to_cost_ratio",
+            raw_inputs["p99_value_to_cost_ratio"],
+        ),
         "expected_loss_when_losing_ratio": _score_metric(
             "expected_loss_when_losing_ratio",
             raw_inputs["expected_loss_when_losing_ratio"],
@@ -1310,6 +1322,7 @@ def _build_runtime_v2_pack_score_payload(
             "mean_value_to_cost_ratio": normalized_inputs["mean_value_to_cost_ratio"]["score"],
             "median_value_to_cost_ratio": normalized_inputs["median_value_to_cost_ratio"]["score"],
             "p95_value_to_cost_ratio": normalized_inputs["p95_value_to_cost_ratio"]["score"],
+            "p99_value_to_cost_ratio": normalized_inputs["p99_value_to_cost_ratio"]["score"],
         },
         _PROFIT_V2_WEIGHTS_PCT,
     )
@@ -1431,44 +1444,38 @@ def _build_runtime_v2_pack_score_payload(
             "experience_score": _normalize_weights_from_percent(_EXPERIENCE_V1_WEIGHTS_PCT),
         },
         "raw_inputs": raw_inputs,
-        "normalized_inputs": {
-            key: {
-                **entry,
-                "score": round(float(entry["score"]), 4),
-            }
-            for key, entry in normalized_inputs.items()
-        }
-        | {
-            # Keep Stage 1 components nested for debugging/explanation only.
-            "pack_affordability_score": {
-                "value": pack_affordability_raw,
-                "min": float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["min"]),
-                "max": float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["max"]),
-                "direction": str(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["direction"]),
-                "score": round(float(pack_affordability_score), 4),
-            },
-            "big_hit_frequency_score": {
-                "value": big_hit_frequency_raw,
-                "min": float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["min"]),
-                "max": float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["max"]),
-                "direction": str(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["direction"]),
-                "score": round(float(big_hit_frequency_score), 4),
-            },
-            "big_hit_upside_score": {
-                "value": big_hit_upside_raw,
-                "min": float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["min"]),
-                "max": float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["max"]),
-                "direction": str(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["direction"]),
-                "score": round(float(big_hit_upside_score), 4),
-            },
-            "chase_depth_score": {
-                "value": chase_depth_raw,
-                "min": float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["min"]),
-                "max": float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["max"]),
-                "direction": str(_RUNTIME_V2_ANCHORS["chase_depth_score"]["direction"]),
-                "score": round(float(chase_depth_score), 4),
-            },
-        },
+        "normalized_inputs": dict(
+            [(key, dict(entry, score=round(float(entry["score"]), 4))) for key, entry in normalized_inputs.items()] + [
+                ("pack_affordability_score", {
+                    "value": pack_affordability_raw,
+                    "min": float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["min"]),
+                    "max": float(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["max"]),
+                    "direction": str(_RUNTIME_V2_ANCHORS["pack_affordability_score"]["direction"]),
+                    "score": round(float(pack_affordability_score), 4),
+                }),
+                ("big_hit_frequency_score", {
+                    "value": big_hit_frequency_raw,
+                    "min": float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["min"]),
+                    "max": float(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["max"]),
+                    "direction": str(_RUNTIME_V2_ANCHORS["big_hit_frequency_score"]["direction"]),
+                    "score": round(float(big_hit_frequency_score), 4),
+                }),
+                ("big_hit_upside_score", {
+                    "value": big_hit_upside_raw,
+                    "min": float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["min"]),
+                    "max": float(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["max"]),
+                    "direction": str(_RUNTIME_V2_ANCHORS["big_hit_upside_score"]["direction"]),
+                    "score": round(float(big_hit_upside_score), 4),
+                }),
+                ("chase_depth_score", {
+                    "value": chase_depth_raw,
+                    "min": float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["min"]),
+                    "max": float(_RUNTIME_V2_ANCHORS["chase_depth_score"]["max"]),
+                    "direction": str(_RUNTIME_V2_ANCHORS["chase_depth_score"]["direction"]),
+                    "score": round(float(chase_depth_score), 4),
+                }),
+            ]
+        ),
     }
 
 

@@ -126,6 +126,7 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "safety_score": None,
             "stability_score": None,
             "p95_value_to_cost_ratio": None,
+            "p99_value_to_cost_ratio": None,
             "mean_value_to_cost_ratio": None,
             "expected_loss_when_losing_fraction": None,
             "p05_shortfall_to_cost": None,
@@ -237,6 +238,7 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "safety_score": None,
             "stability_score": None,
             "p95_value_to_cost_ratio": None,
+            "p99_value_to_cost_ratio": None,
             "mean_value_to_cost_ratio": None,
             "expected_loss_when_losing_fraction": None,
             "p05_shortfall_to_cost": None,
@@ -354,6 +356,7 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
             "safety_score": None,
             "stability_score": None,
             "p95_value_to_cost_ratio": None,
+            "p99_value_to_cost_ratio": None,
             "mean_value_to_cost_ratio": None,
             "expected_loss_when_losing_fraction": None,
             "p05_shortfall_to_cost": None,
@@ -754,6 +757,7 @@ def test_persist_simulation_derived_metrics_uses_pack_score_raw_inputs_fallback_
                     "hhi_ev_concentration": 0.44,
                     "effective_chase_count": 2.2727,
                     "p95_value_to_cost_ratio": 1.91,
+                    "p99_value_to_cost_ratio": 2.45,
                 },
             },
         },
@@ -762,6 +766,7 @@ def test_persist_simulation_derived_metrics_uses_pack_score_raw_inputs_fallback_
     persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
     assert persisted_payload["hhi_ev_concentration"] == pytest.approx(0.44)
     assert persisted_payload["effective_chase_count"] == pytest.approx(2.2727)
+    assert persisted_payload["p99_value_to_cost_ratio"] == pytest.approx(2.45)
     assert persisted_payload["p95_value_to_cost_ratio"] == pytest.approx(1.91)
 
 

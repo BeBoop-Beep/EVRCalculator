@@ -52,6 +52,7 @@ _RIP_SUMMARY_REQUIRED_FIELDS = (
     "roi_percent",
     "prob_profit",
     "p95_value_to_cost_ratio",
+    "p99_value_to_cost_ratio",
     "mean_value_to_cost_ratio",
     "median_value_to_cost_ratio",
     "expected_loss_when_losing_fraction",
@@ -218,6 +219,40 @@ def _sanitize_limit(value: Any, *, default: int, max_value: int) -> int:
     if parsed > max_value:
         return max_value
     return parsed
+
+
+def _to_optional_float(value: Any) -> Optional[float]:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed
+
+
+def _populate_p99_ratio_from_percentiles(summary: Dict[str, Any], percentiles: List[Dict[str, Any]]) -> None:
+    if summary.get("p99_value_to_cost_ratio") is not None:
+        return
+
+    pack_cost = _to_optional_float(summary.get("pack_cost"))
+    if pack_cost is None or pack_cost <= 0:
+        return
+
+    p99_value: Optional[float] = None
+    for row in percentiles:
+        if not isinstance(row, dict):
+            continue
+        percentile = _to_optional_float(row.get("percentile"))
+        if percentile is None or abs(percentile - 99.0) >= 0.001:
+            continue
+        p99_value = _to_optional_float(row.get("value"))
+        if p99_value is not None:
+            break
+
+    if p99_value is None:
+        return
+
+    summary["p99_value"] = p99_value
+    summary["p99_value_to_cost_ratio"] = p99_value / pack_cost
 
 
 def _missing_required_fields(row: Dict[str, Any], required_fields: tuple[str, ...]) -> List[str]:
@@ -587,6 +622,8 @@ def get_explore_page_payload(
         warnings.append("Failed to load percentiles")
         sources["simulation_percentiles"] = "FAILED"
     percentiles_ms = (time.perf_counter() - percentiles_started) * 1000
+
+    _populate_p99_ratio_from_percentiles(summary, percentiles)
 
     # Distribution bins (optional, separate query)
     distribution_started = time.perf_counter()
