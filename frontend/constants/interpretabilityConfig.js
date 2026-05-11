@@ -64,6 +64,8 @@ export const FRIENDLY_METRIC_LABELS = {
   "Median-to-Cost Ratio": "Typical Outcome vs Cost",
   "P95-to-Cost Ratio": "Big Hit Upside",
   "P95 Value / Cost Ratio": "Big Hit Upside",
+  "P99-to-Cost Ratio": "God Pull Upside",
+  "P99 Value / Cost Ratio": "God Pull Upside",
   ROI: "Return on Investment",
   "Pack Cost": "Estimated Pack Market Price",
   "Average Pack Value": "Average Pack Value",
@@ -108,6 +110,7 @@ export const FRIENDLY_METRIC_LABELS = {
   "Coefficient of Variation": "Outcome Volatility",
   "HHI EV Concentration": "Value Concentration",
   "P95 Value / Cost Ratio": "Big Hit Upside",
+  "P99 Value / Cost Ratio": "God Pull Upside",
   "Effective Chase Count": "Chase Depth",
 };
 
@@ -115,6 +118,7 @@ const METRIC_TOOLTIP_ALIASES = {
   "Chance to Beat Pack Cost": "Probability of Profit",
   "Current Pack Cost": "Pack Cost",
   "Big Hit Upside": "P95-to-Cost Ratio",
+  "God Pull Upside": "P99-to-Cost Ratio",
   "Average Loss per Pack": "Expected Loss Per Pack",
   "Average Loss When You Miss": "Expected Loss When Losing",
   "Typical Loss When You Miss": "Median Loss When Losing",
@@ -201,6 +205,12 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     impact: PROFIT_SCORE_TOOLTIP_IMPACTS.p95_value_to_cost_ratio,
     direction: "Higher is better.",
     interpretation: "Higher values mean the set has stronger high-end payoff relative to pack cost.",
+  }),
+  "P99-to-Cost Ratio": buildMetricTooltip({
+    meaning: "Shows extreme chase outcomes at the very top of the simulated tail.",
+    impact: "Context signal",
+    direction: "Higher is better.",
+    interpretation: "Higher values mean the set has stronger rare spike potential relative to pack cost.",
   }),
   ROI: buildMetricTooltip({
     meaning: "Expected return on investment relative to pack cost.",

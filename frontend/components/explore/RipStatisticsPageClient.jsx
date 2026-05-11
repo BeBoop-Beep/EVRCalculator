@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
@@ -85,6 +85,15 @@ const RIP_COPY = {
   },
 };
 
+const SIMPLE_PILLAR_INFO_COPY = {
+  Profit:
+    "Profit explains the upside side of the set. A strong profit profile does not mean every pack feels good - it means the set has enough high-end outcomes to make the upside meaningful when the right cards show up.",
+  Safety:
+    "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
+  Stability:
+    "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
+};
+
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -147,6 +156,42 @@ function formatNumber(value, decimals = 2) {
     return "—";
   }
   return parsed.toFixed(decimals);
+}
+
+function SectionViewTabs({ value, onChange, options, className = "" }) {
+  const tabOptions = Array.isArray(options) ? options : [];
+  if (tabOptions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={className}>
+      <div
+        className="grid w-full items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5"
+        style={{ gridTemplateColumns: `repeat(${tabOptions.length}, minmax(0, 1fr))` }}
+      >
+        {tabOptions.map((option) => {
+          const isActive = value === option.value;
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              aria-pressed={isActive}
+              className={`min-w-0 rounded-md px-1.5 py-2 text-[10px] font-semibold leading-none transition-colors sm:px-3 sm:text-[11px] ${
+                isActive
+                  ? "bg-[var(--brand)] text-white"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              <span className="block truncate">{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function getSimpleAverageLossValue(summary) {
@@ -487,6 +532,80 @@ function RecommendationBadge({ label, rankTier }) {
   return <InterpretationBadge label={label} rankTier={rankTier} className="px-2.5 py-0.5 text-[10px] tracking-[0.08em]" />;
 }
 
+function MobileMetricAccordion({
+  title,
+  children,
+  defaultOpen = false,
+  className = "",
+  style = undefined,
+  preserveViewportOnToggle = false,
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const accordionId = useId();
+  const contentId = `${accordionId.replace(/[:]/g, "")}-content`;
+  const rootRef = useRef(null);
+
+  const handleToggle = () => {
+    if (!preserveViewportOnToggle || typeof window === "undefined" || !rootRef.current) {
+      setIsOpen((current) => !current);
+      return;
+    }
+
+    const beforeTop = rootRef.current.getBoundingClientRect().top;
+    setIsOpen((current) => !current);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!rootRef.current) {
+          return;
+        }
+
+        const afterTop = rootRef.current.getBoundingClientRect().top;
+        const delta = afterTop - beforeTop;
+
+        if (Math.abs(delta) > 1) {
+          window.scrollBy({ top: delta, left: 0, behavior: "auto" });
+        }
+      });
+    });
+  };
+
+  return (
+    <div ref={rootRef} className={["lg:hidden", className].filter(Boolean).join(" ")} style={style}>
+      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-3 py-2.5">
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={contentId}
+          onClick={handleToggle}
+          className="flex w-full items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/70"
+        >
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</span>
+          <span
+            aria-hidden="true"
+            className={[
+              "text-xs text-[var(--text-secondary)] transition-transform duration-200",
+              isOpen ? "rotate-180" : "",
+            ].join(" ")}
+          >
+            ▾
+          </span>
+        </button>
+
+        <div
+          id={contentId}
+          className={[
+            "grid overflow-hidden transition-all duration-200 ease-out",
+            isOpen ? "mt-3 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+          ].join(" ")}
+        >
+          <div className="min-h-0 overflow-hidden">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DisclosureSection({ title, description = null, children, defaultOpen = false, className = "" }) {
   return (
     <details
@@ -524,6 +643,10 @@ const SET_INTELLIGENCE_LENSES = [
     rankField: "experience_rank",
     format: "score",
     heading: "How this set feels to open",
+    simpleCardSummary:
+      "This shows what the set usually feels like to open - whether packs feel exciting, painful, balanced, or swingy.",
+    simpleDetailSummary:
+      "This lens explains the day-to-day opening feel. It helps you gauge whether most packs feel satisfying, rough, or all over the place.",
     description:
       "This lens weighs typical pack value, chance to beat cost, miss protection, big-pull frequency, and consistency.",
     evidenceKeys: ["prob_profit", "mean_value", "expected_loss_when_losing"],
@@ -536,6 +659,10 @@ const SET_INTELLIGENCE_LENSES = [
     rankField: "chase_potential_rank",
     format: "score",
     heading: "How strong the chase setup is",
+    simpleCardSummary:
+      "This shows how exciting the chase-card setup is compared with other sets.",
+    simpleDetailSummary:
+      "This lens explains how compelling the chase is overall. It reflects whether the headline cards and chase depth feel worth the rip experience.",
     description:
       "This lens weighs big-pull frequency, high-end upside, chase depth, affordability, and profit profile.",
     evidenceKeys: ["prob_big_hit", "p95_value_to_cost_ratio", "effective_chase_count"],
@@ -548,6 +675,10 @@ const SET_INTELLIGENCE_LENSES = [
     rankField: "p95_value_to_cost_rank",
     format: "multiplier",
     heading: "How high the top outcomes can run",
+    simpleCardSummary:
+      "This shows how far the best outcomes can run when the set hits.",
+    simpleDetailSummary:
+      "This lens focuses on ceiling. It helps you understand whether the strongest possible pulls can feel truly special for this set.",
     description:
       "This lens uses the high-end simulated outcome compared with pack cost.",
     evidenceKeys: ["p95_value_to_cost_ratio", "big_hit_threshold", "max_value"],
@@ -560,6 +691,10 @@ const SET_INTELLIGENCE_LENSES = [
     rankField: "mean_value_to_cost_rank",
     format: "multiplier",
     heading: "Average value compared with cost",
+    simpleCardSummary:
+      "This shows whether the set tends to give back more or less value compared with similar sets.",
+    simpleDetailSummary:
+      "This lens describes the typical value return profile. It sets expectations for whether average openings tend to feel closer to cost or noticeably behind it.",
     description:
       "This lens compares average simulated pack value against current estimated pack cost.",
     evidenceKeys: ["mean_value", "pack_cost", "expected_loss_per_pack"],
@@ -642,22 +777,100 @@ function getLensTagline(lens, summary) {
   return "";
 }
 
-function SetIntelligenceSection({ summary }) {
+function getSimpleLensCopy(lens) {
+  return lens?.simpleCardSummary || getLensTagline(lens, {});
+}
+
+const BACKEND_SET_INTELLIGENCE_KEY_MAP = {
+  opening_experience: "experience",
+  chase_potential: "chase",
+  biggest_upside: "upside",
+  average_return: "averageReturn",
+};
+
+const PILLAR_TITLE_TO_KEY = {
+  Profit: "profit",
+  Safety: "safety",
+  Stability: "stability",
+};
+
+function toDisplayStateLabel(value) {
+  if (!value) return null;
+  return String(value)
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function normalizeBackendSetIntelligence(setIntelligenceMeta) {
+  if (!Array.isArray(setIntelligenceMeta)) return new Map();
+
+  const entries = setIntelligenceMeta
+    .map((lens) => {
+      const mappedKey = BACKEND_SET_INTELLIGENCE_KEY_MAP[lens?.key];
+      if (!mappedKey) return null;
+      return [mappedKey, lens];
+    })
+    .filter(Boolean);
+
+  return new Map(entries);
+}
+
+function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMeta = [] }) {
   const [selectedLensKey, setSelectedLensKey] = useState("experience");
+  const backendLensByKey = useMemo(
+    () => normalizeBackendSetIntelligence(setIntelligenceMeta),
+    [setIntelligenceMeta]
+  );
+  const resolvedLenses = useMemo(
+    () =>
+      SET_INTELLIGENCE_LENSES.map((lens) => {
+        const backendLens = backendLensByKey.get(lens.key) || null;
+        return {
+          ...lens,
+          label: backendLens?.label || lens.label,
+          backend: backendLens,
+        };
+      }),
+    [backendLensByKey]
+  );
+
+  useEffect(() => {
+    if (!resolvedLenses.some((lens) => lens.key === selectedLensKey)) {
+      setSelectedLensKey(resolvedLenses[0]?.key || "experience");
+    }
+  }, [resolvedLenses, selectedLensKey]);
+
   const selectedLens =
-    SET_INTELLIGENCE_LENSES.find((l) => l.key === selectedLensKey) || SET_INTELLIGENCE_LENSES[0];
-  const selectedTier = toOptionalUpper(summary[selectedLens.tierField]);
+    resolvedLenses.find((lens) => lens.key === selectedLensKey) || resolvedLenses[0] || SET_INTELLIGENCE_LENSES[0];
+
+  const selectedTier = toOptionalUpper(selectedLens?.backend?.tier ?? summary[selectedLens.tierField]);
   const selectedTierConfig = selectedTier ? RANK_CONFIG[selectedTier] : null;
-  const selectedDetailBorder = selectedTierConfig?.color
-    ? withAlpha(selectedTierConfig.color, 0.36)
-    : undefined;
+  const selectedDetailBorder = selectedTierConfig?.color ? withAlpha(selectedTierConfig.color, 0.36) : undefined;
+  const selectedLongSummary =
+    selectedLens?.backend?.long_summary || (simpleMode ? selectedLens.simpleDetailSummary : selectedLens.description);
+  const selectedSupportingSignals = Array.isArray(selectedLens?.backend?.supporting_signals)
+    ? selectedLens.backend.supporting_signals.filter(Boolean)
+    : [];
+  const selectedEvidence = Array.isArray(selectedLens?.backend?.evidence) && selectedLens.backend.evidence.length > 0
+    ? selectedLens.backend.evidence.filter(Boolean)
+    : selectedLens.evidenceKeys
+        .map((key) => getLensEvidenceRow(key, summary))
+        .filter(Boolean);
 
   const setIntelligenceInfo = (
     <div className="space-y-1.5 text-left">
       <p className="font-semibold text-[var(--text-primary)]">Set Intelligence</p>
-      <p className="text-[var(--text-secondary)]">
-        Quick lenses for how this set opens, chases, and returns value. Select a lens to see what is driving that view.
-      </p>
+      {simpleMode ? (
+        <p className="text-[var(--text-secondary)]">
+          High-level lenses for how this set behaves so you can quickly understand what opening it tends to feel like.
+        </p>
+      ) : (
+        <p className="text-[var(--text-secondary)]">
+          Quick lenses for how this set opens, chases, and returns value. Select a lens to see what is driving that view.
+        </p>
+      )}
     </div>
   );
 
@@ -684,20 +897,17 @@ function SetIntelligenceSection({ summary }) {
                 strokeLinejoin="round"
               />
             </svg>
-            <span>Select a lens to understand more.</span>
+            <span>{simpleMode ? "Tap a lens to understand this set." : "Select a lens to understand more."}</span>
           </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-          {SET_INTELLIGENCE_LENSES.map((lens) => {
+        <div className="mt-4 grid grid-cols-2 gap-2 min-[340px]:gap-2.5">
+          {resolvedLenses.map((lens) => {
             const score = toNumber(summary[lens.scoreField]);
-            const tier = toOptionalUpper(summary[lens.tierField]);
+            const tier = toOptionalUpper(lens?.backend?.tier ?? summary[lens.tierField]);
             const rank = toNumber(summary[lens.rankField]);
             const isSelected = selectedLensKey === lens.key;
-            const tierConfig = tier ? RANK_CONFIG[tier] : null;
-            const tierEdgeColor = tierConfig?.color
-              ? withAlpha(tierConfig.color, isSelected ? 0.52 : 0.24)
-              : null;
+            const shortSummary = lens?.backend?.short_summary || (simpleMode ? getSimpleLensCopy(lens) : getLensTagline(lens, summary));
 
             return (
               <button
@@ -706,16 +916,16 @@ function SetIntelligenceSection({ summary }) {
                 onClick={() => setSelectedLensKey(lens.key)}
                 aria-pressed={isSelected}
                 className={[
-                  "relative flex cursor-pointer flex-col rounded-xl border px-3.5 py-3 text-left transition-colors",
+                  "relative flex h-full min-w-0 cursor-pointer flex-col rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]/70 sm:px-3.5",
                   isSelected
-                    ? "bg-[var(--surface-page)]/70 border-[var(--border-subtle)]"
+                    ? "bg-[var(--surface-page)]/70 border-[var(--accent)]"
                     : "bg-[var(--surface-page)]/45 border-[var(--border-subtle)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]",
                 ].join(" ")}
                 style={
-                  isSelected && tierEdgeColor
+                  isSelected
                     ? {
-                        borderColor: tierEdgeColor,
-                        boxShadow: `0 0 0 1px ${withAlpha(tierConfig.color, 0.12)}`,
+                        borderColor: "var(--accent)",
+                        boxShadow: "0 0 0 1px rgba(250, 204, 21, 0.35), 0 0 16px rgba(250, 204, 21, 0.18)",
                       }
                     : undefined
                 }
@@ -723,29 +933,42 @@ function SetIntelligenceSection({ summary }) {
                 <span className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
                   {lens.label}
                 </span>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-bold leading-none text-[var(--text-primary)]">
-                    {formatLensScore(score, lens.format)}
-                  </span>
-                  {tier ? (
-                    <RankBadge rank={tier} format="tier" size="default" subtle />
-                  ) : (
-                    <span className="text-xs text-[var(--text-secondary)] opacity-60">Not ranked</span>
-                  )}
-                </div>
+                {simpleMode ? (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {tier ? (
+                      <RankBadge rank={tier} format="tier" size="default" subtle />
+                    ) : (
+                      <span className="text-xs text-[var(--text-secondary)] opacity-60">Not ranked</span>
+                    )}
+                    {rank !== null ? (
+                      <span className="text-[9px] text-[var(--text-secondary)] opacity-70 sm:text-[10px]">Rank #{Math.round(rank)}</span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="flex items-baseline gap-1.5 sm:gap-2">
+                    <span className="text-base font-bold leading-none text-[var(--text-primary)] sm:text-lg">
+                      {formatLensScore(score, lens.format)}
+                    </span>
+                    {tier ? (
+                      <RankBadge rank={tier} format="tier" size="default" subtle />
+                    ) : (
+                      <span className="text-xs text-[var(--text-secondary)] opacity-60">Not ranked</span>
+                    )}
+                  </div>
+                )}
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute right-2.5 top-2 text-[var(--text-secondary)] opacity-40"
                 >
                   ›
                 </span>
-                {rank !== null ? (
-                  <span className="mt-1.5 text-[10px] text-[var(--text-secondary)] opacity-70">
+                {!simpleMode && rank !== null ? (
+                  <span className="mt-1.5 text-[9px] text-[var(--text-secondary)] opacity-70 sm:text-[10px]">
                     Rank #{Math.round(rank)}
                   </span>
                 ) : null}
-                <span className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-                  {getLensTagline(lens, summary)}
+                <span className="mt-2 line-clamp-2 text-[10px] leading-snug text-[var(--text-secondary)] sm:text-[11px] sm:leading-relaxed">
+                  {shortSummary}
                 </span>
               </button>
             );
@@ -763,23 +986,33 @@ function SetIntelligenceSection({ summary }) {
             </span>
           </div>
           <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
-            {selectedLens.description}
+            {selectedLongSummary}
           </p>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {selectedLens.evidenceKeys.map((key) => {
-              const row = getLensEvidenceRow(key, summary);
-              if (!row) return null;
-              return (
+          {selectedSupportingSignals.length > 0 ? (
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {selectedSupportingSignals.map((signal) => (
                 <span
-                  key={key}
+                  key={signal}
+                  className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]"
+                >
+                  {signal}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {selectedEvidence.length > 0 ? (
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {selectedEvidence.map((item, idx) => (
+                <span
+                  key={`${item?.label || "evidence"}-${idx}`}
                   className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
                 >
-                  <span className="flex-none">{row.label}:</span>
-                  <span className="font-medium text-[var(--text-primary)]">{row.value}</span>
+                  <span className="flex-none">{item?.label || "Signal"}:</span>
+                  <span className="font-medium text-[var(--text-primary)]">{item?.value ?? "—"}</span>
                 </span>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </article>
     </section>
@@ -831,7 +1064,7 @@ function ScorePillarCard({
         />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 hidden lg:block">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
@@ -841,15 +1074,35 @@ function ScorePillarCard({
         </div>
         <div className="min-h-[12.5rem] space-y-1">
           {metricsToDisplay.map((metric) => (
-          <MetricRow
-            key={metric.label}
-            label={metric.label}
-            value={metric.value}
-            infoText={getMetricTooltip(metric.label)}
-          />
+            <MetricRow
+              key={metric.label}
+              label={metric.label}
+              value={metric.value}
+              infoText={getMetricTooltip(metric.label)}
+            />
           ))}
         </div>
       </div>
+
+      <MobileMetricAccordion title={`${title} Metrics`} defaultOpen={false} className="mt-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+            <InfoPopover text="Switch between simple collector-facing metrics and score details." />
+          </div>
+          <CompactMetricModeToggle mode={metricMode} onChange={setMetricMode} />
+        </div>
+        <div className="space-y-1">
+          {metricsToDisplay.map((metric) => (
+            <MetricRow
+              key={`mobile-${title}-${metric.label}`}
+              label={metric.label}
+              value={metric.value}
+              infoText={getMetricTooltip(metric.label)}
+            />
+          ))}
+        </div>
+      </MobileMetricAccordion>
     </article>
   );
 }
@@ -860,31 +1113,53 @@ function SimplePillarSummaryCard({
   rankValue,
   rankTier,
   rankLabel,
+  infoText,
   sectionMeta,
+  backendPillar,
   fallbackSummary,
 }) {
   const parsedRank = toNumber(rankValue);
   const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
+  const backendStateLabel = toDisplayStateLabel(backendPillar?.state);
+  const label = sectionMeta?.label || backendStateLabel || null;
+  const summary =
+    backendPillar?.short_summary ||
+    sectionMeta?.summary ||
+    fallbackSummary ||
+    "No interpretation summary is available for this pillar yet.";
+  const backendSeverity =
+    backendPillar?.tone === "positive"
+      ? "positive"
+      : backendPillar?.tone === "negative"
+      ? "negative"
+      : sectionMeta?.severity;
+  const tone = getInterpretationTone({ label, rankTier, severity: backendSeverity });
 
   return (
-    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
+    <article
+      className="flex h-full flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/62 p-4 sm:p-5"
+      style={{ boxShadow: `0 0 0 1px ${withAlpha(tone.accentColor, 0.08)}` }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h4 className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</h4>
-            <p className="text-xl font-semibold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
+            <p className="text-2xl font-semibold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
             <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} size="supporting" subtle />
           </div>
+          {label ? (
+            <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
+              <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: tone.dotColor }} />
+              <InterpretationBadge label={label} rankTier={rankTier} severity={backendSeverity} className="px-0 py-0 text-[10px] tracking-[0.08em]" />
+            </div>
+          ) : null}
+        </div>
+        <div className="flex flex-none items-center gap-1">
+          {infoText ? <InfoPopover text={infoText} /> : null}
         </div>
       </div>
-      <InterpretationInsight
-        sectionMeta={sectionMeta}
-        fallbackSummary={fallbackSummary}
-        rankTier={rankTier}
-        compact
-        showEvidence={false}
-        className="mt-3"
-      />
+
+      <p className="mt-3 text-sm leading-relaxed text-[var(--text-primary)]">{summary}</p>
     </article>
   );
 }
@@ -1538,6 +1813,14 @@ export default function RipStatisticsPageClient({
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
   const interpretationMeta = interpretation?.meta || {};
+  const pillarMetaByKey = useMemo(() => {
+    const entries = Array.isArray(interpretationMeta?.pillars)
+      ? interpretationMeta.pillars
+          .filter((pillar) => pillar?.key)
+          .map((pillar) => [pillar.key, pillar])
+      : [];
+    return Object.fromEntries(entries);
+  }, [interpretationMeta?.pillars]);
   const packScoreMeta = interpretationMeta?.packScore;
   const profitMeta = interpretationMeta?.profit;
   const safetyMeta = interpretationMeta?.safety;
@@ -2256,72 +2539,123 @@ export default function RipStatisticsPageClient({
                     <div className="mx-auto mt-5 w-full max-w-2xl text-left">
                       {viewMode === "simple" ? (
                         <>
-                          <div className="mb-3 flex items-center gap-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
-                            <InfoPopover text="Core decision metrics first. Expand to view more context metrics." />
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-3">
-                            {primaryDecisionMetrics.map((metric) => (
-                              <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} />
-                            ))}
-                          </div>
-                          {secondaryDecisionMetrics.length > 0 ? (
-                            <details className="group mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-3 py-2.5">
-                              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[var(--text-primary)]">
-                                <span>View score breakdown</span>
-                                <span className="text-xs text-[var(--text-secondary)] transition-transform duration-150 group-open:rotate-180">▾</span>
-                              </summary>
-                              <div className="mt-3 space-y-3">
-                                <div className="grid gap-3">
-                                  <SimplePillarSummaryCard
-                                    title="Profit"
-                                    score={displayedProfitScore}
-                                    rankValue={summary.profit_rank}
-                                    rankTier={summary.profit_tier}
-                                    rankLabel="Profit Rank"
-                                    sectionMeta={profitMeta}
-                                    fallbackSummary={interpretation?.profit}
-                                  />
-                                  <SimplePillarSummaryCard
-                                    title="Safety"
-                                    score={displayedSafetyScore}
-                                    rankValue={summary.safety_rank}
-                                    rankTier={summary.safety_tier}
-                                    rankLabel="Safety Rank"
-                                    sectionMeta={safetyMeta}
-                                    fallbackSummary={interpretation?.safety}
-                                  />
-                                  <SimplePillarSummaryCard
-                                    title="Stability"
-                                    score={displayedStabilityScore}
-                                    rankValue={summary.stability_rank}
-                                    rankTier={summary.stability_tier}
-                                    rankLabel="Stability Rank"
-                                    sectionMeta={stabilityMeta}
-                                    fallbackSummary={interpretation?.stability}
-                                  />
-                                </div>
+                          <div className="hidden lg:block">
+                            <div className="mb-3 flex items-center gap-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+                              <InfoPopover text="Core decision metrics first. Expand to view more context metrics." />
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              {primaryDecisionMetrics.map((metric) => (
+                                <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                              ))}
+                            </div>
+                            {secondaryDecisionMetrics.length > 0 ? (
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                {secondaryDecisionMetrics.map((metric) => (
+                                  <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                                ))}
                               </div>
-                            </details>
-                          ) : null}
+                            ) : null}
+                          </div>
+
+                          <MobileMetricAccordion
+                            title="Metrics"
+                            defaultOpen={false}
+                            style={{ overflowAnchor: "none" }}
+                            preserveViewportOnToggle
+                          >
+                            <div className="mb-3 flex items-center gap-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+                              <InfoPopover text="Core decision metrics first. Expand to view more context metrics." />
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {primaryDecisionMetrics.map((metric) => (
+                                <HeroMetricTile key={`simple-mobile-${metric.label}`} label={metric.label} value={metric.value} />
+                              ))}
+                              {secondaryDecisionMetrics.map((metric) => (
+                                <HeroMetricTile key={`simple-mobile-secondary-${metric.label}`} label={metric.label} value={metric.value} />
+                              ))}
+                            </div>
+                          </MobileMetricAccordion>
+
+                          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <SimplePillarSummaryCard
+                              title="Profit"
+                              score={displayedProfitScore}
+                              rankValue={summary.profit_rank}
+                              rankTier={summary.profit_tier}
+                              rankLabel="Profit Rank"
+                              infoText={SIMPLE_PILLAR_INFO_COPY.Profit}
+                              sectionMeta={profitMeta}
+                              backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]}
+                              fallbackSummary={interpretation?.profit}
+                            />
+                            <SimplePillarSummaryCard
+                              title="Safety"
+                              score={displayedSafetyScore}
+                              rankValue={summary.safety_rank}
+                              rankTier={summary.safety_tier}
+                              rankLabel="Safety Rank"
+                              infoText={SIMPLE_PILLAR_INFO_COPY.Safety}
+                              sectionMeta={safetyMeta}
+                              backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]}
+                              fallbackSummary={interpretation?.safety}
+                            />
+                            <SimplePillarSummaryCard
+                              title="Stability"
+                              score={displayedStabilityScore}
+                              rankValue={summary.stability_rank}
+                              rankTier={summary.stability_tier}
+                              rankLabel="Stability Rank"
+                              infoText={SIMPLE_PILLAR_INFO_COPY.Stability}
+                              sectionMeta={stabilityMeta}
+                              backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]}
+                              fallbackSummary={interpretation?.stability}
+                            />
+                          </div>
                         </>
                       ) : (
                         <>
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
-                              <InfoPopover text="Overview shows collector-friendly metrics. Score Details shows the technical inputs behind the score." />
+                          <div className="hidden lg:block">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+                                <InfoPopover text="Overview shows collector-friendly metrics. Score Details shows the technical inputs behind the score." />
+                              </div>
+                              <MetricViewToggle metricView={heroMetricView} onChange={setHeroMetricView} />
                             </div>
-                            <MetricViewToggle metricView={heroMetricView} onChange={setHeroMetricView} />
+                            {(heroMetricView === "overview" ? decisionMetrics : technicalScoreMetrics).map((metric) => (
+                              <MetricRow
+                                key={metric.label}
+                                label={metric.label}
+                                value={metric.value}
+                                infoText={getMetricTooltip(metric.label)}
+                              />
+                            ))}
                           </div>
-                          {(heroMetricView === "overview" ? decisionMetrics : technicalScoreMetrics).map((metric) => (
-                            <MetricRow
-                              key={metric.label}
-                              label={metric.label}
-                              value={metric.value}
-                              infoText={getMetricTooltip(metric.label)}
-                            />
-                          ))}
+
+                          <MobileMetricAccordion
+                            title="Metrics"
+                            defaultOpen={false}
+                            style={{ overflowAnchor: "none" }}
+                            preserveViewportOnToggle
+                          >
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+                                <InfoPopover text="Overview shows collector-friendly metrics. Score Details shows the technical inputs behind the score." />
+                              </div>
+                              <MetricViewToggle metricView={heroMetricView} onChange={setHeroMetricView} />
+                            </div>
+                            {(heroMetricView === "overview" ? decisionMetrics : technicalScoreMetrics).map((metric) => (
+                              <MetricRow
+                                key={`expert-mobile-${metric.label}`}
+                                label={metric.label}
+                                value={metric.value}
+                                infoText={getMetricTooltip(metric.label)}
+                              />
+                            ))}
+                          </MobileMetricAccordion>
                         </>
                       )}
                     </div>
@@ -2343,6 +2677,14 @@ export default function RipStatisticsPageClient({
                 </div>
               </div>
             </section>
+
+            {viewMode === "simple" ? (
+              <SetIntelligenceSection
+                summary={summary}
+                simpleMode
+                setIntelligenceMeta={interpretationMeta?.set_intelligence}
+              />
+            ) : null}
 
             {viewMode === "simple" ? (
             <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
@@ -2469,46 +2811,16 @@ export default function RipStatisticsPageClient({
                 }
                 titleInfoText={graphMode === "outcome-distribution" ? outcomeDistributionInfo : null}
               >
-                <div className="mb-4">
-                  <div className="grid w-full grid-cols-3 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => handleSectionSelect("outcome-distribution")}
-                    aria-pressed={graphMode === "outcome-distribution"}
-                    className={`min-w-0 rounded-md px-1.5 py-2 text-[10px] font-semibold leading-none transition-colors sm:px-3 sm:text-[11px] ${
-                      graphMode === "outcome-distribution"
-                        ? "bg-[var(--brand)] text-white"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    <span className="block truncate">{RIP_COPY.sections.outcomeDistribution}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSectionSelect("historical-trend")}
-                    aria-pressed={graphMode === "historical-trend"}
-                    className={`min-w-0 rounded-md px-1.5 py-2 text-[10px] font-semibold leading-none transition-colors sm:px-3 sm:text-[11px] ${
-                      graphMode === "historical-trend"
-                        ? "bg-[var(--brand)] text-white"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    <span className="block truncate">{RIP_COPY.sections.historicalTrend}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSectionSelect("pack-breakdown")}
-                    aria-pressed={graphMode === "pack-breakdown"}
-                    className={`min-w-0 rounded-md px-1.5 py-2 text-[10px] font-semibold leading-none transition-colors sm:px-3 sm:text-[11px] ${
-                      graphMode === "pack-breakdown"
-                        ? "bg-[var(--brand)] text-white"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    <span className="block truncate">{RIP_COPY.sections.packBreakdown}</span>
-                  </button>
-                  </div>
-                </div>
+                <SectionViewTabs
+                  className="mb-4"
+                  value={graphMode}
+                  onChange={handleSectionSelect}
+                  options={[
+                    { value: "outcome-distribution", label: RIP_COPY.sections.outcomeDistribution },
+                    { value: "historical-trend", label: RIP_COPY.sections.historicalTrend },
+                    { value: "pack-breakdown", label: RIP_COPY.sections.packBreakdown },
+                  ]}
+                />
 
                 <InterpretationInsight
                   sectionMeta={graphSectionMeta}
@@ -2550,13 +2862,25 @@ export default function RipStatisticsPageClient({
                 )}
 
                 {graphMode !== "pack-breakdown" ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                    <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                    <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                    <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                    <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
-                    <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
-                  </div>
+                  <>
+                    <div className="mt-4 hidden lg:grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                      <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
+                      <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
+                      <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
+                      <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
+                      <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
+                    </div>
+
+                    <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
+                        <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
+                        <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
+                        <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
+                        <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
+                      </div>
+                    </MobileMetricAccordion>
+                  </>
                 ) : null}
               </SectionCard>
             </section>
@@ -2565,46 +2889,16 @@ export default function RipStatisticsPageClient({
             {viewMode === "expert" ? (
             <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
               <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
-                <div className="mb-4 overflow-x-auto">
-                  <div className="inline-flex min-w-max items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setActiveValueView("cards")}
-                      aria-pressed={activeValueView === "cards"}
-                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                        activeValueView === "cards"
-                          ? "bg-[var(--brand)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Cards Carrying the Set
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveValueView("value")}
-                      aria-pressed={activeValueView === "value"}
-                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                        activeValueView === "value"
-                          ? "bg-[var(--brand)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Value Contribution
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveValueView("frequency")}
-                      aria-pressed={activeValueView === "frequency"}
-                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-                        activeValueView === "frequency"
-                          ? "bg-[var(--brand)] text-white"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      Pull Frequency
-                    </button>
-                  </div>
-                </div>
+                <SectionViewTabs
+                  className="mb-4"
+                  value={activeValueView}
+                  onChange={setActiveValueView}
+                  options={[
+                    { value: "cards", label: "Cards Carrying the Set" },
+                    { value: "value", label: "Value Contribution" },
+                    { value: "frequency", label: "Pull Frequency" },
+                  ]}
+                />
 
                 <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
 

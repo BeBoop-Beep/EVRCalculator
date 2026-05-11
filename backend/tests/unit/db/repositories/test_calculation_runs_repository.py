@@ -97,6 +97,7 @@ def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores
         "safety_score": None,
         "stability_score": None,
         "p95_value_to_cost_ratio": None,
+        "p99_value_to_cost_ratio": None,
         "score_version": "pack_score_v1_singleton_placeholder",
         "normalization_mode": "singleton_placeholder",
         "pack_score_is_placeholder": True,
@@ -124,6 +125,7 @@ def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores
         "safety_score": None,
         "stability_score": None,
         "p95_value_to_cost_ratio": None,
+        "p99_value_to_cost_ratio": None,
         "mean_value_to_cost_ratio": None,
         "expected_loss_when_losing_fraction": None,
         "p05_shortfall_to_cost": None,
@@ -164,6 +166,7 @@ def test_create_simulation_derived_metrics_allows_missing_composite_fields(mock_
         "safety_score": None,
         "stability_score": None,
         "p95_value_to_cost_ratio": None,
+        "p99_value_to_cost_ratio": None,
         "mean_value_to_cost_ratio": None,
         "expected_loss_when_losing_fraction": None,
         "p05_shortfall_to_cost": None,
@@ -195,6 +198,7 @@ def test_create_simulation_derived_metrics_raises_when_required_field_missing(mo
         "safety_score": None,
         "stability_score": None,
         "p95_value_to_cost_ratio": None,
+        "p99_value_to_cost_ratio": None,
         "score_version": "pack_score_v1_singleton_placeholder",
         "normalization_mode": "singleton_placeholder",
         "pack_score_is_placeholder": True,
@@ -227,6 +231,7 @@ def test_create_simulation_derived_metrics_persists_real_scores_when_present(moc
             "safety_score": 37.0,
             "stability_score": 65.0,
             "p95_value_to_cost_ratio": 1.91,
+        "p99_value_to_cost_ratio": None,
             "score_version": "pack_score_v1",
             "normalization_mode": "cross_set_minmax",
             "pack_score_is_placeholder": False,
@@ -253,6 +258,7 @@ def test_create_simulation_derived_metrics_persists_real_scores_when_present(moc
         "safety_score": 37.0,
         "stability_score": 65.0,
         "p95_value_to_cost_ratio": 1.91,
+        "p99_value_to_cost_ratio": None,
         "mean_value_to_cost_ratio": None,
         "expected_loss_when_losing_fraction": None,
         "p05_shortfall_to_cost": None,
@@ -279,6 +285,7 @@ def test_create_simulation_derived_metrics_persists_only_composite_stage1_fields
             "safety_score": 37.0,
             "stability_score": 65.0,
             "p95_value_to_cost_ratio": 1.91,
+        "p99_value_to_cost_ratio": None,
             "pack_affordability_score": 55.0,
             "big_hit_frequency_score": 62.0,
             "big_hit_upside_score": 70.0,
@@ -313,6 +320,7 @@ def test_create_simulation_derived_metrics_persists_only_composite_stage1_fields
         "safety_score": 37.0,
         "stability_score": 65.0,
         "p95_value_to_cost_ratio": 1.91,
+        "p99_value_to_cost_ratio": None,
         "mean_value_to_cost_ratio": None,
         "expected_loss_when_losing_fraction": None,
         "p05_shortfall_to_cost": None,
@@ -390,13 +398,20 @@ def test_get_latest_run_snapshot_for_target_includes_explicit_derived_and_compar
         "roi_percent": 20.0,
     }
 
-    percentile_row = {
-        "calculation_run_id": "run-1",
-        "percentile": 95.0,
-        "value": 9.55,
-    }
+    percentile_rows = [
+        {
+            "calculation_run_id": "run-1",
+            "percentile": 95.0,
+            "value": 9.55,
+        },
+        {
+            "calculation_run_id": "run-1",
+            "percentile": 99.0,
+            "value": 12.10,
+        },
+    ]
 
-    mock_select_rows.side_effect = [[run_row], [derived_row], [summary_row], [percentile_row]]
+    mock_select_rows.side_effect = [[run_row], [derived_row], [summary_row], percentile_rows]
 
     snapshot = get_latest_run_snapshot_for_target("set", "sv8")
 
@@ -418,6 +433,9 @@ def test_get_latest_run_snapshot_for_target_includes_explicit_derived_and_compar
 
     assert snapshot["simulation_summary"]["calculation_run_id"] == "run-1"
     assert snapshot["simulation_summary"]["p95_value"] == pytest.approx(9.55)
+    assert snapshot["simulation_summary"]["p99_value"] == pytest.approx(12.10)
+    assert snapshot["simulation_summary"]["p95_value_to_cost_ratio"] == pytest.approx(9.55 / 5.0)
+    assert snapshot["simulation_summary"]["p99_value_to_cost_ratio"] == pytest.approx(12.10 / 5.0)
 
 
 @patch("backend.db.repositories.calculation_runs_repository._select_rows_with_candidates", return_value=[])
