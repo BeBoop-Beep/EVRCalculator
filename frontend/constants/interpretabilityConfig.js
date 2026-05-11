@@ -60,8 +60,8 @@ export const FRIENDLY_METRIC_LABELS = {
   // Profit card
   "Probability of Profit": "Chance to Beat Pack Cost",
   "Chance to Beat Pack Cost": "Chance to Beat Pack Cost",
-  "EV / Mean Value": "Average Return vs Cost",
-  "Median-to-Cost Ratio": "Typical Outcome vs Cost",
+  "EV / Mean Value": "Average Return",
+  "Median-to-Cost Ratio": "Typical Return",
   "P95-to-Cost Ratio": "Big Hit Upside",
   "P95 Value / Cost Ratio": "Big Hit Upside",
   "P99-to-Cost Ratio": "God Pull Upside",

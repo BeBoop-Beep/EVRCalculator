@@ -80,6 +80,8 @@ def _build_handlers():
                 "roi_percent": 22.4,
                 "prob_profit": 0.55,
                 "prob_big_hit": 0.11,
+                "p95_value_to_cost_ratio": 2.2,
+                "p99_value_to_cost_ratio": 4.8,
             },
             {
                 "set_id": "set-2",
@@ -104,6 +106,8 @@ def _build_handlers():
                 "roi_percent": 30.7,
                 "prob_profit": 0.63,
                 "prob_big_hit": 0.15,
+                "p95_value_to_cost_ratio": 2.9,
+                "p99_value_to_cost_ratio": 7.5,
             },
         ],
         "sets": lambda q: [
@@ -156,6 +160,17 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     assert targets_by_id["set-2"]["canonical_recommendation_header"] == "Strong value, some path sensitivity"
     assert targets_by_id["set-2"]["pack_tier"] == "S"
     assert targets_by_id["set-1"]["pack_tier"] == "A"
+    assert targets_by_id["set-2"]["biggest_upside_score"] is not None
+    assert targets_by_id["set-2"]["relative_biggest_upside_score"] is not None
+    assert targets_by_id["set-2"]["biggest_upside_rank"] == 1
+    assert targets_by_id["set-2"]["biggest_upside_tier"] == "S"
+    assert targets_by_id["set-2"]["relative_average_return_score"] is not None
+    assert targets_by_id["set-2"]["relative_average_return_score"] > targets_by_id["set-1"]["relative_average_return_score"]
+    assert targets_by_id["set-2"]["relative_p99_value_to_cost_score"] is not None
+    assert targets_by_id["set-2"]["relative_p99_value_to_cost_score"] > targets_by_id["set-1"]["relative_p99_value_to_cost_score"]
+    assert targets_by_id["set-2"]["p99_value_to_cost_rank"] == 1
+    assert targets_by_id["set-2"]["p99_value_to_cost_tier"] == "S"
+    assert targets_by_id["set-1"]["p99_value_to_cost_ratio"] == 4.8
     assert payload["meta"]["sources"]["explore_rip_statistics_latest"] == "OK"
     assert payload["meta"]["sources"]["simulation_latest_by_target"] == "SKIPPED_RIP_SUMMARY"
     assert payload["meta"]["request"]["limit"] == 150

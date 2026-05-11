@@ -72,6 +72,8 @@ const RIP_COPY = {
     badPackFloor: "Bad Pack Floor Value",
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     chanceAtBigPull: "Chance at a Big Pull",
+    bigHitUpside: "Big Hit Upside",
+    godPullUpside: "God Pull Upside",
     bestPull: "Best Simulated Pull",
   },
   advancedStats: {
@@ -156,6 +158,14 @@ function formatNumber(value, decimals = 2) {
     return "—";
   }
   return parsed.toFixed(decimals);
+}
+
+function formatMultiplier(value, decimals = 1) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return "—";
+  }
+  return `${parsed.toFixed(decimals)}x`;
 }
 
 function SectionViewTabs({ value, onChange, options, className = "" }) {
@@ -638,7 +648,7 @@ const SET_INTELLIGENCE_LENSES = [
   {
     key: "experience",
     label: "Opening Experience",
-    scoreField: "relative_experience_score",
+    scoreFields: ["relative_experience_score", "experience_score"],
     tierField: "experience_tier",
     rankField: "experience_rank",
     format: "score",
@@ -654,7 +664,7 @@ const SET_INTELLIGENCE_LENSES = [
   {
     key: "chase",
     label: "Chase Potential",
-    scoreField: "relative_chase_potential_score",
+    scoreFields: ["relative_chase_potential_score", "chase_potential_score"],
     tierField: "chase_potential_tier",
     rankField: "chase_potential_rank",
     format: "score",
@@ -670,26 +680,31 @@ const SET_INTELLIGENCE_LENSES = [
   {
     key: "upside",
     label: "Biggest Upside",
-    scoreField: "p95_value_to_cost_ratio",
-    tierField: "p95_value_to_cost_tier",
-    rankField: "p95_value_to_cost_rank",
-    format: "multiplier",
+    scoreFields: ["relative_biggest_upside_score", "biggest_upside_score"],
+    tierField: "biggest_upside_tier",
+    rankField: "biggest_upside_rank",
+    format: "score",
     heading: "How high the top outcomes can run",
     simpleCardSummary:
-      "This shows how far the best outcomes can run when the set hits.",
+      "Top upside compared with the field.",
     simpleDetailSummary:
       "This lens focuses on ceiling. It helps you understand whether the strongest possible pulls can feel truly special for this set.",
     description:
-      "This lens uses the high-end simulated outcome compared with pack cost.",
-    evidenceKeys: ["p95_value_to_cost_ratio", "big_hit_threshold", "max_value"],
+      "This lens blends Big Hit Upside (P95) with God Pull Upside (P99) to represent total ceiling quality.",
+    evidenceKeys: ["p95_value_to_cost_ratio", "p99_value_to_cost_ratio", "big_hit_threshold", "max_value"],
   },
   {
     key: "averageReturn",
     label: "Average Return",
-    scoreField: "mean_value_to_cost_ratio",
+    scoreFields: [
+      "relative_average_return_score",
+      "relative_mean_value_to_cost_score",
+      "average_return_score",
+      "mean_value_to_cost_score",
+    ],
     tierField: "mean_value_to_cost_tier",
     rankField: "mean_value_to_cost_rank",
-    format: "multiplier",
+    format: "score",
     heading: "Average value compared with cost",
     simpleCardSummary:
       "This shows whether the set tends to give back more or less value compared with similar sets.",
@@ -700,6 +715,46 @@ const SET_INTELLIGENCE_LENSES = [
     evidenceKeys: ["mean_value", "pack_cost", "expected_loss_per_pack"],
   },
 ];
+
+function resolveLensScore(lens, summary) {
+  const candidateFields = Array.isArray(lens?.scoreFields) ? lens.scoreFields : [lens?.scoreField];
+  for (const field of candidateFields) {
+    if (!field) continue;
+    const value = toNumber(summary[field]);
+    if (value !== null) {
+      return {
+        score: value,
+        format: lens.format || "score",
+        source: field,
+        usedRawFallback: false,
+      };
+    }
+  }
+
+  if (lens?.key === "upside") {
+    const p95 = toNumber(summary.p95_value_to_cost_ratio);
+    const p99 = toNumber(summary.p99_value_to_cost_ratio);
+    if (p95 !== null || p99 !== null) {
+      const parts = [];
+      if (p95 !== null) parts.push(`P95 ${p95.toFixed(1)}x`);
+      if (p99 !== null) parts.push(`P99 ${p99.toFixed(1)}x`);
+      return {
+        score: null,
+        format: "raw-text",
+        source: "p95_p99_ratio_fallback",
+        usedRawFallback: true,
+        rawText: parts.join(" / "),
+      };
+    }
+  }
+
+  return {
+    score: null,
+    format: lens.format || "score",
+    source: null,
+    usedRawFallback: false,
+  };
+}
 
 function formatLensScore(value, format) {
   const parsed = toNumber(value);
@@ -723,7 +778,9 @@ function getLensEvidenceRow(key, summary) {
     case "prob_big_hit":
       return { label: "Chance at a big pull", value: formatPercent(summary.prob_big_hit, { probability: true }) };
     case "p95_value_to_cost_ratio":
-      return { label: "Big hit upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
+      return { label: "Big Hit Upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
+    case "p99_value_to_cost_ratio":
+      return { label: "God Pull Upside", value: fmtMult(summary.p99_value_to_cost_ratio) };
     case "effective_chase_count":
       return { label: "Chase depth", value: formatNumber(summary.effective_chase_count, 2) };
     case "big_hit_threshold":
@@ -745,9 +802,9 @@ function toOptionalUpper(value) {
   return s || null;
 }
 
-function getLensTagline(lens, summary) {
+function getLensTagline(lens, summary, resolvedLensScore = null) {
   const tier = toOptionalUpper(summary[lens.tierField]);
-  const score = toNumber(summary[lens.scoreField]);
+  const score = resolvedLensScore?.score ?? resolveLensScore(lens, summary).score;
   if (score === null) return "No data available for this lens.";
   if (lens.key === "experience") {
     if (tier === "S" || tier === "A") return "Strong pack feel compared with the field.";
@@ -762,7 +819,7 @@ function getLensTagline(lens, summary) {
     return "Limited chase depth compared with the field.";
   }
   if (lens.key === "upside") {
-    if (tier === "S" || tier === "A") return "High-end outcomes can run far above pack cost.";
+    if (tier === "S" || tier === "A") return "Top upside compared with the field.";
     if (tier === "B") return "Solid upside when the pack hits.";
     if (tier === "C") return "Moderate upside compared with the field.";
     return "Limited high-end upside relative to pack cost.";
@@ -903,11 +960,11 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
 
         <div className="mt-4 grid grid-cols-2 gap-2 min-[340px]:gap-2.5">
           {resolvedLenses.map((lens) => {
-            const score = toNumber(summary[lens.scoreField]);
+            const resolvedLensScore = resolveLensScore(lens, summary);
             const tier = toOptionalUpper(lens?.backend?.tier ?? summary[lens.tierField]);
             const rank = toNumber(summary[lens.rankField]);
             const isSelected = selectedLensKey === lens.key;
-            const shortSummary = lens?.backend?.short_summary || (simpleMode ? getSimpleLensCopy(lens) : getLensTagline(lens, summary));
+            const shortSummary = lens?.backend?.short_summary || (simpleMode ? getSimpleLensCopy(lens) : getLensTagline(lens, summary, resolvedLensScore));
 
             return (
               <button
@@ -947,7 +1004,9 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
                 ) : (
                   <div className="flex items-baseline gap-1.5 sm:gap-2">
                     <span className="text-base font-bold leading-none text-[var(--text-primary)] sm:text-lg">
-                      {formatLensScore(score, lens.format)}
+                      {resolvedLensScore.usedRawFallback
+                        ? resolvedLensScore.rawText || "—"
+                        : formatLensScore(resolvedLensScore.score, resolvedLensScore.format)}
                     </span>
                     {tier ? (
                       <RankBadge rank={tier} format="tier" size="default" subtle />
@@ -988,7 +1047,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
           <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
             {selectedLongSummary}
           </p>
-          {selectedSupportingSignals.length > 0 ? (
+          {!simpleMode && selectedSupportingSignals.length > 0 ? (
             <div className="mt-2.5 flex flex-wrap gap-2">
               {selectedSupportingSignals.map((signal) => (
                 <span
@@ -1000,7 +1059,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
               ))}
             </div>
           ) : null}
-          {selectedEvidence.length > 0 ? (
+          {!simpleMode && selectedEvidence.length > 0 ? (
             <div className="mt-2.5 flex flex-wrap gap-2">
               {selectedEvidence.map((item, idx) => (
                 <span
@@ -1109,17 +1168,12 @@ function ScorePillarCard({
 
 function SimplePillarSummaryCard({
   title,
-  score,
-  rankValue,
   rankTier,
-  rankLabel,
   infoText,
   sectionMeta,
   backendPillar,
   fallbackSummary,
 }) {
-  const parsedRank = toNumber(rankValue);
-  const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
   const backendStateLabel = toDisplayStateLabel(backendPillar?.state);
   const label = sectionMeta?.label || backendStateLabel || null;
   const summary =
@@ -1140,18 +1194,13 @@ function SimplePillarSummaryCard({
       className="flex h-full flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/62 p-4 sm:p-5"
       style={{ boxShadow: `0 0 0 1px ${withAlpha(tone.accentColor, 0.08)}` }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h4 className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</h4>
-            <p className="text-2xl font-semibold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
-            <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} size="supporting" subtle />
-          </div>
-          {label ? (
-            <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
-              <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: tone.dotColor }} />
-              <InterpretationBadge label={label} rankTier={rankTier} severity={backendSeverity} className="px-0 py-0 text-[10px] tracking-[0.08em]" />
-            </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+          <h4 className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)] sm:text-sm sm:tracking-[0.08em]">{title}</h4>
+          {rankTier ? (
+            <span className="flex-none">
+              <RankBadge rank={rankTier} format="tier" size="supporting" subtle />
+            </span>
           ) : null}
         </div>
         <div className="flex flex-none items-center gap-1">
@@ -1159,15 +1208,31 @@ function SimplePillarSummaryCard({
         </div>
       </div>
 
+      {label ? (
+        <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
+          <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: tone.dotColor }} />
+          <InterpretationBadge label={label} rankTier={rankTier} severity={backendSeverity} className="px-0 py-0 text-[10px] tracking-[0.08em]" />
+        </div>
+      ) : null}
+
       <p className="mt-3 text-sm leading-relaxed text-[var(--text-primary)]">{summary}</p>
     </article>
   );
 }
 
-function StatTile({ label, value, valueClassName = "text-lg" }) {
+function StatTile({ label, value, valueClassName = "text-lg", infoText = null }) {
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 text-left text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-[var(--text-secondary)]">
+          {label}
+        </p>
+        {infoText ? (
+          <span className="flex-none shrink-0 pt-0.5">
+            <InfoPopover text={infoText} />
+          </span>
+        ) : null}
+      </div>
       <p className={`mt-2 font-semibold text-[var(--text-primary)] ${valueClassName}`}>{value}</p>
     </div>
   );
@@ -2183,9 +2248,10 @@ export default function RipStatisticsPageClient({
     (metric) => !primaryDecisionMetricOrder.includes(metric.label)
   );
   const technicalScoreMetrics = [
-    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
-    { label: "Typical Outcome vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
+    { label: "Average Return", value: formatNumber(meanValueToCostRatio, 2) },
+    { label: "Typical Return", value: formatNumber(medianValueToCostRatio, 2) },
     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
+    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
     { label: "Value Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
     { label: "Chase Depth", value: formatNumber(summary.effective_chase_count, 2) },
@@ -2536,7 +2602,7 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    <div className="mx-auto mt-5 w-full max-w-2xl text-left">
+                    <div className="mx-auto mt-5 w-full max-w-5xl text-left">
                       {viewMode === "simple" ? (
                         <>
                           <div className="hidden lg:block">
@@ -2578,13 +2644,10 @@ export default function RipStatisticsPageClient({
                             </div>
                           </MobileMetricAccordion>
 
-                          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-3 md:gap-3">
                             <SimplePillarSummaryCard
                               title="Profit"
-                              score={displayedProfitScore}
-                              rankValue={summary.profit_rank}
                               rankTier={summary.profit_tier}
-                              rankLabel="Profit Rank"
                               infoText={SIMPLE_PILLAR_INFO_COPY.Profit}
                               sectionMeta={profitMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]}
@@ -2592,10 +2655,7 @@ export default function RipStatisticsPageClient({
                             />
                             <SimplePillarSummaryCard
                               title="Safety"
-                              score={displayedSafetyScore}
-                              rankValue={summary.safety_rank}
                               rankTier={summary.safety_tier}
-                              rankLabel="Safety Rank"
                               infoText={SIMPLE_PILLAR_INFO_COPY.Safety}
                               sectionMeta={safetyMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]}
@@ -2603,10 +2663,7 @@ export default function RipStatisticsPageClient({
                             />
                             <SimplePillarSummaryCard
                               title="Stability"
-                              score={displayedStabilityScore}
-                              rankValue={summary.stability_rank}
                               rankTier={summary.stability_tier}
-                              rankLabel="Stability Rank"
                               infoText={SIMPLE_PILLAR_INFO_COPY.Stability}
                               sectionMeta={stabilityMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]}
@@ -2737,9 +2794,10 @@ export default function RipStatisticsPageClient({
                     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
                   ]}
                   advancedMetrics={[
-                    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
-                    { label: "Typical Outcome vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
+                    { label: "Average Return", value: formatNumber(meanValueToCostRatio, 2) },
+                    { label: "Typical Return", value: formatNumber(medianValueToCostRatio, 2) },
                     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
+                    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
                     { label: "ROI", value: formatPercent(summary.roi_percent) },
                   ]}
                 />
@@ -2791,7 +2849,11 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {viewMode === "expert" ? (
-              <SetIntelligenceSection summary={summary} />
+              <SetIntelligenceSection
+                summary={summary}
+                simpleMode={false}
+                setIntelligenceMeta={interpretationMeta?.set_intelligence}
+              />
             ) : null}
 
             {viewMode === "expert" ? (
@@ -2863,6 +2925,25 @@ export default function RipStatisticsPageClient({
 
                 {graphMode !== "pack-breakdown" ? (
                   <>
+                    {graphMode === "historical-trend" ? (
+                      <div className="mt-4 hidden gap-3 sm:grid-cols-3 lg:grid lg:grid-cols-6">
+                        <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
+                        <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
+                        <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
+                        <StatTile label={RIP_COPY.chartStats.bigHitUpside} value={formatMultiplier(summary.p95_value_to_cost_ratio, 1)} />
+                        <StatTile
+                          label={RIP_COPY.chartStats.godPullUpside}
+                          value={formatMultiplier(summary.p99_value_to_cost_ratio, 1)}
+                          infoText={
+                            <div className="space-y-1 text-left">
+                              <p>Simple: Rare monster-hit outcome compared with pack price.</p>
+                              <p>Expert: P99 outcome vs pack cost.</p>
+                            </div>
+                          }
+                        />
+                        <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
+                      </div>
+                    ) : (
                     <div className="mt-4 hidden lg:grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
                       <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
                       <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
@@ -2870,15 +2951,36 @@ export default function RipStatisticsPageClient({
                       <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
                       <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
                     </div>
+                    )}
 
                     <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                        <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                        <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                        <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
-                        <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
-                      </div>
+                      {graphMode === "historical-trend" ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
+                          <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
+                          <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
+                          <StatTile label={RIP_COPY.chartStats.bigHitUpside} value={formatMultiplier(summary.p95_value_to_cost_ratio, 1)} />
+                          <StatTile
+                            label={RIP_COPY.chartStats.godPullUpside}
+                            value={formatMultiplier(summary.p99_value_to_cost_ratio, 1)}
+                            infoText={
+                              <div className="space-y-1 text-left">
+                                <p>Simple: Rare monster-hit outcome compared with pack price.</p>
+                                <p>Expert: P99 outcome vs pack cost.</p>
+                              </div>
+                            }
+                          />
+                          <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
+                        </div>
+                      ) : (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
+                          <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
+                          <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
+                          <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
+                          <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
+                        </div>
+                      )}
                     </MobileMetricAccordion>
                   </>
                 ) : null}

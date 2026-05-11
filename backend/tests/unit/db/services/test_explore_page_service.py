@@ -550,6 +550,12 @@ def test_summary_populates_p99_value_to_cost_ratio_from_percentiles(monkeypatch)
 
     assert payload["summary"]["p99_value"] == 12.5
     assert payload["summary"]["p99_value_to_cost_ratio"] == 2.5
+    assert payload["summary"]["biggest_upside_score"] is not None
+    assert payload["summary"]["biggest_upside_rank"] == 1
+    assert payload["summary"]["biggest_upside_tier"] == "S"
+    assert payload["summary"]["relative_average_return_score"] == 50.0
+    assert payload["meta"]["sources"]["biggest_upside_blend"] == "SERVICE_COMPUTED"
+    assert payload["meta"]["sources"]["average_return_relative"] == "SERVICE_COMPUTED"
 
 
 def test_rip_summary_keeps_direct_p99_ratio_without_percentile_recompute(monkeypatch):
@@ -605,5 +611,10 @@ def test_rip_summary_keeps_direct_p99_ratio_without_percentile_recompute(monkeyp
 
     assert payload["summary"]["p99_value"] == 11.0
     assert payload["summary"]["p99_value_to_cost_ratio"] == 2.2
+    assert payload["summary"]["biggest_upside_score"] is not None
+    assert payload["summary"]["biggest_upside_rank"] == 1
+    assert payload["summary"]["biggest_upside_tier"] == "S"
+    assert payload["summary"]["relative_average_return_score"] == 50.0
     assert payload["meta"]["sources"]["summary_source"] == "explore_rip_statistics_latest"
     assert payload["meta"]["sources"]["simulation_derived_metrics"] == "SKIPPED_RIP_SUMMARY"
+    assert payload["meta"]["sources"]["average_return_relative"] == "SERVICE_COMPUTED"

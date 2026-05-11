@@ -133,6 +133,9 @@ export default function Header() {
                 alt="inDex"
                 width={58}
                 height={58}
+                priority
+                fetchPriority="high"
+                sizes="(max-width: 768px) 50px, 56px"
                 className="h-[50px] w-[50px] md:h-[56px] md:w-[56px] object-contain"
               />
               <span className="hidden sm:flex items-center -ml-1 md:-ml-2 leading-none">
