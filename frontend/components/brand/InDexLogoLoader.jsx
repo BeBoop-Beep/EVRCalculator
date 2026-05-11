@@ -1,11 +1,28 @@
+'use client';
+
 import Image from "next/image";
+import { useDelayedLoader } from "@/hooks/useDelayedLoader";
 
 export default function InDexLogoLoader({
   fullScreen = true,
   label = "Loading",
   showLabel = false,
   className = "",
+  shouldDelay = false,
+  isLoading = true,
+  delayConfig = {},
 }) {
+  // Always call the hook - it handles the delayed logic internally
+  const delayedLoaderReady = useDelayedLoader(isLoading, delayConfig);
+
+  // Determine if loader should be shown
+  const shouldShowLoader = shouldDelay ? delayedLoaderReady : true;
+
+  // Don't render anything if loader should be delayed and not ready yet
+  if (!shouldShowLoader) {
+    return null;
+  }
+
   return (
     <div
       className={`index-loader-shell ${fullScreen ? "index-loader-shell--fullscreen" : ""} ${className}`.trim()}

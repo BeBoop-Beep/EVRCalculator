@@ -1047,7 +1047,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
           <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
             {selectedLongSummary}
           </p>
-          {selectedSupportingSignals.length > 0 ? (
+          {!simpleMode && selectedSupportingSignals.length > 0 ? (
             <div className="mt-2.5 flex flex-wrap gap-2">
               {selectedSupportingSignals.map((signal) => (
                 <span
@@ -1059,7 +1059,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
               ))}
             </div>
           ) : null}
-          {selectedEvidence.length > 0 ? (
+          {!simpleMode && selectedEvidence.length > 0 ? (
             <div className="mt-2.5 flex flex-wrap gap-2">
               {selectedEvidence.map((item, idx) => (
                 <span
@@ -1195,8 +1195,8 @@ function SimplePillarSummaryCard({
       style={{ boxShadow: `0 0 0 1px ${withAlpha(tone.accentColor, 0.08)}` }}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-nowrap items-center gap-2 sm:gap-2.5 overflow-hidden">
-          <h4 className="truncate text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</h4>
+        <div className="flex min-w-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+          <h4 className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)] sm:text-sm sm:tracking-[0.08em]">{title}</h4>
           {rankTier ? (
             <span className="flex-none">
               <RankBadge rank={rankTier} format="tier" size="supporting" subtle />
@@ -2602,7 +2602,7 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    <div className="mx-auto mt-5 w-full max-w-2xl text-left">
+                    <div className="mx-auto mt-5 w-full max-w-5xl text-left">
                       {viewMode === "simple" ? (
                         <>
                           <div className="hidden lg:block">
@@ -2644,7 +2644,7 @@ export default function RipStatisticsPageClient({
                             </div>
                           </MobileMetricAccordion>
 
-                          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-3 md:gap-3">
                             <SimplePillarSummaryCard
                               title="Profit"
                               rankTier={summary.profit_tier}
@@ -2849,7 +2849,11 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {viewMode === "expert" ? (
-              <SetIntelligenceSection summary={summary} />
+              <SetIntelligenceSection
+                summary={summary}
+                simpleMode={false}
+                setIntelligenceMeta={interpretationMeta?.set_intelligence}
+              />
             ) : null}
 
             {viewMode === "expert" ? (
