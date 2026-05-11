@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,11 @@ MAX_TOP_HITS_LIMIT = 50
 DEFAULT_HISTORY_TREND_LIMIT = 180
 MAX_HISTORY_TREND_LIMIT = 180
 MIN_LIMIT = 1
+
+_BIGGEST_UPSIDE_P95_CAP = 5.0
+_BIGGEST_UPSIDE_P99_CAP = 10.0
+_BIGGEST_UPSIDE_P95_WEIGHT = 0.70
+_BIGGEST_UPSIDE_P99_WEIGHT = 0.30
 
 _RIP_SUMMARY_META_KEYS = frozenset(
     {
@@ -227,6 +233,191 @@ def _to_optional_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return parsed
+
+
+def _resolve_mean_value_to_cost_ratio(row: Dict[str, Any]) -> Optional[float]:
+    ratio = _to_optional_float(row.get("mean_value_to_cost_ratio"))
+    if ratio is not None:
+        return ratio
+
+    mean_value = _to_optional_float(row.get("mean_value"))
+    pack_cost = _to_optional_float(row.get("pack_cost"))
+    if mean_value is None or pack_cost is None or pack_cost <= 0:
+        return None
+    return mean_value / pack_cost
+
+
+def _blend_biggest_upside_score(
+    p95_value_to_cost_ratio: Optional[float],
+    p99_value_to_cost_ratio: Optional[float],
+) -> Optional[float]:
+    """Blend Big Hit Upside (P95) and God Pull Upside (P99) into a 0-100 score."""
+
+    p95 = _to_optional_float(p95_value_to_cost_ratio)
+    p99 = _to_optional_float(p99_value_to_cost_ratio)
+    if p95 is None and p99 is None:
+        return None
+
+    def _normalize(raw: Optional[float], cap: float) -> float:
+        if raw is None:
+            return 0.0
+        bounded = min(max(raw, 0.0), cap)
+        return (bounded / cap) * 100.0
+
+    norm_p95 = _normalize(p95, _BIGGEST_UPSIDE_P95_CAP)
+    norm_p99 = _normalize(p99, _BIGGEST_UPSIDE_P99_CAP)
+    return (_BIGGEST_UPSIDE_P95_WEIGHT * norm_p95) + (_BIGGEST_UPSIDE_P99_WEIGHT * norm_p99)
+
+
+def _rank_tier_from_percentile(rank: int, total: int) -> str:
+    if rank <= max(1, math.ceil(total * 0.05)):
+        return "S"
+    if rank <= max(1, math.ceil(total * 0.15)):
+        return "A"
+    if rank <= max(1, math.ceil(total * 0.30)):
+        return "B"
+    if rank <= max(1, math.ceil(total * 0.50)):
+        return "C"
+    if rank <= max(1, math.ceil(total * 0.75)):
+        return "D"
+    return "F"
+
+
+def _populate_biggest_upside_metrics_for_set(
+    summary: Dict[str, Any],
+    requested_target_id: str,
+    warnings: List[str],
+    sources: Dict[str, str],
+) -> None:
+    """Attach blended Biggest Upside score + relative/rank/tier for set targets."""
+
+    summary["biggest_upside_score"] = _blend_biggest_upside_score(
+        summary.get("p95_value_to_cost_ratio"),
+        summary.get("p99_value_to_cost_ratio"),
+    )
+
+    if summary.get("biggest_upside_score") is None:
+        summary["relative_biggest_upside_score"] = None
+        summary["biggest_upside_rank"] = None
+        summary["biggest_upside_tier"] = None
+        return
+
+    try:
+        peers_result = (
+            public_read_client.table("explore_rip_statistics_latest")
+            .select("set_id,p95_value_to_cost_ratio,p99_value_to_cost_ratio")
+            .execute()
+        )
+        peer_rows = peers_result.data if peers_result and peers_result.data else []
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] biggest_upside peer query failed target_id=%s: %s",
+            requested_target_id,
+            exc,
+        )
+        warnings.append("Failed to compute blended Biggest Upside rank context")
+        sources["biggest_upside_blend"] = "FAILED"
+        summary["relative_biggest_upside_score"] = None
+        summary["biggest_upside_rank"] = None
+        summary["biggest_upside_tier"] = None
+        return
+
+    scored_peers: List[tuple[str, float]] = []
+    for row in peer_rows:
+        if not isinstance(row, dict):
+            continue
+        set_id = str(row.get("set_id") or "").strip()
+        if not set_id:
+            continue
+        blended = _blend_biggest_upside_score(
+            row.get("p95_value_to_cost_ratio"),
+            row.get("p99_value_to_cost_ratio"),
+        )
+        if blended is None:
+            continue
+        scored_peers.append((set_id, blended))
+
+    if not scored_peers:
+        sources["biggest_upside_blend"] = "NO_PEERS"
+        summary["relative_biggest_upside_score"] = None
+        summary["biggest_upside_rank"] = None
+        summary["biggest_upside_tier"] = None
+        return
+
+    scores_only = [score for _, score in scored_peers]
+    score_min = min(scores_only)
+    score_max = max(scores_only)
+    target_score = _to_optional_float(summary.get("biggest_upside_score"))
+    if target_score is None:
+        summary["relative_biggest_upside_score"] = None
+    elif score_max <= score_min:
+        summary["relative_biggest_upside_score"] = 50.0
+    else:
+        summary["relative_biggest_upside_score"] = 100.0 * ((target_score - score_min) / (score_max - score_min))
+
+    ranked = sorted(scored_peers, key=lambda item: item[1], reverse=True)
+    rank_lookup = {set_id: index for index, (set_id, _) in enumerate(ranked, start=1)}
+    target_rank = rank_lookup.get(requested_target_id)
+    summary["biggest_upside_rank"] = target_rank
+    summary["biggest_upside_tier"] = (
+        _rank_tier_from_percentile(target_rank, len(ranked)) if target_rank is not None else None
+    )
+    sources["biggest_upside_blend"] = "SERVICE_COMPUTED"
+
+
+def _populate_relative_average_return_score_for_set(
+    summary: Dict[str, Any],
+    requested_target_id: str,
+    warnings: List[str],
+    sources: Dict[str, str],
+) -> None:
+    mean_ratio = _resolve_mean_value_to_cost_ratio(summary)
+    if mean_ratio is None:
+        summary["relative_average_return_score"] = None
+        return
+
+    try:
+        peers_result = (
+            public_read_client.table("explore_rip_statistics_latest")
+            .select("set_id,mean_value_to_cost_ratio")
+            .execute()
+        )
+        peer_rows = peers_result.data if peers_result and peers_result.data else []
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] average_return peer query failed target_id=%s: %s",
+            requested_target_id,
+            exc,
+        )
+        warnings.append("Failed to compute relative Average Return context")
+        sources["average_return_relative"] = "FAILED"
+        summary["relative_average_return_score"] = None
+        return
+
+    peer_ratios: List[float] = []
+    for row in peer_rows:
+        if not isinstance(row, dict):
+            continue
+        if not str(row.get("set_id") or "").strip():
+            continue
+        ratio = _to_optional_float(row.get("mean_value_to_cost_ratio"))
+        if ratio is None:
+            ratio = _resolve_mean_value_to_cost_ratio(row)
+        if ratio is not None:
+            peer_ratios.append(ratio)
+
+    if not peer_ratios:
+        sources["average_return_relative"] = "NO_PEERS"
+        summary["relative_average_return_score"] = None
+        return
+
+    score_min = min(peer_ratios)
+    score_max = max(peer_ratios)
+    if score_max <= score_min:
+        summary["relative_average_return_score"] = 50.0
+    else:
+        summary["relative_average_return_score"] = 100.0 * ((mean_ratio - score_min) / (score_max - score_min))
+    sources["average_return_relative"] = "SERVICE_COMPUTED"
 
 
 def _populate_p99_ratio_from_percentiles(summary: Dict[str, Any], percentiles: List[Dict[str, Any]]) -> None:
@@ -624,6 +815,9 @@ def get_explore_page_payload(
     percentiles_ms = (time.perf_counter() - percentiles_started) * 1000
 
     _populate_p99_ratio_from_percentiles(summary, percentiles)
+    if requested_target_type == "set":
+        _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
+        _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
 
     # Distribution bins (optional, separate query)
     distribution_started = time.perf_counter()

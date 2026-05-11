@@ -208,16 +208,16 @@ function TrendTooltip({ active, payload, packCost }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Date</p>
       <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.snapshotDate)}</p>
       <p className="mt-2 text-xs text-[var(--text-secondary)]">
-        Mean / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(meanRatio)}</span>{" "}
+        Average Return <span className="font-semibold text-[var(--text-primary)]">{formatRatio(meanRatio)}</span>{" "}
         <span className="text-[var(--text-secondary)]">({formatCurrency(row.meanValue)})</span>
       </p>
       <p className="text-xs text-[var(--text-secondary)]">
-        Typical / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(medianRatio)}</span>{" "}
+        Typical Return <span className="font-semibold text-[var(--text-primary)]">{formatRatio(medianRatio)}</span>{" "}
         <span className="text-[var(--text-secondary)]">({formatCurrency(row.medianValue)})</span>
       </p>
       {p95Ratio !== null && (
         <p className="text-xs text-[var(--text-secondary)]">
-          High-End / Cost <span className="font-semibold text-[var(--text-primary)]">{formatRatio(p95Ratio)}</span>{" "}
+          Big Hit Upside <span className="font-semibold text-[var(--text-primary)]">{formatRatio(p95Ratio)}</span>{" "}
           <span className="text-[var(--text-secondary)]">({formatCurrency(row.p95Value)})</span>
         </p>
       )}
@@ -288,9 +288,9 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
     <div className="space-y-1.5 text-left">
       <p className="font-semibold text-[var(--text-primary)]">Historical Pack Value vs Cost</p>
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Mean / Cost compares average simulated pack value to pack cost over time.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Median / Cost compares typical simulated pack value to pack cost over time.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>P95 / Cost shows the 95th-percentile outcome versus pack cost — the high-end chase signal.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Average Return compares average simulated pack value to pack cost over time.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Typical Return compares typical simulated pack value to pack cost over time.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Big Hit Upside shows the 95th-percentile outcome versus pack cost.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>1.0x is break-even. Above 1.0x means simulated value exceeded pack cost.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>The break-even label includes the estimated pack market price when available.</span></li>
       </ul>
@@ -342,19 +342,20 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          {/* TODO(perf-vs-cost): Optional future mode toggle (Standard | Include God Pull) if we need a P99 line without changing default readability. */}
           <LegendToggle
             active={showMeanLine}
             onToggle={() => setShowMeanLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.meanToCost}
             inactiveColor="rgba(20,184,166,0.25)"
-            label="Mean / Cost"
+            label="Average Return"
           />
           <LegendToggle
             active={showMedianLine}
             onToggle={() => setShowMedianLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.medianToCost}
             inactiveColor="rgba(99,130,191,0.25)"
-            label="Typical / Cost"
+            label="Typical Return"
           />
           {hasP95Data && (
             <LegendToggle
@@ -362,7 +363,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               onToggle={() => setShowP95Line((c) => !c)}
               activeColor={HISTORICAL_TREND_COLORS.p95ToCost}
               inactiveColor="rgba(34,211,238,0.20)"
-              label="High-End / Cost"
+              label="Big Hit Upside"
             />
           )}
         </div>
@@ -408,12 +409,12 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               }}
             />
 
-            {/* P95 / Cost — rendered below Mean so Mean sits visually on top */}
+            {/* Big Hit Upside — rendered below Average Return so Average Return stays visually on top */}
             {hasP95Data && showP95Line ? (
               <Line
                 type="monotone"
                 dataKey="p95CostRatio"
-                name="P95 / Cost"
+                name="Big Hit Upside"
                 stroke={HISTORICAL_TREND_COLORS.p95ToCost}
                 strokeWidth={2.5}
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.p95ToCost, strokeWidth: 0 }}
@@ -432,7 +433,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               <Line
                 type="monotone"
                 dataKey="meanCostRatio"
-                name="Mean / Cost"
+                name="Average Return"
                 stroke={HISTORICAL_TREND_COLORS.meanToCost}
                 strokeWidth={2.5}
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.meanToCost, strokeWidth: 0 }}
@@ -451,7 +452,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               <Line
                 type="monotone"
                 dataKey="medianCostRatio"
-                name="Median / Cost"
+                name="Typical Return"
                 stroke={HISTORICAL_TREND_COLORS.medianToCost}
                 strokeWidth={2}
                 dot={{ r: 2, fill: HISTORICAL_TREND_COLORS.medianToCost, strokeWidth: 0 }}

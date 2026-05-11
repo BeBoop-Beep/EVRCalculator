@@ -25,7 +25,7 @@ const SIZE_STYLES = {
     labelOpacity: 0.82,
   },
   hero: {
-    className: "gap-2 px-3.5 py-1.5 text-[13px]",
+    className: "gap-2 px-4 py-2 text-[14px]",
     labelOpacity: 0.9,
   },
 };

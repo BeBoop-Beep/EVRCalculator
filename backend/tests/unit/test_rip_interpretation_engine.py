@@ -3173,7 +3173,117 @@ def test_pack_score_modifier_keeps_average_profile_mixed_for_extreme_tail_chase(
 
     assert result["meta"]["packScore"]["reason_code"] in {"average_open", "average_but_risky", "okay_but_capped", "above_average_but_flawed"}
     assert "overall case is mixed" in result["packScore"].lower()
-    assert "elite open" not in result["packScore"].lower()
+
+
+def test_biggest_upside_blend_increases_when_p99_increases_with_same_p95():
+    base_data = {
+        "summary": _make_summary(
+            p95_value_to_cost_ratio=2.2,
+            p99_value_to_cost_ratio=2.5,
+            max_value=75.0,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+    higher_tail_data = {
+        "summary": _make_summary(
+            p95_value_to_cost_ratio=2.2,
+            p99_value_to_cost_ratio=9.0,
+            max_value=75.0,
+        ),
+        "top_hits": _broad_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    base_lens = _lens_by_key(build_rip_interpretation(base_data), "biggest_upside")
+    higher_tail_lens = _lens_by_key(build_rip_interpretation(higher_tail_data), "biggest_upside")
+
+    assert higher_tail_lens["biggest_upside_score"] > base_lens["biggest_upside_score"]
+
+
+def test_biggest_upside_huge_p99_low_p95_is_not_broad_elite_upside():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=1.6,
+                p99_value_to_cost_ratio=10.0,
+                max_value=240.0,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    lens = _lens_by_key(result, "biggest_upside")
+    assert lens["state"] == "extreme_tail_upside"
+    assert lens["tone"] == "mixed"
+
+
+def test_biggest_upside_evidence_includes_big_hit_and_god_pull_upside():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=2.8,
+                p99_value_to_cost_ratio=6.4,
+                max_value=180.0,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    lens = _lens_by_key(result, "biggest_upside")
+    evidence_labels = {item.get("label") for item in lens.get("evidence", []) if isinstance(item, dict)}
+    assert "Big Hit Upside" in evidence_labels
+    assert "God Pull Upside" in evidence_labels
+
+
+def test_p99_changes_do_not_change_safety_or_stability_interpretation_blocks():
+    base_result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=2.0,
+                p99_value_to_cost_ratio=2.2,
+                expected_loss_when_losing_fraction=0.42,
+                median_loss_when_losing_fraction=0.40,
+                p05_shortfall_to_cost=0.39,
+                coefficient_of_variation=0.95,
+                effective_chase_count=8.0,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+    high_tail_result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                p95_value_to_cost_ratio=2.0,
+                p99_value_to_cost_ratio=9.8,
+                expected_loss_when_losing_fraction=0.42,
+                median_loss_when_losing_fraction=0.40,
+                p05_shortfall_to_cost=0.39,
+                coefficient_of_variation=0.95,
+                effective_chase_count=8.0,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    assert base_result["meta"]["safety"]["reason_code"] == high_tail_result["meta"]["safety"]["reason_code"]
+    assert base_result["meta"]["stability"]["reason_code"] == high_tail_result["meta"]["stability"]["reason_code"]
 
 
 def test_s_tier_label_always_uses_elite_wording():

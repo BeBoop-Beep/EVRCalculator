@@ -18,22 +18,23 @@ Scoring modes in this module
 ----------------------------
 V1 population scoring (cross-set min-max)
     :func:`compute_pack_scores_for_set_records` computes population-relative
-    scores across a list of set records using cross-set min-max normalization.
-    This is retained for set-vs-set ranking workflows.
+    scores across a list of set records using cross-set min-max normalization
+    within the provided population.
+    This legacy mode is retained for set-vs-set ranking workflows.
 
 V2 runtime scoring (fixed anchors)
     :func:`compute_all_derived_metrics` builds a real runtime score payload via
-    fixed-anchor normalization (not a placeholder singleton). The runtime
-    payload reports:
-            score_version = "pack_score_v2_1_runtime"
-            normalization_mode = "fixed_anchor_runtime_v2_1"
+    fixed-anchor normalization for one run at a time (not population min-max
+    and not a placeholder singleton). The runtime payload reports:
+            score_version = "pack_score_v2_chase_weighted"
+            normalization_mode = "fixed_anchor_runtime_v2_chase_weighted"
       pack_score_is_placeholder = False
 
 V2 runtime component inputs
 ---------------------------
 Profit Score (0-100)
     Inputs: prob_profit, mean_value_to_cost_ratio, median_value_to_cost_ratio,
-    p95_value_to_cost_ratio.
+    p95_value_to_cost_ratio, p99_value_to_cost_ratio.
 
 Safety Score (0-100)
     Inputs: expected_loss_when_losing, median_loss_when_losing,
@@ -47,7 +48,7 @@ Stability Score (0-100)
 
 PACK Score (0-100)
     Weighted blend of interpretable components:
-    40% Profit Score + 30% Safety Score + 30% Stability Score.
+    45% Profit Score + 30% Safety Score + 25% Stability Score.
 """
 
 from __future__ import annotations
@@ -979,10 +980,10 @@ def _extract_score_input_record(record: Dict[str, Any]) -> Dict[str, Optional[fl
 
 
 def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Compute Profit/Safety/Stability/PACK scores for a set population.
+    """Compute legacy V1 Profit/Safety/Stability/PACK scores for a set population.
 
     Each raw metric is min-max normalized against the supplied set population
-    for this scoring run. Penalty metrics (losses, CV, concentration) are
+    for this scoring run (population-relative mode). Penalty metrics (losses, CV, concentration) are
     inverse-normalized so higher score always means better.
     """
     extracted_rows = [_extract_score_input_record(record) for record in set_records]

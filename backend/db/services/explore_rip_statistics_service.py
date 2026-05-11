@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 from typing import Any, Dict, List, Optional
 
@@ -14,6 +15,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_TARGETS_LIMIT = 100
 MAX_TARGETS_LIMIT = 200
 MIN_LIMIT = 1
+
+_BIGGEST_UPSIDE_P95_CAP = 5.0
+_BIGGEST_UPSIDE_P99_CAP = 10.0
+_BIGGEST_UPSIDE_P95_WEIGHT = 0.70
+_BIGGEST_UPSIDE_P99_WEIGHT = 0.30
 
 
 class ExploreRipStatisticsTargetsError(Exception):
@@ -51,6 +57,66 @@ def _to_optional_str(value: Any) -> Optional[str]:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _resolve_mean_value_to_cost_ratio(row: Dict[str, Any]) -> Optional[float]:
+    ratio = _to_optional_float(row.get("mean_value_to_cost_ratio"))
+    if ratio is not None:
+        return ratio
+
+    mean_value = _to_optional_float(row.get("mean_value"))
+    pack_cost = _to_optional_float(row.get("pack_cost"))
+    if mean_value is None or pack_cost is None or pack_cost <= 0:
+        return None
+    return mean_value / pack_cost
+
+
+def _blend_biggest_upside_score(
+    p95_value_to_cost_ratio: Optional[float],
+    p99_value_to_cost_ratio: Optional[float],
+) -> Optional[float]:
+    """Blend Big Hit Upside (P95) and God Pull Upside (P99) into a 0-100 score."""
+
+    p95 = _to_optional_float(p95_value_to_cost_ratio)
+    p99 = _to_optional_float(p99_value_to_cost_ratio)
+    if p95 is None and p99 is None:
+        return None
+
+    def _normalize(raw: Optional[float], cap: float) -> float:
+        if raw is None:
+            return 0.0
+        bounded = min(max(raw, 0.0), cap)
+        return (bounded / cap) * 100.0
+
+    norm_p95 = _normalize(p95, _BIGGEST_UPSIDE_P95_CAP)
+    norm_p99 = _normalize(p99, _BIGGEST_UPSIDE_P99_CAP)
+    return (_BIGGEST_UPSIDE_P95_WEIGHT * norm_p95) + (_BIGGEST_UPSIDE_P99_WEIGHT * norm_p99)
+
+
+def _compute_relative_scores(rows: List[Dict[str, Any]], score_key: str) -> Dict[str, Optional[float]]:
+    """Compute 0-100 relative scores for a score field across current rows."""
+
+    scored_rows = [
+        (str(row.get("target_id")), _to_optional_float(row.get(score_key)))
+        for row in rows
+        if row.get("target_id")
+    ]
+    valid_scores = [score for _, score in scored_rows if score is not None]
+    if not valid_scores:
+        return {target_id: None for target_id, _ in scored_rows}
+
+    score_min = min(valid_scores)
+    score_max = max(valid_scores)
+    if score_max <= score_min:
+        return {
+            target_id: (50.0 if score is not None else None)
+            for target_id, score in scored_rows
+        }
+
+    return {
+        target_id: (100.0 * ((score - score_min) / (score_max - score_min)) if score is not None else None)
+        for target_id, score in scored_rows
+    }
 
 
 def _shorten_canonical_label(value: Optional[str]) -> Optional[str]:
@@ -141,20 +207,17 @@ def _calculate_score_ranks_and_tiers(
     scored_rows_with_valid_scores.sort(key=lambda x: x[1], reverse=True)
     total = len(scored_rows_with_valid_scores)
     
-    # Assign ranks and calculate percentile-based tiers
+    # Assign ranks and calculate rank-bucket tiers (mirrors DB view semantics)
     for rank, (target_id, score) in enumerate(scored_rows_with_valid_scores, start=1):
-        percentile = (rank / total) * 100  # 0-100, where higher = worse rank
-        
-        # Assign tier based on percentile
-        if percentile <= 10:
+        if rank <= max(1, math.ceil(total * 0.05)):
             tier = "S"
-        elif percentile <= 25:
+        elif rank <= max(1, math.ceil(total * 0.15)):
             tier = "A"
-        elif percentile <= 50:
+        elif rank <= max(1, math.ceil(total * 0.30)):
             tier = "B"
-        elif percentile <= 75:
+        elif rank <= max(1, math.ceil(total * 0.50)):
             tier = "C"
-        elif percentile <= 90:
+        elif rank <= max(1, math.ceil(total * 0.75)):
             tier = "D"
         else:
             tier = "F"
@@ -383,6 +446,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "mean_value_to_cost_rank": ratio_rank_tier_lookup.get(target_id, {}).get("mean_value_to_cost_rank"),
                 "mean_value_to_cost_tier": ratio_rank_tier_lookup.get(target_id, {}).get("mean_value_to_cost_tier"),
                 "p95_value_to_cost_ratio": row.get("p95_value_to_cost_ratio"),
+                "p99_value_to_cost_ratio": row.get("p99_value_to_cost_ratio"),
                 "p95_value_to_cost_rank": ratio_rank_tier_lookup.get(target_id, {}).get("p95_value_to_cost_rank"),
                 "p95_value_to_cost_tier": ratio_rank_tier_lookup.get(target_id, {}).get("p95_value_to_cost_tier"),
                 "pack_cost": row.get("pack_cost"),
@@ -394,6 +458,80 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "run_at": row.get("run_at"),
             }
         )
+
+    # Blend Biggest Upside lens from P95 (Big Hit Upside) + P99 (God Pull Upside).
+    blended_rows = [
+        {
+            "target_id": target.get("target_id"),
+            "biggest_upside_score": _blend_biggest_upside_score(
+                target.get("p95_value_to_cost_ratio"),
+                target.get("p99_value_to_cost_ratio"),
+            ),
+        }
+        for target in targets
+    ]
+    blended_score_lookup = {
+        str(row.get("target_id")): _to_optional_float(row.get("biggest_upside_score"))
+        for row in blended_rows
+        if row.get("target_id")
+    }
+    blended_ranks = _calculate_score_ranks_and_tiers(blended_rows, "biggest_upside_score")
+    blended_relatives = _compute_relative_scores(blended_rows, "biggest_upside_score")
+
+    for target in targets:
+        target_id = str(target.get("target_id"))
+        rank_payload = blended_ranks.get(target_id, {})
+        blended_score = blended_score_lookup.get(target_id)
+        target["biggest_upside_score"] = (
+            round(blended_score, 2)
+            if blended_score is not None
+            else None
+        )
+        target["relative_biggest_upside_score"] = (
+            round(blended_relatives[target_id], 2)
+            if blended_relatives.get(target_id) is not None
+            else None
+        )
+        target["biggest_upside_rank"] = rank_payload.get("rank")
+        target["biggest_upside_tier"] = rank_payload.get("tier")
+
+    average_return_rows = [
+        {
+            "target_id": target.get("target_id"),
+            "average_return_score": _resolve_mean_value_to_cost_ratio(target),
+        }
+        for target in targets
+    ]
+    average_return_relatives = _compute_relative_scores(average_return_rows, "average_return_score")
+    for target in targets:
+        target_id = str(target.get("target_id"))
+        relative_average = average_return_relatives.get(target_id)
+        target["relative_average_return_score"] = (
+            round(relative_average, 2)
+            if relative_average is not None
+            else None
+        )
+
+    p99_rows = [
+        {
+            "target_id": target.get("target_id"),
+            "p99_value_to_cost_score": _to_optional_float(target.get("p99_value_to_cost_ratio")),
+        }
+        for target in targets
+    ]
+    p99_ranks = _calculate_score_ranks_and_tiers(p99_rows, "p99_value_to_cost_score")
+    p99_relatives = _compute_relative_scores(p99_rows, "p99_value_to_cost_score")
+    for target in targets:
+        target_id = str(target.get("target_id"))
+        p99_rank_payload = p99_ranks.get(target_id, {})
+        relative_p99 = p99_relatives.get(target_id)
+        target["relative_p99_value_to_cost_score"] = (
+            round(relative_p99, 2)
+            if relative_p99 is not None
+            else None
+        )
+        target["p99_value_to_cost_rank"] = p99_rank_payload.get("rank")
+        target["p99_value_to_cost_tier"] = p99_rank_payload.get("tier")
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
