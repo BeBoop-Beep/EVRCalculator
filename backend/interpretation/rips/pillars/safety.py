@@ -27,44 +27,77 @@ def interpret_safety(data: Dict[str, Any]) -> SafetyInterpretation:
     p05_shortfall = get_numeric(summary_data, "p05_shortfall_to_cost")
     expected_loss_per_pack = get_numeric(summary_data, "expected_loss_per_pack")
 
-    if expected_loss_fraction is None:
+    tier_key = str(tier or "").strip().upper()
+    tier_copy = {
+        "S": {
+            "label": "Elite downside control",
+            "summary": "Compared with other sets, misses are easier to handle and downside is unusually controlled. Losing packs still happen, but this profile gives back more value than most when it misses.",
+            "reason_code": "elite_downside_control",
+            "severity": "positive",
+        },
+        "A": {
+            "label": "Strong downside control",
+            "summary": "Relative to other sets, misses are less punishing. This does not make packs risk-free, but the downside profile is stronger than most.",
+            "reason_code": "strong_downside_control",
+            "severity": "positive",
+        },
+        "B": {
+            "label": "Controlled misses",
+            "summary": "Losing outcomes still happen, but compared with many sets, misses are more manageable. This is an above-average safety profile, but it does not remove the risk of missing.",
+            "reason_code": "controlled_misses",
+            "severity": "neutral",
+        },
+        "C": {
+            "label": "Average safety profile",
+            "summary": "Downside looks fairly typical compared with other ranked sets. Misses can still hurt, but this profile is neither unusually forgiving nor unusually punishing.",
+            "reason_code": "average_safety_profile",
+            "severity": "neutral",
+        },
+        "D": {
+            "label": "Rougher misses",
+            "summary": "Compared with other sets, misses are more punishing and downside is below average. This profile needs stronger hits to offset weak runs.",
+            "reason_code": "rougher_misses",
+            "severity": "caution",
+        },
+        "F": {
+            "label": "Very punishing misses",
+            "summary": "This is one of the more punishing downside profiles. When packs miss, they tend to give back very little compared with other sets.",
+            "reason_code": "very_punishing_misses",
+            "severity": "negative",
+        },
+    }
+
+    selected = tier_copy.get(tier_key)
+    if selected is not None:
+        label = selected["label"]
+        summary = selected["summary"]
+        reason_code = selected["reason_code"]
+        severity = selected["severity"]
+    elif expected_loss_fraction is None:
         label = "Miss profile unclear"
         summary = "Loss behavior on misses is unclear with the available sample."
         reason_code = "missing_expected_loss_fraction"
-    elif expected_loss_fraction >= 0.85:
-        label = "Brutal misses"
-        summary = "Misses are extremely punishing. Most losing packs give back almost nothing."
-        reason_code = "brutal_misses"
-    elif expected_loss_fraction >= 0.80:
-        label = "Very rough misses"
-        summary = "Bad packs give back very little, so cold streaks can hurt fast."
-        reason_code = "very_rough_misses"
-    elif expected_loss_fraction >= 0.75:
-        label = "Rough misses"
-        summary = "Misses are rough. Losing packs give back very little for the cost."
-        reason_code = "rough_misses"
-    elif expected_loss_fraction >= 0.70:
-        label = "Manageable misses"
-        summary = "Misses still lose money, but they are easier to handle than most sets."
-        reason_code = "manageable_misses"
-    else:
-        label = "Safer misses"
-        summary = "Misses are easier to handle. Losing packs give back more than most sets."
-        reason_code = "safer_misses"
-
-    # Keep S/A safety framing relative and avoid alarmist wording.
-    if strength is not None and strength >= 4:
-        summary = "Misses still lose money, but compared to other sets, they are easier to handle here."
-        if label in {"Brutal misses", "Very rough misses", "Rough misses"}:
-            label = "Manageable misses"
-            reason_code = "high_tier_relative_manageable_misses"
-
-    if strength is not None and strength >= 4:
-        severity = "positive"
-    elif strength is not None and strength <= 1:
-        severity = "negative"
-    else:
         severity = "neutral"
+    elif expected_loss_fraction >= 0.85:
+        label = "Very punishing misses"
+        summary = "Compared with other sets, this downside profile is harsh when it misses. Losing packs can give back very little for the cost."
+        reason_code = "very_punishing_misses_fallback"
+        severity = "negative"
+    elif expected_loss_fraction >= 0.75:
+        label = "Rougher misses"
+        summary = "Downside looks rougher than average, so cold runs can be harder to absorb than in steadier sets."
+        reason_code = "rougher_misses_fallback"
+        severity = "caution"
+    elif expected_loss_fraction >= 0.65:
+        label = "Average safety profile"
+        summary = "Downside appears around category average. Misses still hurt, but this profile is not unusually harsh."
+        reason_code = "average_safety_profile_fallback"
+        severity = "neutral"
+    else:
+        label = "Controlled misses"
+        summary = "Misses still lose money, but downside appears more manageable than category average."
+        reason_code = "controlled_misses_fallback"
+        severity = "positive" if strength is not None and strength >= 4 else "neutral"
 
     confidence: str
     if score is not None and expected_loss_fraction is not None and p05_shortfall is not None:
