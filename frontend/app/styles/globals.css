@@ -317,9 +317,23 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .index-loader-shell--fullscreen {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+  --index-loader-header-offset: var(--app-header-offset, 64px);
+  --index-loader-bottom-offset: calc(5.25rem + env(safe-area-inset-bottom));
+  --index-loader-visual-shift: -3vh;
+  min-height: calc(100vh - var(--index-loader-header-offset) - var(--index-loader-bottom-offset));
+  min-height: calc(100dvh - var(--index-loader-header-offset) - var(--index-loader-bottom-offset));
+  padding: 0 max(1rem, env(safe-area-inset-right)) 0 max(1rem, env(safe-area-inset-left));
+}
+
+.index-loader-shell--fullscreen .index-loader-wrap {
+  transform: translateY(var(--index-loader-visual-shift));
+}
+
+@media (min-width: 1024px) {
+  .index-loader-shell--fullscreen {
+    --index-loader-bottom-offset: 0px;
+    --index-loader-visual-shift: -4vh;
+  }
 }
 
 .index-loader-wrap {
