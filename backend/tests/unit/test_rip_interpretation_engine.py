@@ -1077,6 +1077,165 @@ def test_s_tier_safety_with_bad_raw_losses_uses_relative_safer_language():
     assert "easier to handle" in safety_summary or "safer" in safety_summary
 
 
+def test_safety_b_tier_with_bad_raw_losses_stays_controlled_and_neutral():
+    data = {
+        "summary": _make_summary(
+            safety_score=58.0,
+            safety_tier="B",
+            expected_loss_when_losing_fraction=0.86,
+            median_loss_when_losing_fraction=0.82,
+            p05_shortfall_to_cost=0.84,
+        ),
+        "top_hits": _mid_tier_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    safety_meta = result["meta"]["safety"]
+    combined = f"{safety_meta['label']} {safety_meta['summary']}".lower()
+
+    assert safety_meta["severity"] == "neutral"
+    assert safety_meta["reason_code"] == "controlled_misses"
+    assert any(token in combined for token in ("controlled", "above-average", "manageable"))
+
+    banned = (
+        "rough",
+        "brutal",
+        "harsh",
+        "punishing",
+        "weak",
+        "painful",
+        "elite",
+        "top-tier",
+        "premium",
+        "very forgiving",
+        "unusually controlled",
+        "risk-free",
+    )
+    for token in banned:
+        assert token not in combined
+
+
+def test_safety_a_tier_is_positive_with_stronger_favorable_language_than_b():
+    data = {
+        "summary": _make_summary(
+            safety_score=75.0,
+            safety_tier="A",
+            expected_loss_when_losing_fraction=0.80,
+            median_loss_when_losing_fraction=0.76,
+            p05_shortfall_to_cost=0.79,
+        ),
+        "top_hits": _mid_tier_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    safety_meta = result["meta"]["safety"]
+    combined = f"{safety_meta['label']} {safety_meta['summary']}".lower()
+
+    assert safety_meta["severity"] == "positive"
+    assert safety_meta["reason_code"] == "strong_downside_control"
+    assert "strong downside control" in combined or "stronger than most" in combined
+
+
+def test_safety_s_tier_is_positive_and_can_use_elite_language():
+    data = {
+        "summary": _make_summary(
+            safety_score=92.0,
+            safety_tier="S",
+            expected_loss_when_losing_fraction=0.83,
+            median_loss_when_losing_fraction=0.80,
+            p05_shortfall_to_cost=0.82,
+        ),
+        "top_hits": _mid_tier_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    safety_meta = result["meta"]["safety"]
+    combined = f"{safety_meta['label']} {safety_meta['summary']}".lower()
+
+    assert safety_meta["severity"] == "positive"
+    assert safety_meta["reason_code"] == "elite_downside_control"
+    assert "elite" in combined or "unusually controlled" in combined
+
+
+def test_safety_c_tier_is_neutral_and_reads_as_average():
+    data = {
+        "summary": _make_summary(
+            safety_score=50.0,
+            safety_tier="C",
+            expected_loss_when_losing_fraction=0.79,
+            median_loss_when_losing_fraction=0.74,
+            p05_shortfall_to_cost=0.78,
+        ),
+        "top_hits": _mid_tier_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    safety_meta = result["meta"]["safety"]
+    combined = f"{safety_meta['label']} {safety_meta['summary']}".lower()
+
+    assert safety_meta["severity"] == "neutral"
+    assert safety_meta["reason_code"] == "average_safety_profile"
+    assert "average" in combined or "typical" in combined
+
+
+def test_safety_d_tier_is_caution():
+    data = {
+        "summary": _make_summary(
+            safety_score=30.0,
+            safety_tier="D",
+            expected_loss_when_losing_fraction=0.70,
+            median_loss_when_losing_fraction=0.68,
+            p05_shortfall_to_cost=0.72,
+        ),
+        "top_hits": _mid_tier_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    safety_meta = result["meta"]["safety"]
+
+    assert safety_meta["severity"] == "caution"
+    assert safety_meta["reason_code"] == "rougher_misses"
+
+
+def test_safety_f_tier_is_negative_and_allows_punishing_language():
+    data = {
+        "summary": _make_summary(
+            safety_score=10.0,
+            safety_tier="F",
+            expected_loss_when_losing_fraction=0.68,
+            median_loss_when_losing_fraction=0.65,
+            p05_shortfall_to_cost=0.70,
+        ),
+        "top_hits": _mid_tier_hits(),
+        "rankings": [],
+        "history_trend": [],
+        "rip_statistics": _rip_stats_normal(),
+    }
+
+    result = build_rip_interpretation(data)
+    safety_meta = result["meta"]["safety"]
+    combined = f"{safety_meta['label']} {safety_meta['summary']}".lower()
+
+    assert safety_meta["severity"] == "negative"
+    assert safety_meta["reason_code"] == "very_punishing_misses"
+    assert "punishing" in combined or "harsh" in combined
+
+
 def test_c_tier_stability_with_broadish_metrics_is_still_average_spread():
     data = {
         "summary": _make_summary(
@@ -2071,7 +2230,7 @@ def test_safety_high_expected_loss_uses_rough_or_brutal_language():
     result = build_rip_interpretation(data)
     label = result["meta"]["safety"]["label"].lower()
     summary = result["meta"]["safety"]["summary"].lower()
-    assert "brutal" in label or "rough" in label
+    assert "punishing" in label or "brutal" in label or "rough" in label
     assert "punishing" in summary or "hurt" in summary or "very little" in summary
 
 
@@ -2112,7 +2271,7 @@ def test_f_safety_tier_high_loss_keeps_punishing_miss_language():
     result = build_rip_interpretation(data)
     label = result["meta"]["safety"]["label"].lower()
     summary = result["meta"]["safety"]["summary"].lower()
-    assert "very rough" in label or "brutal" in label or "rough" in label
+    assert "very punishing" in label or "very rough" in label or "brutal" in label or "rough" in label
     assert "hurt" in summary or "punishing" in summary or "very little" in summary
 
 

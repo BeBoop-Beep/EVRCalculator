@@ -58,6 +58,19 @@ _CARD_FAMILY_REMOVE_PATTERNS = [
     r"\bur\b",
 ]
 
+_EXPLICIT_CLUSTER_MIN_COUNT = 3
+_EXPLICIT_CLUSTER_MIN_SHARE = 0.22
+_EXPLICIT_PAIR_MIN_SHARE = 0.32
+_EXPLICIT_TOP5_PAIR_MIN_SHARE = 0.25
+
+_ENTITY_CLUSTER_MIN_COUNT = 3
+_ENTITY_CLUSTER_MIN_SHARE = 0.25
+_ENTITY_PAIR_MIN_SHARE = 0.35
+
+_SINGLE_OUTLIER_SHARE_MIN = 0.28
+_SINGLE_OUTLIER_RATIO_HARD = 1.75
+_SINGLE_OUTLIER_RATIO_CLEAR = 1.35
+
 
 def _to_float(value: Any) -> Optional[float]:
     try:
@@ -98,6 +111,65 @@ def _normalize_card_family_name(card_name: Any) -> str:
     return text
 
 
+def _normalize_explicit_card_name(card_name: Any) -> str:
+    text = str(card_name or "").strip().lower()
+    if not text:
+        return ""
+
+    text = text.replace("’", "'")
+    text = re.sub(r"\([^)]*\)", " ", text)
+    text = re.sub(r"\b#?\d+\s*/\s*\d+\b", " ", text)
+    text = re.sub(r"\bsv\d+[a-z]*\s*\d+\b", " ", text)
+    text = re.sub(r"\b[a-z]{1,4}\d{1,4}\b", " ", text)
+    text = re.sub(r"\b#\d+\b", " ", text)
+
+    for pattern in _CARD_FAMILY_REMOVE_PATTERNS:
+        text = re.sub(pattern, " ", text)
+
+    text = re.sub(r"\b(alt|alternate)\b", " ", text)
+    text = re.sub(r"\b(art|rare|holo|foil|promo)\b", " ", text)
+    text = re.sub(r"[^a-z0-9'\s-]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip(" -")
+    return text
+
+
+def _derive_entity_name(explicit_name: str) -> str:
+    text = str(explicit_name or "").strip().lower()
+    if not text:
+        return ""
+
+    text = re.sub(r"\b(vmax|vstar|gx|ex|v)\b", " ", text)
+    # Broad entity fallback can drop ownership prefix to merge related cards when explicit clusters do not dominate.
+    text = re.sub(r"^(team\s+rocket's)\s+", "", text)
+    text = re.sub(r"^[a-z]+'s\s+", "", text)
+    text = re.sub(r"\s+", " ", text).strip(" -")
+    return text
+
+
+def _display_name_from_normalized(normalized_name: str) -> str:
+    token_map = {
+        "ex": "ex",
+        "v": "V",
+        "vmax": "VMAX",
+        "vstar": "VSTAR",
+        "gx": "GX",
+    }
+
+    def _cap_token(token: str) -> str:
+        if "'" in token:
+            left, right = token.split("'", 1)
+            return f"{left.capitalize()}'{right}"
+        return token.capitalize()
+
+    tokens: List[str] = []
+    for token in str(normalized_name or "").split():
+        if token in token_map:
+            tokens.append(token_map[token])
+        else:
+            tokens.append(_cap_token(token))
+    return " ".join(tokens).strip()
+
+
 def _display_card_family_name(normalized_family: str) -> str:
     token_map = {
         "ex": "ex",
@@ -111,6 +183,343 @@ def _display_card_family_name(normalized_family: str) -> str:
     for token in normalized_family.split():
         tokens.append(token_map.get(token, token.capitalize()))
     return " ".join(tokens).strip()
+
+
+def _build_single_card_outlier_signal(top_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not top_rows:
+        return {
+            "type": "none",
+            "card_name": None,
+            "top_card_ev_contribution": None,
+            "second_card_ev_contribution": None,
+            "lead_ratio": None,
+            "top_card_share_of_top_hits": None,
+            "reason_code": "insufficient_top_hits",
+        }
+
+    total_top_ev = sum(row["ev_contribution"] for row in top_rows)
+    top = top_rows[0]
+    second = top_rows[1] if len(top_rows) > 1 else None
+
+    top_ev = top["ev_contribution"]
+    second_ev = second["ev_contribution"] if second else None
+    lead_ratio = (top_ev / second_ev) if second_ev and second_ev > 0 else None
+    top_share = (top_ev / total_top_ev) if total_top_ev > 0 else None
+
+    top_pack_share = _to_float(top.get("pack_value_share"))
+    second_pack_share = _to_float(second.get("pack_value_share")) if second else None
+    pack_share_ratio = (
+        top_pack_share / second_pack_share
+        if top_pack_share is not None and second_pack_share is not None and second_pack_share > 0
+        else None
+    )
+
+    hard_outlier = bool(
+        (
+            top_share is not None
+            and top_share >= _SINGLE_OUTLIER_SHARE_MIN
+            and lead_ratio is not None
+            and lead_ratio >= _SINGLE_OUTLIER_RATIO_CLEAR
+        )
+        or (lead_ratio is not None and lead_ratio >= _SINGLE_OUTLIER_RATIO_HARD)
+        or (pack_share_ratio is not None and pack_share_ratio >= _SINGLE_OUTLIER_RATIO_HARD)
+    )
+    clear_leader = bool(lead_ratio is not None and lead_ratio >= _SINGLE_OUTLIER_RATIO_CLEAR)
+
+    if hard_outlier:
+        signal_type = "hard_single_card_outlier"
+        reason_code = "single_card_outlier"
+    elif clear_leader:
+        signal_type = "clear_single_card_leader"
+        reason_code = "clear_top_card"
+    else:
+        signal_type = "none"
+        reason_code = "no_clear_top_card"
+
+    return {
+        "type": signal_type,
+        "card_name": top.get("card_name"),
+        "top_card_ev_contribution": top_ev,
+        "second_card_ev_contribution": second_ev,
+        "lead_ratio": lead_ratio,
+        "top_card_share_of_top_hits": top_share,
+        "top_card_pack_value_share": top_pack_share,
+        "second_card_pack_value_share": second_pack_share,
+        "pack_share_ratio": pack_share_ratio,
+        "reason_code": reason_code,
+    }
+
+
+def _build_name_pattern_signal(top_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not top_rows:
+        return {
+            "exact_family": {"type": "none"},
+            "entity_cluster": {"type": "none"},
+            "primary_name_pattern": {
+                "type": "none",
+                "name": None,
+                "summary_phrase": None,
+                "confidence": "low",
+            },
+        }
+
+    total_top_ev = sum(row["ev_contribution"] for row in top_rows)
+    explicit_rows: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    entity_rows: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+
+    for idx, row in enumerate(top_rows, start=1):
+        explicit_key = _normalize_explicit_card_name(row.get("card_name"))
+        if explicit_key:
+            explicit_rows[explicit_key].append({**row, "rank": idx})
+            entity_key = _derive_entity_name(explicit_key)
+            if entity_key:
+                entity_rows[entity_key].append({**row, "rank": idx})
+
+    def _rank_cluster(rows_by_key: Dict[str, List[Dict[str, Any]]]) -> tuple[Optional[str], List[Dict[str, Any]], Optional[float]]:
+        ranked = sorted(
+            rows_by_key.items(),
+            key=lambda item: (
+                sum(r["ev_contribution"] for r in item[1]),
+                len(item[1]),
+                -min(r["rank"] for r in item[1]),
+            ),
+            reverse=True,
+        )
+        if not ranked:
+            return None, [], None
+        key, rows = ranked[0]
+        share = (sum(r["ev_contribution"] for r in rows) / total_top_ev) if total_top_ev > 0 else None
+        return key, rows, share
+
+    exact_key, exact_rows, exact_share = _rank_cluster(explicit_rows)
+    entity_key, entity_rows_list, entity_share = _rank_cluster(entity_rows)
+
+    def _rows_to_examples(rows: List[Dict[str, Any]], limit: int = 4) -> List[str]:
+        return [str(r.get("card_name") or "") for r in rows[:limit] if str(r.get("card_name") or "").strip()]
+
+    exact_positions = [int(r["rank"]) for r in exact_rows]
+    exact_top5_count = sum(1 for pos in exact_positions if pos <= 5)
+    exact_dominant = bool(
+        exact_key
+        and exact_share is not None
+        and (
+            (len(exact_rows) >= _EXPLICIT_CLUSTER_MIN_COUNT and exact_share >= _EXPLICIT_CLUSTER_MIN_SHARE)
+            or (len(exact_rows) >= 2 and exact_share >= _EXPLICIT_PAIR_MIN_SHARE)
+            or (len(exact_rows) >= 2 and exact_top5_count >= 2 and exact_share >= _EXPLICIT_TOP5_PAIR_MIN_SHARE)
+        )
+    )
+
+    entity_positions = [int(r["rank"]) for r in entity_rows_list]
+    entity_top6_count = sum(1 for pos in entity_positions if pos <= 6)
+    entity_dominant = bool(
+        entity_key
+        and entity_share is not None
+        and (
+            (len(entity_rows_list) >= _ENTITY_CLUSTER_MIN_COUNT and entity_share >= _ENTITY_CLUSTER_MIN_SHARE)
+            or (len(entity_rows_list) >= 2 and entity_share >= _ENTITY_PAIR_MIN_SHARE)
+            or (len(entity_rows_list) >= _ENTITY_CLUSTER_MIN_COUNT and entity_top6_count >= 2)
+        )
+    )
+
+    exact_signal = {
+        "type": "dominant_exact_family" if exact_dominant else ("mixed_exact_families" if exact_key else "none"),
+        "family_name": _display_name_from_normalized(exact_key or "") if exact_key else None,
+        "family_count": len(exact_rows),
+        "family_ev_share_of_top_hits": exact_share,
+        "family_rank_positions": exact_positions,
+        "example_cards": _rows_to_examples(exact_rows),
+        "reason_code": "explicit_family_dominant" if exact_dominant else "explicit_family_not_dominant",
+    }
+
+    entity_signal = {
+        "type": "dominant_entity_cluster" if (entity_dominant and not exact_dominant) else ("mixed_entities" if entity_key else "none"),
+        "entity_name": _display_name_from_normalized(entity_key or "") if entity_key else None,
+        "entity_count": len(entity_rows_list),
+        "entity_ev_share_of_top_hits": entity_share,
+        "entity_rank_positions": entity_positions,
+        "example_cards": _rows_to_examples(entity_rows_list),
+        "reason_code": "entity_cluster_dominant" if (entity_dominant and not exact_dominant) else "entity_cluster_not_dominant",
+    }
+
+    if exact_dominant:
+        primary = {
+            "type": "explicit_name_cluster",
+            "name": exact_signal["family_name"],
+            "summary_phrase": f"{exact_signal['family_name']} variants carry a meaningful share of the value.",
+            "confidence": "high",
+        }
+    elif entity_dominant:
+        primary = {
+            "type": "generic_entity_cluster",
+            "name": entity_signal["entity_name"],
+            "summary_phrase": f"{entity_signal['entity_name']} cards carry a meaningful share of the value.",
+            "confidence": "medium",
+        }
+    else:
+        primary = {
+            "type": "none",
+            "name": None,
+            "summary_phrase": None,
+            "confidence": "low",
+        }
+
+    return {
+        "exact_family": exact_signal,
+        "entity_cluster": entity_signal,
+        "primary_name_pattern": primary,
+    }
+
+
+def _build_value_concentration_signal(
+    single_card_signal: Dict[str, Any],
+    value_source_signal: Dict[str, Any],
+    name_pattern_signal: Dict[str, Any],
+) -> Dict[str, Any]:
+    exact = name_pattern_signal.get("exact_family") if isinstance(name_pattern_signal, dict) else {}
+    entity = name_pattern_signal.get("entity_cluster") if isinstance(name_pattern_signal, dict) else {}
+
+    single_type = str(single_card_signal.get("type") or "none")
+    if single_type == "hard_single_card_outlier":
+        card_name = str(single_card_signal.get("card_name") or "").strip()
+        return {
+            "type": "hard_single_card_outlier",
+            "label": "Top card carries value",
+            "short_phrase": f"carried heavily by {card_name}" if card_name else "carried heavily by one top card",
+            "summary_phrase": f"{card_name} carries a large share of the upside." if card_name else "One top card carries a large share of the upside.",
+            "risk_phrase": "Missing that top card can make sessions feel thin.",
+            "tone": "caution",
+            "card_name": card_name or None,
+            "metrics": {
+                "lead_ratio": single_card_signal.get("lead_ratio"),
+                "top_card_share_of_top_hits": single_card_signal.get("top_card_share_of_top_hits"),
+            },
+            "confidence": "high",
+        }
+
+    if single_type == "clear_single_card_leader":
+        card_name = str(single_card_signal.get("card_name") or "").strip()
+        return {
+            "type": "clear_single_card_leader",
+            "label": "Top card leads value",
+            "short_phrase": f"driven largely by {card_name}" if card_name else "driven largely by one top card",
+            "summary_phrase": f"{card_name} does a lot of the heavy lifting." if card_name else "One top card does a lot of the heavy lifting.",
+            "risk_phrase": "The value path still depends on landing that lead card.",
+            "tone": "caution",
+            "card_name": card_name or None,
+            "metrics": {
+                "lead_ratio": single_card_signal.get("lead_ratio"),
+                "top_card_share_of_top_hits": single_card_signal.get("top_card_share_of_top_hits"),
+            },
+            "confidence": "medium",
+        }
+
+    if isinstance(exact, dict) and str(exact.get("type") or "") == "dominant_exact_family":
+        family_name = str(exact.get("family_name") or "").strip()
+        return {
+            "type": "dominant_exact_family",
+            "label": "Exact family carries value",
+            "short_phrase": f"concentrated in {family_name} variants" if family_name else "concentrated in one exact card family",
+            "summary_phrase": f"{family_name} variants carry much of the value." if family_name else "One exact card family carries much of the value.",
+            "risk_phrase": "The score depends on landing that specific cluster of chase cards.",
+            "tone": "caution",
+            "family_name": family_name or None,
+            "metrics": {
+                "family_count": exact.get("family_count"),
+                "family_ev_share_of_top_hits": exact.get("family_ev_share_of_top_hits"),
+            },
+            "confidence": "high",
+        }
+
+    if isinstance(entity, dict) and str(entity.get("type") or "") == "dominant_entity_cluster":
+        entity_name = str(entity.get("entity_name") or "").strip()
+        return {
+            "type": "dominant_entity_cluster",
+            "label": "Entity cluster carries value",
+            "short_phrase": f"concentrated in {entity_name} cards" if entity_name else "concentrated in one character cluster",
+            "summary_phrase": f"{entity_name} cards carry much of the value." if entity_name else "One character cluster carries much of the value.",
+            "risk_phrase": "The value story is narrower than a fully broad spread.",
+            "tone": "caution",
+            "entity_name": entity_name or None,
+            "metrics": {
+                "entity_count": entity.get("entity_count"),
+                "entity_ev_share_of_top_hits": entity.get("entity_ev_share_of_top_hits"),
+            },
+            "confidence": "medium",
+        }
+
+    signal_type = str(value_source_signal.get("type") or "")
+    dominant_bucket = str(value_source_signal.get("dominant_rarity_bucket") or "")
+    if signal_type == "dominant_rarity" and dominant_bucket == "special illustration rare":
+        return {
+            "type": "sir_driven",
+            "label": "SIR-driven value",
+            "short_phrase": "tied to harder-to-pull Special Illustration Rares",
+            "summary_phrase": "Much of the upside sits in harder-to-pull Special Illustration Rares.",
+            "risk_phrase": "The path depends more on premium chase outcomes.",
+            "tone": "caution",
+            "rarity_bucket": dominant_bucket,
+            "metrics": {
+                "dominant_share": value_source_signal.get("dominant_share"),
+            },
+            "confidence": "high",
+        }
+    if signal_type == "dominant_rarity" and dominant_bucket == "illustration rare":
+        return {
+            "type": "ir_driven",
+            "label": "IR-supported value",
+            "short_phrase": "supported broadly by Illustration Rares",
+            "summary_phrase": "Illustration Rares provide broad support across several meaningful hits.",
+            "risk_phrase": "Value is less tied to one single card than top-heavy profiles.",
+            "tone": "positive",
+            "rarity_bucket": dominant_bucket,
+            "metrics": {
+                "dominant_share": value_source_signal.get("dominant_share"),
+            },
+            "confidence": "high",
+        }
+    if signal_type == "dominant_rarity":
+        rarity_label = _rarity_bucket_label_for_signal(dominant_bucket) if dominant_bucket else "one rarity group"
+        return {
+            "type": "dominant_rarity_group",
+            "label": "Rarity-led value",
+            "short_phrase": f"carried mostly by {rarity_label} cards",
+            "summary_phrase": f"Much of the value is carried by {rarity_label} cards.",
+            "risk_phrase": "The path depends more on that rarity lane than on broad spread.",
+            "tone": "caution",
+            "rarity_bucket": dominant_bucket or None,
+            "metrics": {
+                "dominant_share": value_source_signal.get("dominant_share"),
+            },
+            "confidence": "medium",
+        }
+    if signal_type == "broad_spread":
+        return {
+            "type": "broad_value_spread",
+            "label": "Broad value spread",
+            "short_phrase": "spread across several meaningful cards and rarity groups",
+            "summary_phrase": "Value is spread across several meaningful cards and rarity groups.",
+            "risk_phrase": "This lowers dependence on one perfect pull.",
+            "tone": "positive",
+            "metrics": {
+                "dominant_share": value_source_signal.get("dominant_share"),
+                "diversity": value_source_signal.get("diversity"),
+            },
+            "confidence": "medium",
+        }
+
+    return {
+        "type": "mixed_chase_value",
+        "label": "Mixed value base",
+        "short_phrase": "value comes from a mixed set of hits",
+        "summary_phrase": "Value comes from a mixed set of hits.",
+        "risk_phrase": None,
+        "tone": "neutral",
+        "metrics": {
+            "dominant_share": value_source_signal.get("dominant_share"),
+            "diversity": value_source_signal.get("diversity"),
+        },
+        "confidence": "low",
+    }
 
 
 def _build_value_source_signals(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -130,6 +539,7 @@ def _build_value_source_signals(data: Dict[str, Any]) -> Dict[str, Dict[str, Any
                 "card_name": str(hit.get("card_name") or "").strip(),
                 "rarity_bucket": rarity_bucket,
                 "ev_contribution": ev,
+                "pack_value_share": _to_float(hit.get("pack_value_share") or hit.get("value_share")),
             }
         )
 
@@ -221,6 +631,10 @@ def _build_value_source_signals(data: Dict[str, Any]) -> Dict[str, Dict[str, Any
                 "source": rarity_source,
             }
 
+    name_pattern_signal = _build_name_pattern_signal(top_rows)
+    exact_signal = name_pattern_signal.get("exact_family") if isinstance(name_pattern_signal, dict) else {}
+    entity_signal = name_pattern_signal.get("entity_cluster") if isinstance(name_pattern_signal, dict) else {}
+
     card_family_signal: Dict[str, Any] = {
         "type": "unknown",
         "family_name": None,
@@ -229,58 +643,73 @@ def _build_value_source_signals(data: Dict[str, Any]) -> Dict[str, Dict[str, Any
         "example_cards": [],
     }
 
-    if top_rows:
-        family_rows: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        total_top_ev = sum(row["ev_contribution"] for row in top_rows)
-        for row in top_rows:
-            normalized_family = _normalize_card_family_name(row["card_name"])
-            if not normalized_family:
-                continue
-            family_rows[normalized_family].append(row)
+    if isinstance(exact_signal, dict):
+        exact_type = str(exact_signal.get("type") or "")
+        if exact_type == "dominant_exact_family":
+            card_family_signal = {
+                "type": "dominant_card_family",
+                "family_name": exact_signal.get("family_name"),
+                "family_count": exact_signal.get("family_count") or 0,
+                "family_ev_share_of_top_hits": exact_signal.get("family_ev_share_of_top_hits"),
+                "example_cards": exact_signal.get("example_cards") or [],
+                "family_rank_positions": exact_signal.get("family_rank_positions") or [],
+                "reason_code": exact_signal.get("reason_code") or "explicit_family_dominant",
+            }
+        elif exact_type == "mixed_exact_families":
+            card_family_signal = {
+                "type": "mixed_card_families",
+                "family_name": None,
+                "family_count": exact_signal.get("family_count") or 0,
+                "family_ev_share_of_top_hits": exact_signal.get("family_ev_share_of_top_hits"),
+                "example_cards": exact_signal.get("example_cards") or [],
+                "family_rank_positions": exact_signal.get("family_rank_positions") or [],
+                "reason_code": exact_signal.get("reason_code") or "explicit_family_not_dominant",
+            }
 
-        repeated_families = {
-            family: rows
-            for family, rows in family_rows.items()
-            if len(rows) >= 2
-        }
-
-        if repeated_families:
-            ranked_families = sorted(
-                repeated_families.items(),
-                key=lambda item: (
-                    sum(row["ev_contribution"] for row in item[1]),
-                    len(item[1]),
-                ),
-                reverse=True,
-            )
-            lead_family, lead_rows = ranked_families[0]
-            lead_ev = sum(row["ev_contribution"] for row in lead_rows)
-            lead_share = (lead_ev / total_top_ev) if total_top_ev > 0 else None
-
-            if lead_share is not None and (lead_share >= 0.35 or len(lead_rows) >= 3):
-                card_family_signal = {
-                    "type": "dominant_card_family",
-                    "family_name": _display_card_family_name(lead_family),
-                    "family_count": len(lead_rows),
-                    "family_ev_share_of_top_hits": lead_share,
-                    "example_cards": [row["card_name"] for row in lead_rows[:4] if row["card_name"]],
-                }
-            else:
-                card_family_signal = {
-                    "type": "mixed_card_families",
-                    "family_name": None,
-                    "family_count": len(lead_rows),
-                    "family_ev_share_of_top_hits": lead_share,
-                    "example_cards": [row["card_name"] for row in lead_rows[:3] if row["card_name"]],
-                }
+    single_card_signal = _build_single_card_outlier_signal(top_rows)
+    value_concentration_signal = _build_value_concentration_signal(
+        single_card_signal=single_card_signal,
+        value_source_signal=value_source_signal,
+        name_pattern_signal=name_pattern_signal,
+    )
 
     return {
         "value_source_signal": value_source_signal,
         "card_family_signal": card_family_signal,
+        "single_card_signal": single_card_signal,
+        "value_name_pattern_signal": {
+            "exact_family": exact_signal,
+            "entity_cluster": entity_signal,
+            "primary_name_pattern": (name_pattern_signal or {}).get("primary_name_pattern") if isinstance(name_pattern_signal, dict) else None,
+        },
+        "value_concentration_signal": value_concentration_signal,
     }
 
 
-def _value_source_pack_phrase(value_source_signal: Dict[str, Any], card_family_signal: Dict[str, Any]) -> Optional[str]:
+def _value_source_pack_phrase(
+    value_source_signal: Dict[str, Any],
+    card_family_signal: Dict[str, Any],
+    value_concentration_signal: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    concentration = value_concentration_signal if isinstance(value_concentration_signal, dict) else {}
+    concentration_type = str(concentration.get("type") or "")
+    strong_types = {
+        "hard_single_card_outlier",
+        "clear_single_card_leader",
+        "dominant_exact_family",
+        "dominant_entity_cluster",
+        "sir_driven",
+        "ir_driven",
+        "dominant_rarity_group",
+        "broad_value_spread",
+    }
+    if concentration_type in strong_types:
+        short_phrase = str(concentration.get("short_phrase") or "").strip()
+        if short_phrase:
+            return short_phrase
+    if concentration_type:
+        return None
+
     family_type = str(card_family_signal.get("type") or "")
     if family_type == "dominant_card_family":
         family_name = str(card_family_signal.get("family_name") or "").strip()
@@ -303,9 +732,10 @@ def _inject_specific_value_source_copy(
     summary: str,
     value_source_signal: Dict[str, Any],
     card_family_signal: Dict[str, Any],
+    value_concentration_signal: Optional[Dict[str, Any]] = None,
 ) -> str:
     text = str(summary or "")
-    phrase = _value_source_pack_phrase(value_source_signal, card_family_signal)
+    phrase = _value_source_pack_phrase(value_source_signal, card_family_signal, value_concentration_signal)
     if not phrase:
         return text
 
@@ -315,6 +745,8 @@ def _inject_specific_value_source_copy(
         "spreads it well across cards": phrase,
         "value is spread well enough to avoid one-card dependence": phrase,
         "value is spread reasonably": phrase,
+        "value has some spread": phrase,
+        "value is spread across enough cards": phrase,
     }
 
     lowered = text.lower()
@@ -385,6 +817,10 @@ def _is_high_tier(tier: Any) -> bool:
     return str(tier or "").strip().upper() in {"S", "A"}
 
 
+def _is_safety_guardrail_tier(tier: Any) -> bool:
+    return str(tier or "").strip().upper() in {"S", "A", "B"}
+
+
 def _contains_word(value: str, needle: str) -> bool:
     return needle.lower() in (value or "").lower()
 
@@ -424,11 +860,15 @@ def _friendly_pillar_supporting_signals(key: str, section: Dict[str, Any]) -> Li
 
     if key == "safety":
         reason_code = str(section.get("reason_code") or "")
-        if "safer" in reason_code or "manageable" in reason_code:
+        if any(token in reason_code for token in ("elite_downside_control", "strong_downside_control")):
+            return ["Strong downside support"]
+        if "controlled_misses" in reason_code:
             return ["Misses are more manageable"]
-        if "rough" in reason_code or "brutal" in reason_code:
+        if "average_safety_profile" in reason_code:
+            return ["Downside is around category average"]
+        if any(token in reason_code for token in ("rough", "brutal", "harsh", "punishing", "weak")):
             return ["Misses can be punishing"]
-        return ["Loss profile context"]
+        return ["Downside is around category average"]
 
     if key == "stability":
         profile = str(signals.get("profile") or "")
@@ -988,6 +1428,7 @@ def _pack_score_identity_modifier(
     set_intelligence: List[Dict[str, Any]],
     value_source_signal: Dict[str, Any],
     card_family_signal: Dict[str, Any],
+    value_concentration_signal: Optional[Dict[str, Any]] = None,
 ) -> Optional[str]:
     if not isinstance(pack_meta, dict):
         return None
@@ -1043,7 +1484,7 @@ def _pack_score_identity_modifier(
         return "There is real ceiling in the far tail, but it does not change the weaker broader value profile."
 
     if experience_state in {"boom_or_bust", "swingy"} and severity == "positive":
-        pack_phrase = _value_source_pack_phrase(value_source_signal, card_family_signal)
+        pack_phrase = _value_source_pack_phrase(value_source_signal, card_family_signal, value_concentration_signal)
         if pack_tier == "S":
             base = "This is an elite rip, but not a free win. Bad packs can still happen."
             if pack_phrase:
@@ -1056,12 +1497,12 @@ def _pack_score_identity_modifier(
 
     if pack_tier == "S" and reason_code == "strong_but_risky" and safety_band in {"low", "medium"}:
         base = "This is an elite rip, but not a free win. Bad packs can still happen."
-        pack_phrase = _value_source_pack_phrase(value_source_signal, card_family_signal)
+        pack_phrase = _value_source_pack_phrase(value_source_signal, card_family_signal, value_concentration_signal)
         if pack_phrase:
             return f"{base} A lot of the value is {pack_phrase}."
         return base
 
-    pack_phrase = _value_source_pack_phrase(value_source_signal, card_family_signal)
+    pack_phrase = _value_source_pack_phrase(value_source_signal, card_family_signal, value_concentration_signal)
     if pack_phrase and reason_code in {"elite_open", "good_open", "strong_but_risky", "good_value_shaky_path"}:
         return f"A lot of the value is {pack_phrase}."
 
@@ -1128,10 +1569,11 @@ def validate_interpretation_consistency(
     safety_tier = get_tier(summary_data, "safety_tier")
     stability_tier = get_tier(summary_data, "stability_tier")
 
-    if safety.meta and _is_high_tier(safety_tier):
+    if safety.meta and _is_safety_guardrail_tier(safety_tier):
         if safety.meta.severity in {"negative", "caution"}:
             safety.meta.severity = "neutral"
-        _replace_punishing_label(safety.meta, "Safer misses")
+        replacement = "Controlled misses" if str(safety_tier or "").strip().upper() == "B" else "Safer misses"
+        _replace_punishing_label(safety.meta, replacement)
 
     if profit.meta and _is_high_tier(profit_tier) and profit.meta.severity in {"negative", "caution"}:
         profit.meta.severity = "neutral"
@@ -1186,6 +1628,7 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
     value_source_signals = _build_value_source_signals(data)
     value_source_signal = value_source_signals["value_source_signal"]
     card_family_signal = value_source_signals["card_family_signal"]
+    value_concentration_signal = value_source_signals.get("value_concentration_signal")
 
     set_intelligence = _build_set_intelligence(
         summary_data,
@@ -1208,6 +1651,7 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
             set_intelligence,
             value_source_signal,
             card_family_signal,
+            value_concentration_signal,
         )
         if modifier:
             pack_meta["summary"] = _append_modifier(pack_meta.get("summary") or "", modifier)
@@ -1215,6 +1659,7 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
             pack_meta.get("summary") or "",
             value_source_signal,
             card_family_signal,
+            value_concentration_signal,
         )
         pack_score_summary = str(pack_meta.get("summary") or pack_score_summary)
     profit_meta = _section_to_dict(profit.meta) if profit.meta else None
@@ -1236,6 +1681,9 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
         "value_source_signals": {
             "value_source_signal": value_source_signal,
             "card_family_signal": card_family_signal,
+            "single_card_signal": value_source_signals.get("single_card_signal"),
+            "value_name_pattern_signal": value_source_signals.get("value_name_pattern_signal"),
+            "value_concentration_signal": value_concentration_signal,
         },
         "pillars": [
             _build_pillar_contract("profit", "Profit", profit_meta, profit_tier),
