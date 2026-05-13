@@ -48,7 +48,7 @@ Stability Score (0-100)
 
 PACK Score (0-100)
     Weighted blend of interpretable components:
-    45% Profit Score + 30% Safety Score + 25% Stability Score.
+    50% Profit Score + 35% Safety Score + 15% Stability Score.
 """
 
 from __future__ import annotations
@@ -662,7 +662,7 @@ _SAFETY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 _STABILITY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 
 # Overall PACK Score weights.
-_PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.40, 0.30, 0.30)
+_PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.50, 0.35, 0.15)
 
 
 # Runtime V2 component weights are declared as percentage-style values and
@@ -684,9 +684,9 @@ _STABILITY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "effective_chase_count": 35.0,
 }
 _PACK_SCORE_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "profit_score": 45.0,
-    "safety_score": 30.0,
-    "stability_score": 25.0,
+    "profit_score": 50.0,
+    "safety_score": 35.0,
+    "stability_score": 15.0,
 }
 
 # Stage 1 derived metrics component weights (percentage-style)
@@ -1939,15 +1939,15 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
         if not weights:
             weights = idx.get("weights_normalized", {}).get("pack_score", {})
         print(
-            f"  Profit Score  (w={_fmt_float(weights.get('profit_score', 0.40), 2)}):    "
+            f"  Profit Score  (w={_fmt_float(weights.get('profit_score', 0.50), 2)}):    "
             f"{_fmt_float(idx.get('profit_score'))}"
         )
         print(
-            f"  Safety Score  (w={_fmt_float(weights.get('safety_score', 0.30), 2)}):    "
+            f"  Safety Score  (w={_fmt_float(weights.get('safety_score', 0.35), 2)}):    "
             f"{_fmt_float(idx.get('safety_score'))}"
         )
         print(
-            f"  Stability Score (w={_fmt_float(weights.get('stability_score', 0.30), 2)}): "
+            f"  Stability Score (w={_fmt_float(weights.get('stability_score', 0.15), 2)}): "
             f"{_fmt_float(idx.get('stability_score'))}"
         )
 

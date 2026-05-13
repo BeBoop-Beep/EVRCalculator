@@ -28,7 +28,9 @@ import numpy as np
 import pytest
 
 from backend.calculations.evr.derived_metrics import (
+    _PACK_SCORE_V2_WEIGHTS_PCT,
     _RUNTIME_V2_ANCHORS,
+    _weighted_average,
     _compute_effective_chase_count,
     _compute_hhi_from_ev_contributions,
     _normalize_fixed_anchor_0_100,
@@ -713,8 +715,43 @@ class TestScoreBreakdown:
                 },
             ]
         )[0]
-        expected = 0.40 * result["profit_score"] + 0.30 * result["safety_score"] + 0.30 * result["stability_score"]
+        expected = 0.50 * result["profit_score"] + 0.35 * result["safety_score"] + 0.15 * result["stability_score"]
         assert result["pack_score"] == pytest.approx(expected, abs=0.01)
+
+
+class TestPackScorePillarWeightingRegression:
+    """Directional guardrails for final score behavior across pillar mixes."""
+
+    @staticmethod
+    def _pack_score_from_letters(profit: float, safety: float, stability: float) -> float:
+        return _weighted_average(
+            {
+                "profit_score": profit,
+                "safety_score": safety,
+                "stability_score": stability,
+            },
+            _PACK_SCORE_V2_WEIGHTS_PCT,
+        )
+
+    def test_b_b_f_does_not_collapse_to_bottom_tier_behavior(self):
+        # B/B/F should remain middle-to-decent and not collapse solely on stability.
+        score = self._pack_score_from_letters(profit=75.0, safety=75.0, stability=35.0)
+        assert score >= 60.0
+
+    def test_d_d_a_does_not_jump_to_strong_behavior(self):
+        # D/D/A should stay capped; strong stability cannot fully rescue weak value pillars.
+        score = self._pack_score_from_letters(profit=55.0, safety=55.0, stability=85.0)
+        assert score <= 64.0
+
+    def test_f_f_s_remains_weak(self):
+        # Terrible profit/safety cannot be rescued by excellent stability.
+        score = self._pack_score_from_letters(profit=35.0, safety=35.0, stability=95.0)
+        assert score < 55.0
+
+    def test_a_or_s_profit_with_mid_safety_and_f_stability_can_still_be_decent(self):
+        # Low stability should flag risk/path quality, not completely bury strong value.
+        score = self._pack_score_from_letters(profit=85.0, safety=70.0, stability=35.0)
+        assert score >= 65.0
 
 
 # ---------------------------------------------------------------------------
