@@ -63,9 +63,13 @@ const RIP_COPY = {
   },
   chartMarkers: {
     packCost: "Pack Cost",
-    typicalPack: "Typical Pack Value",
+    typicalPack: "Typical Pack",
+    averagePack: "Average Pack",
+    badFloor: "Bad Floor",
     bigHit: "Big Hit",
-    bestPull: "Best Simulated Pull",
+    bigHitUpside: "Big Hit Upside",
+    godPullUpside: "God Pull Upside",
+    bestPull: "Best Pull",
   },
   chartStats: {
     typicalPack: "Typical Pack Value",
@@ -1395,7 +1399,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
       <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{totalLabel}</span>
-          <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} />
+          {totalEV !== null ? <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} /> : null}
         </div>
         <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
       </div>
@@ -1951,8 +1955,7 @@ export default function RipStatisticsPageClient({
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
         <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often packs land in each value range.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows how often a pack reaches at least a given value.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The markers highlight pack cost, a typical pack value, a big hit, and the best simulated pull in the run.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Extra percentile markers stay available under chart details when you want the technical view.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Marker chips let you compare pack cost, typical and average outcomes, floor outcomes, and upper-end upside markers against the distribution.</span></li>
       </ul>
     </div>
   );
@@ -2173,9 +2176,9 @@ export default function RipStatisticsPageClient({
                 window.clearTimeout(pendingNavTimeoutRef.current);
                 pendingNavTimeoutRef.current = null;
               }
+              frameId = null;
+              return;
             }
-            frameId = null;
-            return;
           }
         }
 
@@ -2206,10 +2209,26 @@ export default function RipStatisticsPageClient({
     };
   }, [explorePayload, pageError, graphMode]);
 
+  const packCostValue = toNumber(summary.pack_cost);
+  const p95ValueToCostRatio = toNumber(summary.p95_value_to_cost_ratio);
+  const p99ValueToCostRatio = toNumber(summary.p99_value_to_cost_ratio);
+
   const chartMarkers = [
     { key: "pack-cost", label: RIP_COPY.chartMarkers.packCost, value: summary.pack_cost },
     { key: "median", label: RIP_COPY.chartMarkers.typicalPack, value: percentileP50 ?? summary.median_value },
+    { key: "mean", label: RIP_COPY.chartMarkers.averagePack, value: summary.mean_value },
+    { key: "bad-floor", label: RIP_COPY.chartMarkers.badFloor, value: percentileP5 ?? summary.tail_value_p05 },
     { key: "big-hit", label: RIP_COPY.chartMarkers.bigHit, value: summary.big_hit_threshold },
+    {
+      key: "big-hit-upside",
+      label: RIP_COPY.chartMarkers.bigHitUpside,
+      value: packCostValue !== null && p95ValueToCostRatio !== null ? p95ValueToCostRatio * packCostValue : null,
+    },
+    {
+      key: "god-pull-upside",
+      label: RIP_COPY.chartMarkers.godPullUpside,
+      value: packCostValue !== null && p99ValueToCostRatio !== null ? p99ValueToCostRatio * packCostValue : null,
+    },
     { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
@@ -2230,15 +2249,15 @@ export default function RipStatisticsPageClient({
   const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: summary.pack_tier });
   const simpleAverageLossValue = getSimpleAverageLossValue(summary);
   const decisionMetrics = [
-    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
-    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
+    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
     { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
+    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
   ];
   const primaryDecisionMetricOrder = [
-    RIP_COPY.simpleMetrics.averagePackValue,
     RIP_COPY.simpleMetrics.currentPackCost,
+    RIP_COPY.simpleMetrics.averagePackValue,
     RIP_COPY.simpleMetrics.averageLoss,
   ];
   const primaryDecisionMetrics = primaryDecisionMetricOrder
@@ -2248,13 +2267,13 @@ export default function RipStatisticsPageClient({
     (metric) => !primaryDecisionMetricOrder.includes(metric.label)
   );
   const technicalScoreMetrics = [
-    { label: "Average Return", value: formatNumber(meanValueToCostRatio, 2) },
-    { label: "Typical Return", value: formatNumber(medianValueToCostRatio, 2) },
+    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
+    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
-    { label: "Value Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
-    { label: "Chase Depth", value: formatNumber(summary.effective_chase_count, 2) },
+    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3) },
+    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2) },
   ];
 
   const handleTargetIdChange = (nextTargetId, options = {}) => {
@@ -2778,6 +2797,7 @@ export default function RipStatisticsPageClient({
             {viewMode === "expert" ? (
             <section className="pt-8">
               <div className="grid gap-4 xl:grid-cols-3">
+                {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
                   title="Profit"
                   score={displayedProfitScore}
@@ -2788,17 +2808,17 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Profit")}
                   simpleMetrics={[
-                    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
-                    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
                     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
+                    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
+                    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
+                    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
                     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
                   ]}
                   advancedMetrics={[
-                    { label: "Average Return", value: formatNumber(meanValueToCostRatio, 2) },
-                    { label: "Typical Return", value: formatNumber(medianValueToCostRatio, 2) },
+                    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
+                    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
                     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
                     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
-                    { label: "ROI", value: formatPercent(summary.roi_percent) },
                   ]}
                 />
                 <ScorePillarCard
@@ -2811,15 +2831,14 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Safety")}
                   simpleMetrics={[
-                    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing) },
-                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value) },
-                    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05) },
+                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), infoText: getMetricTooltip("Typical Pack Value") },
+                    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), infoText: getMetricTooltip("Bad Pack Floor Value") },
+                    { label: "Chance to Miss Pack Cost", value: formatPercent(1 - (toNumber(summary.prob_profit) > 1 ? toNumber(summary.prob_profit) / 100 : toNumber(summary.prob_profit)), { probability: true }), infoText: getMetricTooltip("Chance to Miss Pack Cost") },
                   ]}
                   advancedMetrics={[
-                    { label: "Expected Loss Per Pack", value: formatLossCurrency(summary.expected_loss_per_pack) },
-                    { label: "Expected Loss When Losing", value: formatLossCurrency(summary.expected_loss_when_losing) },
-                    { label: "Median Loss When Losing", value: formatLossCurrency(summary.median_loss_when_losing) },
-                    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05) },
+                    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), infoText: getMetricTooltip("Average Loss When You Miss") },
+                    { label: "Typical Loss When You Miss", value: formatLossCurrency(summary.median_loss_when_losing), infoText: getMetricTooltip("Typical Loss When You Miss") },
+                    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), infoText: getMetricTooltip("Worst 5% Outcome") },
                   ]}
                 />
                 <ScorePillarCard
@@ -2838,8 +2857,8 @@ export default function RipStatisticsPageClient({
                   ]}
                   advancedMetrics={[
                     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
-                    { label: "EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
                     { label: "Effective Chase Count", value: formatNumber(summary.effective_chase_count, 2) },
+                    { label: "EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
                     { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share) },
                     { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share) },
                   ]}
@@ -2943,18 +2962,10 @@ export default function RipStatisticsPageClient({
                         />
                         <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
                       </div>
-                    ) : (
-                    <div className="mt-4 hidden lg:grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                      <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                      <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                      <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                      <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
-                      <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
-                    </div>
-                    )}
+                    ) : null}
 
-                    <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
-                      {graphMode === "historical-trend" ? (
+                    {graphMode === "historical-trend" ? (
+                      <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
                         <div className="grid gap-3 sm:grid-cols-2">
                           <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
                           <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
@@ -2972,86 +2983,13 @@ export default function RipStatisticsPageClient({
                           />
                           <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
                         </div>
-                      ) : (
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                          <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                          <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                          <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
-                          <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
-                        </div>
-                      )}
-                    </MobileMetricAccordion>
+                      </MobileMetricAccordion>
+                    ) : null}
                   </>
                 ) : null}
               </SectionCard>
             </section>
             ) : null}
-
-            {viewMode === "expert" ? (
-            <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
-              <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
-                <SectionViewTabs
-                  className="mb-4"
-                  value={activeValueView}
-                  onChange={setActiveValueView}
-                  options={[
-                    { value: "cards", label: "Cards Carrying the Set" },
-                    { value: "value", label: "Value Contribution" },
-                    { value: "frequency", label: "Pull Frequency" },
-                  ]}
-                />
-
-                <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
-
-                {effectiveValueView === "cards" ? (
-                  <>
-                    <InterpretationInsight
-                      sectionMeta={topEvDriversMeta}
-                      fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
-                      compact
-                      showEvidence={false}
-                      className="mb-3"
-                    />
-
-                    {topEvEvidenceRows.length > 0 ? (
-                      <div className="mb-3 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
-                        {topEvEvidenceRows.map(([label, value]) => (
-                          <span
-                            key={`${label}:${value}`}
-                            className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
-                          >
-                            <span className="shrink-0">{label}</span>
-                            <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
-                  </>
-                ) : (
-                  <>
-                    <InterpretationInsight
-                      sectionMeta={rarityContributionMeta}
-                      fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
-                      compact
-                      showEvidence
-                      maxEvidence={4}
-                      className="mb-3"
-                    />
-                    <RarityContributionContent
-                      rankings={rankings}
-                      mode={effectiveValueView === "value" ? "ev" : "pull"}
-                      showToggle={false}
-                    />
-                  </>
-                )}
-              </SectionCard>
-            </section>
-            ) : null}
-
-
 
             {warnings.length > 0 ? (
               <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Bar,
@@ -23,6 +23,9 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 function toNumber(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -264,6 +267,8 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   const [showBars, setShowBars] = useState(true);
   const [showLine, setShowLine] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [chartContainerWidth, setChartContainerWidth] = useState(0);
+  const chartContainerRef = useRef(null);
   const hasThresholdBins = Array.isArray(thresholdBins) && thresholdBins.length > 0;
 
   useEffect(() => {
@@ -273,6 +278,21 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
     const handler = (e) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  useEffect(() => {
+    const element = chartContainerRef.current;
+    if (!element || typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+
+    const updateWidth = () => setChartContainerWidth(element.clientWidth || 0);
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+
+    return () => observer.disconnect();
   }, []);
 
 
@@ -474,6 +494,71 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
     return validRows.length >= 2;
   }, [combinedData]);
 
+  const xAxisTickSlots = useMemo(() => {
+    if (combinedData.length === 0) {
+      return undefined;
+    }
+
+    const firstIndex = 0;
+    const lastIndex = combinedData.length - 1;
+    const firstSlot = String(combinedData[firstIndex]?.x_slot ?? "0");
+    const lastSlot = String(combinedData[lastIndex]?.x_slot ?? "0");
+    const isWideDesktop = chartContainerWidth >= 950;
+    const isNarrowViewport =
+      isMobile ||
+      (!isWideDesktop && typeof window !== "undefined" && Number.isFinite(window.innerWidth) && window.innerWidth <= 900);
+
+    if (isWideDesktop) {
+      return combinedData.map((row) => String(row.x_slot)).filter(Boolean);
+    }
+
+    if (isNarrowViewport) {
+      const preferredIndexes = [0, 2, 4, 6, 10, 12, 14, lastIndex]
+        .filter((index) => Number.isInteger(index) && index >= firstIndex && index <= lastIndex);
+
+      const selectedIndexes = new Set(preferredIndexes);
+      selectedIndexes.add(firstIndex);
+      selectedIndexes.add(lastIndex);
+
+      return Array.from(selectedIndexes)
+        .sort((left, right) => left - right)
+        .map((index) => String(combinedData[index]?.x_slot))
+        .filter(Boolean);
+    }
+
+    if (!hasThresholdBins) {
+      return undefined;
+    }
+
+    const lowEndCutoff = 15;
+    const milestoneMultiplier = 4.5;
+
+    const selectedSlots = new Set([firstSlot, lastSlot]);
+
+    for (const row of combinedData) {
+      if (toNumber(row.exact_value) !== null && row.exact_value <= lowEndCutoff) {
+        selectedSlots.add(String(row.x_slot));
+      }
+    }
+
+    let nextMilestone = lowEndCutoff * 3.5;
+    for (const row of combinedData) {
+      const midpoint = toNumber(row.exact_value);
+      const slot = String(row.x_slot);
+      if (slot === lastSlot || midpoint === null || midpoint <= lowEndCutoff) {
+        continue;
+      }
+      if (midpoint >= nextMilestone) {
+        selectedSlots.add(slot);
+        nextMilestone *= milestoneMultiplier;
+      }
+    }
+
+    return combinedData
+      .map((row) => String(row.x_slot))
+      .filter((slot) => selectedSlots.has(slot));
+  }, [chartContainerWidth, combinedData, hasThresholdBins, isMobile]);
+
   // Map marker values to category slots for ReferenceLine rendering.
   const markerSlotsMap = useMemo(() => {
     const map = new Map();
@@ -585,7 +670,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
         </div>
       </div>
 
-      <div className="mt-4 h-[20rem] w-full max-w-full min-w-0 sm:h-[23rem]">
+      <div ref={chartContainerRef} className="mt-4 h-[20rem] w-full max-w-full min-w-0 sm:h-[23rem]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={combinedData} margin={isMobile ? { top: 8, right: 8, left: 0, bottom: 8 } : { top: 8, right: 56, left: 4, bottom: 8 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
@@ -593,14 +678,18 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
             <XAxis
               type="category"
               dataKey="x_slot"
+              ticks={xAxisTickSlots}
               tickLine={false}
               axisLine={false}
               tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
               tickFormatter={(slot) => {
                 const row = combinedData.find((candidate) => String(candidate.x_slot) === String(slot));
+                if (row?.bin_ceiling === null && row?.bin_floor !== null) {
+                  return `${formatAxisCurrency(row.bin_floor)}+`;
+                }
                 return formatAxisCurrency(row?.exact_value);
               }}
-              interval="preserveStartEnd"
+              interval={xAxisTickSlots ? 0 : "preserveStartEnd"}
               minTickGap={24}
               dy={8}
             />
