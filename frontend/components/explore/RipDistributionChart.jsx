@@ -124,6 +124,10 @@ function CombinedTooltip({ active, payload }) {
   const hasCurve =
     row.chance_to_reach_percent !== null &&
     row.chance_to_reach_percent !== undefined;
+  const reachThresholdValue =
+    hasBin && Number.isFinite(row.bin_floor)
+      ? row.bin_floor
+      : (row.curve_exact_value ?? row.exact_value);
 
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
@@ -134,7 +138,7 @@ function CombinedTooltip({ active, payload }) {
             {String(row.range_label || "").trim() || `${formatCompactCurrency(row.bin_floor)} – ${formatCompactCurrency(row.bin_ceiling)}`}
           </p>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
-            How often this happens&nbsp;
+            Packs in this range&nbsp;
             <span className="font-semibold text-[var(--text-primary)]">
               {Number.isFinite(row.exact_frequency_percent) ? `${row.exact_frequency_percent.toFixed(2)}%` : "—"}
             </span>
@@ -144,7 +148,7 @@ function CombinedTooltip({ active, payload }) {
           ) : null}
           {Number.isFinite(row.survival_probability) ? (
             <p className="text-xs text-[var(--text-secondary)]">
-              Chance to reach this value {formatChancePercent(row.survival_probability * 100)}
+              Chance to reach this range or higher {formatChancePercent(row.survival_probability * 100)}
             </p>
           ) : null}
         </>
@@ -160,7 +164,7 @@ function CombinedTooltip({ active, payload }) {
           </span>
           {" "}of packs reach at least{" "}
           <span className="font-semibold text-[var(--text-primary)]">
-            {formatCompactCurrency(row.curve_exact_value ?? row.exact_value)}
+            {formatCompactCurrency(reachThresholdValue)}
           </span>
         </p>
       ) : null}
@@ -503,16 +507,15 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
     const lastIndex = combinedData.length - 1;
     const firstSlot = String(combinedData[firstIndex]?.x_slot ?? "0");
     const lastSlot = String(combinedData[lastIndex]?.x_slot ?? "0");
-    const isWideDesktop = chartContainerWidth >= 950;
-    const isNarrowViewport =
-      isMobile ||
-      (!isWideDesktop && typeof window !== "undefined" && Number.isFinite(window.innerWidth) && window.innerWidth <= 900);
+    const viewportWidth =
+      typeof window !== "undefined" && Number.isFinite(window.innerWidth) ? window.innerWidth : 0;
+    const isWideDesktop = !isMobile && (chartContainerWidth >= 950 || viewportWidth >= 1200);
 
     if (isWideDesktop) {
       return combinedData.map((row) => String(row.x_slot)).filter(Boolean);
     }
 
-    if (isNarrowViewport) {
+    if (isMobile) {
       const preferredIndexes = [0, 2, 4, 6, 10, 12, 14, lastIndex]
         .filter((index) => Number.isInteger(index) && index >= firstIndex && index <= lastIndex);
 

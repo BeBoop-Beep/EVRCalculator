@@ -2991,6 +2991,69 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
+            {viewMode === "expert" ? (
+            <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
+              <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
+                <SectionViewTabs
+                  className="mb-4"
+                  value={activeValueView}
+                  onChange={setActiveValueView}
+                  options={[
+                    { value: "cards", label: "Cards Carrying the Set" },
+                    { value: "value", label: "Value Contribution" },
+                    { value: "frequency", label: "Pull Frequency" },
+                  ]}
+                />
+
+                <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
+
+                {effectiveValueView === "cards" ? (
+                  <>
+                    <InterpretationInsight
+                      sectionMeta={topEvDriversMeta}
+                      fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
+                      compact
+                      showEvidence={false}
+                      className="mb-3"
+                    />
+
+                    {topEvEvidenceRows.length > 0 ? (
+                      <div className="mb-3 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
+                        {topEvEvidenceRows.map(([label, value]) => (
+                          <span
+                            key={`${label}:${value}`}
+                            className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                          >
+                            <span className="shrink-0">{label}</span>
+                            <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                  </>
+                ) : (
+                  <>
+                    <InterpretationInsight
+                      sectionMeta={rarityContributionMeta}
+                      fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
+                      compact
+                      showEvidence
+                      maxEvidence={4}
+                      className="mb-3"
+                    />
+                    <RarityContributionContent
+                      rankings={rankings}
+                      mode={effectiveValueView === "value" ? "ev" : "pull"}
+                      showToggle={false}
+                    />
+                  </>
+                )}
+              </SectionCard>
+            </section>
+            ) : null}
+
             {warnings.length > 0 ? (
               <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Warnings</p>
