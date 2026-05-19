@@ -7,6 +7,7 @@ import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
+import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
 import InfoPopover from "@/components/ui/InfoPopover";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
@@ -170,6 +171,40 @@ function formatMultiplier(value, decimals = 1) {
     return "—";
   }
   return `${parsed.toFixed(decimals)}x`;
+}
+
+function normalizePullRateAssumptions(explorePayload) {
+  const source = explorePayload?.pull_rate_assumptions || explorePayload?.pullRateAssumptions || null;
+
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const normalizeRow = (row) => {
+    if (!row || typeof row !== "object") {
+      return row;
+    }
+
+    return {
+      ...row,
+      cardCount: row.cardCount ?? row.card_count ?? row.eligibleCardCount ?? row.eligible_card_count ?? null,
+      specificCardOddsDenominator:
+        row.specificCardOddsDenominator ?? row.specific_card_odds_denominator ?? null,
+      expectedCardsPerPack: row.expectedCardsPerPack ?? row.expected_cards_per_pack ?? null,
+      rarityOddsDenominator: row.rarityOddsDenominator ?? row.rarity_odds_denominator ?? null,
+    };
+  };
+
+  return {
+    ...source,
+    groups: Array.isArray(source.groups)
+      ? source.groups.map((group) => ({
+          ...group,
+          rows: Array.isArray(group?.rows) ? group.rows.map(normalizeRow) : [],
+        }))
+      : source.groups,
+    rows: Array.isArray(source.rows) ? source.rows.map(normalizeRow) : source.rows,
+  };
 }
 
 function SectionViewTabs({ value, onChange, options, className = "" }) {
@@ -1427,23 +1462,8 @@ function TopEVDriversContent({ topHits, meanValue }) {
   );
 }
 
-function RarityContributionContent({ rankings, mode: controlledMode = null, showToggle = true }) {
-  const [uncontrolledMode, setUncontrolledMode] = useState("ev");
-  const mode = controlledMode === "ev" || controlledMode === "pull" ? controlledMode : uncontrolledMode;
+function RarityContributionContent({ rankings }) {
   const rows = Array.isArray(rankings) ? rankings : [];
-
-  const RarityMetricRow = ({ label, primaryValue, share, barWidth }) => (
-    <div className="py-1.5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-[var(--text-primary)]">{label}</span>
-        <span className="text-right text-sm text-[var(--text-primary)]">
-          <span className="font-semibold">{primaryValue}</span>
-          {share ? <span className="text-[var(--text-secondary)]"> {`(${share})`}</span> : null}
-        </span>
-      </div>
-      <HorizontalBar widthPercent={barWidth} />
-    </div>
-  );
 
   const evRows = useMemo(() => {
     const sorted = [...rows].sort(
@@ -1451,16 +1471,8 @@ function RarityContributionContent({ rankings, mode: controlledMode = null, show
     );
     const totalEV = sorted.reduce((sum, row) => sum + (toNumber(row?.total_sampled_value) ?? 0), 0);
     const maxEV = Math.max(...sorted.map((row) => toNumber(row?.total_sampled_value) ?? 0), 0);
-    return { sorted, totalEV, maxEV };
-  }, [rows]);
-
-  const pullRows = useMemo(() => {
-    const sorted = [...rows].sort(
-      (a, b) => (toNumber(b?.pulled_count) ?? 0) - (toNumber(a?.pulled_count) ?? 0)
-    );
     const totalPulls = sorted.reduce((sum, row) => sum + (toNumber(row?.pulled_count) ?? 0), 0);
-    const maxPulls = Math.max(...sorted.map((row) => toNumber(row?.pulled_count) ?? 0), 0);
-    return { sorted, totalPulls, maxPulls };
+    return { sorted, totalEV, maxEV, totalPulls };
   }, [rows]);
 
   if (rows.length === 0) {
@@ -1469,84 +1481,51 @@ function RarityContributionContent({ rankings, mode: controlledMode = null, show
 
   return (
     <>
-      {showToggle ? (
-        <div className="mb-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-          <button
-            type="button"
-            onClick={() => setUncontrolledMode("ev")}
-            aria-pressed={mode === "ev"}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-              mode === "ev" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            Value Contribution
-          </button>
-          <button
-            type="button"
-            onClick={() => setUncontrolledMode("pull")}
-            aria-pressed={mode === "pull"}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-              mode === "pull" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            Pull Frequency
-          </button>
-        </div>
-      ) : null}
-
       <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-            {mode === "ev" ? "Total Simulated Value" : "Total Simulated Pulls"}
-          </span>
-          {mode === "ev" ? <InfoPopover text={TOTAL_SIMULATED_VALUE_INFO_TEXT} /> : null}
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Total Simulated Value</span>
+          <InfoPopover text={TOTAL_SIMULATED_VALUE_INFO_TEXT} />
         </div>
-        <span className="text-lg font-semibold text-[var(--text-primary)]">
-          {mode === "ev" ? formatCurrency(evRows.totalEV) : pullRows.totalPulls.toLocaleString("en-US")}
-        </span>
+        <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(evRows.totalEV)}</span>
       </div>
 
-      {mode === "ev" ? (
-        <div className="space-y-1">
-          {evRows.maxEV === 0 ? (
-            <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
-          ) : (
-            evRows.sorted.map((ranking) => {
-              const value = toNumber(ranking?.total_sampled_value) ?? 0;
-              const share = evRows.totalEV > 0 ? `${((value / evRows.totalEV) * 100).toFixed(1)}%` : null;
-
-              return (
-                <RarityMetricRow
-                  key={`ev:${ranking?.rarity_bucket || "unknown"}`}
-                  label={titleCaseStateLabel(ranking?.rarity_bucket)}
-                  primaryValue={formatCurrency(value)}
-                  share={share}
-                  barWidth={normalizeBarWidth(value, evRows.maxEV)}
-                />
-              );
-            })
-          )}
-        </div>
+      {evRows.maxEV === 0 ? (
+        <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
       ) : (
         <div className="space-y-1">
-          {pullRows.maxPulls === 0 ? (
-            <p className="text-sm text-[var(--text-secondary)]">No pull frequency data available.</p>
-          ) : (
-            pullRows.sorted.map((ranking) => {
-              const count = toNumber(ranking?.pulled_count) ?? 0;
-              const share = pullRows.totalPulls > 0 ? `${((count / pullRows.totalPulls) * 100).toFixed(1)}%` : null;
+          {evRows.sorted.map((ranking) => {
+            const value = toNumber(ranking?.total_sampled_value) ?? 0;
+            const valueShare = evRows.totalEV > 0 ? ((value / evRows.totalEV) * 100).toFixed(1) : null;
+            const pullCount = toNumber(ranking?.pulled_count) ?? null;
+            const pullShare =
+              pullCount !== null && evRows.totalPulls > 0
+                ? ((pullCount / evRows.totalPulls) * 100).toFixed(1)
+                : null;
+            const hasPullData = pullCount !== null && evRows.totalPulls > 0;
 
-              return (
-                <RarityMetricRow
-                  key={`pull:${ranking?.rarity_bucket || "unknown"}`}
-                  label={titleCaseStateLabel(ranking?.rarity_bucket)}
-                  primaryValue={count.toLocaleString("en-US")}
-                  share={share}
-                  barWidth={normalizeBarWidth(count, pullRows.maxPulls)}
-                />
-              );
-            })
-          )}
+            return (
+              <div key={`ev:${ranking?.rarity_bucket || "unknown"}`} className="py-1.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-[var(--text-primary)]">{titleCaseStateLabel(ranking?.rarity_bucket)}</span>
+                    {hasPullData ? (
+                      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+                        {pullCount.toLocaleString("en-US")} pulls in {evRows.totalPulls.toLocaleString("en-US")} simulated pulls
+                        {pullShare !== null ? ` \u2022 ${pullShare}% of pulls` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(value)}</span>
+                    {valueShare !== null ? (
+                      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{valueShare}% of total value</p>
+                    ) : null}
+                  </div>
+                </div>
+                <HorizontalBar widthPercent={normalizeBarWidth(value, evRows.maxEV)} />
+              </div>
+            );
+          })}
         </div>
       )}
     </>
@@ -1879,6 +1858,7 @@ export default function RipStatisticsPageClient({
   const topHits = explorePayload?.top_hits || [];
   const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
+  const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
   const interpretationMeta = interpretation?.meta || {};
@@ -3001,7 +2981,7 @@ export default function RipStatisticsPageClient({
                   options={[
                     { value: "cards", label: "Cards Carrying the Set" },
                     { value: "value", label: "Value Contribution" },
-                    { value: "frequency", label: "Pull Frequency" },
+                    { value: "pull-rates", label: "Pull Rates" },
                   ]}
                 />
 
@@ -3033,7 +3013,7 @@ export default function RipStatisticsPageClient({
 
                     <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
                   </>
-                ) : (
+                ) : effectiveValueView === "value" ? (
                   <>
                     <InterpretationInsight
                       sectionMeta={rarityContributionMeta}
@@ -3045,10 +3025,17 @@ export default function RipStatisticsPageClient({
                     />
                     <RarityContributionContent
                       rankings={rankings}
-                      mode={effectiveValueView === "value" ? "ev" : "pull"}
-                      showToggle={false}
                     />
                   </>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>
+                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Modeled rarity frequency and specific-card odds used by this simulation.</p>
+                      <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
+                    </div>
+                    <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                  </div>
                 )}
               </SectionCard>
             </section>

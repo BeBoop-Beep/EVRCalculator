@@ -109,6 +109,7 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_value_distribution_bins": lambda _q: [],
         "simulation_value_threshold_bins": lambda _q: [],
         "simulation_input_cards_with_near_mint_price": lambda _q: [],
+        "sets": lambda _q: [],
         "card_variants": lambda _q: [],
         "cards": lambda _q: [],
     }
@@ -254,9 +255,9 @@ def test_limit_values_are_safely_clamped(monkeypatch):
     top_hits_calls = [c for c in client.calls if c.table_name == "simulation_input_cards_with_near_mint_price"]
 
     assert len(distribution_calls) == 1
-    assert len(top_hits_calls) == 1
+    assert len(top_hits_calls) >= 1
     assert distribution_calls[0].limit_value == 200
-    assert top_hits_calls[0].limit_value == 1
+    assert any(call.limit_value == 1 for call in top_hits_calls)
 
 
 def test_distribution_bins_are_queried_separately(monkeypatch):
@@ -618,3 +619,442 @@ def test_rip_summary_keeps_direct_p99_ratio_without_percentile_recompute(monkeyp
     assert payload["meta"]["sources"]["summary_source"] == "explore_rip_statistics_latest"
     assert payload["meta"]["sources"]["simulation_derived_metrics"] == "SKIPPED_RIP_SUMMARY"
     assert payload["meta"]["sources"]["average_return_relative"] == "SERVICE_COMPUTED"
+
+
+def test_pull_rate_assumptions_are_exposed_from_set_config_and_run_inputs(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-pull-rate")
+
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-pull-rate",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "pack_tier": "A",
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "profit_tier": "A",
+            "safety_rank": 2,
+            "safety_tier": "A",
+            "stability_rank": 5,
+            "stability_tier": "B",
+            "relative_profit_score": 70.0,
+            "relative_safety_score": 73.0,
+            "relative_stability_score": 69.0,
+            "pack_cost": 5.0,
+            "mean_value": 5.55,
+            "median_value": 5.1,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: [
+        {
+            "card_id": "rr-card-1",
+            "card_variant_id": "rr-variant-1",
+            "card_name": "Regular Reverse One",
+            "rarity_bucket": "regular reverse",
+        },
+        {
+            "card_id": "rr-card-2",
+            "card_variant_id": "rr-variant-2",
+            "card_name": "Regular Reverse Two",
+            "rarity_bucket": "regular reverse",
+        },
+        {
+            "card_id": "rr-card-3",
+            "card_variant_id": "rr-variant-3",
+            "card_name": "Regular Reverse Three",
+            "rarity_bucket": "regular reverse",
+        },
+        {
+            "card_id": "card-1",
+            "card_variant_id": "variant-1",
+            "card_name": "Hit One",
+            "rarity_bucket": "special illustration rare",
+        },
+        {
+            "card_id": "card-2",
+            "card_variant_id": "variant-2",
+            "card_name": "Hit Two",
+            "rarity_bucket": "special illustration rare",
+        },
+        {
+            "card_id": "card-3",
+            "card_variant_id": "variant-3",
+            "card_name": "Hit Three",
+            "rarity_bucket": "ultra rare",
+        },
+    ]
+
+    class _MockSetConfig:
+        PULL_RATE_MAPPING = {
+            "common": 67,
+            "uncommon": 43,
+            "rare": 12,
+            "double rare": 43,
+            "illustration rare": 98,
+            "special illustration rare": 487,
+            "ultra rare": 211,
+            "mega hyper rare": 1786,
+        }
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {
+                "regular reverse": 1,
+            },
+            "slot_2": {
+                "illustration rare": 1 / 9,
+                "special illustration rare": 1 / 81,
+                "mega hyper rare": 1 / 1786,
+                "regular reverse": 1 - (1 / 9) - (1 / 81) - (1 / 1786),
+            }
+        }
+        RARE_SLOT_PROBABILITY = {
+            "double rare": 1 / 5,
+            "ultra rare": 1 / 12,
+            "rare": 1 - (1 / 5) - (1 / 12),
+        }
+        SLOTS_PER_RARITY = {
+            "common": 4,
+            "uncommon": 3,
+            "reverse": 2,
+            "rare": 1,
+        }
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    def _sets_handler(query):
+        eq_by_field = {field: value for field, value in query.eq_filters}
+        if eq_by_field.get("id") == "base-set":
+            return [
+                {
+                    "id": "base-set",
+                    "name": "Base Set",
+                    "canonical_key": "base-set",
+                    "pokemon_api_set_id": "base-set",
+                }
+            ]
+        return []
+
+    handlers["sets"] = _sets_handler
+    monkeypatch.setattr(service, "_resolve_set_config", lambda _target_id: (_MockSetConfig, "mockSet"))
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assumptions = payload.get("pull_rate_assumptions")
+    assert assumptions is not None
+    assert assumptions["meta"]["is_modelled"] is True
+    assert assumptions["meta"]["is_modeled"] is True
+    assert assumptions["meta"]["source_label"] == "Config-based pack model + inDex-derived card counts"
+
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    assert set(groups_by_key.keys()) == {"pack_structure", "hit_rarity_model", "special_pack_rules"}
+
+    pack_rows = {row["rarity"]: row for row in groups_by_key["pack_structure"]["rows"]}
+    assert "common" in pack_rows
+    assert "uncommon" in pack_rows
+    assert "rare" in pack_rows
+    assert "regular reverse" in pack_rows
+    assert pack_rows["common"]["expected_cards_per_pack"] == 4.0
+    assert pack_rows["common"]["card_count"] == 67
+    assert pack_rows["common"]["specific_card_odds_denominator"] == 16.75
+    assert pack_rows["uncommon"]["expected_cards_per_pack"] == 3.0
+    assert pack_rows["uncommon"]["card_count"] == 43
+    assert pack_rows["uncommon"]["specific_card_odds_denominator"] == (43 / 3)
+    assert pack_rows["rare"]["slot_label"] == "Rare slot model"
+    assert pack_rows["rare"]["card_count"] == 12
+    assert round(pack_rows["rare"]["expected_cards_per_pack"], 4) == round(1 - (1 / 5) - (1 / 12), 4)
+    assert round(pack_rows["rare"]["specific_card_odds_denominator"], 1) == 16.7
+    assert pack_rows["regular reverse"]["slot_label"] == "Reverse slot model"
+    assert round(pack_rows["regular reverse"]["expected_cards_per_pack"], 3) == 1.876
+    assert pack_rows["regular reverse"]["card_count"] == 3
+    assert round(pack_rows["regular reverse"]["specific_card_odds_denominator"], 2) == 1.60
+
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+    assert "double rare" in hit_rows
+    assert "ultra rare" in hit_rows
+    assert "illustration rare" in hit_rows
+    assert "special illustration rare" in hit_rows
+    assert "mega hyper rare" in hit_rows
+    assert hit_rows["double rare"]["specific_card_odds_denominator"] == 43
+    assert hit_rows["ultra rare"]["specific_card_odds_denominator"] == 211
+    assert hit_rows["illustration rare"]["specific_card_odds_denominator"] == 98
+    assert hit_rows["special illustration rare"]["specific_card_odds_denominator"] == 487
+    assert hit_rows["mega hyper rare"]["specific_card_odds_denominator"] == 1786
+
+    assert groups_by_key["special_pack_rules"]["rows"] == []
+    assert payload["summary"]["pack_score"] == 78.1
+    assert payload["meta"]["sources"]["pull_rate_assumptions_regular_reverse_count"] == "OK"
+
+
+def test_pull_rate_assumptions_regular_reverse_specific_odds_require_eligible_pool(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-pull-rate-no-reverse")
+
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-pull-rate-no-reverse",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "pack_tier": "A",
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "profit_tier": "A",
+            "safety_rank": 2,
+            "safety_tier": "A",
+            "stability_rank": 5,
+            "stability_tier": "B",
+            "relative_profit_score": 70.0,
+            "relative_safety_score": 73.0,
+            "relative_stability_score": 69.0,
+            "pack_cost": 5.0,
+            "mean_value": 5.55,
+            "median_value": 5.1,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: []
+
+    class _MockSetConfig:
+        PULL_RATE_MAPPING = {
+            "common": 67,
+            "uncommon": 43,
+            "rare": 12,
+            "double rare": 43,
+            "illustration rare": 98,
+            "special illustration rare": 487,
+            "ultra rare": 211,
+            "mega hyper rare": 1786,
+        }
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {
+                "regular reverse": 1,
+            },
+            "slot_2": {
+                "illustration rare": 1 / 9,
+                "special illustration rare": 1 / 81,
+                "mega hyper rare": 1 / 1786,
+                "regular reverse": 1 - (1 / 9) - (1 / 81) - (1 / 1786),
+            },
+        }
+        RARE_SLOT_PROBABILITY = {
+            "double rare": 1 / 5,
+            "ultra rare": 1 / 12,
+            "rare": 1 - (1 / 5) - (1 / 12),
+        }
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    handlers["sets"] = lambda _q: [
+        {
+            "id": "base-set",
+            "name": "Base Set",
+            "canonical_key": "base-set",
+            "pokemon_api_set_id": "base-set",
+        }
+    ]
+    monkeypatch.setattr(service, "_resolve_set_config", lambda _target_id: (_MockSetConfig, "mockSet"))
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    assumptions = payload.get("pull_rate_assumptions")
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    pack_rows = {row["rarity"]: row for row in groups_by_key["pack_structure"]["rows"]}
+
+    assert round(pack_rows["regular reverse"]["expected_cards_per_pack"], 3) == 1.876
+    assert pack_rows["regular reverse"]["card_count"] is None
+    assert pack_rows["regular reverse"]["specific_card_odds_denominator"] is None
+    assert payload["meta"]["sources"]["pull_rate_assumptions_regular_reverse_count"] == "UNAVAILABLE"
+
+
+def test_pull_rate_assumptions_resolve_set_config_via_sets_metadata_for_uuid_target(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-pull-rate-uuid")
+
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "set-uuid-1",
+            "calculation_run_id": "run-pull-rate-uuid",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "pack_tier": "A",
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "profit_tier": "A",
+            "safety_rank": 2,
+            "safety_tier": "A",
+            "stability_rank": 5,
+            "stability_tier": "B",
+            "relative_profit_score": 70.0,
+            "relative_safety_score": 73.0,
+            "relative_stability_score": 69.0,
+            "pack_cost": 5.0,
+            "mean_value": 5.55,
+            "median_value": 5.1,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+
+    handlers["sets"] = lambda query: [
+        {
+            "id": "set-uuid-1",
+            "name": "Mega Evolution",
+            "canonical_key": "mega-evolution",
+            "pokemon_api_set_id": "me1",
+        }
+    ] if any(field == "id" and value == "set-uuid-1" for field, value in query.eq_filters) else []
+
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: []
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "set-uuid-1")
+
+    assumptions = payload.get("pull_rate_assumptions")
+    assert assumptions is not None
+    assert len(assumptions["groups"]) == 3
+    assert len(assumptions["rows"]) > 0
+    assert payload["meta"]["sources"]["pull_rate_assumptions_set_metadata"] == "OK"
+    assert payload["meta"]["sources"]["pull_rate_assumptions_config_resolution"] == "OK:megaEvolution"
+
+
+def test_pull_rate_assumptions_include_god_pack_special_rule_for_151(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-pull-rate-151")
+
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "set-uuid-151",
+            "calculation_run_id": "run-pull-rate-151",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "pack_tier": "A",
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "profit_tier": "A",
+            "safety_rank": 2,
+            "safety_tier": "A",
+            "stability_rank": 5,
+            "stability_tier": "B",
+            "relative_profit_score": 70.0,
+            "relative_safety_score": 73.0,
+            "relative_stability_score": 69.0,
+            "pack_cost": 5.0,
+            "mean_value": 5.55,
+            "median_value": 5.1,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+
+    handlers["sets"] = lambda query: [
+        {
+            "id": "set-uuid-151",
+            "name": "Scarlet and Violet 151",
+            "canonical_key": "scarletAndViolet151",
+            "pokemon_api_set_id": "sv3pt5",
+        }
+    ] if any(field == "id" and value == "set-uuid-151" for field, value in query.eq_filters) else []
+
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: []
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "set-uuid-151")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    assert "special_pack_rules" in groups_by_key
+    special_rows = {row["rarity"]: row for row in groups_by_key["special_pack_rules"]["rows"]}
+    assert "god pack" in special_rows
+    assert special_rows["god pack"]["slot_label"] == "Special pack model"
+    assert special_rows["god pack"]["rarity_odds_denominator"] == 2000
