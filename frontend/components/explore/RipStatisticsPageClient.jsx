@@ -7,6 +7,7 @@ import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
+import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
 import InfoPopover from "@/components/ui/InfoPopover";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
@@ -63,9 +64,13 @@ const RIP_COPY = {
   },
   chartMarkers: {
     packCost: "Pack Cost",
-    typicalPack: "Typical Pack Value",
+    typicalPack: "Typical Pack",
+    averagePack: "Average Pack",
+    badFloor: "Bad Floor",
     bigHit: "Big Hit",
-    bestPull: "Best Simulated Pull",
+    bigHitUpside: "Big Hit Upside",
+    godPullUpside: "God Pull Upside",
+    bestPull: "Best Pull",
   },
   chartStats: {
     typicalPack: "Typical Pack Value",
@@ -166,6 +171,40 @@ function formatMultiplier(value, decimals = 1) {
     return "—";
   }
   return `${parsed.toFixed(decimals)}x`;
+}
+
+function normalizePullRateAssumptions(explorePayload) {
+  const source = explorePayload?.pull_rate_assumptions || explorePayload?.pullRateAssumptions || null;
+
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const normalizeRow = (row) => {
+    if (!row || typeof row !== "object") {
+      return row;
+    }
+
+    return {
+      ...row,
+      cardCount: row.cardCount ?? row.card_count ?? row.eligibleCardCount ?? row.eligible_card_count ?? null,
+      specificCardOddsDenominator:
+        row.specificCardOddsDenominator ?? row.specific_card_odds_denominator ?? null,
+      expectedCardsPerPack: row.expectedCardsPerPack ?? row.expected_cards_per_pack ?? null,
+      rarityOddsDenominator: row.rarityOddsDenominator ?? row.rarity_odds_denominator ?? null,
+    };
+  };
+
+  return {
+    ...source,
+    groups: Array.isArray(source.groups)
+      ? source.groups.map((group) => ({
+          ...group,
+          rows: Array.isArray(group?.rows) ? group.rows.map(normalizeRow) : [],
+        }))
+      : source.groups,
+    rows: Array.isArray(source.rows) ? source.rows.map(normalizeRow) : source.rows,
+  };
 }
 
 function SectionViewTabs({ value, onChange, options, className = "" }) {
@@ -1395,7 +1434,7 @@ function TopEVDriversContent({ topHits, meanValue }) {
       <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{totalLabel}</span>
-          <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} />
+          {totalEV !== null ? <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} /> : null}
         </div>
         <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
       </div>
@@ -1423,23 +1462,8 @@ function TopEVDriversContent({ topHits, meanValue }) {
   );
 }
 
-function RarityContributionContent({ rankings, mode: controlledMode = null, showToggle = true }) {
-  const [uncontrolledMode, setUncontrolledMode] = useState("ev");
-  const mode = controlledMode === "ev" || controlledMode === "pull" ? controlledMode : uncontrolledMode;
+function RarityContributionContent({ rankings }) {
   const rows = Array.isArray(rankings) ? rankings : [];
-
-  const RarityMetricRow = ({ label, primaryValue, share, barWidth }) => (
-    <div className="py-1.5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-[var(--text-primary)]">{label}</span>
-        <span className="text-right text-sm text-[var(--text-primary)]">
-          <span className="font-semibold">{primaryValue}</span>
-          {share ? <span className="text-[var(--text-secondary)]"> {`(${share})`}</span> : null}
-        </span>
-      </div>
-      <HorizontalBar widthPercent={barWidth} />
-    </div>
-  );
 
   const evRows = useMemo(() => {
     const sorted = [...rows].sort(
@@ -1447,16 +1471,8 @@ function RarityContributionContent({ rankings, mode: controlledMode = null, show
     );
     const totalEV = sorted.reduce((sum, row) => sum + (toNumber(row?.total_sampled_value) ?? 0), 0);
     const maxEV = Math.max(...sorted.map((row) => toNumber(row?.total_sampled_value) ?? 0), 0);
-    return { sorted, totalEV, maxEV };
-  }, [rows]);
-
-  const pullRows = useMemo(() => {
-    const sorted = [...rows].sort(
-      (a, b) => (toNumber(b?.pulled_count) ?? 0) - (toNumber(a?.pulled_count) ?? 0)
-    );
     const totalPulls = sorted.reduce((sum, row) => sum + (toNumber(row?.pulled_count) ?? 0), 0);
-    const maxPulls = Math.max(...sorted.map((row) => toNumber(row?.pulled_count) ?? 0), 0);
-    return { sorted, totalPulls, maxPulls };
+    return { sorted, totalEV, maxEV, totalPulls };
   }, [rows]);
 
   if (rows.length === 0) {
@@ -1465,84 +1481,51 @@ function RarityContributionContent({ rankings, mode: controlledMode = null, show
 
   return (
     <>
-      {showToggle ? (
-        <div className="mb-4 inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0.5">
-          <button
-            type="button"
-            onClick={() => setUncontrolledMode("ev")}
-            aria-pressed={mode === "ev"}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-              mode === "ev" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            Value Contribution
-          </button>
-          <button
-            type="button"
-            onClick={() => setUncontrolledMode("pull")}
-            aria-pressed={mode === "pull"}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold leading-none transition-colors ${
-              mode === "pull" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            Pull Frequency
-          </button>
-        </div>
-      ) : null}
-
       <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-            {mode === "ev" ? "Total Simulated Value" : "Total Simulated Pulls"}
-          </span>
-          {mode === "ev" ? <InfoPopover text={TOTAL_SIMULATED_VALUE_INFO_TEXT} /> : null}
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Total Simulated Value</span>
+          <InfoPopover text={TOTAL_SIMULATED_VALUE_INFO_TEXT} />
         </div>
-        <span className="text-lg font-semibold text-[var(--text-primary)]">
-          {mode === "ev" ? formatCurrency(evRows.totalEV) : pullRows.totalPulls.toLocaleString("en-US")}
-        </span>
+        <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(evRows.totalEV)}</span>
       </div>
 
-      {mode === "ev" ? (
-        <div className="space-y-1">
-          {evRows.maxEV === 0 ? (
-            <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
-          ) : (
-            evRows.sorted.map((ranking) => {
-              const value = toNumber(ranking?.total_sampled_value) ?? 0;
-              const share = evRows.totalEV > 0 ? `${((value / evRows.totalEV) * 100).toFixed(1)}%` : null;
-
-              return (
-                <RarityMetricRow
-                  key={`ev:${ranking?.rarity_bucket || "unknown"}`}
-                  label={titleCaseStateLabel(ranking?.rarity_bucket)}
-                  primaryValue={formatCurrency(value)}
-                  share={share}
-                  barWidth={normalizeBarWidth(value, evRows.maxEV)}
-                />
-              );
-            })
-          )}
-        </div>
+      {evRows.maxEV === 0 ? (
+        <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
       ) : (
         <div className="space-y-1">
-          {pullRows.maxPulls === 0 ? (
-            <p className="text-sm text-[var(--text-secondary)]">No pull frequency data available.</p>
-          ) : (
-            pullRows.sorted.map((ranking) => {
-              const count = toNumber(ranking?.pulled_count) ?? 0;
-              const share = pullRows.totalPulls > 0 ? `${((count / pullRows.totalPulls) * 100).toFixed(1)}%` : null;
+          {evRows.sorted.map((ranking) => {
+            const value = toNumber(ranking?.total_sampled_value) ?? 0;
+            const valueShare = evRows.totalEV > 0 ? ((value / evRows.totalEV) * 100).toFixed(1) : null;
+            const pullCount = toNumber(ranking?.pulled_count) ?? null;
+            const pullShare =
+              pullCount !== null && evRows.totalPulls > 0
+                ? ((pullCount / evRows.totalPulls) * 100).toFixed(1)
+                : null;
+            const hasPullData = pullCount !== null && evRows.totalPulls > 0;
 
-              return (
-                <RarityMetricRow
-                  key={`pull:${ranking?.rarity_bucket || "unknown"}`}
-                  label={titleCaseStateLabel(ranking?.rarity_bucket)}
-                  primaryValue={count.toLocaleString("en-US")}
-                  share={share}
-                  barWidth={normalizeBarWidth(count, pullRows.maxPulls)}
-                />
-              );
-            })
-          )}
+            return (
+              <div key={`ev:${ranking?.rarity_bucket || "unknown"}`} className="py-1.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-[var(--text-primary)]">{titleCaseStateLabel(ranking?.rarity_bucket)}</span>
+                    {hasPullData ? (
+                      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+                        {pullCount.toLocaleString("en-US")} pulls in {evRows.totalPulls.toLocaleString("en-US")} simulated pulls
+                        {pullShare !== null ? ` \u2022 ${pullShare}% of pulls` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(value)}</span>
+                    {valueShare !== null ? (
+                      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{valueShare}% of total value</p>
+                    ) : null}
+                  </div>
+                </div>
+                <HorizontalBar widthPercent={normalizeBarWidth(value, evRows.maxEV)} />
+              </div>
+            );
+          })}
         </div>
       )}
     </>
@@ -1875,6 +1858,7 @@ export default function RipStatisticsPageClient({
   const topHits = explorePayload?.top_hits || [];
   const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
+  const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
   const interpretationMeta = interpretation?.meta || {};
@@ -1951,8 +1935,7 @@ export default function RipStatisticsPageClient({
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
         <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often packs land in each value range.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows how often a pack reaches at least a given value.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The markers highlight pack cost, a typical pack value, a big hit, and the best simulated pull in the run.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Extra percentile markers stay available under chart details when you want the technical view.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Marker chips let you compare pack cost, typical and average outcomes, floor outcomes, and upper-end upside markers against the distribution.</span></li>
       </ul>
     </div>
   );
@@ -2173,9 +2156,9 @@ export default function RipStatisticsPageClient({
                 window.clearTimeout(pendingNavTimeoutRef.current);
                 pendingNavTimeoutRef.current = null;
               }
+              frameId = null;
+              return;
             }
-            frameId = null;
-            return;
           }
         }
 
@@ -2206,10 +2189,26 @@ export default function RipStatisticsPageClient({
     };
   }, [explorePayload, pageError, graphMode]);
 
+  const packCostValue = toNumber(summary.pack_cost);
+  const p95ValueToCostRatio = toNumber(summary.p95_value_to_cost_ratio);
+  const p99ValueToCostRatio = toNumber(summary.p99_value_to_cost_ratio);
+
   const chartMarkers = [
     { key: "pack-cost", label: RIP_COPY.chartMarkers.packCost, value: summary.pack_cost },
     { key: "median", label: RIP_COPY.chartMarkers.typicalPack, value: percentileP50 ?? summary.median_value },
+    { key: "mean", label: RIP_COPY.chartMarkers.averagePack, value: summary.mean_value },
+    { key: "bad-floor", label: RIP_COPY.chartMarkers.badFloor, value: percentileP5 ?? summary.tail_value_p05 },
     { key: "big-hit", label: RIP_COPY.chartMarkers.bigHit, value: summary.big_hit_threshold },
+    {
+      key: "big-hit-upside",
+      label: RIP_COPY.chartMarkers.bigHitUpside,
+      value: packCostValue !== null && p95ValueToCostRatio !== null ? p95ValueToCostRatio * packCostValue : null,
+    },
+    {
+      key: "god-pull-upside",
+      label: RIP_COPY.chartMarkers.godPullUpside,
+      value: packCostValue !== null && p99ValueToCostRatio !== null ? p99ValueToCostRatio * packCostValue : null,
+    },
     { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
@@ -2230,15 +2229,15 @@ export default function RipStatisticsPageClient({
   const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: summary.pack_tier });
   const simpleAverageLossValue = getSimpleAverageLossValue(summary);
   const decisionMetrics = [
-    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
-    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
+    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
     { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
+    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
   ];
   const primaryDecisionMetricOrder = [
-    RIP_COPY.simpleMetrics.averagePackValue,
     RIP_COPY.simpleMetrics.currentPackCost,
+    RIP_COPY.simpleMetrics.averagePackValue,
     RIP_COPY.simpleMetrics.averageLoss,
   ];
   const primaryDecisionMetrics = primaryDecisionMetricOrder
@@ -2248,13 +2247,13 @@ export default function RipStatisticsPageClient({
     (metric) => !primaryDecisionMetricOrder.includes(metric.label)
   );
   const technicalScoreMetrics = [
-    { label: "Average Return", value: formatNumber(meanValueToCostRatio, 2) },
-    { label: "Typical Return", value: formatNumber(medianValueToCostRatio, 2) },
+    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
+    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
-    { label: "Value Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
-    { label: "Chase Depth", value: formatNumber(summary.effective_chase_count, 2) },
+    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3) },
+    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2) },
   ];
 
   const handleTargetIdChange = (nextTargetId, options = {}) => {
@@ -2778,6 +2777,7 @@ export default function RipStatisticsPageClient({
             {viewMode === "expert" ? (
             <section className="pt-8">
               <div className="grid gap-4 xl:grid-cols-3">
+                {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
                   title="Profit"
                   score={displayedProfitScore}
@@ -2788,17 +2788,17 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Profit")}
                   simpleMetrics={[
-                    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
-                    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
                     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
+                    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
+                    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
+                    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
                     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
                   ]}
                   advancedMetrics={[
-                    { label: "Average Return", value: formatNumber(meanValueToCostRatio, 2) },
-                    { label: "Typical Return", value: formatNumber(medianValueToCostRatio, 2) },
+                    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
+                    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
                     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
                     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
-                    { label: "ROI", value: formatPercent(summary.roi_percent) },
                   ]}
                 />
                 <ScorePillarCard
@@ -2811,15 +2811,14 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Safety")}
                   simpleMetrics={[
-                    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing) },
-                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value) },
-                    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05) },
+                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), infoText: getMetricTooltip("Typical Pack Value") },
+                    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), infoText: getMetricTooltip("Bad Pack Floor Value") },
+                    { label: "Chance to Miss Pack Cost", value: formatPercent(1 - (toNumber(summary.prob_profit) > 1 ? toNumber(summary.prob_profit) / 100 : toNumber(summary.prob_profit)), { probability: true }), infoText: getMetricTooltip("Chance to Miss Pack Cost") },
                   ]}
                   advancedMetrics={[
-                    { label: "Expected Loss Per Pack", value: formatLossCurrency(summary.expected_loss_per_pack) },
-                    { label: "Expected Loss When Losing", value: formatLossCurrency(summary.expected_loss_when_losing) },
-                    { label: "Median Loss When Losing", value: formatLossCurrency(summary.median_loss_when_losing) },
-                    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05) },
+                    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), infoText: getMetricTooltip("Average Loss When You Miss") },
+                    { label: "Typical Loss When You Miss", value: formatLossCurrency(summary.median_loss_when_losing), infoText: getMetricTooltip("Typical Loss When You Miss") },
+                    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), infoText: getMetricTooltip("Worst 5% Outcome") },
                   ]}
                 />
                 <ScorePillarCard
@@ -2838,8 +2837,8 @@ export default function RipStatisticsPageClient({
                   ]}
                   advancedMetrics={[
                     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
-                    { label: "EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
                     { label: "Effective Chase Count", value: formatNumber(summary.effective_chase_count, 2) },
+                    { label: "EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
                     { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share) },
                     { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share) },
                   ]}
@@ -2943,18 +2942,10 @@ export default function RipStatisticsPageClient({
                         />
                         <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
                       </div>
-                    ) : (
-                    <div className="mt-4 hidden lg:grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                      <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                      <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                      <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                      <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
-                      <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
-                    </div>
-                    )}
+                    ) : null}
 
-                    <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
-                      {graphMode === "historical-trend" ? (
+                    {graphMode === "historical-trend" ? (
+                      <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
                         <div className="grid gap-3 sm:grid-cols-2">
                           <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
                           <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
@@ -2972,16 +2963,8 @@ export default function RipStatisticsPageClient({
                           />
                           <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
                         </div>
-                      ) : (
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                          <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                          <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                          <StatTile label={RIP_COPY.chartStats.badPackFloor} value={formatCurrency(percentileP5 ?? summary.tail_value_p05)} />
-                          <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
-                        </div>
-                      )}
-                    </MobileMetricAccordion>
+                      </MobileMetricAccordion>
+                    ) : null}
                   </>
                 ) : null}
               </SectionCard>
@@ -2998,7 +2981,7 @@ export default function RipStatisticsPageClient({
                   options={[
                     { value: "cards", label: "Cards Carrying the Set" },
                     { value: "value", label: "Value Contribution" },
-                    { value: "frequency", label: "Pull Frequency" },
+                    { value: "pull-rates", label: "Pull Rates" },
                   ]}
                 />
 
@@ -3030,7 +3013,7 @@ export default function RipStatisticsPageClient({
 
                     <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
                   </>
-                ) : (
+                ) : effectiveValueView === "value" ? (
                   <>
                     <InterpretationInsight
                       sectionMeta={rarityContributionMeta}
@@ -3042,16 +3025,21 @@ export default function RipStatisticsPageClient({
                     />
                     <RarityContributionContent
                       rankings={rankings}
-                      mode={effectiveValueView === "value" ? "ev" : "pull"}
-                      showToggle={false}
                     />
                   </>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>
+                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Modeled rarity frequency and specific-card odds used by this simulation.</p>
+                      <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
+                    </div>
+                    <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                  </div>
                 )}
               </SectionCard>
             </section>
             ) : null}
-
-
 
             {warnings.length > 0 ? (
               <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">

@@ -42,16 +42,50 @@ def test_threshold_bins_monotonicity_and_survival_definition():
 
 
 def test_threshold_bins_known_boundaries():
-    # [0,1), [1,5), [5,10), [10,25), [5000,+inf)
-    values = [0.0, 0.9999, 1.0, 4.9999, 5.0, 10.0, 5000.0, 5001.0]
+    # Updated for 18-bucket structure
+    values = [0.0, 0.4, 0.6, 1.4, 1.6, 2.5, 3.5, 4.5, 6.0, 8.0, 13.0, 15.0, 20.0, 30.0, 50.0, 100.0, 200.0, 400.0, 600.0, 1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0]
 
     rows = compute_simulation_value_threshold_bins(values)
 
-    assert rows[0]["occurrence_count"] == 2
-    assert rows[1]["occurrence_count"] == 2
-    assert rows[2]["occurrence_count"] == 1
-    assert rows[3]["occurrence_count"] == 1
-    assert rows[-1]["occurrence_count"] == 2
+    # Validate exact number of buckets
+    assert len(rows) == 18
+
+    # Validate each bucket floor, ceiling, and occurrence count
+    expected = [
+        (0.0, 0.5, 2),
+        (0.5, 1.0, 1),
+        (1.0, 1.5, 1),
+        (1.5, 2.0, 1),
+        (2.0, 3.0, 1),
+        (3.0, 5.0, 2),
+        (5.0, 7.5, 1),
+        (7.5, 12.5, 1),
+        (12.5, 17.5, 2),
+        (17.5, 37.5, 2),
+        (37.5, 75.0, 1),
+        (75.0, 175.0, 1),
+        (175.0, 375.0, 1),
+        (375.0, 750.0, 2),
+        (750.0, 1800.0, 1),
+        (1800.0, 3800.0, 2),
+        (3800.0, 5000.0, 1),
+        (5000.0, None, 2),
+    ]
+
+    for i, (exp_floor, exp_ceiling, exp_count) in enumerate(expected):
+        assert rows[i]["threshold_floor"] == pytest.approx(exp_floor)
+        assert rows[i]["threshold_ceiling"] == (exp_ceiling if exp_ceiling is None else pytest.approx(exp_ceiling))
+        assert rows[i]["occurrence_count"] == exp_count
+
+    # Validate first and final bucket specifics
+    assert rows[0]["threshold_floor"] == pytest.approx(0.0)
+    assert rows[0]["threshold_ceiling"] == pytest.approx(0.5)
+    assert rows[-1]["threshold_floor"] == pytest.approx(5000.0)
+    assert rows[-1]["threshold_ceiling"] is None
+
+    # Validate totals
+    assert sum(row["occurrence_count"] for row in rows) == len(values)
+    assert sum(row["probability"] for row in rows) == pytest.approx(1.0, abs=1e-9)
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
