@@ -1,7 +1,4 @@
 from .baseConfig import BaseSetConfig
-from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
-    get_ascended_heroes_pack_state_overrides,
-)
 
 class SetAscendedHeroesConfig(BaseSetConfig):
     SET_NAME = 'Ascended Heroes'
@@ -81,4 +78,7 @@ class SetAscendedHeroesConfig(BaseSetConfig):
 
     @classmethod
     def get_pack_state_overrides(cls):
+        from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+            get_ascended_heroes_pack_state_overrides,
+        )
         return get_ascended_heroes_pack_state_overrides()

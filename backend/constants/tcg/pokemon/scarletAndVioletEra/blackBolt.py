@@ -1,7 +1,4 @@
 from .baseConfig import BaseSetConfig
-from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
-    get_black_bolt_pack_state_overrides,
-)
 
 class SetBlackBoltConfig(BaseSetConfig):
     SET_NAME = "Black Bolt"
@@ -81,4 +78,7 @@ class SetBlackBoltConfig(BaseSetConfig):
 
     @classmethod
     def get_pack_state_overrides(cls):
+        from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+            get_black_bolt_pack_state_overrides,
+        )
         return get_black_bolt_pack_state_overrides()
