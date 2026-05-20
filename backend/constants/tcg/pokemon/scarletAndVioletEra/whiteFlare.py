@@ -1,7 +1,4 @@
 from .baseConfig import BaseSetConfig
-from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
-    get_white_flare_pack_state_overrides,
-)
 
 class SetWhiteFlareConfig(BaseSetConfig):
     SET_NAME = "White Flare"
@@ -86,4 +83,7 @@ class SetWhiteFlareConfig(BaseSetConfig):
 
     @classmethod
     def get_pack_state_overrides(cls):
+        from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+            get_white_flare_pack_state_overrides,
+        )
         return get_white_flare_pack_state_overrides()

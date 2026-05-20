@@ -1,7 +1,4 @@
 from .baseConfig import BaseSetConfig
-from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
-    get_prismatic_evolutions_pack_state_overrides,
-)
 
 class SetPrismaticEvolutionsConfig(BaseSetConfig):
     SET_NAME = "Prismatic Evolutions"
@@ -111,4 +108,7 @@ class SetPrismaticEvolutionsConfig(BaseSetConfig):
 
     @classmethod
     def get_pack_state_overrides(cls):
+        from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+            get_prismatic_evolutions_pack_state_overrides,
+        )
         return get_prismatic_evolutions_pack_state_overrides()

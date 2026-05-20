@@ -1,7 +1,4 @@
 from .baseConfig import BaseSetConfig
-from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
-    get_mega_evolution_pack_state_overrides,
-)
 
 class SetMegaEvolutionConfig(BaseSetConfig):
     SET_NAME = 'Mega Evolution'
@@ -52,4 +49,7 @@ class SetMegaEvolutionConfig(BaseSetConfig):
 
     @classmethod
     def get_pack_state_overrides(cls):
+        from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import (
+            get_mega_evolution_pack_state_overrides,
+        )
         return get_mega_evolution_pack_state_overrides()

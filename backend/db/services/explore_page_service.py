@@ -8,14 +8,6 @@ import math
 import time
 from typing import Any, Dict, List, Optional
 
-from backend.constants.tcg.pokemon.megaEvolutionEra.setMap import (
-    SET_ALIAS_MAP as MEGA_EVOLUTION_SET_ALIAS_MAP,
-    SET_CONFIG_MAP as MEGA_EVOLUTION_SET_CONFIG_MAP,
-)
-from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import (
-    SET_ALIAS_MAP as SCARLET_VIOLET_SET_ALIAS_MAP,
-    SET_CONFIG_MAP as SCARLET_VIOLET_SET_CONFIG_MAP,
-)
 from backend.db.clients.supabase_client import public_read_client
 from backend.interpretation.rips import build_rip_interpretation
 
@@ -244,19 +236,36 @@ def _to_optional_float(value: Any) -> Optional[float]:
     return parsed
 
 
-def _build_constants_config_map() -> Dict[str, Any]:
-    return {
-        **SCARLET_VIOLET_SET_CONFIG_MAP,
-        **MEGA_EVOLUTION_SET_CONFIG_MAP,
+def _load_set_maps() -> tuple[Dict[str, Any], Dict[str, str]]:
+    from backend.constants.tcg.pokemon.megaEvolutionEra.setMap import (
+        SET_ALIAS_MAP as mega_alias_map,
+        SET_CONFIG_MAP as mega_config_map,
+    )
+    from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import (
+        SET_ALIAS_MAP as sv_alias_map,
+        SET_CONFIG_MAP as sv_config_map,
+    )
+
+    config_map = {
+        **sv_config_map,
+        **mega_config_map,
     }
+    alias_map = {
+        **sv_alias_map,
+        **mega_alias_map,
+    }
+    return config_map, alias_map
+
+
+def _build_constants_config_map() -> Dict[str, Any]:
+    config_map, _ = _load_set_maps()
+    return config_map
 
 
 def _build_constants_alias_map() -> Dict[str, str]:
     # Mega Evolution aliases intentionally override on collision.
-    return {
-        **SCARLET_VIOLET_SET_ALIAS_MAP,
-        **MEGA_EVOLUTION_SET_ALIAS_MAP,
-    }
+    _, alias_map = _load_set_maps()
+    return alias_map
 
 
 def _normalize_key(value: Any) -> str:

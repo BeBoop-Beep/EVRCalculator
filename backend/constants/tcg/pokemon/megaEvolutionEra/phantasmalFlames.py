@@ -1,5 +1,3 @@
-from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import get_mega_evolution_pack_state_overrides
-
 from .baseConfig import BaseSetConfig
 
 class SetPhantasmalFlamesConfig(BaseSetConfig):
@@ -52,5 +50,6 @@ class SetPhantasmalFlamesConfig(BaseSetConfig):
 
     @classmethod
     def get_pack_state_overrides(cls):
+        from backend.simulations.utils.packStateModels.scarletAndVioletSetOverrides import get_mega_evolution_pack_state_overrides
         return get_mega_evolution_pack_state_overrides()
 
