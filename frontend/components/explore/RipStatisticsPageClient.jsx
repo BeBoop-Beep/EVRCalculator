@@ -277,6 +277,25 @@ function formatPackPathLabel(value) {
   }
 }
 
+function normalizePackBreakdownDisplay(ripStatistics) {
+  const source = ripStatistics?.pack_breakdown_display;
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  return {
+    ...source,
+    rows: Array.isArray(source.rows)
+      ? source.rows.map((row) => ({
+          key: row?.key || null,
+          label: row?.label || titleCaseStateLabel(row?.key),
+          count: toNumber(row?.count) ?? 0,
+          share: normalizeProbability(row?.share),
+        }))
+      : [],
+  };
+}
+
 function getPercentileValue(percentiles, requestedPercentile) {
   if (!Array.isArray(percentiles)) {
     return null;
@@ -1592,6 +1611,48 @@ function StateBars({ stateRows }) {
   );
 }
 
+function ModeledOutcomeBars({ display }) {
+  const rows = Array.isArray(display?.rows) ? display.rows : [];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-4">
+        <p className="text-sm text-[var(--text-primary)]">
+          {display?.description || "Modeled outcome states show which value-bearing bucket the simulator selected for a pack."}
+        </p>
+        <p className="mt-2 text-xs text-[var(--text-secondary)]">
+          {display?.disclaimer || "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."}
+        </p>
+      </div>
+
+      {rows.length > 0 ? (
+        <div className="space-y-3">
+          {rows.map((row) => {
+            const shareLabel = row.share === null ? "—" : formatPercent(row.share, { probability: true });
+            return (
+              <div key={`modeled-state:${row.key || row.label}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-[var(--text-secondary)]">{row.label}</span>
+                  <span className="text-sm font-medium text-[var(--text-primary)]">
+                    {row.count.toLocaleString("en-US")} ({shareLabel})
+                  </span>
+                </div>
+                <HorizontalBar widthPercent={row.share === null ? 0 : row.share * 100} />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            {display?.fallback_message || "Modeled outcome-state counts are not available for this set yet."}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionNavigation({ items, activeSection, onSelect, mobile = false }) {
   const isItemActive = (itemId) => {
     if (itemId === "outcome-distribution") {
@@ -1696,6 +1757,8 @@ function toCollectorFriendlySectionMeta(sectionMeta) {
 function getPackBreakdownEvidence(sectionMeta) {
   const evidenceMap = buildEvidenceMap(sectionMeta);
   const rows = [
+    ["Dominant modeled state", evidenceMap["dominant modeled state"]],
+    ["Dominant modeled state share", evidenceMap["dominant modeled state share"]],
     ["Dominant path", evidenceMap["dominant path"]],
     ["Dominant path share", evidenceMap["dominant path share"]],
     ["Special path share", evidenceMap["special path share"]],
@@ -1964,6 +2027,10 @@ export default function RipStatisticsPageClient({
   const normalStateRows = useMemo(
     () => sortObjectEntriesDescending(ripStatistics?.normal_pack_states),
     [ripStatistics?.normal_pack_states]
+  );
+  const packBreakdownDisplay = useMemo(
+    () => normalizePackBreakdownDisplay(ripStatistics),
+    [ripStatistics]
   );
 
   const timingRows = Object.entries(explorePayload?.meta?.timings || {}).filter(
@@ -2908,16 +2975,20 @@ export default function RipStatisticsPageClient({
                 {graphMode === "historical-trend" ? (
                   <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} />
                 ) : graphMode === "pack-breakdown" ? (
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div>
-                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
-                      <PackPathBars packPaths={ripStatistics?.pack_paths} />
+                  packBreakdownDisplay?.mode === "modeled_outcome_states" ? (
+                    <ModeledOutcomeBars display={packBreakdownDisplay} />
+                  ) : (
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <div>
+                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
+                        <PackPathBars packPaths={ripStatistics?.pack_paths} />
+                      </div>
+                      <div>
+                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
+                        <StateBars stateRows={normalStateRows} />
+                      </div>
                     </div>
-                    <div>
-                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
-                      <StateBars stateRows={normalStateRows} />
-                    </div>
-                  </div>
+                  )
                 ) : (
                   <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
                 )}

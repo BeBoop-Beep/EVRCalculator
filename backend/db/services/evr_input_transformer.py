@@ -42,6 +42,7 @@ class EVRInputTransformer:
         "condition_id",
         "price_source",
         "captured_at",
+        "printing_type",
     ]
 
     GENERIC_RARITY_KEYS = {"common", "uncommon", "rare"}
@@ -351,7 +352,7 @@ class EVRInputTransformer:
             special_type=special_type,
             pull_rate_mapping=pull_rate_mapping,
         )
-        if pull_rate is None:
+        if pull_rate is None and pull_rate_mapping:
             return None
 
         return {
@@ -660,6 +661,7 @@ class EVRInputTransformer:
                     "condition_id": row.get("condition_id"),
                     "price_source": row.get("price_source"),
                     "captured_at": row.get("captured_at"),
+                    "printing_type": row.get("printing_type") or "",
                 }
             )
 

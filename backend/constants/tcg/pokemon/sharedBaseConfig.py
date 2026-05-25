@@ -52,3 +52,34 @@ class BaseSetConfig:
     def get_pack_state_overrides(cls):
         """Optional set-level delta over era defaults for V2 pack-state modeling."""
         return {}
+
+
+def build_standard_pre_sv_pack_structure():
+    """Return the standard English pre-SV modeled pack slot structure.
+
+    TODO: This helper currently models standard English Sun & Moon / Sword &
+    Shield packs only. Do not assume XY, Black & White, HGSS, or older eras
+    share this shape without explicit verification.
+
+    Modeled slots intentionally exclude non-value inserts such as basic Energy,
+    code cards, and VSTAR markers.
+    """
+    return {
+        "common_slots": 5,
+        "uncommon_slots": 3,
+        "rare_family_slots": [
+            {
+                "name": "rare_slot_1",
+                "role": "reverse_parallel",
+                "probability_attr": "REVERSE_SLOT_PROBABILITIES",
+                "probability_key": "slot_1",
+                "default_outcome": "regular reverse",
+            },
+            {
+                "name": "rare_slot_2",
+                "role": "rare_or_better",
+                "probability_attr": "RARE_SLOT_PROBABILITY",
+                "default_outcome": "rare",
+            },
+        ],
+    }

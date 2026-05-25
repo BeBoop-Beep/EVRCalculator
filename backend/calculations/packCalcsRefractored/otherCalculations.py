@@ -22,19 +22,24 @@ class PackCalculations(PackEVCalculator):
         """Calculate pack-level metrics"""
         total_ev = sim_results['mean']
         net_value = total_ev - pack_price
-        roi = total_ev / pack_price
-        roi_percent = (roi - 1) * 100
+        value_to_cost_ratio = total_ev / pack_price
+        roi = net_value / pack_price
+        roi_percent = roi * 100
 
         print('\nExpected Value Per Pack: ', total_ev)
         print('Cost Per Pack: ', pack_price)
         print("Net Value Upon Opening: ", net_value)
+        print("Value to Cost Ratio Upon Opening: ", value_to_cost_ratio)
         print("ROI Upon Opening: ", roi)
         print(f"ROI Percent Upon Opening: {roi_percent:.2f}\n")
         return {
             'total_ev': total_ev,
             'net_value': net_value,
+            'value_to_cost_ratio': value_to_cost_ratio,
             'opening_pack_roi': roi,
-            'opening_pack_roi_percent': roi_percent
+            'opening_pack_roi_percent': roi_percent,
+            'opening_pack_roi_formula': '(total_ev - pack_price) / pack_price',
+            'metric_semantics_version': 'formula_roi_v2',
         }
 
 

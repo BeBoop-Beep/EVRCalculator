@@ -25,10 +25,28 @@ class PackEVInitializer:
         self.common_multiplier = self.pack_multipliers.get('common', 1)
         self.uncommon_multiplier = self.pack_multipliers.get('uncommon', 1)
         self.rare_multiplier = config.RARE_SLOT_PROBABILITY['rare']
-        
-        slot1_rr = config.REVERSE_SLOT_PROBABILITIES["slot_1"]["regular reverse"]
-        slot2_rr = config.REVERSE_SLOT_PROBABILITIES["slot_2"]["regular reverse"]
-        self.reverse_multiplier = slot1_rr + slot2_rr
+
+        self.reverse_multiplier = self._calculate_reverse_multiplier(config)
+
+    @staticmethod
+    def _calculate_reverse_multiplier(config):
+        simulation_engine = str(getattr(config, "SIMULATION_ENGINE", "")).strip().lower()
+        reverse_slot_probabilities = getattr(config, "REVERSE_SLOT_PROBABILITIES", {})
+
+        # Slot-schema configs can model a single reverse slot (standard 5/3/1/1).
+        # Preserve legacy two-slot expectations for non-slot-schema behavior.
+        if simulation_engine == "slot_schema":
+            if not isinstance(reverse_slot_probabilities, dict):
+                return 0.0
+            return sum(
+                float(slot_config.get("regular reverse", 0.0) or 0.0)
+                for slot_config in reverse_slot_probabilities.values()
+                if isinstance(slot_config, dict)
+            )
+
+        slot1_rr = reverse_slot_probabilities["slot_1"]["regular reverse"]
+        slot2_rr = reverse_slot_probabilities["slot_2"]["regular reverse"]
+        return slot1_rr + slot2_rr
 
 
     def _load_dataframe(self, calculation_input):

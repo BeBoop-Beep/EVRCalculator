@@ -1,5 +1,5 @@
 from types import MappingProxyType
-from ..sharedBaseConfig import BaseSetConfig as SharedBaseSetConfig
+from ..sharedBaseConfig import BaseSetConfig as SharedBaseSetConfig, build_standard_pre_sv_pack_structure
 
 class BaseSetConfig(SharedBaseSetConfig):
     COLLECTION = "TCG"
@@ -31,12 +31,28 @@ class BaseSetConfig(SharedBaseSetConfig):
         "strategy": {}
     }
 
+    # Standard English SWSH-era packs are modeled as 5 commons, 3 uncommons,
+    # 1 reverse/parallel slot, and 1 rare-or-better slot.
+    # Code cards and VSTAR marker inserts are excluded from modeled slots.
+    # Actual Pokemon VSTAR cards remain value-bearing rare-family outcomes later.
+    # Pull-rate tables are still set-specific and intentionally not populated here.
+    PACK_STRUCTURE = build_standard_pre_sv_pack_structure()
+
     SLOTS_PER_RARITY = {
-        "common": 4,
+        "common": 5,
         "uncommon": 3,
-        "reverse": 2,
+        "reverse": 1,
         "rare": 1,
     }
+
+    @classmethod
+    def get_reverse_eligible_rarities(cls):
+        """Return raw rarity labels eligible for reverse foiling."""
+        return [
+            raw_rarity
+            for raw_rarity, group in cls.RARITY_MAPPING.items()
+            if group in {"common", "uncommon", "rare"}
+        ]
 
     @classmethod
     def validate(cls):

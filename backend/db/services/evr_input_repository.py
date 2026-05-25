@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from backend.db.clients.supabase_client import supabase
 from backend.db.repositories.cards_repository import get_all_cards_for_set
@@ -173,7 +173,7 @@ class EVRInputRepository:
         self,
         cards: List[Dict[str, Any]],
         near_mint_condition_id: Optional[int],
-        excluded_variant_ids: set[str],
+        excluded_variant_ids: Set[str],
     ) -> Tuple[List[Dict[str, Any]], int, int]:
         if not cards:
             return [], 0, 0
@@ -214,6 +214,8 @@ class EVRInputRepository:
                         "variant_id": variant.get("id"),
                         "pokemon_tcg_api_id": variant.get("pokemon_tcg_api_id"),
                         "special_type": variant.get("special_type"),
+                        "printing_type": variant.get("printing_type"),
+                        "edition": variant.get("edition"),
                         "near_mint_latest": price_by_variant.get(variant.get("id")),
                     }
                 )

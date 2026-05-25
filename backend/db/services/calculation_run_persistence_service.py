@@ -164,10 +164,16 @@ def _build_comparison_metrics_payload(
     etb_value_vs_cost_comparison: Mapping[str, Any] | None,
     booster_box_value_vs_cost_comparison: Mapping[str, Any] | None,
 ) -> dict[str, float | None]:
+    def _require_explicit_semantics(payload: Mapping[str, Any], field_name: str) -> None:
+        _require_float(payload.get("value_to_cost_ratio"), f"{field_name}.value_to_cost_ratio")
+        _require_nonempty_str(payload.get("roi_formula"), f"{field_name}.roi_formula")
+        _require_nonempty_str(payload.get("metric_semantics_version"), f"{field_name}.metric_semantics_version")
+
     def _extract_roi(comparisons: Mapping[str, Any], comparison_key: str, field_name: str) -> float | None:
         payload = comparisons.get(comparison_key)
         if not isinstance(payload, Mapping):
             raise ValueError(f"Missing required field: {field_name}")
+        _require_explicit_semantics(payload, field_name)
         return _coerce_optional_float(payload.get("roi"), field_name)
 
     def _extract_optional_roi(
@@ -180,12 +186,14 @@ def _build_comparison_metrics_payload(
         payload = comparisons.get(comparison_key)
         if not isinstance(payload, Mapping):
             return None
+        _require_explicit_semantics(payload, field_name)
         return _coerce_optional_float(payload.get("roi"), field_name)
 
     def _extract_expected_value(comparisons: Mapping[str, Any], comparison_key: str, field_name: str) -> float | None:
         payload = comparisons.get(comparison_key)
         if not isinstance(payload, Mapping):
             raise ValueError(f"Missing required field: {field_name}")
+        _require_explicit_semantics(payload, field_name)
         return _coerce_optional_float(payload.get("expected_value"), field_name)
 
     return {
@@ -294,6 +302,10 @@ def _build_simulation_summary_payloads(
             "derived.pack_decision_metrics.expected_loss_unconditional",
         ),
     }
+
+    _require_float(pack_metrics.get("value_to_cost_ratio"), "pack_metrics.value_to_cost_ratio")
+    _require_nonempty_str(pack_metrics.get("opening_pack_roi_formula"), "pack_metrics.opening_pack_roi_formula")
+    _require_nonempty_str(pack_metrics.get("metric_semantics_version"), "pack_metrics.metric_semantics_version")
 
     return run_summary_payload, pack_summary_payload
 

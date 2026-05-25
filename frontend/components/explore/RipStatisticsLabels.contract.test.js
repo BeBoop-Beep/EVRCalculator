@@ -67,3 +67,19 @@ test("Explore God Pull Upside mode uses P99 ratio display with P99 ranking field
   assert.ok(source.includes('rankField: "p99_value_to_cost_rank"'));
   assert.ok(source.includes('tierField: "p99_value_to_cost_tier"'));
 });
+
+test("Pack Breakdown supports modeled outcome states for slot-schema sets", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes('packBreakdownDisplay?.mode === "modeled_outcome_states"'));
+  assert.ok(source.includes("<ModeledOutcomeBars display={packBreakdownDisplay} />"));
+  assert.ok(source.includes("Modeled outcome states show which value-bearing bucket the simulator selected for a pack."));
+  assert.ok(source.includes("These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."));
+});
+
+test("Pull Rates panel still states that the assumptions are the ones used by the simulation", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("Modeled rarity frequency and specific-card odds used by this simulation."));
+  assert.ok(source.includes("These are modeled estimates, not official Pokémon odds."));
+});

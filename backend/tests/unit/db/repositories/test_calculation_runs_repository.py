@@ -394,7 +394,7 @@ def test_get_latest_run_snapshot_for_target_includes_explicit_derived_and_compar
         "pack_cost": 5.0,
         "total_ev": 6.0,
         "net_value": 1.0,
-        "roi": 1.2,
+        "roi": 0.2,
         "roi_percent": 20.0,
     }
 

@@ -3,7 +3,26 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from backend.jobs.evr_runner import EVRRunOrchestrator
+from backend.jobs.evr_runner import EVRRunOrchestrator, _compute_cost_comparison
+
+
+@pytest.mark.parametrize(
+    "expected_value,cost,expected_value_to_cost_ratio,expected_roi",
+    [
+        (3.0, 10.0, 0.3, -0.7),
+        (10.0, 10.0, 1.0, 0.0),
+        (15.0, 10.0, 1.5, 0.5),
+    ],
+)
+def test_compute_cost_comparison_uses_formula_roi(expected_value, cost, expected_value_to_cost_ratio, expected_roi):
+    comparison = _compute_cost_comparison(expected_value=expected_value, cost=cost)
+
+    assert comparison["expected_value"] == pytest.approx(expected_value)
+    assert comparison["cost"] == pytest.approx(cost)
+    assert comparison["value_to_cost_ratio"] == pytest.approx(expected_value_to_cost_ratio)
+    assert comparison["roi"] == pytest.approx(expected_roi)
+    assert comparison["roi_formula"] == "(expected_value - cost) / cost"
+    assert comparison["metric_semantics_version"] == "formula_roi_v2"
 
 
 class _DummyConfig:
@@ -138,13 +157,18 @@ def test_run_disables_etb_in_normal_flow_while_preserving_pack_and_booster_box_o
     }
 
     assert pack_comparison["simulated_mean_pack_value_vs_pack_cost"]["profit_loss"] == pytest.approx(1.0)
-    assert pack_comparison["simulated_mean_pack_value_vs_pack_cost"]["roi"] == pytest.approx(1.2)
+    assert pack_comparison["simulated_mean_pack_value_vs_pack_cost"]["value_to_cost_ratio"] == pytest.approx(1.2)
+    assert pack_comparison["simulated_mean_pack_value_vs_pack_cost"]["roi"] == pytest.approx(0.2)
+    assert pack_comparison["simulated_mean_pack_value_vs_pack_cost"]["roi_formula"] == "(expected_value - cost) / cost"
+    assert pack_comparison["simulated_mean_pack_value_vs_pack_cost"]["metric_semantics_version"] == "formula_roi_v2"
 
     assert pack_comparison["simulated_median_pack_value_vs_pack_cost"]["profit_loss"] == pytest.approx(-0.5)
-    assert pack_comparison["simulated_median_pack_value_vs_pack_cost"]["roi"] == pytest.approx(0.9)
+    assert pack_comparison["simulated_median_pack_value_vs_pack_cost"]["value_to_cost_ratio"] == pytest.approx(0.9)
+    assert pack_comparison["simulated_median_pack_value_vs_pack_cost"]["roi"] == pytest.approx(-0.1)
 
     assert pack_comparison["calculated_expected_pack_value_vs_pack_cost"]["profit_loss"] == pytest.approx(0.5)
-    assert pack_comparison["calculated_expected_pack_value_vs_pack_cost"]["roi"] == pytest.approx(1.1)
+    assert pack_comparison["calculated_expected_pack_value_vs_pack_cost"]["value_to_cost_ratio"] == pytest.approx(1.1)
+    assert pack_comparison["calculated_expected_pack_value_vs_pack_cost"]["roi"] == pytest.approx(0.1)
 
     assert result["etb_value_vs_cost_comparison"] == {}
     assert result["etb_value_vs_cost_comparison_by_variant"] == {}
@@ -161,7 +185,8 @@ def test_run_disables_etb_in_normal_flow_while_preserving_pack_and_booster_box_o
     assert mean_booster_box["packs_per_booster_box"] == 36
     assert mean_booster_box["expected_total_booster_box_value"] == pytest.approx(36 * 6.0)
     assert mean_booster_box["profit_loss"] == pytest.approx((36 * 6.0) - 180.0)
-    assert mean_booster_box["roi"] == pytest.approx((36 * 6.0) / 180.0)
+    assert mean_booster_box["value_to_cost_ratio"] == pytest.approx((36 * 6.0) / 180.0)
+    assert mean_booster_box["roi"] == pytest.approx(((36 * 6.0) - 180.0) / 180.0)
 
     booster_by_variant = result["booster_box_value_vs_cost_comparison_by_variant"]
     assert set(booster_by_variant.keys()) == {"standard"}
@@ -177,6 +202,9 @@ def test_run_disables_etb_in_normal_flow_while_preserving_pack_and_booster_box_o
         "simulated_median_pack_value_vs_pack_cost",
         "calculated_expected_pack_value_vs_pack_cost",
     }
+    assert persist_parent_kwargs["pack_value_vs_cost_comparison"]["simulated_mean_pack_value_vs_pack_cost"]["value_to_cost_ratio"] == pytest.approx(1.2)
+    assert persist_parent_kwargs["pack_value_vs_cost_comparison"]["simulated_mean_pack_value_vs_pack_cost"]["roi"] == pytest.approx(0.2)
+    assert persist_parent_kwargs["pack_value_vs_cost_comparison"]["simulated_mean_pack_value_vs_pack_cost"]["metric_semantics_version"] == "formula_roi_v2"
     assert persist_parent_kwargs["etb_value_vs_cost_comparison"] is None
     assert set(persist_parent_kwargs["booster_box_value_vs_cost_comparison"].keys()) == {
         "simulated_mean_booster_box_value_vs_booster_box_cost",

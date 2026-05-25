@@ -6,7 +6,7 @@ import difflib
 import logging
 import math
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from backend.db.clients.supabase_client import public_read_client
 from backend.interpretation.rips import build_rip_interpretation
@@ -245,13 +245,19 @@ def _load_set_maps() -> tuple[Dict[str, Any], Dict[str, str]]:
         SET_ALIAS_MAP as sv_alias_map,
         SET_CONFIG_MAP as sv_config_map,
     )
+    from backend.constants.tcg.pokemon.swordAndShieldEra.setMap import (
+        SET_ALIAS_MAP as swsh_alias_map,
+        SET_CONFIG_MAP as swsh_config_map,
+    )
 
     config_map = {
         **sv_config_map,
+        **swsh_config_map,
         **mega_config_map,
     }
     alias_map = {
         **sv_alias_map,
+        **swsh_alias_map,
         **mega_alias_map,
     }
     return config_map, alias_map
@@ -527,6 +533,132 @@ def _build_special_pack_rule_rows(
     return rows
 
 
+_MODELED_SWSH_SET_IDS = {"swsh6", "swsh7"}
+
+_MODELED_OUTCOME_LABELS = {
+    "rare": "Baseline",
+    "holo rare": "Holo Rare Only",
+    "regular v": "Regular V Only",
+    "regular vmax": "Regular VMAX Only",
+    "full art v": "Full Art V Only",
+    "full art trainer": "Full Art Trainer Only",
+    "alternate art v": "Alternate Art V Only",
+    "alternate art vmax": "Alternate Art VMAX Only",
+    "rainbow trainer": "Rainbow Trainer Only",
+    "rainbow vmax": "Rainbow VMAX Only",
+    "gold secret rare": "Gold Secret Rare Only",
+}
+
+
+def _is_modeled_swsh_slot_schema_set(config_class: Any) -> bool:
+    if config_class is None:
+        return False
+
+    set_id = _normalize_key(getattr(config_class, "SET_ID", ""))
+    simulation_engine = _normalize_key(getattr(config_class, "SIMULATION_ENGINE", ""))
+    return (
+        set_id in _MODELED_SWSH_SET_IDS
+        and simulation_engine == "slot_schema"
+        and bool(getattr(config_class, "SLOT_SCHEMA_RUNTIME_ENABLED", False))
+    )
+
+
+def _format_modeled_outcome_label(rarity_key: str) -> str:
+    normalized = _normalize_rarity(rarity_key)
+    label = _MODELED_OUTCOME_LABELS.get(normalized)
+    if label:
+        return label
+    return " ".join(part.capitalize() for part in normalized.split())
+
+
+def _build_modeled_swsh_pack_breakdown_display(
+    *,
+    config_class: Any,
+    rankings: List[Dict[str, Any]],
+    rip_statistics: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    if not _is_modeled_swsh_slot_schema_set(config_class):
+        return None
+
+    rare_slot_probability = getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}
+    if not isinstance(rare_slot_probability, Mapping) or not rare_slot_probability:
+        return None
+
+    outcome_keys: List[str] = []
+    for raw_key, raw_probability in rare_slot_probability.items():
+        normalized_key = _normalize_rarity(raw_key)
+        if not normalized_key or _to_positive_probability(raw_probability) is None:
+            continue
+        if normalized_key not in outcome_keys:
+            outcome_keys.append(normalized_key)
+
+    ranking_counts = {
+        _normalize_rarity(row.get("rarity_bucket")): int(row.get("pulled_count") or 0)
+        for row in (rankings or [])
+        if _normalize_rarity(row.get("rarity_bucket"))
+    }
+
+    rows: List[Dict[str, Any]] = []
+    total_count = 0
+    for outcome_key in outcome_keys:
+        count = ranking_counts.get(outcome_key)
+        if count is None:
+            continue
+        total_count += count
+        rows.append(
+            {
+                "key": outcome_key,
+                "label": _format_modeled_outcome_label(outcome_key),
+                "count": count,
+            }
+        )
+
+    if total_count > 0:
+        for row in rows:
+            row["share"] = float(row["count"] / total_count)
+        rows.sort(key=lambda row: row["count"], reverse=True)
+        dominant_row = rows[0]
+        return {
+            "mode": "modeled_outcome_states",
+            "supported": True,
+            "source": "simulation_pull_summary",
+            "title": "Modeled outcome states",
+            "description": (
+                "Modeled outcome states show which value-bearing bucket the simulator selected for a pack."
+            ),
+            "disclaimer": (
+                "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."
+            ),
+            "rows": rows,
+            "dominant_key": dominant_row["key"],
+            "dominant_label": dominant_row["label"],
+            "dominant_share": dominant_row["share"],
+        }
+
+    normal_state_counts = (rip_statistics or {}).get("normal_pack_states") or {}
+    if isinstance(normal_state_counts, Mapping) and normal_state_counts:
+        fallback_source = "simulation_state_counts"
+    else:
+        fallback_source = "slot_schema_config"
+
+    return {
+        "mode": "modeled_outcome_states",
+        "supported": False,
+        "source": fallback_source,
+        "title": "Modeled outcome states",
+        "description": (
+            "Modeled outcome states show which value-bearing bucket the simulator selected for a pack."
+        ),
+        "disclaimer": (
+            "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."
+        ),
+        "rows": [],
+        "fallback_message": (
+            "Modeled rare-slot outcomes are available, but full outcome-state counts require a future simulation-output enhancement."
+        ),
+    }
+
+
 def _build_pull_rate_assumptions(
     *,
     config_class: Any,
@@ -535,9 +667,15 @@ def _build_pull_rate_assumptions(
     sources: Dict[str, str],
 ) -> Optional[Dict[str, Any]]:
     pull_rate_mapping = getattr(config_class, "PULL_RATE_MAPPING", {}) or {}
-    if not isinstance(pull_rate_mapping, dict) or not pull_rate_mapping:
+    slot_schema_mapping = getattr(config_class, "SLOT_SCHEMA_OUTCOME_POOL_MAPPING", {}) or {}
+    has_slot_schema_source = isinstance(slot_schema_mapping, dict) and bool(slot_schema_mapping)
+    if not isinstance(pull_rate_mapping, dict):
+        pull_rate_mapping = {}
+    if not pull_rate_mapping and not has_slot_schema_source:
         sources["pull_rate_assumptions"] = "NO_PULL_RATE_MAPPING"
         return None
+    if not pull_rate_mapping and has_slot_schema_source:
+        sources["pull_rate_assumptions_mapping_source"] = "SLOT_SCHEMA_RUNTIME_CONFIG"
 
     normalized_mapping = {
         _normalize_rarity_label(key): value for key, value in pull_rate_mapping.items()
@@ -592,6 +730,14 @@ def _build_pull_rate_assumptions(
         sources["pull_rate_assumptions_card_counts"] = "FAILED"
         sources["pull_rate_assumptions_regular_reverse_count"] = "FAILED"
 
+    def _card_count_for_rarity(rarity_name: str) -> Optional[int]:
+        configured_count = _to_positive_denominator(pull_rate_mapping.get(rarity_name))
+        if configured_count:
+            return configured_count
+
+        derived_count = len(rarity_card_ids.get(_normalize_rarity(rarity_name), set()))
+        return derived_count or None
+
     def _derive_regular_reverse_card_count() -> Optional[int]:
         if not cards_rows:
             if sources.get("pull_rate_assumptions_regular_reverse_count") != "FAILED":
@@ -637,7 +783,7 @@ def _build_pull_rate_assumptions(
 
     pack_structure_rows: List[Dict[str, Any]] = []
 
-    common_pool_count = _to_positive_denominator(pull_rate_mapping.get("common"))
+    common_pool_count = _card_count_for_rarity("common")
     common_specific = (
         (common_pool_count / common_slot_count)
         if common_pool_count and common_slot_count > 0
@@ -659,7 +805,7 @@ def _build_pull_rate_assumptions(
         )
     )
 
-    uncommon_pool_count = _to_positive_denominator(pull_rate_mapping.get("uncommon"))
+    uncommon_pool_count = _card_count_for_rarity("uncommon")
     uncommon_specific = (
         (uncommon_pool_count / uncommon_slot_count)
         if uncommon_pool_count and uncommon_slot_count > 0
@@ -681,7 +827,7 @@ def _build_pull_rate_assumptions(
         )
     )
 
-    rare_card_count = _to_positive_denominator(pull_rate_mapping.get("rare"))
+    rare_card_count = _card_count_for_rarity("rare")
     rare_probability = _to_positive_probability((getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}).get("rare"))
     rare_rarity_odds = int(round(1 / rare_probability)) if rare_probability else None
     rare_specific = (
@@ -756,23 +902,36 @@ def _build_pull_rate_assumptions(
     }
 
     hit_rarity_rows: List[Dict[str, Any]] = []
-    hit_rarity_keys = {
-        _normalize_rarity(rarity_name)
-        for rarity_name in pull_rate_mapping.keys()
-        if _normalize_rarity(rarity_name)
-    }
-    hit_rarity_keys.update(generic_denominators.keys())
-    hit_rarity_keys = {
-        rarity_key
-        for rarity_key in hit_rarity_keys
-        if rarity_key
-        and not _is_base_population_rarity(rarity_key)
-        and rarity_key != "regular reverse"
-        and rarity_key not in special_pack_rarities
-        and not _is_special_pack_rarity(rarity_key)
-    }
+    ordered_hit_rarity_keys: List[str] = []
 
-    for rarity_key in sorted(hit_rarity_keys):
+    def _append_hit_rarity(raw_rarity_name: Any) -> None:
+        rarity_key = _normalize_rarity(raw_rarity_name)
+        if not rarity_key or rarity_key in ordered_hit_rarity_keys:
+            return
+        if _is_base_population_rarity(rarity_key) or rarity_key in {"regular reverse", "hit", "hits", "reverse"}:
+            return
+        if rarity_key in special_pack_rarities or _is_special_pack_rarity(rarity_key):
+            return
+        ordered_hit_rarity_keys.append(rarity_key)
+
+    for rarity_name in (getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}).keys():
+        _append_hit_rarity(rarity_name)
+
+    reverse_slot_probabilities = getattr(config_class, "REVERSE_SLOT_PROBABILITIES", {}) or {}
+    if isinstance(reverse_slot_probabilities, Mapping):
+        for slot_payload in reverse_slot_probabilities.values():
+            if not isinstance(slot_payload, Mapping):
+                continue
+            for rarity_name in slot_payload.keys():
+                _append_hit_rarity(rarity_name)
+
+    for rarity_name in pull_rate_mapping.keys():
+        _append_hit_rarity(rarity_name)
+
+    for rarity_name in rarity_card_ids.keys():
+        _append_hit_rarity(rarity_name)
+
+    for rarity_key in ordered_hit_rarity_keys:
         rarity_odds_denominator = generic_denominators.get(rarity_key)
         specific_card_odds_denominator = _to_positive_denominator(pull_rate_mapping.get(rarity_key))
 
@@ -1549,6 +1708,24 @@ def get_explore_page_payload(
 
     total_ms = (time.perf_counter() - total_started) * 1000
 
+    config_class = None
+    if requested_target_type == "set":
+        config_class, _ = _resolve_set_config_for_explore_target(
+            requested_target_id,
+            summary,
+            warnings,
+            sources,
+        )
+
+    if config_class is not None:
+        modeled_display = _build_modeled_swsh_pack_breakdown_display(
+            config_class=config_class,
+            rankings=rankings,
+            rip_statistics=rip_statistics,
+        )
+        if modeled_display is not None:
+            rip_statistics["pack_breakdown_display"] = modeled_display
+
     interpretation = build_rip_interpretation(
         {
             "summary": summary,
@@ -1564,12 +1741,6 @@ def get_explore_page_payload(
 
     pull_rate_assumptions = None
     if requested_target_type == "set":
-        config_class, _ = _resolve_set_config_for_explore_target(
-            requested_target_id,
-            summary,
-            warnings,
-            sources,
-        )
         if config_class is not None:
             pull_rate_assumptions = _build_pull_rate_assumptions(
                 config_class=config_class,
@@ -1627,9 +1798,15 @@ def _build_pull_rate_assumptions(
     sources: Dict[str, str],
 ) -> Optional[Dict[str, Any]]:
     pull_rate_mapping = getattr(config_class, "PULL_RATE_MAPPING", {}) or {}
-    if not isinstance(pull_rate_mapping, dict) or not pull_rate_mapping:
+    slot_schema_mapping = getattr(config_class, "SLOT_SCHEMA_OUTCOME_POOL_MAPPING", {}) or {}
+    has_slot_schema_source = isinstance(slot_schema_mapping, dict) and bool(slot_schema_mapping)
+    if not isinstance(pull_rate_mapping, dict):
+        pull_rate_mapping = {}
+    if not pull_rate_mapping and not has_slot_schema_source:
         sources["pull_rate_assumptions"] = "NO_PULL_RATE_MAPPING"
         return None
+    if not pull_rate_mapping and has_slot_schema_source:
+        sources["pull_rate_assumptions_mapping_source"] = "SLOT_SCHEMA_RUNTIME_CONFIG"
 
     normalized_mapping = {
         _normalize_rarity_label(key): value for key, value in pull_rate_mapping.items()
@@ -1684,6 +1861,14 @@ def _build_pull_rate_assumptions(
         sources["pull_rate_assumptions_card_counts"] = "FAILED"
         sources["pull_rate_assumptions_regular_reverse_count"] = "FAILED"
 
+    def _card_count_for_rarity(rarity_name: str) -> Optional[int]:
+        configured_count = _to_positive_denominator(pull_rate_mapping.get(rarity_name))
+        if configured_count:
+            return configured_count
+
+        derived_count = len(rarity_card_ids.get(_normalize_rarity(rarity_name), set()))
+        return derived_count or None
+
     def _derive_regular_reverse_card_count() -> Optional[int]:
         if not cards_rows:
             if sources.get("pull_rate_assumptions_regular_reverse_count") != "FAILED":
@@ -1729,7 +1914,7 @@ def _build_pull_rate_assumptions(
 
     pack_structure_rows: List[Dict[str, Any]] = []
 
-    common_pool_count = _to_positive_denominator(pull_rate_mapping.get("common"))
+    common_pool_count = _card_count_for_rarity("common")
     common_specific = (
         (common_pool_count / common_slot_count)
         if common_pool_count and common_slot_count > 0
@@ -1751,7 +1936,7 @@ def _build_pull_rate_assumptions(
         )
     )
 
-    uncommon_pool_count = _to_positive_denominator(pull_rate_mapping.get("uncommon"))
+    uncommon_pool_count = _card_count_for_rarity("uncommon")
     uncommon_specific = (
         (uncommon_pool_count / uncommon_slot_count)
         if uncommon_pool_count and uncommon_slot_count > 0
@@ -1773,7 +1958,7 @@ def _build_pull_rate_assumptions(
         )
     )
 
-    rare_card_count = _to_positive_denominator(pull_rate_mapping.get("rare"))
+    rare_card_count = _card_count_for_rarity("rare")
     rare_probability = _to_positive_probability((getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}).get("rare"))
     rare_rarity_odds = int(round(1 / rare_probability)) if rare_probability else None
     rare_specific = (
@@ -1848,23 +2033,36 @@ def _build_pull_rate_assumptions(
     }
 
     hit_rarity_rows: List[Dict[str, Any]] = []
-    hit_rarity_keys = {
-        _normalize_rarity(rarity_name)
-        for rarity_name in pull_rate_mapping.keys()
-        if _normalize_rarity(rarity_name)
-    }
-    hit_rarity_keys.update(generic_denominators.keys())
-    hit_rarity_keys = {
-        rarity_key
-        for rarity_key in hit_rarity_keys
-        if rarity_key
-        and not _is_base_population_rarity(rarity_key)
-        and rarity_key != "regular reverse"
-        and rarity_key not in special_pack_rarities
-        and not _is_special_pack_rarity(rarity_key)
-    }
+    ordered_hit_rarity_keys: List[str] = []
 
-    for rarity_key in sorted(hit_rarity_keys):
+    def _append_hit_rarity(raw_rarity_name: Any) -> None:
+        rarity_key = _normalize_rarity(raw_rarity_name)
+        if not rarity_key or rarity_key in ordered_hit_rarity_keys:
+            return
+        if _is_base_population_rarity(rarity_key) or rarity_key in {"regular reverse", "hit", "hits", "reverse"}:
+            return
+        if rarity_key in special_pack_rarities or _is_special_pack_rarity(rarity_key):
+            return
+        ordered_hit_rarity_keys.append(rarity_key)
+
+    for rarity_name in (getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}).keys():
+        _append_hit_rarity(rarity_name)
+
+    reverse_slot_probabilities = getattr(config_class, "REVERSE_SLOT_PROBABILITIES", {}) or {}
+    if isinstance(reverse_slot_probabilities, Mapping):
+        for slot_payload in reverse_slot_probabilities.values():
+            if not isinstance(slot_payload, Mapping):
+                continue
+            for rarity_name in slot_payload.keys():
+                _append_hit_rarity(rarity_name)
+
+    for rarity_name in pull_rate_mapping.keys():
+        _append_hit_rarity(rarity_name)
+
+    for rarity_name in rarity_card_ids.keys():
+        _append_hit_rarity(rarity_name)
+
+    for rarity_key in ordered_hit_rarity_keys:
         rarity_odds_denominator = generic_denominators.get(rarity_key)
         specific_card_odds_denominator = _to_positive_denominator(pull_rate_mapping.get(rarity_key))
 
@@ -2641,6 +2839,24 @@ def get_explore_page_payload(
 
     total_ms = (time.perf_counter() - total_started) * 1000
 
+    config_class = None
+    if requested_target_type == "set":
+        config_class, _ = _resolve_set_config_for_explore_target(
+            requested_target_id,
+            summary,
+            warnings,
+            sources,
+        )
+
+    if config_class is not None:
+        modeled_display = _build_modeled_swsh_pack_breakdown_display(
+            config_class=config_class,
+            rankings=rankings,
+            rip_statistics=rip_statistics,
+        )
+        if modeled_display is not None:
+            rip_statistics["pack_breakdown_display"] = modeled_display
+
     interpretation = build_rip_interpretation(
         {
             "summary": summary,
@@ -2656,12 +2872,6 @@ def get_explore_page_payload(
 
     pull_rate_assumptions = None
     if requested_target_type == "set":
-        config_class, _ = _resolve_set_config_for_explore_target(
-            requested_target_id,
-            summary,
-            warnings,
-            sources,
-        )
         if config_class is not None:
             pull_rate_assumptions = _build_pull_rate_assumptions(
                 config_class=config_class,

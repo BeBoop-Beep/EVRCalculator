@@ -148,18 +148,25 @@ def _compute_cost_comparison(*, expected_value: float, cost: float | None) -> Di
             "expected_value": float(expected_value),
             "cost": cost,
             "profit_loss": None,
+            "value_to_cost_ratio": None,
             "roi": None,
             "roi_percent": None,
+            "roi_formula": "(expected_value - cost) / cost",
+            "metric_semantics_version": "formula_roi_v2",
         }
 
     profit_loss = float(expected_value) - float(cost)
-    roi = float(expected_value) / float(cost)
+    value_to_cost_ratio = float(expected_value) / float(cost)
+    roi = profit_loss / float(cost)
     return {
         "expected_value": float(expected_value),
         "cost": float(cost),
         "profit_loss": profit_loss,
+        "value_to_cost_ratio": value_to_cost_ratio,
         "roi": roi,
-        "roi_percent": (roi - 1.0) * 100.0,
+        "roi_percent": roi * 100.0,
+        "roi_formula": "(expected_value - cost) / cost",
+        "metric_semantics_version": "formula_roi_v2",
     }
 
 
@@ -420,6 +427,7 @@ def _print_value_vs_cost_summary(
             f"{label}: expected={_fmt_money(payload.get('expected_value'))}, "
             f"cost={_fmt_money(payload.get('cost'))}, "
             f"profit/loss={_fmt_money(payload.get('profit_loss'))}, "
+            f"value_to_cost_ratio={_fmt_roi(payload.get('value_to_cost_ratio'))}, "
             f"roi={_fmt_roi(payload.get('roi'))}"
         )
 
@@ -431,6 +439,7 @@ def _print_value_vs_cost_summary(
                 f"{label}: expected={_fmt_money(payload.get('expected_total_etb_value'))}, "
                 f"cost={_fmt_money(payload.get('cost'))}, "
                 f"profit/loss={_fmt_money(payload.get('profit_loss'))}, "
+                f"value_to_cost_ratio={_fmt_roi(payload.get('value_to_cost_ratio'))}, "
                 f"roi={_fmt_roi(payload.get('roi'))}, "
                 f"formula={payload.get('formula')}"
             )
@@ -442,6 +451,7 @@ def _print_value_vs_cost_summary(
             f"{label}: expected={_fmt_money(payload.get('expected_total_booster_box_value'))}, "
             f"cost={_fmt_money(payload.get('cost'))}, "
             f"profit/loss={_fmt_money(payload.get('profit_loss'))}, "
+            f"value_to_cost_ratio={_fmt_roi(payload.get('value_to_cost_ratio'))}, "
             f"roi={_fmt_roi(payload.get('roi'))}, "
             f"formula={payload.get('formula')}"
         )

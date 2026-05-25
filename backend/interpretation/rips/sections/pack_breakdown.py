@@ -10,6 +10,46 @@ from ..thresholds import format_percent, safe_percent_share
 
 def interpret_pack_breakdown(data: Dict[str, Any]) -> SectionInterpretation:
     rip_stats = data.get("rip_statistics") or {}
+    modeled_display = rip_stats.get("pack_breakdown_display") or {}
+
+    if modeled_display.get("mode") == "modeled_outcome_states":
+        rows = modeled_display.get("rows") or []
+        if rows:
+            lead_row = rows[0]
+            lead_label = str(lead_row.get("label") or "Modeled state")
+            lead_share = float(lead_row.get("share") or 0.0)
+            evidence = [
+                EvidenceItem("Dominant modeled state", lead_label),
+                EvidenceItem("Dominant modeled state share", format_percent(lead_share)),
+            ]
+            return SectionInterpretation(
+                summary=(
+                    f"{lead_label} is the most common modeled outcome state under the current slot-based simulator assumptions."
+                ),
+                label="Modeled outcome states",
+                reason_code="modeled_outcome_states",
+                severity="neutral",
+                confidence="high",
+                evidence=evidence,
+                signals={
+                    "pack_breakdown_profile": "modeled_outcome_states",
+                    "dominant_modeled_state": lead_row.get("key"),
+                    "dominant_modeled_state_share": lead_share,
+                },
+            )
+
+        fallback_message = str(modeled_display.get("fallback_message") or "").strip()
+        return SectionInterpretation(
+            summary=(
+                fallback_message
+                or "Modeled rare-slot outcomes are known, but full outcome-state counts are not exposed yet."
+            ),
+            label="Modeled state counts pending",
+            reason_code="modeled_state_counts_unavailable",
+            severity="data_limited",
+            confidence="medium",
+        )
+
     pack_paths = rip_stats.get("pack_paths") or {}
     normal_states = rip_stats.get("normal_pack_states") or {}
 

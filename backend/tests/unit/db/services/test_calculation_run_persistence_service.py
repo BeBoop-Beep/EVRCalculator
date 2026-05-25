@@ -797,19 +797,65 @@ def test_persist_parent_run_with_price_snapshots_maps_all_value_vs_cost_comparis
         input_mode="db",
         price_inputs={"pack": 5.0},
         pack_value_vs_cost_comparison={
-            "simulated_mean_pack_value_vs_pack_cost": {"roi": 1.2},
-            "simulated_median_pack_value_vs_pack_cost": {"roi": 0.9},
-            "calculated_expected_pack_value_vs_pack_cost": {"expected_value": 1.1, "roi": 1.1},
+            "simulated_mean_pack_value_vs_pack_cost": {
+                "roi": 0.2,
+                "value_to_cost_ratio": 1.2,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "simulated_median_pack_value_vs_pack_cost": {
+                "roi": -0.1,
+                "value_to_cost_ratio": 0.9,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "calculated_expected_pack_value_vs_pack_cost": {
+                "expected_value": 1.1,
+                "roi": 1.1,
+                "value_to_cost_ratio": 1.1,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
         },
         etb_value_vs_cost_comparison={
-            "simulated_mean_etb_value_vs_etb_cost": {"roi": 1.15},
-            "simulated_median_etb_value_vs_etb_cost": {"roi": 1.05},
-            "calculated_expected_etb_value_vs_etb_cost": {"roi": 1.08},
+            "simulated_mean_etb_value_vs_etb_cost": {
+                "roi": 0.15,
+                "value_to_cost_ratio": 1.15,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "simulated_median_etb_value_vs_etb_cost": {
+                "roi": 0.05,
+                "value_to_cost_ratio": 1.05,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "calculated_expected_etb_value_vs_etb_cost": {
+                "roi": 0.08,
+                "value_to_cost_ratio": 1.08,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
         },
         booster_box_value_vs_cost_comparison={
-            "simulated_mean_booster_box_value_vs_booster_box_cost": {"roi": 1.3},
-            "simulated_median_booster_box_value_vs_booster_box_cost": {"roi": 1.1},
-            "calculated_expected_booster_box_value_vs_booster_box_cost": {"roi": 1.2},
+            "simulated_mean_booster_box_value_vs_booster_box_cost": {
+                "roi": 0.3,
+                "value_to_cost_ratio": 1.3,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "simulated_median_booster_box_value_vs_booster_box_cost": {
+                "roi": 0.1,
+                "value_to_cost_ratio": 1.1,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "calculated_expected_booster_box_value_vs_booster_box_cost": {
+                "roi": 0.2,
+                "value_to_cost_ratio": 1.2,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
         },
     )
 
@@ -818,15 +864,15 @@ def test_persist_parent_run_with_price_snapshots_maps_all_value_vs_cost_comparis
 
     comparison_payload = mock_create_parent_calculation_run.call_args.args[6]
     assert comparison_payload == {
-        "simulated_mean_pack_value_vs_pack_cost": 1.2,
-        "simulated_median_pack_value_vs_pack_cost": 0.9,
+        "simulated_mean_pack_value_vs_pack_cost": 0.2,
+        "simulated_median_pack_value_vs_pack_cost": -0.1,
         "calculated_expected_pack_value_vs_pack_cost": 1.1,
-        "simulated_mean_etb_value_vs_etb_cost": 1.15,
-        "simulated_median_etb_value_vs_etb_cost": 1.05,
-        "calculated_expected_etb_value_vs_etb_cost": 1.08,
-        "simulated_mean_booster_box_value_vs_booster_box_cost": 1.3,
-        "simulated_median_booster_box_value_vs_booster_box_cost": 1.1,
-        "calculated_expected_booster_box_value_vs_booster_box_cost": 1.2,
+        "simulated_mean_etb_value_vs_etb_cost": 0.15,
+        "simulated_median_etb_value_vs_etb_cost": 0.05,
+        "calculated_expected_etb_value_vs_etb_cost": 0.08,
+        "simulated_mean_booster_box_value_vs_booster_box_cost": 0.3,
+        "simulated_median_booster_box_value_vs_booster_box_cost": 0.1,
+        "calculated_expected_booster_box_value_vs_booster_box_cost": 0.2,
     }
     mock_create_calculation_price_snapshot.assert_called_once()
 
@@ -858,15 +904,46 @@ def test_persist_parent_run_with_price_snapshots_allows_missing_etb_comparison_a
         input_mode="db",
         price_inputs={"pack": 5.0, "etb": 50.0, "etb_promo": 3.25, "booster_box": 180.0},
         pack_value_vs_cost_comparison={
-            "simulated_mean_pack_value_vs_pack_cost": {"roi": 1.2},
-            "simulated_median_pack_value_vs_pack_cost": {"roi": 0.9},
-            "calculated_expected_pack_value_vs_pack_cost": {"expected_value": 1.1, "roi": 1.1},
+            "simulated_mean_pack_value_vs_pack_cost": {
+                "roi": 0.2,
+                "value_to_cost_ratio": 1.2,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "simulated_median_pack_value_vs_pack_cost": {
+                "roi": -0.1,
+                "value_to_cost_ratio": 0.9,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "calculated_expected_pack_value_vs_pack_cost": {
+                "expected_value": 1.1,
+                "roi": 1.1,
+                "value_to_cost_ratio": 1.1,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
         },
         etb_value_vs_cost_comparison=None,
         booster_box_value_vs_cost_comparison={
-            "simulated_mean_booster_box_value_vs_booster_box_cost": {"roi": 1.3},
-            "simulated_median_booster_box_value_vs_booster_box_cost": {"roi": 1.1},
-            "calculated_expected_booster_box_value_vs_booster_box_cost": {"roi": 1.2},
+            "simulated_mean_booster_box_value_vs_booster_box_cost": {
+                "roi": 0.3,
+                "value_to_cost_ratio": 1.3,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "simulated_median_booster_box_value_vs_booster_box_cost": {
+                "roi": 0.1,
+                "value_to_cost_ratio": 1.1,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "calculated_expected_booster_box_value_vs_booster_box_cost": {
+                "roi": 0.2,
+                "value_to_cost_ratio": 1.2,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
         },
     )
 

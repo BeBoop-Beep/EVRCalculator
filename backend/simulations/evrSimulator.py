@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import time
-from typing import MutableMapping
+from typing import Mapping, MutableMapping
 
 from .monteCarloSim import make_simulate_pack_fn, print_simulation_summary, run_simulation
 from .monteCarloSimV2 import (
@@ -12,6 +12,9 @@ from .monteCarloSimV2 import (
     run_simulation_v2,
     validate_pack_state_model,
 )
+from .slotSchemaContract import get_pack_structure
+from .slotSchemaOutcomeResolver import apply_slot_schema_outcome_pool_mapping
+from .slotSchemaSimulator import simulate_slot_schema_packs
 from backend.calculations.packCalcsRefractored.otherCalculations import PackCalculations
 from backend.utils.debug_output import debug_print
 from .utils.extractScarletAndVioletCardGroups import extract_scarletandviolet_card_groups
@@ -35,7 +38,221 @@ def _coerce_bool_flag(value) -> bool:
     return bool(value)
 
 
+def _normalize_simulation_engine(engine) -> str:
+    normalized = str(engine).strip().lower()
+    if not normalized:
+        raise ValueError("SIMULATION_ENGINE cannot be empty.")
+    if normalized in {"v1", "legacy", "v2", "slot_schema"}:
+        return normalized
+    raise ValueError(
+        f"Unsupported SIMULATION_ENGINE={engine!r}. Expected 'legacy', 'v1', 'v2', or 'slot_schema'."
+    )
+
+
+def _coerce_float(value) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return numeric if numeric == numeric else 0.0
+
+
+def _coerce_slot_schema_pool_rows(pool, *, value_column: str):
+    if pool is None:
+        return []
+
+    if hasattr(pool, "to_dict"):
+        records = pool.to_dict(orient="records")
+    elif isinstance(pool, list):
+        records = pool
+    else:
+        records = list(pool)
+
+    normalized_rows = []
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise ValueError(
+                "slot_schema pool rows must be mapping-like dicts. "
+                f"Received type={type(record).__name__} at index={index}."
+            )
+
+        row = dict(record)
+        raw_value = row.get(value_column)
+        if raw_value is None and value_column != "Price ($)":
+            raw_value = row.get("Price ($)")
+        if raw_value is None and value_column != "Reverse Variant Price ($)":
+            raw_value = row.get("Reverse Variant Price ($)")
+        row["value"] = _coerce_float(raw_value)
+        normalized_rows.append(row)
+
+    return normalized_rows
+
+
+def _build_slot_schema_card_pool(config, card_groups, simulation_input_df):
+    card_pool = {
+        "common": _coerce_slot_schema_pool_rows(card_groups.get("common"), value_column="Price ($)"),
+        "uncommon": _coerce_slot_schema_pool_rows(card_groups.get("uncommon"), value_column="Price ($)"),
+        "rare": _coerce_slot_schema_pool_rows(card_groups.get("rare"), value_column="Price ($)"),
+        "reverse": _coerce_slot_schema_pool_rows(
+            card_groups.get("reverse"),
+            value_column="Reverse Variant Price ($)",
+        ),
+        "hit": _coerce_slot_schema_pool_rows(card_groups.get("hit"), value_column="Price ($)"),
+    }
+
+    outcome_mapping = getattr(config, "SLOT_SCHEMA_OUTCOME_POOL_MAPPING", None)
+    if isinstance(outcome_mapping, Mapping) and outcome_mapping:
+        resolved_outcome_pools = apply_slot_schema_outcome_pool_mapping(
+            config,
+            simulation_input_df,
+            allow_empty_pools=True,
+        )
+
+        required_outcomes = set(getattr(config, "RARE_SLOT_PROBABILITY", {}).keys())
+        for required_outcome in required_outcomes:
+            required_pool = resolved_outcome_pools.get(required_outcome)
+            if required_pool is not None and required_pool.empty:
+                raise ValueError(
+                    "slot_schema runtime pool construction failed: "
+                    f"required outcome {required_outcome!r} resolved to an empty mapped pool."
+                )
+
+        for outcome, pool_df in resolved_outcome_pools.items():
+            if pool_df.empty:
+                continue
+            card_pool[outcome] = _coerce_slot_schema_pool_rows(pool_df, value_column="Price ($)")
+
+    return card_pool
+
+
+def _is_slot_schema_runtime_enabled(config) -> bool:
+    """Return True only when the config has explicitly opted into slot-schema runtime.
+
+    The config must set SLOT_SCHEMA_RUNTIME_ENABLED = True.  The flag is
+    intentionally absent from base configs so that individual set configs must
+    make a deliberate opt-in.  Inheriting classes automatically propagate the
+    flag, making it straightforward to pilot on one set at a time.
+    """
+    raw = getattr(config, "SLOT_SCHEMA_RUNTIME_ENABLED", False)
+    return _coerce_bool_flag(raw)
+
+
+def _validate_slot_schema_runtime_readiness(config) -> None:
+    """Fail fast when slot-schema runtime is enabled without required probability tables.
+
+    Readiness is derived directly from PACK_STRUCTURE.rare_family_slots so runtime
+    enablement cannot drift from the slot contract.
+    """
+    pack_structure = get_pack_structure(config)
+    rare_family_slots = pack_structure.get("rare_family_slots", [])
+
+    for index, slot in enumerate(rare_family_slots):
+        slot_name = str(slot.get("name", f"slot_{index}"))
+        slot_path = f"PACK_STRUCTURE.rare_family_slots[{index}] ({slot_name})"
+
+        probability_attr = slot.get("probability_attr")
+        probability_key = slot.get("probability_key")
+
+        if isinstance(probability_attr, str) and probability_attr.strip():
+            attr_name = probability_attr.strip()
+            if not hasattr(config, attr_name):
+                raise ValueError(
+                    "slot_schema runtime readiness failed: "
+                    f"{slot_path} references probability_attr={attr_name!r}, "
+                    "but config does not define that attribute."
+                )
+
+            probability_table = getattr(config, attr_name)
+            if probability_key is not None:
+                if not isinstance(probability_table, Mapping):
+                    raise ValueError(
+                        "slot_schema runtime readiness failed: "
+                        f"{slot_path} uses probability_key={probability_key!r}, "
+                        f"but {attr_name!r} is type={type(probability_table).__name__} "
+                        "not a mapping."
+                    )
+                if probability_key not in probability_table:
+                    raise ValueError(
+                        "slot_schema runtime readiness failed: "
+                        f"{slot_path} references probability_key={probability_key!r} in "
+                        f"{attr_name!r}, but that key does not exist."
+                    )
+            continue
+
+        default_outcome = slot.get("default_outcome")
+        if not isinstance(default_outcome, str) or not default_outcome.strip():
+            raise ValueError(
+                "slot_schema runtime readiness failed: "
+                f"{slot_path} has no probability_attr and must define a non-empty "
+                "default_outcome."
+            )
+
+    rare_slot_probability = getattr(config, "RARE_SLOT_PROBABILITY", None)
+    if rare_slot_probability is None:
+        return
+
+    if not isinstance(rare_slot_probability, Mapping) or not rare_slot_probability:
+        raise ValueError(
+            "slot_schema runtime readiness failed: RARE_SLOT_PROBABILITY must be a non-empty mapping "
+            "when present on a slot_schema runtime-enabled config."
+        )
+
+    outcome_pool_mapping = getattr(config, "SLOT_SCHEMA_OUTCOME_POOL_MAPPING", None)
+    if not isinstance(outcome_pool_mapping, Mapping) or not outcome_pool_mapping:
+        raise ValueError(
+            "slot_schema runtime readiness failed: runtime-enabled slot_schema config with "
+            "RARE_SLOT_PROBABILITY must define SLOT_SCHEMA_OUTCOME_POOL_MAPPING."
+        )
+
+    missing_mapped_outcomes = [
+        outcome
+        for outcome in rare_slot_probability
+        if outcome not in outcome_pool_mapping
+    ]
+    if missing_mapped_outcomes:
+        raise ValueError(
+            "slot_schema runtime readiness failed: SLOT_SCHEMA_OUTCOME_POOL_MAPPING is missing "
+            "outcomes required by RARE_SLOT_PROBABILITY: "
+            + ", ".join(sorted(str(item) for item in missing_mapped_outcomes))
+        )
+
+
+def _is_celebrations_special_set(config) -> bool:
+    era = str(getattr(config, "ERA", "")).strip().lower()
+    set_name = str(getattr(config, "SET_NAME", "")).strip().lower()
+    set_id = str(getattr(config, "SET_ID", "")).strip().lower()
+    return era == "sword and shield" and (set_name == "celebrations" or set_id == "cel25")
+
+
+def _has_explicit_pack_structure_override(config) -> bool:
+    config_dict = getattr(config, "__dict__", {})
+    return isinstance(config_dict, dict) and "PACK_STRUCTURE" in config_dict
+
+
+def get_simulation_engine(config) -> str:
+    configured_engine = getattr(config, "SIMULATION_ENGINE", None)
+    if configured_engine is not None:
+        normalized_engine = _normalize_simulation_engine(configured_engine)
+        if (
+            normalized_engine == "slot_schema"
+            and _is_celebrations_special_set(config)
+            and not _has_explicit_pack_structure_override(config)
+        ):
+            raise ValueError(
+                "Set 'Celebrations' cannot use inherited standard SWSH PACK_STRUCTURE with "
+                "SIMULATION_ENGINE='slot_schema'. Define an explicit special PACK_STRUCTURE "
+                "four-card override before enabling slot-schema routing."
+            )
+        return normalized_engine
+
+    return "v2" if _should_use_monte_carlo_v2(config) else "v1"
+
+
 def _should_use_monte_carlo_v2(config) -> bool:
+    configured_engine = getattr(config, "SIMULATION_ENGINE", None)
+    if configured_engine is not None:
+        return _normalize_simulation_engine(configured_engine) == "v2"
+
     configured = getattr(config, "USE_MONTE_CARLO_V2", False)
     if _coerce_bool_flag(configured):
         return True
@@ -228,8 +445,32 @@ class PackEVRSimulator(PackCalculations):
     def calculate_evr_simulations(self, df):
         print("=== STARTING PACK EV SIMULATION ===")
         _t0 = time.perf_counter()
+        simulation_engine = get_simulation_engine(self.config)
+
+        if simulation_engine == "slot_schema" and not _is_slot_schema_runtime_enabled(self.config):
+            set_name = str(getattr(self.config, "SET_NAME", "<unknown>"))
+            raise ValueError(
+                "SIMULATION_ENGINE='slot_schema' requires SLOT_SCHEMA_RUNTIME_ENABLED = True on the config. "
+                f"Set '{set_name}' has not opted into slot-schema runtime simulation."
+            )
+
+        if simulation_engine == "slot_schema":
+            _validate_slot_schema_runtime_readiness(self.config)
+
         card_groups = extract_scarletandviolet_card_groups(self.config, df)
         debug_print(f"[SIM_TIMING] stage_name=pool_extraction elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
+
+        if simulation_engine == "slot_schema":
+            slot_schema_card_pool = _build_slot_schema_card_pool(self.config, card_groups, df)
+            sim_results = simulate_slot_schema_packs(
+                self.config,
+                slot_schema_card_pool,
+                num_packs=1000000,
+            )
+            return {
+                "sim_results": sim_results,
+                "slot_logs": [],
+            }
 
         pattern_keys_source, _ = get_row_match_keys(df, mode="pattern")
         source_pattern_mask = pattern_keys_source.isin({"pokeball_pattern", "master_ball_pattern"})
@@ -267,11 +508,11 @@ class PackEVRSimulator(PackCalculations):
             all_rows_accounted_for,
         )
 
-        use_v2 = _should_use_monte_carlo_v2(self.config)
+        use_v2 = simulation_engine == "v2"
         debug_print(
             "[SIM_ENGINE] selected_engine=%s configured_use_monte_carlo_v2=%r era=%s"
             % (
-                "v2" if use_v2 else "v1",
+                simulation_engine,
                 getattr(self.config, "USE_MONTE_CARLO_V2", None),
                 getattr(self.config, "ERA", ""),
             )

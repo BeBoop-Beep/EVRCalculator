@@ -1058,3 +1058,245 @@ def test_pull_rate_assumptions_include_god_pack_special_rule_for_151(monkeypatch
     assert "god pack" in special_rows
     assert special_rows["god pack"]["slot_label"] == "Special pack model"
     assert special_rows["god pack"]["rarity_odds_denominator"] == 2000
+
+
+def _swsh_summary_row(set_id, run_id):
+    return {
+        "set_id": set_id,
+        "calculation_run_id": run_id,
+        "run_at": "2026-01-01T00:00:00Z",
+        "pack_score": 78.1,
+        "relative_pack_score": 81.4,
+        "pack_rank": 3,
+        "pack_tier": "A",
+        "profit_score": 70.0,
+        "safety_score": 73.0,
+        "stability_score": 69.0,
+        "profit_rank": 4,
+        "profit_tier": "A",
+        "safety_rank": 2,
+        "safety_tier": "A",
+        "stability_rank": 5,
+        "stability_tier": "B",
+        "relative_profit_score": 70.0,
+        "relative_safety_score": 73.0,
+        "relative_stability_score": 69.0,
+        "pack_cost": 5.0,
+        "mean_value": 5.55,
+        "median_value": 5.1,
+        "roi_percent": 11.2,
+        "prob_profit": 0.54,
+        "p95_value_to_cost_ratio": 1.9,
+        "p99_value_to_cost_ratio": 2.5,
+        "mean_value_to_cost_ratio": 1.11,
+        "median_value_to_cost_ratio": 1.02,
+        "expected_loss_when_losing_fraction": 0.33,
+        "median_loss_when_losing_fraction": 0.29,
+        "p05_shortfall_to_cost": 0.41,
+        "expected_loss_when_losing": 1.2,
+        "median_loss_when_losing": 1.0,
+        "expected_loss_per_pack": 0.6,
+        "tail_value_p05": 2.1,
+        "coefficient_of_variation": 0.8,
+        "hhi_ev_concentration": 0.14,
+        "effective_chase_count": 7.3,
+        "top1_ev_share": 0.18,
+        "top3_ev_share": 0.35,
+        "top5_ev_share": 0.47,
+    }
+
+
+def _build_swsh_input_rows(outcome_keys):
+    rows = [
+        {
+            "card_id": "common-card-1",
+            "card_variant_id": "common-variant-1",
+            "card_name": "Common One",
+            "rarity_bucket": "common",
+        },
+        {
+            "card_id": "common-card-2",
+            "card_variant_id": "common-variant-2",
+            "card_name": "Common Two",
+            "rarity_bucket": "common",
+        },
+        {
+            "card_id": "uncommon-card-1",
+            "card_variant_id": "uncommon-variant-1",
+            "card_name": "Uncommon One",
+            "rarity_bucket": "uncommon",
+        },
+        {
+            "card_id": "regular-reverse-card-1",
+            "card_variant_id": "regular-reverse-variant-1",
+            "card_name": "Regular Reverse One",
+            "rarity_bucket": "regular reverse",
+        },
+    ]
+
+    for index, outcome_key in enumerate(outcome_keys, start=1):
+        slug = outcome_key.replace(" ", "-")
+        rows.append(
+            {
+                "card_id": f"{slug}-card-{index}",
+                "card_variant_id": f"{slug}-variant-{index}",
+                "card_name": f"{outcome_key.title()} Card {index}",
+                "rarity_bucket": outcome_key,
+            }
+        )
+
+    return rows
+
+
+def test_swsh6_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh6-modeled")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh6", "run-swsh6-modeled")]
+    handlers["simulation_pull_summary"] = lambda _q: [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 100,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 100),
+        }
+        for index, rarity_key in enumerate(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh6")
+
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+    assert display is not None
+    assert display["mode"] == "modeled_outcome_states"
+    assert display["supported"] is True
+    assert display["source"] == "simulation_pull_summary"
+    row_keys = [row["key"] for row in display["rows"]]
+    assert set(row_keys) == set(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys())
+    assert "slot_schema" not in row_keys
+    assert all("God Pack" not in row["label"] for row in display["rows"])
+
+
+def test_swsh7_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-modeled")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-modeled")]
+    handlers["simulation_pull_summary"] = lambda _q: [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 100,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 100),
+        }
+        for index, rarity_key in enumerate(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+    assert display is not None
+    assert display["mode"] == "modeled_outcome_states"
+    assert display["supported"] is True
+    row_keys = [row["key"] for row in display["rows"]]
+    assert set(row_keys) == set(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    assert "slot_schema" not in row_keys
+
+
+def test_swsh6_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh6-pull-rates")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh6", "run-swsh6-pull-rates")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh6")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+    assert set(hit_rows.keys()) == set(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys()) - {"rare"}
+    assert payload["meta"]["sources"]["pull_rate_assumptions_mapping_source"] == "SLOT_SCHEMA_RUNTIME_CONFIG"
+
+
+def test_swsh7_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-pull-rates")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-pull-rates")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+    assert set(hit_rows.keys()) == set(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys()) - {"rare"}
+    assert payload["meta"]["sources"]["pull_rate_assumptions_mapping_source"] == "SLOT_SCHEMA_RUNTIME_CONFIG"
+
+
+def test_swsh_pull_rate_assumptions_exclude_generic_hits_bucket(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-generic-hits")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-generic-hits")]
+
+    def _rows(_q):
+        rows = _build_swsh_input_rows(list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys()))
+        rows.append(
+            {
+                "card_id": "generic-hit-card-1",
+                "card_variant_id": "generic-hit-variant-1",
+                "card_name": "Generic Hit Card",
+                "rarity_bucket": "hits",
+            }
+        )
+        return rows
+
+    handlers["simulation_input_cards_with_near_mint_price"] = _rows
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"] for row in groups_by_key["hit_rarity_model"]["rows"]}
+    assert "hits" not in hit_rows
+
+
+def test_non_swsh_sets_do_not_emit_modeled_pack_breakdown_display(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-base-no-modeled-display")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("base-set", "run-base-no-modeled-display")]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["rip_statistics"].get("pack_breakdown_display") is None
