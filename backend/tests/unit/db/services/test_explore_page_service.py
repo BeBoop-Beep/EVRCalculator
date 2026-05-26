@@ -1,3 +1,5 @@
+import sys
+
 from backend.db.services import explore_page_service as service
 
 
@@ -1294,6 +1296,91 @@ def _build_swsh7_live_variant_rows():
     ]
 
 
+def _filter_rows_by_requested_ids(query, rows):
+    requested_ids = set()
+    for field, values in query.in_filters:
+        if field == "id":
+            requested_ids.update(str(value) for value in values)
+    return [row for row in rows if str(row.get("id")) in requested_ids]
+
+
+def _build_swsh6_card_and_variant_rows_for_runtime_outcomes():
+    by_bucket = {
+        "rare": {"name": "Cinderace", "rarity": "Rare", "card_number": "010", "printing_type": "non-holo"},
+        "holo rare": {"name": "Zeraora", "rarity": "Holo Rare", "card_number": "011", "printing_type": "holo"},
+        "regular v": {"name": "Celebi V", "rarity": "Ultra Rare", "card_number": "100", "printing_type": "holo"},
+        "regular vmax": {"name": "Ice Rider Calyrex VMAX", "rarity": "Ultra Rare", "card_number": "101", "printing_type": "holo"},
+        "full art v": {"name": "Tornadus V (Full Art)", "rarity": "Ultra Rare", "card_number": "170", "printing_type": "holo"},
+        "full art trainer": {"name": "Peony", "rarity": "Ultra Rare", "card_number": "190", "printing_type": "holo"},
+        "alternate art v": {"name": "Blaziken V (Alternate Full Art)", "rarity": "Ultra Rare", "card_number": "183", "printing_type": "holo"},
+        "alternate art vmax": {"name": "Blaziken VMAX Alternate Art Secret", "rarity": "Secret Rare", "card_number": "201", "printing_type": "holo"},
+        "rainbow rare": {"name": "Metagross VMAX", "rarity": "Secret Rare", "card_number": "210", "printing_type": "holo"},
+        "gold rare": {"name": "Snorlax", "rarity": "Secret Rare", "card_number": "224", "printing_type": "holo"},
+    }
+
+    card_rows = []
+    variant_rows = []
+    for bucket, details in by_bucket.items():
+        slug = bucket.replace(" ", "-")
+        card_id = f"{slug}-card-1"
+        variant_id = f"{slug}-variant-1"
+        card_rows.append(
+            {
+                "id": card_id,
+                "name": details["name"],
+                "rarity": details["rarity"],
+                "card_number": details["card_number"],
+            }
+        )
+        variant_rows.append(
+            {
+                "id": variant_id,
+                "card_id": card_id,
+                "printing_type": details["printing_type"],
+            }
+        )
+
+    return card_rows, variant_rows
+
+
+def _build_swsh7_card_and_variant_rows_for_runtime_outcomes():
+    by_bucket = {
+        "rare": {"name": "Regidrago", "rarity": "Rare", "card_number": "010", "printing_type": "non-holo"},
+        "holo rare": {"name": "Hydreigon", "rarity": "Holo Rare", "card_number": "109", "printing_type": "holo"},
+        "regular v": {"name": "Rayquaza V", "rarity": "Ultra Rare", "card_number": "110", "printing_type": "holo"},
+        "regular vmax": {"name": "Rayquaza VMAX", "rarity": "Ultra Rare", "card_number": "111", "printing_type": "holo"},
+        "full art": {"name": "Noivern V (Full Art)", "rarity": "Ultra Rare", "card_number": "170", "printing_type": "holo"},
+        "alternate art v": {"name": "Umbreon V (Alternate Full Art)", "rarity": "Ultra Rare", "card_number": "189", "printing_type": "holo"},
+        "alternate art vmax": {"name": "Umbreon VMAX Alternate Art Secret", "rarity": "Secret Rare", "card_number": "215", "printing_type": "holo"},
+        "rainbow rare": {"name": "Duraludon VMAX", "rarity": "Secret Rare", "card_number": "210", "printing_type": "holo"},
+        "gold rare": {"name": "Boost Shake", "rarity": "Secret Rare", "card_number": "230", "printing_type": "holo"},
+    }
+
+    card_rows = []
+    variant_rows = []
+    for bucket, details in by_bucket.items():
+        slug = bucket.replace(" ", "-")
+        card_id = f"{slug}-card-1"
+        variant_id = f"{slug}-variant-1"
+        card_rows.append(
+            {
+                "id": card_id,
+                "name": details["name"],
+                "rarity": details["rarity"],
+                "card_number": details["card_number"],
+            }
+        )
+        variant_rows.append(
+            {
+                "id": variant_id,
+                "card_id": card_id,
+                "printing_type": details["printing_type"],
+            }
+        )
+
+    return card_rows, variant_rows
+
+
 def test_swsh6_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypatch):
     from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
 
@@ -1377,9 +1464,11 @@ def test_swsh6_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch
 
     handlers = _build_success_handlers(run_id="run-swsh6-pull-rates")
     handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh6", "run-swsh6-pull-rates")]
-    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
-        list(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys())
-    )
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(list(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys()))
+
+    all_card_rows, all_variant_rows = _build_swsh6_card_and_variant_rows_for_runtime_outcomes()
+    handlers["cards"] = lambda query: _filter_rows_by_requested_ids(query, all_card_rows)
+    handlers["card_variants"] = lambda query: _filter_rows_by_requested_ids(query, all_variant_rows)
 
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
@@ -1400,7 +1489,7 @@ def test_swsh6_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch
         assert row["specific_card_odds_denominator"] == row["rarity_odds_denominator"]
 
     assert payload["meta"]["sources"]["pull_rate_assumptions_mapping_source"] == "SLOT_SCHEMA_RUNTIME_CONFIG"
-    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] in {"OK", "FAILED", "UNAVAILABLE"}
+    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] == "OK"
 
 
 def test_swsh7_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch):
@@ -1408,9 +1497,11 @@ def test_swsh7_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch
 
     handlers = _build_success_handlers(run_id="run-swsh7-pull-rates")
     handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-pull-rates")]
-    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
-        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
-    )
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys()))
+
+    all_card_rows, all_variant_rows = _build_swsh7_card_and_variant_rows_for_runtime_outcomes()
+    handlers["cards"] = lambda query: _filter_rows_by_requested_ids(query, all_card_rows)
+    handlers["card_variants"] = lambda query: _filter_rows_by_requested_ids(query, all_variant_rows)
 
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
@@ -1440,7 +1531,34 @@ def test_swsh7_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch
         assert row["specific_card_odds_denominator"] == row["rarity_odds_denominator"]
 
     assert payload["meta"]["sources"]["pull_rate_assumptions_mapping_source"] == "SLOT_SCHEMA_RUNTIME_CONFIG"
-    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] in {"OK", "FAILED", "UNAVAILABLE"}
+    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] == "OK"
+
+
+def test_swsh7_pull_rate_assumptions_classification_uses_native_fallback_when_pandas_missing(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-swsh7-native-fallback")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-native-fallback")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh7_live_shaped_hit_rows()
+
+    all_card_rows = _build_swsh7_live_card_rows()
+    all_variant_rows = _build_swsh7_live_variant_rows()
+    handlers["cards"] = lambda query: _filter_rows_by_requested_ids(query, all_card_rows)
+    handlers["card_variants"] = lambda query: _filter_rows_by_requested_ids(query, all_variant_rows)
+
+    monkeypatch.setitem(sys.modules, "pandas", None)
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+
+    assert hit_rows["full art"]["card_count"] == 2
+    assert hit_rows["rainbow rare"]["card_count"] == 2
+    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] == "OK"
 
 
 def test_swsh7_pull_rate_assumptions_classify_live_shaped_hits_with_read_time_metadata(monkeypatch):

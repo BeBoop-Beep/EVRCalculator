@@ -95,6 +95,15 @@ def _derived_row(run_id):
 
 
 def _build_good_tables():
+    swsh6_pull_buckets = sorted(
+        set(project11.EXPECTED_SOURCE_CORRECT_ACTIVE_BUCKETS["swsh6"])
+        | {"common", "uncommon", "regular reverse"}
+    )
+    swsh7_pull_buckets = sorted(
+        set(project11.EXPECTED_SOURCE_CORRECT_ACTIVE_BUCKETS["swsh7"])
+        | {"common", "uncommon", "regular reverse"}
+    )
+
     rows = {
         "calculation_runs": [
             {
@@ -135,8 +144,14 @@ def _build_good_tables():
             *[{"calculation_run_id": "run-swsh7", "percentile": p, "value": 1.0} for p in (1, 5, 25, 50, 75, 95, 99)],
         ],
         "simulation_pull_summary": [
-            *[{"calculation_run_id": "run-swsh6", "rarity_bucket": f"r{i}"} for i in range(14)],
-            *[{"calculation_run_id": "run-swsh7", "rarity_bucket": f"r{i}"} for i in range(14)],
+            *[
+                {"calculation_run_id": "run-swsh6", "rarity_bucket": bucket}
+                for bucket in swsh6_pull_buckets
+            ],
+            *[
+                {"calculation_run_id": "run-swsh7", "rarity_bucket": bucket}
+                for bucket in swsh7_pull_buckets
+            ],
         ],
         "simulation_state_counts": [
             {"calculation_run_id": "run-swsh6"},
@@ -258,6 +273,43 @@ def test_fails_if_expected_table_count_is_zero(tmp_path, monkeypatch):
         )
 
 
+def test_fails_if_required_pull_summary_bucket_missing(tmp_path, monkeypatch):
+    tables = _build_good_tables()
+    tables["simulation_pull_summary"] = [
+        row
+        for row in tables["simulation_pull_summary"]
+        if not (
+            row["calculation_run_id"] == "run-swsh7"
+            and row["rarity_bucket"] == "full art"
+        )
+    ]
+    _patch_clients(monkeypatch, tables)
+
+    with pytest.raises(AssertionError, match="missing required source-correct buckets"):
+        project11.run_post_persistence_surface_verification(
+            json_output_path=tmp_path / "out.json",
+            markdown_output_path=tmp_path / "out.md",
+            identifiers_by_set=_ids(),
+            fail_on_blockers=True,
+        )
+
+
+def test_fails_if_unsupported_pull_summary_bucket_present(tmp_path, monkeypatch):
+    tables = _build_good_tables()
+    tables["simulation_pull_summary"].append(
+        {"calculation_run_id": "run-swsh7", "rarity_bucket": "gold secret rare"}
+    )
+    _patch_clients(monkeypatch, tables)
+
+    with pytest.raises(AssertionError, match="contains unsupported buckets"):
+        project11.run_post_persistence_surface_verification(
+            json_output_path=tmp_path / "out.json",
+            markdown_output_path=tmp_path / "out.md",
+            identifiers_by_set=_ids(),
+            fail_on_blockers=True,
+        )
+
+
 def test_reports_valid_but_not_latest_when_read_surface_points_elsewhere(tmp_path, monkeypatch):
     tables = _build_good_tables()
     for row in tables["explore_rip_statistics_latest"]:
@@ -291,6 +343,8 @@ def test_closes_verified_when_rows_counts_and_read_surfaces_pass(tmp_path, monke
     assert payload["final_decision"] == "closed_post_persistence_surface_verified"
     assert payload["newly_persisted_runs_selected_as_latest"] is True
     assert payload["downstream_readiness_status"] == "ready"
+    assert payload["per_set"]["swsh6"]["pull_summary_bucket_contract"]["passes"] is True
+    assert payload["per_set"]["swsh7"]["pull_summary_bucket_contract"]["passes"] is True
 
 
 def test_confirms_read_only_flags_false(tmp_path, monkeypatch):

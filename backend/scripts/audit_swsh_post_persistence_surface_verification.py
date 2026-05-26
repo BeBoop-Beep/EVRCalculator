@@ -56,7 +56,6 @@ PRIOR_REAL_WRITE_COUNTS_TOTAL = {
 EXPECTED_PER_RUN_EXACT = {
     "simulation_run_summary": 1,
     "simulation_percentiles": 7,
-    "simulation_pull_summary": 14,
     "simulation_state_counts": 1,
     "simulation_derived_metrics": 1,
     "simulation_value_distribution_bins": 50,
@@ -66,6 +65,48 @@ EXPECTED_PER_RUN_EXACT = {
 EXPECTED_PER_RUN_NON_ZERO = {
     "calculation_price_snapshots": 1,
     "simulation_input_cards": 1,
+    "simulation_pull_summary": 1,
+}
+
+EXPECTED_SOURCE_CORRECT_ACTIVE_BUCKETS = {
+    "swsh6": {
+        "rare",
+        "holo rare",
+        "regular v",
+        "regular vmax",
+        "full art v",
+        "full art trainer",
+        "alternate art v",
+        "alternate art vmax",
+        "rainbow rare",
+        "gold rare",
+    },
+    "swsh7": {
+        "rare",
+        "holo rare",
+        "regular v",
+        "regular vmax",
+        "full art",
+        "alternate art v",
+        "alternate art vmax",
+        "rainbow rare",
+        "gold rare",
+    },
+}
+
+EXPECTED_UNSUPPORTED_BUCKETS_ABSENT = {
+    "swsh6": {
+        "rainbow trainer",
+        "rainbow vmax",
+        "gold secret rare",
+    },
+    "swsh7": {
+        "full art v",
+        "full art trainer",
+        "rainbow trainer",
+        "rainbow vmax",
+        "gold secret rare",
+    },
 }
 
 RIP_REQUIRED_FIELDS = (
@@ -142,6 +183,10 @@ def _is_non_empty(value: Any) -> bool:
     if isinstance(value, str):
         return bool(value.strip())
     return True
+
+
+def _normalize_bucket(value: Any) -> str:
+    return str(value or "").strip().lower().replace("_", " ").replace("-", " ")
 
 
 def _determine_final_decision(
@@ -284,6 +329,31 @@ def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict
             "simulation_value_threshold_bins", parent_run_id, client=service_client
         ),
     }
+
+    pull_summary_rows = _fetch_rows(
+        "simulation_pull_summary",
+        filters={"calculation_run_id": str(parent_run_id)},
+        client=service_client,
+    )
+    observed_pull_summary_buckets = {
+        _normalize_bucket(row.get("rarity_bucket"))
+        for row in pull_summary_rows
+        if _normalize_bucket(row.get("rarity_bucket"))
+    }
+
+    required_buckets = set(EXPECTED_SOURCE_CORRECT_ACTIVE_BUCKETS.get(set_id, set()))
+    unsupported_buckets = set(EXPECTED_UNSUPPORTED_BUCKETS_ABSENT.get(set_id, set()))
+    missing_required_buckets = sorted(required_buckets - observed_pull_summary_buckets)
+    present_unsupported_buckets = sorted(unsupported_buckets.intersection(observed_pull_summary_buckets))
+
+    if missing_required_buckets:
+        blockers.append(
+            f"{set_id}: simulation_pull_summary missing required source-correct buckets: {', '.join(missing_required_buckets)}"
+        )
+    if present_unsupported_buckets:
+        blockers.append(
+            f"{set_id}: simulation_pull_summary contains unsupported buckets: {', '.join(present_unsupported_buckets)}"
+        )
 
     for table_name, expected in EXPECTED_PER_RUN_EXACT.items():
         actual = counts_by_table.get(table_name, 0)
@@ -465,6 +535,15 @@ def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict
         "summary_parent_run_id": summary_parent_run_id or None,
         "summary_belongs_to_expected_run": summary_belongs_to_expected_run,
         "counts_by_table": counts_by_table,
+        "pull_summary_bucket_contract": {
+            "required_buckets": sorted(required_buckets),
+            "unsupported_buckets_must_be_absent": sorted(unsupported_buckets),
+            "observed_buckets": sorted(observed_pull_summary_buckets),
+            "observed_bucket_count": len(observed_pull_summary_buckets),
+            "missing_required_buckets": missing_required_buckets,
+            "present_unsupported_buckets": present_unsupported_buckets,
+            "passes": not missing_required_buckets and not present_unsupported_buckets,
+        },
         "read_surface_visibility": read_surface_visibility,
         "latest_selected_by_all_primary_surfaces": latest_selected_by_all_primary_surfaces,
         "downstream_readiness": downstream_readiness,
@@ -509,6 +588,10 @@ def _render_markdown(payload: Mapping[str, Any]) -> str:
         lines.append(f"- summary_belongs_to_expected_run: {item.get('summary_belongs_to_expected_run')}")
         lines.append(f"- latest_selected_by_all_primary_surfaces: {item.get('latest_selected_by_all_primary_surfaces')}")
         lines.append(f"- table_counts_by_run: {json.dumps(item.get('counts_by_table') or {}, sort_keys=True)}")
+        lines.append(
+            "- pull_summary_bucket_contract: "
+            + json.dumps(item.get("pull_summary_bucket_contract") or {}, sort_keys=True)
+        )
         lines.append(
             "- read_surface_visibility: "
             + json.dumps(item.get("read_surface_visibility") or {}, sort_keys=True)

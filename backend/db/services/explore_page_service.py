@@ -5,8 +5,9 @@ from __future__ import annotations
 import difflib
 import logging
 import math
+import re
 import time
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from backend.db.clients.supabase_client import public_read_client
 from backend.interpretation.rips import build_rip_interpretation
@@ -579,6 +580,219 @@ def _has_minimum_slot_schema_classification_columns(cards_rows: List[Dict[str, A
     return has_name_column and required_columns.issubset(available_columns)
 
 
+_SLOT_SCHEMA_COLUMN_ALIASES = {
+    "rarity": ("rarity", "Rarity", "rarity_raw"),
+    "printing_type": ("printing_type", "Printing Type", "printing_type_key"),
+    "card_number": ("card_number", "Card Number"),
+    "name": ("name", "Card Name", "card_name"),
+}
+
+
+def _resolve_slot_schema_row_value(row: Mapping[str, Any], key: str) -> Any:
+    for candidate in _SLOT_SCHEMA_COLUMN_ALIASES.get(key, (key,)):
+        if candidate in row:
+            return row.get(candidate)
+    return None
+
+
+def _normalize_slot_schema_text(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _coerce_slot_schema_card_number(value: Any) -> Optional[int]:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value != value:
+            return None
+        return int(value)
+
+    text = str(value).strip()
+    if not text:
+        return None
+    match = re.match(r"^(\d+)", text)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def _parse_slot_schema_card_number_range(raw: Any) -> tuple[int, int]:
+    if isinstance(raw, str):
+        pieces = [piece.strip() for piece in raw.split("-", 1)]
+        if len(pieces) != 2 or not pieces[0].isdigit() or not pieces[1].isdigit():
+            raise ValueError(f"card_number_range must be 'min-max' (numeric). Received {raw!r}.")
+        start = int(pieces[0])
+        end = int(pieces[1])
+    elif isinstance(raw, (tuple, list)) and len(raw) == 2:
+        start = int(raw[0])
+        end = int(raw[1])
+    else:
+        raise ValueError(
+            f"card_number_range must be 'min-max' or [min, max]. Received {raw!r}."
+        )
+
+    if start > end:
+        raise ValueError(f"card_number_range min cannot be greater than max: {raw!r}.")
+    return start, end
+
+
+def _matches_slot_schema_name_filter(name_text: str, operator: str, value: Any) -> bool:
+    if operator == "name_contains":
+        return str(value).lower() in name_text
+
+    if operator == "name_not_contains":
+        return str(value).lower() not in name_text
+
+    if operator == "name_contains_all":
+        if not isinstance(value, (list, tuple)) or not value:
+            raise ValueError("name_contains_all must be a non-empty list of substrings.")
+        return all(str(item).lower() in name_text for item in value)
+
+    if operator == "name_pattern":
+        pattern_text = str(value).strip()
+        match = re.fullmatch(r"endswith\((['\"])(.*)\1\)", pattern_text)
+        if not match:
+            raise ValueError(
+                "name_pattern currently supports only endswith('...') syntax. "
+                f"Received {pattern_text!r}."
+            )
+        return name_text.endswith(match.group(2).lower())
+
+    raise ValueError(f"Unknown name filter operator: {operator!r}.")
+
+
+def _row_matches_slot_schema_filters(row: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
+    for key, expected in filters.items():
+        if key == "card_number_range":
+            start, end = _parse_slot_schema_card_number_range(expected)
+            number = _coerce_slot_schema_card_number(_resolve_slot_schema_row_value(row, "card_number"))
+            if number is None or number < start or number > end:
+                return False
+            continue
+
+        if key == "card_number_min":
+            number = _coerce_slot_schema_card_number(_resolve_slot_schema_row_value(row, "card_number"))
+            if number is None or number < int(expected):
+                return False
+            continue
+
+        if key == "card_number_max":
+            number = _coerce_slot_schema_card_number(_resolve_slot_schema_row_value(row, "card_number"))
+            if number is None or number > int(expected):
+                return False
+            continue
+
+        if key in {"name_contains", "name_not_contains", "name_contains_all", "name_pattern"}:
+            name_text = _normalize_slot_schema_text(_resolve_slot_schema_row_value(row, "name"))
+            if not _matches_slot_schema_name_filter(name_text, key, expected):
+                return False
+            continue
+
+        actual = _resolve_slot_schema_row_value(row, key)
+        if _normalize_slot_schema_text(actual) != _normalize_slot_schema_text(expected):
+            return False
+
+    return True
+
+
+def _classify_slot_schema_bucket_card_ids_native(
+    *,
+    config_class: Any,
+    classification_rows: List[Dict[str, Any]],
+    row_identifier: Callable[[Mapping[str, Any]], Optional[str]],
+) -> Dict[str, set[str]]:
+    mapping = getattr(config_class, "SLOT_SCHEMA_OUTCOME_POOL_MAPPING", {}) or {}
+    if not isinstance(mapping, Mapping) or not mapping:
+        return {}
+
+    classified: Dict[str, set[str]] = {}
+    for outcome_key, details in mapping.items():
+        if not isinstance(details, Mapping):
+            raise ValueError(f"Invalid mapping payload for outcome {outcome_key!r}: expected mapping.")
+
+        card_filter = details.get("card_filter", {}) or {}
+        variant_filter = details.get("variant_filter", {}) or {}
+        include_reverse_variants = bool(details.get("include_reverse_variants", True))
+
+        if not isinstance(card_filter, Mapping):
+            raise ValueError(f"{outcome_key!r}.card_filter must be a mapping.")
+        if not isinstance(variant_filter, Mapping):
+            raise ValueError(f"{outcome_key!r}.variant_filter must be a mapping.")
+
+        identifiers: set[str] = set()
+        for row in classification_rows:
+            if not include_reverse_variants:
+                printing_type = _normalize_slot_schema_text(_resolve_slot_schema_row_value(row, "printing_type"))
+                if printing_type == "reverse-holo":
+                    continue
+
+            if not _row_matches_slot_schema_filters(row, card_filter):
+                continue
+            if not _row_matches_slot_schema_filters(row, variant_filter):
+                continue
+
+            identifier = row_identifier(row)
+            if identifier:
+                identifiers.add(identifier)
+
+        normalized_outcome = _normalize_rarity(outcome_key)
+        if normalized_outcome and identifiers:
+            classified[normalized_outcome] = identifiers
+
+    return classified
+
+
+def _resolve_slot_schema_classification(
+    *,
+    config_class: Any,
+    classification_rows: List[Dict[str, Any]],
+    row_identifier: Callable[[Mapping[str, Any]], Optional[str]],
+    run_id: str,
+) -> Dict[str, set[str]]:
+    try:
+        import pandas as pd
+
+        from backend.simulations.slotSchemaOutcomeResolver import apply_slot_schema_outcome_pool_mapping
+
+        cards_df = pd.DataFrame(classification_rows)
+        resolved_outcome_pools = apply_slot_schema_outcome_pool_mapping(
+            config_class,
+            cards_df,
+            allow_empty_pools=True,
+        )
+
+        classified: Dict[str, set[str]] = {}
+        for outcome_key, pool_df in resolved_outcome_pools.items():
+            normalized_outcome = _normalize_rarity(outcome_key)
+            if not normalized_outcome:
+                continue
+
+            outcome_identifiers = {
+                identifier
+                for row in pool_df.to_dict(orient="records")
+                for identifier in [row_identifier(row)]
+                if identifier
+            }
+            if outcome_identifiers:
+                classified[normalized_outcome] = outcome_identifiers
+
+        return classified
+    except ModuleNotFoundError as exc:
+        if _normalize_key(getattr(exc, "name", "")) != "pandas":
+            raise
+        logger.warning(
+            "[explore-page] pandas unavailable for slot_schema classification run_id=%s; using native fallback",
+            run_id,
+        )
+        return _classify_slot_schema_bucket_card_ids_native(
+            config_class=config_class,
+            classification_rows=classification_rows,
+            row_identifier=row_identifier,
+        )
+
+
 def _build_pull_rate_assumption_row(
     *,
     group: str,
@@ -879,30 +1093,12 @@ def _build_pull_rate_assumptions(
                 )
             else:
                 try:
-                    import pandas as pd
-
-                    from backend.simulations.slotSchemaOutcomeResolver import apply_slot_schema_outcome_pool_mapping
-
-                    cards_df = pd.DataFrame(classification_rows)
-                    resolved_outcome_pools = apply_slot_schema_outcome_pool_mapping(
-                        config_class,
-                        cards_df,
-                        allow_empty_pools=True,
+                    classified_bucket_card_ids = _resolve_slot_schema_classification(
+                        config_class=config_class,
+                        classification_rows=classification_rows,
+                        row_identifier=_row_identifier,
+                        run_id=run_id,
                     )
-
-                    for outcome_key, pool_df in resolved_outcome_pools.items():
-                        normalized_outcome = _normalize_rarity(outcome_key)
-                        if not normalized_outcome:
-                            continue
-
-                        outcome_identifiers = {
-                            identifier
-                            for row in pool_df.to_dict(orient="records")
-                            for identifier in [_row_identifier(row)]
-                            if identifier
-                        }
-                        if outcome_identifiers:
-                            classified_bucket_card_ids[normalized_outcome] = outcome_identifiers
 
                     sources["pull_rate_assumptions_bucket_classification"] = "OK"
                 except Exception as exc:
@@ -2097,30 +2293,12 @@ def _build_pull_rate_assumptions(
                 )
             else:
                 try:
-                    import pandas as pd
-
-                    from backend.simulations.slotSchemaOutcomeResolver import apply_slot_schema_outcome_pool_mapping
-
-                    cards_df = pd.DataFrame(classification_rows)
-                    resolved_outcome_pools = apply_slot_schema_outcome_pool_mapping(
-                        config_class,
-                        cards_df,
-                        allow_empty_pools=True,
+                    classified_bucket_card_ids = _resolve_slot_schema_classification(
+                        config_class=config_class,
+                        classification_rows=classification_rows,
+                        row_identifier=_row_identifier,
+                        run_id=run_id,
                     )
-
-                    for outcome_key, pool_df in resolved_outcome_pools.items():
-                        normalized_outcome = _normalize_rarity(outcome_key)
-                        if not normalized_outcome:
-                            continue
-
-                        outcome_identifiers = {
-                            identifier
-                            for row in pool_df.to_dict(orient="records")
-                            for identifier in [_row_identifier(row)]
-                            if identifier
-                        }
-                        if outcome_identifiers:
-                            classified_bucket_card_ids[normalized_outcome] = outcome_identifiers
 
                     sources["pull_rate_assumptions_bucket_classification"] = "OK"
                 except Exception as exc:
