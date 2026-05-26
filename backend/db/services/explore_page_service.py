@@ -453,6 +453,132 @@ def _collect_generic_probability_inputs(config_class: Any) -> tuple[Dict[str, fl
     return probabilities_by_rarity, slot_labels_by_rarity, regular_reverse_slot_count
 
 
+def _enrich_slot_schema_classification_rows(
+    *,
+    cards_rows: List[Dict[str, Any]],
+    run_id: str,
+    warnings: List[str],
+) -> List[Dict[str, Any]]:
+    """Attach card/variant metadata needed by slot-schema pool filters at read time."""
+    if not cards_rows:
+        return []
+
+    enriched_rows = [dict(row) for row in cards_rows]
+    variant_ids = sorted(
+        {
+            _normalize_key(row.get("card_variant_id"))
+            for row in cards_rows
+            if _normalize_key(row.get("card_variant_id"))
+        }
+    )
+    card_ids = sorted(
+        {
+            _normalize_key(row.get("card_id"))
+            for row in cards_rows
+            if _normalize_key(row.get("card_id"))
+        }
+    )
+
+    variant_lookup: Dict[str, Dict[str, Any]] = {}
+    card_lookup: Dict[str, Dict[str, Any]] = {}
+
+    if variant_ids:
+        try:
+            variant_result = (
+                public_read_client.table("card_variants")
+                .select("id,card_id,printing_type,special_type,edition")
+                .in_("id", variant_ids)
+                .execute()
+            )
+            variant_lookup = {
+                _normalize_key(row.get("id")): row
+                for row in (variant_result.data or [])
+                if _normalize_key(row.get("id"))
+            }
+        except Exception as exc:
+            logger.warning(
+                "[explore-page] card_variants enrichment failed for pull-rate assumptions run_id=%s: %s",
+                run_id,
+                exc,
+            )
+            warnings.append(
+                "Failed to load card variant metadata for slot-schema bucket classification"
+            )
+
+    derived_card_ids = {
+        _normalize_key(row.get("card_id"))
+        for row in variant_lookup.values()
+        if _normalize_key(row.get("card_id"))
+    }
+    all_card_ids = sorted(set(card_ids) | derived_card_ids)
+    if all_card_ids:
+        try:
+            card_result = (
+                public_read_client.table("cards")
+                .select("id,name,rarity,card_number")
+                .in_("id", all_card_ids)
+                .execute()
+            )
+            card_lookup = {
+                _normalize_key(row.get("id")): row
+                for row in (card_result.data or [])
+                if _normalize_key(row.get("id"))
+            }
+        except Exception as exc:
+            logger.warning(
+                "[explore-page] cards enrichment failed for pull-rate assumptions run_id=%s: %s",
+                run_id,
+                exc,
+            )
+            warnings.append(
+                "Failed to load card metadata for slot-schema bucket classification"
+            )
+
+    for row in enriched_rows:
+        variant_id = _normalize_key(row.get("card_variant_id"))
+        card_id = _normalize_key(row.get("card_id"))
+        variant_row = variant_lookup.get(variant_id) if variant_id else None
+        variant_card_id = _normalize_key((variant_row or {}).get("card_id"))
+
+        if not card_id and variant_card_id:
+            row["card_id"] = variant_card_id
+            card_id = variant_card_id
+
+        card_row = card_lookup.get(card_id) if card_id else None
+        if card_row:
+            if row.get("card_number") in (None, ""):
+                row["card_number"] = card_row.get("card_number")
+            if row.get("rarity") in (None, ""):
+                row["rarity"] = card_row.get("rarity")
+            if row.get("card_name") in (None, ""):
+                row["card_name"] = card_row.get("name")
+            if row.get("name") in (None, ""):
+                row["name"] = card_row.get("name")
+
+        if variant_row:
+            if row.get("printing_type") in (None, ""):
+                row["printing_type"] = variant_row.get("printing_type")
+            if row.get("special_type") in (None, ""):
+                row["special_type"] = variant_row.get("special_type")
+            if row.get("edition") in (None, ""):
+                row["edition"] = variant_row.get("edition")
+
+    return enriched_rows
+
+
+def _has_minimum_slot_schema_classification_columns(cards_rows: List[Dict[str, Any]]) -> bool:
+    if not cards_rows:
+        return False
+
+    available_columns: set[str] = set()
+    for row in cards_rows:
+        available_columns.update(row.keys())
+
+    has_name_column = "name" in available_columns or "card_name" in available_columns
+    required_columns = {"card_number", "rarity", "printing_type"}
+    return has_name_column and required_columns.issubset(available_columns)
+
+
 def _build_pull_rate_assumption_row(
     *,
     group: str,
@@ -537,16 +663,16 @@ _MODELED_SWSH_SET_IDS = {"swsh6", "swsh7"}
 
 _MODELED_OUTCOME_LABELS = {
     "rare": "Baseline",
-    "holo rare": "Holo Rare Only",
-    "regular v": "Regular V Only",
-    "regular vmax": "Regular VMAX Only",
-    "full art v": "Full Art V Only",
-    "full art trainer": "Full Art Trainer Only",
-    "alternate art v": "Alternate Art V Only",
-    "alternate art vmax": "Alternate Art VMAX Only",
-    "rainbow trainer": "Rainbow Trainer Only",
-    "rainbow vmax": "Rainbow VMAX Only",
-    "gold secret rare": "Gold Secret Rare Only",
+    "holo rare": "Holo Rare Bucket",
+    "regular v": "Regular V Bucket",
+    "regular vmax": "Regular VMAX Bucket",
+    "full art v": "Full Art V Bucket",
+    "full art trainer": "Full Art Trainer Bucket",
+    "alternate art v": "Alternate Art V Bucket",
+    "alternate art vmax": "Alternate Art VMAX Bucket",
+    "rainbow trainer": "Rainbow Trainer Bucket",
+    "rainbow vmax": "Rainbow VMAX Bucket",
+    "gold secret rare": "Gold Secret Rare Bucket",
 }
 
 
@@ -621,13 +747,20 @@ def _build_modeled_swsh_pack_breakdown_display(
         return {
             "mode": "modeled_outcome_states",
             "supported": True,
+            "combo_states_supported": False,
+            "state_granularity": "single_bucket_aggregate",
             "source": "simulation_pull_summary",
             "title": "Modeled outcome states",
             "description": (
-                "Modeled outcome states show which value-bearing bucket the simulator selected for a pack."
+                "Modeled outcome buckets show how often each value-bearing bucket was selected by the simulator"
+                " under the current slot-based assumptions."
             ),
             "disclaimer": (
                 "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."
+            ),
+            "limitation_note": (
+                "Persisted output currently stores single-bucket aggregates (simulation_pull_summary) and coarse pack/state"
+                " counts (simulation_state_counts). Reverse-slot + rare-slot combo co-occurrence is not persisted."
             ),
             "rows": rows,
             "dominant_key": dominant_row["key"],
@@ -644,6 +777,8 @@ def _build_modeled_swsh_pack_breakdown_display(
     return {
         "mode": "modeled_outcome_states",
         "supported": False,
+        "combo_states_supported": False,
+        "state_granularity": "single_bucket_aggregate",
         "source": fallback_source,
         "title": "Modeled outcome states",
         "description": (
@@ -696,10 +831,24 @@ def _build_pull_rate_assumptions(
 
     cards_rows: List[Dict[str, Any]] = []
     rarity_card_ids: Dict[str, set[str]] = {}
+    classified_bucket_card_ids: Dict[str, set[str]] = {}
+
+    def _row_identifier(row: Mapping[str, Any]) -> Optional[str]:
+        identifier = _normalize_key(row.get("card_variant_id"))
+        if identifier:
+            return identifier
+
+        identifier = _normalize_key(row.get("card_id"))
+        if identifier:
+            return identifier
+
+        identifier = _normalize_key(row.get("card_name"))
+        return identifier or None
+
     try:
         cards_result = (
             public_read_client.table("simulation_input_cards_with_near_mint_price")
-            .select("card_id,card_variant_id,card_name,rarity_bucket")
+            .select("*")
             .eq("calculation_run_id", run_id)
             .execute()
         )
@@ -710,15 +859,66 @@ def _build_pull_rate_assumptions(
             if not rarity_key:
                 continue
 
-            identifier = _normalize_key(row.get("card_variant_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_name"))
+            identifier = _row_identifier(row)
             if not identifier:
                 continue
 
             rarity_card_ids.setdefault(rarity_key, set()).add(identifier)
+
+        if has_slot_schema_source and cards_rows:
+            sources["pull_rate_assumptions_bucket_classification_source"] = "READ_TIME_CARD_METADATA_CLASSIFICATION"
+            classification_rows = _enrich_slot_schema_classification_rows(
+                cards_rows=cards_rows,
+                run_id=run_id,
+                warnings=warnings,
+            )
+            if not _has_minimum_slot_schema_classification_columns(classification_rows):
+                sources["pull_rate_assumptions_bucket_classification"] = "UNAVAILABLE"
+                warnings.append(
+                    "Slot-schema bucket classification requires card metadata columns (rarity/card_number/printing_type/name)"
+                )
+            else:
+                try:
+                    import pandas as pd
+
+                    from backend.simulations.slotSchemaOutcomeResolver import apply_slot_schema_outcome_pool_mapping
+
+                    cards_df = pd.DataFrame(classification_rows)
+                    resolved_outcome_pools = apply_slot_schema_outcome_pool_mapping(
+                        config_class,
+                        cards_df,
+                        allow_empty_pools=True,
+                    )
+
+                    for outcome_key, pool_df in resolved_outcome_pools.items():
+                        normalized_outcome = _normalize_rarity(outcome_key)
+                        if not normalized_outcome:
+                            continue
+
+                        outcome_identifiers = {
+                            identifier
+                            for row in pool_df.to_dict(orient="records")
+                            for identifier in [_row_identifier(row)]
+                            if identifier
+                        }
+                        if outcome_identifiers:
+                            classified_bucket_card_ids[normalized_outcome] = outcome_identifiers
+
+                    sources["pull_rate_assumptions_bucket_classification"] = "OK"
+                except Exception as exc:
+                    logger.warning(
+                        "[explore-page] slot_schema outcome bucket classification failed run_id=%s: %s",
+                        run_id,
+                        exc,
+                    )
+                    sources["pull_rate_assumptions_bucket_classification"] = "FAILED"
+                    warnings.append(
+                        "Failed to derive slot-schema classified eligible card counts for pull-rate assumptions"
+                    )
+        elif has_slot_schema_source:
+            sources["pull_rate_assumptions_bucket_classification_source"] = "READ_TIME_CARD_METADATA_CLASSIFICATION"
+            sources["pull_rate_assumptions_bucket_classification"] = "UNAVAILABLE"
+
         sources["pull_rate_assumptions_card_counts"] = "OK"
     except Exception as exc:
         logger.warning(
@@ -933,21 +1133,43 @@ def _build_pull_rate_assumptions(
 
     for rarity_key in ordered_hit_rarity_keys:
         rarity_odds_denominator = generic_denominators.get(rarity_key)
-        specific_card_odds_denominator = _to_positive_denominator(pull_rate_mapping.get(rarity_key))
+        configured_specific_card_odds_denominator = _to_positive_denominator(pull_rate_mapping.get(rarity_key))
+        specific_card_odds_denominator = configured_specific_card_odds_denominator
 
         card_count: Optional[int] = None
-        if rarity_odds_denominator and specific_card_odds_denominator:
-            card_count = int(round(specific_card_odds_denominator / rarity_odds_denominator))
-        elif rarity_odds_denominator and not specific_card_odds_denominator:
-            derived_count = len(rarity_card_ids.get(rarity_key, set())) or None
-            if derived_count:
-                card_count = derived_count
-                specific_card_odds_denominator = rarity_odds_denominator * card_count
+        if has_slot_schema_source:
+            classified_count = len(classified_bucket_card_ids.get(rarity_key, set())) or None
+            if classified_count:
+                card_count = classified_count
+                if rarity_odds_denominator:
+                    specific_card_odds_denominator = rarity_odds_denominator * card_count
+            elif rarity_odds_denominator and configured_specific_card_odds_denominator:
+                card_count = int(round(configured_specific_card_odds_denominator / rarity_odds_denominator))
+            elif rarity_odds_denominator:
+                derived_count = len(rarity_card_ids.get(rarity_key, set())) or None
+                if derived_count:
+                    card_count = derived_count
+                    specific_card_odds_denominator = rarity_odds_denominator * card_count
+                else:
+                    specific_card_odds_denominator = None
+            else:
+                specific_card_odds_denominator = configured_specific_card_odds_denominator
+        else:
+            if rarity_odds_denominator and specific_card_odds_denominator:
+                card_count = int(round(specific_card_odds_denominator / rarity_odds_denominator))
+            elif rarity_odds_denominator and not specific_card_odds_denominator:
+                derived_count = len(rarity_card_ids.get(rarity_key, set())) or None
+                if derived_count:
+                    card_count = derived_count
+                    specific_card_odds_denominator = rarity_odds_denominator * card_count
 
         slot_labels = sorted(slot_labels_by_rarity.get(rarity_key, set()))
         notes = "Specific-card odds sourced from set config PULL_RATE_MAPPING."
+        if has_slot_schema_source:
+            notes = "Specific-card odds derived from modeled bucket probability and classified eligible card count."
+
         if specific_card_odds_denominator is None and rarity_odds_denominator is not None:
-            notes = "Specific-card odds derived from rarity odds and eligible card count fallback."
+            notes = "Specific-card odds require eligible card counts for this modeled bucket."
         elif rarity_odds_denominator is None:
             notes = "Generic rarity odds are unavailable for this rarity in slot probability config."
 
@@ -1827,10 +2049,24 @@ def _build_pull_rate_assumptions(
 
     cards_rows: List[Dict[str, Any]] = []
     rarity_card_ids: Dict[str, set[str]] = {}
+    classified_bucket_card_ids: Dict[str, set[str]] = {}
+
+    def _row_identifier(row: Mapping[str, Any]) -> Optional[str]:
+        identifier = _normalize_key(row.get("card_variant_id"))
+        if identifier:
+            return identifier
+
+        identifier = _normalize_key(row.get("card_id"))
+        if identifier:
+            return identifier
+
+        identifier = _normalize_key(row.get("card_name"))
+        return identifier or None
+
     try:
         cards_result = (
             public_read_client.table("simulation_input_cards_with_near_mint_price")
-            .select("card_id,card_variant_id,card_name,rarity_bucket")
+            .select("*")
             .eq("calculation_run_id", run_id)
             .execute()
         )
@@ -1841,15 +2077,66 @@ def _build_pull_rate_assumptions(
             if not rarity_key:
                 continue
 
-            identifier = _normalize_key(row.get("card_variant_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_name"))
+            identifier = _row_identifier(row)
             if not identifier:
                 continue
 
             rarity_card_ids.setdefault(rarity_key, set()).add(identifier)
+
+        if has_slot_schema_source and cards_rows:
+            sources["pull_rate_assumptions_bucket_classification_source"] = "READ_TIME_CARD_METADATA_CLASSIFICATION"
+            classification_rows = _enrich_slot_schema_classification_rows(
+                cards_rows=cards_rows,
+                run_id=run_id,
+                warnings=warnings,
+            )
+            if not _has_minimum_slot_schema_classification_columns(classification_rows):
+                sources["pull_rate_assumptions_bucket_classification"] = "UNAVAILABLE"
+                warnings.append(
+                    "Slot-schema bucket classification requires card metadata columns (rarity/card_number/printing_type/name)"
+                )
+            else:
+                try:
+                    import pandas as pd
+
+                    from backend.simulations.slotSchemaOutcomeResolver import apply_slot_schema_outcome_pool_mapping
+
+                    cards_df = pd.DataFrame(classification_rows)
+                    resolved_outcome_pools = apply_slot_schema_outcome_pool_mapping(
+                        config_class,
+                        cards_df,
+                        allow_empty_pools=True,
+                    )
+
+                    for outcome_key, pool_df in resolved_outcome_pools.items():
+                        normalized_outcome = _normalize_rarity(outcome_key)
+                        if not normalized_outcome:
+                            continue
+
+                        outcome_identifiers = {
+                            identifier
+                            for row in pool_df.to_dict(orient="records")
+                            for identifier in [_row_identifier(row)]
+                            if identifier
+                        }
+                        if outcome_identifiers:
+                            classified_bucket_card_ids[normalized_outcome] = outcome_identifiers
+
+                    sources["pull_rate_assumptions_bucket_classification"] = "OK"
+                except Exception as exc:
+                    logger.warning(
+                        "[explore-page] slot_schema outcome bucket classification failed run_id=%s: %s",
+                        run_id,
+                        exc,
+                    )
+                    sources["pull_rate_assumptions_bucket_classification"] = "FAILED"
+                    warnings.append(
+                        "Failed to derive slot-schema classified eligible card counts for pull-rate assumptions"
+                    )
+        elif has_slot_schema_source:
+            sources["pull_rate_assumptions_bucket_classification_source"] = "READ_TIME_CARD_METADATA_CLASSIFICATION"
+            sources["pull_rate_assumptions_bucket_classification"] = "UNAVAILABLE"
+
         sources["pull_rate_assumptions_card_counts"] = "OK"
     except Exception as exc:
         logger.warning(
@@ -2064,21 +2351,43 @@ def _build_pull_rate_assumptions(
 
     for rarity_key in ordered_hit_rarity_keys:
         rarity_odds_denominator = generic_denominators.get(rarity_key)
-        specific_card_odds_denominator = _to_positive_denominator(pull_rate_mapping.get(rarity_key))
+        configured_specific_card_odds_denominator = _to_positive_denominator(pull_rate_mapping.get(rarity_key))
+        specific_card_odds_denominator = configured_specific_card_odds_denominator
 
         card_count: Optional[int] = None
-        if rarity_odds_denominator and specific_card_odds_denominator:
-            card_count = int(round(specific_card_odds_denominator / rarity_odds_denominator))
-        elif rarity_odds_denominator and not specific_card_odds_denominator:
-            derived_count = len(rarity_card_ids.get(rarity_key, set())) or None
-            if derived_count:
-                card_count = derived_count
-                specific_card_odds_denominator = rarity_odds_denominator * card_count
+        if has_slot_schema_source:
+            classified_count = len(classified_bucket_card_ids.get(rarity_key, set())) or None
+            if classified_count:
+                card_count = classified_count
+                if rarity_odds_denominator:
+                    specific_card_odds_denominator = rarity_odds_denominator * card_count
+            elif rarity_odds_denominator and configured_specific_card_odds_denominator:
+                card_count = int(round(configured_specific_card_odds_denominator / rarity_odds_denominator))
+            elif rarity_odds_denominator:
+                derived_count = len(rarity_card_ids.get(rarity_key, set())) or None
+                if derived_count:
+                    card_count = derived_count
+                    specific_card_odds_denominator = rarity_odds_denominator * card_count
+                else:
+                    specific_card_odds_denominator = None
+            else:
+                specific_card_odds_denominator = configured_specific_card_odds_denominator
+        else:
+            if rarity_odds_denominator and specific_card_odds_denominator:
+                card_count = int(round(specific_card_odds_denominator / rarity_odds_denominator))
+            elif rarity_odds_denominator and not specific_card_odds_denominator:
+                derived_count = len(rarity_card_ids.get(rarity_key, set())) or None
+                if derived_count:
+                    card_count = derived_count
+                    specific_card_odds_denominator = rarity_odds_denominator * card_count
 
         slot_labels = sorted(slot_labels_by_rarity.get(rarity_key, set()))
         notes = "Specific-card odds sourced from set config PULL_RATE_MAPPING."
+        if has_slot_schema_source:
+            notes = "Specific-card odds derived from modeled bucket probability and classified eligible card count."
+
         if specific_card_odds_denominator is None and rarity_odds_denominator is not None:
-            notes = "Specific-card odds derived from rarity odds and eligible card count fallback."
+            notes = "Specific-card odds require eligible card counts for this modeled bucket."
         elif rarity_odds_denominator is None:
             notes = "Generic rarity odds are unavailable for this rarity in slot probability config."
 

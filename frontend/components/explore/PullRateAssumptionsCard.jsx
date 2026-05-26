@@ -23,12 +23,12 @@ function formatOddsDenominator(denominator) {
   }
 
   let formatted;
-  if (parsed >= 10) {
-    formatted = Math.round(parsed).toLocaleString("en-US");
-  } else if (Number.isInteger(parsed)) {
-    formatted = String(parsed);
-  } else {
+  if (Number.isInteger(parsed)) {
+    formatted = parsed.toLocaleString("en-US");
+  } else if (parsed < 100) {
     formatted = parsed.toFixed(1);
+  } else {
+    formatted = Math.round(parsed).toLocaleString("en-US");
   }
 
   return `1 in ${formatted} packs`;

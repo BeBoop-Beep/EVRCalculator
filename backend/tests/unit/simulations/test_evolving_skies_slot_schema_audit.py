@@ -59,13 +59,11 @@ def test_evolving_skies_outcome_pool_mapping_audit_is_complete_non_overlapping_a
     assert outcomes["holo rare"]["card_pool_count"] == 20
     assert outcomes["regular v"]["card_pool_count"] == 18
     assert outcomes["regular vmax"]["card_pool_count"] == 15
-    assert outcomes["full art v"]["card_pool_count"] == 22
-    assert outcomes["full art trainer"]["card_pool_count"] == 5
+    assert outcomes["full art"]["card_pool_count"] == 27
     assert outcomes["alternate art v"]["card_pool_count"] == 11
     assert outcomes["alternate art vmax"]["card_pool_count"] == 6
-    assert outcomes["rainbow trainer"]["card_pool_count"] == 5
-    assert outcomes["rainbow vmax"]["card_pool_count"] == 11
-    assert outcomes["gold secret rare"]["card_pool_count"] == 12
+    assert outcomes["rainbow rare"]["card_pool_count"] == 16
+    assert outcomes["gold rare"]["card_pool_count"] == 12
 
 
 def test_evolving_skies_runtime_mapping_keys_match_audit_outcomes_exactly():
@@ -78,9 +76,9 @@ def test_evolving_skies_source_audit_excludes_parent_and_named_rows_from_probabi
     source_audit = SetEvolvingSkiesConfig.EVOLVING_SKIES_PULL_RATE_SOURCE_AUDIT
     readiness = source_audit["rare_slot_probability_readiness"]
 
-    assert readiness["parent_rows_excluded"] is False
-    assert readiness["parent_rows_used_with_assumptions"] is True
-    assert readiness["named_card_rows_excluded"] is True
+    assert readiness["parent_rows_excluded"] is True
+    assert readiness["parent_rows_used_with_assumptions"] is False
+    assert readiness["named_card_rows_excluded"] is False
 
     # Project 6.1: rare is residual-capable; it must NOT appear in missing outcomes.
     assert readiness["rare_is_residual_capable"] is True
@@ -119,6 +117,11 @@ def test_evolving_skies_draft_probability_audit_and_table_are_present_and_promot
     assert hasattr(SetEvolvingSkiesConfig, "RARE_SLOT_PROBABILITY")
     assert SetEvolvingSkiesConfig.SLOT_SCHEMA_RUNTIME_ENABLED is True
     assert SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY == draft_table
+    assert draft_table["full art"] == pytest.approx(0.0278)
+    assert draft_table["alternate art v"] == pytest.approx(0.0110)
+    assert draft_table["alternate art vmax"] == pytest.approx(0.0030)
+    assert draft_table["rainbow rare"] == pytest.approx(0.0084)
+    assert draft_table["gold rare"] == pytest.approx(0.0091)
 
 
 def test_evolving_skies_bucket_classification_audit_is_complete_and_counts_match():
@@ -134,8 +137,8 @@ def test_evolving_skies_bucket_classification_audit_contains_umbreon_disambiguat
     examples = SetEvolvingSkiesConfig.EVOLVING_SKIES_BUCKET_CLASSIFICATION_AUDIT["ambiguous_name_examples"]
     # Every key should map to a known bucket name.
     expected_buckets = {
-        "regular v", "full art v", "alternate art v",
-        "regular vmax", "rainbow vmax", "alternate art vmax",
+        "regular v", "full art", "alternate art v",
+        "regular vmax", "rainbow rare", "alternate art vmax",
     }
     resolved_buckets = set(examples.values())
     assert resolved_buckets == expected_buckets

@@ -1613,21 +1613,29 @@ function StateBars({ stateRows }) {
 
 function ModeledOutcomeBars({ display }) {
   const rows = Array.isArray(display?.rows) ? display.rows : [];
+  const DEFAULT_VISIBLE_ROWS = 8;
+  const [showAllRows, setShowAllRows] = useState(false);
+  const hasHiddenRows = rows.length > DEFAULT_VISIBLE_ROWS;
+  const visibleRows = showAllRows || !hasHiddenRows ? rows : rows.slice(0, DEFAULT_VISIBLE_ROWS);
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-4">
         <p className="text-sm text-[var(--text-primary)]">
-          {display?.description || "Modeled outcome states show which value-bearing bucket the simulator selected for a pack."}
+          {display?.description || "Modeled outcome buckets show how often each value-bearing bucket was selected by the simulator under the current slot-based assumptions."}
         </p>
         <p className="mt-2 text-xs text-[var(--text-secondary)]">
           {display?.disclaimer || "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."}
         </p>
+        {display?.limitation_note ? (
+          <p className="mt-2 text-xs text-[var(--text-secondary)]">{display.limitation_note}</p>
+        ) : null}
       </div>
 
       {rows.length > 0 ? (
         <div className="space-y-3">
-          {rows.map((row) => {
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {visibleRows.map((row) => {
             const shareLabel = row.share === null ? "—" : formatPercent(row.share, { probability: true });
             return (
               <div key={`modeled-state:${row.key || row.label}`}>
@@ -1640,7 +1648,18 @@ function ModeledOutcomeBars({ display }) {
                 <HorizontalBar widthPercent={row.share === null ? 0 : row.share * 100} />
               </div>
             );
-          })}
+            })}
+          </div>
+
+          {hasHiddenRows ? (
+            <button
+              type="button"
+              onClick={() => setShowAllRows((current) => !current)}
+              className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--accent)] hover:text-[var(--text-primary)]"
+            >
+              {showAllRows ? "Show fewer states" : `Show all modeled states (${rows.length})`}
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-4">

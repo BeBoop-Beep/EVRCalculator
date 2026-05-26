@@ -808,6 +808,7 @@ def test_pull_rate_assumptions_are_exposed_from_set_config_and_run_inputs(monkey
     assert groups_by_key["special_pack_rules"]["rows"] == []
     assert payload["summary"]["pack_score"] == 78.1
     assert payload["meta"]["sources"]["pull_rate_assumptions_regular_reverse_count"] == "OK"
+    assert "pull_rate_assumptions_bucket_classification_source" not in payload["meta"]["sources"]
 
 
 def test_pull_rate_assumptions_regular_reverse_specific_odds_require_eligible_pool(monkeypatch):
@@ -1148,6 +1149,151 @@ def _build_swsh_input_rows(outcome_keys):
     return rows
 
 
+def _build_swsh7_live_shaped_hit_rows():
+    # Live-shaped rows intentionally keep broad rarity_bucket=hits and rely on
+    # card/variant metadata for modeled bucket classification.
+    return [
+        {
+            "card_id": "live-card-holo-rare",
+            "card_variant_id": "live-variant-holo-rare",
+            "card_name": "Hydreigon",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-regular-v",
+            "card_variant_id": "live-variant-regular-v",
+            "card_name": "Rayquaza V",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-regular-vmax",
+            "card_variant_id": "live-variant-regular-vmax",
+            "card_name": "Rayquaza VMAX",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-full-art-v",
+            "card_variant_id": "live-variant-full-art-v",
+            "card_name": "Noivern V (Full Art)",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-full-art-trainer",
+            "card_variant_id": "live-variant-full-art-trainer",
+            "card_name": "Copycat",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-alt-art-v",
+            "card_variant_id": "live-variant-alt-art-v",
+            "card_name": "Umbreon V (Alternate Full Art)",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-alt-art-vmax",
+            "card_variant_id": "live-variant-alt-art-vmax",
+            "card_name": "Umbreon VMAX Alternate Art Secret",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-rainbow-trainer",
+            "card_variant_id": "live-variant-rainbow-trainer",
+            "card_name": "Raihan",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-rainbow-vmax",
+            "card_variant_id": "live-variant-rainbow-vmax",
+            "card_name": "Glaceon VMAX",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-gold-secret-rare",
+            "card_variant_id": "live-variant-gold-secret-rare",
+            "card_name": "Boost Shake",
+            "rarity_bucket": "hits",
+        },
+        {
+            "card_id": "live-card-generic-hits",
+            "card_variant_id": "live-variant-generic-hits",
+            "card_name": "Generic Hit",
+            "rarity_bucket": "hits",
+        },
+    ]
+
+
+def _build_swsh7_live_card_rows():
+    return [
+        {"id": "live-card-holo-rare", "name": "Hydreigon", "rarity": "Holo Rare", "card_number": "109"},
+        {"id": "live-card-regular-v", "name": "Rayquaza V", "rarity": "Ultra Rare", "card_number": "110"},
+        {"id": "live-card-regular-vmax", "name": "Rayquaza VMAX", "rarity": "Ultra Rare", "card_number": "111"},
+        {
+            "id": "live-card-full-art-v",
+            "name": "Noivern V (Full Art)",
+            "rarity": "Ultra Rare",
+            "card_number": "170",
+        },
+        {"id": "live-card-full-art-trainer", "name": "Copycat", "rarity": "Ultra Rare", "card_number": "200"},
+        {
+            "id": "live-card-alt-art-v",
+            "name": "Umbreon V (Alternate Full Art)",
+            "rarity": "Ultra Rare",
+            "card_number": "189",
+        },
+        {
+            "id": "live-card-alt-art-vmax",
+            "name": "Umbreon VMAX Alternate Art Secret",
+            "rarity": "Secret Rare",
+            "card_number": "215",
+        },
+        {"id": "live-card-rainbow-trainer", "name": "Raihan", "rarity": "Secret Rare", "card_number": "222"},
+        {"id": "live-card-rainbow-vmax", "name": "Glaceon VMAX", "rarity": "Secret Rare", "card_number": "210"},
+        {
+            "id": "live-card-gold-secret-rare",
+            "name": "Boost Shake",
+            "rarity": "Secret Rare",
+            "card_number": "230",
+        },
+        {"id": "live-card-generic-hits", "name": "Generic Hit", "rarity": "Ultra Rare", "card_number": "1"},
+    ]
+
+
+def _build_swsh7_live_variant_rows():
+    return [
+        {"id": "live-variant-holo-rare", "card_id": "live-card-holo-rare", "printing_type": "holo"},
+        {"id": "live-variant-regular-v", "card_id": "live-card-regular-v", "printing_type": "holo"},
+        {"id": "live-variant-regular-vmax", "card_id": "live-card-regular-vmax", "printing_type": "holo"},
+        {"id": "live-variant-full-art-v", "card_id": "live-card-full-art-v", "printing_type": "holo"},
+        {
+            "id": "live-variant-full-art-trainer",
+            "card_id": "live-card-full-art-trainer",
+            "printing_type": "holo",
+        },
+        {"id": "live-variant-alt-art-v", "card_id": "live-card-alt-art-v", "printing_type": "holo"},
+        {
+            "id": "live-variant-alt-art-vmax",
+            "card_id": "live-card-alt-art-vmax",
+            "printing_type": "holo",
+        },
+        {
+            "id": "live-variant-rainbow-trainer",
+            "card_id": "live-card-rainbow-trainer",
+            "printing_type": "holo",
+        },
+        {
+            "id": "live-variant-rainbow-vmax",
+            "card_id": "live-card-rainbow-vmax",
+            "printing_type": "holo",
+        },
+        {
+            "id": "live-variant-gold-secret-rare",
+            "card_id": "live-card-gold-secret-rare",
+            "printing_type": "holo",
+        },
+        {"id": "live-variant-generic-hits", "card_id": "live-card-generic-hits", "printing_type": "holo"},
+    ]
+
+
 def test_swsh6_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypatch):
     from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
 
@@ -1175,11 +1321,19 @@ def test_swsh6_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypa
     assert display is not None
     assert display["mode"] == "modeled_outcome_states"
     assert display["supported"] is True
+    assert display["combo_states_supported"] is False
+    assert display["state_granularity"] == "single_bucket_aggregate"
+    assert "combo co-occurrence is not persisted" in display["limitation_note"]
     assert display["source"] == "simulation_pull_summary"
     row_keys = [row["key"] for row in display["rows"]]
     assert set(row_keys) == set(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys())
     assert "slot_schema" not in row_keys
     assert all("God Pack" not in row["label"] for row in display["rows"])
+    label_by_key = {row["key"]: row["label"] for row in display["rows"]}
+    assert label_by_key["holo rare"] == "Holo Rare Bucket"
+    assert label_by_key["regular v"] == "Regular V Bucket"
+    assert label_by_key["alternate art v"] == "Alternate Art V Bucket"
+    assert all("Only" not in row["label"] for row in display["rows"])
 
 
 def test_swsh7_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypatch):
@@ -1209,9 +1363,13 @@ def test_swsh7_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypa
     assert display is not None
     assert display["mode"] == "modeled_outcome_states"
     assert display["supported"] is True
+    assert display["combo_states_supported"] is False
+    assert display["state_granularity"] == "single_bucket_aggregate"
+    assert "combo co-occurrence is not persisted" in display["limitation_note"]
     row_keys = [row["key"] for row in display["rows"]]
     assert set(row_keys) == set(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
     assert "slot_schema" not in row_keys
+    assert all("Only" not in row["label"] for row in display["rows"])
 
 
 def test_swsh6_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch):
@@ -1233,7 +1391,16 @@ def test_swsh6_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch
     groups_by_key = {group["key"]: group for group in assumptions["groups"]}
     hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
     assert set(hit_rows.keys()) == set(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys()) - {"rare"}
+
+    # Each modeled bucket has one eligible card in the mocked simulation input,
+    # so specific odds denominator should equal rarity odds denominator.
+    for rarity_key, row in hit_rows.items():
+        assert row["card_count"] == 1, f"expected card_count=1 for rarity {rarity_key}"
+        assert row["rarity_odds_denominator"] is not None
+        assert row["specific_card_odds_denominator"] == row["rarity_odds_denominator"]
+
     assert payload["meta"]["sources"]["pull_rate_assumptions_mapping_source"] == "SLOT_SCHEMA_RUNTIME_CONFIG"
+    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] in {"OK", "FAILED", "UNAVAILABLE"}
 
 
 def test_swsh7_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch):
@@ -1255,7 +1422,127 @@ def test_swsh7_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch
     groups_by_key = {group["key"]: group for group in assumptions["groups"]}
     hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
     assert set(hit_rows.keys()) == set(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys()) - {"rare"}
+
+    unsupported_keys = {
+        "full art v",
+        "full art trainer",
+        "rainbow trainer",
+        "rainbow vmax",
+        "gold secret rare",
+    }
+    assert unsupported_keys.isdisjoint(hit_rows.keys())
+
+    for rarity_key, row in hit_rows.items():
+        assert row["card_count"] == 1, f"expected card_count=1 for rarity {rarity_key}"
+        assert row["rarity_odds_denominator"] is not None
+        expected_from_runtime_probability = round(1 / SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY[rarity_key])
+        assert abs(row["rarity_odds_denominator"] - expected_from_runtime_probability) <= 1
+        assert row["specific_card_odds_denominator"] == row["rarity_odds_denominator"]
+
     assert payload["meta"]["sources"]["pull_rate_assumptions_mapping_source"] == "SLOT_SCHEMA_RUNTIME_CONFIG"
+    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] in {"OK", "FAILED", "UNAVAILABLE"}
+
+
+def test_swsh7_pull_rate_assumptions_classify_live_shaped_hits_with_read_time_metadata(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-swsh7-live-shaped")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-live-shaped")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh7_live_shaped_hit_rows()
+
+    all_card_rows = _build_swsh7_live_card_rows()
+    all_variant_rows = _build_swsh7_live_variant_rows()
+
+    def _cards_handler(query):
+        requested_ids = set()
+        for field, values in query.in_filters:
+            if field == "id":
+                requested_ids.update(str(value) for value in values)
+        return [row for row in all_card_rows if str(row.get("id")) in requested_ids]
+
+    def _variants_handler(query):
+        requested_ids = set()
+        for field, values in query.in_filters:
+            if field == "id":
+                requested_ids.update(str(value) for value in values)
+        return [row for row in all_variant_rows if str(row.get("id")) in requested_ids]
+
+    handlers["cards"] = _cards_handler
+    handlers["card_variants"] = _variants_handler
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+
+    assert hit_rows["regular v"]["card_count"] == 1
+    assert hit_rows["alternate art vmax"]["card_count"] == 1
+    assert hit_rows["full art"]["card_count"] == 2
+    assert hit_rows["rainbow rare"]["card_count"] == 2
+    assert hit_rows["gold rare"]["card_count"] == 1
+
+    unsupported_keys = {
+        "full art v",
+        "full art trainer",
+        "rainbow trainer",
+        "rainbow vmax",
+        "gold secret rare",
+    }
+    assert unsupported_keys.isdisjoint(hit_rows.keys())
+
+    for rarity in ("regular v", "alternate art vmax", "full art"):
+        row = hit_rows[rarity]
+        assert row["rarity_odds_denominator"] is not None
+        assert row["specific_card_odds_denominator"] == row["rarity_odds_denominator"] * row["card_count"]
+
+    for rarity in ("rainbow rare", "gold rare"):
+        row = hit_rows[rarity]
+        assert row["rarity_odds_denominator"] is not None
+        assert row["specific_card_odds_denominator"] == row["rarity_odds_denominator"] * row["card_count"]
+
+    assert "hits" not in hit_rows
+    assert payload["meta"]["sources"]["pull_rate_assumptions_mapping_source"] == "SLOT_SCHEMA_RUNTIME_CONFIG"
+    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] == "OK"
+    assert (
+        payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification_source"]
+        == "READ_TIME_CARD_METADATA_CLASSIFICATION"
+    )
+
+
+def test_swsh7_pull_rate_assumptions_without_metadata_keep_specific_odds_unavailable(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-swsh7-metadata-missing")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-metadata-missing")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh7_live_shaped_hit_rows()
+    handlers["cards"] = lambda _q: []
+    handlers["card_variants"] = lambda _q: []
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+
+    assert hit_rows["regular v"]["card_count"] is None
+    assert hit_rows["regular v"]["specific_card_odds_denominator"] is None
+    assert "require eligible card counts" in (hit_rows["regular v"].get("notes") or "")
+
+    assert payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification"] == "UNAVAILABLE"
+    assert (
+        payload["meta"]["sources"]["pull_rate_assumptions_bucket_classification_source"]
+        == "READ_TIME_CARD_METADATA_CLASSIFICATION"
+    )
+    assert any(
+        "Slot-schema bucket classification requires card metadata columns"
+        in warning
+        for warning in payload["meta"]["warnings"]
+    )
 
 
 def test_swsh_pull_rate_assumptions_exclude_generic_hits_bucket(monkeypatch):
@@ -1288,6 +1575,42 @@ def test_swsh_pull_rate_assumptions_exclude_generic_hits_bucket(monkeypatch):
     groups_by_key = {group["key"]: group for group in assumptions["groups"]}
     hit_rows = {row["rarity"] for row in groups_by_key["hit_rarity_model"]["rows"]}
     assert "hits" not in hit_rows
+
+
+def test_swsh_modeled_bucket_missing_eligible_count_keeps_specific_odds_unavailable(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh6-missing-eligible")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh6", "run-swsh6-missing-eligible")]
+
+    missing_bucket = next(
+        key for key in SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys() if key != "rare"
+    )
+
+    def _rows(_q):
+        base_rows = _build_swsh_input_rows(list(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys()))
+        return [row for row in base_rows if str(row.get("rarity_bucket")) != missing_bucket]
+
+    handlers["simulation_input_cards_with_near_mint_price"] = _rows
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh6")
+    assumptions = payload.get("pull_rate_assumptions")
+
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+
+    missing_row = hit_rows[missing_bucket]
+    assert missing_row["card_count"] is None
+    assert missing_row["specific_card_odds_denominator"] is None
+    assert "require eligible card counts" in (missing_row.get("notes") or "")
+
+    # Broad pack-structure rows remain present.
+    pack_rows = {row["rarity"]: row for row in groups_by_key["pack_structure"]["rows"]}
+    assert {"common", "uncommon", "rare", "regular reverse"}.issubset(pack_rows.keys())
 
 
 def test_non_swsh_sets_do_not_emit_modeled_pack_breakdown_display(monkeypatch):

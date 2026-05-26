@@ -30,9 +30,9 @@ def _umbreon_family_df() -> pd.DataFrame:
     Each row is constructed to match exactly one SLOT_SCHEMA_OUTCOME_POOL_MAPPING bucket.
     Card numbers are illustrative and consistent with EVS structure:
       - regular V / VMAX: numbered within printed set (≤ 203)
-      - full art V: numbered in 166–198 range
+    - full art: numbered in 166–203 range (excluding Alternate)
       - alternate full art V: Ultra Rare with '(Alternate Full Art)' in name
-      - rainbow VMAX: Secret Rare, numbered 204–220
+    - rainbow rare: Secret Rare, numbered 204–225 (excluding Alternate)
       - alternate art VMAX: Secret Rare, name contains 'Alternate Art Secret'
     """
     return pd.DataFrame([
@@ -76,7 +76,7 @@ def _umbreon_family_df() -> pd.DataFrame:
 
 
 def _gold_card_row() -> pd.DataFrame:
-    """A single gold secret rare row (Raihan, card #234)."""
+    """A single gold rare row (Raihan, card #234)."""
     return pd.DataFrame([
         {
             "name": "Raihan",
@@ -187,12 +187,8 @@ def test_evolving_skies_draft_audit_documents_assumption_backed_rows_and_named_c
     assert audit["probability_model_status"] == "best_available_empirical_draft"
     assert audit["runtime_remains_disabled"] is True
     assert audit["source_rows_used_with_assumptions"]
-    assert audit["parent_rows_used_with_assumptions"]
-    assert "Umbreon VMAX alternate-art 0.05% (~1/2000)" in audit["named_card_rows_excluded"]
-    assert (
-        audit["named_card_rows_excluded"]["Umbreon VMAX alternate-art 0.05% (~1/2000)"]
-        == "named_card_observation_rows_only"
-    )
+    assert audit["parent_rows_used_with_assumptions"] == {}
+    assert audit["named_card_rows_excluded"] == {}
 
 
 def test_bucket_classification_audit_status_is_complete():
@@ -231,9 +227,9 @@ def test_umbreon_v_resolves_to_regular_v():
     assert buckets == ["regular v"], f"Expected ['regular v'], got {buckets}"
 
 
-def test_umbreon_v_full_art_resolves_to_full_art_v():
+def test_umbreon_v_full_art_resolves_to_full_art():
     buckets = _resolve_umbreon("Umbreon V (Full Art)", "Ultra Rare", "179")
-    assert buckets == ["full art v"], f"Expected ['full art v'], got {buckets}"
+    assert buckets == ["full art"], f"Expected ['full art'], got {buckets}"
 
 
 def test_umbreon_v_alternate_full_art_resolves_to_alternate_art_v():
@@ -246,10 +242,10 @@ def test_umbreon_vmax_ultra_rare_resolves_to_regular_vmax():
     assert buckets == ["regular vmax"], f"Expected ['regular vmax'], got {buckets}"
 
 
-def test_umbreon_vmax_secret_rare_resolves_to_rainbow_vmax():
-    """Umbreon VMAX (#214, Secret Rare) is a rainbow VMAX — distinguished by rarity + number."""
+def test_umbreon_vmax_secret_rare_resolves_to_rainbow_rare():
+    """Umbreon VMAX (#214, Secret Rare) is a rainbow rare — distinguished by rarity + number."""
     buckets = _resolve_umbreon("Umbreon VMAX", "Secret Rare", "214")
-    assert buckets == ["rainbow vmax"], f"Expected ['rainbow vmax'], got {buckets}"
+    assert buckets == ["rainbow rare"], f"Expected ['rainbow rare'], got {buckets}"
 
 
 def test_umbreon_vmax_alternate_art_secret_resolves_to_alternate_art_vmax():
@@ -257,14 +253,14 @@ def test_umbreon_vmax_alternate_art_secret_resolves_to_alternate_art_vmax():
     assert buckets == ["alternate art vmax"], f"Expected ['alternate art vmax'], got {buckets}"
 
 
-def test_gold_card_resolves_to_gold_secret_rare():
-    """A Secret Rare card numbered 226–237 (e.g. Raihan #234) resolves to gold secret rare."""
+def test_gold_card_resolves_to_gold_rare():
+    """A Secret Rare card numbered 226–237 (e.g. Raihan #234) resolves to gold rare."""
     df = _gold_card_row()
     pools = apply_slot_schema_outcome_pool_mapping(
         _EvolvingSkiesMapping, df, allow_empty_pools=True
     )
     matched = [b for b, p in pools.items() if not p.empty]
-    assert matched == ["gold secret rare"], f"Expected ['gold secret rare'], got {matched}"
+    assert matched == ["gold rare"], f"Expected ['gold rare'], got {matched}"
 
 
 def test_reverse_holo_rare_does_not_enter_rare_slot_rare_bucket():

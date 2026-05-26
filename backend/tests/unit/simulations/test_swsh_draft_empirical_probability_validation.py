@@ -220,19 +220,7 @@ def test_project_67_reverse_holo_stays_reverse_slot_only(runtime_config, input_b
     assert reverse_pool
     assert all(row["printing_type"] == "reverse-holo" for row in reverse_pool)
 
-    rare_or_better_buckets = [
-        "rare",
-        "holo rare",
-        "regular v",
-        "regular vmax",
-        "full art v",
-        "full art trainer",
-        "alternate art v",
-        "alternate art vmax",
-        "rainbow trainer",
-        "rainbow vmax",
-        "gold secret rare",
-    ]
+    rare_or_better_buckets = list(runtime_config.RARE_SLOT_PROBABILITY.keys())
     for bucket in rare_or_better_buckets:
         assert all(row["printing_type"] != "reverse-holo" for row in card_pool[bucket]), bucket
 
@@ -241,9 +229,23 @@ def test_project_67_reverse_holo_stays_reverse_slot_only(runtime_config, input_b
 
     assert card_pool["regular v"]
     assert card_pool["regular vmax"]
-    assert card_pool["full art v"]
     assert card_pool["alternate art v"]
-    assert card_pool["gold secret rare"]
+    if runtime_config.SET_ID == "swsh7":
+        assert card_pool["full art"]
+        assert card_pool["rainbow rare"]
+        assert card_pool["gold rare"]
+
+        unsupported_swsh7_keys = {
+            "full art v",
+            "full art trainer",
+            "rainbow trainer",
+            "rainbow vmax",
+            "gold secret rare",
+        }
+        assert unsupported_swsh7_keys.isdisjoint(card_pool.keys())
+    else:
+        assert card_pool["full art"] if "full art" in card_pool else card_pool["full art v"]
+        assert card_pool["gold rare"] if "gold rare" in card_pool else card_pool["gold secret rare"]
 
 
 def test_project_67_sv_mega_behavior_unchanged_and_production_safety_guards_hold():

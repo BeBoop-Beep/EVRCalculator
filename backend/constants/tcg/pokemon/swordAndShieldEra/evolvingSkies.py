@@ -124,13 +124,11 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             "holo rare": 20,
             "regular v": 18,
             "regular vmax": 15,
-            "full art v": 22,
-            "full art trainer": 5,
+            "full art": 27,
             "alternate art v": 11,
             "alternate art vmax": 6,
-            "rainbow trainer": 5,
-            "rainbow vmax": 11,
-            "gold secret rare": 12,
+            "rainbow rare": 16,
+            "gold rare": 12,
         },
         "notes": (
             "Current swsh7 card/variant rows do not expose structured trainer/alt/rainbow fields. "
@@ -192,28 +190,16 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
                 "variant_pool_count": 15,
                 "identifiability": "db_fields_with_card_number_and_name",
             },
-            "full art v": {
+            "full art": {
                 "card_filter": {
                     "rarity": "Ultra Rare",
-                    "card_number_range": "166-198",
-                    "name_contains": "(Full Art)",
+                    "card_number_range": "166-203",
                     "name_not_contains": "Alternate",
                 },
                 "variant_filter": {"printing_type": "holo"},
                 "include_reverse_variants": False,
-                "card_pool_count": 22,
-                "variant_pool_count": 22,
-                "identifiability": "derived_from_card_number_range_and_name",
-            },
-            "full art trainer": {
-                "card_filter": {
-                    "rarity": "Ultra Rare",
-                    "card_number_range": "199-203",
-                },
-                "variant_filter": {"printing_type": "holo"},
-                "include_reverse_variants": False,
-                "card_pool_count": 5,
-                "variant_pool_count": 5,
+                "card_pool_count": 27,
+                "variant_pool_count": 27,
                 "identifiability": "derived_from_card_number_range",
             },
             "alternate art v": {
@@ -239,31 +225,19 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
                 "variant_pool_count": 6,
                 "identifiability": "derived_from_card_name",
             },
-            "rainbow trainer": {
+            "rainbow rare": {
                 "card_filter": {
                     "rarity": "Secret Rare",
-                    "card_number_range": "221-225",
-                },
-                "variant_filter": {"printing_type": "holo"},
-                "include_reverse_variants": False,
-                "card_pool_count": 5,
-                "variant_pool_count": 5,
-                "identifiability": "derived_from_card_number_range",
-            },
-            "rainbow vmax": {
-                "card_filter": {
-                    "rarity": "Secret Rare",
-                    "card_number_range": "204-220",
-                    "name_contains": "VMAX",
+                    "card_number_range": "204-225",
                     "name_not_contains": "Alternate",
                 },
                 "variant_filter": {"printing_type": "holo"},
                 "include_reverse_variants": False,
-                "card_pool_count": 11,
-                "variant_pool_count": 11,
-                "identifiability": "derived_from_card_number_range_and_name",
+                "card_pool_count": 16,
+                "variant_pool_count": 16,
+                "identifiability": "derived_from_card_number_range",
             },
-            "gold secret rare": {
+            "gold rare": {
                 "card_filter": {
                     "rarity": "Secret Rare",
                     "card_number_range": "226-237",
@@ -313,22 +287,12 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             "variant_filter": {"printing_type": "holo"},
             "include_reverse_variants": False,
         },
-        "full art v": {
+        "full art": {
             "source": "rarity + card_number range + name",
             "card_filter": {
                 "rarity": "Ultra Rare",
-                "card_number_range": "166-198",
-                "name_contains": "(Full Art)",
+                "card_number_range": "166-203",
                 "name_not_contains": "Alternate",
-            },
-            "variant_filter": {"printing_type": "holo"},
-            "include_reverse_variants": False,
-        },
-        "full art trainer": {
-            "source": "rarity + card_number range",
-            "card_filter": {
-                "rarity": "Ultra Rare",
-                "card_number_range": "199-203",
             },
             "variant_filter": {"printing_type": "holo"},
             "include_reverse_variants": False,
@@ -352,27 +316,17 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             "variant_filter": {"printing_type": "holo"},
             "include_reverse_variants": False,
         },
-        "rainbow trainer": {
-            "source": "rarity + card_number range",
-            "card_filter": {
-                "rarity": "Secret Rare",
-                "card_number_range": "221-225",
-            },
-            "variant_filter": {"printing_type": "holo"},
-            "include_reverse_variants": False,
-        },
-        "rainbow vmax": {
+        "rainbow rare": {
             "source": "rarity + card_number range + name",
             "card_filter": {
                 "rarity": "Secret Rare",
-                "card_number_range": "204-220",
-                "name_contains": "VMAX",
+                "card_number_range": "204-225",
                 "name_not_contains": "Alternate",
             },
             "variant_filter": {"printing_type": "holo"},
             "include_reverse_variants": False,
         },
-        "gold secret rare": {
+        "gold rare": {
             "source": "rarity + card_number range",
             "card_filter": {
                 "rarity": "Secret Rare",
@@ -394,10 +348,10 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
         "overlapping_variants": 0,
         "ambiguous_name_examples": {
             "Umbreon V (#094)": "regular v",
-            "Umbreon V (Full Art) (#179)": "full art v",
+            "Umbreon V (Full Art) (#179)": "full art",
             "Umbreon V (Alternate Full Art) (#188)": "alternate art v",
             "Umbreon VMAX (#095)": "regular vmax",
-            "Umbreon VMAX (#214, Secret Rare)": "rainbow vmax",
+            "Umbreon VMAX (#214, Secret Rare)": "rainbow rare",
             "Umbreon VMAX Alternate Art Secret (#215)": "alternate art vmax",
         },
         "notes": (
@@ -413,26 +367,22 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
         "rare": 1
         - (
             (1 / 3)
-            + (1 / 8.6)
-            + (1 / 18.5)
-            + ((1 / 82) * (22 / 27))
-            + ((1 / 82) * (5 / 27))
-            + (1 / 82)
-            + (1 / 283)
-            + ((1 / 99) * (5 / 28))
-            + ((1 / 99) * (11 / 28))
-            + ((1 / 99) * (12 / 28))
+            + 0.1056
+            + 0.056
+            + 0.0278
+            + 0.0110
+            + 0.0030
+            + 0.0084
+            + 0.0091
         ),
         "holo rare": 1 / 3,
-        "regular v": 1 / 8.6,
-        "regular vmax": 1 / 18.5,
-        "full art v": (1 / 82) * (22 / 27),
-        "full art trainer": (1 / 82) * (5 / 27),
-        "alternate art v": 1 / 82,
-        "alternate art vmax": 1 / 283,
-        "rainbow trainer": (1 / 99) * (5 / 28),
-        "rainbow vmax": (1 / 99) * (11 / 28),
-        "gold secret rare": (1 / 99) * (12 / 28),
+        "regular v": 0.1056,
+        "regular vmax": 0.056,
+        "full art": 0.0278,
+        "alternate art v": 0.0110,
+        "alternate art vmax": 0.0030,
+        "rainbow rare": 0.0084,
+        "gold rare": 0.0091,
     }
 
     # Promoted to production runtime after strict DB-source validation.
@@ -444,23 +394,47 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
         "probability_model_status": "best_available_empirical_draft",
         "runtime_remains_disabled": True,
         "source_rows_used": {
-            "Holo V": {
-                "source_odds": "1/8.6",
+            "Normal Pokemon V": {
+                "source_odds": "10.56%",
                 "normalized_bucket": "regular v",
-                "probability": 1 / 8.6,
-                "source_family": "cardzard_reddit_5000_pack",
+                "probability": 0.1056,
+                "source_family": "tcgplayer_evolving_skies_8000_pack",
             },
-            "Holo VMAX": {
-                "source_odds": "1/18.5",
+            "Normal Pokemon VMAX": {
+                "source_odds": "5.60%",
                 "normalized_bucket": "regular vmax",
-                "probability": 1 / 18.5,
-                "source_family": "cardzard_reddit_5000_pack",
+                "probability": 0.056,
+                "source_family": "tcgplayer_evolving_skies_8000_pack",
             },
-            "alternate art vmax": {
-                "source_odds": "1/283",
+            "Full-Art": {
+                "source_odds": "2.78%",
+                "normalized_bucket": "full art",
+                "probability": 0.0278,
+                "source_family": "tcgplayer_evolving_skies_8000_pack",
+            },
+            "Alt-Art Pokemon V": {
+                "source_odds": "1.10%",
+                "normalized_bucket": "alternate art v",
+                "probability": 0.0110,
+                "source_family": "tcgplayer_evolving_skies_8000_pack",
+            },
+            "Alt-Art Pokemon VMAX": {
+                "source_odds": "0.30%",
                 "normalized_bucket": "alternate art vmax",
-                "probability": 1 / 283,
-                "source_family": "cardzard_reddit_5000_pack",
+                "probability": 0.0030,
+                "source_family": "tcgplayer_evolving_skies_8000_pack",
+            },
+            "Rainbow Rare": {
+                "source_odds": "0.84%",
+                "normalized_bucket": "rainbow rare",
+                "probability": 0.0084,
+                "source_family": "tcgplayer_evolving_skies_8000_pack",
+            },
+            "Gold Rare": {
+                "source_odds": "0.91%",
+                "normalized_bucket": "gold rare",
+                "probability": 0.0091,
+                "source_family": "tcgplayer_evolving_skies_8000_pack",
             },
         },
         "source_rows_used_with_assumptions": {
@@ -472,58 +446,10 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
                     "Directional cross-source estimate used as best-available empirical draft for holo rare."
                 ),
             },
-            "high_rarity_row_1": {
-                "source_odds": "1/82",
-                "assumed_row_semantics": "full_art_umbrella",
-                "normalization": {
-                    "full art v": (1 / 82) * (22 / 27),
-                    "full art trainer": (1 / 82) * (5 / 27),
-                },
-                "assumption": (
-                    "When direct child rows are unavailable, parent-like high-rarity row is used and split by "
-                    "non-overlapping mapped pool cardinality (22:5)."
-                ),
-            },
-            "high_rarity_row_2": {
-                "source_odds": "1/82",
-                "assumed_row_semantics": "alternate_art_v",
-                "normalized_bucket": "alternate art v",
-                "probability": 1 / 82,
-                "assumption": (
-                    "Mapped as alternate art V in best-available draft due to source context mentioning separate "
-                    "alternate art vmax row (1/283)."
-                ),
-            },
-            "high_rarity_row_3": {
-                "source_odds": "1/99",
-                "assumed_row_semantics": "secret_non_alt_umbrella",
-                "normalization": {
-                    "rainbow trainer": (1 / 99) * (5 / 28),
-                    "rainbow vmax": (1 / 99) * (11 / 28),
-                    "gold secret rare": (1 / 99) * (12 / 28),
-                },
-                "assumption": (
-                    "Parent-like secret umbrella split by mapped pool cardinality (5:11:12) because cleaner child "
-                    "rows are not locally transcribed in machine-readable form."
-                ),
-            },
         },
-        "source_rows_rejected": {
-            "TCGplayer Umbreon VMAX alternate-art 0.05% (~1/2000)": "named_card_observation_rows_only",
-        },
-        "named_card_rows_excluded": {
-            "Umbreon VMAX alternate-art 0.05% (~1/2000)": "named_card_observation_rows_only",
-        },
-        "parent_rows_used_with_assumptions": {
-            "1/82_full_art_umbrella": {
-                "policy_justification": "no cleaner direct child row available in local extracted text",
-                "source_separates_premium_elsewhere": True,
-            },
-            "1/99_secret_non_alt_umbrella": {
-                "policy_justification": "no cleaner direct child row available in local extracted text",
-                "source_separates_premium_elsewhere": True,
-            },
-        },
+        "source_rows_rejected": {},
+        "named_card_rows_excluded": {},
+        "parent_rows_used_with_assumptions": {},
         "final_normalized_table": EVOLVING_SKIES_RARE_SLOT_PROBABILITY_DRAFT,
         "residual_rare_probability": EVOLVING_SKIES_RARE_SLOT_PROBABILITY_DRAFT["rare"],
         "probability_sum": sum(EVOLVING_SKIES_RARE_SLOT_PROBABILITY_DRAFT.values()),
@@ -538,40 +464,38 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
     EVOLVING_SKIES_PULL_RATE_SOURCE_AUDIT = {
         "source_families": {
             "charmanderhelps_x_image_sources": {
-                "status": "partially_transcribed_for_draft",
-                "rows_transcribed": [
-                    "Holo V: 1/8.6",
-                    "Holo VMAX: 1/18.5",
-                    "alternate art vmax: 1/283",
-                    "high-rarity denominators: 1/82, 1/99, 1/82",
-                ],
-                "notes": (
-                    "Rows are used as best-available empirical draft inputs with explicit assumptions where "
-                    "exact row labels are not fully transcribed."
-                ),
+                "status": "historical_context_not_used_for_current_bucket_rates",
+                "rows_transcribed": [],
+                "notes": "Retained for traceability only; current swsh7 bucket rates follow source-level TCGplayer rows.",
             },
             "reddit_pull_rate_discussions": {
-                "status": "used_for_draft_context",
+                "status": "used_for_primary_source_traceability",
                 "references": [
-                    "https://reddit.com/r/PokemonTCG/comments/pf5scn/evolving_skies_pull_rate_data_from_5000_packs/",
                     "https://reddit.com/r/PokemonTCG/comments/1f35e2h/tcgplayers_evolving_skies_pull_rates_from_8000/",
                 ],
                 "rows_transcribed": [
-                    "Holo V: 1/8.6",
-                    "Holo VMAX: 1/18.5",
-                    "alternate art vmax: 1/283",
+                    "Normal Pokemon V: 10.56% (~1/9)",
+                    "Normal Pokemon VMAX: 5.60% (~1/18)",
+                    "Full-Art: 2.78% (~1/36)",
+                    "Alt-Art Pokemon V: 1.10% (~1/91)",
+                    "Alt-Art Pokemon VMAX: 0.30% (~1/332)",
+                    "Rainbow Rare: 0.84% (~1/118)",
+                    "Gold Rare: 0.91% (~1/109)",
                 ],
-                "notes": "Used as primary empirical context for draft modeling with explicit assumptions.",
+                "notes": "Used as primary source-level empirical rows for bucket probabilities.",
             },
-            "cardzard": {
-                "status": "used_via_transcribed_public_commentary",
+            "tcgplayer_evolving_skies_8000_pack": {
+                "status": "used_as_primary_source",
                 "rows_transcribed": [
-                    "regular v / Holo V: 1/8.6",
-                    "regular vmax / Holo VMAX: 1/18.5",
-                    "alternate art vmax: 1/283",
-                    "high-rarity rows: 1/82, 1/99, 1/82",
+                    "Normal Pokemon V: 10.56%",
+                    "Normal Pokemon VMAX: 5.60%",
+                    "Full-Art: 2.78%",
+                    "Alt-Art Pokemon V: 1.10%",
+                    "Alt-Art Pokemon VMAX: 0.30%",
+                    "Rainbow Rare: 0.84%",
+                    "Gold Rare: 0.91%",
                 ],
-                "notes": "Used as best-available empirical source family for draft table.",
+                "notes": "Primary source-level rates for swsh7 modeling granularity.",
             },
             "dripshop": {
                 "status": "secondary_directional",
@@ -582,22 +506,18 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             },
         },
         "direct_non_overlapping_candidate_rows": {
-            "regular v / Holo V": "1/8.6",
-            "regular vmax / Holo VMAX": "1/18.5",
-            "alternate art vmax": "1/283",
+            "normal pokemon v": "10.56% (~1/9)",
+            "normal pokemon vmax": "5.60% (~1/18)",
+            "full-art": "2.78% (~1/36)",
+            "alt-art pokemon v": "1.10% (~1/91)",
+            "alt-art pokemon vmax": "0.30% (~1/332)",
+            "rainbow rare": "0.84% (~1/118)",
+            "gold rare": "0.91% (~1/109)",
         },
-        "parent_sanity_rows_only": {
-            "high_rarity_denominator_row_a": "1/82",
-            "high_rarity_denominator_row_b": "1/99",
-            "high_rarity_denominator_row_c": "1/82",
-        },
-        "named_card_observation_rows_only": {
-            "Umbreon VMAX alternate-art": "0.05% (~1/2000)",
-        },
+        "parent_sanity_rows_only": {},
+        "named_card_observation_rows_only": {},
         "unusable_or_overlapping_rows": {
-            "rows_kept_observation_only": [
-                "TCGplayer named-card odds are never used as bucket weights",
-            ],
+            "rows_kept_observation_only": [],
         },
         "rare_slot_probability_readiness": {
             "can_construct_non_overlapping_source_backed_table": True,
@@ -606,10 +526,10 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             "rare_is_residual_capable": True,
             "rare_requires_direct_source_row": False,
             "missing_non_residual_outcomes": [],
-            "high_rarity_overlap_status": "resolved_for_draft_via_assumption_documentation",
-            "parent_rows_excluded": False,
-            "parent_rows_used_with_assumptions": True,
-            "named_card_rows_excluded": True,
+            "high_rarity_overlap_status": "not_applicable_source_rows_non_overlapping",
+            "parent_rows_excluded": True,
+            "parent_rows_used_with_assumptions": False,
+            "named_card_rows_excluded": False,
         },
         "decision": (
             "Historical strict direct-source gating note retained for traceability. Superseded by Project 6.6-6.9 "
