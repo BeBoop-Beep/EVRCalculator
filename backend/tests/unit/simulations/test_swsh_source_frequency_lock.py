@@ -307,7 +307,10 @@ def test_swsh6_source_audit_metadata_exposes_expected_source_labels_and_aliases(
     source_notes = SetChillingReignConfig.CHILLING_REIGN_PULL_RATE_SOURCE_NOTES
 
     assert draft_audit["source_label"] == "User-provided CharizardX posting transcription"
-    assert source_notes["source"] == "User-provided CharizardX posting transcription"
+    assert source_notes["source"] == "PokemonTCG_Deals / CharmanderHelps Chilling Reign pull-rate post"
+    assert source_notes["historical_label"] == "Previously labeled CharizardX/user-provided transcription."
+    assert "PokemonTCG_Deals" in source_notes["source_aliases"]
+    assert "@CharmanderHelps" in source_notes["source_aliases"]
     assert "CharizardX" in source_notes["source_aliases"]
     assert "CharmanderHelps/X" in source_notes["source_aliases"]
 

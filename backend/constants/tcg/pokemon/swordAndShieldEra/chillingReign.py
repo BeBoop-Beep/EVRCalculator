@@ -242,12 +242,18 @@ class SetChillingReignConfig(BaseSetConfig):
     }
 
     CHILLING_REIGN_PULL_RATE_SOURCE_NOTES = {
-        "source": "User-provided CharizardX posting transcription",
-        "source_aliases": ["CharizardX", "CharmanderHelps/X"],
+        "source": "PokemonTCG_Deals / CharmanderHelps Chilling Reign pull-rate post",
+        "source_aliases": [
+            "PokemonTCG_Deals",
+            "@CharmanderHelps",
+            "CharizardX",
+            "CharmanderHelps/X",
+        ],
         "coverage_scope": (
             "High-rarity source buckets only; this scaffold does not cover base "
             "holo rare/regular v outcomes and is not a complete rare-slot table."
         ),
+        "historical_label": "Previously labeled CharizardX/user-provided transcription.",
         "rare_residual_policy": (
             "rare is residual-capable and does not require a direct source row."
         ),
@@ -269,6 +275,12 @@ class SetChillingReignConfig(BaseSetConfig):
             "SLOT_SCHEMA_RUNTIME_ENABLED is True and production RARE_SLOT_PROBABILITY equals the "
             "best-available empirical draft table."
         ),
+    }
+
+    CHILLING_REIGN_PULL_RATE_SOURCE_LINKS = {
+        "charizardx_user_rows": "https://x.com/CharmanderHelps/status/1417261446761680898",
+        "dripshop_directional": "https://www.dripshop.live/blog/pokemon-trading-cards/chilling-reign-pull-rates---full-breakdown--rarest-cards",
+        "reddit_directional": "https://www.reddit.com/r/PokemonTCG/comments/o2nhez/chilling_reign_pull_rate_data_from_5000_packs/",
     }
 
     # Project 5.5.2: Read-only Supabase card/variant label audit snapshot for swsh6.

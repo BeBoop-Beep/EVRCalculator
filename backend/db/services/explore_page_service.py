@@ -7,7 +7,7 @@ import logging
 import math
 import re
 import time
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from backend.db.clients.supabase_client import public_read_client
 from backend.interpretation.rips import build_rip_interpretation
@@ -875,6 +875,28 @@ def _build_special_pack_rule_rows(
 
 _MODELED_SWSH_SET_IDS = {"swsh6", "swsh7"}
 
+SOURCE_STATUS_DIRECT = "SOURCE_DIRECT"
+SOURCE_STATUS_DERIVED_RESIDUAL = "SOURCE_DERIVED_RESIDUAL"
+SOURCE_STATUS_PROVISIONAL = "PROVISIONAL_DIRECTIONAL"
+SOURCE_STATUS_UNSUPPORTED_SPLIT = "UNSUPPORTED_SPLIT"
+SOURCE_STATUS_MISSING = "MISSING_SOURCE"
+SOURCE_STATUS_SECONDARY_INDEX_ONLY = "SECONDARY_INDEX_ONLY"
+SOURCE_STATUS_INFERRED_MODEL = "INFERRED_MODEL"
+
+_SWSH6_UNSUPPORTED_REFERENCE_BUCKETS = {
+    "rainbow trainer",
+    "rainbow vmax",
+    "gold secret rare",
+}
+
+_SWSH7_UNSUPPORTED_REFERENCE_BUCKETS = {
+    "full art v",
+    "full art trainer",
+    "rainbow trainer",
+    "rainbow vmax",
+    "gold secret rare",
+}
+
 _MODELED_OUTCOME_LABELS = {
     "rare": "Baseline",
     "holo rare": "Holo Rare Bucket",
@@ -1006,6 +1028,514 @@ def _build_modeled_swsh_pack_breakdown_display(
             "Modeled rare-slot outcomes are available, but full outcome-state counts require a future simulation-output enhancement."
         ),
     }
+
+
+def _format_probability_odds_display(probability: Any) -> Optional[str]:
+    parsed = _to_positive_probability(probability)
+    if parsed is None:
+        return None
+    denominator = 1 / parsed
+    rounded = round(denominator)
+    if abs(denominator - rounded) <= 1e-9:
+        return f"1/{rounded:,}"
+    if denominator < 10:
+        return f"1/{denominator:.2f}"
+    return f"1/{denominator:.1f}"
+
+
+def _build_swsh6_pull_rate_references(config_class: Any) -> Dict[str, Any]:
+    runtime_table = getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}
+    draft_audit = getattr(config_class, "CHILLING_REIGN_RARE_SLOT_PROBABILITY_DRAFT_AUDIT", {}) or {}
+    source_notes = getattr(config_class, "CHILLING_REIGN_PULL_RATE_SOURCE_NOTES", {}) or {}
+    source_links = getattr(config_class, "CHILLING_REIGN_PULL_RATE_SOURCE_LINKS", {}) or {}
+    confidence = getattr(config_class, "SLOT_SCHEMA_SOURCE_CONFIDENCE", {}) or {}
+
+    direct_rows = draft_audit.get("source_rows_used", {}) or {}
+    provisional_rows = draft_audit.get("source_rows_used_with_assumptions", {}) or {}
+    missing_rows = {
+        _normalize_rarity(key): str(value)
+        for key, value in (draft_audit.get("missing_source_rows", {}) or {}).items()
+    }
+    unsupported_rows = {
+        _normalize_rarity(key)
+        for key in (draft_audit.get("unsupported_split_rows", {}) or {}).keys()
+    } | _SWSH6_UNSUPPORTED_REFERENCE_BUCKETS
+
+    direct_by_bucket: Dict[str, Dict[str, Any]] = {}
+    for source_bucket_label, payload in direct_rows.items():
+        if not isinstance(payload, Mapping):
+            continue
+        normalized_bucket = _normalize_rarity(payload.get("normalized_bucket"))
+        if not normalized_bucket:
+            continue
+        direct_by_bucket[normalized_bucket] = {
+            "source_bucket_label": source_bucket_label,
+            "source_id": "charizardx_user_rows",
+            "source_odds": payload.get("source_odds"),
+        }
+
+    provisional_by_bucket: Dict[str, Dict[str, Any]] = {}
+    for source_bucket_label, payload in provisional_rows.items():
+        if not isinstance(payload, Mapping):
+            continue
+        normalized_bucket = _normalize_rarity(payload.get("normalized_bucket"))
+        if not normalized_bucket:
+            continue
+        row_key = _normalize_key(source_bucket_label)
+        source_id = "secondary_directional"
+        if "dripshop" in row_key:
+            source_id = "dripshop_directional"
+        elif "reddit" in row_key:
+            source_id = "reddit_directional"
+        provisional_by_bucket[normalized_bucket] = {
+            "source_bucket_label": source_bucket_label,
+            "source_id": source_id,
+            "source_odds": payload.get("source_odds"),
+            "caveat": payload.get("assumption"),
+        }
+
+    bucket_evidence: List[Dict[str, Any]] = []
+    runtime_keys = {_normalize_rarity(key) for key in runtime_table.keys()}
+    for raw_bucket, probability_used in runtime_table.items():
+        normalized_bucket = _normalize_rarity(raw_bucket)
+        status = SOURCE_STATUS_INFERRED_MODEL
+        source_ids: List[str] = []
+        source_bucket_label: Optional[str] = None
+        odds_display = _format_probability_odds_display(probability_used)
+        caveat: Optional[str] = None
+
+        if normalized_bucket in direct_by_bucket:
+            status = SOURCE_STATUS_DIRECT
+            row = direct_by_bucket[normalized_bucket]
+            source_ids = [row["source_id"]]
+            source_bucket_label = row.get("source_bucket_label")
+            odds_display = row.get("source_odds") or odds_display
+        elif normalized_bucket in provisional_by_bucket:
+            status = SOURCE_STATUS_PROVISIONAL
+            row = provisional_by_bucket[normalized_bucket]
+            source_ids = [row["source_id"]]
+            source_bucket_label = row.get("source_bucket_label")
+            odds_display = row.get("source_odds") or odds_display
+            caveat = row.get("caveat")
+        elif normalized_bucket == "rare":
+            status = SOURCE_STATUS_DERIVED_RESIDUAL
+            caveat = "Residual bucket derived from remaining modeled probability mass after non-rare buckets."
+        elif missing_rows.get(normalized_bucket) == SOURCE_STATUS_MISSING:
+            status = SOURCE_STATUS_MISSING
+
+        bucket_evidence.append(
+            {
+                "source_bucket_label": source_bucket_label or normalized_bucket,
+                "normalized_bucket": normalized_bucket,
+                "probability_used": float(probability_used),
+                "odds_display": odds_display,
+                "source_status": status,
+                "source_granularity_status": status,
+                "used_in_runtime": True,
+                "caveat": caveat,
+                "source_ids": source_ids,
+            }
+        )
+
+    for unsupported_bucket in sorted(unsupported_rows):
+        if unsupported_bucket in runtime_keys:
+            continue
+        bucket_evidence.append(
+            {
+                "source_bucket_label": unsupported_bucket,
+                "normalized_bucket": unsupported_bucket,
+                "probability_used": None,
+                "odds_display": None,
+                "source_status": SOURCE_STATUS_UNSUPPORTED_SPLIT,
+                "source_granularity_status": SOURCE_STATUS_UNSUPPORTED_SPLIT,
+                "used_in_runtime": False,
+                "caveat": "Unsupported child split bucket removed from runtime assumptions.",
+                "source_ids": [],
+            }
+        )
+
+    model_status = (
+        draft_audit.get("probability_model_status")
+        or draft_audit.get("status")
+        or confidence.get("status")
+        or "unknown"
+    )
+    model_confidence = "medium" if any(
+        row.get("source_status") == SOURCE_STATUS_PROVISIONAL for row in bucket_evidence
+    ) else "high"
+
+    source_name = str(source_notes.get("source") or "User-provided CharizardX posting transcription")
+    source_aliases = ", ".join(source_notes.get("source_aliases") or [])
+
+    return {
+        "model_status": model_status,
+        "model_confidence": model_confidence,
+        "caveats": [
+            confidence.get("source_caveat"),
+            draft_audit.get("decision"),
+        ],
+        "last_reviewed_at": None,
+        "sources": [
+            {
+                "source_id": "charizardx_user_rows",
+                "source_name": source_name,
+                "source_url": _to_optional_str(source_links.get("charizardx_user_rows")),
+                "source_type": "community_transcription",
+                "source_confidence": "high",
+                "discovered_via": source_aliases or None,
+                "notes": "Direct source rows for swsh6 source-locked buckets. Previously labeled CharizardX/user-provided transcription.",
+            },
+            {
+                "source_id": "dripshop_directional",
+                "source_name": "DripShop directional estimate",
+                "source_url": _to_optional_str(source_links.get("dripshop_directional")),
+                "source_type": "secondary_directional",
+                "source_confidence": "medium",
+                "discovered_via": None,
+                "notes": "Directional provisional estimate for holo rare.",
+            },
+            {
+                "source_id": "reddit_directional",
+                "source_name": "Reddit directional estimate",
+                "source_url": _to_optional_str(source_links.get("reddit_directional")),
+                "source_type": "secondary_directional",
+                "source_confidence": "medium",
+                "discovered_via": None,
+                "notes": "Directional provisional estimate for regular v.",
+            },
+        ],
+        "bucket_evidence": bucket_evidence,
+    }
+
+
+def _build_swsh7_pull_rate_references(config_class: Any) -> Dict[str, Any]:
+    runtime_table = getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}
+    draft_audit = getattr(config_class, "EVOLVING_SKIES_RARE_SLOT_PROBABILITY_DRAFT_AUDIT", {}) or {}
+    source_audit = getattr(config_class, "EVOLVING_SKIES_PULL_RATE_SOURCE_AUDIT", {}) or {}
+    confidence = getattr(config_class, "SLOT_SCHEMA_SOURCE_CONFIDENCE", {}) or {}
+
+    direct_rows = draft_audit.get("source_rows_used", {}) or {}
+    provisional_rows = draft_audit.get("source_rows_used_with_assumptions", {}) or {}
+
+    direct_by_bucket: Dict[str, Dict[str, Any]] = {}
+    for source_bucket_label, payload in direct_rows.items():
+        if not isinstance(payload, Mapping):
+            continue
+        normalized_bucket = _normalize_rarity(payload.get("normalized_bucket"))
+        if not normalized_bucket:
+            continue
+        source_family = _normalize_key(payload.get("source_family")) or "tcgplayer_evolving_skies_8000_pack"
+        direct_by_bucket[normalized_bucket] = {
+            "source_bucket_label": source_bucket_label,
+            "source_id": source_family,
+            "source_odds": payload.get("source_odds"),
+        }
+
+    provisional_by_bucket: Dict[str, Dict[str, Any]] = {}
+    for source_bucket_label, payload in provisional_rows.items():
+        if not isinstance(payload, Mapping):
+            continue
+        normalized_bucket = _normalize_rarity(payload.get("normalized_bucket"))
+        if not normalized_bucket:
+            continue
+        provisional_by_bucket[normalized_bucket] = {
+            "source_bucket_label": source_bucket_label,
+            "source_id": "dripshop",
+            "source_odds": payload.get("source_odds"),
+            "caveat": payload.get("assumption"),
+        }
+
+    source_families = source_audit.get("source_families", {}) or {}
+    reddit_refs = (((source_families.get("reddit_pull_rate_discussions") or {}).get("references") or [None])[0])
+    tcgplayer_refs = (((source_families.get("tcgplayer_evolving_skies_8000_pack") or {}).get("references") or [None])[0])
+    dripshop_refs = (((source_families.get("dripshop") or {}).get("references") or [None])[0])
+
+    bucket_evidence: List[Dict[str, Any]] = []
+    runtime_keys = {_normalize_rarity(key) for key in runtime_table.keys()}
+    for raw_bucket, probability_used in runtime_table.items():
+        normalized_bucket = _normalize_rarity(raw_bucket)
+        status = SOURCE_STATUS_INFERRED_MODEL
+        source_ids: List[str] = []
+        source_bucket_label: Optional[str] = None
+        odds_display = _format_probability_odds_display(probability_used)
+        caveat: Optional[str] = None
+
+        if normalized_bucket in direct_by_bucket:
+            status = SOURCE_STATUS_DIRECT
+            row = direct_by_bucket[normalized_bucket]
+            source_ids = [row["source_id"]]
+            source_bucket_label = row.get("source_bucket_label")
+            odds_display = row.get("source_odds") or odds_display
+        elif normalized_bucket in provisional_by_bucket:
+            status = SOURCE_STATUS_PROVISIONAL
+            row = provisional_by_bucket[normalized_bucket]
+            source_ids = [row["source_id"]]
+            source_bucket_label = row.get("source_bucket_label")
+            odds_display = row.get("source_odds") or odds_display
+            caveat = row.get("caveat")
+        elif normalized_bucket == "rare":
+            status = SOURCE_STATUS_DERIVED_RESIDUAL
+            caveat = "Residual bucket derived from remaining modeled probability mass after non-rare buckets."
+
+        bucket_evidence.append(
+            {
+                "source_bucket_label": source_bucket_label or normalized_bucket,
+                "normalized_bucket": normalized_bucket,
+                "probability_used": float(probability_used),
+                "odds_display": odds_display,
+                "source_status": status,
+                "source_granularity_status": status,
+                "used_in_runtime": True,
+                "caveat": caveat,
+                "source_ids": source_ids,
+            }
+        )
+
+    for unsupported_bucket in sorted(_SWSH7_UNSUPPORTED_REFERENCE_BUCKETS):
+        if unsupported_bucket in runtime_keys:
+            continue
+        bucket_evidence.append(
+            {
+                "source_bucket_label": unsupported_bucket,
+                "normalized_bucket": unsupported_bucket,
+                "probability_used": None,
+                "odds_display": None,
+                "source_status": SOURCE_STATUS_UNSUPPORTED_SPLIT,
+                "source_granularity_status": SOURCE_STATUS_UNSUPPORTED_SPLIT,
+                "used_in_runtime": False,
+                "caveat": "Unsupported child split bucket removed from runtime assumptions.",
+                "source_ids": [],
+            }
+        )
+
+    model_status = (
+        draft_audit.get("probability_model_status")
+        or draft_audit.get("status")
+        or confidence.get("status")
+        or "unknown"
+    )
+    model_confidence = "medium" if any(
+        row.get("source_status") == SOURCE_STATUS_PROVISIONAL for row in bucket_evidence
+    ) else "high"
+
+    return {
+        "model_status": model_status,
+        "model_confidence": model_confidence,
+        "caveats": [
+            confidence.get("source_caveat"),
+            draft_audit.get("decision"),
+        ],
+        "last_reviewed_at": None,
+        "sources": [
+            {
+                "source_id": "tcgplayer_evolving_skies_8000_pack",
+                "source_name": "TCGplayer Evolving Skies 8000-pack sample",
+                "source_url": tcgplayer_refs,
+                "source_type": "empirical_sample",
+                "source_confidence": "high",
+                "discovered_via": "reddit_pull_rate_discussions",
+                "notes": "Primary source-level rows used for swsh7 direct bucket probabilities.",
+            },
+            {
+                "source_id": "reddit_pull_rate_discussions",
+                "source_name": "Reddit pull-rate discussion references",
+                "source_url": reddit_refs,
+                "source_type": "discussion_reference",
+                "source_confidence": "medium",
+                "discovered_via": None,
+                "notes": "Traceability and source-discovery reference for published empirical rows.",
+            },
+            {
+                "source_id": "dripshop",
+                "source_name": "DripShop directional estimate",
+                "source_url": _to_optional_str(dripshop_refs),
+                "source_type": "secondary_directional",
+                "source_confidence": "medium",
+                "discovered_via": None,
+                "notes": "Directional provisional estimate for holo rare.",
+            },
+        ],
+        "bucket_evidence": bucket_evidence,
+    }
+
+
+def _build_swsh8_pull_rate_references(config_class: Any) -> Dict[str, Any]:
+    sources = getattr(config_class, "FUSION_STRIKE_PULL_RATE_REFERENCE_SOURCES", []) or []
+    evidence_rows = getattr(config_class, "FUSION_STRIKE_PULL_RATE_REFERENCE_BUCKET_EVIDENCE", []) or []
+
+    bucket_evidence: List[Dict[str, Any]] = []
+    for row in evidence_rows:
+        if not isinstance(row, Mapping):
+            continue
+        bucket_evidence.append(
+            {
+                "source_bucket_label": row.get("source_bucket_label") or "unknown",
+                "normalized_bucket": _normalize_rarity(row.get("normalized_bucket") or row.get("source_bucket_label")),
+                "probability_used": None,
+                "odds_display": _to_optional_str(row.get("odds_display")),
+                "source_status": row.get("source_status") or SOURCE_STATUS_SECONDARY_INDEX_ONLY,
+                "source_granularity_status": row.get("source_granularity_status")
+                or row.get("source_status")
+                or SOURCE_STATUS_SECONDARY_INDEX_ONLY,
+                "used_in_runtime": False,
+                "caveat": _to_optional_str(row.get("caveat")),
+                "source_ids": list(row.get("source_ids") or []),
+            }
+        )
+
+    normalized_sources: List[Dict[str, Any]] = []
+    for source in sources:
+        if not isinstance(source, Mapping):
+            continue
+        normalized_sources.append(
+            {
+                "source_id": _to_optional_str(source.get("source_id")) or "unknown_source",
+                "source_name": _to_optional_str(source.get("source_name")) or "Unknown source",
+                "source_url": _to_optional_str(source.get("source_url")),
+                "source_type": _to_optional_str(source.get("source_type")) or "reference_only",
+                "source_confidence": _to_optional_str(source.get("source_confidence")) or "medium",
+                "discovered_via": _to_optional_str(source.get("discovered_via")),
+                "notes": _to_optional_str(source.get("notes")),
+            }
+        )
+
+    return {
+        "model_status": "reference_only_verified_sources",
+        "model_confidence": "medium",
+        "caveats": [
+            "Fusion Strike pull-rate references are sample-based evidence and not official Pokemon-published odds.",
+            "ThePriceDex rows are cross-reference/index metadata only and must not be treated as SOURCE_DIRECT runtime evidence.",
+        ],
+        "last_reviewed_at": "2026-05-26",
+        "sources": normalized_sources,
+        "bucket_evidence": bucket_evidence,
+    }
+
+
+def _get_pull_rate_reference_attr_pair(config_class: Any) -> Optional[Tuple[str, str]]:
+    source_attr_names = sorted(
+        attr_name
+        for attr_name in dir(config_class)
+        if attr_name.endswith("_PULL_RATE_REFERENCE_SOURCES")
+    )
+    evidence_attr_names = {
+        attr_name
+        for attr_name in dir(config_class)
+        if attr_name.endswith("_PULL_RATE_REFERENCE_BUCKET_EVIDENCE")
+    }
+
+    for source_attr_name in source_attr_names:
+        prefix = source_attr_name[: -len("_PULL_RATE_REFERENCE_SOURCES")]
+        evidence_attr_name = f"{prefix}_PULL_RATE_REFERENCE_BUCKET_EVIDENCE"
+        if evidence_attr_name in evidence_attr_names:
+            return source_attr_name, evidence_attr_name
+
+    return None
+
+
+def _build_generic_swsh_pull_rate_references(config_class: Any) -> Optional[Dict[str, Any]]:
+    attr_pair = _get_pull_rate_reference_attr_pair(config_class)
+    if not attr_pair:
+        return None
+
+    source_attr_name, evidence_attr_name = attr_pair
+    sources = getattr(config_class, source_attr_name, []) or []
+    evidence_rows = getattr(config_class, evidence_attr_name, []) or []
+    confidence = getattr(config_class, "SLOT_SCHEMA_SOURCE_CONFIDENCE", {}) or {}
+    runtime_table = getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}
+
+    if not isinstance(sources, list) or not isinstance(evidence_rows, list):
+        return None
+
+    runtime_probability_by_bucket = {
+        _normalize_rarity(bucket): float(probability)
+        for bucket, probability in runtime_table.items()
+        if _to_positive_probability(probability) is not None
+    }
+
+    normalized_sources: List[Dict[str, Any]] = []
+    for source in sources:
+        if not isinstance(source, Mapping):
+            continue
+        normalized_sources.append(
+            {
+                "source_id": _to_optional_str(source.get("source_id")) or "unknown_source",
+                "source_name": _to_optional_str(source.get("source_name")) or "Unknown source",
+                "source_url": _to_optional_str(source.get("source_url")),
+                "source_type": _to_optional_str(source.get("source_type")) or "reference_only",
+                "source_confidence": _to_optional_str(source.get("source_confidence")) or "medium",
+                "discovered_via": _to_optional_str(source.get("discovered_via")),
+                "notes": _to_optional_str(source.get("notes")),
+            }
+        )
+
+    bucket_evidence: List[Dict[str, Any]] = []
+    for row in evidence_rows:
+        if not isinstance(row, Mapping):
+            continue
+
+        normalized_bucket = _normalize_rarity(row.get("normalized_bucket") or row.get("source_bucket_label"))
+        used_in_runtime = bool(row.get("used_in_runtime"))
+        probability_used = runtime_probability_by_bucket.get(normalized_bucket) if used_in_runtime else None
+
+        bucket_evidence.append(
+            {
+                "source_bucket_label": row.get("source_bucket_label") or normalized_bucket or "unknown",
+                "normalized_bucket": normalized_bucket,
+                "probability_used": probability_used,
+                "odds_display": _to_optional_str(row.get("odds_display")),
+                "source_status": row.get("source_status") or SOURCE_STATUS_SECONDARY_INDEX_ONLY,
+                "source_granularity_status": row.get("source_granularity_status")
+                or row.get("source_status")
+                or SOURCE_STATUS_SECONDARY_INDEX_ONLY,
+                "used_in_runtime": used_in_runtime,
+                "caveat": _to_optional_str(row.get("caveat")),
+                "source_ids": list(row.get("source_ids") or []),
+            }
+        )
+
+    return {
+        "model_status": _to_optional_str(confidence.get("status")) or "runtime_candidate_best_available_empirical",
+        "model_confidence": "medium",
+        "caveats": [
+            _to_optional_str(confidence.get("source_caveat")),
+        ],
+        "last_reviewed_at": None,
+        "sources": normalized_sources,
+        "bucket_evidence": bucket_evidence,
+    }
+
+
+def _build_pull_rate_references(
+    *,
+    config_class: Any,
+    sources: Dict[str, str],
+) -> Optional[Dict[str, Any]]:
+    set_id = _normalize_key(getattr(config_class, "SET_ID", ""))
+    runtime_table = getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}
+
+    if set_id == "swsh8":
+        sources["pull_rate_references"] = "OK"
+        return _build_swsh8_pull_rate_references(config_class)
+
+    if not isinstance(runtime_table, Mapping) or not runtime_table:
+        sources["pull_rate_references"] = "NO_RUNTIME_PROBABILITY"
+        return None
+
+    if set_id == "swsh6":
+        sources["pull_rate_references"] = "OK"
+        return _build_swsh6_pull_rate_references(config_class)
+    if set_id == "swsh7":
+        sources["pull_rate_references"] = "OK"
+        return _build_swsh7_pull_rate_references(config_class)
+
+    generic_swsh_references = _build_generic_swsh_pull_rate_references(config_class)
+    if generic_swsh_references is not None:
+        sources["pull_rate_references"] = "OK"
+        return generic_swsh_references
+
+    sources["pull_rate_references"] = "UNAVAILABLE_FOR_SET"
+    return None
 
 
 def _build_pull_rate_assumptions(
@@ -2158,6 +2688,7 @@ def get_explore_page_payload(
     )
 
     pull_rate_assumptions = None
+    pull_rate_references = None
     if requested_target_type == "set":
         if config_class is not None:
             pull_rate_assumptions = _build_pull_rate_assumptions(
@@ -2166,8 +2697,13 @@ def get_explore_page_payload(
                 warnings=warnings,
                 sources=sources,
             )
+            pull_rate_references = _build_pull_rate_references(
+                config_class=config_class,
+                sources=sources,
+            )
         else:
             sources["pull_rate_assumptions"] = "SET_CONFIG_NOT_FOUND"
+            sources["pull_rate_references"] = "SET_CONFIG_NOT_FOUND"
 
     return {
         "summary": summary,
@@ -2180,6 +2716,7 @@ def get_explore_page_payload(
         "history_trend": history_trend,
         "interpretation": interpretation,
         "pull_rate_assumptions": pull_rate_assumptions,
+        "pull_rate_references": pull_rate_references,
         "meta": {
             "request": {
                 "target_type": requested_target_type,
@@ -3358,6 +3895,7 @@ def get_explore_page_payload(
     )
 
     pull_rate_assumptions = None
+    pull_rate_references = None
     if requested_target_type == "set":
         if config_class is not None:
             pull_rate_assumptions = _build_pull_rate_assumptions(
@@ -3366,8 +3904,13 @@ def get_explore_page_payload(
                 warnings=warnings,
                 sources=sources,
             )
+            pull_rate_references = _build_pull_rate_references(
+                config_class=config_class,
+                sources=sources,
+            )
         else:
             sources["pull_rate_assumptions"] = "SET_CONFIG_NOT_FOUND"
+            sources["pull_rate_references"] = "SET_CONFIG_NOT_FOUND"
 
     return {
         "summary": summary,
@@ -3380,6 +3923,7 @@ def get_explore_page_payload(
         "history_trend": history_trend,
         "interpretation": interpretation,
         "pull_rate_assumptions": pull_rate_assumptions,
+        "pull_rate_references": pull_rate_references,
         "meta": {
             "request": {
                 "target_type": requested_target_type,

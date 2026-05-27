@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 from backend.db.services import explore_page_service as service
 
 
@@ -115,6 +117,52 @@ def _build_success_handlers(run_id="run-1"):
         "card_variants": lambda _q: [],
         "cards": lambda _q: [],
     }
+
+
+def _assert_pull_rate_references_contract_shape(references):
+    assert set(references.keys()) == {
+        "model_status",
+        "model_confidence",
+        "caveats",
+        "last_reviewed_at",
+        "sources",
+        "bucket_evidence",
+    }
+
+    expected_source_keys = {
+        "source_id",
+        "source_name",
+        "source_url",
+        "source_type",
+        "source_confidence",
+        "discovered_via",
+        "notes",
+    }
+    for source in references["sources"]:
+        assert set(source.keys()) == expected_source_keys
+
+    expected_bucket_keys = {
+        "source_bucket_label",
+        "normalized_bucket",
+        "probability_used",
+        "odds_display",
+        "source_status",
+        "source_granularity_status",
+        "used_in_runtime",
+        "caveat",
+        "source_ids",
+    }
+    for row in references["bucket_evidence"]:
+        assert set(row.keys()) == expected_bucket_keys
+
+
+def _assert_direct_rows_match_runtime_probabilities(references, runtime_table):
+    for row in references["bucket_evidence"]:
+        if row.get("source_status") != "SOURCE_DIRECT" or not row.get("used_in_runtime"):
+            continue
+        bucket = row["normalized_bucket"]
+        expected_probability = runtime_table[bucket]
+        assert abs(row["probability_used"] - expected_probability) <= 1e-12
 
 
 def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
@@ -1693,6 +1741,405 @@ def test_swsh_pull_rate_assumptions_exclude_generic_hits_bucket(monkeypatch):
     groups_by_key = {group["key"]: group for group in assumptions["groups"]}
     hit_rows = {row["rarity"] for row in groups_by_key["hit_rarity_model"]["rows"]}
     assert "hits" not in hit_rows
+
+
+def test_swsh6_pull_rate_references_expose_direct_residual_provisional_and_unsupported(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh6-references")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh6", "run-swsh6-references")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    all_card_rows, all_variant_rows = _build_swsh6_card_and_variant_rows_for_runtime_outcomes()
+    handlers["cards"] = lambda query: _filter_rows_by_requested_ids(query, all_card_rows)
+    handlers["card_variants"] = lambda query: _filter_rows_by_requested_ids(query, all_variant_rows)
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh6")
+    references = payload.get("pull_rate_references")
+
+    assert references is not None
+    _assert_pull_rate_references_contract_shape(references)
+    _assert_direct_rows_match_runtime_probabilities(
+        references,
+        SetChillingReignConfig.RARE_SLOT_PROBABILITY,
+    )
+
+    evidence_by_bucket = {
+        row["normalized_bucket"]: row
+        for row in references["bucket_evidence"]
+    }
+    sources_by_id = {
+        row["source_id"]: row
+        for row in references["sources"]
+    }
+
+    assert evidence_by_bucket["regular vmax"]["source_status"] == "SOURCE_DIRECT"
+    assert evidence_by_bucket["rare"]["source_status"] == "SOURCE_DERIVED_RESIDUAL"
+    assert evidence_by_bucket["holo rare"]["source_status"] == "PROVISIONAL_DIRECTIONAL"
+    assert evidence_by_bucket["regular v"]["source_status"] == "PROVISIONAL_DIRECTIONAL"
+
+    assert evidence_by_bucket["rainbow trainer"]["source_status"] == "UNSUPPORTED_SPLIT"
+    assert evidence_by_bucket["rainbow trainer"]["used_in_runtime"] is False
+
+    assert (
+        sources_by_id["charizardx_user_rows"]["source_url"]
+        == "https://x.com/CharmanderHelps/status/1417261446761680898"
+    )
+    assert "PokemonTCG_Deals" in (sources_by_id["charizardx_user_rows"].get("source_name") or "")
+    assert "CharmanderHelps" in (sources_by_id["charizardx_user_rows"].get("source_name") or "")
+    assert (
+        sources_by_id["dripshop_directional"]["source_url"]
+        == "https://www.dripshop.live/blog/pokemon-trading-cards/chilling-reign-pull-rates---full-breakdown--rarest-cards"
+    )
+    assert (
+        sources_by_id["reddit_directional"]["source_url"]
+        == "https://www.reddit.com/r/PokemonTCG/comments/o2nhez/chilling_reign_pull_rate_data_from_5000_packs/"
+    )
+
+    active_runtime_buckets = {
+        row["normalized_bucket"]
+        for row in references["bucket_evidence"]
+        if row.get("used_in_runtime")
+    }
+    assert "rainbow trainer" not in active_runtime_buckets
+    assert "rainbow vmax" not in active_runtime_buckets
+    assert "gold secret rare" not in active_runtime_buckets
+
+    assert payload["meta"]["sources"].get("pull_rate_references") == "OK"
+
+
+def test_swsh7_pull_rate_references_direct_probabilities_match_runtime_config(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-references")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-references")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    all_card_rows, all_variant_rows = _build_swsh7_card_and_variant_rows_for_runtime_outcomes()
+    handlers["cards"] = lambda query: _filter_rows_by_requested_ids(query, all_card_rows)
+    handlers["card_variants"] = lambda query: _filter_rows_by_requested_ids(query, all_variant_rows)
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    references = payload.get("pull_rate_references")
+
+    assert references is not None
+    _assert_pull_rate_references_contract_shape(references)
+    _assert_direct_rows_match_runtime_probabilities(
+        references,
+        SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY,
+    )
+
+    evidence_by_bucket = {
+        row["normalized_bucket"]: row
+        for row in references["bucket_evidence"]
+    }
+    sources_by_id = {
+        row["source_id"]: row
+        for row in references["sources"]
+    }
+    assert evidence_by_bucket["rare"]["source_status"] == "SOURCE_DERIVED_RESIDUAL"
+    assert evidence_by_bucket["holo rare"]["source_status"] == "PROVISIONAL_DIRECTIONAL"
+    assert evidence_by_bucket["full art v"]["source_status"] == "UNSUPPORTED_SPLIT"
+    assert evidence_by_bucket["full art v"]["used_in_runtime"] is False
+
+    assert (
+        sources_by_id["tcgplayer_evolving_skies_8000_pack"]["source_url"]
+        == "https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Evolving-Skies-Pull-Rates/6a743d7b-e5ee-4fd6-9d18-64a636990e8c/"
+    )
+    assert (
+        sources_by_id["reddit_pull_rate_discussions"]["source_url"]
+        == "https://reddit.com/r/PokemonTCG/comments/1f35e2h/tcgplayers_evolving_skies_pull_rates_from_8000/"
+    )
+    assert (
+        sources_by_id["dripshop"]["source_url"]
+        == "https://www.dripshop.live/blog/pokemon-trading-cards/evolving-skies-pull-rates---full-breakdown--rarest-cards"
+    )
+    assert sources_by_id["dripshop"]["source_type"] == "secondary_directional"
+    assert sources_by_id["dripshop"]["source_confidence"] == "medium"
+
+    active_runtime_buckets = {
+        row["normalized_bucket"]
+        for row in references["bucket_evidence"]
+        if row.get("used_in_runtime")
+    }
+    assert "full art v" not in active_runtime_buckets
+    assert "full art trainer" not in active_runtime_buckets
+    assert "rainbow trainer" not in active_runtime_buckets
+    assert "rainbow vmax" not in active_runtime_buckets
+    assert "gold secret rare" not in active_runtime_buckets
+
+    assert payload["meta"]["sources"].get("pull_rate_references") == "OK"
+
+
+def test_swsh8_pull_rate_references_emit_reference_only_sources_and_caveats(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-swsh8-references")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh8", "run-swsh8-references")]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh8")
+    references = payload.get("pull_rate_references")
+
+    assert references is not None
+    _assert_pull_rate_references_contract_shape(references)
+
+    sources_by_id = {
+        row["source_id"]: row
+        for row in references["sources"]
+    }
+
+    assert (
+        sources_by_id["fusion_strike_reddit_3024_chart_2021_11"]["source_url"]
+        == "https://www.reddit.com/r/PokemonTCG/comments/qnvvvo/fusion_strikes_pull_rate_data_3000_packs/"
+    )
+    assert (
+        sources_by_id["fusion_strike_tcgplayer_instagram_4000plus_2021_11"]["source_url"]
+        == "https://www.instagram.com/p/CWMOH29vLzE/"
+    )
+    assert (
+        sources_by_id["fusion_strike_thepricedex_cross_reference_2026_05"]["source_url"]
+        == "https://www.thepricedex.com/set/swsh8/fusion-strike/pull-rates"
+    )
+    assert sources_by_id["fusion_strike_thepricedex_cross_reference_2026_05"]["source_type"] == "secondary_index"
+
+    evidence_rows = references["bucket_evidence"]
+    assert evidence_rows
+
+    def _find_row(source_bucket_label):
+        return next(row for row in evidence_rows if row["source_bucket_label"] == source_bucket_label)
+
+    hyper_row = _find_row("Hyper")
+    gold_row = _find_row("Gold")
+    alt_v_row = _find_row("Alt V")
+    alt_vmax_row = _find_row("Alt VMAX")
+
+    assert hyper_row["source_status"] == "SOURCE_DIRECT"
+    assert gold_row["source_status"] == "SOURCE_DIRECT"
+    assert alt_v_row["source_status"] == "SOURCE_DIRECT"
+    assert alt_vmax_row["source_status"] == "SOURCE_DIRECT"
+    assert "moderate contradiction" in (alt_v_row.get("caveat") or "").lower()
+    assert "moderate contradiction" in (alt_vmax_row.get("caveat") or "").lower()
+
+    pricedex_rows = [
+        row for row in evidence_rows
+        if "fusion_strike_thepricedex_cross_reference_2026_05" in (row.get("source_ids") or [])
+    ]
+    assert pricedex_rows
+    assert all(row["source_status"] == "SECONDARY_INDEX_ONLY" for row in pricedex_rows)
+    assert all(row["source_status"] != "SOURCE_DIRECT" for row in pricedex_rows)
+
+    source_notes_blob = " ".join((row.get("notes") or "") for row in references["sources"]).lower()
+    caveat_blob = " ".join((item or "") for item in references.get("caveats") or []).lower()
+    assert "sample-based evidence" in source_notes_blob
+    assert "not official pokemon-published odds" in source_notes_blob
+    assert "community-posted chart" in source_notes_blob
+    assert "cross-reference" in source_notes_blob
+    assert "index only" in source_notes_blob
+    assert "not official pokemon-published odds" in caveat_blob
+
+    assert payload["meta"]["sources"].get("pull_rate_references") == "OK"
+
+
+@pytest.mark.parametrize(
+    "set_id,target_uuid,canonical_key,config_cls,evidence_attr",
+    [
+        (
+            "swsh5",
+            "46ab39a7-dd96-4a2d-af0f-44b868918114",
+            "battleStyles",
+            "SetBattleStylesConfig",
+            "BATTLE_STYLES_PULL_RATE_REFERENCE_BUCKET_EVIDENCE",
+        ),
+        (
+            "swsh9",
+            "a72c75bd-0d61-4643-b603-fef78425dcfa",
+            "brilliantStars",
+            "SetBrilliantStarsConfig",
+            "BRILLIANT_STARS_PULL_RATE_REFERENCE_BUCKET_EVIDENCE",
+        ),
+        (
+            "swsh10",
+            "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+            "astralRadiance",
+            "SetAstralRadianceConfig",
+            "ASTRAL_RADIANCE_PULL_RATE_REFERENCE_BUCKET_EVIDENCE",
+        ),
+        (
+            "swsh11",
+            "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+            "lostOrigin",
+            "SetLostOriginConfig",
+            "LOST_ORIGIN_PULL_RATE_REFERENCE_BUCKET_EVIDENCE",
+        ),
+        (
+            "swsh12",
+            "2d6ec108-70b2-4698-a21a-1af39828004f",
+            "silverTempest",
+            "SetSilverTempestConfig",
+            "SILVER_TEMPEST_PULL_RATE_REFERENCE_BUCKET_EVIDENCE",
+        ),
+    ],
+)
+def test_lane1_pull_rate_references_emit_for_uuid_targets_with_guardrails(
+    monkeypatch,
+    set_id,
+    target_uuid,
+    canonical_key,
+    config_cls,
+    evidence_attr,
+):
+    module_name_by_set = {
+        "swsh5": "battleStyles",
+        "swsh9": "brilliantStars",
+        "swsh10": "astralRadiance",
+        "swsh11": "lostOrigin",
+        "swsh12": "silverTempest",
+    }
+    module = __import__(
+        f"backend.constants.tcg.pokemon.swordAndShieldEra.{module_name_by_set[set_id]}",
+        fromlist=[config_cls],
+    )
+    config_class = getattr(module, config_cls)
+
+    handlers = _build_success_handlers(run_id=f"run-{set_id}-lane1-references")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        _swsh_summary_row(target_uuid, f"run-{set_id}-lane1-references")
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(config_class.RARE_SLOT_PROBABILITY.keys())
+    )
+    handlers["sets"] = lambda query: [
+        {
+            "id": target_uuid,
+            "name": str(getattr(config_class, "SET_NAME", set_id)),
+            "canonical_key": canonical_key,
+            "pokemon_api_set_id": set_id,
+        }
+    ] if any(field == "id" and value == target_uuid for field, value in query.eq_filters) else []
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", target_uuid)
+    references = payload.get("pull_rate_references")
+
+    assert references is not None
+    _assert_pull_rate_references_contract_shape(references)
+    assert payload["meta"]["sources"].get("pull_rate_references") == "OK"
+    assert references.get("sources")
+    assert references.get("bucket_evidence")
+
+    caveats = [item for item in (references.get("caveats") or []) if item]
+    assert caveats
+
+    pricedex_rows = [
+        row
+        for row in references["bucket_evidence"]
+        if any("thepricedex" in str(source_id).lower() for source_id in (row.get("source_ids") or []))
+    ]
+    assert pricedex_rows
+    assert all(row["source_status"] == "SECONDARY_INDEX_ONLY" for row in pricedex_rows)
+    assert all(row["source_status"] != "SOURCE_DIRECT" for row in pricedex_rows)
+
+    unsupported_rows = [
+        row
+        for row in references["bucket_evidence"]
+        if "trainer gallery" in str(row.get("normalized_bucket") or "").lower()
+        or "radiant" in str(row.get("normalized_bucket") or "").lower()
+    ]
+    for row in unsupported_rows:
+        assert row["source_status"] != "SOURCE_DIRECT"
+        assert row.get("used_in_runtime") is False
+
+
+def test_non_swsh_sets_leave_pull_rate_references_unavailable_without_changing_assumptions(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-base-set-references")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        _swsh_summary_row("base-set", "run-base-set-references")
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: [
+        {
+            "card_id": "rr-card-1",
+            "card_variant_id": "rr-variant-1",
+            "card_name": "Regular Reverse One",
+            "rarity_bucket": "regular reverse",
+        },
+        {
+            "card_id": "card-1",
+            "card_variant_id": "variant-1",
+            "card_name": "Double Rare One",
+            "rarity_bucket": "double rare",
+        },
+        {
+            "card_id": "card-2",
+            "card_variant_id": "variant-2",
+            "card_name": "Ultra Rare One",
+            "rarity_bucket": "ultra rare",
+        },
+    ]
+    handlers["sets"] = lambda _q: [
+        {
+            "id": "base-set",
+            "name": "Base Set",
+            "canonical_key": "base-set",
+            "pokemon_api_set_id": "base-set",
+        }
+    ]
+
+    class _MockNonSwshConfig:
+        PULL_RATE_MAPPING = {
+            "common": 60,
+            "uncommon": 40,
+            "rare": 12,
+            "double rare": 30,
+            "ultra rare": 120,
+        }
+        REVERSE_SLOT_PROBABILITIES = {
+            "slot_1": {
+                "regular reverse": 1,
+            },
+            "slot_2": {
+                "regular reverse": 1,
+            },
+        }
+        RARE_SLOT_PROBABILITY = {
+            "double rare": 0.2,
+            "ultra rare": 0.05,
+            "rare": 0.75,
+        }
+        SLOTS_PER_RARITY = {
+            "common": 4,
+            "uncommon": 3,
+            "reverse": 2,
+            "rare": 1,
+        }
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(
+        service,
+        "_resolve_set_config",
+        lambda _target_id: (_MockNonSwshConfig, "mockNonSwshConfig"),
+    )
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["pull_rate_assumptions"] is not None
+    assert payload["pull_rate_assumptions"]["meta"]["is_modeled"] is True
+    assert payload["pull_rate_references"] is None
+    assert payload["meta"]["sources"].get("pull_rate_assumptions") == "OK"
+    assert payload["meta"]["sources"].get("pull_rate_references") == "UNAVAILABLE_FOR_SET"
 
 
 def test_swsh_modeled_bucket_missing_eligible_count_keeps_specific_odds_unavailable(monkeypatch):

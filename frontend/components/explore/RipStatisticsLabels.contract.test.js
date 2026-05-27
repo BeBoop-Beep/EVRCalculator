@@ -7,6 +7,7 @@ const ripPageClientPath = path.resolve(__dirname, "RipStatisticsPageClient.jsx")
 const historyChartPath = path.resolve(__dirname, "PackValueHistoryChart.jsx");
 const rankingConfigPath = path.resolve(__dirname, "../../constants/exploreRankingConfig.js");
 const pullRateAssumptionsCardPath = path.resolve(__dirname, "PullRateAssumptionsCard.jsx");
+const explorePageServerPath = path.resolve(__dirname, "../../lib/explore/explorePageServer.js");
 
 function extractFunctionSource(source, functionName) {
   const marker = `function ${functionName}(`;
@@ -138,4 +139,33 @@ test("Pull Rates panel still states that the assumptions are the ones used by th
 
   assert.ok(source.includes("Modeled rarity frequency and specific-card odds used by this simulation."));
   assert.ok(source.includes("These are modeled estimates, not official Pokémon odds."));
+});
+
+test("Explore payload adapter preserves backend pull rate references", () => {
+  const source = fs.readFileSync(explorePageServerPath, "utf8");
+
+  assert.ok(source.includes("pull_rate_references: payload?.pull_rate_references || payload?.pullRateReferences || null"));
+});
+
+test("Expert pull-rates panel keeps references collapsible and user-facing evidence copy clean", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const referencesCardSource = fs.readFileSync(path.resolve(__dirname, "PullRateReferencesCard.jsx"), "utf8");
+
+  assert.ok(source.includes("const pullRateReferences = normalizePullRateReferences(explorePayload);"));
+  assert.ok(source.includes("<PullRateReferencesCard pullRateReferences={pullRateReferences} />"));
+  assert.ok(referencesCardSource.includes("<details className=\"group rounded-2xl"));
+  assert.ok(referencesCardSource.includes("References & Model Evidence"));
+  assert.ok(referencesCardSource.includes("View source evidence and model caveats."));
+  assert.ok(referencesCardSource.includes("Open source"));
+  assert.ok(referencesCardSource.includes("URL unavailable"));
+  assert.ok(referencesCardSource.includes("Provisional evidence is directional and not official Pokemon odds."));
+  assert.ok(referencesCardSource.includes("shouldShowEvidenceRow"));
+  assert.ok(referencesCardSource.includes("Source / Source IDs"));
+  assert.ok(referencesCardSource.includes("Show bucket-level evidence"));
+  assert.ok(referencesCardSource.includes("Bucket-level evidence shows how each modeled pull bucket maps back to the sources used by the simulator."));
+  assert.ok(referencesCardSource.includes("Bucket-level evidence is available for advanced review."));
+  assert.ok(!referencesCardSource.includes(">Status</th>"));
+  assert.ok(!referencesCardSource.includes(">Runtime</th>"));
+  assert.ok(!referencesCardSource.includes("titleCaseLabel(row.source_status)"));
+  assert.ok(!referencesCardSource.includes("Not used in runtime"));
 });

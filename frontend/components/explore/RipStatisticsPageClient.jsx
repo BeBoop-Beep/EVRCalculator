@@ -8,6 +8,7 @@ import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalS
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
+import PullRateReferencesCard from "@/components/explore/PullRateReferencesCard";
 import InfoPopover from "@/components/ui/InfoPopover";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
@@ -204,6 +205,21 @@ function normalizePullRateAssumptions(explorePayload) {
         }))
       : source.groups,
     rows: Array.isArray(source.rows) ? source.rows.map(normalizeRow) : source.rows,
+  };
+}
+
+function normalizePullRateReferences(explorePayload) {
+  const source = explorePayload?.pull_rate_references || explorePayload?.pullRateReferences || null;
+
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  return {
+    ...source,
+    caveats: Array.isArray(source.caveats) ? source.caveats : [],
+    sources: Array.isArray(source.sources) ? source.sources : [],
+    bucket_evidence: Array.isArray(source.bucket_evidence) ? source.bucket_evidence : [],
   };
 }
 
@@ -1941,6 +1957,7 @@ export default function RipStatisticsPageClient({
   const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
   const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
+  const pullRateReferences = normalizePullRateReferences(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
   const interpretationMeta = interpretation?.meta || {};
@@ -3125,6 +3142,9 @@ export default function RipStatisticsPageClient({
                       <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
                     </div>
                     <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                    {pullRateReferences ? (
+                      <PullRateReferencesCard pullRateReferences={pullRateReferences} />
+                    ) : null}
                   </div>
                 )}
               </SectionCard>

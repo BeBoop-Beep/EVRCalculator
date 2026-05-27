@@ -486,6 +486,9 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             },
             "tcgplayer_evolving_skies_8000_pack": {
                 "status": "used_as_primary_source",
+                "references": [
+                    "https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Evolving-Skies-Pull-Rates/6a743d7b-e5ee-4fd6-9d18-64a636990e8c/",
+                ],
                 "rows_transcribed": [
                     "Normal Pokemon V: 10.56%",
                     "Normal Pokemon VMAX: 5.60%",
@@ -499,6 +502,9 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             },
             "dripshop": {
                 "status": "secondary_directional",
+                "references": [
+                    "https://www.dripshop.live/blog/pokemon-trading-cards/evolving-skies-pull-rates---full-breakdown--rarest-cards",
+                ],
                 "rows_transcribed": [
                     "holo around one in three packs",
                 ],
