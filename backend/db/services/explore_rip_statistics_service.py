@@ -59,6 +59,12 @@ def _to_optional_str(value: Any) -> Optional[str]:
     return text or None
 
 
+def _resolve_target_id(row: Dict[str, Any]) -> Optional[str]:
+    """Resolve canonical target identifier from ranking row schema variants."""
+
+    return _to_optional_str(row.get("set_id")) or _to_optional_str(row.get("target_id"))
+
+
 def _resolve_mean_value_to_cost_ratio(row: Dict[str, Any]) -> Optional[float]:
     ratio = _to_optional_float(row.get("mean_value_to_cost_ratio"))
     if ratio is not None:
@@ -250,7 +256,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             .limit(clamped_limit)
             .execute()
         )
-        raw_rows = [row for row in (targets_result.data or []) if row.get("set_id")]
+        raw_rows = [row for row in (targets_result.data or []) if _resolve_target_id(row)]
         sources["explore_rip_statistics_latest"] = "OK"
         sources["simulation_latest_by_target"] = "SKIPPED_RIP_SUMMARY"
     except Exception as exc:
@@ -274,7 +280,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     set_lookup_by_target_id: Dict[str, Dict[str, Any]] = {}
     era_lookup: Dict[str, Dict[str, Any]] = {}
 
-    set_ids = sorted({str(row.get("set_id")) for row in ranked_rows if row.get("set_id")})
+    set_ids = sorted({_resolve_target_id(row) for row in ranked_rows if _resolve_target_id(row)})
     if set_ids:
         set_started = time.perf_counter()
         try:
@@ -376,23 +382,25 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     ordered_rows = sorted(
         ranked_rows,
         key=lambda row: _build_set_order_key(
-            str(row.get("set_id")),
-            set_lookup_by_target_id.get(str(row.get("set_id"))) or {},
+            str(_resolve_target_id(row) or ""),
+            set_lookup_by_target_id.get(str(_resolve_target_id(row) or "")) or {},
         ),
     )
 
     default_target_id: Optional[str] = None
     for row in ranked_rows:
-        target_id = _to_optional_str(row.get("set_id"))
+        target_id = _resolve_target_id(row)
         if target_id and _to_optional_float(row.get("pack_score")) is not None:
             default_target_id = target_id
             break
     if default_target_id is None and ranked_rows:
-        default_target_id = _to_optional_str(ranked_rows[0].get("target_id"))
+        default_target_id = _resolve_target_id(ranked_rows[0])
 
     targets: List[Dict[str, Any]] = []
     for row in ordered_rows:
-        target_id = str(row.get("set_id"))
+        target_id = str(_resolve_target_id(row) or "")
+        if not target_id:
+            continue
         set_row = set_lookup_by_target_id.get(target_id) or {}
         era_row = era_lookup.get(str(set_row.get("era_id"))) if set_row.get("era_id") is not None else None
         summary_row = {

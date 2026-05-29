@@ -8,6 +8,8 @@ from backend.db.repositories.calculation_runs_repository import (
     ETB_COMPARISON_METRIC_FIELDS,
     _parse_percentile_rank,
     create_parent_calculation_run,
+    create_simulation_pull_summary,
+    create_simulation_state_counts,
     get_latest_run_snapshot_for_target,
     create_simulation_derived_metrics,
     create_simulation_percentiles,
@@ -467,3 +469,56 @@ def test_derived_metric_fields_include_stage1_composites_but_not_internal_compon
         "relative_experience_score",
     ]:
         assert field not in DERIVED_METRIC_FIELDS
+
+
+@patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
+def test_create_simulation_state_counts_persists_slot_schema_combo_group_without_removing_existing_groups(
+    mock_insert_required_payload,
+):
+    mock_insert_required_payload.side_effect = [
+        {"id": "row-1"},
+        {"id": "row-2"},
+        {"id": "row-3"},
+    ]
+
+    sim_results = {
+        "pack_path_counts": {"normal": 100},
+        "pack_state_counts": {"baseline": 100},
+        "slot_schema_combo_state_counts": {
+            "reverse:regular reverse|rare:rare": 70,
+        },
+    }
+
+    rows = create_simulation_state_counts("run-1", sim_results)
+
+    assert len(rows) == 3
+    inserted_payloads = [call.args[1] for call in mock_insert_required_payload.call_args_list]
+    state_groups = [payload["state_group"] for payload in inserted_payloads]
+    assert "pack_path" in state_groups
+    assert "normal_pack_state" in state_groups
+    assert "slot_schema_combo" in state_groups
+
+
+@patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
+def test_create_simulation_pull_summary_unchanged_when_combo_counts_present(mock_insert_required_payload):
+    mock_insert_required_payload.return_value = {"id": "pull-row-1"}
+
+    sim_results = {
+        "rarity_pull_counts": {"rare": 100},
+        "rarity_value_totals": {"rare": 150.0},
+        "slot_schema_combo_state_counts": {
+            "reverse:regular reverse|rare:rare": 100,
+        },
+    }
+
+    rows = create_simulation_pull_summary("run-1", sim_results)
+
+    assert len(rows) == 1
+    inserted_payload = mock_insert_required_payload.call_args.args[1]
+    assert inserted_payload == {
+        "calculation_run_id": "run-1",
+        "rarity_bucket": "rare",
+        "pulled_count": 100,
+        "avg_sampled_value": 1.5,
+        "total_sampled_value": 150.0,
+    }

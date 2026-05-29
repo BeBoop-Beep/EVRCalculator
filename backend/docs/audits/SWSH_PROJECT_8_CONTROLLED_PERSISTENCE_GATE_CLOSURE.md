@@ -1,10 +1,10 @@
 # Project 8 Controlled Persistence Gate Closure
 
-Generated: 2026-05-26T04:48:57.481574+00:00
+Generated: 2026-05-28T21:42:46.719536+00:00
 
 - final_decision: closed_controlled_persistence_executed_and_verified
 - real_db_writes_performed: True
-- actual_writes_performed_total: 659
+- actual_writes_performed_total: 677
 - intended_writes_captured_total: 0
 - execute_mode_exists: True
 - execute_mode_run: True

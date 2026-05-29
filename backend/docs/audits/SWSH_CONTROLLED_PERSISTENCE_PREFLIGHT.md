@@ -1,6 +1,6 @@
 # SWSH Controlled Persistence Preflight
 
-Generated: 2026-05-26T04:48:57.481452+00:00
+Generated: 2026-05-28T21:42:46.719320+00:00
 
 Default run mode is dry-run with no DB writes.
 
@@ -8,7 +8,7 @@ Default run mode is dry-run with no DB writes.
 
 - Run mode: execute
 - Strict DB input: True
-- Actual writes performed total: 659
+- Actual writes performed total: 677
 - Intended writes captured total: 0
 - Safety assertions passed: True
 
@@ -17,15 +17,15 @@ Default run mode is dry-run with no DB writes.
 - canonical_key: chillingReign
 - run mode: execute
 - selected engine: slot_schema
-- pack_count: 100000
-- estimated_pack_price: 11.02
+- pack_count: 2000
+- estimated_pack_price: 11.14
 - pack price source/status: unreported / unreported
-- average_pack_value: 3.2427661
+- average_pack_value: 3.407355
 - median_pack_value: 1.58
-- formula ROI: -0.7057381034482758
-- value_to_cost_ratio: 0.29426189655172413
-- probability_to_beat_pack_cost: 0.0263
-- P05/P95/P99: 1.28 / 5.66 / 25.910099999999947
+- formula ROI: -0.6941333034111311
+- value_to_cost_ratio: 0.3058666965888689
+- probability_to_beat_pack_cost: 0.0235
+- P05/P95/P99: 1.26 / 5.101999999999998 / 16.754199999999987
 - metric_semantics_version: formula_roi_v2
 - persistence payload validators passed: True
 - intended persistence targets: 
@@ -43,15 +43,15 @@ Default run mode is dry-run with no DB writes.
 - canonical_key: evolvingSkies
 - run mode: execute
 - selected engine: slot_schema
-- pack_count: 100000
-- estimated_pack_price: 45.68
+- pack_count: 2000
+- estimated_pack_price: 45.81
 - pack price source/status: unreported / unreported
-- average_pack_value: 6.393250999999999
-- median_pack_value: 1.21
-- formula ROI: -0.8600426663747811
-- value_to_cost_ratio: 0.1399573336252189
-- probability_to_beat_pack_cost: 0.01321
-- P05/P95/P99: 0.86 / 13.36 / 72.87
+- average_pack_value: 6.80188
+- median_pack_value: 1.24
+- formula ROI: -0.8515197555118971
+- value_to_cost_ratio: 0.148480244488103
+- probability_to_beat_pack_cost: 0.0145
+- P05/P95/P99: 0.85 / 13.382499999999997 / 73.76079999999999
 - metric_semantics_version: formula_roi_v2
 - persistence payload validators passed: True
 - intended persistence targets: 

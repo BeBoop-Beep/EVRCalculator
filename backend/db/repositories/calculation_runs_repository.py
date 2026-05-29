@@ -563,9 +563,16 @@ def create_simulation_state_counts(run_id: Any, sim_results: Mapping[str, Any]) 
 
     path_counts = sim_results.get("pack_path_counts")
     state_counts = sim_results.get("pack_state_counts")
+    combo_counts = sim_results.get("slot_schema_combo_state_counts")
 
-    if not isinstance(path_counts, Mapping) and not isinstance(state_counts, Mapping):
-        raise ValueError("Missing required field(s): pack_path_counts, pack_state_counts")
+    if (
+        not isinstance(path_counts, Mapping)
+        and not isinstance(state_counts, Mapping)
+        and not isinstance(combo_counts, Mapping)
+    ):
+        raise ValueError(
+            "Missing required field(s): pack_path_counts, pack_state_counts, slot_schema_combo_state_counts"
+        )
 
     inserted_rows: List[Dict[str, Any]] = []
 
@@ -598,6 +605,22 @@ def create_simulation_state_counts(run_id: Any, sim_results: Mapping[str, Any]) 
                 "simulation_state_counts",
                 payload,
                 f"Simulation state count insert (state:{state_name})",
+            )
+            inserted_rows.append(inserted)
+
+    if isinstance(combo_counts, Mapping):
+        for state_name, raw_count in combo_counts.items():
+            _require_present(state_name, "state_name")
+            payload = {
+                "calculation_run_id": _require_present(run_id, "calculation_run_id"),
+                "state_group": "slot_schema_combo",
+                "state_name": str(state_name),
+                "occurrence_count": _require_int(raw_count, "occurrence_count"),
+            }
+            inserted = _insert_required_payload(
+                "simulation_state_counts",
+                payload,
+                f"Simulation state count insert (combo:{state_name})",
             )
             inserted_rows.append(inserted)
 

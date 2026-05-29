@@ -28,6 +28,57 @@ from backend.db.repositories.sets_repository import get_set_by_canonical_key
 logger = logging.getLogger(__name__)
 
 
+def _derive_slot_schema_combo_state_counts(sim_results: Mapping[str, Any]) -> Dict[str, int]:
+    """Build reverse+rare combo-state counts from slot-schema per-pack draws.
+
+    This is an additive persistence shape and does not alter simulation math.
+    Expected key format: ``reverse:<bucket>|rare:<bucket>``.
+    """
+    packs = sim_results.get("packs")
+    if not isinstance(packs, list) or not packs:
+        return {}
+
+    combo_counts: Dict[str, int] = {}
+
+    for pack in packs:
+        if not isinstance(pack, Mapping):
+            continue
+        if str(pack.get("entry_path") or "").strip().lower() != "slot_schema":
+            continue
+
+        cards = pack.get("cards")
+        if not isinstance(cards, list) or not cards:
+            continue
+
+        reverse_bucket = None
+        rare_bucket = None
+
+        for draw in cards:
+            if not isinstance(draw, Mapping):
+                continue
+            if str(draw.get("slot_group") or "").strip().lower() != "rare_family":
+                continue
+
+            slot_role = str(draw.get("slot_role") or "").strip().lower()
+            outcome = str(draw.get("outcome") or "").strip().lower()
+            if not outcome:
+                continue
+
+            if "reverse" in slot_role and reverse_bucket is None:
+                reverse_bucket = outcome
+            elif slot_role == "rare_or_better" and rare_bucket is None:
+                rare_bucket = outcome
+
+        # SWSH combo-state persistence requires both slots to be identified.
+        if not reverse_bucket or not rare_bucket:
+            continue
+
+        state_name = f"reverse:{reverse_bucket}|rare:{rare_bucket}"
+        combo_counts[state_name] = int(combo_counts.get(state_name, 0)) + 1
+
+    return combo_counts
+
+
 def _require_mapping(value: Any, field_name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError(f"Missing required field: {field_name}")
@@ -600,6 +651,11 @@ def persist_simulation_outputs(
         pack_metrics=pack_metrics_map,
         derived=derived_map,
     )
+
+    combo_state_counts = _derive_slot_schema_combo_state_counts(sim_results_map)
+    if combo_state_counts:
+        sim_results_map = dict(sim_results_map)
+        sim_results_map["slot_schema_combo_state_counts"] = combo_state_counts
 
     run_summary_row = create_simulation_run_summary(run_id, run_summary_payload, pack_summary_payload)
     percentile_rows = create_simulation_percentiles(run_id, sim_results_map)

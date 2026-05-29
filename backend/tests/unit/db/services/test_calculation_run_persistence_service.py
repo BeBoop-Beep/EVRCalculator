@@ -6,10 +6,12 @@ import pandas as pd
 import pytest
 
 from backend.db.services.calculation_run_persistence_service import (
+    _derive_slot_schema_combo_state_counts,
     persist_parent_run_with_price_snapshots,
     persist_simulation_derived_metrics,
     persist_simulation_etb_summary,
     persist_simulation_inputs,
+    persist_simulation_outputs,
 )
 
 
@@ -954,3 +956,145 @@ def test_persist_parent_run_with_price_snapshots_allows_missing_etb_comparison_a
     assert comparison_payload["calculated_expected_etb_value_vs_etb_cost"] is None
     snapshot_keys = [call.args[1] for call in mock_create_calculation_price_snapshot.call_args_list]
     assert snapshot_keys == ["pack", "booster_box"]
+
+
+def test_derive_slot_schema_combo_state_counts_extracts_reverse_plus_rare_states():
+    sim_results = {
+        "packs": [
+            {
+                "entry_path": "slot_schema",
+                "cards": [
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "reverse_parallel",
+                        "outcome": "regular reverse",
+                    },
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "rare_or_better",
+                        "outcome": "rare",
+                    },
+                ],
+            },
+            {
+                "entry_path": "slot_schema",
+                "cards": [
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "reverse_parallel",
+                        "outcome": "holo rare",
+                    },
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "rare_or_better",
+                        "outcome": "regular v",
+                    },
+                ],
+            },
+        ]
+    }
+
+    combo_counts = _derive_slot_schema_combo_state_counts(sim_results)
+
+    assert combo_counts == {
+        "reverse:regular reverse|rare:rare": 1,
+        "reverse:holo rare|rare:regular v": 1,
+    }
+
+
+def test_derive_slot_schema_combo_state_counts_preserves_double_hit_state():
+    sim_results = {
+        "packs": [
+            {
+                "entry_path": "slot_schema",
+                "cards": [
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "reverse_parallel",
+                        "outcome": "reverse rare",
+                    },
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "rare_or_better",
+                        "outcome": "regular v",
+                    },
+                ],
+            }
+        ]
+    }
+
+    combo_counts = _derive_slot_schema_combo_state_counts(sim_results)
+
+    assert combo_counts == {"reverse:reverse rare|rare:regular v": 1}
+
+
+@patch("backend.db.services.calculation_run_persistence_service.compute_simulation_value_threshold_bins")
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_value_threshold_bins")
+@patch("backend.db.services.calculation_run_persistence_service.compute_simulation_value_distribution_bins")
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_value_distribution_bins")
+@patch("backend.db.services.calculation_run_persistence_service.persist_simulation_derived_metrics")
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_state_counts")
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_pull_summary")
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_percentiles")
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_run_summary")
+@patch("backend.db.services.calculation_run_persistence_service._build_simulation_summary_payloads")
+def test_persist_simulation_outputs_wires_combo_counts_without_breaking_pull_summary(
+    mock_build_summary_payloads,
+    mock_create_run_summary,
+    mock_create_percentiles,
+    mock_create_pull_summary,
+    mock_create_state_counts,
+    mock_persist_derived,
+    mock_create_distribution_bins,
+    mock_compute_distribution_bins,
+    mock_create_threshold_bins,
+    mock_compute_threshold_bins,
+):
+    mock_build_summary_payloads.return_value = ({"values": [1.0]}, {"pack_cost": 5.0})
+    mock_create_run_summary.return_value = {"id": "summary-1"}
+    mock_create_percentiles.return_value = []
+    mock_create_pull_summary.return_value = []
+    mock_create_state_counts.return_value = []
+    mock_persist_derived.return_value = []
+    mock_compute_distribution_bins.return_value = []
+    mock_create_distribution_bins.return_value = []
+    mock_compute_threshold_bins.return_value = []
+    mock_create_threshold_bins.return_value = []
+
+    sim_results = {
+        "values": [1.0],
+        "pack_path_counts": {"normal": 1},
+        "pack_state_counts": {"baseline": 1},
+        "packs": [
+            {
+                "entry_path": "slot_schema",
+                "cards": [
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "reverse_parallel",
+                        "outcome": "reverse rare",
+                    },
+                    {
+                        "slot_group": "rare_family",
+                        "slot_role": "rare_or_better",
+                        "outcome": "regular v",
+                    },
+                ],
+            }
+        ],
+    }
+
+    persist_simulation_outputs(
+        run_id="run-1",
+        sim_results=sim_results,
+        pack_metrics={"total_ev": 1.0},
+        derived={"pack_decision_metrics": {}},
+    )
+
+    mock_create_pull_summary.assert_called_once()
+    state_sim_results = mock_create_state_counts.call_args.args[1]
+    assert state_sim_results["pack_path_counts"] == {"normal": 1}
+    assert state_sim_results["pack_state_counts"] == {"baseline": 1}
+    assert state_sim_results["slot_schema_combo_state_counts"] == {
+        "reverse:reverse rare|rare:regular v": 1,
+    }

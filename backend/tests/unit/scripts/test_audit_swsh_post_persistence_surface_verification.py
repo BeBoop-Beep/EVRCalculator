@@ -72,6 +72,7 @@ def _summary_row(run_id, row_id):
     return {
         "id": row_id,
         "calculation_run_id": run_id,
+        "simulation_count": 2000,
         "pack_cost": 4.0,
         "mean_value": 5.0,
         "median_value": 4.7,
@@ -154,8 +155,12 @@ def _build_good_tables():
             ],
         ],
         "simulation_state_counts": [
-            {"calculation_run_id": "run-swsh6"},
-            {"calculation_run_id": "run-swsh7"},
+            {"calculation_run_id": "run-swsh6", "state_group": "pack_path", "state_name": "slot_schema", "occurrence_count": 2000},
+            {"calculation_run_id": "run-swsh6", "state_group": "slot_schema_combo", "state_name": "reverse:regular reverse|rare:rare", "occurrence_count": 1800},
+            {"calculation_run_id": "run-swsh6", "state_group": "slot_schema_combo", "state_name": "reverse:regular reverse|rare:regular v", "occurrence_count": 200},
+            {"calculation_run_id": "run-swsh7", "state_group": "pack_path", "state_name": "slot_schema", "occurrence_count": 2000},
+            {"calculation_run_id": "run-swsh7", "state_group": "slot_schema_combo", "state_name": "reverse:regular reverse|rare:rare", "occurrence_count": 1700},
+            {"calculation_run_id": "run-swsh7", "state_group": "slot_schema_combo", "state_name": "reverse:regular reverse|rare:regular v", "occurrence_count": 300},
         ],
         "simulation_derived_metrics": [
             _derived_row("run-swsh6"),
@@ -302,6 +307,57 @@ def test_fails_if_unsupported_pull_summary_bucket_present(tmp_path, monkeypatch)
     _patch_clients(monkeypatch, tables)
 
     with pytest.raises(AssertionError, match="contains unsupported buckets"):
+        project11.run_post_persistence_surface_verification(
+            json_output_path=tmp_path / "out.json",
+            markdown_output_path=tmp_path / "out.md",
+            identifiers_by_set=_ids(),
+            fail_on_blockers=True,
+        )
+
+
+def test_fails_if_slot_schema_combo_rows_missing(tmp_path, monkeypatch):
+    tables = _build_good_tables()
+    tables["simulation_state_counts"] = [
+        row
+        for row in tables["simulation_state_counts"]
+        if row.get("state_group") != "slot_schema_combo"
+    ]
+    _patch_clients(monkeypatch, tables)
+
+    with pytest.raises(AssertionError, match="missing slot_schema_combo rows"):
+        project11.run_post_persistence_surface_verification(
+            json_output_path=tmp_path / "out.json",
+            markdown_output_path=tmp_path / "out.md",
+            identifiers_by_set=_ids(),
+            fail_on_blockers=True,
+        )
+
+
+def test_fails_if_slot_schema_combo_occurrence_total_mismatches_simulation_count(tmp_path, monkeypatch):
+    tables = _build_good_tables()
+    for row in tables["simulation_state_counts"]:
+        if row.get("calculation_run_id") == "run-swsh7" and row.get("state_group") == "slot_schema_combo":
+            row["occurrence_count"] = 1
+    _patch_clients(monkeypatch, tables)
+
+    with pytest.raises(AssertionError, match="slot_schema_combo occurrence total mismatch"):
+        project11.run_post_persistence_surface_verification(
+            json_output_path=tmp_path / "out.json",
+            markdown_output_path=tmp_path / "out.md",
+            identifiers_by_set=_ids(),
+            fail_on_blockers=True,
+        )
+
+
+def test_fails_if_slot_schema_combo_state_name_format_invalid(tmp_path, monkeypatch):
+    tables = _build_good_tables()
+    for row in tables["simulation_state_counts"]:
+        if row.get("calculation_run_id") == "run-swsh6" and row.get("state_group") == "slot_schema_combo":
+            row["state_name"] = "rare:regular v"
+            break
+    _patch_clients(monkeypatch, tables)
+
+    with pytest.raises(AssertionError, match="slot_schema_combo state_name must start with reverse"):
         project11.run_post_persistence_surface_verification(
             json_output_path=tmp_path / "out.json",
             markdown_output_path=tmp_path / "out.md",

@@ -17,7 +17,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from backend.db.clients import supabase_client
 
@@ -56,7 +56,6 @@ PRIOR_REAL_WRITE_COUNTS_TOTAL = {
 EXPECTED_PER_RUN_EXACT = {
     "simulation_run_summary": 1,
     "simulation_percentiles": 7,
-    "simulation_state_counts": 1,
     "simulation_derived_metrics": 1,
     "simulation_value_distribution_bins": 50,
     "simulation_value_threshold_bins": 18,
@@ -66,6 +65,7 @@ EXPECTED_PER_RUN_NON_ZERO = {
     "calculation_price_snapshots": 1,
     "simulation_input_cards": 1,
     "simulation_pull_summary": 1,
+    "simulation_state_counts": 1,
 }
 
 EXPECTED_SOURCE_CORRECT_ACTIVE_BUCKETS = {
@@ -189,6 +189,110 @@ def _normalize_bucket(value: Any) -> str:
     return str(value or "").strip().lower().replace("_", " ").replace("-", " ")
 
 
+def _resolve_target_identifier_for_set(set_id: str, *, client: Any) -> Dict[str, Any]:
+    # In production this set key (swsh6/swsh7) resolves to a UUID set id.
+    # Tests may use direct string ids and omit the sets table entirely.
+    for key in ("canonical_key", "pokemon_api_set_id", "id"):
+        rows = _fetch_rows(
+            "sets",
+            filters={key: set_id},
+            limit=1,
+            client=client,
+        )
+        if rows:
+            row = rows[0]
+            resolved_id = row.get("id")
+            if _is_non_empty(resolved_id):
+                return {
+                    "resolved_set_row_id": str(resolved_id),
+                    "resolution_source": key,
+                }
+    return {
+        "resolved_set_row_id": str(set_id),
+        "resolution_source": "fallback_requested_set_key",
+    }
+
+
+def _latest_identifier_from_public_surfaces(set_id: str, *, service_client: Any, public_client: Any) -> Dict[str, Any]:
+    target_resolution = _resolve_target_identifier_for_set(set_id, client=service_client)
+    resolved_target_id = str(target_resolution.get("resolved_set_row_id") or set_id)
+
+    source = ""
+    run_id = ""
+
+    explore_rows = _fetch_rows(
+        "explore_rip_statistics_latest",
+        filters={"set_id": resolved_target_id},
+        limit=1,
+        client=public_client,
+    )
+    if explore_rows and _is_non_empty(explore_rows[0].get("calculation_run_id")):
+        run_id = str(explore_rows[0].get("calculation_run_id"))
+        source = "explore_rip_statistics_latest"
+
+    if not run_id:
+        latest_rows = _fetch_rows(
+            "simulation_latest_by_target",
+            filters={"target_type": "set", "target_id": resolved_target_id},
+            order_by="run_at",
+            desc=True,
+            limit=1,
+            client=public_client,
+        )
+        if latest_rows and _is_non_empty(latest_rows[0].get("calculation_run_id")):
+            run_id = str(latest_rows[0].get("calculation_run_id"))
+            source = "simulation_latest_by_target"
+
+    if not run_id:
+        calc_rows = _fetch_rows(
+            "calculation_runs",
+            filters={"target_type": "set", "target_id": resolved_target_id},
+            order_by="created_at",
+            desc=True,
+            limit=1,
+            client=service_client,
+        )
+        if calc_rows and _is_non_empty(calc_rows[0].get("id")):
+            run_id = str(calc_rows[0].get("id"))
+            source = "calculation_runs_latest_lookup_fallback"
+
+    if not run_id:
+        return {
+            "set_id": set_id,
+            "resolved_target_id": resolved_target_id,
+            "target_resolution_source": target_resolution.get("resolution_source"),
+            "latest_source": None,
+            "parent_run_id": "",
+            "simulation_summary_id": "",
+            "error": "latest_run_id_not_found",
+        }
+
+    summary_rows = _fetch_rows(
+        "simulation_run_summary",
+        filters={"calculation_run_id": run_id},
+        order_by="created_at",
+        desc=True,
+        limit=1,
+        client=service_client,
+    )
+    summary_id = str((summary_rows[0] if summary_rows else {}).get("id") or "")
+
+    return {
+        "set_id": set_id,
+        "resolved_target_id": resolved_target_id,
+        "target_resolution_source": target_resolution.get("resolution_source"),
+        "latest_source": source,
+        "parent_run_id": str(run_id),
+        "simulation_summary_id": summary_id,
+        "error": None if summary_id else "latest_run_summary_id_not_found",
+    }
+
+
+def _parse_combo_state_name(state_name: Any) -> Tuple[bool, bool]:
+    raw = str(state_name or "").strip().lower()
+    return raw.startswith("reverse:"), "|rare:" in raw
+
+
 def _determine_final_decision(
     *,
     hard_blockers: List[str],
@@ -241,7 +345,13 @@ def _read_project_10_closure_brief() -> Dict[str, Any]:
     }
 
 
-def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict[str, Any]:
+def _verify_single_set(
+    set_id: str,
+    parent_run_id: str,
+    summary_id: str,
+    *,
+    latest_resolution_source: Optional[str] = None,
+) -> Dict[str, Any]:
     blockers: List[str] = []
     read_surface_gap_blockers: List[str] = []
     warnings: List[str] = []
@@ -249,30 +359,7 @@ def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict
     service_client = supabase_client.supabase
     public_client = supabase_client.public_read_client
 
-    def _resolve_target_identifier() -> Dict[str, Any]:
-        # In production this set key (swsh6/swsh7) resolves to a UUID set id.
-        # Tests may use direct string ids and omit the sets table entirely.
-        for key in ("canonical_key", "pokemon_api_set_id", "id"):
-            rows = _fetch_rows(
-                "sets",
-                filters={key: set_id},
-                limit=1,
-                client=service_client,
-            )
-            if rows:
-                row = rows[0]
-                resolved_id = row.get("id")
-                if _is_non_empty(resolved_id):
-                    return {
-                        "resolved_set_row_id": str(resolved_id),
-                        "resolution_source": key,
-                    }
-        return {
-            "resolved_set_row_id": str(set_id),
-            "resolution_source": "fallback_requested_set_key",
-        }
-
-    target_resolution = _resolve_target_identifier()
+    target_resolution = _resolve_target_identifier_for_set(set_id, client=service_client)
     resolved_target_id = str(target_resolution.get("resolved_set_row_id") or set_id)
 
     run_row = _fetch_one_by_id("calculation_runs", parent_run_id, client=service_client)
@@ -365,6 +452,53 @@ def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict
         if actual < min_count:
             blockers.append(f"{set_id}: {table_name} must be > 0 (actual={actual})")
 
+    state_count_rows = _fetch_rows(
+        "simulation_state_counts",
+        filters={"calculation_run_id": str(parent_run_id)},
+        client=service_client,
+    )
+    combo_rows = [
+        row
+        for row in state_count_rows
+        if _normalize_bucket(row.get("state_group")) == "slot schema combo"
+    ]
+    pack_path_rows = [
+        row
+        for row in state_count_rows
+        if _normalize_bucket(row.get("state_group")) == "pack path"
+    ]
+    normal_pack_state_rows = [
+        row
+        for row in state_count_rows
+        if _normalize_bucket(row.get("state_group")) == "normal pack state"
+    ]
+
+    combo_rows_count = len(combo_rows)
+    combo_occurrence_total = sum(int(row.get("occurrence_count") or 0) for row in combo_rows)
+
+    combo_invalid_prefix_rows: List[str] = []
+    combo_missing_rare_token_rows: List[str] = []
+    for row in combo_rows:
+        state_name = str(row.get("state_name") or "")
+        has_prefix, has_rare_token = _parse_combo_state_name(state_name)
+        if not has_prefix:
+            combo_invalid_prefix_rows.append(state_name)
+        if not has_rare_token:
+            combo_missing_rare_token_rows.append(state_name)
+
+    if combo_rows_count <= 0:
+        blockers.append(f"{set_id}: simulation_state_counts missing slot_schema_combo rows")
+    if len(pack_path_rows) <= 0:
+        blockers.append(f"{set_id}: simulation_state_counts missing pack_path rows")
+    if combo_invalid_prefix_rows:
+        blockers.append(
+            f"{set_id}: slot_schema_combo state_name must start with reverse: (invalid={', '.join(sorted(set(combo_invalid_prefix_rows))[:3])})"
+        )
+    if combo_missing_rare_token_rows:
+        blockers.append(
+            f"{set_id}: slot_schema_combo state_name must contain |rare: (invalid={', '.join(sorted(set(combo_missing_rare_token_rows))[:3])})"
+        )
+
     # "count matches expected or is explainable" rule for price snapshots.
     if counts_by_table["calculation_price_snapshots"] != 2:
         warnings.append(
@@ -414,6 +548,13 @@ def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict
         read_surface_gap_blockers.append(f"{set_id}: metric semantics version field not found in persisted derived metrics")
     if not probability_to_beat_pack_cost_present:
         blockers.append(f"{set_id}: probability-to-beat-pack-cost field is missing")
+
+    simulation_count_value = (summary_row or {}).get("simulation_count")
+    simulation_count = int(simulation_count_value) if _is_non_empty(simulation_count_value) else None
+    if simulation_count is not None and combo_rows_count > 0 and combo_occurrence_total != simulation_count:
+        blockers.append(
+            f"{set_id}: slot_schema_combo occurrence total mismatch expected={simulation_count} actual={combo_occurrence_total}"
+        )
 
     # Read-surface visibility checks.
     def _safe_first(table_name: str, *, filters: Mapping[str, Any], order_by: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -482,6 +623,7 @@ def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict
             "resolved_target_id": resolved_target_id,
             "resolution_source": target_resolution.get("resolution_source"),
         },
+        "latest_resolution_source_used_for_verified_ids": latest_resolution_source,
         "explore_rip_statistics_latest": {
             "row_found": explore_latest_row is not None,
             "selected_run_id": explore_latest_run_id or None,
@@ -543,6 +685,34 @@ def _verify_single_set(set_id: str, parent_run_id: str, summary_id: str) -> Dict
             "missing_required_buckets": missing_required_buckets,
             "present_unsupported_buckets": present_unsupported_buckets,
             "passes": not missing_required_buckets and not present_unsupported_buckets,
+        },
+        "combo_state_contract": {
+            "state_group": "slot_schema_combo",
+            "combo_rows_count": combo_rows_count,
+            "combo_occurrence_total": combo_occurrence_total,
+            "expected_simulation_count": simulation_count,
+            "occurrence_total_matches_simulation_count": (
+                True if simulation_count is None else combo_occurrence_total == simulation_count
+            ),
+            "all_state_names_have_reverse_prefix": not combo_invalid_prefix_rows,
+            "all_state_names_have_rare_token": not combo_missing_rare_token_rows,
+            "representative_rows": [
+                {
+                    "state_name": str(row.get("state_name") or ""),
+                    "occurrence_count": int(row.get("occurrence_count") or 0),
+                }
+                for row in combo_rows[:2]
+            ],
+            "pack_path_rows_count": len(pack_path_rows),
+            "normal_pack_state_rows_count": len(normal_pack_state_rows),
+            "normal_pack_state_optional_when_combo_present": True,
+            "passes": (
+                combo_rows_count > 0
+                and len(pack_path_rows) > 0
+                and not combo_invalid_prefix_rows
+                and not combo_missing_rare_token_rows
+                and (simulation_count is None or combo_occurrence_total == simulation_count)
+            ),
         },
         "read_surface_visibility": read_surface_visibility,
         "latest_selected_by_all_primary_surfaces": latest_selected_by_all_primary_surfaces,
@@ -651,8 +821,28 @@ def run_post_persistence_surface_verification(
     fail_on_blockers: bool = True,
 ) -> Dict[str, Any]:
     resolved_ids: Dict[str, Dict[str, str]] = {}
+    latest_resolution_by_set: Dict[str, Dict[str, Any]] = {}
+    service_client = supabase_client.supabase
+    public_client = supabase_client.public_read_client
     for set_id in TARGET_SET_IDS:
-        source = (identifiers_by_set or PROJECT_10_3_IDENTIFIERS).get(set_id) or {}
+        source = (identifiers_by_set or {}).get(set_id) if identifiers_by_set else None
+        if source is None:
+            latest_resolution = _latest_identifier_from_public_surfaces(
+                set_id,
+                service_client=service_client,
+                public_client=public_client,
+            )
+            latest_resolution_by_set[set_id] = dict(latest_resolution)
+            source = {
+                "parent_run_id": latest_resolution.get("parent_run_id"),
+                "simulation_summary_id": latest_resolution.get("simulation_summary_id"),
+            }
+        else:
+            latest_resolution_by_set[set_id] = {
+                "set_id": set_id,
+                "latest_source": "manual_identifiers_override",
+                "error": None,
+            }
         resolved_ids[set_id] = {
             "parent_run_id": str(source.get("parent_run_id") or ""),
             "simulation_summary_id": str(source.get("simulation_summary_id") or ""),
@@ -661,6 +851,12 @@ def run_post_persistence_surface_verification(
     initial_blockers: List[str] = []
     for set_id in TARGET_SET_IDS:
         ids = resolved_ids[set_id]
+        latest_resolution = latest_resolution_by_set.get(set_id) or {}
+        resolution_error = latest_resolution.get("error")
+        if resolution_error:
+            initial_blockers.append(
+                f"{set_id}: latest identifier resolution failed ({resolution_error})"
+            )
         if not ids["parent_run_id"]:
             initial_blockers.append(f"{set_id}: parent_run_id is required")
         if not ids["simulation_summary_id"]:
@@ -676,6 +872,7 @@ def run_post_persistence_surface_verification(
             set_id,
             ids["parent_run_id"],
             ids["simulation_summary_id"],
+            latest_resolution_source=(latest_resolution_by_set.get(set_id) or {}).get("latest_source"),
         )
         per_set[set_id] = report
         hard_blockers.extend(report.get("blockers") or [])
@@ -721,6 +918,7 @@ def run_post_persistence_surface_verification(
         "execute_rerun_performed": False,
         "source_project_10_closure_artifact": SOURCE_PROJECT_10_CLOSURE_ARTIFACT,
         "source_project_10_closure_brief": _read_project_10_closure_brief(),
+        "verified_ids_resolution": latest_resolution_by_set,
         "verified_run_ids": {set_id: resolved_ids[set_id]["parent_run_id"] for set_id in TARGET_SET_IDS},
         "verified_summary_ids": {set_id: resolved_ids[set_id]["simulation_summary_id"] for set_id in TARGET_SET_IDS},
         "prior_real_write_counts_total": dict(PRIOR_REAL_WRITE_COUNTS_TOTAL),
@@ -777,7 +975,7 @@ def main() -> int:
     payload = run_post_persistence_surface_verification(
         json_output_path=Path(args.json_output),
         markdown_output_path=Path(args.markdown_output),
-        identifiers_by_set=PROJECT_10_3_IDENTIFIERS,
+        identifiers_by_set=None,
         fail_on_blockers=True,
     )
 

@@ -1470,6 +1470,15 @@ def test_swsh6_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypa
     assert label_by_key["alternate art v"] == "Alternate Art V Bucket"
     assert all("Only" not in row["label"] for row in display["rows"])
 
+    bucket_integrity = display.get("bucket_integrity")
+    assert bucket_integrity is not None
+    assert bucket_integrity["status"] == "ok"
+    assert bucket_integrity["unknown_persisted_buckets"] == []
+    assert bucket_integrity["missing_configured_buckets"] == []
+    assert bucket_integrity["configured_bucket_count"] == len(SetChillingReignConfig.RARE_SLOT_PROBABILITY)
+    assert bucket_integrity["persisted_bucket_count"] == len(SetChillingReignConfig.RARE_SLOT_PROBABILITY)
+    assert bucket_integrity["displayed_bucket_count"] == len(display["rows"])
+
 
 def test_swsh7_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypatch):
     from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
@@ -1505,6 +1514,216 @@ def test_swsh7_modeled_pack_breakdown_uses_configured_rare_slot_buckets(monkeypa
     assert set(row_keys) == set(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
     assert "slot_schema" not in row_keys
     assert all("Only" not in row["label"] for row in display["rows"])
+
+    bucket_integrity = display.get("bucket_integrity")
+    assert bucket_integrity is not None
+    assert bucket_integrity["status"] == "ok"
+    assert bucket_integrity["unknown_persisted_buckets"] == []
+    assert bucket_integrity["missing_configured_buckets"] == []
+
+
+def test_swsh7_modeled_pack_breakdown_warns_on_unknown_persisted_bucket(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-modeled-unknown")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-modeled-unknown")]
+
+    base_rows = [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 10,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 10),
+        }
+        for index, rarity_key in enumerate(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    base_rows.append(
+        {
+            "rarity_bucket": "legacy secret rare",
+            "pulled_count": 11,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": 11.0,
+        }
+    )
+    handlers["simulation_pull_summary"] = lambda _q: base_rows
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+
+    assert display is not None
+    assert display["combo_states_supported"] is False
+    assert len(display["rows"]) == len(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY)
+
+    bucket_integrity = display.get("bucket_integrity")
+    assert bucket_integrity is not None
+    assert bucket_integrity["status"] == "warning"
+    assert bucket_integrity["unknown_persisted_buckets"] == ["legacy secret rare"]
+    assert bucket_integrity["missing_configured_buckets"] == []
+
+
+def test_swsh7_modeled_pack_breakdown_warns_on_missing_configured_bucket(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-modeled-missing")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-modeled-missing")]
+
+    missing_bucket = "alternate art vmax"
+    handlers["simulation_pull_summary"] = lambda _q: [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 10,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 10),
+        }
+        for index, rarity_key in enumerate(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+        if rarity_key != missing_bucket
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+
+    assert display is not None
+    assert display["combo_states_supported"] is False
+
+    bucket_integrity = display.get("bucket_integrity")
+    assert bucket_integrity is not None
+    assert bucket_integrity["status"] == "warning"
+    assert bucket_integrity["unknown_persisted_buckets"] == []
+    assert bucket_integrity["missing_configured_buckets"] == [missing_bucket]
+
+
+def test_swsh7_modeled_pack_breakdown_classifies_unsupported_persisted_bucket(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-modeled-unsupported")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-modeled-unsupported")]
+
+    rows = [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 10,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 10),
+        }
+        for index, rarity_key in enumerate(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    rows.append(
+        {
+            "rarity_bucket": "rainbow trainer",
+            "pulled_count": 7,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": 7.0,
+        }
+    )
+    handlers["simulation_pull_summary"] = lambda _q: rows
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+
+    assert display is not None
+    bucket_integrity = display.get("bucket_integrity")
+    assert bucket_integrity is not None
+    assert bucket_integrity["unsupported_persisted_buckets"] == ["rainbow trainer"]
+    assert bucket_integrity["unknown_persisted_buckets"] == []
+    assert "rainbow trainer" not in bucket_integrity["missing_configured_buckets"]
+
+
+def test_swsh7_modeled_pack_breakdown_prefers_combo_states_when_present(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-modeled-combo")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-modeled-combo")]
+    handlers["simulation_pull_summary"] = lambda _q: [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 100,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 100),
+        }
+        for index, rarity_key in enumerate(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    handlers["simulation_state_counts"] = lambda _q: [
+        {
+            "state_group": "slot_schema_combo",
+            "state_name": "reverse:regular reverse|rare:rare",
+            "occurrence_count": 700,
+        },
+        {
+            "state_group": "slot_schema_combo",
+            "state_name": "reverse:holo rare|rare:regular v",
+            "occurrence_count": 300,
+        },
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+
+    assert display is not None
+    assert display["combo_states_supported"] is True
+    assert display["state_granularity"] == "reverse_rare_combo"
+    assert display["source"] == "simulation_state_counts"
+    assert display.get("bucket_integrity") is not None
+
+    assert display["rows"]
+    assert all("reverse_bucket" in row for row in display["rows"])
+    assert all("rare_bucket" in row for row in display["rows"])
+    assert any(row.get("has_double_hit") is True for row in display["rows"])
+
+
+def test_swsh7_modeled_pack_breakdown_falls_back_when_combo_states_missing(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies import SetEvolvingSkiesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh7-modeled-fallback")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh7", "run-swsh7-modeled-fallback")]
+    handlers["simulation_pull_summary"] = lambda _q: [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 100,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 100),
+        }
+        for index, rarity_key in enumerate(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    handlers["simulation_state_counts"] = lambda _q: []
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh7")
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+
+    assert display is not None
+    assert display["combo_states_supported"] is False
+    assert display["state_granularity"] == "single_bucket_aggregate"
+    assert display["source"] == "simulation_pull_summary"
+    assert display.get("bucket_integrity") is not None
 
 
 def test_swsh6_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch):

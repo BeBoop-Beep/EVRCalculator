@@ -1,6 +1,6 @@
 # SWSH Project 11 Post-Persistence Surface Verification
 
-Generated: 2026-05-24T05:21:06.959800+00:00
+Generated: 2026-05-28T21:53:28.213547+00:00
 
 ## Decision
 
@@ -11,8 +11,8 @@ Generated: 2026-05-24T05:21:06.959800+00:00
 
 ## Verified IDs
 
-- swsh6: parent_run_id=0dd7683c-4146-4dcd-a04c-6f686bd91417 simulation_summary_id=8f4f4bcf-3d01-454b-851d-d7d295bd2f96
-- swsh7: parent_run_id=91e93106-b677-46de-b398-6728aa7842fb simulation_summary_id=1c0724b1-cbe4-4cb9-acb6-23348a3a27d3
+- swsh6: parent_run_id=82ace69c-01da-4a74-a49f-c86c58b7d083 simulation_summary_id=35b5a676-15be-4e26-90f0-cb8b8af7feac
+- swsh7: parent_run_id=0306ced0-9f4f-490b-aa86-0878c6d8d4b4 simulation_summary_id=3a64a4c6-ea8a-4143-a890-dbb6498b6bb5
 
 ## Per-Set Verification
 
@@ -24,8 +24,9 @@ Generated: 2026-05-24T05:21:06.959800+00:00
 - simulation_run_summary_exists: True
 - summary_belongs_to_expected_run: True
 - latest_selected_by_all_primary_surfaces: True
-- table_counts_by_run: {"calculation_price_snapshots": 2, "calculation_runs": 1, "simulation_derived_metrics": 1, "simulation_input_cards": 233, "simulation_percentiles": 7, "simulation_pull_summary": 14, "simulation_run_summary": 1, "simulation_state_counts": 1, "simulation_value_distribution_bins": 50, "simulation_value_threshold_bins": 18}
-- read_surface_visibility: {"calculation_runs_latest_lookup": {"row_found": true, "selected_run_id": "0dd7683c-4146-4dcd-a04c-6f686bd91417", "selects_verified_run": true}, "explore_rip_statistics_latest": {"missing_required_fields": [], "row_found": true, "selected_run_id": "0dd7683c-4146-4dcd-a04c-6f686bd91417", "selects_verified_run": true}, "set_pack_score_rankings_latest": {"row_found_for_verified_run": true}, "simulation_latest_by_target": {"row_found": true, "selected_run_id": "0dd7683c-4146-4dcd-a04c-6f686bd91417", "selects_verified_run": true}, "target_resolution": {"requested_set_key": "swsh6", "resolution_source": "pokemon_api_set_id", "resolved_target_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890"}}
+- table_counts_by_run: {"calculation_price_snapshots": 2, "calculation_runs": 1, "simulation_derived_metrics": 1, "simulation_input_cards": 233, "simulation_percentiles": 7, "simulation_pull_summary": 13, "simulation_run_summary": 1, "simulation_state_counts": 11, "simulation_value_distribution_bins": 50, "simulation_value_threshold_bins": 18}
+- pull_summary_bucket_contract: {"missing_required_buckets": [], "observed_bucket_count": 13, "observed_buckets": ["alternate art v", "alternate art vmax", "common", "full art trainer", "full art v", "gold rare", "holo rare", "rainbow rare", "rare", "regular reverse", "regular v", "regular vmax", "uncommon"], "passes": true, "present_unsupported_buckets": [], "required_buckets": ["alternate art v", "alternate art vmax", "full art trainer", "full art v", "gold rare", "holo rare", "rainbow rare", "rare", "regular v", "regular vmax"], "unsupported_buckets_must_be_absent": ["gold secret rare", "rainbow trainer", "rainbow vmax"]}
+- read_surface_visibility: {"calculation_runs_latest_lookup": {"row_found": true, "selected_run_id": "82ace69c-01da-4a74-a49f-c86c58b7d083", "selects_verified_run": true}, "explore_rip_statistics_latest": {"missing_required_fields": [], "row_found": true, "selected_run_id": "82ace69c-01da-4a74-a49f-c86c58b7d083", "selects_verified_run": true}, "latest_resolution_source_used_for_verified_ids": "explore_rip_statistics_latest", "set_pack_score_rankings_latest": {"row_found_for_verified_run": true}, "simulation_latest_by_target": {"row_found": true, "selected_run_id": "82ace69c-01da-4a74-a49f-c86c58b7d083", "selects_verified_run": true}, "target_resolution": {"requested_set_key": "swsh6", "resolution_source": "pokemon_api_set_id", "resolved_target_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890"}}
 - downstream_readiness: {"derived_metrics_present": true, "formula_roi_present": true, "metric_semantics_version_present": true, "metric_semantics_version_value": "derived_intelligence_v1", "percentile_rows_present": true, "probability_to_beat_pack_cost_present": true, "pull_summaries_present": true, "threshold_bins_present": true, "value_distribution_bins_present": true, "value_to_cost_ratio_present": true}
 - warnings: None
 - blockers: None
@@ -39,8 +40,9 @@ Generated: 2026-05-24T05:21:06.959800+00:00
 - simulation_run_summary_exists: True
 - summary_belongs_to_expected_run: True
 - latest_selected_by_all_primary_surfaces: True
-- table_counts_by_run: {"calculation_price_snapshots": 2, "calculation_runs": 1, "simulation_derived_metrics": 1, "simulation_input_cards": 237, "simulation_percentiles": 7, "simulation_pull_summary": 14, "simulation_run_summary": 1, "simulation_state_counts": 1, "simulation_value_distribution_bins": 50, "simulation_value_threshold_bins": 18}
-- read_surface_visibility: {"calculation_runs_latest_lookup": {"row_found": true, "selected_run_id": "91e93106-b677-46de-b398-6728aa7842fb", "selects_verified_run": true}, "explore_rip_statistics_latest": {"missing_required_fields": [], "row_found": true, "selected_run_id": "91e93106-b677-46de-b398-6728aa7842fb", "selects_verified_run": true}, "set_pack_score_rankings_latest": {"row_found_for_verified_run": true}, "simulation_latest_by_target": {"row_found": true, "selected_run_id": "91e93106-b677-46de-b398-6728aa7842fb", "selects_verified_run": true}, "target_resolution": {"requested_set_key": "swsh7", "resolution_source": "pokemon_api_set_id", "resolved_target_id": "93212749-ce0e-498e-975e-7d947a3448ce"}}
+- table_counts_by_run: {"calculation_price_snapshots": 2, "calculation_runs": 1, "simulation_derived_metrics": 1, "simulation_input_cards": 237, "simulation_percentiles": 7, "simulation_pull_summary": 12, "simulation_run_summary": 1, "simulation_state_counts": 10, "simulation_value_distribution_bins": 50, "simulation_value_threshold_bins": 18}
+- pull_summary_bucket_contract: {"missing_required_buckets": [], "observed_bucket_count": 12, "observed_buckets": ["alternate art v", "alternate art vmax", "common", "full art", "gold rare", "holo rare", "rainbow rare", "rare", "regular reverse", "regular v", "regular vmax", "uncommon"], "passes": true, "present_unsupported_buckets": [], "required_buckets": ["alternate art v", "alternate art vmax", "full art", "gold rare", "holo rare", "rainbow rare", "rare", "regular v", "regular vmax"], "unsupported_buckets_must_be_absent": ["full art trainer", "full art v", "gold secret rare", "rainbow trainer", "rainbow vmax"]}
+- read_surface_visibility: {"calculation_runs_latest_lookup": {"row_found": true, "selected_run_id": "0306ced0-9f4f-490b-aa86-0878c6d8d4b4", "selects_verified_run": true}, "explore_rip_statistics_latest": {"missing_required_fields": [], "row_found": true, "selected_run_id": "0306ced0-9f4f-490b-aa86-0878c6d8d4b4", "selects_verified_run": true}, "latest_resolution_source_used_for_verified_ids": "explore_rip_statistics_latest", "set_pack_score_rankings_latest": {"row_found_for_verified_run": true}, "simulation_latest_by_target": {"row_found": true, "selected_run_id": "0306ced0-9f4f-490b-aa86-0878c6d8d4b4", "selects_verified_run": true}, "target_resolution": {"requested_set_key": "swsh7", "resolution_source": "pokemon_api_set_id", "resolved_target_id": "93212749-ce0e-498e-975e-7d947a3448ce"}}
 - downstream_readiness: {"derived_metrics_present": true, "formula_roi_present": true, "metric_semantics_version_present": true, "metric_semantics_version_value": "derived_intelligence_v1", "percentile_rows_present": true, "probability_to_beat_pack_cost_present": true, "pull_summaries_present": true, "threshold_bins_present": true, "value_distribution_bins_present": true, "value_to_cost_ratio_present": true}
 - warnings: None
 - blockers: None

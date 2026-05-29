@@ -7,7 +7,7 @@ import logging
 import math
 import re
 import time
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from backend.db.clients.supabase_client import public_read_client
 from backend.interpretation.rips import build_rip_interpretation
@@ -933,6 +933,93 @@ def _format_modeled_outcome_label(rarity_key: str) -> str:
     return " ".join(part.capitalize() for part in normalized.split())
 
 
+def _modeled_swsh_unsupported_reference_buckets(config_class: Any) -> set[str]:
+    set_id = _normalize_key(getattr(config_class, "SET_ID", ""))
+    if set_id == "swsh6":
+        return set(_SWSH6_UNSUPPORTED_REFERENCE_BUCKETS)
+    if set_id == "swsh7":
+        return set(_SWSH7_UNSUPPORTED_REFERENCE_BUCKETS)
+    return set()
+
+
+def _build_modeled_swsh_bucket_integrity(
+    *,
+    configured_outcome_keys: Sequence[str],
+    persisted_bucket_keys: Sequence[str],
+    displayed_bucket_count: int,
+    config_class: Any,
+) -> Dict[str, Any]:
+    configured_set = {key for key in configured_outcome_keys if key}
+    persisted_set = {key for key in persisted_bucket_keys if key}
+    unsupported_set = _modeled_swsh_unsupported_reference_buckets(config_class)
+
+    unsupported_persisted = sorted(persisted_set.intersection(unsupported_set))
+    unknown_persisted = sorted(persisted_set - configured_set - unsupported_set)
+    missing_configured = sorted(configured_set - persisted_set)
+
+    status = "ok"
+    message: Optional[str] = None
+    if unknown_persisted or missing_configured:
+        status = "warning"
+        parts: List[str] = []
+        if unknown_persisted:
+            parts.append("Persisted pull-summary includes unknown bucket labels")
+        if missing_configured:
+            parts.append("Configured modeled buckets are missing from persisted pull-summary")
+        message = "; ".join(parts) + "."
+
+    return {
+        "status": status,
+        "unknown_persisted_buckets": unknown_persisted,
+        "missing_configured_buckets": missing_configured,
+        "unsupported_persisted_buckets": unsupported_persisted,
+        "configured_bucket_count": len(configured_set),
+        "persisted_bucket_count": len(persisted_set),
+        "displayed_bucket_count": int(displayed_bucket_count),
+        "message": message,
+    }
+
+
+def _parse_slot_schema_combo_state_name(state_name: Any) -> Optional[Dict[str, str]]:
+    raw = str(state_name or "").strip().lower()
+    if not raw:
+        return None
+
+    parts = [part.strip() for part in raw.split("|") if part.strip()]
+    reverse_bucket = None
+    rare_bucket = None
+    for part in parts:
+        if part.startswith("reverse:"):
+            reverse_bucket = _normalize_rarity(part.split(":", 1)[1])
+        elif part.startswith("rare:"):
+            rare_bucket = _normalize_rarity(part.split(":", 1)[1])
+
+    if not reverse_bucket or not rare_bucket:
+        return None
+
+    return {
+        "reverse_bucket": reverse_bucket,
+        "rare_bucket": rare_bucket,
+    }
+
+
+def _format_combo_bucket_label(bucket: str) -> str:
+    normalized = _normalize_rarity(bucket)
+    if normalized == "regular reverse":
+        return "Regular Reverse"
+    return _format_modeled_outcome_label(normalized)
+
+
+def _is_reverse_slot_hit(bucket: str) -> bool:
+    normalized = _normalize_rarity(bucket)
+    return normalized not in {"", "unknown", "regular reverse"}
+
+
+def _is_rare_slot_hit(bucket: str) -> bool:
+    normalized = _normalize_rarity(bucket)
+    return normalized not in {"", "unknown", "rare"}
+
+
 def _build_modeled_swsh_pack_breakdown_display(
     *,
     config_class: Any,
@@ -959,6 +1046,73 @@ def _build_modeled_swsh_pack_breakdown_display(
         for row in (rankings or [])
         if _normalize_rarity(row.get("rarity_bucket"))
     }
+    persisted_bucket_keys = sorted(ranking_counts.keys())
+
+    bucket_integrity = _build_modeled_swsh_bucket_integrity(
+        configured_outcome_keys=outcome_keys,
+        persisted_bucket_keys=persisted_bucket_keys,
+        displayed_bucket_count=0,
+        config_class=config_class,
+    )
+
+    combo_state_counts_raw = (rip_statistics or {}).get("slot_schema_combo_states") or {}
+    combo_rows: List[Dict[str, Any]] = []
+    if isinstance(combo_state_counts_raw, Mapping):
+        for state_key, raw_count in combo_state_counts_raw.items():
+            parsed = _parse_slot_schema_combo_state_name(state_key)
+            if not parsed:
+                continue
+            count = int(raw_count or 0)
+            if count <= 0:
+                continue
+
+            reverse_bucket = parsed["reverse_bucket"]
+            rare_bucket = parsed["rare_bucket"]
+            has_reverse_hit = _is_reverse_slot_hit(reverse_bucket)
+            has_rare_hit = _is_rare_slot_hit(rare_bucket)
+            combo_rows.append(
+                {
+                    "key": f"reverse:{reverse_bucket}|rare:{rare_bucket}",
+                    "label": f"{_format_combo_bucket_label(reverse_bucket)} + {_format_combo_bucket_label(rare_bucket)}",
+                    "count": count,
+                    "reverse_bucket": reverse_bucket,
+                    "rare_bucket": rare_bucket,
+                    "has_reverse_hit": has_reverse_hit,
+                    "has_rare_hit": has_rare_hit,
+                    "has_double_hit": bool(has_reverse_hit and has_rare_hit),
+                }
+            )
+
+    combo_total_count = sum(int(row["count"]) for row in combo_rows)
+    if combo_total_count > 0:
+        for row in combo_rows:
+            row["share"] = float(row["count"] / combo_total_count)
+        combo_rows.sort(key=lambda row: row["count"], reverse=True)
+        dominant_row = combo_rows[0]
+        bucket_integrity["displayed_bucket_count"] = len(combo_rows)
+        return {
+            "mode": "modeled_outcome_states",
+            "supported": True,
+            "combo_states_supported": True,
+            "state_granularity": "reverse_rare_combo",
+            "source": "simulation_state_counts",
+            "title": "Modeled outcome states",
+            "description": (
+                "Persisted reverse-slot + rare-slot combo states show simulator co-occurrence outcomes at pack level."
+            ),
+            "disclaimer": (
+                "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."
+            ),
+            "limitation_note": (
+                "Combo states are simulator outcome co-occurrence rows persisted from slot-schema packs; they are not"
+                " official Pokemon pull guarantees."
+            ),
+            "bucket_integrity": bucket_integrity,
+            "rows": combo_rows,
+            "dominant_key": dominant_row["key"],
+            "dominant_label": dominant_row["label"],
+            "dominant_share": dominant_row["share"],
+        }
 
     rows: List[Dict[str, Any]] = []
     total_count = 0
@@ -980,6 +1134,7 @@ def _build_modeled_swsh_pack_breakdown_display(
             row["share"] = float(row["count"] / total_count)
         rows.sort(key=lambda row: row["count"], reverse=True)
         dominant_row = rows[0]
+        bucket_integrity["displayed_bucket_count"] = len(rows)
         return {
             "mode": "modeled_outcome_states",
             "supported": True,
@@ -998,6 +1153,7 @@ def _build_modeled_swsh_pack_breakdown_display(
                 "Persisted output currently stores single-bucket aggregates (simulation_pull_summary) and coarse pack/state"
                 " counts (simulation_state_counts). Reverse-slot + rare-slot combo co-occurrence is not persisted."
             ),
+            "bucket_integrity": bucket_integrity,
             "rows": rows,
             "dominant_key": dominant_row["key"],
             "dominant_label": dominant_row["label"],
@@ -1023,6 +1179,7 @@ def _build_modeled_swsh_pack_breakdown_display(
         "disclaimer": (
             "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."
         ),
+        "bucket_integrity": bucket_integrity,
         "rows": [],
         "fallback_message": (
             "Modeled rare-slot outcomes are available, but full outcome-state counts require a future simulation-output enhancement."
@@ -2484,7 +2641,7 @@ def get_explore_page_payload(
 
     # RIP statistics (optional)
     rip_started = time.perf_counter()
-    rip_statistics: Dict[str, Any] = {"pack_paths": {}, "normal_pack_states": {}}
+    rip_statistics: Dict[str, Any] = {"pack_paths": {}, "normal_pack_states": {}, "slot_schema_combo_states": {}}
     try:
         rip_result = (
             public_read_client.table("simulation_state_counts")
@@ -2500,6 +2657,8 @@ def get_explore_page_payload(
                 rip_statistics["pack_paths"][name] = count
             elif group == "normal_pack_state":
                 rip_statistics["normal_pack_states"][name] = count
+            elif group == "slot_schema_combo":
+                rip_statistics["slot_schema_combo_states"][name] = count
         sources["simulation_state_counts"] = "OK"
     except Exception as exc:
         logger.warning("[explore-page] simulation_state_counts failed run_id=%s: %s", run_id, exc)
@@ -3691,7 +3850,7 @@ def get_explore_page_payload(
 
     # RIP statistics (optional)
     rip_started = time.perf_counter()
-    rip_statistics: Dict[str, Any] = {"pack_paths": {}, "normal_pack_states": {}}
+    rip_statistics: Dict[str, Any] = {"pack_paths": {}, "normal_pack_states": {}, "slot_schema_combo_states": {}}
     try:
         rip_result = (
             public_read_client.table("simulation_state_counts")
@@ -3707,6 +3866,8 @@ def get_explore_page_payload(
                 rip_statistics["pack_paths"][name] = count
             elif group == "normal_pack_state":
                 rip_statistics["normal_pack_states"][name] = count
+            elif group == "slot_schema_combo":
+                rip_statistics["slot_schema_combo_states"][name] = count
         sources["simulation_state_counts"] = "OK"
     except Exception as exc:
         logger.warning("[explore-page] simulation_state_counts failed run_id=%s: %s", run_id, exc)
