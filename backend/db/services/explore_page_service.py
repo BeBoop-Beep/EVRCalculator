@@ -925,6 +925,11 @@ def _is_modeled_swsh_slot_schema_set(config_class: Any) -> bool:
     )
 
 
+def _supports_modeled_swsh_combo_pack_breakdown(config_class: Any) -> bool:
+    set_id = _normalize_key(getattr(config_class, "SET_ID", ""))
+    return set_id not in {"swsh6", "swsh7"}
+
+
 def _format_modeled_outcome_label(rarity_key: str) -> str:
     normalized = _normalize_rarity(rarity_key)
     label = _MODELED_OUTCOME_LABELS.get(normalized)
@@ -1055,64 +1060,65 @@ def _build_modeled_swsh_pack_breakdown_display(
         config_class=config_class,
     )
 
-    combo_state_counts_raw = (rip_statistics or {}).get("slot_schema_combo_states") or {}
-    combo_rows: List[Dict[str, Any]] = []
-    if isinstance(combo_state_counts_raw, Mapping):
-        for state_key, raw_count in combo_state_counts_raw.items():
-            parsed = _parse_slot_schema_combo_state_name(state_key)
-            if not parsed:
-                continue
-            count = int(raw_count or 0)
-            if count <= 0:
-                continue
+    if _supports_modeled_swsh_combo_pack_breakdown(config_class):
+        combo_state_counts_raw = (rip_statistics or {}).get("slot_schema_combo_states") or {}
+        combo_rows: List[Dict[str, Any]] = []
+        if isinstance(combo_state_counts_raw, Mapping):
+            for state_key, raw_count in combo_state_counts_raw.items():
+                parsed = _parse_slot_schema_combo_state_name(state_key)
+                if not parsed:
+                    continue
+                count = int(raw_count or 0)
+                if count <= 0:
+                    continue
 
-            reverse_bucket = parsed["reverse_bucket"]
-            rare_bucket = parsed["rare_bucket"]
-            has_reverse_hit = _is_reverse_slot_hit(reverse_bucket)
-            has_rare_hit = _is_rare_slot_hit(rare_bucket)
-            combo_rows.append(
-                {
-                    "key": f"reverse:{reverse_bucket}|rare:{rare_bucket}",
-                    "label": f"{_format_combo_bucket_label(reverse_bucket)} + {_format_combo_bucket_label(rare_bucket)}",
-                    "count": count,
-                    "reverse_bucket": reverse_bucket,
-                    "rare_bucket": rare_bucket,
-                    "has_reverse_hit": has_reverse_hit,
-                    "has_rare_hit": has_rare_hit,
-                    "has_double_hit": bool(has_reverse_hit and has_rare_hit),
-                }
-            )
+                reverse_bucket = parsed["reverse_bucket"]
+                rare_bucket = parsed["rare_bucket"]
+                has_reverse_hit = _is_reverse_slot_hit(reverse_bucket)
+                has_rare_hit = _is_rare_slot_hit(rare_bucket)
+                combo_rows.append(
+                    {
+                        "key": f"reverse:{reverse_bucket}|rare:{rare_bucket}",
+                        "label": f"{_format_combo_bucket_label(reverse_bucket)} + {_format_combo_bucket_label(rare_bucket)}",
+                        "count": count,
+                        "reverse_bucket": reverse_bucket,
+                        "rare_bucket": rare_bucket,
+                        "has_reverse_hit": has_reverse_hit,
+                        "has_rare_hit": has_rare_hit,
+                        "has_double_hit": bool(has_reverse_hit and has_rare_hit),
+                    }
+                )
 
-    combo_total_count = sum(int(row["count"]) for row in combo_rows)
-    if combo_total_count > 0:
-        for row in combo_rows:
-            row["share"] = float(row["count"] / combo_total_count)
-        combo_rows.sort(key=lambda row: row["count"], reverse=True)
-        dominant_row = combo_rows[0]
-        bucket_integrity["displayed_bucket_count"] = len(combo_rows)
-        return {
-            "mode": "modeled_outcome_states",
-            "supported": True,
-            "combo_states_supported": True,
-            "state_granularity": "reverse_rare_combo",
-            "source": "simulation_state_counts",
-            "title": "Modeled outcome states",
-            "description": (
-                "Persisted reverse-slot + rare-slot combo states show simulator co-occurrence outcomes at pack level."
-            ),
-            "disclaimer": (
-                "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."
-            ),
-            "limitation_note": (
-                "Combo states are simulator outcome co-occurrence rows persisted from slot-schema packs; they are not"
-                " official Pokemon pull guarantees."
-            ),
-            "bucket_integrity": bucket_integrity,
-            "rows": combo_rows,
-            "dominant_key": dominant_row["key"],
-            "dominant_label": dominant_row["label"],
-            "dominant_share": dominant_row["share"],
-        }
+        combo_total_count = sum(int(row["count"]) for row in combo_rows)
+        if combo_total_count > 0:
+            for row in combo_rows:
+                row["share"] = float(row["count"] / combo_total_count)
+            combo_rows.sort(key=lambda row: row["count"], reverse=True)
+            dominant_row = combo_rows[0]
+            bucket_integrity["displayed_bucket_count"] = len(combo_rows)
+            return {
+                "mode": "modeled_outcome_states",
+                "supported": True,
+                "combo_states_supported": True,
+                "state_granularity": "reverse_rare_combo",
+                "source": "simulation_state_counts",
+                "title": "Modeled outcome states",
+                "description": (
+                    "Persisted reverse-slot + rare-slot combo states show simulator co-occurrence outcomes at pack level."
+                ),
+                "disclaimer": (
+                    "These states reflect the simulator's slot-based assumptions, not official Pokemon collation guarantees."
+                ),
+                "limitation_note": (
+                    "Combo states are simulator outcome co-occurrence rows persisted from slot-schema packs; they are not"
+                    " official Pokemon pull guarantees."
+                ),
+                "bucket_integrity": bucket_integrity,
+                "rows": combo_rows,
+                "dominant_key": dominant_row["key"],
+                "dominant_label": dominant_row["label"],
+                "dominant_share": dominant_row["share"],
+            }
 
     rows: List[Dict[str, Any]] = []
     total_count = 0

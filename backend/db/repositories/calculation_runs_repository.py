@@ -320,6 +320,20 @@ def create_parent_calculation_run(
     return inserted
 
 
+def get_calculation_run_notes(run_id: Any) -> Optional[str]:
+    rows = _select_rows_with_candidates(
+        table_name="calculation_runs",
+        select_candidates=["id,notes", "id"],
+        filters=[("eq", "id", str(_require_present(run_id, "calculation_run_id")))],
+        limit=1,
+    )
+    if not rows:
+        return None
+
+    notes = rows[0].get("notes")
+    return str(notes) if notes is not None else None
+
+
 def create_calculation_price_snapshot(
     run_id: Any,
     price_type: str,

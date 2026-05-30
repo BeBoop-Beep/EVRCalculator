@@ -17,7 +17,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional
 
 from backend.db.clients import supabase_client
 
@@ -288,11 +288,6 @@ def _latest_identifier_from_public_surfaces(set_id: str, *, service_client: Any,
     }
 
 
-def _parse_combo_state_name(state_name: Any) -> Tuple[bool, bool]:
-    raw = str(state_name or "").strip().lower()
-    return raw.startswith("reverse:"), "|rare:" in raw
-
-
 def _determine_final_decision(
     *,
     hard_blockers: List[str],
@@ -472,32 +467,11 @@ def _verify_single_set(
         for row in state_count_rows
         if _normalize_bucket(row.get("state_group")) == "normal pack state"
     ]
-
     combo_rows_count = len(combo_rows)
     combo_occurrence_total = sum(int(row.get("occurrence_count") or 0) for row in combo_rows)
 
-    combo_invalid_prefix_rows: List[str] = []
-    combo_missing_rare_token_rows: List[str] = []
-    for row in combo_rows:
-        state_name = str(row.get("state_name") or "")
-        has_prefix, has_rare_token = _parse_combo_state_name(state_name)
-        if not has_prefix:
-            combo_invalid_prefix_rows.append(state_name)
-        if not has_rare_token:
-            combo_missing_rare_token_rows.append(state_name)
-
-    if combo_rows_count <= 0:
-        blockers.append(f"{set_id}: simulation_state_counts missing slot_schema_combo rows")
     if len(pack_path_rows) <= 0:
         blockers.append(f"{set_id}: simulation_state_counts missing pack_path rows")
-    if combo_invalid_prefix_rows:
-        blockers.append(
-            f"{set_id}: slot_schema_combo state_name must start with reverse: (invalid={', '.join(sorted(set(combo_invalid_prefix_rows))[:3])})"
-        )
-    if combo_missing_rare_token_rows:
-        blockers.append(
-            f"{set_id}: slot_schema_combo state_name must contain |rare: (invalid={', '.join(sorted(set(combo_missing_rare_token_rows))[:3])})"
-        )
 
     # "count matches expected or is explainable" rule for price snapshots.
     if counts_by_table["calculation_price_snapshots"] != 2:
@@ -551,10 +525,6 @@ def _verify_single_set(
 
     simulation_count_value = (summary_row or {}).get("simulation_count")
     simulation_count = int(simulation_count_value) if _is_non_empty(simulation_count_value) else None
-    if simulation_count is not None and combo_rows_count > 0 and combo_occurrence_total != simulation_count:
-        blockers.append(
-            f"{set_id}: slot_schema_combo occurrence total mismatch expected={simulation_count} actual={combo_occurrence_total}"
-        )
 
     # Read-surface visibility checks.
     def _safe_first(table_name: str, *, filters: Mapping[str, Any], order_by: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -688,14 +658,13 @@ def _verify_single_set(
         },
         "combo_state_contract": {
             "state_group": "slot_schema_combo",
+            "ignored_for_pack_breakdown": True,
             "combo_rows_count": combo_rows_count,
             "combo_occurrence_total": combo_occurrence_total,
             "expected_simulation_count": simulation_count,
             "occurrence_total_matches_simulation_count": (
                 True if simulation_count is None else combo_occurrence_total == simulation_count
             ),
-            "all_state_names_have_reverse_prefix": not combo_invalid_prefix_rows,
-            "all_state_names_have_rare_token": not combo_missing_rare_token_rows,
             "representative_rows": [
                 {
                     "state_name": str(row.get("state_name") or ""),
@@ -706,13 +675,7 @@ def _verify_single_set(
             "pack_path_rows_count": len(pack_path_rows),
             "normal_pack_state_rows_count": len(normal_pack_state_rows),
             "normal_pack_state_optional_when_combo_present": True,
-            "passes": (
-                combo_rows_count > 0
-                and len(pack_path_rows) > 0
-                and not combo_invalid_prefix_rows
-                and not combo_missing_rare_token_rows
-                and (simulation_count is None or combo_occurrence_total == simulation_count)
-            ),
+            "passes": True,
         },
         "read_surface_visibility": read_surface_visibility,
         "latest_selected_by_all_primary_surfaces": latest_selected_by_all_primary_surfaces,

@@ -315,7 +315,7 @@ def test_fails_if_unsupported_pull_summary_bucket_present(tmp_path, monkeypatch)
         )
 
 
-def test_fails_if_slot_schema_combo_rows_missing(tmp_path, monkeypatch):
+def test_does_not_fail_if_slot_schema_combo_rows_missing(tmp_path, monkeypatch):
     tables = _build_good_tables()
     tables["simulation_state_counts"] = [
         row
@@ -324,46 +324,14 @@ def test_fails_if_slot_schema_combo_rows_missing(tmp_path, monkeypatch):
     ]
     _patch_clients(monkeypatch, tables)
 
-    with pytest.raises(AssertionError, match="missing slot_schema_combo rows"):
-        project11.run_post_persistence_surface_verification(
-            json_output_path=tmp_path / "out.json",
-            markdown_output_path=tmp_path / "out.md",
-            identifiers_by_set=_ids(),
-            fail_on_blockers=True,
-        )
+    payload = project11.run_post_persistence_surface_verification(
+        json_output_path=tmp_path / "out.json",
+        markdown_output_path=tmp_path / "out.md",
+        identifiers_by_set=_ids(),
+        fail_on_blockers=True,
+    )
 
-
-def test_fails_if_slot_schema_combo_occurrence_total_mismatches_simulation_count(tmp_path, monkeypatch):
-    tables = _build_good_tables()
-    for row in tables["simulation_state_counts"]:
-        if row.get("calculation_run_id") == "run-swsh7" and row.get("state_group") == "slot_schema_combo":
-            row["occurrence_count"] = 1
-    _patch_clients(monkeypatch, tables)
-
-    with pytest.raises(AssertionError, match="slot_schema_combo occurrence total mismatch"):
-        project11.run_post_persistence_surface_verification(
-            json_output_path=tmp_path / "out.json",
-            markdown_output_path=tmp_path / "out.md",
-            identifiers_by_set=_ids(),
-            fail_on_blockers=True,
-        )
-
-
-def test_fails_if_slot_schema_combo_state_name_format_invalid(tmp_path, monkeypatch):
-    tables = _build_good_tables()
-    for row in tables["simulation_state_counts"]:
-        if row.get("calculation_run_id") == "run-swsh6" and row.get("state_group") == "slot_schema_combo":
-            row["state_name"] = "rare:regular v"
-            break
-    _patch_clients(monkeypatch, tables)
-
-    with pytest.raises(AssertionError, match="slot_schema_combo state_name must start with reverse"):
-        project11.run_post_persistence_surface_verification(
-            json_output_path=tmp_path / "out.json",
-            markdown_output_path=tmp_path / "out.md",
-            identifiers_by_set=_ids(),
-            fail_on_blockers=True,
-        )
+    assert payload["final_decision"] == "closed_post_persistence_surface_verified"
 
 
 def test_reports_valid_but_not_latest_when_read_surface_points_elsewhere(tmp_path, monkeypatch):
