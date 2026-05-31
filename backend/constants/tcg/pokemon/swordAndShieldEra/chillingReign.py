@@ -71,17 +71,17 @@ class SetChillingReignConfig(BaseSetConfig):
     # Manually transcribed source buckets from user-provided CharizardX rows.
     # These are normalized before any runtime probability table is introduced.
     CHILLING_REIGN_SOURCE_BUCKET_MAPPING = {
-        # Broad/overlapping parent buckets: keep as sanity checks only.
+        # Literal source rows from the CharmanderHelps image are treated as direct evidence.
         "VMAX": {
             "normalized_bucket": "vmax",
-            "used_as_direct_outcome": False,
-            "children": ("Holo VMAX", "Alt Art Vmax"),
-            "notes": "Broad parent bucket; overlaps with specific VMAX subtypes.",
+            "used_as_direct_outcome": True,
+            "children": (),
+            "notes": "Literal source row maps to regular VMAX runtime bucket.",
         },
         "Full Art": {
             "normalized_bucket": "full art",
             "used_as_direct_outcome": False,
-            "children": ("Full Art V", "Full Art Trainer", "Alt Art V"),
+            "children": ("Full Art V", "Full Art Trainer", "Full Art Alt"),
             "notes": "Parent summary bucket; do not model directly with child rows.",
         },
         "Rainbow": {
@@ -101,23 +101,18 @@ class SetChillingReignConfig(BaseSetConfig):
             "used_as_direct_outcome": True,
             "children": (),
         },
-        "Alt Art V": {
+        "Full Art Alt": {
             "normalized_bucket": "alternate art v",
             "used_as_direct_outcome": True,
             "children": (),
         },
-        "Alt Art Vmax": {
+        "VMAX Alt": {
             "normalized_bucket": "alternate art vmax",
             "used_as_direct_outcome": True,
             "children": (),
         },
-        "Golden Rare": {
+        "Gold": {
             "normalized_bucket": "gold rare",
-            "used_as_direct_outcome": True,
-            "children": (),
-        },
-        "Holo VMAX": {
-            "normalized_bucket": "regular vmax",
             "used_as_direct_outcome": True,
             "children": (),
         },
@@ -149,13 +144,16 @@ class SetChillingReignConfig(BaseSetConfig):
     }
 
     CHILLING_REIGN_SOURCE_BUCKET_SANITY_CHECKS = {
-        "Holo VMAX": "1/24",
-        "Full Art V": "1/49",
-        "Full Art Trainer": "1/78",
-        "Rainbow": "1/122",
-        "Golden Rare": "1/100",
-        "Alt Art V": "1/147",
-        "Alt Art Vmax": "1/454",
+        "VMAX": "1/22",
+        "Full Art": "1/29",
+        "Rainbow": "1/83",
+        "Gold": "1/96",
+        "Full Art V": "1/47",
+        "Full Art Trainer": "1/74",
+        "Rainbow Trainer": "1/151",
+        "Rainbow VMAX": "1/189",
+        "Full Art Alt": "1/109",
+        "VMAX Alt": "1/396",
         "Gold Snorlax": "1/756",
         "Ice Calyrex VMAX Alt": "1/924",
         "Shadow Calyrex VMAX Alt": "1/1188",
@@ -166,13 +164,13 @@ class SetChillingReignConfig(BaseSetConfig):
     # named-card sanity checks so downstream probability modeling can avoid
     # double-counting overlapping source categories.
     CHILLING_REIGN_SOURCE_DIRECT_BUCKET_ODDS = {
-        "Holo VMAX": "1/24",
-        "Full Art V": "1/49",
-        "Full Art Trainer": "1/78",
-        "Rainbow": "1/122",
-        "Golden Rare": "1/100",
-        "Alt Art V": "1/147",
-        "Alt Art Vmax": "1/454",
+        "VMAX": "1/22",
+        "Full Art V": "1/47",
+        "Full Art Trainer": "1/74",
+        "Rainbow": "1/83",
+        "Gold": "1/96",
+        "Full Art Alt": "1/109",
+        "VMAX Alt": "1/396",
     }
 
     # Project 5.5: Rare-slot probability coverage audit.
@@ -184,13 +182,13 @@ class SetChillingReignConfig(BaseSetConfig):
         "rare_is_residual_capable": True,
         "rare_requires_direct_source_row": False,
         "source_backed_direct_rows": {
-            "Holo VMAX": "1/24",
-            "Full Art V": "1/49",
-            "Full Art Trainer": "1/78",
-            "Rainbow": "1/122",
-            "Golden Rare": "1/100",
-            "Alt Art V": "1/147",
-            "Alt Art Vmax": "1/454",
+            "VMAX": "1/22",
+            "Full Art V": "1/47",
+            "Full Art Trainer": "1/74",
+            "Rainbow": "1/83",
+            "Gold": "1/96",
+            "Full Art Alt": "1/109",
+            "VMAX Alt": "1/396",
         },
         "missing_non_residual_outcomes_blocking_rare_slot_probability": [
             "holo rare",
@@ -521,7 +519,7 @@ class SetChillingReignConfig(BaseSetConfig):
             "alternate art v": "can be derived from card names",
             "alternate art vmax": "can be derived from card names",
             "rainbow rare": "collapsed broad source bucket from Rainbow row",
-            "gold rare": "collapsed broad source bucket from Golden Rare row",
+            "gold rare": "collapsed broad source bucket from Gold row",
         },
         "requires_manual_mapping": False,
         "requires_pokemon_tcg_api_metadata_refresh": False,
@@ -662,69 +660,69 @@ class SetChillingReignConfig(BaseSetConfig):
         ),
         "direct_bucket_checks": {
             "full art v": {
-                "source_bucket_odds": "1/49",
-                "bucket_probability": 1 / 49,
+                "source_bucket_odds": "1/47",
+                "bucket_probability": 1 / 47,
                 "eligible_card_count": 16,
-                "implied_uniform_per_card_probability": (1 / 49) / 16,
-                "implied_uniform_per_card_odds": "1/784",
-                "implied_uniform_per_card_one_in_packs": 784,
+                "implied_uniform_per_card_probability": (1 / 47) / 16,
+                "implied_uniform_per_card_odds": "1/752",
+                "implied_uniform_per_card_one_in_packs": 752,
                 "notes": "Derived from direct bucket odds and mapped card pool count.",
             },
             "full art trainer": {
-                "source_bucket_odds": "1/78",
-                "bucket_probability": 1 / 78,
+                "source_bucket_odds": "1/74",
+                "bucket_probability": 1 / 74,
                 "eligible_card_count": 13,
-                "implied_uniform_per_card_probability": (1 / 78) / 13,
-                "implied_uniform_per_card_odds": "1/1014",
-                "implied_uniform_per_card_one_in_packs": 1014,
+                "implied_uniform_per_card_probability": (1 / 74) / 13,
+                "implied_uniform_per_card_odds": "1/962",
+                "implied_uniform_per_card_one_in_packs": 962,
                 "notes": "Derived from direct bucket odds and mapped card pool count.",
             },
             "alternate art v": {
-                "source_bucket_odds": "1/147",
-                "bucket_probability": 1 / 147,
+                "source_bucket_odds": "1/109",
+                "bucket_probability": 1 / 109,
                 "eligible_card_count": 10,
-                "implied_uniform_per_card_probability": (1 / 147) / 10,
-                "implied_uniform_per_card_odds": "1/1470",
-                "implied_uniform_per_card_one_in_packs": 1470,
+                "implied_uniform_per_card_probability": (1 / 109) / 10,
+                "implied_uniform_per_card_odds": "1/1090",
+                "implied_uniform_per_card_one_in_packs": 1090,
                 "notes": "Derived from direct bucket odds and mapped card pool count.",
             },
             "alternate art vmax": {
-                "source_bucket_odds": "1/454",
-                "bucket_probability": 1 / 454,
+                "source_bucket_odds": "1/396",
+                "bucket_probability": 1 / 396,
                 "eligible_card_count": 3,
-                "implied_uniform_per_card_probability": (1 / 454) / 3,
-                "implied_uniform_per_card_odds": "1/1362",
-                "implied_uniform_per_card_one_in_packs": 1362,
+                "implied_uniform_per_card_probability": (1 / 396) / 3,
+                "implied_uniform_per_card_odds": "1/1188",
+                "implied_uniform_per_card_one_in_packs": 1188,
                 "notes": "Derived from direct bucket odds and mapped card pool count.",
             },
             "rainbow rare": {
-                "source_bucket_odds": "1/122",
-                "bucket_probability": 1 / 122,
+                "source_bucket_odds": "1/83",
+                "bucket_probability": 1 / 83,
                 "eligible_card_count": 20,
-                "implied_uniform_per_card_probability": (1 / 122) / 20,
-                "implied_uniform_per_card_odds": "1/2440",
-                "implied_uniform_per_card_one_in_packs": 2440,
+                "implied_uniform_per_card_probability": (1 / 83) / 20,
+                "implied_uniform_per_card_odds": "1/1660",
+                "implied_uniform_per_card_one_in_packs": 1660,
                 "notes": "Derived from direct bucket odds and mapped card pool count.",
             },
             "gold rare": {
-                "source_bucket_odds": "1/100",
-                "bucket_probability": 1 / 100,
+                "source_bucket_odds": "1/96",
+                "bucket_probability": 1 / 96,
                 "eligible_card_count": 12,
-                "implied_uniform_per_card_probability": (1 / 100) / 12,
-                "implied_uniform_per_card_odds": "1/1200",
-                "implied_uniform_per_card_one_in_packs": 1200,
+                "implied_uniform_per_card_probability": (1 / 96) / 12,
+                "implied_uniform_per_card_odds": "1/1152",
+                "implied_uniform_per_card_one_in_packs": 1152,
                 "notes": "Derived from direct bucket odds and mapped card pool count.",
             },
         },
         "named_card_sanity_checks": {
             "policy": "observation_only_never_used_as_weights",
             "expected_from_bucket_uniform_model": {
-                "gold rare per-card": "1/1200",
-                "alternate art vmax per-card": "1/1362",
+                "gold rare per-card": "1/1152",
+                "alternate art vmax per-card": "1/1188",
             },
             "gold_snorlax": {
                 "observed_named_card_odds": "1/756",
-                "expected_uniform_from_gold_bucket": "1/1200",
+                "expected_uniform_from_gold_bucket": "1/1152",
                 "observed_vs_expected_probability_ratio": 1.5238095238,
                 "interpretation": (
                     "Higher than uniform expectation; plausible source sampling/rounding noise or "
@@ -732,7 +730,7 @@ class SetChillingReignConfig(BaseSetConfig):
                 ),
             },
             "vmax_alt_named_rows": {
-                "expected_uniform_from_vmax_alt_bucket": "1/1362",
+                "expected_uniform_from_vmax_alt_bucket": "1/1188",
                 "rows": {
                     "Ice Calyrex VMAX Alt": {
                         "observed_odds": "1/924",
@@ -773,23 +771,23 @@ class SetChillingReignConfig(BaseSetConfig):
         - (
             (1 / 3)
             + (1 / 7.5)
-            + (1 / 24)
-            + (1 / 49)
-            + (1 / 78)
-            + (1 / 147)
-            + (1 / 454)
-            + (1 / 122)
-            + (1 / 100)
+            + (1 / 22)
+            + (1 / 47)
+            + (1 / 74)
+            + (1 / 109)
+            + (1 / 396)
+            + (1 / 83)
+            + (1 / 96)
         ),
         "holo rare": 1 / 3,
         "regular v": 1 / 7.5,
-        "regular vmax": 1 / 24,
-        "full art v": 1 / 49,
-        "full art trainer": 1 / 78,
-        "alternate art v": 1 / 147,
-        "alternate art vmax": 1 / 454,
-        "rainbow rare": 1 / 122,
-        "gold rare": 1 / 100,
+        "regular vmax": 1 / 22,
+        "full art v": 1 / 47,
+        "full art trainer": 1 / 74,
+        "alternate art v": 1 / 109,
+        "alternate art vmax": 1 / 396,
+        "rainbow rare": 1 / 83,
+        "gold rare": 1 / 96,
     }
 
     # Promoted to production runtime after strict DB-source validation.
@@ -804,46 +802,46 @@ class SetChillingReignConfig(BaseSetConfig):
         "source_label": "User-provided CharizardX posting transcription",
         "source_aliases": ["CharizardX", "CharmanderHelps/X"],
         "source_rows_used": {
-            "Holo VMAX": {
-                "source_odds": "1/24",
+            "VMAX": {
+                "source_odds": "1/22",
                 "normalized_bucket": "regular vmax",
-                "probability": 1 / 24,
+                "probability": 1 / 22,
                 "source_granularity_status": "SOURCE_DIRECT",
             },
             "Full Art V": {
-                "source_odds": "1/49",
+                "source_odds": "1/47",
                 "normalized_bucket": "full art v",
-                "probability": 1 / 49,
+                "probability": 1 / 47,
                 "source_granularity_status": "SOURCE_DIRECT",
             },
             "Full Art Trainer": {
-                "source_odds": "1/78",
+                "source_odds": "1/74",
                 "normalized_bucket": "full art trainer",
-                "probability": 1 / 78,
+                "probability": 1 / 74,
                 "source_granularity_status": "SOURCE_DIRECT",
             },
-            "Alt Art V": {
-                "source_odds": "1/147",
+            "Full Art Alt": {
+                "source_odds": "1/109",
                 "normalized_bucket": "alternate art v",
-                "probability": 1 / 147,
+                "probability": 1 / 109,
                 "source_granularity_status": "SOURCE_DIRECT",
             },
-            "Alt Art Vmax": {
-                "source_odds": "1/454",
+            "VMAX Alt": {
+                "source_odds": "1/396",
                 "normalized_bucket": "alternate art vmax",
-                "probability": 1 / 454,
+                "probability": 1 / 396,
                 "source_granularity_status": "SOURCE_DIRECT",
             },
             "Rainbow": {
-                "source_odds": "1/122",
+                "source_odds": "1/83",
                 "normalized_bucket": "rainbow rare",
-                "probability": 1 / 122,
+                "probability": 1 / 83,
                 "source_granularity_status": "SOURCE_DIRECT",
             },
-            "Golden Rare": {
-                "source_odds": "1/100",
+            "Gold": {
+                "source_odds": "1/96",
                 "normalized_bucket": "gold rare",
-                "probability": 1 / 100,
+                "probability": 1 / 96,
                 "source_granularity_status": "SOURCE_DIRECT",
             },
         },
@@ -870,12 +868,14 @@ class SetChillingReignConfig(BaseSetConfig):
             },
         },
         "source_rows_rejected": {
-            "VMAX": "parent/broad row excluded because cleaner direct child rows exist",
             "Full Art": "parent/broad row excluded because cleaner direct child rows exist",
             "Rainbow Trainer": "unsupported split under broader Rainbow source row",
             "Rainbow VMAX": "unsupported split under broader Rainbow source row",
-            "Gold": "replaced by explicit broader Golden Rare source row",
-            "gold secret rare": "unsupported split under broader Golden Rare source row",
+            "gold secret rare": "unsupported split under broader Gold source row",
+            "Holo VMAX": "legacy alias row removed in favor of literal source label VMAX",
+            "Golden Rare": "legacy alias row removed in favor of literal source label Gold",
+            "Alt Art V": "legacy alias row removed in favor of literal source label Full Art Alt",
+            "Alt Art Vmax": "legacy alias row removed in favor of literal source label VMAX Alt",
         },
         "parent_rows_used_with_assumptions": {},
         "named_card_rows_excluded": {
@@ -888,32 +888,32 @@ class SetChillingReignConfig(BaseSetConfig):
         "residual_rare_probability": CHILLING_REIGN_RARE_SLOT_PROBABILITY_DRAFT["rare"],
         "probability_sum": sum(CHILLING_REIGN_RARE_SLOT_PROBABILITY_DRAFT.values()),
         "direct_high_rarity_mass": {
-            "regular vmax": 1 / 24,
-            "full art v": 1 / 49,
-            "full art trainer": 1 / 78,
-            "alternate art v": 1 / 147,
-            "alternate art vmax": 1 / 454,
-            "rainbow rare": 1 / 122,
-            "gold rare": 1 / 100,
+            "regular vmax": 1 / 22,
+            "full art v": 1 / 47,
+            "full art trainer": 1 / 74,
+            "alternate art v": 1 / 109,
+            "alternate art vmax": 1 / 396,
+            "rainbow rare": 1 / 83,
+            "gold rare": 1 / 96,
             "sum": (
-                (1 / 24)
-                + (1 / 49)
-                + (1 / 78)
-                + (1 / 147)
-                + (1 / 454)
-                + (1 / 122)
-                + (1 / 100)
+                (1 / 22)
+                + (1 / 47)
+                + (1 / 74)
+                + (1 / 109)
+                + (1 / 396)
+                + (1 / 83)
+                + (1 / 96)
             ),
         },
         "remaining_base_mass": 1
         - (
-            (1 / 24)
-            + (1 / 49)
-            + (1 / 78)
-            + (1 / 147)
-            + (1 / 454)
-            + (1 / 122)
-            + (1 / 100)
+            (1 / 22)
+            + (1 / 47)
+            + (1 / 74)
+            + (1 / 109)
+            + (1 / 396)
+            + (1 / 83)
+            + (1 / 96)
         ),
         "base_outcome_source_decisions": {
             "rare": {
@@ -944,14 +944,14 @@ class SetChillingReignConfig(BaseSetConfig):
                 "source_available": True,
                 "decision": "SOURCE_DIRECT",
                 "reason": (
-                    "Direct user-provided Holo VMAX row maps to regular vmax at 1/24."
+                    "Direct user-provided VMAX row maps to regular vmax at 1/22."
                 ),
             },
         },
         "source_specific_high_rarity_ambiguities": [
             (
                 "Rainbow Trainer and Rainbow VMAX splits are unsupported under the broad Rainbow source row; "
-                "gold secret rare split is unsupported under Golden Rare source row"
+                "gold secret rare split is unsupported under Gold source row"
             ),
         ],
         "legacy_probability_sum_field": None,

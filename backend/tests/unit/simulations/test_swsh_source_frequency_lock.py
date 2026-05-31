@@ -39,33 +39,33 @@ SWSH7_UNSUPPORTED_SPLIT_BUCKETS = {
 }
 
 SWSH6_SOURCE_PROBABILITY = {
-    "regular vmax": 1 / 24,
-    "full art v": 1 / 49,
-    "full art trainer": 1 / 78,
-    "rainbow rare": 1 / 122,
-    "gold rare": 1 / 100,
-    "alternate art v": 1 / 147,
-    "alternate art vmax": 1 / 454,
+    "regular vmax": 1 / 22,
+    "full art v": 1 / 47,
+    "full art trainer": 1 / 74,
+    "rainbow rare": 1 / 83,
+    "gold rare": 1 / 96,
+    "alternate art v": 1 / 109,
+    "alternate art vmax": 1 / 396,
 }
 
 SWSH6_SOURCE_ODDS_BY_BUCKET = {
-    "regular vmax": "1/24",
-    "full art v": "1/49",
-    "full art trainer": "1/78",
-    "rainbow rare": "1/122",
-    "gold rare": "1/100",
-    "alternate art v": "1/147",
-    "alternate art vmax": "1/454",
+    "regular vmax": "1/22",
+    "full art v": "1/47",
+    "full art trainer": "1/74",
+    "rainbow rare": "1/83",
+    "gold rare": "1/96",
+    "alternate art v": "1/109",
+    "alternate art vmax": "1/396",
 }
 
 SWSH6_SOURCE_BUCKET_NAME_BY_BUCKET = {
-    "regular vmax": "Holo VMAX",
+    "regular vmax": "VMAX",
     "full art v": "Full Art V",
     "full art trainer": "Full Art Trainer",
     "rainbow rare": "Rainbow",
-    "gold rare": "Golden Rare",
-    "alternate art v": "Alt Art V",
-    "alternate art vmax": "Alt Art Vmax",
+    "gold rare": "Gold",
+    "alternate art v": "Full Art Alt",
+    "alternate art vmax": "VMAX Alt",
     "holo rare": "dripshop_holo_directional",
     "regular v": "reddit_regular_v_directional",
     "rare": "residual_derived",
@@ -91,6 +91,19 @@ SWSH6_UNSUPPORTED_SPLIT_BUCKETS = {
 }
 
 SWSH6_SOURCE_DIRECT_BUCKETS = set(SWSH6_SOURCE_PROBABILITY.keys())
+
+
+def _probability_from_source_odds_literal(source_odds):
+    text = str(source_odds).strip()
+    if text.startswith("1/"):
+        denominator = float(text.split("/", 1)[1].replace(",", ""))
+        return 1.0 / denominator
+    if text.endswith("%"):
+        return float(text[:-1]) / 100.0
+    if "/" in text:
+        numerator_text, denominator_text = text.split("/", 1)
+        return float(numerator_text.replace(",", "")) / float(denominator_text.replace(",", ""))
+    raise AssertionError(f"Unsupported source odds literal: {source_odds!r}")
 
 SWSH6_SOURCE_FREQUENCY_STATUS_ENUM = {
     "closed_chilling_reign_source_frequency_locked_to_charizardx",
@@ -272,6 +285,97 @@ def test_swsh6_source_locked_buckets_match_user_provided_charizardx_rows_exactly
     assert absolute_delta == pytest.approx(0.0, abs=1e-12)
 
 
+def test_swsh6_direct_source_rows_are_literal_source_locked_and_match_runtime_probabilities():
+    draft_audit = SetChillingReignConfig.CHILLING_REIGN_RARE_SLOT_PROBABILITY_DRAFT_AUDIT
+    source_rows = draft_audit["source_rows_used"]
+    runtime_table = SetChillingReignConfig.RARE_SLOT_PROBABILITY
+
+    expected_labels = {
+        "regular vmax": "VMAX",
+        "full art v": "Full Art V",
+        "full art trainer": "Full Art Trainer",
+        "alternate art v": "Full Art Alt",
+        "alternate art vmax": "VMAX Alt",
+        "rainbow rare": "Rainbow",
+        "gold rare": "Gold",
+    }
+
+    seen_buckets = set()
+    for source_label, row in source_rows.items():
+        bucket = row["normalized_bucket"]
+        if bucket not in expected_labels:
+            continue
+        seen_buckets.add(bucket)
+        assert source_label == expected_labels[bucket]
+
+        source_odds = row["source_odds"]
+        expected_probability = _probability_from_source_odds_literal(source_odds)
+        assert row["probability"] == pytest.approx(expected_probability)
+        assert runtime_table[bucket] == pytest.approx(expected_probability)
+
+    assert seen_buckets == set(expected_labels.keys())
+    assert source_rows["VMAX Alt"]["source_odds"] == "1/396"
+    assert runtime_table["alternate art vmax"] == pytest.approx(1 / 396)
+    assert source_rows["VMAX Alt"]["source_odds"] != "1/454"
+    assert runtime_table["alternate art vmax"] != pytest.approx(1 / 454)
+
+
+def test_swsh7_direct_source_rows_are_literal_source_locked_and_match_runtime_probabilities():
+    draft_audit = SetEvolvingSkiesConfig.EVOLVING_SKIES_RARE_SLOT_PROBABILITY_DRAFT_AUDIT
+    runtime_table = SetEvolvingSkiesConfig.RARE_SLOT_PROBABILITY
+
+    expected_rows = {
+        "Normal Pokemon V": ("regular v", "10.56%"),
+        "Normal Pokemon VMAX": ("regular vmax", "5.60%"),
+        "Full-Art": ("full art", "2.78%"),
+        "Alt-Art Pokemon V": ("alternate art v", "1.10%"),
+        "Alt-Art Pokemon VMAX": ("alternate art vmax", "0.30%"),
+        "Rainbow Rare": ("rainbow rare", "0.84%"),
+        "Gold Rare": ("gold rare", "0.91%"),
+    }
+
+    source_rows = draft_audit["source_rows_used"]
+    for source_label, (bucket, literal_odds) in expected_rows.items():
+        row = source_rows[source_label]
+        assert row["normalized_bucket"] == bucket
+        assert row["source_odds"] == literal_odds
+        expected_probability = _probability_from_source_odds_literal(literal_odds)
+        assert row["probability"] == pytest.approx(expected_probability)
+        assert runtime_table[bucket] == pytest.approx(expected_probability)
+
+
+def test_swsh5_direct_reference_rows_are_source_locked_to_reddit_and_pricedex_is_secondary_only():
+    from backend.constants.tcg.pokemon.swordAndShieldEra.battleStyles import SetBattleStylesConfig
+
+    sources = {
+        row["source_id"]: row
+        for row in SetBattleStylesConfig.BATTLE_STYLES_PULL_RATE_REFERENCE_SOURCES
+    }
+    evidence_rows = SetBattleStylesConfig.BATTLE_STYLES_PULL_RATE_REFERENCE_BUCKET_EVIDENCE
+    runtime_table = SetBattleStylesConfig.RARE_SLOT_PROBABILITY
+
+    reddit_source = sources["battle_styles_community_pack_study"]
+    assert reddit_source["source_url"] == "https://www.reddit.com/r/PokemonTCG/comments/mx0gvz/battle_styles_pull_data_after_almost_20000_packs/"
+    assert reddit_source["source_type"] == "community_aggregation"
+
+    for row in evidence_rows:
+        if row["source_status"] != "SOURCE_DIRECT" or not row.get("used_in_runtime"):
+            continue
+        bucket = row["normalized_bucket"]
+        expected_probability = _probability_from_source_odds_literal(row["odds_display"])
+        assert row["source_ids"] == ["battle_styles_community_pack_study"]
+        assert runtime_table[bucket] == pytest.approx(expected_probability)
+
+    pricedex_rows = [
+        row
+        for row in evidence_rows
+        if "battle_styles_thepricedex_cross_reference_2026_05" in (row.get("source_ids") or [])
+    ]
+    assert pricedex_rows
+    assert all(row["source_status"] == "SECONDARY_INDEX_ONLY" for row in pricedex_rows)
+    assert all(row["source_status"] != "SOURCE_DIRECT" for row in pricedex_rows)
+
+
 def test_swsh6_charizardx_comparison_table_is_complete_and_non_divergent_for_supported_rows():
     status = _resolve_swsh6_source_frequency_status()
     comparison_table = _build_swsh6_charizardx_comparison_table()
@@ -280,9 +384,9 @@ def test_swsh6_charizardx_comparison_table_is_complete_and_non_divergent_for_sup
     assert comparison_table
 
     by_bucket = {row["bucket"]: row for row in comparison_table}
-    assert by_bucket["regular vmax"]["source_bucket_name"] == "Holo VMAX"
+    assert by_bucket["regular vmax"]["source_bucket_name"] == "VMAX"
     assert by_bucket["rainbow rare"]["source_bucket_name"] == "Rainbow"
-    assert by_bucket["gold rare"]["source_bucket_name"] == "Golden Rare"
+    assert by_bucket["gold rare"]["source_bucket_name"] == "Gold"
 
     for bucket in SWSH6_SOURCE_DIRECT_BUCKETS:
         row = by_bucket[bucket]

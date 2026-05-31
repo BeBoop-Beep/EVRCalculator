@@ -142,7 +142,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
         "source_model": "best_available_empirical",
         "source_caveat": (
             "Not official Pokemon pull rates; derived from public empirical samples. "
-            "Brilliant Stars uses TCGplayer-family evidence with cross-reference support. "
+            "Brilliant Stars uses a large community pull-rate study with supplementary references. "
             "Trainer Gallery child rows remain reference-only unless explicitly source-backed for runtime."
         ),
         "blocking_reasons": [],
@@ -150,12 +150,12 @@ class SetBrilliantStarsConfig(BaseSetConfig):
 
     BRILLIANT_STARS_PULL_RATE_REFERENCE_SOURCES = [
         {
-            "source_id": "brilliant_stars_tcgplayer_empirical",
-            "source_name": "TCGplayer Brilliant Stars pull-rate research",
-            "source_url": "https://www.tcgplayer.com/",
-            "source_type": "primary_empirical",
+            "source_id": "brilliant_stars_reddit_2160_pack_study_2022_03",
+            "source_name": "Brilliant Stars 2,160-pack community pull-rate study",
+            "source_url": "https://www.reddit.com/r/PokemonTCG/comments/t52dvt/brilliant_stars_pulls_60_booster_boxes_2160_packs/",
+            "source_type": "community_aggregation",
             "source_confidence": "medium_high",
-            "discovered_via": "TCGplayer pull-rate publication and linked derivatives",
+            "discovered_via": "Reddit community post with linked 60-box chart and raw-study discussion",
             "notes": "Primary empirical source family for runtime-modeled broad buckets.",
         },
         {
@@ -176,6 +176,15 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "discovered_via": "Elite Fourum supplementary analysis",
             "notes": "Supplementary-only context; never sole SOURCE_DIRECT authority.",
         },
+        {
+            "source_id": "brilliant_stars_tcgplayer_comparison_link_2022_03",
+            "source_name": "TCGplayer comparison link cited in Brilliant Stars thread",
+            "source_url": "https://infinite.tcgplayer.com/article/The-10-Most-Valuable-Pok%C3%A9mon-Cards-in-Brilliant-Stars/aeafa051-3b3b-4856-acb1-29369d050ff6/",
+            "source_type": "supplementary_discussion",
+            "source_confidence": "medium_low",
+            "discovered_via": "Comment link in the primary Reddit 2,160-pack study thread",
+            "notes": "Comparison context only; not used as SOURCE_DIRECT runtime authority.",
+        },
     ]
 
     BRILLIANT_STARS_PULL_RATE_REFERENCE_BUCKET_EVIDENCE = [
@@ -186,7 +195,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
-            "source_ids": ["brilliant_stars_tcgplayer_empirical"],
+            "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Direct broad bucket from primary empirical source family.",
         },
         {
@@ -196,7 +205,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
-            "source_ids": ["brilliant_stars_tcgplayer_empirical"],
+            "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Direct broad bucket from primary empirical source family.",
         },
         {
@@ -206,7 +215,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
-            "source_ids": ["brilliant_stars_tcgplayer_empirical"],
+            "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Direct broad VSTAR row is modeled without unsupported child redistribution.",
         },
         {
@@ -216,7 +225,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
-            "source_ids": ["brilliant_stars_tcgplayer_empirical"],
+            "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Modeled as broad full-art bucket.",
         },
         {
@@ -226,7 +235,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
-            "source_ids": ["brilliant_stars_tcgplayer_empirical"],
+            "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Only directly supported alternate-art child is modeled.",
         },
         {
@@ -236,7 +245,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
-            "source_ids": ["brilliant_stars_tcgplayer_empirical"],
+            "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Direct broad rainbow bucket retained.",
         },
         {
@@ -246,7 +255,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
-            "source_ids": ["brilliant_stars_tcgplayer_empirical"],
+            "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Direct broad gold bucket retained.",
         },
         {

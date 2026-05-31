@@ -152,7 +152,7 @@ class SetLostOriginConfig(BaseSetConfig):
         {
             "source_id": "lost_origin_tcgplayer_empirical",
             "source_name": "TCGplayer Lost Origin pull-rate research",
-            "source_url": "https://www.tcgplayer.com/",
+            "source_url": "https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Lost-Origin-Pull-Rates/ba20ac4d-9448-45ce-b919-d856d107c744/",
             "source_type": "primary_empirical",
             "source_confidence": "high",
             "discovered_via": "TCGplayer pull-rate publication",

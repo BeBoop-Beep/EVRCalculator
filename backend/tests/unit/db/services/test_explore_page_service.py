@@ -165,6 +165,109 @@ def _assert_direct_rows_match_runtime_probabilities(references, runtime_table):
         assert abs(row["probability_used"] - expected_probability) <= 1e-12
 
 
+def _parse_source_odds_to_probability(odds_display):
+    if not isinstance(odds_display, str):
+        raise AssertionError(f"Expected string odds_display, got {type(odds_display)!r}")
+
+    compact = odds_display.replace(",", "").strip()
+    if compact.startswith("1/"):
+        denominator = float(compact.split("/", 1)[1])
+        if denominator <= 0:
+            raise AssertionError(f"Expected positive denominator in odds_display {odds_display!r}")
+        return 1.0 / denominator
+
+    if compact.endswith("%"):
+        value = float(compact[:-1])
+        if value <= 0:
+            raise AssertionError(f"Expected positive percent in odds_display {odds_display!r}")
+        return value / 100.0
+
+    raise AssertionError(f"Unsupported odds_display format {odds_display!r}")
+
+
+def assert_source_locked_bucket(
+    evidence_by_bucket,
+    *,
+    bucket,
+    expected_source_id,
+    expected_source_label,
+    expected_odds_display,
+    expected_probability,
+):
+    row = evidence_by_bucket[bucket]
+    assert row["source_status"] == "SOURCE_DIRECT"
+    assert row["source_granularity_status"] == "SOURCE_DIRECT"
+    assert row["source_ids"] == [expected_source_id]
+    assert row["source_bucket_label"] == expected_source_label
+    assert row["odds_display"] == expected_odds_display
+    assert row["probability_used"] == pytest.approx(expected_probability)
+
+
+def _assert_direct_source_rows_match_literal_source_expectations(
+    references,
+    runtime_table,
+    expected_direct_rows,
+):
+    evidence_by_bucket = {
+        row["normalized_bucket"]: row
+        for row in references["bucket_evidence"]
+    }
+
+    for bucket, expected in expected_direct_rows.items():
+        assert bucket in evidence_by_bucket, bucket
+        row = evidence_by_bucket[bucket]
+
+        assert row["used_in_runtime"] is True
+        assert row["source_status"] == "SOURCE_DIRECT"
+        assert row["source_granularity_status"] == "SOURCE_DIRECT"
+        assert row["source_ids"] == [expected["source_id"]]
+
+        expected_labels = expected["source_bucket_label"]
+        if isinstance(expected_labels, str):
+            expected_labels = {expected_labels}
+        assert row["source_bucket_label"] in expected_labels
+
+        assert row["odds_display"] == expected["odds_display"]
+
+        expected_probability = _parse_source_odds_to_probability(expected["odds_display"])
+        assert row["probability_used"] == pytest.approx(expected_probability)
+        assert runtime_table[bucket] == pytest.approx(expected_probability)
+
+
+def assert_config_source_odds_match_runtime(config_class):
+    handlers = _build_success_handlers(run_id=f"run-{config_class.SET_ID}-source-lock-config")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        _swsh_summary_row(config_class.SET_ID, f"run-{config_class.SET_ID}-source-lock-config")
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list((getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}).keys())
+    )
+
+    client = _Client(handlers)
+
+    old_client = service.public_read_client
+    try:
+        service.public_read_client = client
+        payload = service.get_explore_page_payload("set", config_class.SET_ID)
+    finally:
+        service.public_read_client = old_client
+
+    references = payload.get("pull_rate_references")
+    assert references is not None
+
+    evidence_rows = references["bucket_evidence"]
+    runtime_table = getattr(config_class, "RARE_SLOT_PROBABILITY", {}) or {}
+
+    for row in evidence_rows:
+        if row.get("source_status") != "SOURCE_DIRECT" or not row.get("used_in_runtime"):
+            continue
+
+        bucket = row["normalized_bucket"]
+        literal_probability = _parse_source_odds_to_probability(row["odds_display"])
+        assert runtime_table[bucket] == pytest.approx(literal_probability)
+        assert row["probability_used"] == pytest.approx(literal_probability)
+
+
 def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
     handlers = _build_success_handlers(run_id="run-rip")
     handlers["explore_rip_statistics_latest"] = lambda _q: [
@@ -1746,6 +1849,193 @@ def test_swsh7_modeled_pack_breakdown_falls_back_when_combo_states_missing(monke
     assert display.get("bucket_integrity") is not None
 
 
+def test_swsh5_modeled_pack_breakdown_uses_swsh6_swsh7_single_bucket_pattern(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.battleStyles import SetBattleStylesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh5-modeled")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh5", "run-swsh5-modeled")]
+    handlers["simulation_pull_summary"] = lambda _q: [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 50,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 50),
+        }
+        for index, rarity_key in enumerate(SetBattleStylesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    handlers["simulation_state_counts"] = lambda _q: [
+        {
+            "state_group": "slot_schema_combo",
+            "state_name": "reverse:regular reverse|rare:regular v",
+            "occurrence_count": 123,
+        }
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetBattleStylesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh5")
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+
+    assert display is not None
+    assert display["mode"] == "modeled_outcome_states"
+    assert display["combo_states_supported"] is False
+    assert display["state_granularity"] == "single_bucket_aggregate"
+    assert display["source"] == "simulation_pull_summary"
+
+    row_keys = [row["key"] for row in display["rows"]]
+    assert set(row_keys) == set(SetBattleStylesConfig.RARE_SLOT_PROBABILITY.keys())
+
+
+def test_swsh5_pull_rate_references_include_alt_art_vmax_and_exact_reddit_link(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.battleStyles import SetBattleStylesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh5-references")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh5", "run-swsh5-references")]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetBattleStylesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh5")
+    references = payload.get("pull_rate_references")
+
+    assert references is not None
+    _assert_pull_rate_references_contract_shape(references)
+
+    sources_by_id = {
+        row["source_id"]: row
+        for row in references["sources"]
+    }
+    evidence_by_bucket = {
+        row["normalized_bucket"]: row
+        for row in references["bucket_evidence"]
+    }
+
+    reddit_url = sources_by_id["battle_styles_community_pack_study"]["source_url"]
+    assert "/comments/" in reddit_url
+    assert "battle_styles_pull_data_after_almost_20000_packs" in reddit_url
+    assert reddit_url != "https://www.reddit.com/r/PokemonTCG/"
+
+    alt_vmax_row = evidence_by_bucket["alternate art vmax"]
+    alt_v_row = evidence_by_bucket["alternate art v"]
+
+    assert_source_locked_bucket(
+        evidence_by_bucket,
+        bucket="alternate art v",
+        expected_source_id="battle_styles_community_pack_study",
+        expected_source_label="Alt",
+        expected_odds_display="1/157",
+        expected_probability=1 / 157,
+    )
+
+    assert alt_vmax_row["source_status"] == "SOURCE_DIRECT"
+    assert alt_vmax_row["source_granularity_status"] == "SOURCE_DIRECT"
+    assert alt_vmax_row["used_in_runtime"] is True
+    assert alt_vmax_row["source_bucket_label"] == "Alt VMAX"
+    assert alt_vmax_row["odds_display"] == "1/684"
+    assert alt_vmax_row["source_ids"] == ["battle_styles_community_pack_study"]
+    assert alt_vmax_row["probability_used"] == pytest.approx(1 / 684)
+    assert "community sample" in (alt_vmax_row.get("caveat") or "").lower()
+    assert alt_v_row["odds_display"] != "1/170"
+    assert alt_v_row["probability_used"] != pytest.approx(1 / 170)
+
+    assert sources_by_id["battle_styles_thepricedex_cross_reference_2026_05"]["source_type"] == "secondary_index"
+    assert sources_by_id["battle_styles_community_pack_study"]["source_type"] == "community_aggregation"
+
+    pricedex_rows = [
+        row
+        for row in references["bucket_evidence"]
+        if "battle_styles_thepricedex_cross_reference_2026_05" in (row.get("source_ids") or [])
+    ]
+    assert pricedex_rows
+    assert all(row["source_status"] == "SECONDARY_INDEX_ONLY" for row in pricedex_rows)
+    assert all(row["source_status"] != "SOURCE_DIRECT" for row in pricedex_rows)
+
+
+def test_swsh5_pull_rate_assumptions_include_alternate_art_vmax_without_changing_prompt5_display(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.battleStyles import SetBattleStylesConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh5-assumptions")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [_swsh_summary_row("swsh5", "run-swsh5-assumptions")]
+    handlers["simulation_pull_summary"] = lambda _q: [
+        {
+            "rarity_bucket": rarity_key,
+            "pulled_count": index * 10,
+            "avg_sampled_value": 1.0,
+            "total_sampled_value": float(index * 10),
+        }
+        for index, rarity_key in enumerate(SetBattleStylesConfig.RARE_SLOT_PROBABILITY.keys(), start=1)
+    ]
+    handlers["simulation_state_counts"] = lambda _q: [
+        {
+            "state_group": "slot_schema_combo",
+            "state_name": "reverse:regular reverse|rare:regular v",
+            "occurrence_count": 50,
+        }
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetBattleStylesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh5")
+
+    assumptions = payload.get("pull_rate_assumptions")
+    assert assumptions is not None
+    groups_by_key = {group["key"]: group for group in assumptions["groups"]}
+    hit_rows = {row["rarity"]: row for row in groups_by_key["hit_rarity_model"]["rows"]}
+    assert "alternate art vmax" in hit_rows
+
+    display = payload["rip_statistics"].get("pack_breakdown_display")
+    assert display is not None
+    assert display["combo_states_supported"] is False
+    assert display["state_granularity"] == "single_bucket_aggregate"
+
+
+def test_swsh10_does_not_emit_modeled_pack_breakdown_pending_tg_audit(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-swsh10-no-modeled-display")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        _swsh_summary_row("swsh10", "run-swsh10-no-modeled-display")
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "swsh10")
+
+    assert payload["rip_statistics"].get("pack_breakdown_display") is None
+
+
+@pytest.mark.parametrize(
+    ("config_path", "expected"),
+    [
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.swordAndShield.SetSwordAndShieldConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.rebelClash.SetRebelClashConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.darknessAblaze.SetDarknessAblazeConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.battleStyles.SetBattleStylesConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign.SetChillingReignConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies.SetEvolvingSkiesConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.brilliantStars.SetBrilliantStarsConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.lostOrigin.SetLostOriginConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.silverTempest.SetSilverTempestConfig", True),
+        ("backend.constants.tcg.pokemon.swordAndShieldEra.astralRadiance.SetAstralRadianceConfig", False),
+    ],
+)
+def test_modeled_swsh_set_gate_matches_regular_set_scope(config_path, expected):
+    module_name, _, class_name = config_path.rpartition(".")
+    config_class = getattr(__import__(module_name, fromlist=[class_name]), class_name)
+
+    assert service._is_modeled_swsh_slot_schema_set(config_class) is expected
+
+
 def test_swsh6_pull_rate_assumptions_resolve_from_slot_schema_config(monkeypatch):
     from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
 
@@ -2007,6 +2297,47 @@ def test_swsh6_pull_rate_references_expose_direct_residual_provisional_and_unsup
         references,
         SetChillingReignConfig.RARE_SLOT_PROBABILITY,
     )
+    _assert_direct_source_rows_match_literal_source_expectations(
+        references,
+        SetChillingReignConfig.RARE_SLOT_PROBABILITY,
+        {
+            "regular vmax": {
+                "source_bucket_label": "VMAX",
+                "odds_display": "1/22",
+                "source_id": "charizardx_user_rows",
+            },
+            "full art v": {
+                "source_bucket_label": "Full Art V",
+                "odds_display": "1/47",
+                "source_id": "charizardx_user_rows",
+            },
+            "full art trainer": {
+                "source_bucket_label": "Full Art Trainer",
+                "odds_display": "1/74",
+                "source_id": "charizardx_user_rows",
+            },
+            "alternate art v": {
+                "source_bucket_label": "Full Art Alt",
+                "odds_display": "1/109",
+                "source_id": "charizardx_user_rows",
+            },
+            "alternate art vmax": {
+                "source_bucket_label": {"VMAX Alt", "Alt Art Vmax"},
+                "odds_display": "1/396",
+                "source_id": "charizardx_user_rows",
+            },
+            "rainbow rare": {
+                "source_bucket_label": "Rainbow",
+                "odds_display": "1/83",
+                "source_id": "charizardx_user_rows",
+            },
+            "gold rare": {
+                "source_bucket_label": "Gold",
+                "odds_display": "1/96",
+                "source_id": "charizardx_user_rows",
+            },
+        },
+    )
 
     evidence_by_bucket = {
         row["normalized_bucket"]: row
@@ -2021,6 +2352,15 @@ def test_swsh6_pull_rate_references_expose_direct_residual_provisional_and_unsup
     assert evidence_by_bucket["rare"]["source_status"] == "SOURCE_DERIVED_RESIDUAL"
     assert evidence_by_bucket["holo rare"]["source_status"] == "PROVISIONAL_DIRECTIONAL"
     assert evidence_by_bucket["regular v"]["source_status"] == "PROVISIONAL_DIRECTIONAL"
+
+    alt_vmax_row = evidence_by_bucket["alternate art vmax"]
+    assert alt_vmax_row["source_status"] == "SOURCE_DIRECT"
+    assert alt_vmax_row["source_bucket_label"] in {"VMAX Alt", "Alt Art Vmax"}
+    assert alt_vmax_row["odds_display"] == "1/396"
+    assert alt_vmax_row["probability_used"] == pytest.approx(1 / 396)
+    assert alt_vmax_row["odds_display"] != "1/454"
+    assert alt_vmax_row["probability_used"] != pytest.approx(1 / 454)
+    assert all(row.get("odds_display") != "1/454" for row in references["bucket_evidence"])
 
     assert evidence_by_bucket["rainbow trainer"]["source_status"] == "UNSUPPORTED_SPLIT"
     assert evidence_by_bucket["rainbow trainer"]["used_in_runtime"] is False
@@ -2050,6 +2390,50 @@ def test_swsh6_pull_rate_references_expose_direct_residual_provisional_and_unsup
     assert "gold secret rare" not in active_runtime_buckets
 
     assert payload["meta"]["sources"].get("pull_rate_references") == "OK"
+
+
+def test_swsh5_and_swsh6_known_bad_values_do_not_reappear(monkeypatch):
+    from backend.constants.tcg.pokemon.swordAndShieldEra.battleStyles import SetBattleStylesConfig
+    from backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign import SetChillingReignConfig
+
+    handlers = _build_success_handlers(run_id="run-swsh5-swsh6-negative-guards")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        _swsh_summary_row("swsh5", "run-swsh5-swsh6-negative-guards")
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetBattleStylesConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    swsh5_payload = service.get_explore_page_payload("set", "swsh5")
+    swsh5_evidence = {
+        row["normalized_bucket"]: row
+        for row in (swsh5_payload.get("pull_rate_references") or {}).get("bucket_evidence", [])
+    }
+
+    assert swsh5_evidence["alternate art v"]["odds_display"] == "1/157"
+    assert swsh5_evidence["alternate art v"]["odds_display"] != "1/170"
+
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        _swsh_summary_row("swsh6", "run-swsh5-swsh6-negative-guards")
+    ]
+    handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: _build_swsh_input_rows(
+        list(SetChillingReignConfig.RARE_SLOT_PROBABILITY.keys())
+    )
+
+    all_card_rows, all_variant_rows = _build_swsh6_card_and_variant_rows_for_runtime_outcomes()
+    handlers["cards"] = lambda query: _filter_rows_by_requested_ids(query, all_card_rows)
+    handlers["card_variants"] = lambda query: _filter_rows_by_requested_ids(query, all_variant_rows)
+
+    swsh6_payload = service.get_explore_page_payload("set", "swsh6")
+    swsh6_evidence = {
+        row["normalized_bucket"]: row
+        for row in (swsh6_payload.get("pull_rate_references") or {}).get("bucket_evidence", [])
+    }
+
+    assert swsh6_evidence["alternate art vmax"]["odds_display"] == "1/396"
+    assert swsh6_evidence["alternate art vmax"]["odds_display"] != "1/454"
 
 
 def test_swsh7_pull_rate_references_direct_probabilities_match_runtime_config(monkeypatch):
@@ -2090,6 +2474,24 @@ def test_swsh7_pull_rate_references_direct_probabilities_match_runtime_config(mo
     assert evidence_by_bucket["holo rare"]["source_status"] == "PROVISIONAL_DIRECTIONAL"
     assert evidence_by_bucket["full art v"]["source_status"] == "UNSUPPORTED_SPLIT"
     assert evidence_by_bucket["full art v"]["used_in_runtime"] is False
+
+    expected_swsh7_direct_rows = {
+        "regular v": ("Normal Pokemon V", "10.56%", 0.1056, "tcgplayer_evolving_skies_8000_pack"),
+        "regular vmax": ("Normal Pokemon VMAX", "5.60%", 0.0560, "tcgplayer_evolving_skies_8000_pack"),
+        "full art": ("Full-Art", "2.78%", 0.0278, "tcgplayer_evolving_skies_8000_pack"),
+        "alternate art v": ("Alt-Art Pokemon V", "1.10%", 0.0110, "tcgplayer_evolving_skies_8000_pack"),
+        "alternate art vmax": ("Alt-Art Pokemon VMAX", "0.30%", 0.0030, "tcgplayer_evolving_skies_8000_pack"),
+        "rainbow rare": ("Rainbow Rare", "0.84%", 0.0084, "tcgplayer_evolving_skies_8000_pack"),
+        "gold rare": ("Gold Rare", "0.91%", 0.0091, "tcgplayer_evolving_skies_8000_pack"),
+    }
+    for bucket, (label, odds_display, probability, source_id) in expected_swsh7_direct_rows.items():
+        row = evidence_by_bucket[bucket]
+        assert row["source_status"] == "SOURCE_DIRECT"
+        assert row["source_granularity_status"] == "SOURCE_DIRECT"
+        assert row["source_bucket_label"] == label
+        assert row["odds_display"] == odds_display
+        assert row["source_ids"] == [source_id]
+        assert row["probability_used"] == pytest.approx(probability)
 
     assert (
         sources_by_id["tcgplayer_evolving_skies_8000_pack"]["source_url"]
@@ -2188,6 +2590,83 @@ def test_swsh8_pull_rate_references_emit_reference_only_sources_and_caveats(monk
     assert "not official pokemon-published odds" in caveat_blob
 
     assert payload["meta"]["sources"].get("pull_rate_references") == "OK"
+
+
+@pytest.mark.parametrize(
+    "config_path",
+    [
+        "backend.constants.tcg.pokemon.swordAndShieldEra.swordAndShield.SetSwordAndShieldConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.rebelClash.SetRebelClashConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.darknessAblaze.SetDarknessAblazeConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.vividVoltage.SetVividVoltageConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.battleStyles.SetBattleStylesConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.chillingReign.SetChillingReignConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.evolvingSkies.SetEvolvingSkiesConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.fusionStrike.SetFusionStrikeConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.brilliantStars.SetBrilliantStarsConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.astralRadiance.SetAstralRadianceConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.lostOrigin.SetLostOriginConfig",
+        "backend.constants.tcg.pokemon.swordAndShieldEra.silverTempest.SetSilverTempestConfig",
+    ],
+)
+def test_swsh_config_source_odds_match_runtime_for_all_direct_runtime_rows(config_path):
+    module_name, _, class_name = config_path.rpartition(".")
+    config_class = getattr(__import__(module_name, fromlist=[class_name]), class_name)
+    assert_config_source_odds_match_runtime(config_class)
+
+
+@pytest.mark.parametrize(
+    "set_id",
+    [
+        "swsh1",
+        "swsh2",
+        "swsh3",
+        "swsh4",
+        "swsh5",
+        "swsh6",
+        "swsh7",
+        "swsh8",
+        "swsh9",
+        "swsh10",
+        "swsh11",
+        "swsh12",
+    ],
+)
+def test_swsh_direct_source_rows_use_specific_non_generic_urls(monkeypatch, set_id):
+    handlers = _build_success_handlers(run_id=f"run-{set_id}-source-url-guard")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        _swsh_summary_row(set_id, f"run-{set_id}-source-url-guard")
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", set_id)
+    references = payload.get("pull_rate_references")
+    assert references is not None
+
+    sources_by_id = {
+        row["source_id"]: row
+        for row in references["sources"]
+    }
+
+    for row in references["bucket_evidence"]:
+        if row.get("source_status") != "SOURCE_DIRECT":
+            continue
+
+        for source_id in row.get("source_ids") or []:
+            source_url = (sources_by_id.get(source_id) or {}).get("source_url")
+            assert source_url, f"{set_id}:{row['normalized_bucket']} missing source URL for {source_id}"
+
+            normalized = source_url.lower().rstrip("/")
+            assert normalized not in {
+                "https://www.tcgplayer.com",
+                "https://tcgplayer.com",
+                "https://www.reddit.com",
+                "https://reddit.com",
+                "https://www.reddit.com/r/pokemontcg",
+                "https://reddit.com/r/pokemontcg",
+            }, f"{set_id}:{row['normalized_bucket']} uses generic URL {source_url}"
 
 
 @pytest.mark.parametrize(

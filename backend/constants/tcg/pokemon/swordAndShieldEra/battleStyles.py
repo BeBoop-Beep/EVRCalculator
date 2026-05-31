@@ -36,7 +36,8 @@ class SetBattleStylesConfig(BaseSetConfig):
             + (1 / 56)
             + (1 / 120)
             + (1 / 96)
-            + (1 / 170)
+            + (1 / 157)
+            + (1 / 684)
         ),
         "holo rare": 1 / 3,
         "regular v": 1 / 7.5,
@@ -44,7 +45,8 @@ class SetBattleStylesConfig(BaseSetConfig):
         "full art": 1 / 56,
         "rainbow rare": 1 / 120,
         "gold rare": 1 / 96,
-        "alternate art v": 1 / 170,
+        "alternate art v": 1 / 157,
+        "alternate art vmax": 1 / 684,
     }
 
     SLOT_SCHEMA_OUTCOME_POOL_MAPPING = {
@@ -99,6 +101,15 @@ class SetBattleStylesConfig(BaseSetConfig):
             "variant_filter": {"printing_type": "holo"},
             "include_reverse_variants": False,
         },
+        "alternate art vmax": {
+            "source": "rarity + name",
+            "card_filter": {
+                "rarity": "Secret Rare",
+                "name_contains": "VMAX (Alternate Art Secret)",
+            },
+            "variant_filter": {"printing_type": "holo"},
+            "include_reverse_variants": False,
+        },
         "rainbow rare": {
             "source": "rarity + card_number range + name",
             "card_filter": {
@@ -140,12 +151,13 @@ class SetBattleStylesConfig(BaseSetConfig):
         {
             "source_id": "battle_styles_community_pack_study",
             "source_name": "Battle Styles community pull-rate pack study",
-            "source_url": "https://www.reddit.com/r/PokemonTCG/",
+            "source_url": "https://www.reddit.com/r/PokemonTCG/comments/mx0gvz/battle_styles_pull_data_after_almost_20000_packs/",
             "source_type": "community_aggregation",
             "source_confidence": "medium",
             "discovered_via": "community pull-rate chart with explicit pack count",
             "notes": (
                 "Primary community empirical source used for broad-bucket runtime modeling. "
+                "Includes explicit Alt VMAX row (29 pulls in 19,837 packs, approx 1/684). "
                 "Not official Pokemon-published odds."
             ),
         },
@@ -204,14 +216,24 @@ class SetBattleStylesConfig(BaseSetConfig):
             "caveat": "Modeled as broad full-art bucket; child rows are not forced.",
         },
         {
-            "source_bucket_label": "Alternate Art V",
+            "source_bucket_label": "Alt",
             "normalized_bucket": "alternate art v",
-            "odds_display": "1/170",
+            "odds_display": "1/157",
             "source_status": "SOURCE_DIRECT",
             "source_granularity_status": "SOURCE_DIRECT",
             "used_in_runtime": True,
             "source_ids": ["battle_styles_community_pack_study"],
-            "caveat": "Only direct alternate-art row supported by local taxonomy.",
+            "caveat": "Direct community-sample row; separate from Alt VMAX row.",
+        },
+        {
+            "source_bucket_label": "Alt VMAX",
+            "normalized_bucket": "alternate art vmax",
+            "odds_display": "1/684",
+            "source_status": "SOURCE_DIRECT",
+            "source_granularity_status": "SOURCE_DIRECT",
+            "used_in_runtime": True,
+            "source_ids": ["battle_styles_community_pack_study"],
+            "caveat": "Community sample-based evidence from the Battle Styles 19,837-pack Reddit thread.",
         },
         {
             "source_bucket_label": "Rainbow Rare",
@@ -264,13 +286,23 @@ class SetBattleStylesConfig(BaseSetConfig):
             "caveat": "Battle Styles predates VSTAR taxonomy.",
         },
         {
-            "source_bucket_label": "ThePriceDex inferred row",
-            "normalized_bucket": "thepricedex inferred",
+            "source_bucket_label": "ThePriceDex Rare Holo VMAX",
+            "normalized_bucket": "regular vmax",
             "odds_display": None,
             "source_status": "SECONDARY_INDEX_ONLY",
             "source_granularity_status": "SECONDARY_INDEX_ONLY",
             "used_in_runtime": False,
             "source_ids": ["battle_styles_thepricedex_cross_reference_2026_05"],
-            "caveat": "Index-only row must never be treated as SOURCE_DIRECT.",
+            "caveat": "Index-only cross-reference label for regular VMAX taxonomy; never promoted to SOURCE_DIRECT.",
+        },
+        {
+            "source_bucket_label": "ThePriceDex Secret Rare",
+            "normalized_bucket": "secret rare broad index",
+            "odds_display": None,
+            "source_status": "SECONDARY_INDEX_ONLY",
+            "source_granularity_status": "SECONDARY_INDEX_ONLY",
+            "used_in_runtime": False,
+            "source_ids": ["battle_styles_thepricedex_cross_reference_2026_05"],
+            "caveat": "Broad index label only; must not be treated as direct support for alternate art vmax.",
         },
     ]

@@ -152,7 +152,7 @@ class SetAstralRadianceConfig(BaseSetConfig):
         {
             "source_id": "astral_radiance_tcgplayer_empirical",
             "source_name": "TCGplayer Astral Radiance pull-rate research",
-            "source_url": "https://www.tcgplayer.com/",
+            "source_url": "https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Astral-Radiance-Pull-Rates/10da749f-9c8b-45c0-b80a-dbd86ca5dcde/",
             "source_type": "primary_empirical",
             "source_confidence": "high",
             "discovered_via": "TCGplayer pull-rate publication",

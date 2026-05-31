@@ -152,7 +152,7 @@ class SetSilverTempestConfig(BaseSetConfig):
         {
             "source_id": "silver_tempest_tcgplayer_empirical",
             "source_name": "TCGplayer Silver Tempest pull-rate research",
-            "source_url": "https://www.tcgplayer.com/",
+            "source_url": "https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Silver-Tempest-Pull-Rates/6490d591-e582-4930-8446-00e190876d30/",
             "source_type": "primary_empirical",
             "source_confidence": "high",
             "discovered_via": "TCGplayer pull-rate publication",

@@ -873,7 +873,22 @@ def _build_special_pack_rule_rows(
     return rows
 
 
-_MODELED_SWSH_SET_IDS = {"swsh6", "swsh7"}
+_MODELED_SWSH_SET_IDS = {
+    "swsh1",
+    "swsh2",
+    "swsh3",
+    "swsh5",
+    "swsh6",
+    "swsh7",
+    "swsh9",
+    "swsh11",
+    "swsh12",
+}
+
+# Keep regular SWSH display aligned with the proven swsh6/swsh7 pattern.
+# NOTE: swsh10 (Astral Radiance) is intentionally excluded here pending a
+# dedicated Trainer Gallery / reverse-slot audit.
+_MODELED_SWSH_SINGLE_BUCKET_DISPLAY_SET_IDS = set(_MODELED_SWSH_SET_IDS)
 
 SOURCE_STATUS_DIRECT = "SOURCE_DIRECT"
 SOURCE_STATUS_DERIVED_RESIDUAL = "SOURCE_DERIVED_RESIDUAL"
@@ -927,7 +942,7 @@ def _is_modeled_swsh_slot_schema_set(config_class: Any) -> bool:
 
 def _supports_modeled_swsh_combo_pack_breakdown(config_class: Any) -> bool:
     set_id = _normalize_key(getattr(config_class, "SET_ID", ""))
-    return set_id not in {"swsh6", "swsh7"}
+    return set_id not in _MODELED_SWSH_SINGLE_BUCKET_DISPLAY_SET_IDS
 
 
 def _format_modeled_outcome_label(rarity_key: str) -> str:
