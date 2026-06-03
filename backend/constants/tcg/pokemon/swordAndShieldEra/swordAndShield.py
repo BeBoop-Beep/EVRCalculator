@@ -33,14 +33,14 @@ class SetSwordAndShieldConfig(BaseSetConfig):
     RARE_SLOT_PROBABILITY = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.5)
             + (1 / 7.04)
             + (1 / 45.37)
             + (1 / 26.75)
             + (1 / 81.19)
             + (1 / 110.19)
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.5,
         "regular v": 1 / 7.04,
         "regular vmax": 1 / 45.37,
         "full art": 1 / 26.75,
@@ -226,14 +226,14 @@ class SetSwordAndShieldConfig(BaseSetConfig):
             "caveat": "Residual after explicit non-rare modeled mass.",
         },
         {
-            "source_bucket_label": "Holo Rare residual",
+            "source_bucket_label": "ThePriceDex Rare Holo",
             "normalized_bucket": "holo rare",
-            "odds_display": "derived assumption",
-            "source_status": "SOURCE_DERIVED_RESIDUAL",
-            "source_granularity_status": "SOURCE_DERIVED_RESIDUAL",
+            "odds_display": "1/5.5",
+            "source_status": "SECONDARY_INDEX_ONLY",
+            "source_granularity_status": "SECONDARY_INDEX_ONLY",
             "used_in_runtime": True,
-            "source_ids": [],
-            "caveat": "Explicit SWSH holo-rare assumption retained in runtime table.",
+            "source_ids": ["swsh1_thepricedex_cross_reference_2026_05"],
+            "caveat": "Best-available ThePriceDex cross-reference used for runtime; not SOURCE_DIRECT evidence.",
         },
         {
             "source_bucket_label": "ThePriceDex modeled/equal-distribution row",

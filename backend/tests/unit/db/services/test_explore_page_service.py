@@ -2502,11 +2502,11 @@ def test_swsh7_pull_rate_references_direct_probabilities_match_runtime_config(mo
         == "https://reddit.com/r/PokemonTCG/comments/1f35e2h/tcgplayers_evolving_skies_pull_rates_from_8000/"
     )
     assert (
-        sources_by_id["dripshop"]["source_url"]
-        == "https://www.dripshop.live/blog/pokemon-trading-cards/evolving-skies-pull-rates---full-breakdown--rarest-cards"
+        sources_by_id["swsh7_thepricedex_cross_reference_2026_06_holo"]["source_url"]
+        == "https://www.thepricedex.com/pokemon/swsh07-evolving-skies/pull-rates"
     )
-    assert sources_by_id["dripshop"]["source_type"] == "secondary_directional"
-    assert sources_by_id["dripshop"]["source_confidence"] == "medium"
+    assert sources_by_id["swsh7_thepricedex_cross_reference_2026_06_holo"]["source_type"] == "secondary_index"
+    assert sources_by_id["swsh7_thepricedex_cross_reference_2026_06_holo"]["source_confidence"] == "medium_low"
 
     active_runtime_buckets = {
         row["normalized_bucket"]

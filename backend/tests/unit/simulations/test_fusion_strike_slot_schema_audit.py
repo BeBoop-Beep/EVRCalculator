@@ -65,10 +65,10 @@ def test_fusion_strike_locked_source_backed_probabilities_match_runtime_table():
     assert table["alternate art vmax"] == pytest.approx(1 / 275, abs=1e-12)
 
 
-def test_fusion_strike_rare_bucket_is_residual_after_non_rare_mass_with_holo_assumption():
+def test_fusion_strike_rare_bucket_is_residual_after_non_rare_mass_with_holo_cross_reference():
     table = SetFusionStrikeConfig.RARE_SLOT_PROBABILITY
 
-    assert table["holo rare"] == pytest.approx(1 / 3, abs=1e-12)
+    assert table["holo rare"] == pytest.approx(1 / 5.6, abs=1e-12)
     non_rare_mass = sum(probability for bucket, probability in table.items() if bucket != "rare")
     assert table["rare"] == pytest.approx(1.0 - non_rare_mass, abs=1e-12)
     assert sum(table.values()) == pytest.approx(1.0, abs=1e-12)

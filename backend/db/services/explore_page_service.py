@@ -1260,10 +1260,10 @@ def _build_swsh6_pull_rate_references(config_class: Any) -> Dict[str, Any]:
         if not normalized_bucket:
             continue
         row_key = _normalize_key(source_bucket_label)
-        source_id = "secondary_directional"
-        if "dripshop" in row_key:
+        source_id = _to_optional_str(payload.get("source_id")) or "secondary_directional"
+        if source_id == "secondary_directional" and "dripshop" in row_key:
             source_id = "dripshop_directional"
-        elif "reddit" in row_key:
+        elif source_id == "secondary_directional" and "reddit" in row_key:
             source_id = "reddit_directional"
         provisional_by_bucket[normalized_bucket] = {
             "source_bucket_label": source_bucket_label,
@@ -1364,6 +1364,15 @@ def _build_swsh6_pull_rate_references(config_class: Any) -> Dict[str, Any]:
                 "notes": "Direct source rows for swsh6 source-locked buckets. Previously labeled CharizardX/user-provided transcription.",
             },
             {
+                "source_id": "swsh6_thepricedex_cross_reference_2026_06_holo",
+                "source_name": "ThePriceDex Chilling Reign cross-reference",
+                "source_url": _to_optional_str(source_links.get("swsh6_thepricedex_cross_reference_2026_06_holo")),
+                "source_type": "secondary_index",
+                "source_confidence": "medium_low",
+                "discovered_via": None,
+                "notes": "Secondary-index cross-reference used for provisional holo rare odds (non-direct).",
+            },
+            {
                 "source_id": "dripshop_directional",
                 "source_name": "DripShop directional estimate",
                 "source_url": _to_optional_str(source_links.get("dripshop_directional")),
@@ -1418,7 +1427,7 @@ def _build_swsh7_pull_rate_references(config_class: Any) -> Dict[str, Any]:
             continue
         provisional_by_bucket[normalized_bucket] = {
             "source_bucket_label": source_bucket_label,
-            "source_id": "dripshop",
+            "source_id": _to_optional_str(payload.get("source_id")) or "thepricedex_cross_reference",
             "source_odds": payload.get("source_odds"),
             "caveat": payload.get("assumption"),
         }
@@ -1426,7 +1435,7 @@ def _build_swsh7_pull_rate_references(config_class: Any) -> Dict[str, Any]:
     source_families = source_audit.get("source_families", {}) or {}
     reddit_refs = (((source_families.get("reddit_pull_rate_discussions") or {}).get("references") or [None])[0])
     tcgplayer_refs = (((source_families.get("tcgplayer_evolving_skies_8000_pack") or {}).get("references") or [None])[0])
-    dripshop_refs = (((source_families.get("dripshop") or {}).get("references") or [None])[0])
+    thepricedex_refs = (((source_families.get("thepricedex_cross_reference") or {}).get("references") or [None])[0])
 
     bucket_evidence: List[Dict[str, Any]] = []
     runtime_keys = {_normalize_rarity(key) for key in runtime_table.keys()}
@@ -1524,13 +1533,13 @@ def _build_swsh7_pull_rate_references(config_class: Any) -> Dict[str, Any]:
                 "notes": "Traceability and source-discovery reference for published empirical rows.",
             },
             {
-                "source_id": "dripshop",
-                "source_name": "DripShop directional estimate",
-                "source_url": _to_optional_str(dripshop_refs),
-                "source_type": "secondary_directional",
-                "source_confidence": "medium",
+                "source_id": "swsh7_thepricedex_cross_reference_2026_06_holo",
+                "source_name": "ThePriceDex Evolving Skies cross-reference",
+                "source_url": _to_optional_str(thepricedex_refs),
+                "source_type": "secondary_index",
+                "source_confidence": "medium_low",
                 "discovered_via": None,
-                "notes": "Directional provisional estimate for holo rare.",
+                "notes": "Secondary-index cross-reference used for provisional holo rare odds (non-direct).",
             },
         ],
         "bucket_evidence": bucket_evidence,
