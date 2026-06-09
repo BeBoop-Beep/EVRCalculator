@@ -14,6 +14,7 @@ import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getScoreTootip, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import { getCalloutAccentStyle, getDangerValueStyle, getInterpretationTone } from "@/lib/explore/interpretationTone";
+import { getPokemonSetCards } from "@/lib/pokemon/pokemonSetCardsClient";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -24,7 +25,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const REQUIRED_PACK_PATHS = ["normal", "demi_god_pack", "god_pack"];
 const ANALYSIS_SECTION_ID = "explore-outcomes";
-const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "pack-breakdown"]);
+const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "pack-breakdown", "value-contribution"]);
 const SECTION_ID_MAP = {
   "pack-score": "explore-score",
   "outcome-distribution": "explore-outcomes",
@@ -50,6 +51,7 @@ const RIP_COPY = {
   simpleMetrics: {
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     averagePackValue: "Average Pack Value",
+    averageHitValue: "Average Hit Value",
     currentPackCost: "Estimated Pack Market Price",
     averageLoss: "Average Loss",
     chanceAtBigPull: "Chance at a Big Pull",
@@ -104,6 +106,16 @@ const SIMPLE_PILLAR_INFO_COPY = {
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getFirstNumericValue(source, keys = []) {
+  for (const key of keys) {
+    const value = toNumber(source?.[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
 }
 
 function normalizeProbability(value) {
@@ -171,6 +183,55 @@ function formatMultiplier(value, decimals = 1) {
     return "—";
   }
   return `${parsed.toFixed(decimals)}x`;
+}
+
+function getCardInitials(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "?";
+  }
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return `${words[0][0] || ""}${words[1][0] || ""}`.toUpperCase();
+}
+
+function ChecklistCardTile({ card }) {
+  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
+  const name = card?.name || "Unknown card";
+  const number = card?.cardNumber || null;
+  const rarity = card?.rarity || null;
+  const marketPrice = Number.isFinite(card?.marketPrice) ? currencyFormatter.format(card.marketPrice) : null;
+
+  return (
+    <article className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02),0_8px_18px_rgba(2,6,23,0.14)]">
+      <div className="relative aspect-[3/4] w-full border-b border-[var(--border-subtle)] bg-[var(--surface-panel)]/80">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={name}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-3 text-center text-[var(--text-secondary)]">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]">
+              {getCardInitials(name)}
+            </span>
+            <p className="line-clamp-2 text-xs">{name}</p>
+          </div>
+        )}
+      </div>
+      <div className="space-y-1.5 px-3 py-3">
+        <p className="line-clamp-2 text-sm font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
+        {number ? <p className="text-xs text-[var(--text-secondary)]">No. {number}</p> : null}
+        {rarity ? <p className="text-xs text-[var(--text-secondary)]">{rarity}</p> : null}
+        {marketPrice ? <p className="text-xs font-medium text-[var(--text-primary)]">Market: {marketPrice}</p> : null}
+      </div>
+    </article>
+  );
 }
 
 function normalizePullRateAssumptions(explorePayload) {
@@ -417,15 +478,18 @@ function MetricRow({ label, value, infoText }) {
 
 function HeroMetricTile({ label, value }) {
   const friendlyLabel = getFriendlyMetricLabel(label);
-  const infoText = getMetricTooltip(label);
+  const infoText =
+    label === RIP_COPY.simpleMetrics.averageHitValue
+      ? "Average value of packs that contain a meaningful hit, excluding normal low-value outcomes."
+      : getMetricTooltip(label);
   const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-3">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{friendlyLabel}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{friendlyLabel}</p>
         {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
-      <p className="mt-2 text-base font-semibold" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
+      <p className="mt-2 text-lg font-bold leading-tight [text-shadow:0_1px_1px_rgba(2,6,23,0.22)]" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
         {value}
       </p>
     </div>
@@ -1844,6 +1908,9 @@ export default function RipStatisticsPageClient({
   requestedTargetId,
   explorePayload,
   pageError,
+  profileBaseHref = "/Explore/rip-statistics",
+  targetHrefById = null,
+  setDetailMode = false,
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -1906,11 +1973,20 @@ export default function RipStatisticsPageClient({
   const [viewMode, setViewMode] = useState("simple");
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
-  const isExpertMode = viewMode === "expert";
-  const effectiveValueView = isExpertMode ? activeValueView : "cards";
+  const effectiveViewMode = setDetailMode ? "expert" : viewMode;
+  const isExpertMode = effectiveViewMode === "expert";
+  const effectiveValueView = setDetailMode ? "value" : isExpertMode ? activeValueView : "cards";
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
+  const [setDetailTab, setSetDetailTab] = useState("cards");
+  const [cardsSubTab, setCardsSubTab] = useState("checklist");
+  const [checklistState, setChecklistState] = useState({
+    status: "idle",
+    cards: [],
+    error: null,
+  });
   const heroSetPickerRef = useRef(null);
+  const checklistCacheRef = useRef(new Map());
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
@@ -1920,6 +1996,8 @@ export default function RipStatisticsPageClient({
       ? historicalTrendMeta
       : graphMode === "pack-breakdown"
       ? packBreakdownMeta
+      : graphMode === "value-contribution"
+      ? rarityContributionMeta
       : outcomeDistributionMeta;
 
   const graphSectionFallback =
@@ -1927,6 +2005,8 @@ export default function RipStatisticsPageClient({
       ? interpretation?.historicalTrend
       : graphMode === "pack-breakdown"
       ? interpretation?.packBreakdown
+      : graphMode === "value-contribution"
+      ? interpretation?.rarityContribution
       : interpretation?.outcomeDistribution;
 
   const outcomeDistributionInfo = (
@@ -1981,7 +2061,7 @@ export default function RipStatisticsPageClient({
     ],
     []
   );
-  const displayedSectionNavItems = viewMode === "simple"
+  const displayedSectionNavItems = effectiveViewMode === "simple"
     ? [{ id: "pack-score", label: RIP_COPY.sections.packScore }]
     : sectionNavItems;
 
@@ -2228,9 +2308,31 @@ export default function RipStatisticsPageClient({
   const recommendationBadge = packScoreMeta?.label || null;
   const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: summary.pack_tier });
   const simpleAverageLossValue = getSimpleAverageLossValue(summary);
+  const averageHitValue = getFirstNumericValue(summary, [
+    "average_hit_value",
+    "hit_average_value",
+    "average_value_when_hit",
+    "big_pull_average",
+    "hit_pack_average_value",
+    "average_hit_pack_value",
+    "average_pack_value_of_hits",
+  ]);
+  const setValue = getFirstNumericValue(summary, [
+    "set_value",
+    "total_set_value",
+    "total_card_value",
+    "set_market_value",
+    "collection_value",
+    "total_value",
+  ]);
+
+  const averageHitValueDisplay = averageHitValue === null ? "Coming soon" : formatCurrency(averageHitValue);
+  const setValueDisplay = setValue === null ? "Coming soon" : formatCurrency(setValue);
+
   const decisionMetrics = [
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
     { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
+    { label: RIP_COPY.simpleMetrics.averageHitValue, value: averageHitValueDisplay },
     { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
     { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
@@ -2238,6 +2340,7 @@ export default function RipStatisticsPageClient({
   const primaryDecisionMetricOrder = [
     RIP_COPY.simpleMetrics.currentPackCost,
     RIP_COPY.simpleMetrics.averagePackValue,
+    RIP_COPY.simpleMetrics.averageHitValue,
     RIP_COPY.simpleMetrics.averageLoss,
   ];
   const primaryDecisionMetrics = primaryDecisionMetricOrder
@@ -2265,10 +2368,17 @@ export default function RipStatisticsPageClient({
       options.closeToolsPanel();
     }
 
-    const nextParams = new URLSearchParams(searchParams?.toString() || "");
-    nextParams.set("target_type", requestedTargetType || "set");
-    nextParams.set("target_id", nextTargetId);
+    const nextHref = targetHrefById?.[nextTargetId] || null;
+
     startTransition(() => {
+      if (nextHref) {
+        router.push(nextHref);
+        return;
+      }
+
+      const nextParams = new URLSearchParams(searchParams?.toString() || "");
+      nextParams.set("target_type", requestedTargetType || "set");
+      nextParams.set("target_id", nextTargetId);
       router.push(`${pathname}?${nextParams.toString()}`);
     });
   };
@@ -2309,6 +2419,59 @@ export default function RipStatisticsPageClient({
   useEffect(() => {
     setHeroSetPickerOpen(false);
   }, [requestedTargetId]);
+
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "cards" || cardsSubTab !== "checklist") {
+      return undefined;
+    }
+
+    const setId = String(requestedTargetId || "").trim();
+    if (!setId) {
+      setChecklistState({ status: "empty", cards: [], error: null });
+      return undefined;
+    }
+
+    const cached = checklistCacheRef.current.get(setId);
+    if (cached) {
+      setChecklistState({ status: "success", cards: cached, error: null });
+      return undefined;
+    }
+
+    let isCancelled = false;
+    setChecklistState((previous) => ({
+      status: "loading",
+      cards: previous.status === "success" ? previous.cards : [],
+      error: null,
+    }));
+
+    getPokemonSetCards(setId)
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+        checklistCacheRef.current.set(setId, cards);
+        setChecklistState({
+          status: cards.length > 0 ? "success" : "empty",
+          cards,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setChecklistState({
+          status: "error",
+          cards: [],
+          error: error?.message || "Unable to load cards for this set.",
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId]);
 
   const desktopSidebarContent = (
     <div className="space-y-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/72 p-4 backdrop-blur-sm">
@@ -2436,25 +2599,25 @@ export default function RipStatisticsPageClient({
   return (
     <main className="w-full max-w-full pb-8 pt-0 lg:py-8">
       <PublicProfileLocalScaffold
-        profileBaseHref="/Explore/rip-statistics"
+        profileBaseHref={profileBaseHref}
         mode="public"
         sectionItems={[]}
         mobileNavItems={[]}
-        desktopSidebarContent={desktopSidebarContent}
-        mobileToolsPanelContent={renderMobileToolsPanelContent}
+        desktopSidebarContent={setDetailMode ? null : desktopSidebarContent}
+        mobileToolsPanelContent={setDetailMode ? null : renderMobileToolsPanelContent}
         mobileToolsTitle="Explore Filters & Navigation"
         mobileToolsDescription="Switch TCG and set filters."
         mobileToolsPanelAriaLabel="Explore filters and navigation"
         mobileToolsTriggerLabel="Filters & Tools"
         mobileToolsTriggerTitle="Open filters and navigation"
-        useFloatingToolsOnTablet
-        forceCompactToolsBelow2xl
+        useFloatingToolsOnTablet={!setDetailMode}
+        forceCompactToolsBelow2xl={!setDetailMode}
         centerContentIgnoringSidebar
         desktopContentOffsetClassName="xl:flex xl:justify-center"
         wrapDesktopContentInFrame={false}
         mobileBottomNavVariant="flat"
         mobileBottomNavContent={() => (
-          viewMode === "expert" ? (
+          !setDetailMode && effectiveViewMode === "expert" ? (
             <CompactBottomSectionNav
               activeSection={activeSection}
               onSelect={handleSectionSelect}
@@ -2462,7 +2625,13 @@ export default function RipStatisticsPageClient({
           ) : null
         )}
       >
-        <div className="dashboard-container space-y-8 w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border">
+        <div
+          className={`dashboard-container w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
+            setDetailMode
+              ? "mx-auto max-w-7xl space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
+              : "space-y-8 xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border"
+          }`}
+        >
         {pageError ? (
           <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6">
             <p className="text-base font-semibold text-[var(--text-primary)]">RIP Statistics unavailable</p>
@@ -2472,6 +2641,234 @@ export default function RipStatisticsPageClient({
 
         {!pageError && explorePayload ? (
           <>
+            {setDetailMode ? (
+              <>
+                <section className="page-hero-panel relative overflow-visible rounded-xl px-4 py-4 md:rounded-2xl md:px-6 md:py-5">
+                  <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-xl md:rounded-2xl">
+                    {heroLogoUrl ? (
+                      <div className="absolute left-1/2 top-1/2 h-[112%] w-[112%] -translate-x-1/2 -translate-y-1/2 select-none">
+                        <img
+                          src={heroLogoUrl}
+                          alt=""
+                          aria-hidden="true"
+                          className="h-full w-full object-contain opacity-[0.08] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.12))]"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-4">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] lg:items-stretch">
+                      <div className="flex h-full min-h-full flex-col gap-3">
+                      <div ref={heroSetPickerRef} data-hero-picker className="relative z-20 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
+                        <CenteredSuffixInline
+                          as="button"
+                          type="button"
+                          onClick={() => setHeroSetPickerOpen((open) => !open)}
+                          disabled={isPending || targets.length === 0}
+                          aria-expanded={heroSetPickerOpen}
+                          aria-haspopup="listbox"
+                          aria-controls="hero-set-picker-list"
+                          className="block w-full rounded-lg px-2 py-0 text-left text-xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] md:text-2xl disabled:cursor-not-allowed disabled:opacity-90"
+                          contentClassName="max-w-full whitespace-normal break-words leading-tight"
+                          suffixWrapperClassName="right-1"
+                          suffix={
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 20 20"
+                              className={`h-4 w-4 flex-none text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
+                              fill="currentColor"
+                            >
+                              <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                            </svg>
+                          }
+                          title={targets.length > 0 ? "Switch set" : "No sets available"}
+                        >
+                          <span>{selectedName}</span>
+                        </CenteredSuffixInline>
+
+                        {heroSetPickerOpen ? (
+                          <div
+                            id="hero-set-picker-list"
+                            role="listbox"
+                            aria-label="Available sets"
+                            className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full max-w-full overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
+                          >
+                            {targets.map((target) => {
+                              const isSelected = String(target.target_id) === String(requestedTargetId || "");
+                              return (
+                                <button
+                                  key={`hero-set-option:${target.target_type}:${target.target_id}`}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={isSelected}
+                                  onClick={() => {
+                                    handleTargetIdChange(String(target.target_id || ""));
+                                    setHeroSetPickerOpen(false);
+                                  }}
+                                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
+                                    isSelected
+                                      ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
+                                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                                  }`}
+                                >
+                                  <span className="min-w-0 flex-1 truncate whitespace-nowrap">{target.name}</span>
+                                  {isSelected ? (
+                                    <span className="shrink-0 text-xs font-medium text-[var(--accent)]">Current</span>
+                                  ) : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{RIP_COPY.scoreLabel}</p>
+                        <div className="mt-2 flex items-end gap-2">
+                          <span className="text-5xl font-semibold leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-6xl">{displayedTopScore}</span>
+                          <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
+                        </div>
+                        <div className="mt-3">
+                          <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <RankBadge
+                            rank={summary.pack_tier}
+                            label="Rank"
+                            size="md"
+                            title={
+                              summary.pack_rank === null || summary.pack_rank === undefined
+                                ? "Rank unavailable"
+                                : `Rank #${summary.pack_rank}`
+                            }
+                          />
+                          <RecommendationBadge label={recommendationBadge} rankTier={summary.pack_tier} />
+                        </div>
+                      </div>
+
+                      <div className="flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">Set Value</p>
+                        </div>
+                        <p className="mt-2 text-lg font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">{setValueDisplay}</p>
+                        <p className="mt-auto pt-1 text-xs text-[var(--text-secondary)]">Trend coming soon</p>
+                      </div>
+                      </div>
+
+                      <div className="flex h-full flex-col justify-between gap-2.5">
+                        <div
+                          className="rounded-xl border-l-2 border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-4 py-3"
+                          style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: summary.pack_tier })}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
+                          <p className="mt-1.5 text-sm text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
+                        </div>
+
+                        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                          {decisionMetrics.map((metric) => (
+                            <HeroMetricTile key={`set-compact-${metric.label}`} label={metric.label} value={metric.value} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <SectionViewTabs
+                  value={setDetailTab}
+                  onChange={setSetDetailTab}
+                  options={[
+                    { value: "cards", label: "Cards" },
+                    { value: "pull-rates", label: "Pull Rates" },
+                    { value: "analytics", label: "Analytics" },
+                  ]}
+                />
+
+                {setDetailTab === "cards" ? (
+                  <section className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:p-5">
+                    <SectionViewTabs
+                      value={cardsSubTab}
+                      onChange={setCardsSubTab}
+                      options={[
+                        { value: "checklist", label: "Checklist" },
+                        { value: "simulated-impact", label: "Simulated Impact" },
+                      ]}
+                    />
+
+                    {cardsSubTab === "checklist" ? (
+                      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-4 py-4">
+                        {checklistState.status === "loading" ? (
+                          <p className="text-sm text-[var(--text-secondary)]">Loading cards...</p>
+                        ) : null}
+
+                        {checklistState.status === "error" ? (
+                          <p className="text-sm text-red-300">{checklistState.error || "Unable to load cards for this set."}</p>
+                        ) : null}
+
+                        {checklistState.status === "empty" ? (
+                          <p className="text-sm text-[var(--text-secondary)]">No cards found for this set.</p>
+                        ) : null}
+
+                        {checklistState.status === "success" ? (
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                            {checklistState.cards.map((card) => (
+                              <ChecklistCardTile
+                                key={`${card.id || card.cardNumber || card.name}`}
+                                card={card}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <SectionCard
+                        title="Simulated Impact"
+                        subtitle="Cards ranked by how much they contribute to the simulated pack value."
+                      >
+                        <InterpretationInsight
+                          sectionMeta={topEvDriversMeta}
+                          fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
+                          compact
+                          showEvidence={false}
+                          className="mb-3"
+                        />
+
+                        {topEvEvidenceRows.length > 0 ? (
+                          <div className="mb-3 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
+                            {topEvEvidenceRows.map(([label, value]) => (
+                              <span
+                                key={`${label}:${value}`}
+                                className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                              >
+                                <span className="shrink-0">{label}</span>
+                                <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                      </SectionCard>
+                    )}
+                  </section>
+                ) : null}
+
+                {setDetailTab === "pull-rates" ? (
+                  <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:p-5">
+                    {pullRateAssumptions ? (
+                      <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                    ) : (
+                      <p className="text-sm text-[var(--text-secondary)]">Pull-rate data coming soon for this set.</p>
+                    )}
+                  </section>
+                ) : null}
+              </>
+            ) : null}
+
+            {!setDetailMode || setDetailTab === "analytics" ? (
+              <>
+            {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
               {heroLogoUrl ? (
                 <div className="pointer-events-none absolute left-1/2 top-[18%] z-0 h-[100%] w-[100%] -translate-x-1/2 -translate-y-1/2 select-none sm:top-1/2 sm:h-[107%] sm:w-[107%]">
@@ -2602,7 +2999,7 @@ export default function RipStatisticsPageClient({
                     </div>
 
                     <div className="mx-auto mt-5 w-full max-w-5xl text-left">
-                      {viewMode === "simple" ? (
+                      {effectiveViewMode === "simple" ? (
                         <>
                           <div className="hidden lg:block">
                             <div className="mb-3 flex items-center gap-2">
@@ -2716,7 +3113,7 @@ export default function RipStatisticsPageClient({
                       )}
                     </div>
 
-                    {viewMode === "expert" ? (
+                    {effectiveViewMode === "expert" ? (
                       <>
                         <div className="mx-auto mt-4 w-full max-w-2xl">
                           <button
@@ -2733,8 +3130,9 @@ export default function RipStatisticsPageClient({
                 </div>
               </div>
             </section>
+            ) : null}
 
-            {viewMode === "simple" ? (
+            {effectiveViewMode === "simple" ? (
               <SetIntelligenceSection
                 summary={summary}
                 simpleMode
@@ -2742,7 +3140,7 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-            {viewMode === "simple" ? (
+            {effectiveViewMode === "simple" ? (
             <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
               <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
                 <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
@@ -2774,8 +3172,8 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {viewMode === "expert" ? (
-            <section className="pt-8">
+            {effectiveViewMode === "expert" ? (
+            <section className="pt-4">
               <div className="grid gap-4 xl:grid-cols-3">
                 {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
@@ -2847,7 +3245,7 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {viewMode === "expert" ? (
+            {effectiveViewMode === "expert" ? (
               <SetIntelligenceSection
                 summary={summary}
                 simpleMode={false}
@@ -2855,14 +3253,16 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-            {viewMode === "expert" ? (
-            <section id={ANALYSIS_SECTION_ID} style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 pt-7 md:scroll-mt-28">
+            {effectiveViewMode === "expert" ? (
+            <section id={ANALYSIS_SECTION_ID} style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 pt-4 md:scroll-mt-28">
               <SectionCard
                 title={
                   graphMode === "historical-trend"
                     ? RIP_COPY.sections.historicalTrend
                     : graphMode === "pack-breakdown"
                     ? RIP_COPY.sections.packBreakdown
+                    : graphMode === "value-contribution"
+                    ? "Value Contribution"
                     : RIP_COPY.sections.outcomeDistribution
                 }
                 subtitle={
@@ -2870,7 +3270,13 @@ export default function RipStatisticsPageClient({
                     ? "See where a typical pack lands, how often packs miss, and how far the best hits can run."
                     : null
                 }
-                titleInfoText={graphMode === "outcome-distribution" ? outcomeDistributionInfo : null}
+                titleInfoText={
+                  graphMode === "outcome-distribution"
+                    ? outcomeDistributionInfo
+                    : graphMode === "value-contribution"
+                    ? rarityContributionInfo
+                    : null
+                }
               >
                 <SectionViewTabs
                   className="mb-4"
@@ -2880,6 +3286,7 @@ export default function RipStatisticsPageClient({
                     { value: "outcome-distribution", label: RIP_COPY.sections.outcomeDistribution },
                     { value: "historical-trend", label: RIP_COPY.sections.historicalTrend },
                     { value: "pack-breakdown", label: RIP_COPY.sections.packBreakdown },
+                    ...(setDetailMode ? [{ value: "value-contribution", label: "Value Contribution" }] : []),
                   ]}
                 />
 
@@ -2906,7 +3313,7 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {graphMode === "historical-trend" ? (
-                  <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} />
+                  <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} />
                 ) : graphMode === "pack-breakdown" ? (
                   <div className="grid gap-5 md:grid-cols-2">
                     <div>
@@ -2918,11 +3325,19 @@ export default function RipStatisticsPageClient({
                       <StateBars stateRows={normalStateRows} />
                     </div>
                   </div>
+                ) : graphMode === "value-contribution" ? (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-base font-semibold text-[var(--text-primary)]">Where the Value Comes From</p>
+                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">See how each rarity bucket contributes to modeled pack value in this simulation.</p>
+                    </div>
+                    <RarityContributionContent rankings={rankings} />
+                  </div>
                 ) : (
                   <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
                 )}
 
-                {graphMode !== "pack-breakdown" ? (
+                {graphMode !== "pack-breakdown" && graphMode !== "value-contribution" ? (
                   <>
                     {graphMode === "historical-trend" ? (
                       <div className="mt-4 hidden gap-3 sm:grid-cols-3 lg:grid lg:grid-cols-6">
@@ -2971,19 +3386,21 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {viewMode === "expert" ? (
+            {effectiveViewMode === "expert" && !setDetailMode ? (
             <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
               <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
-                <SectionViewTabs
-                  className="mb-4"
-                  value={activeValueView}
-                  onChange={setActiveValueView}
-                  options={[
-                    { value: "cards", label: "Cards Carrying the Set" },
-                    { value: "value", label: "Value Contribution" },
-                    { value: "pull-rates", label: "Pull Rates" },
-                  ]}
-                />
+                {!setDetailMode ? (
+                  <SectionViewTabs
+                    className="mb-4"
+                    value={activeValueView}
+                    onChange={setActiveValueView}
+                    options={[
+                      { value: "cards", label: "Cards Carrying the Set" },
+                      { value: "value", label: "Value Contribution" },
+                      { value: "pull-rates", label: "Pull Rates" },
+                    ]}
+                  />
+                ) : null}
 
                 <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
 
@@ -3070,6 +3487,8 @@ export default function RipStatisticsPageClient({
                   )}
                 </div>
               </section>
+            ) : null}
+              </>
             ) : null}
           </>
         ) : null}
