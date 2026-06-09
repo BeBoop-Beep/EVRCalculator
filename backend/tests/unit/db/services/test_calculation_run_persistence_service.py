@@ -959,6 +959,233 @@ def test_persist_parent_run_with_price_snapshots_allows_missing_etb_comparison_a
     assert snapshot_keys == ["pack", "booster_box"]
 
 
+@patch("backend.db.services.calculation_run_persistence_service.create_calculation_price_snapshot")
+@patch("backend.db.services.calculation_run_persistence_service.create_parent_calculation_run")
+@patch("backend.db.services.calculation_run_persistence_service.get_or_create_calculation_config")
+@patch("backend.db.services.calculation_run_persistence_service.build_calculation_config_payload")
+@patch("backend.db.services.calculation_run_persistence_service.get_set_by_canonical_key")
+def test_persist_parent_run_allows_non_applicable_booster_box_ratio_when_cost_missing(
+    mock_get_set_by_canonical_key,
+    mock_build_calculation_config_payload,
+    mock_get_or_create_calculation_config,
+    mock_create_parent_calculation_run,
+    mock_create_calculation_price_snapshot,
+):
+    class _Config:
+        USE_MONTE_CARLO_V2 = True
+
+    mock_get_set_by_canonical_key.return_value = {"id": "set-1"}
+    mock_build_calculation_config_payload.return_value = ("cfg-hash", {"cfg": True})
+    mock_get_or_create_calculation_config.return_value = {"id": "cfg-1"}
+    mock_create_parent_calculation_run.return_value = {"id": "run-1"}
+
+    result = persist_parent_run_with_price_snapshots(
+        config=_Config(),
+        canonical_key="paldeanFates",
+        set_name="Paldean Fates",
+        input_mode="db",
+        price_inputs={"pack": 5.0},
+        pack_value_vs_cost_comparison={
+            "simulated_mean_pack_value_vs_pack_cost": {
+                "roi": 0.2,
+                "value_to_cost_ratio": 1.2,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "simulated_median_pack_value_vs_pack_cost": {
+                "roi": -0.1,
+                "value_to_cost_ratio": 0.9,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "calculated_expected_pack_value_vs_pack_cost": {
+                "expected_value": 1.1,
+                "roi": 1.1,
+                "value_to_cost_ratio": 1.1,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+        },
+        etb_value_vs_cost_comparison=None,
+        booster_box_value_vs_cost_comparison={
+            "simulated_mean_booster_box_value_vs_booster_box_cost": {
+                "cost": None,
+                "roi": None,
+                "value_to_cost_ratio": None,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "simulated_median_booster_box_value_vs_booster_box_cost": {
+                "cost": None,
+                "roi": None,
+                "value_to_cost_ratio": None,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+            "calculated_expected_booster_box_value_vs_booster_box_cost": {
+                "cost": None,
+                "roi": None,
+                "value_to_cost_ratio": None,
+                "roi_formula": "(expected_value - cost) / cost",
+                "metric_semantics_version": "formula_roi_v2",
+            },
+        },
+    )
+
+    assert result["run_id"] == "run-1"
+    comparison_payload = mock_create_parent_calculation_run.call_args.args[6]
+    assert comparison_payload["simulated_mean_booster_box_value_vs_booster_box_cost"] is None
+    assert comparison_payload["simulated_median_booster_box_value_vs_booster_box_cost"] is None
+    assert comparison_payload["calculated_expected_booster_box_value_vs_booster_box_cost"] is None
+    mock_create_calculation_price_snapshot.assert_called_once()
+
+
+@patch("backend.db.services.calculation_run_persistence_service.get_or_create_calculation_config")
+@patch("backend.db.services.calculation_run_persistence_service.build_calculation_config_payload")
+@patch("backend.db.services.calculation_run_persistence_service.get_set_by_canonical_key")
+def test_persist_parent_run_requires_booster_box_ratio_when_booster_cost_is_present(
+    mock_get_set_by_canonical_key,
+    mock_build_calculation_config_payload,
+    mock_get_or_create_calculation_config,
+):
+    class _Config:
+        USE_MONTE_CARLO_V2 = True
+
+    mock_get_set_by_canonical_key.return_value = {"id": "set-1"}
+    mock_build_calculation_config_payload.return_value = ("cfg-hash", {"cfg": True})
+    mock_get_or_create_calculation_config.return_value = {"id": "cfg-1"}
+
+    with pytest.raises(
+        ValueError,
+        match="Missing required field: simulated_mean_booster_box_value_vs_booster_box_cost.value_to_cost_ratio",
+    ):
+        persist_parent_run_with_price_snapshots(
+            config=_Config(),
+            canonical_key="paldeaEvolved",
+            set_name="Paldea Evolved",
+            input_mode="db",
+            price_inputs={"pack": 5.0},
+            pack_value_vs_cost_comparison={
+                "simulated_mean_pack_value_vs_pack_cost": {
+                    "roi": 0.2,
+                    "value_to_cost_ratio": 1.2,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "simulated_median_pack_value_vs_pack_cost": {
+                    "roi": -0.1,
+                    "value_to_cost_ratio": 0.9,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "calculated_expected_pack_value_vs_pack_cost": {
+                    "expected_value": 1.1,
+                    "roi": 1.1,
+                    "value_to_cost_ratio": 1.1,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+            },
+            etb_value_vs_cost_comparison=None,
+            booster_box_value_vs_cost_comparison={
+                "simulated_mean_booster_box_value_vs_booster_box_cost": {
+                    "cost": 180.0,
+                    "roi": 0.3,
+                    "value_to_cost_ratio": None,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "simulated_median_booster_box_value_vs_booster_box_cost": {
+                    "cost": 180.0,
+                    "roi": 0.1,
+                    "value_to_cost_ratio": 1.1,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "calculated_expected_booster_box_value_vs_booster_box_cost": {
+                    "cost": 180.0,
+                    "roi": 0.2,
+                    "value_to_cost_ratio": 1.2,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+            },
+        )
+
+
+@patch("backend.db.services.calculation_run_persistence_service.get_or_create_calculation_config")
+@patch("backend.db.services.calculation_run_persistence_service.build_calculation_config_payload")
+@patch("backend.db.services.calculation_run_persistence_service.get_set_by_canonical_key")
+def test_persist_parent_run_still_requires_pack_ratio_fields(
+    mock_get_set_by_canonical_key,
+    mock_build_calculation_config_payload,
+    mock_get_or_create_calculation_config,
+):
+    class _Config:
+        USE_MONTE_CARLO_V2 = True
+
+    mock_get_set_by_canonical_key.return_value = {"id": "set-1"}
+    mock_build_calculation_config_payload.return_value = ("cfg-hash", {"cfg": True})
+    mock_get_or_create_calculation_config.return_value = {"id": "cfg-1"}
+
+    with pytest.raises(
+        ValueError,
+        match="Missing required field: simulated_mean_pack_value_vs_pack_cost.value_to_cost_ratio",
+    ):
+        persist_parent_run_with_price_snapshots(
+            config=_Config(),
+            canonical_key="paldeaEvolved",
+            set_name="Paldea Evolved",
+            input_mode="db",
+            price_inputs={"pack": 5.0},
+            pack_value_vs_cost_comparison={
+                "simulated_mean_pack_value_vs_pack_cost": {
+                    "roi": 0.2,
+                    "value_to_cost_ratio": None,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "simulated_median_pack_value_vs_pack_cost": {
+                    "roi": -0.1,
+                    "value_to_cost_ratio": 0.9,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "calculated_expected_pack_value_vs_pack_cost": {
+                    "expected_value": 1.1,
+                    "roi": 1.1,
+                    "value_to_cost_ratio": 1.1,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+            },
+            etb_value_vs_cost_comparison=None,
+            booster_box_value_vs_cost_comparison={
+                "simulated_mean_booster_box_value_vs_booster_box_cost": {
+                    "cost": None,
+                    "roi": None,
+                    "value_to_cost_ratio": None,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "simulated_median_booster_box_value_vs_booster_box_cost": {
+                    "cost": None,
+                    "roi": None,
+                    "value_to_cost_ratio": None,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+                "calculated_expected_booster_box_value_vs_booster_box_cost": {
+                    "cost": None,
+                    "roi": None,
+                    "value_to_cost_ratio": None,
+                    "roi_formula": "(expected_value - cost) / cost",
+                    "metric_semantics_version": "formula_roi_v2",
+                },
+            },
+        )
+
+
 def test_extract_canonical_key_from_run_notes_reads_expected_token():
     assert _extract_canonical_key_from_run_notes("canonical_key=swsh7;set_name=Evolving Skies;input_mode=db") == "swsh7"
 

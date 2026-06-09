@@ -30,7 +30,7 @@ class SetLostOriginConfig(BaseSetConfig):
     RARE_SLOT_PROBABILITY = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.6)
             + (1 / 7.6)
             + (1 / 34)
             + (1 / 16)
@@ -39,7 +39,7 @@ class SetLostOriginConfig(BaseSetConfig):
             + (1 / 125)
             + (1 / 200)
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.6,
         "regular v": 1 / 7.6,
         "regular vmax": 1 / 34,
         "regular vstar": 1 / 16,
@@ -278,6 +278,16 @@ class SetLostOriginConfig(BaseSetConfig):
             "used_in_runtime": False,
             "source_ids": [],
             "caveat": "Unsupported alt-art child split must not be inferred from broad evidence.",
+        },
+        {
+            "source_bucket_label": "ThePriceDex Rare Holo",
+            "normalized_bucket": "holo rare",
+            "odds_display": "1/5.6",
+            "source_status": "SECONDARY_INDEX_ONLY",
+            "source_granularity_status": "SECONDARY_INDEX_ONLY",
+            "used_in_runtime": True,
+            "source_ids": ["lost_origin_thepricedex_cross_reference_2026_05"],
+            "caveat": "Best-available ThePriceDex cross-reference used for runtime; not SOURCE_DIRECT evidence.",
         },
         {
             "source_bucket_label": "Rare residual",

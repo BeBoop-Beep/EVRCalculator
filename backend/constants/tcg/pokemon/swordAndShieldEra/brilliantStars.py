@@ -30,7 +30,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
     RARE_SLOT_PROBABILITY = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.7)
             + (1 / 7.2)
             + (1 / 30)
             + (1 / 15)
@@ -39,7 +39,7 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             + (1 / 120)
             + (1 / 180)
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.7,
         "regular v": 1 / 7.2,
         "regular vmax": 1 / 30,
         "regular vstar": 1 / 15,
@@ -257,6 +257,16 @@ class SetBrilliantStarsConfig(BaseSetConfig):
             "used_in_runtime": True,
             "source_ids": ["brilliant_stars_reddit_2160_pack_study_2022_03"],
             "caveat": "Direct broad gold bucket retained.",
+        },
+        {
+            "source_bucket_label": "ThePriceDex Rare Holo",
+            "normalized_bucket": "holo rare",
+            "odds_display": "1/5.7",
+            "source_status": "SECONDARY_INDEX_ONLY",
+            "source_granularity_status": "SECONDARY_INDEX_ONLY",
+            "used_in_runtime": True,
+            "source_ids": ["brilliant_stars_thepricedex_cross_reference_2026_05"],
+            "caveat": "Best-available ThePriceDex cross-reference used for runtime; not SOURCE_DIRECT evidence.",
         },
         {
             "source_bucket_label": "Rare residual",

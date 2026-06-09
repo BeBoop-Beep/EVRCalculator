@@ -277,6 +277,7 @@ class SetChillingReignConfig(BaseSetConfig):
 
     CHILLING_REIGN_PULL_RATE_SOURCE_LINKS = {
         "charizardx_user_rows": "https://x.com/CharmanderHelps/status/1417261446761680898",
+        "swsh6_thepricedex_cross_reference_2026_06_holo": "https://www.thepricedex.com/pokemon/swsh06-chilling-reign/pull-rates",
         "dripshop_directional": "https://www.dripshop.live/blog/pokemon-trading-cards/chilling-reign-pull-rates---full-breakdown--rarest-cards",
         "reddit_directional": "https://www.reddit.com/r/PokemonTCG/comments/o2nhez/chilling_reign_pull_rate_data_from_5000_packs/",
     }
@@ -769,7 +770,7 @@ class SetChillingReignConfig(BaseSetConfig):
     CHILLING_REIGN_RARE_SLOT_PROBABILITY_DRAFT = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.6)
             + (1 / 7.5)
             + (1 / 22)
             + (1 / 47)
@@ -779,7 +780,7 @@ class SetChillingReignConfig(BaseSetConfig):
             + (1 / 83)
             + (1 / 96)
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.6,
         "regular v": 1 / 7.5,
         "regular vmax": 1 / 22,
         "full art v": 1 / 47,
@@ -847,13 +848,14 @@ class SetChillingReignConfig(BaseSetConfig):
         },
         "source_rows_used_with_assumptions": {
             "dripshop_holo_directional": {
-                "source_odds": "~1/3",
+                "source_odds": "1/5.6",
                 "normalized_bucket": "holo rare",
-                "probability": 1 / 3,
+                "probability": 1 / 5.6,
                 "source_granularity_status": "PROVISIONAL_DIRECTIONAL",
+                "source_id": "swsh6_thepricedex_cross_reference_2026_06_holo",
                 "assumption": (
-                    "Directional secondary source used as best-available empirical proxy for holo rare. "
-                    "Not represented as official publisher odds."
+                    "Best-available ThePriceDex cross-reference used as provisional holo-rare proxy. "
+                    "This is secondary-index evidence and not SOURCE_DIRECT publisher odds."
                 ),
             },
             "reddit_regular_v_directional": {
@@ -928,8 +930,8 @@ class SetChillingReignConfig(BaseSetConfig):
                 "source_available": True,
                 "decision": "PROVISIONAL_DIRECTIONAL",
                 "reason": (
-                    "Secondary claim 'holo around one in three packs' is used as best-available empirical "
-                    "draft input with explicit assumption flag."
+                    "Best-available ThePriceDex cross-reference (1/5.6) is used as provisional secondary "
+                    "input with explicit non-direct caveat."
                 ),
             },
             "regular v": {

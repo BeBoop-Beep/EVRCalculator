@@ -30,7 +30,7 @@ class SetBattleStylesConfig(BaseSetConfig):
     RARE_SLOT_PROBABILITY = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.6)
             + (1 / 7.5)
             + (1 / 24)
             + (1 / 56)
@@ -39,7 +39,7 @@ class SetBattleStylesConfig(BaseSetConfig):
             + (1 / 157)
             + (1 / 684)
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.6,
         "regular v": 1 / 7.5,
         "regular vmax": 1 / 24,
         "full art": 1 / 56,
@@ -254,6 +254,16 @@ class SetBattleStylesConfig(BaseSetConfig):
             "used_in_runtime": True,
             "source_ids": ["battle_styles_community_pack_study"],
             "caveat": "Direct broad gold bucket retained.",
+        },
+        {
+            "source_bucket_label": "ThePriceDex Rare Holo",
+            "normalized_bucket": "holo rare",
+            "odds_display": "1/5.6",
+            "source_status": "SECONDARY_INDEX_ONLY",
+            "source_granularity_status": "SECONDARY_INDEX_ONLY",
+            "used_in_runtime": True,
+            "source_ids": ["battle_styles_thepricedex_cross_reference_2026_05"],
+            "caveat": "Best-available ThePriceDex cross-reference used for runtime; not SOURCE_DIRECT evidence.",
         },
         {
             "source_bucket_label": "Rare residual",

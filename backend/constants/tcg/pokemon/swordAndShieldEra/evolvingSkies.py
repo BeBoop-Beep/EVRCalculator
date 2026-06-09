@@ -366,7 +366,7 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
     EVOLVING_SKIES_RARE_SLOT_PROBABILITY_DRAFT = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.5)
             + 0.1056
             + 0.056
             + 0.0278
@@ -375,7 +375,7 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
             + 0.0084
             + 0.0091
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.5,
         "regular v": 0.1056,
         "regular vmax": 0.056,
         "full art": 0.0278,
@@ -439,11 +439,14 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
         },
         "source_rows_used_with_assumptions": {
             "holo_rare_secondary_directional": {
-                "source_odds": "~1/3",
+                "source_odds": "1/5.5",
                 "normalized_bucket": "holo rare",
-                "probability": 1 / 3,
+                "probability": 1 / 5.5,
+                "source_granularity_status": "PROVISIONAL_DIRECTIONAL",
+                "source_id": "swsh7_thepricedex_cross_reference_2026_06_holo",
                 "assumption": (
-                    "Directional cross-source estimate used as best-available empirical draft for holo rare."
+                    "Best-available ThePriceDex cross-reference used as provisional holo-rare estimate; "
+                    "not SOURCE_DIRECT evidence."
                 ),
             },
         },
@@ -500,15 +503,15 @@ class SetEvolvingSkiesConfig(BaseSetConfig):
                 ],
                 "notes": "Primary source-level rates for swsh7 modeling granularity.",
             },
-            "dripshop": {
-                "status": "secondary_directional",
+            "thepricedex_cross_reference": {
+                "status": "secondary_index_cross_reference",
                 "references": [
-                    "https://www.dripshop.live/blog/pokemon-trading-cards/evolving-skies-pull-rates---full-breakdown--rarest-cards",
+                    "https://www.thepricedex.com/pokemon/swsh07-evolving-skies/pull-rates",
                 ],
                 "rows_transcribed": [
-                    "holo around one in three packs",
+                    "Rare Holo: 1 in 5.5",
                 ],
-                "notes": "Used only as assumption-backed directional support for holo rare in draft table.",
+                "notes": "Used as secondary-index cross-reference for holo rare; never treated as SOURCE_DIRECT.",
             },
         },
         "direct_non_overlapping_candidate_rows": {

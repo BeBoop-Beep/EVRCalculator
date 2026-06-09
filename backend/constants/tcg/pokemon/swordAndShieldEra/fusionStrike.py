@@ -33,12 +33,12 @@ class SetFusionStrikeConfig(BaseSetConfig):
     # Primary source rows are from Reddit/TheGameCapital (3024 packs).
     # - Hyper is treated as rainbow rare taxonomy.
     # - Gold is treated as gold rare taxonomy.
-    # - holo rare remains an explicit SWSH-era assumption.
+    # - holo rare uses best-available ThePriceDex cross-reference (secondary-index only).
     # - rare is residual mass after explicit buckets.
     RARE_SLOT_PROBABILITY = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.6)
             + (1 / 7.8)
             + (1 / 28)
             + (1 / 66)
@@ -48,7 +48,7 @@ class SetFusionStrikeConfig(BaseSetConfig):
             + (1 / 137)
             + (1 / 275)
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.6,
         "regular v": 1 / 7.8,
         "regular vmax": 1 / 28,
         "full art pokemon": 1 / 66,
@@ -378,6 +378,15 @@ class SetFusionStrikeConfig(BaseSetConfig):
             "source_granularity_status": "SOURCE_DIRECT",
             "source_ids": ["fusion_strike_tcgplayer_instagram_4000plus_2021_11"],
             "caveat": "Social media sample artifact.",
+        },
+        {
+            "source_bucket_label": "Rare Holo",
+            "normalized_bucket": "holo rare",
+            "odds_display": "1/5.6",
+            "source_status": "SECONDARY_INDEX_ONLY",
+            "source_granularity_status": "SECONDARY_INDEX_ONLY",
+            "source_ids": ["fusion_strike_thepricedex_cross_reference_2026_05"],
+            "caveat": "Best-available ThePriceDex cross-reference used for runtime; not SOURCE_DIRECT evidence.",
         },
         {
             "source_bucket_label": "Secret Rare",

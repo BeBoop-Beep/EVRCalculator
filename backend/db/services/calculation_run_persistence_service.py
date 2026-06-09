@@ -183,16 +183,28 @@ def _build_comparison_metrics_payload(
     etb_value_vs_cost_comparison: Mapping[str, Any] | None,
     booster_box_value_vs_cost_comparison: Mapping[str, Any] | None,
 ) -> dict[str, float | None]:
-    def _require_explicit_semantics(payload: Mapping[str, Any], field_name: str) -> None:
-        _require_float(payload.get("value_to_cost_ratio"), f"{field_name}.value_to_cost_ratio")
+    def _require_explicit_semantics(
+        payload: Mapping[str, Any],
+        field_name: str,
+        *,
+        require_value_to_cost_ratio: bool,
+    ) -> None:
+        if require_value_to_cost_ratio:
+            _require_float(payload.get("value_to_cost_ratio"), f"{field_name}.value_to_cost_ratio")
+        else:
+            _coerce_optional_float(payload.get("value_to_cost_ratio"), f"{field_name}.value_to_cost_ratio")
         _require_nonempty_str(payload.get("roi_formula"), f"{field_name}.roi_formula")
         _require_nonempty_str(payload.get("metric_semantics_version"), f"{field_name}.metric_semantics_version")
+
+    def _has_applicable_cost(payload: Mapping[str, Any], field_name: str) -> bool:
+        cost = _coerce_optional_float(payload.get("cost"), f"{field_name}.cost")
+        return cost is not None and cost > 0.0
 
     def _extract_roi(comparisons: Mapping[str, Any], comparison_key: str, field_name: str) -> float | None:
         payload = comparisons.get(comparison_key)
         if not isinstance(payload, Mapping):
             raise ValueError(f"Missing required field: {field_name}")
-        _require_explicit_semantics(payload, field_name)
+        _require_explicit_semantics(payload, field_name, require_value_to_cost_ratio=True)
         return _coerce_optional_float(payload.get("roi"), field_name)
 
     def _extract_optional_roi(
@@ -205,15 +217,43 @@ def _build_comparison_metrics_payload(
         payload = comparisons.get(comparison_key)
         if not isinstance(payload, Mapping):
             return None
-        _require_explicit_semantics(payload, field_name)
+        _require_explicit_semantics(payload, field_name, require_value_to_cost_ratio=True)
         return _coerce_optional_float(payload.get("roi"), field_name)
 
     def _extract_expected_value(comparisons: Mapping[str, Any], comparison_key: str, field_name: str) -> float | None:
         payload = comparisons.get(comparison_key)
         if not isinstance(payload, Mapping):
             raise ValueError(f"Missing required field: {field_name}")
-        _require_explicit_semantics(payload, field_name)
+        _require_explicit_semantics(payload, field_name, require_value_to_cost_ratio=True)
         return _coerce_optional_float(payload.get("expected_value"), field_name)
+
+    booster_ratio_skip_logged = False
+
+    def _extract_booster_box_roi_optional_when_not_applicable(
+        comparisons: Mapping[str, Any] | None,
+        comparison_key: str,
+        field_name: str,
+    ) -> float | None:
+        nonlocal booster_ratio_skip_logged
+        if not isinstance(comparisons, Mapping):
+            return None
+
+        payload = comparisons.get(comparison_key)
+        if not isinstance(payload, Mapping):
+            return None
+
+        applicable = _has_applicable_cost(payload, field_name)
+        _require_explicit_semantics(payload, field_name, require_value_to_cost_ratio=applicable)
+
+        if not applicable and not booster_ratio_skip_logged:
+            booster_ratio_skip_logged = True
+            logger.debug(
+                "Booster-box comparison metric is non-applicable; allowing null ratio fields for %s (cost=%s)",
+                field_name,
+                payload.get("cost"),
+            )
+
+        return _coerce_optional_float(payload.get("roi"), field_name)
 
     return {
         "simulated_mean_pack_value_vs_pack_cost": _extract_roi(
@@ -246,17 +286,17 @@ def _build_comparison_metrics_payload(
             "calculated_expected_etb_value_vs_etb_cost",
             "calculated_expected_etb_value_vs_etb_cost",
         ),
-        "simulated_mean_booster_box_value_vs_booster_box_cost": _extract_roi(
+        "simulated_mean_booster_box_value_vs_booster_box_cost": _extract_booster_box_roi_optional_when_not_applicable(
             booster_box_value_vs_cost_comparison,
             "simulated_mean_booster_box_value_vs_booster_box_cost",
             "simulated_mean_booster_box_value_vs_booster_box_cost",
         ),
-        "simulated_median_booster_box_value_vs_booster_box_cost": _extract_roi(
+        "simulated_median_booster_box_value_vs_booster_box_cost": _extract_booster_box_roi_optional_when_not_applicable(
             booster_box_value_vs_cost_comparison,
             "simulated_median_booster_box_value_vs_booster_box_cost",
             "simulated_median_booster_box_value_vs_booster_box_cost",
         ),
-        "calculated_expected_booster_box_value_vs_booster_box_cost": _extract_roi(
+        "calculated_expected_booster_box_value_vs_booster_box_cost": _extract_booster_box_roi_optional_when_not_applicable(
             booster_box_value_vs_cost_comparison,
             "calculated_expected_booster_box_value_vs_booster_box_cost",
             "calculated_expected_booster_box_value_vs_booster_box_cost",

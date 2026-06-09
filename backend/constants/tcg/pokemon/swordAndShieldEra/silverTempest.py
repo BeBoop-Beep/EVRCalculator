@@ -30,7 +30,7 @@ class SetSilverTempestConfig(BaseSetConfig):
     RARE_SLOT_PROBABILITY = {
         "rare": 1
         - (
-            (1 / 3)
+            (1 / 5.6)
             + (1 / 7.8)
             + (1 / 35)
             + (1 / 16)
@@ -39,7 +39,7 @@ class SetSilverTempestConfig(BaseSetConfig):
             + (1 / 130)
             + (1 / 210)
         ),
-        "holo rare": 1 / 3,
+        "holo rare": 1 / 5.6,
         "regular v": 1 / 7.8,
         "regular vmax": 1 / 35,
         "regular vstar": 1 / 16,
@@ -268,6 +268,16 @@ class SetSilverTempestConfig(BaseSetConfig):
             "used_in_runtime": True,
             "source_ids": ["silver_tempest_tcgplayer_empirical"],
             "caveat": "Only directly supported alternate-art child is modeled.",
+        },
+        {
+            "source_bucket_label": "ThePriceDex Rare Holo",
+            "normalized_bucket": "holo rare",
+            "odds_display": "1/5.6",
+            "source_status": "SECONDARY_INDEX_ONLY",
+            "source_granularity_status": "SECONDARY_INDEX_ONLY",
+            "used_in_runtime": True,
+            "source_ids": ["silver_tempest_thepricedex_cross_reference_2026_05"],
+            "caveat": "Best-available ThePriceDex cross-reference used for runtime; not SOURCE_DIRECT evidence.",
         },
         {
             "source_bucket_label": "Rare residual",
