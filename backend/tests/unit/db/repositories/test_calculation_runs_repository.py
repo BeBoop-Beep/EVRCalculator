@@ -109,6 +109,12 @@ def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores
     inserted_payload = mock_insert_required_payload.call_args.args[1]
     assert inserted_payload == {
         "calculation_run_id": "run-1",
+        "simulated_set_value": None,
+        "simulated_set_value_card_count": None,
+        "average_hit_value": None,
+        "hit_ev_per_pack": None,
+        "hit_pull_rate": None,
+        "hit_cards_pulled": None,
         "hit_ev": 6.16,
         "non_hit_ev": 1.02,
         "hit_ev_share": 0.858,
@@ -150,6 +156,12 @@ def test_create_simulation_derived_metrics_allows_missing_composite_fields(mock_
     inserted_payload = mock_insert_required_payload.call_args.args[1]
     assert inserted_payload == {
         "calculation_run_id": "run-1",
+        "simulated_set_value": None,
+        "simulated_set_value_card_count": None,
+        "average_hit_value": None,
+        "hit_ev_per_pack": None,
+        "hit_pull_rate": None,
+        "hit_cards_pulled": None,
         "hit_ev": None,
         "non_hit_ev": None,
         "hit_ev_share": None,
@@ -179,6 +191,31 @@ def test_create_simulation_derived_metrics_allows_missing_composite_fields(mock_
         "experience_tier": None,
         "derived_metric_version": None,
     }
+
+
+@patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
+def test_create_simulation_derived_metrics_persists_hit_and_set_value_fields(mock_insert_required_payload):
+    mock_insert_required_payload.return_value = {"id": "derived-1"}
+
+    create_simulation_derived_metrics(
+        "run-1",
+        {
+            "simulated_set_value": "123.45",
+            "simulated_set_value_card_count": "2",
+            "average_hit_value": "40.0",
+            "hit_ev_per_pack": "12.0",
+            "hit_pull_rate": "0.3",
+            "hit_cards_pulled": "3",
+        },
+    )
+
+    inserted_payload = mock_insert_required_payload.call_args.args[1]
+    assert inserted_payload["simulated_set_value"] == pytest.approx(123.45)
+    assert inserted_payload["simulated_set_value_card_count"] == 2
+    assert inserted_payload["average_hit_value"] == pytest.approx(40.0)
+    assert inserted_payload["hit_ev_per_pack"] == pytest.approx(12.0)
+    assert inserted_payload["hit_pull_rate"] == pytest.approx(0.3)
+    assert inserted_payload["hit_cards_pulled"] == 3
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
@@ -242,6 +279,12 @@ def test_create_simulation_derived_metrics_persists_real_scores_when_present(moc
     inserted_payload = mock_insert_required_payload.call_args.args[1]
     assert inserted_payload == {
         "calculation_run_id": "run-1",
+        "simulated_set_value": None,
+        "simulated_set_value_card_count": None,
+        "average_hit_value": None,
+        "hit_ev_per_pack": None,
+        "hit_pull_rate": None,
+        "hit_cards_pulled": None,
         "hit_ev": 6.16,
         "non_hit_ev": 1.02,
         "hit_ev_share": 0.858,
@@ -304,6 +347,12 @@ def test_create_simulation_derived_metrics_persists_only_composite_stage1_fields
     inserted_payload = mock_insert_required_payload.call_args.args[1]
     assert inserted_payload == {
         "calculation_run_id": "run-1",
+        "simulated_set_value": None,
+        "simulated_set_value_card_count": None,
+        "average_hit_value": None,
+        "hit_ev_per_pack": None,
+        "hit_pull_rate": None,
+        "hit_cards_pulled": None,
         "hit_ev": None,
         "non_hit_ev": None,
         "hit_ev_share": None,
@@ -446,6 +495,18 @@ def test_get_latest_run_snapshot_for_target_returns_none_when_no_runs_exist(_moc
 def test_derived_metric_fields_include_pack_score_v2_concentration_fields():
     assert "hhi_ev_concentration" in DERIVED_METRIC_FIELDS
     assert "effective_chase_count" in DERIVED_METRIC_FIELDS
+
+
+def test_derived_metric_fields_include_hit_and_set_value_fields():
+    for field in [
+        "simulated_set_value",
+        "simulated_set_value_card_count",
+        "average_hit_value",
+        "hit_ev_per_pack",
+        "hit_pull_rate",
+        "hit_cards_pulled",
+    ]:
+        assert field in DERIVED_METRIC_FIELDS
 
 
 def test_derived_metric_fields_include_stage1_composites_but_not_internal_components():

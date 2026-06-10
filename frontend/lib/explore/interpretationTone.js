@@ -33,47 +33,62 @@ const TIER_TO_TONE_KEY = {
 const TONE_PALETTE = {
   elite: {
     accentColor: "rgba(192,132,252,0.96)",
-    borderColor: "rgba(192,132,252,0.58)",
-    textColor: "rgba(240,216,255,0.98)",
+    borderColor: "rgba(192,132,252,0.22)",
+    textColor: "rgba(192,132,252,0.86)",
     softBackground: "rgba(39,18,57,0.52)",
-    badgeBackground: "rgba(44,20,66,0.88)",
+    badgeBackground: "rgba(2,8,23,0.58)",
   },
   strong: {
     accentColor: "rgba(45,212,191,0.96)",
-    borderColor: "rgba(45,212,191,0.54)",
-    textColor: "rgba(167,243,208,0.98)",
+    borderColor: "rgba(45,212,191,0.22)",
+    textColor: "rgba(45,212,191,0.86)",
     softBackground: "rgba(10,37,37,0.52)",
-    badgeBackground: "rgba(8,43,42,0.88)",
+    badgeBackground: "rgba(2,8,23,0.58)",
   },
   solid: {
     accentColor: "rgba(134,239,172,0.96)",
-    borderColor: "rgba(134,239,172,0.52)",
-    textColor: "rgba(220,252,231,0.98)",
+    borderColor: "rgba(134,239,172,0.22)",
+    textColor: "rgba(134,239,172,0.86)",
     softBackground: "rgba(14,42,26,0.52)",
-    badgeBackground: "rgba(11,46,25,0.88)",
+    badgeBackground: "rgba(2,8,23,0.58)",
   },
   caution: {
     accentColor: "rgba(251,146,60,0.96)",
-    borderColor: "rgba(251,146,60,0.54)",
-    textColor: "rgba(254,215,170,0.98)",
+    borderColor: "rgba(251,146,60,0.22)",
+    textColor: "rgba(251,146,60,0.86)",
     softBackground: "rgba(58,30,10,0.52)",
-    badgeBackground: "rgba(62,31,8,0.88)",
+    badgeBackground: "rgba(2,8,23,0.58)",
   },
   danger: {
     accentColor: "rgba(251,113,133,0.96)",
-    borderColor: "rgba(251,113,133,0.54)",
-    textColor: "rgba(254,205,211,0.98)",
+    borderColor: "rgba(251,113,133,0.22)",
+    textColor: "rgba(251,113,133,0.86)",
     softBackground: "rgba(58,19,28,0.52)",
-    badgeBackground: "rgba(62,16,28,0.88)",
+    badgeBackground: "rgba(2,8,23,0.58)",
   },
   neutral: {
     accentColor: "rgba(125,211,252,0.96)",
-    borderColor: "rgba(125,211,252,0.5)",
-    textColor: "rgba(219,234,254,0.98)",
+    borderColor: "rgba(125,211,252,0.22)",
+    textColor: "rgba(125,211,252,0.86)",
     softBackground: "rgba(22,36,55,0.5)",
-    badgeBackground: "rgba(20,39,62,0.88)",
+    badgeBackground: "rgba(2,8,23,0.58)",
   },
 };
+
+function getRankTonePalette(tier, fallbackPalette) {
+  const rankColor = RANK_CONFIG[tier]?.color;
+  if (!rankColor) {
+    return fallbackPalette;
+  }
+
+  return {
+    accentColor: withAlpha(rankColor, 0.96),
+    borderColor: withAlpha(rankColor, 0.22),
+    textColor: withAlpha(rankColor, 0.86),
+    softBackground: withAlpha(rankColor, 0.14),
+    badgeBackground: "rgba(2,8,23,0.58)",
+  };
+}
 
 function resolveToneKey({ label, rankTier, severity }) {
   const normalizedTier = normalizeTier(rankTier);
@@ -132,7 +147,8 @@ export function getTierTone(rankTier) {
   }
 
   const toneKey = TIER_TO_TONE_KEY[tier] || "neutral";
-  const palette = TONE_PALETTE[toneKey] || TONE_PALETTE.neutral;
+  const basePalette = TONE_PALETTE[toneKey] || TONE_PALETTE.neutral;
+  const palette = getRankTonePalette(tier, basePalette);
   const tierConfig = RANK_CONFIG[tier] || null;
 
   return {
@@ -167,7 +183,7 @@ export function getInterpretationTone({ label, rankTier, severity } = {}) {
     badgeBorderColor: borderColor,
     badgeTextColor: textColor,
     dotColor: accentColor,
-    glowColor: withAlpha(accentColor, 0.28),
+    glowColor: withAlpha(accentColor, 0.18),
     panelShadow: `0 0 18px ${withAlpha(accentColor, 0.14)}`,
   };
 }
@@ -178,7 +194,7 @@ export function getInterpretationBadgeStyle({ label, rankTier, severity } = {}) 
     background: tone.badgeBackground,
     borderColor: tone.badgeBorderColor,
     color: tone.badgeTextColor,
-    boxShadow: `0 0 12px ${tone.glowColor}`,
+    boxShadow: `0 0 5px 0px ${tone.glowColor}, inset 0 0 4px ${withAlpha(tone.accentColor, 0.03)}`,
   };
 }
 

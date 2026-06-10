@@ -19,6 +19,7 @@ from .derived_metrics import (
     build_pack_simulation_summary,
     print_derived_metrics_summary,
 )
+from .hit_value_metrics import compute_hit_value_metrics, compute_simulated_set_value
 
 __all__ = [
     "compute_pack_decision_metrics",
@@ -32,4 +33,6 @@ __all__ = [
     "PackSimulationSummary",
     "build_pack_simulation_summary",
     "print_derived_metrics_summary",
+    "compute_hit_value_metrics",
+    "compute_simulated_set_value",
 ]

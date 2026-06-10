@@ -110,6 +110,12 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
     mock_create_simulation_derived_metrics.assert_called_once_with(
         "run-1",
         {
+            "simulated_set_value": None,
+            "simulated_set_value_card_count": None,
+            "average_hit_value": None,
+            "hit_ev_per_pack": None,
+            "hit_pull_rate": None,
+            "hit_cards_pulled": None,
             "hit_ev": 6.16,
             "non_hit_ev": 1.02,
             "hit_ev_share": 0.858,
@@ -189,6 +195,60 @@ def test_persist_simulation_derived_metrics_prefers_primary_chase_aliases_when_b
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
+def test_persist_simulation_derived_metrics_maps_hit_and_set_value_metrics(
+    mock_create_simulation_derived_metrics,
+):
+    mock_create_simulation_derived_metrics.return_value = [{"id": "derived-1"}]
+
+    persist_simulation_derived_metrics(
+        run_id="run-1",
+        derived={
+            "ev_composition_metrics": {
+                "total_pack_ev": 7.18,
+                "hit_ev": 6.16,
+                "non_hit_ev": 1.02,
+                "hit_ev_share_of_pack_ev": 0.858,
+                "hit_cards_count": 208,
+            },
+            "chase_dependency_metrics": {
+                "n_cards": 600,
+                "total_ev": 7.18,
+                "top1_ev_share": 0.22,
+                "top3_ev_share": 0.47,
+                "top5_ev_share": 0.63,
+            },
+            "hit_value_metrics": {
+                "average_hit_value": 40.0,
+                "hit_ev_per_pack": 12.0,
+                "hit_pull_rate": 0.3,
+                "hit_cards_pulled": 3,
+            },
+            "set_value_metrics": {
+                "simulated_set_value": 123.45,
+                "simulated_set_value_card_count": 2,
+            },
+            "pack_score": {
+                "pack_score": 72.4,
+                "profit_score": 71.0,
+                "safety_score": 37.0,
+                "stability_score": 65.0,
+                "score_version": "pack_score_v1_singleton_placeholder",
+                "normalization_mode": "singleton_placeholder",
+                "pack_score_is_placeholder": True,
+            },
+        },
+    )
+
+    persisted_payload = mock_create_simulation_derived_metrics.call_args.args[1]
+    assert persisted_payload["simulated_set_value"] == pytest.approx(123.45)
+    assert persisted_payload["simulated_set_value_card_count"] == 2
+    assert persisted_payload["average_hit_value"] == pytest.approx(40.0)
+    assert persisted_payload["hit_ev_per_pack"] == pytest.approx(12.0)
+    assert persisted_payload["hit_pull_rate"] == pytest.approx(0.3)
+    assert persisted_payload["hit_cards_pulled"] == 3
+
+
+@patch("backend.db.services.calculation_run_persistence_service.create_simulation_derived_metrics")
 def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mock_create_simulation_derived_metrics):
     mock_create_simulation_derived_metrics.return_value = [{"id": "derived-1"}]
 
@@ -222,6 +282,12 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
     mock_create_simulation_derived_metrics.assert_called_once_with(
         "run-1",
         {
+            "simulated_set_value": None,
+            "simulated_set_value_card_count": None,
+            "average_hit_value": None,
+            "hit_ev_per_pack": None,
+            "hit_pull_rate": None,
+            "hit_cards_pulled": None,
             "hit_ev": 6.16,
             "non_hit_ev": 1.02,
             "hit_ev_share": 0.858,
@@ -340,6 +406,12 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
     mock_create_simulation_derived_metrics.assert_called_once_with(
         "run-1",
         {
+            "simulated_set_value": None,
+            "simulated_set_value_card_count": None,
+            "average_hit_value": None,
+            "hit_ev_per_pack": None,
+            "hit_pull_rate": None,
+            "hit_cards_pulled": None,
             "hit_ev": 0.0,
             "non_hit_ev": 0.0,
             "hit_ev_share": 0.0,

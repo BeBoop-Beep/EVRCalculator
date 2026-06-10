@@ -101,6 +101,15 @@ _RIP_SUMMARY_SUPPLEMENT_FIELDS = (
     "derived_metric_version",
 )
 
+_OPTIONAL_HIT_SET_VALUE_SUMMARY_FIELDS = (
+    "simulated_set_value",
+    "simulated_set_value_card_count",
+    "average_hit_value",
+    "hit_ev_per_pack",
+    "hit_pull_rate",
+    "hit_cards_pulled",
+)
+
 
 def _to_optional_str(value: Any) -> Optional[str]:
     if value is None:
@@ -1129,6 +1138,11 @@ def _missing_required_fields(row: Dict[str, Any], required_fields: tuple[str, ..
     return [field for field in required_fields if field not in row]
 
 
+def _ensure_optional_summary_fields(summary: Dict[str, Any]) -> None:
+    for field in _OPTIONAL_HIT_SET_VALUE_SUMMARY_FIELDS:
+        summary.setdefault(field, None)
+
+
 def _lookup_latest_run_from_calculation_runs(target_type: str, target_id: str) -> str:
     """Fallback latest run lookup when canonical latest view is unavailable."""
     run_result = (
@@ -1496,6 +1510,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+    _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
     distribution_started = time.perf_counter()
@@ -2553,6 +2568,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+    _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
     distribution_started = time.perf_counter()

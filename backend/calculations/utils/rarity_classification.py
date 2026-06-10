@@ -12,14 +12,32 @@ Key principle:
 """
 
 
-from typing import Set
 import re
+import unicodedata
+from collections.abc import Mapping
+from typing import Any, Set
 
 import pandas as pd
 
 
 RARITY_KEY_SEPARATOR_PATTERN = re.compile(r"[\s-]+")
 RARITY_KEY_DUPLICATE_SEPARATOR_PATTERN = re.compile(r"_+")
+DEFAULT_CHASE_METRICS_EXCLUDED_RARITY_KEYS = frozenset(
+    {
+        "poke_ball_pattern",
+        "pokeball_pattern",
+        "master_ball_pattern",
+        "masterball_pattern",
+    }
+)
+
+
+def _strip_accents(value: str) -> str:
+    return "".join(
+        char
+        for char in unicodedata.normalize("NFKD", value)
+        if not unicodedata.combining(char)
+    )
 
 
 def normalize_rarity_string(rarity_raw: str) -> str:
@@ -35,7 +53,7 @@ def normalize_rarity_string(rarity_raw: str) -> str:
     str
         Normalized rarity (lowercase, stripped whitespace).
     """
-    return str(rarity_raw).lower().strip()
+    return _strip_accents(str(rarity_raw)).lower().strip()
 
 
 def normalize_rarity_key(rarity_raw: str) -> str:
@@ -88,6 +106,12 @@ def is_hit_rarity(rarity_raw: str, config) -> bool:
     
     normalized = normalize_rarity_string(rarity_raw)
     mapped_group = config.RARITY_MAPPING.get(normalized)
+    if mapped_group is None:
+        normalized_key = normalize_rarity_key(rarity_raw)
+        mapped_group = {
+            normalize_rarity_key(raw_key): group
+            for raw_key, group in config.RARITY_MAPPING.items()
+        }.get(normalized_key)
     return mapped_group == 'hits'
 
 
@@ -118,7 +142,14 @@ def get_rarity_group(rarity_raw: str, config) -> str:
         )
     
     normalized = normalize_rarity_string(rarity_raw)
-    return config.RARITY_MAPPING.get(normalized)
+    mapped_group = config.RARITY_MAPPING.get(normalized)
+    if mapped_group is not None:
+        return mapped_group
+    normalized_key = normalize_rarity_key(rarity_raw)
+    return {
+        normalize_rarity_key(raw_key): group
+        for raw_key, group in config.RARITY_MAPPING.items()
+    }.get(normalized_key)
 
 
 def is_hit_classification(classification_key: str) -> bool:
@@ -128,26 +159,64 @@ def is_hit_classification(classification_key: str) -> bool:
     return normalize_rarity_key(classification_key) in RECOGNIZED_PATTERN_BUCKETS
 
 
-def is_hit_row(row: pd.Series, config) -> bool:
-    """Classify a card row as hit/non-hit using normalized classification first, then raw rarity."""
-    if is_hit_classification(row.get("classification_key", "")):
-        return True
+def _get_field(card_or_row: Any, *field_names: str) -> Any:
+    if card_or_row is None:
+        return None
+    if isinstance(card_or_row, Mapping):
+        for field_name in field_names:
+            if field_name in card_or_row:
+                return card_or_row.get(field_name)
+        return None
+    get = getattr(card_or_row, "get", None)
+    if callable(get):
+        for field_name in field_names:
+            value = get(field_name, None)
+            if value is not None:
+                return value
+    for field_name in field_names:
+        if hasattr(card_or_row, field_name):
+            return getattr(card_or_row, field_name)
+    return None
 
-    return is_hit_rarity(row.get("Rarity", ""), config)
+
+def is_hit_row(row: pd.Series, config) -> bool:
+    """Classify a card row for hit-only metrics, including chase exclusions."""
+    return is_hit_card(row, config)
 
 
 def get_chase_metrics_excluded_rarities(config) -> Set[str]:
-    """Return normalized raw rarities excluded from chase/hit-derived metrics."""
+    """Return normalized raw rarities excluded from chase/hit-derived metrics.
+
+    Pattern overlays are excluded by default from hit-only metrics even when an
+    era config maps them to ``hits`` for pack-simulation behavior.
+    """
     configured = getattr(config, "CHASE_METRICS_EXCLUDED_RARITIES", set())
-    if configured is None:
-        return set()
-    return {normalize_rarity_string(rarity) for rarity in configured}
+    configured_keys = set()
+    if configured is not None:
+        configured_keys = {normalize_rarity_key(rarity) for rarity in configured}
+    return set(DEFAULT_CHASE_METRICS_EXCLUDED_RARITY_KEYS) | configured_keys
 
 
 def is_excluded_from_chase_metrics(rarity_raw: str, config) -> bool:
     """Check if a raw rarity should be excluded from hit/chase-derived metrics."""
-    normalized = normalize_rarity_string(rarity_raw)
+    normalized = normalize_rarity_key(rarity_raw)
     return normalized in get_chase_metrics_excluded_rarities(config)
+
+
+def is_hit_card(card_or_row: Any, config) -> bool:
+    """Classify a card-like object as a hit using config mapping plus exclusions."""
+    rarity_raw = _get_field(card_or_row, "Rarity", "rarity", "rarity_raw", "rarity_bucket")
+    classification_key = _get_field(card_or_row, "classification_key", "pattern_key", "aggregation_key")
+
+    if classification_key and is_hit_classification(str(classification_key)):
+        return not (
+            is_excluded_from_chase_metrics(str(classification_key), config)
+            or is_excluded_from_chase_metrics(str(rarity_raw or ""), config)
+        )
+
+    if not is_hit_rarity(rarity_raw or "", config):
+        return False
+    return not is_excluded_from_chase_metrics(rarity_raw or "", config)
 
 
 def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
@@ -210,9 +279,7 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
         first_rows_by_card_number = df_indexed.groupby("_card_key", sort=False).first()
         hit_status_by_card_number = {}
         for card_key, row in first_rows_by_card_number.iterrows():
-            is_hit = bool(is_hit_row(row, config))
-            if is_hit and is_excluded_from_chase_metrics(row.get("Rarity", ""), config):
-                is_hit = False
+            is_hit = bool(is_hit_card(row, config))
             hit_status_by_card_number[str(card_key)] = is_hit
     else:
         # Legacy: build name-based index
@@ -225,9 +292,7 @@ def filter_card_ev_by_hits(card_ev_contributions: dict, df, config) -> tuple:
         hit_status_by_name = {}
         for normalized_name, (_, row) in zip(name_col, df.iterrows()):
             if normalized_name not in hit_status_by_name:
-                is_hit = bool(is_hit_row(row, config))
-                if is_hit and is_excluded_from_chase_metrics(row.get("Rarity", ""), config):
-                    is_hit = False
+                is_hit = bool(is_hit_card(row, config))
                 hit_status_by_name[normalized_name] = is_hit
 
     for card_key, ev_value in card_ev_contributions.items():
