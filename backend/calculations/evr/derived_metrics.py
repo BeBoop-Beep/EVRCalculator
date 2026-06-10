@@ -1556,6 +1556,8 @@ def compute_all_derived_metrics(
     total_pack_ev: Optional[float] = None,
     hit_ev: Optional[float] = None,
     hit_cards_count: Optional[int] = None,
+    hit_value_metrics: Optional[Dict[str, Any]] = None,
+    set_value_metrics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Compute the full derived metrics suite from simulation outputs.
 
@@ -1588,6 +1590,10 @@ def compute_all_derived_metrics(
         Optional sum of hit-card EV contributions (for EV composition).
     hit_cards_count:
         Optional count of unique hit cards (for composition context).
+    hit_value_metrics:
+        Optional realized hit-only value metrics from the simulation counters.
+    set_value_metrics:
+        Optional one-copy simulated set value metrics for the priced universe.
 
     Returns
     -------
@@ -1643,6 +1649,8 @@ def compute_all_derived_metrics(
         "pack_decision_metrics": pack_metrics,
         "chase_dependency_metrics": chase_metrics,
         "ev_composition_metrics": ev_comp_metrics,
+        "hit_value_metrics": dict(hit_value_metrics or {}),
+        "set_value_metrics": dict(set_value_metrics or {}),
         "session_metrics": sess_metrics,
         "packs_to_hit_metrics": pth_metrics,
         "pack_score": pack_score_payload,

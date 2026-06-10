@@ -14,6 +14,10 @@ import {
 } from "recharts";
 
 import InfoPopover from "@/components/ui/InfoPopover";
+import {
+  normalizeHistoryTrendPoint,
+  patchLatestHistoryRowWithSummaryRatios,
+} from "./packValueHistoryNormalization.mjs";
 
 // ─── Color tokens for this chart only ────────────────────────────────────────
 const HISTORICAL_TREND_COLORS = {
@@ -40,6 +44,16 @@ function firstFiniteNumber(raw, keys) {
     }
   }
   return null;
+}
+
+function firstFiniteMetric(raw, keys) {
+  for (const key of keys) {
+    const value = toNumber(raw?.[key]);
+    if (value !== null) {
+      return { key, value };
+    }
+  }
+  return { key: null, value: null };
 }
 
 function formatRatio(value) {
@@ -85,43 +99,33 @@ function resolveDollarValue(explicitValue, ratioValue, packCostValue) {
   return ratio * packCost;
 }
 
-function normalizeHistoryPoint(raw, index, fallbackPackCost) {
-  const meanCostRatio = firstFiniteNumber(raw, [
-    "simulated_mean_pack_value_vs_pack_cost",
-    "mean_cost_ratio",
-    "mean_value_to_cost_ratio",
-  ]);
-  const medianCostRatio = firstFiniteNumber(raw, [
-    "simulated_median_pack_value_vs_pack_cost",
-    "median_cost_ratio",
-    "median_value_to_cost_ratio",
-  ]);
-  const p95CostRatio = firstFiniteNumber(raw, [
-    "p95_value_to_cost_ratio",
-    "p95_cost_ratio",
-  ]);
-  const packCostValue = firstFiniteNumber(raw, ["pack_cost", "packCost", "cost"]) ?? toNumber(fallbackPackCost);
+function normalizeReturnMetrics(ratioValue, explicitValue, packCostValue) {
+  const ratio = toNumber(ratioValue);
+  const explicit = toNumber(explicitValue);
+  const packCost = toNumber(packCostValue);
 
-  // Audited backend view currently provides ratio fields for history_trend.
-  // Keep direct-value keys strict to avoid treating unrelated zero defaults as real values.
-  const meanValueDirect = firstFiniteNumber(raw, ["simulated_mean_pack_value", "mean_pack_value", "mean_value"]);
-  const medianValueDirect = firstFiniteNumber(raw, ["simulated_median_pack_value", "median_pack_value", "median_value"]);
-  const p95ValueDirect = firstFiniteNumber(raw, ["simulated_p95_pack_value", "p95_pack_value", "p95_value"]);
+  if (explicit !== null) {
+    return {
+      returnValue: explicit,
+      ratioValue: packCost !== null && packCost > 0 ? explicit / packCost : null,
+    };
+  }
+
+  if (ratio === null || ratio < 0) {
+    return {
+      returnValue: null,
+      ratioValue: null,
+    };
+  }
 
   return {
-    id: `${index}:${raw?.snapshot_date || "na"}:${raw?.calculation_run_id || "na"}`,
-    rawPoint: raw,
-    snapshotDate: raw?.snapshot_date || null,
-    runCreatedAt: raw?.run_created_at || null,
-    calculationRunId: raw?.calculation_run_id || null,
-    packCost: packCostValue,
-    meanCostRatio,
-    medianCostRatio,
-    p95CostRatio,
-    meanValue: resolveDollarValue(meanValueDirect, meanCostRatio, packCostValue),
-    medianValue: resolveDollarValue(medianValueDirect, medianCostRatio, packCostValue),
-    p95Value: resolveDollarValue(p95ValueDirect, p95CostRatio, packCostValue),
+    returnValue: packCost !== null && packCost > 0 ? ratio * packCost : null,
+    ratioValue: ratio,
   };
+}
+
+function normalizeHistoryPoint(raw, index, fallbackPackCost) {
+  return normalizeHistoryTrendPoint(raw, index, fallbackPackCost);
 }
 
 /**
@@ -279,7 +283,7 @@ function LegendToggle({ active, onToggle, activeColor, inactiveColor, label }) {
 }
 
 // ─── Main chart ───────────────────────────────────────────────────────────────
-export default function PackValueHistoryChart({ historyTrend = [], packCost = null }) {
+export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null }) {
   const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
   const [showP95Line,    setShowP95Line]    = useState(true);
@@ -298,15 +302,42 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
   );
 
   const chartData = useMemo(
-    () =>
-      (Array.isArray(historyTrend) ? historyTrend : [])
-        .map((row, index) => normalizeHistoryPoint(row, index, packCost))
-        .filter(
-          (row) =>
-            row.snapshotDate &&
-            (row.meanCostRatio !== null || row.medianCostRatio !== null)
-        ),
-    [historyTrend, packCost]
+    () => {
+      const normalizedRows = (Array.isArray(historyTrend) ? historyTrend : [])
+        .map((row, index) => normalizeHistoryPoint(row, index, packCost));
+
+      if (normalizedRows.length === 0) {
+        return [];
+      }
+
+      const latestRow = normalizedRows[normalizedRows.length - 1];
+      const effectiveLatestPackCost = toNumber(latestRow.packCost) ?? toNumber(summary?.pack_cost) ?? toNumber(packCost);
+      const meanValueSummary = firstFiniteNumber(summary, ["average_pack_value", "simulated_mean_pack_value", "mean_pack_value", "mean_value"]);
+      const medianValueSummary = firstFiniteNumber(summary, ["typical_pack_value", "simulated_median_pack_value", "median_pack_value", "median_value"]);
+
+      const meanRatioSummary =
+        firstFiniteNumber(summary, ["mean_value_to_cost_ratio", "average_return_vs_cost", "mean_cost_ratio", "average_return_ratio"]) ??
+        (meanValueSummary !== null && effectiveLatestPackCost !== null && effectiveLatestPackCost > 0
+          ? meanValueSummary / effectiveLatestPackCost
+          : null);
+
+      const medianRatioSummary =
+        firstFiniteNumber(summary, ["median_value_to_cost_ratio", "typical_return_vs_cost", "typical_value_to_cost_ratio", "median_cost_ratio", "typical_return_ratio"]) ??
+        (medianValueSummary !== null && effectiveLatestPackCost !== null && effectiveLatestPackCost > 0
+          ? medianValueSummary / effectiveLatestPackCost
+          : null);
+
+      const patchedLatestRow = patchLatestHistoryRowWithSummaryRatios(latestRow, {
+        meanRatioSummary,
+        medianRatioSummary,
+        effectivePackCost: effectiveLatestPackCost,
+      });
+
+      return [...normalizedRows.slice(0, -1), patchedLatestRow].filter(
+        (row) => row.snapshotDate && (row.meanCostRatio !== null || row.medianCostRatio !== null)
+      );
+    },
+    [historyTrend, packCost, summary]
   );
 
   // Determine whether any row actually has P95 data so we can hide the toggle

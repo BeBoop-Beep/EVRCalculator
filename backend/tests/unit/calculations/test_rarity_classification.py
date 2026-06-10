@@ -15,6 +15,8 @@ from backend.calculations.utils.rarity_classification import (
     is_hit_rarity,
     get_rarity_group,
     filter_card_ev_by_hits,
+    is_hit_card,
+    is_hit_row,
 )
 from backend.calculations.utils.special_type_normalization import (
     derive_classification_key,
@@ -319,15 +321,15 @@ class TestFilterCardEvByHits:
         })
         contribs = {'Poke Ball Pattern': 1.0}
 
-        # In SV, poke ball pattern is a hit
+        # In SV, poke ball pattern maps as a simulation hit but is excluded from hit-only metrics.
         hit_sv, non_hit_sv = filter_card_ev_by_hits(contribs, df, MockScarletVioletConfig())
-        assert 'Poke Ball Pattern' in hit_sv
+        assert 'Poke Ball Pattern' in non_hit_sv
 
         # In a config without it, it's not found → assumed non-hit
         hit_none, non_hit_none = filter_card_ev_by_hits(contribs, df, NoSpecialsConfig())
         assert 'Poke Ball Pattern' in non_hit_none
 
-    def test_excluded_pokeball_pattern_is_omitted_from_hit_pool_only(self):
+    def test_pattern_rarities_are_omitted_from_hit_pool_by_default(self):
         df = pd.DataFrame(
             {
                 "Card Name": ["Poke Ball Pattern A", "Master Ball Pattern A", "Ultra A"],
@@ -340,10 +342,42 @@ class TestFilterCardEvByHits:
         hit, non_hit = filter_card_ev_by_hits(
             contribs,
             df,
-            MockScarletVioletExcludedPokeBallConfig(),
+            MockScarletVioletConfig(),
         )
 
         assert "001" not in hit
         assert "001" in non_hit
-        assert "002" in hit
+        assert "002" not in hit
+        assert "002" in non_hit
         assert "003" in hit
+
+    @pytest.mark.parametrize(
+        "rarity",
+        [
+            "Poke Ball Pattern",
+            "Pok\u00e9 Ball Pattern",
+            "Pokeball Pattern",
+            "Master Ball Pattern",
+            "Masterball Pattern",
+        ],
+    )
+    def test_pattern_equivalents_are_not_hit_cards_for_hit_only_metrics(self, rarity):
+        assert not is_hit_card({"Rarity": rarity}, MockScarletVioletConfig())
+
+    def test_pattern_classification_key_is_excluded_even_with_base_rarity(self):
+        assert not is_hit_card(
+            {"Rarity": "common", "classification_key": "pokeball_pattern"},
+            MockScarletVioletConfig(),
+        )
+
+    def test_hit_row_uses_hit_only_exclusions(self):
+        row = pd.Series({"Rarity": "common", "classification_key": "master_ball_pattern"})
+
+        assert not is_hit_row(row, MockScarletVioletConfig())
+
+    @pytest.mark.parametrize(
+        "rarity",
+        ["special illustration rare", "illustration rare", "ultra rare", "hyper rare"],
+    )
+    def test_modern_hit_rarities_are_hit_cards(self, rarity):
+        assert is_hit_card({"Rarity": rarity}, MockScarletVioletConfig())

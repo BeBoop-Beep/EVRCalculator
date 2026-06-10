@@ -10,6 +10,12 @@ from backend.db.clients.supabase_client import supabase
 
 
 DERIVED_METRIC_FIELDS: List[str] = [
+    "simulated_set_value",
+    "simulated_set_value_card_count",
+    "average_hit_value",
+    "hit_ev_per_pack",
+    "hit_pull_rate",
+    "hit_cards_pulled",
     "hit_ev",
     "non_hit_ev",
     "hit_ev_share",
@@ -683,6 +689,12 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
 
     payload = {
         "calculation_run_id": _require_present(run_id, "calculation_run_id"),
+        "simulated_set_value": _coerce_optional_float(derived.get("simulated_set_value")),
+        "simulated_set_value_card_count": _coerce_optional_int(derived.get("simulated_set_value_card_count")),
+        "average_hit_value": _coerce_optional_float(derived.get("average_hit_value")),
+        "hit_ev_per_pack": _coerce_optional_float(derived.get("hit_ev_per_pack")),
+        "hit_pull_rate": _coerce_optional_float(derived.get("hit_pull_rate")),
+        "hit_cards_pulled": _coerce_optional_int(derived.get("hit_cards_pulled")),
         "hit_ev": _coerce_optional_float(derived.get("hit_ev")),
         "non_hit_ev": _coerce_optional_float(derived.get("non_hit_ev")),
         "hit_ev_share": _coerce_optional_float(derived.get("hit_ev_share")),

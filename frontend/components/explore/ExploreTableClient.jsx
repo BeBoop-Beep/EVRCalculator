@@ -18,6 +18,7 @@ import {
   getTierField,
 } from "@/constants/exploreRankingConfig";
 import { getDangerValueStyle } from "@/lib/explore/interpretationTone";
+import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -68,10 +69,7 @@ function estimateAverageLoss(target) {
 }
 
 function buildRipLink(target) {
-  if (!target?.target_type || !target?.target_id) {
-    return "/Explore/rip-statistics";
-  }
-  return `/Explore/rip-statistics?target_type=${encodeURIComponent(target.target_type)}&target_id=${encodeURIComponent(target.target_id)}`;
+  return buildTcgSetHrefFromTarget(target);
 }
 
 function getLeaderboardRecommendationLabel(target) {

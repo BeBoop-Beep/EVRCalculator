@@ -44,6 +44,14 @@ from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
     get_rip_statistics_targets_payload,
 )
+from backend.db.services.pokemon_sets_catalog_service import (
+    PokemonSetsCatalogError,
+    get_pokemon_sets_catalog_payload,
+)
+from backend.db.services.pokemon_set_cards_service import (
+    PokemonSetCardsError,
+    get_pokemon_set_cards_payload,
+)
 
 
 app = FastAPI(title="EVR Collection API")
@@ -562,3 +570,39 @@ def profile_public_get(
 def profile_tcgs_get():
     payload, status = get_tcg_options()
     return JSONResponse(content=payload, status_code=status)
+
+
+@app.get("/tcgs/pokemon/sets")
+def get_pokemon_sets_catalog():
+    """Return Pokemon set summary metadata for the public Sets catalog page."""
+    try:
+        return get_pokemon_sets_catalog_payload()
+    except PokemonSetsCatalogError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets unexpected error")
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon sets", "code": "POKEMON_SETS_CATALOG_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/cards")
+def get_pokemon_set_cards(set_id: str):
+    """Return checklist cards for a single Pokemon set."""
+    try:
+        return get_pokemon_set_cards_payload(set_id=set_id)
+    except PokemonSetCardsError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/cards unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set cards", "code": "POKEMON_SET_CARDS_FAILED"},
+            status_code=500,
+        )

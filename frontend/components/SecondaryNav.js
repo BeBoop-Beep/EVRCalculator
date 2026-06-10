@@ -8,7 +8,6 @@ export default function SecondaryNav({ basePath = "/TCGs/Pokemon" }) {
   const navItems = [
     { label: "Overview", path: basePath },
     { label: "Sets", path: `${basePath}/Sets` },
-    { label: "Analytics", path: `${basePath}/Analytics` },
   ];
 
   const isActive = (path) => {

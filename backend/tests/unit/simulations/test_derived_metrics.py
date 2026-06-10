@@ -1129,6 +1129,29 @@ class TestComputeAllDerivedMetrics:
         )
         assert result["ev_composition_metrics"]["hit_cards_count"] == 208
 
+    def test_hit_and_set_value_metrics_present_when_supplied(self):
+        result = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            hit_value_metrics={
+                "average_hit_value": 40.0,
+                "hit_ev_per_pack": 12.0,
+                "hit_pull_rate": 0.3,
+                "hit_cards_pulled": 3,
+            },
+            set_value_metrics={
+                "simulated_set_value": 123.45,
+                "simulated_set_value_card_count": 2,
+            },
+        )
+
+        assert result["hit_value_metrics"]["average_hit_value"] == pytest.approx(40.0)
+        assert result["hit_value_metrics"]["hit_ev_per_pack"] == pytest.approx(12.0)
+        assert result["hit_value_metrics"]["hit_pull_rate"] == pytest.approx(0.3)
+        assert result["hit_value_metrics"]["hit_cards_pulled"] == 3
+        assert result["set_value_metrics"]["simulated_set_value"] == pytest.approx(123.45)
+        assert result["set_value_metrics"]["simulated_set_value_card_count"] == 2
+
 
 # ---------------------------------------------------------------------------
 # 11. PackSimulationSummary dataclass and builder

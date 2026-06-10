@@ -303,6 +303,12 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         ev_comp = _extract_required_nested_mapping(derived, "ev_composition_metrics", "derived")
         chase = _extract_required_nested_mapping(derived, "chase_dependency_metrics", "derived")
         pack_score = _extract_required_nested_mapping(derived, "pack_score", "derived")
+        hit_value_metrics = derived.get("hit_value_metrics")
+        if not isinstance(hit_value_metrics, Mapping):
+            hit_value_metrics = {}
+        set_value_metrics = derived.get("set_value_metrics")
+        if not isinstance(set_value_metrics, Mapping):
+            set_value_metrics = {}
         total_pack_ev = _require_float(
             _first_present(ev_comp, ("total_pack_ev",))
             if _first_present(ev_comp, ("total_pack_ev",)) is not None
@@ -410,6 +416,38 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         )
 
     return {
+        "simulated_set_value": _coerce_optional_float(
+            _first_present(set_value_metrics, ("simulated_set_value",)),
+            "derived.set_value_metrics.simulated_set_value",
+        ),
+        "simulated_set_value_card_count": (
+            _require_int(
+                _first_present(set_value_metrics, ("simulated_set_value_card_count",)),
+                "derived.set_value_metrics.simulated_set_value_card_count",
+            )
+            if _first_present(set_value_metrics, ("simulated_set_value_card_count",)) is not None
+            else None
+        ),
+        "average_hit_value": _coerce_optional_float(
+            _first_present(hit_value_metrics, ("average_hit_value",)),
+            "derived.hit_value_metrics.average_hit_value",
+        ),
+        "hit_ev_per_pack": _coerce_optional_float(
+            _first_present(hit_value_metrics, ("hit_ev_per_pack",)),
+            "derived.hit_value_metrics.hit_ev_per_pack",
+        ),
+        "hit_pull_rate": _coerce_optional_float(
+            _first_present(hit_value_metrics, ("hit_pull_rate",)),
+            "derived.hit_value_metrics.hit_pull_rate",
+        ),
+        "hit_cards_pulled": (
+            _require_int(
+                _first_present(hit_value_metrics, ("hit_cards_pulled",)),
+                "derived.hit_value_metrics.hit_cards_pulled",
+            )
+            if _first_present(hit_value_metrics, ("hit_cards_pulled",)) is not None
+            else None
+        ),
         "hit_ev": _require_float(ev_comp.get("hit_ev"), "derived.ev_composition_metrics.hit_ev"),
         "non_hit_ev": _require_float(ev_comp.get("non_hit_ev"), "derived.ev_composition_metrics.non_hit_ev"),
         "hit_ev_share": _coerce_share_or_zero(

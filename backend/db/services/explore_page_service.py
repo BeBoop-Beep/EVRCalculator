@@ -101,6 +101,15 @@ _RIP_SUMMARY_SUPPLEMENT_FIELDS = (
     "derived_metric_version",
 )
 
+_OPTIONAL_HIT_SET_VALUE_SUMMARY_FIELDS = (
+    "simulated_set_value",
+    "simulated_set_value_card_count",
+    "average_hit_value",
+    "hit_ev_per_pack",
+    "hit_pull_rate",
+    "hit_cards_pulled",
+)
+
 
 def _to_optional_str(value: Any) -> Optional[str]:
     if value is None:
@@ -234,6 +243,79 @@ def _to_optional_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return parsed
+
+
+def _load_history_trend_rows(
+    requested_target_type: str,
+    requested_target_id: str,
+    history_trend_limit: int,
+) -> tuple[List[Dict[str, Any]], str]:
+    """Load history trend rows while tolerating partial/legacy view schemas."""
+
+    select_attempts = [
+        (
+            "snapshot_date,mean_value_to_cost_ratio,median_value_to_cost_ratio,"
+            "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
+            "pack_cost,mean_value,median_value,run_created_at,calculation_run_id,p95_value_to_cost_ratio",
+            "OK_CANONICAL",
+        ),
+        (
+            "snapshot_date,mean_value_to_cost_ratio,median_value_to_cost_ratio,"
+            "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
+            "pack_cost,mean_value,median_value,run_created_at,calculation_run_id",
+            "OK_CANONICAL_NO_P95",
+        ),
+        (
+            "snapshot_date,mean_value_to_cost_ratio,median_value_to_cost_ratio,"
+            "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
+            "run_created_at,calculation_run_id",
+            "OK_CANONICAL_CORE",
+        ),
+        (
+            "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
+            "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id,"
+            "p95_value_to_cost_ratio",
+            "OK_LEGACY_P95",
+        ),
+        (
+            "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
+            "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id",
+            "OK_LEGACY",
+        ),
+    ]
+
+    last_exception: Optional[Exception] = None
+
+    for select_columns, source_key in select_attempts:
+        try:
+            history_result = (
+                public_read_client.table("calculation_history_trend")
+                .select(select_columns)
+                .eq("target_type", requested_target_type)
+                .eq("target_id", requested_target_id)
+                .order("snapshot_date", desc=True)
+                .limit(history_trend_limit)
+                .execute()
+            )
+            history_rows = history_result.data if history_result and history_result.data else []
+            history_rows.sort(
+                key=lambda row: (str(row.get("snapshot_date") or ""), str(row.get("run_created_at") or ""))
+            )
+            return history_rows, source_key
+        except Exception as exc:
+            last_exception = exc
+            logger.warning(
+                "[explore-page] calculation_history_trend select fallback failed target_type=%s target_id=%s source=%s: %s",
+                requested_target_type,
+                requested_target_id,
+                source_key,
+                exc,
+            )
+
+    if last_exception:
+        raise last_exception
+
+    return [], "FAILED"
 
 
 def _load_set_maps() -> tuple[Dict[str, Any], Dict[str, str]]:
@@ -1056,6 +1138,11 @@ def _missing_required_fields(row: Dict[str, Any], required_fields: tuple[str, ..
     return [field for field in required_fields if field not in row]
 
 
+def _ensure_optional_summary_fields(summary: Dict[str, Any]) -> None:
+    for field in _OPTIONAL_HIT_SET_VALUE_SUMMARY_FIELDS:
+        summary.setdefault(field, None)
+
+
 def _lookup_latest_run_from_calculation_runs(target_type: str, target_id: str) -> str:
     """Fallback latest run lookup when canonical latest view is unavailable."""
     run_result = (
@@ -1423,6 +1510,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+    _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
     distribution_started = time.perf_counter()
@@ -1494,57 +1582,22 @@ def get_explore_page_payload(
     history_started = time.perf_counter()
     history_trend: List[Dict[str, Any]] = []
     try:
-        history_result = (
-            public_read_client.table("calculation_history_trend")
-            .select(
-                "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
-                "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id,"
-                "p95_value_to_cost_ratio"
-            )
-            .eq("target_type", requested_target_type)
-            .eq("target_id", requested_target_id)
-            .order("snapshot_date", desc=True)
-            .limit(history_trend_limit)
-            .execute()
+        history_rows, history_source = _load_history_trend_rows(
+            requested_target_type=requested_target_type,
+            requested_target_id=requested_target_id,
+            history_trend_limit=history_trend_limit,
         )
-        history_rows = history_result.data if history_result and history_result.data else []
-        history_rows.sort(key=lambda row: (str(row.get("snapshot_date") or ""), str(row.get("run_created_at") or "")))
         history_trend = history_rows
-        sources["calculation_history_trend"] = "OK"
+        sources["calculation_history_trend"] = history_source
     except Exception as exc:
         logger.warning(
-            "[explore-page] calculation_history_trend failed (with p95) target_type=%s target_id=%s: %s – retrying without p95",
+            "[explore-page] calculation_history_trend failed target_type=%s target_id=%s: %s",
             requested_target_type,
             requested_target_id,
             exc,
         )
-        # Fallback: retry without p95_value_to_cost_ratio in case the view does not expose that column yet.
-        try:
-            history_result_fallback = (
-                public_read_client.table("calculation_history_trend")
-                .select(
-                    "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
-                    "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id"
-                )
-                .eq("target_type", requested_target_type)
-                .eq("target_id", requested_target_id)
-                .order("snapshot_date", desc=True)
-                .limit(history_trend_limit)
-                .execute()
-            )
-            history_rows_fb = history_result_fallback.data if history_result_fallback and history_result_fallback.data else []
-            history_rows_fb.sort(key=lambda row: (str(row.get("snapshot_date") or ""), str(row.get("run_created_at") or "")))
-            history_trend = history_rows_fb
-            sources["calculation_history_trend"] = "OK_NO_P95"
-        except Exception as exc2:
-            logger.warning(
-                "[explore-page] calculation_history_trend fallback also failed target_type=%s target_id=%s: %s",
-                requested_target_type,
-                requested_target_id,
-                exc2,
-            )
-            warnings.append("Failed to load historical trend")
-            sources["calculation_history_trend"] = "FAILED"
+        warnings.append("Failed to load historical trend")
+        sources["calculation_history_trend"] = "FAILED"
     history_ms = (time.perf_counter() - history_started) * 1000
 
     total_ms = (time.perf_counter() - total_started) * 1000
@@ -2515,6 +2568,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+    _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
     distribution_started = time.perf_counter()
@@ -2586,57 +2640,22 @@ def get_explore_page_payload(
     history_started = time.perf_counter()
     history_trend: List[Dict[str, Any]] = []
     try:
-        history_result = (
-            public_read_client.table("calculation_history_trend")
-            .select(
-                "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
-                "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id,"
-                "p95_value_to_cost_ratio"
-            )
-            .eq("target_type", requested_target_type)
-            .eq("target_id", requested_target_id)
-            .order("snapshot_date", desc=True)
-            .limit(history_trend_limit)
-            .execute()
+        history_rows, history_source = _load_history_trend_rows(
+            requested_target_type=requested_target_type,
+            requested_target_id=requested_target_id,
+            history_trend_limit=history_trend_limit,
         )
-        history_rows = history_result.data if history_result and history_result.data else []
-        history_rows.sort(key=lambda row: (str(row.get("snapshot_date") or ""), str(row.get("run_created_at") or "")))
         history_trend = history_rows
-        sources["calculation_history_trend"] = "OK"
+        sources["calculation_history_trend"] = history_source
     except Exception as exc:
         logger.warning(
-            "[explore-page] calculation_history_trend failed (with p95) target_type=%s target_id=%s: %s – retrying without p95",
+            "[explore-page] calculation_history_trend failed target_type=%s target_id=%s: %s",
             requested_target_type,
             requested_target_id,
             exc,
         )
-        # Fallback: retry without p95_value_to_cost_ratio in case the view does not expose that column yet.
-        try:
-            history_result_fallback = (
-                public_read_client.table("calculation_history_trend")
-                .select(
-                    "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
-                    "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id"
-                )
-                .eq("target_type", requested_target_type)
-                .eq("target_id", requested_target_id)
-                .order("snapshot_date", desc=True)
-                .limit(history_trend_limit)
-                .execute()
-            )
-            history_rows_fb = history_result_fallback.data if history_result_fallback and history_result_fallback.data else []
-            history_rows_fb.sort(key=lambda row: (str(row.get("snapshot_date") or ""), str(row.get("run_created_at") or "")))
-            history_trend = history_rows_fb
-            sources["calculation_history_trend"] = "OK_NO_P95"
-        except Exception as exc2:
-            logger.warning(
-                "[explore-page] calculation_history_trend fallback also failed target_type=%s target_id=%s: %s",
-                requested_target_type,
-                requested_target_id,
-                exc2,
-            )
-            warnings.append("Failed to load historical trend")
-            sources["calculation_history_trend"] = "FAILED"
+        warnings.append("Failed to load historical trend")
+        sources["calculation_history_trend"] = "FAILED"
     history_ms = (time.perf_counter() - history_started) * 1000
 
     total_ms = (time.perf_counter() - total_started) * 1000
