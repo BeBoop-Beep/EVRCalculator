@@ -6,3 +6,4 @@ PyJWT==2.12.1
 requests==2.32.5
 postgrest==2.28.3
 pandas==2.2.3
+playwright==1.60.0

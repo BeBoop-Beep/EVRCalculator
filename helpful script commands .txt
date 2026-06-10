@@ -37,3 +37,9 @@ source .venv-1/Scripts/activate
 
 scraper login:
 ssh -i ~/.ssh/id_rsa ubuntu@129.146.130.104
+
+all pokemon numbered sourced
+python backend/scripts/ingest_pokemon_desirability.py --source pokeapi --commit
+
+all favorite pokemon sourced
+python backend/scripts/ingest_pokemon_desirability.py --source favoritepokemon --commit
