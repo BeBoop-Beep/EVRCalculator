@@ -14,6 +14,10 @@ import {
 } from "recharts";
 
 import InfoPopover from "@/components/ui/InfoPopover";
+import {
+  normalizeHistoryTrendPoint,
+  patchLatestHistoryRowWithSummaryRatios,
+} from "./packValueHistoryNormalization.mjs";
 
 // ─── Color tokens for this chart only ────────────────────────────────────────
 const HISTORICAL_TREND_COLORS = {
@@ -121,62 +125,7 @@ function normalizeReturnMetrics(ratioValue, explicitValue, packCostValue) {
 }
 
 function normalizeHistoryPoint(raw, index, fallbackPackCost) {
-  const meanRatioMetric = firstFiniteMetric(raw, [
-    "mean_value_to_cost_ratio",
-    "mean_cost_ratio",
-    "average_return_vs_cost",
-    "average_return_ratio",
-    "simulated_mean_value_to_cost_ratio",
-    "simulated_mean_pack_value_vs_pack_cost",
-  ]);
-  const medianRatioMetric = firstFiniteMetric(raw, [
-    "median_value_to_cost_ratio",
-    "median_cost_ratio",
-    "typical_value_to_cost_ratio",
-    "typical_return_vs_cost",
-    "typical_return_ratio",
-    "simulated_median_value_to_cost_ratio",
-    "simulated_median_pack_value_vs_pack_cost",
-  ]);
-  const p95CostRatio = firstFiniteNumber(raw, [
-    "p95_value_to_cost_ratio",
-    "p95_cost_ratio",
-    "big_hit_upside_ratio",
-  ]);
-  const packCostValue = firstFiniteNumber(raw, ["pack_cost", "packCost", "cost"]) ?? toNumber(fallbackPackCost);
-
-  // Prefer explicit gross values where available.
-  const meanValueDirect = firstFiniteNumber(raw, ["average_pack_value", "simulated_mean_pack_value", "mean_pack_value", "mean_value"]);
-  const medianValueDirect = firstFiniteNumber(raw, ["typical_pack_value", "simulated_median_pack_value", "median_pack_value", "median_value"]);
-  const p95ValueDirect = firstFiniteNumber(raw, ["big_hit_value", "simulated_p95_pack_value", "p95_pack_value", "p95_value"]);
-
-  // Treat legacy *_vs_pack_cost zero placeholders as missing when there is no direct gross value.
-  const meanRatioRaw =
-    meanRatioMetric.key === "simulated_mean_pack_value_vs_pack_cost" && meanRatioMetric.value === 0 && meanValueDirect === null
-      ? null
-      : meanRatioMetric.value;
-  const medianRatioRaw =
-    medianRatioMetric.key === "simulated_median_pack_value_vs_pack_cost" && medianRatioMetric.value === 0 && medianValueDirect === null
-      ? null
-      : medianRatioMetric.value;
-
-  const normalizedMean = normalizeReturnMetrics(meanRatioRaw, meanValueDirect, packCostValue);
-  const normalizedMedian = normalizeReturnMetrics(medianRatioRaw, medianValueDirect, packCostValue);
-
-  return {
-    id: `${index}:${raw?.snapshot_date || "na"}:${raw?.calculation_run_id || "na"}`,
-    rawPoint: raw,
-    snapshotDate: raw?.snapshot_date || null,
-    runCreatedAt: raw?.run_created_at || null,
-    calculationRunId: raw?.calculation_run_id || null,
-    packCost: packCostValue,
-    meanCostRatio: normalizedMean.ratioValue,
-    medianCostRatio: normalizedMedian.ratioValue,
-    p95CostRatio,
-    meanValue: normalizedMean.returnValue,
-    medianValue: normalizedMedian.returnValue,
-    p95Value: resolveDollarValue(p95ValueDirect, p95CostRatio, packCostValue),
-  };
+  return normalizeHistoryTrendPoint(raw, index, fallbackPackCost);
 }
 
 /**
@@ -367,28 +316,22 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
       const medianValueSummary = firstFiniteNumber(summary, ["typical_pack_value", "simulated_median_pack_value", "median_pack_value", "median_value"]);
 
       const meanRatioSummary =
-        firstFiniteNumber(summary, ["mean_value_to_cost_ratio", "mean_cost_ratio", "average_return_ratio"]) ??
+        firstFiniteNumber(summary, ["mean_value_to_cost_ratio", "average_return_vs_cost", "mean_cost_ratio", "average_return_ratio"]) ??
         (meanValueSummary !== null && effectiveLatestPackCost !== null && effectiveLatestPackCost > 0
           ? meanValueSummary / effectiveLatestPackCost
           : null);
 
       const medianRatioSummary =
-        firstFiniteNumber(summary, ["median_value_to_cost_ratio", "median_cost_ratio", "typical_return_ratio"]) ??
+        firstFiniteNumber(summary, ["median_value_to_cost_ratio", "typical_return_vs_cost", "typical_value_to_cost_ratio", "median_cost_ratio", "typical_return_ratio"]) ??
         (medianValueSummary !== null && effectiveLatestPackCost !== null && effectiveLatestPackCost > 0
           ? medianValueSummary / effectiveLatestPackCost
           : null);
 
-      const patchedLatestRow = {
-        ...latestRow,
-        meanCostRatio: latestRow.meanCostRatio ?? meanRatioSummary,
-        medianCostRatio: latestRow.medianCostRatio ?? medianRatioSummary,
-        meanValue:
-          latestRow.meanValue ??
-          (meanRatioSummary !== null && effectiveLatestPackCost !== null ? meanRatioSummary * effectiveLatestPackCost : null),
-        medianValue:
-          latestRow.medianValue ??
-          (medianRatioSummary !== null && effectiveLatestPackCost !== null ? medianRatioSummary * effectiveLatestPackCost : null),
-      };
+      const patchedLatestRow = patchLatestHistoryRowWithSummaryRatios(latestRow, {
+        meanRatioSummary,
+        medianRatioSummary,
+        effectivePackCost: effectiveLatestPackCost,
+      });
 
       return [...normalizedRows.slice(0, -1), patchedLatestRow].filter(
         (row) => row.snapshotDate && (row.meanCostRatio !== null || row.medianCostRatio !== null)
