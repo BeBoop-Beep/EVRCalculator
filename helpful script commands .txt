@@ -43,3 +43,20 @@ python backend/scripts/ingest_pokemon_desirability.py --source pokeapi --commit
 
 all favorite pokemon sourced
 python backend/scripts/ingest_pokemon_desirability.py --source favoritepokemon --commit
+
+dry-run pokemon google trends relative search interest:
+python backend/scripts/ingest_pokemon_trends.py --limit 25 --dry-run
+python backend/scripts/ingest_pokemon_trends.py --provider fixture --limit 25 --dry-run
+python backend/scripts/ingest_pokemon_trends.py --geo US --timeframe today 12-m --limit 25 --dry-run
+python backend/scripts/ingest_pokemon_trends.py --provider pytrends --timeframe today 12-m --pokedex-start 1 --pokedex-end 151 --dry-run --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
+
+fill missing pokemon into existing google trends snapshot 1:
+python backend/scripts/ingest_pokemon_trends.py --provider pytrends --append-to-snapshot-id 1 --timeframe today 1-m --pokedex-start 382 --pokedex-end 385 --dry-run --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
+python backend/scripts/ingest_pokemon_trends.py --provider pytrends --append-to-snapshot-id 1 --timeframe today 1-m --pokedex-start 382 --pokedex-end 385 --commit --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
+
+commit pokemon google trends relative search interest (range/timeframe job, not full run):
+python backend/scripts/ingest_pokemon_trends.py --provider pytrends --timeframe today 12-m --pokedex-start 1 --pokedex-end 151 --commit --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300 --stop-after-consecutive-429s 3 --cooldown-after-429-seconds 900
+
+derive pokemon google trend scores from existing snapshots:
+python backend/scripts/ingest_pokemon_trends.py --provider pytrends --derive-from-existing --dry-run
+python backend/scripts/ingest_pokemon_trends.py --provider pytrends --derive-from-existing --commit
