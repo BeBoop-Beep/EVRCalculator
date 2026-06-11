@@ -1,62 +1,98 @@
-uvicorn backend auth run:
+----------------------------
+--uvicorn backend auth run--
+----------------------------
 d:/EVRCalculator/backend/.venv/Scripts/python.exe -m uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
 
-api local host:
+
+----------------------------
+------api local host--------
+----------------------------
 http://localhost:8000/docs#/
 
-run data scrape all:
-python backend/scripts/run_pokemon_set_scrape.py --run
 
+----------------------------
+----run data scrape all----
+----------------------------
+python backend/scripts/run_pokemon_set_scrape.py --run
 run data scrape era:
 python backend/scripts/run_pokemon_set_scrape.py --run --era scarletAndVioletEra
 
+
+----------------------------
 run calc/simulations:
+----------------------------
 python backend/scripts/run_all_v2_sets.py
 ./infra/local/run_simulations.sh
 
+----------------------------
 run sync images script:
+----------------------------
 python backend/scripts/sync_pokemon_images.py --sets "Prismatic Evolutions" 
 python backend/scripts/sync_pokemon_images.py --sets "Temporal Forces" --apply
 main sync images run:
 python backend/scripts/sync_pokemon_images.py
 python backend/scripts/sync_pokemon_images.py --apply
 
+----------------------------
 ssh key pathing:
+----------------------------
 C:\Users\Owner\.ssh
-
 generate ssh key:
 ssh-keygen
 
+
+----------------------------
 run simulator tests:
+----------------------------
 d:/EVRCalculator/backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/simulations -vv
 ./backend/.venv/Scripts/python.exe backend/scripts/run_all_v2_sets.py --set "Scarlet and Violet 151"
 
+
+----------------------------
 activate venv:
+----------------------------
 source .venv/Scripts/activate
 source .venv-1/Scripts/activate
 
+
+----------------------------
 scraper login:
+----------------------------
 ssh -i ~/.ssh/id_rsa ubuntu@129.146.130.104
 
-all pokemon numbered sourced
-python backend/scripts/ingest_pokemon_desirability.py --source pokeapi --commit
 
+----------------------------
+all pokemon numbered sourced
+----------------------------
+python backend/scripts/ingest_pokemon_desirability.py --source pokeapi --commit
 all favorite pokemon sourced
 python backend/scripts/ingest_pokemon_desirability.py --source favoritepokemon --commit
 
+
+----------------------------
 dry-run pokemon google trends relative search interest:
+----------------------------
 python backend/scripts/ingest_pokemon_trends.py --limit 25 --dry-run
 python backend/scripts/ingest_pokemon_trends.py --provider fixture --limit 25 --dry-run
 python backend/scripts/ingest_pokemon_trends.py --geo US --timeframe today 12-m --limit 25 --dry-run
 python backend/scripts/ingest_pokemon_trends.py --provider pytrends --timeframe today 12-m --pokedex-start 1 --pokedex-end 151 --dry-run --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
 
+
+----------------------------
 fill missing pokemon into existing google trends snapshot 1:
+----------------------------
 python backend/scripts/ingest_pokemon_trends.py --provider pytrends --append-to-snapshot-id 1 --timeframe today 1-m --pokedex-start 382 --pokedex-end 385 --dry-run --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
 python backend/scripts/ingest_pokemon_trends.py --provider pytrends --append-to-snapshot-id 1 --timeframe today 1-m --pokedex-start 382 --pokedex-end 385 --commit --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
 
+
+----------------------------
 commit pokemon google trends relative search interest (range/timeframe job, not full run):
+----------------------------
 python backend/scripts/ingest_pokemon_trends.py --provider pytrends --timeframe today 12-m --pokedex-start 1 --pokedex-end 151 --commit --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300 --stop-after-consecutive-429s 3 --cooldown-after-429-seconds 900
 
+
+----------------------------
 derive pokemon google trend scores from existing snapshots:
+----------------------------
 python backend/scripts/ingest_pokemon_trends.py --provider pytrends --derive-from-existing --dry-run
 python backend/scripts/ingest_pokemon_trends.py --provider pytrends --derive-from-existing --commit
