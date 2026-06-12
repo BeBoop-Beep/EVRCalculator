@@ -51,7 +51,9 @@ d:/EVRCalculator/backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/s
 ----------------------------
 activate venv:
 ----------------------------
+backend:
 source .venv/Scripts/activate
+frontend:
 source .venv-1/Scripts/activate
 
 
@@ -62,37 +64,97 @@ ssh -i ~/.ssh/id_rsa ubuntu@129.146.130.104
 
 
 ----------------------------
-all pokemon numbered sourced
+desirability score runner
 ----------------------------
+1. pokeapi (get all pokemon)
 python backend/scripts/ingest_pokemon_desirability.py --source pokeapi --commit
-all favorite pokemon sourced
+
+2. all favorite pokemon sourced
 python backend/scripts/ingest_pokemon_desirability.py --source favoritepokemon --commit
 
+3.pokemon google trends relative search interest:
+python backend/scripts/ingest_pokemon_trends.py \
+  --provider pytrends \
+  --timeframe today 1-m \
+  --commit \
+  --delay-seconds 180 \
+  --max-retries 1 \
+  --retry-backoff-seconds 600 \
+  --stop-after-consecutive-429s 1 \
+  --cooldown-after-429-seconds 1800
 
-----------------------------
-dry-run pokemon google trends relative search interest:
-----------------------------
-python backend/scripts/ingest_pokemon_trends.py --limit 25 --dry-run
-python backend/scripts/ingest_pokemon_trends.py --provider fixture --limit 25 --dry-run
-python backend/scripts/ingest_pokemon_trends.py --geo US --timeframe today 12-m --limit 25 --dry-run
-python backend/scripts/ingest_pokemon_trends.py --provider pytrends --timeframe today 12-m --pokedex-start 1 --pokedex-end 151 --dry-run --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
+4. Verify the latest today 1-m Google Trends snapshot has full coverage
+select
+  s.id as snapshot_id,
+  s.timeframe,
+  s.window_role,
+  s.status,
+  count(r.id) as source_row_count
+from pokemon_trend_source_snapshots s
+left join pokemon_trend_source_rows r
+  on r.snapshot_id = s.id
+where s.timeframe = 'today 1-m'
+group by
+  s.id,
+  s.timeframe,
+  s.window_role,
+  s.status,
+  s.captured_at
+order by s.captured_at desc
+limit 5;
 
+Expected target:
 
-----------------------------
-fill missing pokemon into existing google trends snapshot 1:
-----------------------------
-python backend/scripts/ingest_pokemon_trends.py --provider pytrends --append-to-snapshot-id 1 --timeframe today 1-m --pokedex-start 382 --pokedex-end 385 --dry-run --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
-python backend/scripts/ingest_pokemon_trends.py --provider pytrends --append-to-snapshot-id 1 --timeframe today 1-m --pokedex-start 382 --pokedex-end 385 --commit --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300
+source_row_count = 1025
+status = captured_relative_search_interest
 
+5. Derive Google Trends recent_trend_score from the latest complete today 1-m snapshot
+python backend/scripts/ingest_pokemon_trends.py \
+  --derive-from-existing \
+  --provider pytrends \
+  --commit
 
-----------------------------
-commit pokemon google trends relative search interest (range/timeframe job, not full run):
-----------------------------
-python backend/scripts/ingest_pokemon_trends.py --provider pytrends --timeframe today 12-m --pokedex-start 1 --pokedex-end 151 --commit --delay-seconds 60 --max-retries 1 --retry-backoff-seconds 300 --stop-after-consecutive-429s 3 --cooldown-after-429-seconds 900
+6. Verify recent_trend_score rows exist
+select
+  score_name,
+  primary_snapshot_id,
+  count(*) as score_count
+from pokemon_trend_scores
+where score_name = 'recent_trend_score'
+group by score_name, primary_snapshot_id
+order by primary_snapshot_id desc;
 
+Expected target:
 
-----------------------------
-derive pokemon google trend scores from existing snapshots:
-----------------------------
-python backend/scripts/ingest_pokemon_trends.py --provider pytrends --derive-from-existing --dry-run
-python backend/scripts/ingest_pokemon_trends.py --provider pytrends --derive-from-existing --commit
+recent_trend_score | latest today 1-m snapshot_id | 1025
+
+7. Build Pokémon Desirability Composite Score
+python backend/scripts/build_pokemon_desirability_composite.py --commit --log-level INFO
+
+8. Verify composite score rows
+select
+  scoring_version,
+  count(*) as composite_count
+from pokemon_desirability_composite_scores
+group by scoring_version
+order by scoring_version;
+
+Expected target:
+
+pokemon_desirability_composite_v1 | 1025
+
+9. Inspect top composite results
+select
+  desirability_rank,
+  pokedex_number,
+  pokemon_name,
+  fan_popularity_score,
+  fan_popularity_rank,
+  current_trend_score,
+  current_trend_rank,
+  desirability_score,
+  desirability_tier
+from pokemon_desirability_composite_scores
+where scoring_version = 'pokemon_desirability_composite_v1'
+order by desirability_rank
+limit 25;

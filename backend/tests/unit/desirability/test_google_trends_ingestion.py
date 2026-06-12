@@ -6,10 +6,13 @@ from backend.desirability.google_trends import (
     TrendProviderResponse,
     TrendTimeframe,
     build_anchor_batches,
+    build_trend_pokemon,
     fetch_timeframe_rows,
     is_ambiguous_query_term,
+    pokemon_query_term,
 )
 from backend.desirability.trends_normalization import (
+    RECENT_TREND_SCORE,
     SEARCH_POPULARITY_SCORE,
     TREND_MOMENTUM_SCORE,
     TREND_SCORING_VERSION,
@@ -139,6 +142,15 @@ class RecordingRepository:
             and snapshot.get("timeframe") in set(timeframes)
         }
 
+    def list_usable_trend_snapshots(self, *, source_name, provider_name, geo, timeframe, limit=10):
+        return [
+            snapshot
+            for snapshot in self.snapshots.values()
+            if snapshot.get("source_name") == source_name
+            and snapshot.get("geo") == geo
+            and snapshot.get("timeframe") == timeframe
+        ][:limit]
+
     def list_trend_score_keys(self, *, scoring_version):
         return set(self.existing_score_keys)
 
@@ -191,6 +203,123 @@ def test_ambiguous_name_flagging_includes_noisy_terms():
     assert is_ambiguous_query_term("Type: Null") is True
     assert is_ambiguous_query_term("Porygon-Z") is True
     assert is_ambiguous_query_term("Bulbasaur") is False
+
+
+def test_query_term_overrides_remove_known_form_descriptors_only_for_trends():
+    cases = [
+        (29, "nidoran-f", "Nidoran F", "Nidoran"),
+        (32, "nidoran-m", "Nidoran M", "Nidoran"),
+        (474, "porygon-z", "Porygon-Z", "Porygon Z"),
+        (386, "deoxys-normal", "Deoxys Normal", "Deoxys"),
+        (413, "wormadam-plant", "Wormadam Plant", "Wormadam"),
+        (487, "giratina-altered", "Giratina Altered", "Giratina"),
+        (492, "shaymin-land", "Shaymin Land", "Shaymin"),
+        (550, "basculin-red-striped", "Basculin Red Striped", "Basculin"),
+        (550, "basculin-red-stripes", "Basculin Red Stripes", "Basculin"),
+        (555, "darmanitan-standard", "Darmanitan Standard", "Darmanitan"),
+        (641, "tornadus-incarnate", "Tornadus Incarnate", "Tornadus"),
+        (642, "thundurus-incarnate", "Thundurus Incarnate", "Thundurus"),
+        (645, "landorus-incarnate", "Landorus Incarnate", "Landorus"),
+        (678, "meowstic-male", "Meowstic Male", "Meowstic"),
+        (678, "meowstic-female", "Meowstic Female", "Meowstic"),
+        (681, "aegislash-shield", "Aegislash Shield", "Aegislash"),
+        (774, "minior-red-meteor", "Minior Red Meteor", "Minior"),
+        (778, "mimikyu-disguise", "Mimikyu Disguise", "Mimikyu"),
+        (778, "mimikyu-disguised", "Mimikyu Disguised", "Mimikyu"),
+        (849, "toxtricity-amped", "Toxtricity Amped", "Toxtricity"),
+        (849, "toxtricity-low-key", "Toxtricity Low Key", "Toxtricity"),
+        (892, "urshifu-single-strike", "Urshifu Single Strike", "Urshifu"),
+        (892, "urshifu-rapid-strike", "Urshifu Rapid Strike", "Urshifu"),
+        (925, "maushold-family-of-four", "Maushold Family of Four", "Maushold"),
+        (925, "maushold-family-of-three", "Maushold Family of Three", "Maushold"),
+        (931, "squawkabilly-green-plumage", "Squawkabilly Green Plumage", "Squawkabilly"),
+        (931, "squawkabilly-blue-plumage", "Squawkabilly Blue Plumage", "Squawkabilly"),
+        (931, "squawkabilly-yellow-plumage", "Squawkabilly Yellow Plumage", "Squawkabilly"),
+        (931, "squawkabilly-white-plumage", "Squawkabilly White Plumage", "Squawkabilly"),
+        (964, "palafin-zero", "Palafin Zero", "Palafin"),
+        (964, "palafin-hero", "Palafin Hero", "Palafin"),
+        (978, "tatsugiri-curly", "Tatsugiri Curly", "Tatsugiri"),
+        (978, "tatsugiri-droopy", "Tatsugiri Droopy", "Tatsugiri"),
+        (978, "tatsugiri-stretchy", "Tatsugiri Stretchy", "Tatsugiri"),
+        (982, "dudunsparce-two-segment", "Dudunsparce Two Segment", "Dudunsparce"),
+        (982, "dudunsparce-three-segment", "Dudunsparce Three Segment", "Dudunsparce"),
+    ]
+
+    for pokedex_number, canonical_name, display_name, expected_query_term in cases:
+        reference = {
+            "id": pokedex_number,
+            "pokedex_number": pokedex_number,
+            "canonical_name": canonical_name,
+            "display_name": display_name,
+        }
+        trend_pokemon = build_trend_pokemon(reference)
+
+        assert pokemon_query_term(reference) == expected_query_term
+        assert trend_pokemon.query_term == expected_query_term
+        assert trend_pokemon.pokemon_name == display_name
+        assert trend_pokemon.pokemon_reference_id == pokedex_number
+        assert trend_pokemon.query_term_override_reason is not None
+
+
+def test_query_term_overrides_preserve_legitimate_multi_word_species_names():
+    species_names = [
+        "Iron Treads",
+        "Brute Bonnet",
+        "Flutter Mane",
+        "Slither Wing",
+        "Sandy Shocks",
+        "Iron Jugulis",
+        "Great Tusk",
+        "Walking Wake",
+        "Raging Bolt",
+        "Gouging Fire",
+        "Roaring Moon",
+    ]
+
+    for index, display_name in enumerate(species_names, start=990):
+        reference = {
+            "id": index,
+            "pokedex_number": index,
+            "canonical_name": display_name.casefold().replace(" ", "-"),
+            "display_name": display_name,
+        }
+        trend_pokemon = build_trend_pokemon(reference)
+
+        assert trend_pokemon.query_term == display_name
+        assert trend_pokemon.pokemon_name == display_name
+        assert trend_pokemon.query_term_override_reason is None
+
+
+def test_fetch_rows_records_query_term_override_audit_without_changing_identity():
+    reference = {
+        "id": 778,
+        "pokedex_number": 778,
+        "canonical_name": "mimikyu-disguise",
+        "display_name": "Mimikyu Disguise",
+    }
+
+    result = fetch_timeframe_rows(
+        provider=FlexibleStaticProvider(),
+        references=[reference],
+        timeframe=TrendTimeframe("today 1-m", "recent", "Recent Trend Score component"),
+        geo="US",
+        query_type=QUERY_TYPE_SEARCH_TERM,
+        anchor_term="Pikachu",
+        batch_size=5,
+        delay_seconds=0,
+        max_retries=0,
+        retry_backoff_seconds=0,
+    )
+
+    row = result["rows"][0]
+    audit = row["raw_row_json"]["query_term_audit"]
+    assert row["pokemon_reference_id"] == 778
+    assert row["pokemon_name"] == "Mimikyu Disguise"
+    assert row["query_term"] == "Mimikyu"
+    assert audit["original_query_term"] == "Mimikyu Disguise"
+    assert audit["corrected_query_term"] == "Mimikyu"
+    assert audit["override_applied"] is True
+    assert audit["override_reason"] == "state descriptor removed for Google Trends species query"
 
 
 def test_calculate_derived_scores_keeps_search_popularity_and_momentum_separate():
@@ -263,6 +392,29 @@ def test_ingestion_applies_pokedex_range_selection():
     assert report["selection"]["pokedex_end"] == 7
 
 
+def test_ingestion_applies_exact_pokedex_number_selection():
+    repository = RecordingRepository(references=EXTENDED_REFERENCES)
+
+    report = run_ingestion(
+        repository=repository,
+        provider=FlexibleStaticProvider(),
+        dry_run=True,
+        geo="US",
+        query_type=QUERY_TYPE_SEARCH_TERM,
+        anchor_term="Pikachu",
+        batch_size=5,
+        pokedex_numbers=[2, 5, 9],
+        timeframes=[TrendTimeframe("today 1-m", "recent", "Recent Trend Score component")],
+        delay_seconds=0,
+        max_retries=0,
+        retry_backoff_seconds=0,
+    )
+
+    assert report["pokemon_processed"] == 3
+    assert report["selection"]["pokedex_numbers"] == [2, 5, 9]
+    assert report["timeframe_results"][0]["source_rows"] == 3
+
+
 def test_ingestion_applies_offset_and_limit_after_pokedex_ordering():
     repository = RecordingRepository(references=EXTENDED_REFERENCES)
 
@@ -331,9 +483,32 @@ def test_append_mode_skips_existing_rows_and_inserts_only_missing_rows():
     assert {row["pokemon_reference_id"] for row in repository.rows_by_snapshot[10]} == {1, 2, 3, 4, 5}
 
 
-def test_derive_from_existing_produces_three_score_types_and_skips_duplicates():
+def test_derive_from_existing_derives_recent_trend_from_today_1m_only():
     repository = _repository_with_existing_snapshots()
-    existing_duplicate = (1, "search_popularity_score", TREND_SCORING_VERSION, (102, 103))
+    del repository.snapshots[102]
+    del repository.snapshots[103]
+    repository.rows_by_snapshot.pop(102)
+    repository.rows_by_snapshot.pop(103)
+
+    report = derive_from_existing_snapshots(
+        repository=repository,
+        dry_run=False,
+        source_name=SOURCE_NAME,
+        provider_name="pytrends",
+        geo="US",
+        expected_reference_count=3,
+    )
+
+    assert report["mode"] == "derive_recent_trend_from_existing"
+    assert report["selected_recent_snapshot"]["id"] == 101
+    assert report["counts_by_score_name"] == {"recent_trend_score": 3}
+    assert report["inserted_trend_scores"] == 3
+    assert {row["score_name"] for row in repository.inserted_score_rows} == {RECENT_TREND_SCORE}
+
+
+def test_derive_from_existing_recent_trend_skips_duplicates():
+    repository = _repository_with_existing_snapshots()
+    existing_duplicate = (1, RECENT_TREND_SCORE, TREND_SCORING_VERSION, (101,))
     repository.existing_score_keys.add(existing_duplicate)
 
     report = derive_from_existing_snapshots(
@@ -342,15 +517,12 @@ def test_derive_from_existing_produces_three_score_types_and_skips_duplicates():
         source_name=SOURCE_NAME,
         provider_name="pytrends",
         geo="US",
+        expected_reference_count=3,
     )
 
-    assert report["counts_by_score_name"] == {
-        "search_popularity_score": 3,
-        "recent_trend_score": 3,
-        "trend_momentum_score": 3,
-    }
+    assert report["counts_by_score_name"] == {"recent_trend_score": 3}
     assert report["duplicates_skipped"] == 1
-    assert report["inserted_trend_scores"] == 8
+    assert report["inserted_trend_scores"] == 2
 
 
 def test_repeated_429_stops_gracefully():

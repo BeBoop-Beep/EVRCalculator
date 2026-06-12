@@ -96,6 +96,23 @@ def calculate_derived_trend_scores(
     }
 
 
+def calculate_recent_trend_scores(
+    recent_rows: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    recent_by_ref = _by_reference(recent_rows)
+    recent_trends = _calculate_recent_trend(recent_by_ref)
+    return recent_trends, {
+        "recent_trend_scores": len(recent_trends),
+        "score_label": "Current Trend Score / 30-Day Search Interest Score",
+        "timeframe": RECENT_TIMEFRAME,
+        "measurement_note": (
+            "Recent Trend Score is normalized Google Trends relative search interest "
+            "for the current 30-day window. It is not absolute search volume, "
+            "long-term popularity, or trend momentum."
+        ),
+    }
+
+
 def build_trend_diagnostics(
     *,
     source_rows_by_timeframe: Dict[str, List[Dict[str, Any]]],

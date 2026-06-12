@@ -35,6 +35,7 @@ from backend.desirability.trends_normalization import (  # noqa: E402
     TREND_SCORING_VERSION,
     build_trend_diagnostics,
     calculate_derived_trend_scores,
+    calculate_recent_trend_scores,
     normalize_timeframe_rows,
 )
 
@@ -65,9 +66,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=None, help="Limit selected Pokemon references for small validation/retry runs")
     parser.add_argument("--pokedex-start", type=int, default=None)
     parser.add_argument("--pokedex-end", type=int, default=None)
+    parser.add_argument(
+        "--pokedex-number",
+        action="append",
+        type=int,
+        default=None,
+        help="Repeatable exact Pokedex number selector for targeted validation/reruns.",
+    )
     parser.add_argument("--generation", type=int, default=None)
     parser.add_argument("--append-to-snapshot-id", type=int, default=None)
     parser.add_argument("--derive-from-existing", action="store_true")
+    parser.add_argument(
+        "--min-coverage",
+        type=float,
+        default=0.95,
+        help="Minimum usable Pokemon coverage for derive-from-existing mode.",
+    )
     parser.add_argument(
         "--timeframe",
         action="append",
@@ -119,6 +133,7 @@ def main() -> int:
                 source_name=SOURCE_NAME,
                 provider_name=provider_name,
                 geo=args.geo,
+                min_coverage=args.min_coverage,
             )
         else:
             try:
@@ -158,6 +173,7 @@ def main() -> int:
                 limit=args.limit,
                 pokedex_start=args.pokedex_start,
                 pokedex_end=args.pokedex_end,
+                pokedex_numbers=args.pokedex_number,
                 generation=args.generation,
                 append_to_snapshot_id=args.append_to_snapshot_id,
                 timeframes=timeframes,
@@ -198,6 +214,7 @@ def run_ingestion(
     limit: Optional[int] = None,
     pokedex_start: Optional[int] = None,
     pokedex_end: Optional[int] = None,
+    pokedex_numbers: Optional[List[int]] = None,
     generation: Optional[int] = None,
     append_to_snapshot_id: Optional[int] = None,
     stop_after_consecutive_429s: int = 3,
@@ -231,6 +248,7 @@ def run_ingestion(
         limit=limit,
         pokedex_start=pokedex_start,
         pokedex_end=pokedex_end,
+        pokedex_numbers=pokedex_numbers,
         generation=generation,
     )
     existing_append_rows: List[Dict[str, Any]] = []
@@ -270,6 +288,7 @@ def run_ingestion(
                 limit=limit,
                 pokedex_start=pokedex_start,
                 pokedex_end=pokedex_end,
+                pokedex_numbers=pokedex_numbers,
                 generation=generation,
             ),
             "diagnostics": {
@@ -437,6 +456,7 @@ def run_ingestion(
             limit=limit,
             pokedex_start=pokedex_start,
             pokedex_end=pokedex_end,
+            pokedex_numbers=pokedex_numbers,
             generation=generation,
         ),
         "pokemon_reference_rows_available": len(all_references),
@@ -464,37 +484,82 @@ def derive_from_existing_snapshots(
     source_name: str,
     provider_name: Optional[str],
     geo: str,
+    min_coverage: float = 0.95,
+    expected_reference_count: int = COMPLETE_REFERENCE_COUNT,
 ) -> Dict[str, Any]:
-    requested_timeframes = [*DERIVE_REQUIRED_TIMEFRAMES, *DERIVE_OPTIONAL_TIMEFRAMES]
-    snapshots_by_timeframe = repository.list_latest_usable_trend_snapshots(
+    snapshot_candidates = repository.list_usable_trend_snapshots(
         source_name=source_name,
         provider_name=provider_name,
         geo=geo,
-        timeframes=requested_timeframes,
+        timeframe=RECENT_TIMEFRAME,
+        limit=10,
     )
-    missing_required = [timeframe for timeframe in DERIVE_REQUIRED_TIMEFRAMES if timeframe not in snapshots_by_timeframe]
-    if missing_required:
+    if not snapshot_candidates:
         return {
             "source": source_name,
             "provider": provider_name,
-            "status": "missing_required_snapshots",
+            "status": "missing_recent_trend_snapshot",
             "dry_run": dry_run,
-            "missing_required_timeframes": missing_required,
-            "available_timeframes": sorted(snapshots_by_timeframe),
+            "required_timeframe": RECENT_TIMEFRAME,
+            "measurement_note": "V1 only requires the current 30-day Google Trends relative search-interest snapshot.",
+            "guardrails": _guardrails(),
+        }
+
+    selected_snapshot: Optional[Dict[str, Any]] = None
+    selected_rows: List[Dict[str, Any]] = []
+    selected_normalized_rows: List[Dict[str, Any]] = []
+    selected_summary: Dict[str, Any] = {}
+    coverage_candidates: List[Dict[str, Any]] = []
+
+    for snapshot in snapshot_candidates:
+        rows = repository.list_trend_source_rows_for_snapshot(snapshot["id"])
+        normalized_rows, summary = normalize_timeframe_rows(rows)
+        coverage_ratio = (
+            len(normalized_rows) / expected_reference_count
+            if expected_reference_count > 0
+            else 0.0
+        )
+        candidate = {
+            "snapshot_id": snapshot.get("id"),
+            "timeframe": snapshot.get("timeframe"),
+            "status": snapshot.get("status"),
+            "source_rows": len(rows),
+            "normalized_rows": len(normalized_rows),
+            "coverage_ratio": round(coverage_ratio, 4),
+            "captured_at": snapshot.get("captured_at"),
+        }
+        coverage_candidates.append(candidate)
+        if coverage_ratio >= min_coverage:
+            selected_snapshot = snapshot
+            selected_rows = rows
+            selected_normalized_rows = normalized_rows
+            selected_summary = summary
+            break
+
+    if selected_snapshot is None:
+        return {
+            "source": source_name,
+            "provider": provider_name,
+            "status": "insufficient_recent_snapshot_coverage",
+            "dry_run": dry_run,
+            "required_timeframe": RECENT_TIMEFRAME,
+            "min_coverage": min_coverage,
+            "coverage_candidates": coverage_candidates,
+            "measurement_note": (
+                "Recent Trend Score requires enough current 30-day Google Trends relative "
+                "search-interest rows; today 12-m and today 5-y are not required for V1."
+            ),
             "guardrails": _guardrails(),
         }
 
     source_rows_by_timeframe: Dict[str, List[Dict[str, Any]]] = {}
     normalized_by_timeframe: Dict[str, List[Dict[str, Any]]] = {}
     normalization_summaries: Dict[str, Dict[str, Any]] = {}
-    for timeframe, snapshot in snapshots_by_timeframe.items():
-        rows = repository.list_trend_source_rows_for_snapshot(snapshot["id"])
-        source_rows_by_timeframe[timeframe] = rows
-        normalized_rows, summary = normalize_timeframe_rows(rows)
-        normalized_by_timeframe[timeframe] = normalized_rows
-        normalization_summaries[timeframe] = summary
+    source_rows_by_timeframe[RECENT_TIMEFRAME] = selected_rows
+    normalized_by_timeframe[RECENT_TIMEFRAME] = selected_normalized_rows
+    normalization_summaries[RECENT_TIMEFRAME] = selected_summary
 
-    derived_scores, derived_summary = calculate_derived_trend_scores(normalized_by_timeframe)
+    derived_scores, derived_summary = calculate_recent_trend_scores(selected_normalized_rows)
     existing_keys = repository.list_trend_score_keys(scoring_version=TREND_SCORING_VERSION)
     scores_to_insert = [
         score
@@ -515,9 +580,11 @@ def derive_from_existing_snapshots(
         "provider": provider_name,
         "status": "dry_run" if dry_run else "derived_scores_inserted",
         "dry_run": dry_run,
-        "mode": "derive_from_existing",
+        "mode": "derive_recent_trend_from_existing",
         "geo": geo,
-        "snapshots_by_timeframe": snapshots_by_timeframe,
+        "selected_recent_snapshot": selected_snapshot,
+        "coverage_candidates": coverage_candidates,
+        "min_coverage": min_coverage,
         "normalization_summaries": normalization_summaries,
         "derived_summary": derived_summary,
         "derived_scores_count": len(derived_scores),
@@ -527,6 +594,10 @@ def derive_from_existing_snapshots(
         "insert_counts_by_score_name": insert_counts_by_score_name,
         "duplicates_skipped": len(derived_scores) - len(scores_to_insert),
         "diagnostics": diagnostics,
+        "measurement_note": (
+            "Recent Trend Score is current 30-day Google Trends relative search interest. "
+            "It is not absolute search volume, long-term search popularity, or trend momentum."
+        ),
         "guardrails": _guardrails(),
     }
 
@@ -565,6 +636,7 @@ def _select_references(
     limit: Optional[int],
     pokedex_start: Optional[int],
     pokedex_end: Optional[int],
+    pokedex_numbers: Optional[List[int]],
     generation: Optional[int],
 ) -> List[Dict[str, Any]]:
     if offset < 0:
@@ -575,6 +647,9 @@ def _select_references(
         raise ValueError("--pokedex-start must be <= --pokedex-end")
 
     selected = sorted(references, key=lambda row: _as_int(row.get("pokedex_number")) or 0)
+    if pokedex_numbers:
+        selected_numbers = set(pokedex_numbers)
+        selected = [row for row in selected if (_as_int(row.get("pokedex_number")) or -1) in selected_numbers]
     if pokedex_start is not None:
         selected = [row for row in selected if (_as_int(row.get("pokedex_number")) or -1) >= pokedex_start]
     if pokedex_end is not None:
@@ -594,6 +669,7 @@ def _selection_payload(
     limit: Optional[int],
     pokedex_start: Optional[int],
     pokedex_end: Optional[int],
+    pokedex_numbers: Optional[List[int]],
     generation: Optional[int],
 ) -> Dict[str, Any]:
     return {
@@ -601,6 +677,7 @@ def _selection_payload(
         "limit": limit,
         "pokedex_start": pokedex_start,
         "pokedex_end": pokedex_end,
+        "pokedex_numbers": sorted(set(pokedex_numbers or [])),
         "generation": generation,
         "production_note": (
             "For live pytrends production, prefer small Pokedex ranges or one generation/timeframe per job; "

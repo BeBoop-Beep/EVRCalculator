@@ -115,7 +115,7 @@ def _build_dedupe_key(set_id: str, card: Dict[str, Any]) -> str:
 
 
 def _sort_key(card: Dict[str, Any]) -> Tuple[int, Any, Any, str]:
-    number = _to_optional_str(card.get("card_number"))
+    number = _resolve_card_number(card)
     if number:
         compact = number.replace(" ", "")
         front = compact.split("/", 1)[0]
@@ -147,7 +147,7 @@ def get_pokemon_set_cards_payload(set_id: str) -> Dict[str, Any]:
     try:
         set_result = (
             public_read_client.table("sets")
-            .select("id,name,canonical_key")
+            .select("id,name,canonical_key,pokemon_api_set_id")
             .eq("id", resolved_set_id)
             .maybe_single()
             .execute()
@@ -171,8 +171,11 @@ def get_pokemon_set_cards_payload(set_id: str) -> Dict[str, Any]:
     cards_started = time.perf_counter()
     try:
         cards_result = (
-            public_read_client.table("cards")
-            .select("*")
+            public_read_client.table("pokemon_canonical_cards")
+            .select(
+                "id,set_id,pokemon_tcg_api_card_id,name,supertype,subtypes,rarity,"
+                "number,printed_number,national_pokedex_numbers,image_small_url,image_large_url"
+            )
             .eq("set_id", resolved_set_id)
             .execute()
         )
@@ -181,38 +184,35 @@ def get_pokemon_set_cards_payload(set_id: str) -> Dict[str, Any]:
         logger.exception("[pokemon-set-cards] cards query failed set_id=%s", resolved_set_id)
         raise PokemonSetCardsError(
             status_code=500,
-            message="Failed to load cards for set",
+            message="Failed to load canonical cards for set",
             code="POKEMON_SET_CARDS_QUERY_FAILED",
         )
     cards_ms = (time.perf_counter() - cards_started) * 1000
 
-    deduped_by_key: Dict[str, Dict[str, Any]] = {}
-    duplicate_count = 0
-    for card in raw_cards:
-        dedupe_key = _build_dedupe_key(resolved_set_id, card)
-        existing = deduped_by_key.get(dedupe_key)
-        if existing is None:
-            deduped_by_key[dedupe_key] = card
-            continue
-
-        duplicate_count += 1
-        if _card_quality_score(card) > _card_quality_score(existing):
-            deduped_by_key[dedupe_key] = card
-
     cards: List[Dict[str, Any]] = []
-    for card in deduped_by_key.values():
+    for card in raw_cards:
         cards.append(
             {
                 "id": _to_optional_str(card.get("id")),
                 "name": _to_optional_str(card.get("name")),
                 "set_id": _to_optional_str(card.get("set_id")) or resolved_set_id,
                 "set_name": _to_optional_str(set_row.get("name")),
-                "card_number": _resolve_card_number(card),
+                "pokemon_tcg_api_card_id": _to_optional_str(card.get("pokemon_tcg_api_card_id")),
+                "card_number": _to_optional_str(card.get("number")),
+                "number": _to_optional_str(card.get("number")),
+                "printed_number": _to_optional_str(card.get("printed_number")),
                 "rarity": _to_optional_str(card.get("rarity")),
+                "supertype": _to_optional_str(card.get("supertype")),
+                "subtypes": card.get("subtypes") if isinstance(card.get("subtypes"), list) else [],
+                "national_pokedex_numbers": (
+                    card.get("national_pokedex_numbers")
+                    if isinstance(card.get("national_pokedex_numbers"), list)
+                    else []
+                ),
                 "image_small_url": _resolve_image_small(card),
                 "image_large_url": _resolve_image_large(card),
-                "market_price": _resolve_market_price(card),
-                "tcgplayer_product_id": _to_optional_str(card.get("tcgplayer_product_id")),
+                "market_price": None,
+                "tcgplayer_product_id": None,
             }
         )
 
@@ -223,17 +223,18 @@ def get_pokemon_set_cards_payload(set_id: str) -> Dict[str, Any]:
             "id": _to_optional_str(set_row.get("id")) or resolved_set_id,
             "name": _to_optional_str(set_row.get("name")),
             "slug": _to_optional_str(set_row.get("canonical_key")),
+            "pokemon_api_set_id": _to_optional_str(set_row.get("pokemon_api_set_id")),
         },
         "cards": cards,
         "meta": {
             "dedupe": {
-                "strategy": "pokemon_tcg_api_id -> set_id+card_number+normalized_name -> set_id+card_number -> set_id+normalized_name -> cards.id",
+                "strategy": "none: pokemon_canonical_cards is already the checklist source",
                 "input_count": len(raw_cards),
                 "output_count": len(cards),
-                "removed_duplicates": duplicate_count,
+                "removed_duplicates": 0,
             },
             "sources": {
-                "cards": "cards",
+                "cards": "pokemon_canonical_cards",
             },
             "timings": {
                 "cards_query_ms": round(cards_ms, 3),

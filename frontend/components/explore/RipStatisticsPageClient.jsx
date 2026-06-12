@@ -267,8 +267,9 @@ function getCardInitials(value) {
 function ChecklistCardTile({ card }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
   const name = card?.name || "Unknown card";
-  const number = card?.cardNumber || null;
+  const number = card?.printedNumber || card?.cardNumber || null;
   const rarity = card?.rarity || null;
+  const subtypeLabel = Array.isArray(card?.subtypes) && card.subtypes.length > 0 ? card.subtypes.join(" / ") : null;
   const marketPrice = Number.isFinite(card?.marketPrice) ? currencyFormatter.format(card.marketPrice) : null;
 
   return (
@@ -295,6 +296,7 @@ function ChecklistCardTile({ card }) {
         <p className="line-clamp-2 text-sm font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
         {number ? <p className="text-xs text-[var(--text-secondary)]">No. {number}</p> : null}
         {rarity ? <p className="text-xs text-[var(--text-secondary)]">{rarity}</p> : null}
+        {subtypeLabel ? <p className="line-clamp-1 text-xs text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
         {marketPrice ? <p className="text-xs font-medium text-[var(--text-primary)]">Market: {marketPrice}</p> : null}
       </div>
     </article>

@@ -52,7 +52,7 @@ QUERY_TERM_OVERRIDES_BY_POKEDEX = {
     83: "Farfetch'd",
     122: "Mr. Mime",
     250: "Ho-Oh",
-    474: "Porygon-Z",
+    474: "Porygon Z",
     439: "Mime Jr.",
     669: "Flabebe",
     772: "Type: Null",
@@ -69,12 +69,56 @@ QUERY_TERM_OVERRIDES_BY_POKEDEX = {
 }
 
 
+QUERY_TERM_OVERRIDE_RULES_BY_NAME_KEY = {
+    "nidoran f": ("Nidoran", "gender descriptor removed for Google Trends species query"),
+    "nidoran female": ("Nidoran", "gender descriptor removed for Google Trends species query"),
+    "nidoran m": ("Nidoran", "gender descriptor removed for Google Trends species query"),
+    "nidoran male": ("Nidoran", "gender descriptor removed for Google Trends species query"),
+    "porygon z": ("Porygon Z", "punctuation normalized for Google Trends query matching"),
+    "deoxys normal": ("Deoxys", "form descriptor removed for Google Trends species query"),
+    "wormadam plant": ("Wormadam", "form descriptor removed for Google Trends species query"),
+    "giratina altered": ("Giratina", "form descriptor removed for Google Trends species query"),
+    "shaymin land": ("Shaymin", "form descriptor removed for Google Trends species query"),
+    "basculin red striped": ("Basculin", "form descriptor removed for Google Trends species query"),
+    "basculin red stripes": ("Basculin", "form descriptor removed for Google Trends species query"),
+    "darmanitan standard": ("Darmanitan", "form descriptor removed for Google Trends species query"),
+    "tornadus incarnate": ("Tornadus", "form descriptor removed for Google Trends species query"),
+    "thundurus incarnate": ("Thundurus", "form descriptor removed for Google Trends species query"),
+    "landorus incarnate": ("Landorus", "form descriptor removed for Google Trends species query"),
+    "meowstic male": ("Meowstic", "gender descriptor removed for Google Trends species query"),
+    "meowstic female": ("Meowstic", "gender descriptor removed for Google Trends species query"),
+    "aegislash shield": ("Aegislash", "form descriptor removed for Google Trends species query"),
+    "minior red meteor": ("Minior", "form descriptor removed for Google Trends species query"),
+    "mimikyu disguised": ("Mimikyu", "state descriptor removed for Google Trends species query"),
+    "mimikyu disguise": ("Mimikyu", "state descriptor removed for Google Trends species query"),
+    "toxtricity amped": ("Toxtricity", "form descriptor removed for Google Trends species query"),
+    "toxtricity low key": ("Toxtricity", "form descriptor removed for Google Trends species query"),
+    "urshifu single strike": ("Urshifu", "form descriptor removed for Google Trends species query"),
+    "urshifu rapid strike": ("Urshifu", "form descriptor removed for Google Trends species query"),
+    "maushold family of four": ("Maushold", "form descriptor removed for Google Trends species query"),
+    "maushold family of three": ("Maushold", "form descriptor removed for Google Trends species query"),
+    "squawkabilly green plumage": ("Squawkabilly", "form descriptor removed for Google Trends species query"),
+    "squawkabilly blue plumage": ("Squawkabilly", "form descriptor removed for Google Trends species query"),
+    "squawkabilly yellow plumage": ("Squawkabilly", "form descriptor removed for Google Trends species query"),
+    "squawkabilly white plumage": ("Squawkabilly", "form descriptor removed for Google Trends species query"),
+    "palafin zero": ("Palafin", "state descriptor removed for Google Trends species query"),
+    "palafin hero": ("Palafin", "state descriptor removed for Google Trends species query"),
+    "tatsugiri curly": ("Tatsugiri", "form descriptor removed for Google Trends species query"),
+    "tatsugiri droopy": ("Tatsugiri", "form descriptor removed for Google Trends species query"),
+    "tatsugiri stretchy": ("Tatsugiri", "form descriptor removed for Google Trends species query"),
+    "dudunsparce two segment": ("Dudunsparce", "form descriptor removed for Google Trends species query"),
+    "dudunsparce three segment": ("Dudunsparce", "form descriptor removed for Google Trends species query"),
+}
+
+
 @dataclass(frozen=True)
 class TrendPokemon:
     pokemon_reference_id: Any
     pokedex_number: Optional[int]
     pokemon_name: str
     query_term: str
+    original_query_term: str
+    query_term_override_reason: Optional[str]
     is_ambiguous: bool
 
 
@@ -283,25 +327,71 @@ def make_provider(provider_name: str, *, dry_run: bool) -> GoogleTrendsProvider:
 
 def build_trend_pokemon(reference: Dict[str, Any]) -> TrendPokemon:
     pokedex_number = _as_int(reference.get("pokedex_number"))
-    query_term = pokemon_query_term(reference)
+    query_metadata = pokemon_query_term_metadata(reference)
     return TrendPokemon(
         pokemon_reference_id=reference.get("id"),
         pokedex_number=pokedex_number,
-        pokemon_name=str(reference.get("display_name") or reference.get("canonical_name") or query_term),
-        query_term=query_term,
-        is_ambiguous=is_ambiguous_query_term(query_term),
+        pokemon_name=str(reference.get("display_name") or reference.get("canonical_name") or query_metadata["query_term"]),
+        query_term=query_metadata["query_term"],
+        original_query_term=query_metadata["original_query_term"],
+        query_term_override_reason=query_metadata["override_reason"],
+        is_ambiguous=is_ambiguous_query_term(query_metadata["query_term"]),
     )
 
 
 def pokemon_query_term(reference: Dict[str, Any]) -> str:
+    return pokemon_query_term_metadata(reference)["query_term"]
+
+
+def pokemon_query_term_metadata(reference: Dict[str, Any]) -> Dict[str, Optional[str]]:
     pokedex_number = _as_int(reference.get("pokedex_number"))
+    original_query_term = _default_query_term(reference)
+    override = _query_term_name_override(reference, original_query_term)
+    if override is not None:
+        return {
+            "query_term": override[0],
+            "original_query_term": original_query_term,
+            "override_reason": override[1],
+        }
     if pokedex_number in QUERY_TERM_OVERRIDES_BY_POKEDEX:
-        return QUERY_TERM_OVERRIDES_BY_POKEDEX[pokedex_number]
+        query_term = QUERY_TERM_OVERRIDES_BY_POKEDEX[pokedex_number]
+        reason = "explicit Pokedex query-term spelling override"
+        if query_term == original_query_term:
+            reason = None
+        return {
+            "query_term": query_term,
+            "original_query_term": original_query_term,
+            "override_reason": reason,
+        }
+    return {
+        "query_term": original_query_term,
+        "original_query_term": original_query_term,
+        "override_reason": None,
+    }
+
+
+def _default_query_term(reference: Dict[str, Any]) -> str:
     display_name = str(reference.get("display_name") or "").strip()
     if display_name:
         return display_name
     canonical_name = str(reference.get("canonical_name") or "").replace("-", " ").strip()
     return " ".join(part.capitalize() for part in canonical_name.split())
+
+
+def _query_term_name_override(
+    reference: Dict[str, Any],
+    original_query_term: str,
+) -> Optional[tuple[str, str]]:
+    candidate_names = [
+        original_query_term,
+        str(reference.get("display_name") or "").strip(),
+        str(reference.get("canonical_name") or "").replace("-", " ").strip(),
+    ]
+    for candidate in candidate_names:
+        key = normalize_pokemon_name_key(candidate)
+        if key in QUERY_TERM_OVERRIDE_RULES_BY_NAME_KEY:
+            return QUERY_TERM_OVERRIDE_RULES_BY_NAME_KEY[key]
+    return None
 
 
 def is_ambiguous_query_term(query_term: str) -> bool:
@@ -543,6 +633,12 @@ def _source_row(
         "extraction_confidence": confidence,
         "raw_row_json": {
             "terms": batch.terms,
+            "query_term_audit": {
+                "original_query_term": pokemon.original_query_term,
+                "corrected_query_term": pokemon.query_term,
+                "override_applied": pokemon.query_term != pokemon.original_query_term,
+                "override_reason": pokemon.query_term_override_reason,
+            },
             "provider_payload": raw_payload,
             "measurement_note": "Google Trends values are normalized relative search interest, not absolute search volume.",
         },
