@@ -32,12 +32,14 @@ def load_backend_env() -> None:
     load_dotenv(env_path, override=False)
 
 
-def require_env() -> None:
+def require_env(*, require_api_key: bool = True) -> None:
     missing = [
         name
-        for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "POKEMON_TCG_API_KEY")
+        for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
         if not os.getenv(name)
     ]
+    if require_api_key and not os.getenv("POKEMON_TCG_API_KEY"):
+        missing.append("POKEMON_TCG_API_KEY")
     if missing:
         raise PokemonCanonicalValidationError(
             "Missing required environment variable(s): " + ", ".join(missing)
@@ -125,7 +127,7 @@ def load_sets() -> List[Dict[str, Any]]:
     return list(result.data or [])
 
 
-def validate_sets(limit: Optional[int] = None) -> Dict[str, Any]:
+def validate_sets(limit: Optional[int] = None, skip_api: bool = False) -> Dict[str, Any]:
     rows = load_sets()
     if limit is not None:
         rows = rows[:limit]
@@ -145,7 +147,7 @@ def validate_sets(limit: Optional[int] = None) -> Dict[str, Any]:
 
         canonical_count = count_table_rows(CANONICAL_TABLE, set_id)
         legacy_cards_count = count_table_rows("cards", set_id)
-        api_card_count = request_api_card_count(api_set_id)
+        api_card_count = None if skip_api else request_api_card_count(api_set_id)
 
         metadata_counts = {
             "printed_total": to_optional_int(set_row.get("printed_total")),
@@ -167,7 +169,7 @@ def validate_sets(limit: Optional[int] = None) -> Dict[str, Any]:
 
         if canonical_count <= 0:
             missing_canonical.append(row)
-        if canonical_count != api_card_count:
+        if api_card_count is not None and canonical_count != api_card_count:
             api_count_mismatches.append(row)
         if any(
             count is not None and count != canonical_count
@@ -182,6 +184,7 @@ def validate_sets(limit: Optional[int] = None) -> Dict[str, Any]:
     return {
         "summary": {
             "sets_checked": len(validations),
+            "api_validation_skipped": bool(skip_api),
             "sets_missing_canonical_cards": len(missing_canonical),
             "api_count_mismatches": len(api_count_mismatches),
             "local_metadata_mismatches": len(local_metadata_mismatches),
@@ -206,14 +209,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional number of sets to validate from the ordered set list",
     )
+    parser.add_argument(
+        "--db-only",
+        "--skip-api",
+        dest="skip_api",
+        action="store_true",
+        help="Skip live Pokemon TCG API count checks and validate database-only counts.",
+    )
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     load_backend_env()
-    require_env()
-    report = validate_sets(limit=args.limit)
+    require_env(require_api_key=not args.skip_api)
+    report = validate_sets(limit=args.limit, skip_api=bool(args.skip_api))
     print(json.dumps(report, indent=2, sort_keys=True))
     failures = (
         report["summary"]["sets_missing_canonical_cards"]
