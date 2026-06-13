@@ -88,6 +88,16 @@ _RIP_SUMMARY_SUPPLEMENT_FIELDS = (
     "relative_profit_score",
     "relative_safety_score",
     "relative_stability_score",
+    "desirability_score",
+    "relative_desirability_score",
+    "desirability_rank",
+    "desirability_tier",
+    "desirability_scoring_version",
+    "desirability_source_summary_id",
+    "desirability_source_table",
+    "desirability_source_metric",
+    "desirability_is_fallback",
+    "desirability_fallback_reason",
     "median_value_to_cost_ratio",
     "median_loss_when_losing_fraction",
     "experience_score",
@@ -109,6 +119,11 @@ _OPTIONAL_HIT_SET_VALUE_SUMMARY_FIELDS = (
     "hit_pull_rate",
     "hit_cards_pulled",
 )
+
+_DESIRABILITY_DRIVER_CARD_CANDIDATE_LIMIT = 25
+_DESIRABILITY_DRIVER_DISPLAY_LIMIT = 3
+_DESIRABILITY_DRIVER_POKEMON_LIMIT = 5
+_DESIRABILITY_PREMIUM_RARITY_MIN_PRIORITY = 70
 
 
 def _to_optional_str(value: Any) -> Optional[str]:
@@ -1143,6 +1158,302 @@ def _ensure_optional_summary_fields(summary: Dict[str, Any]) -> None:
         summary.setdefault(field, None)
 
 
+def _public_score(value: Any) -> Optional[float]:
+    parsed = _to_optional_float(value)
+    if parsed is None or not math.isfinite(parsed):
+        return None
+    return round(parsed, 4)
+
+
+def _first_non_empty_text(*values: Any) -> Optional[str]:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return None
+
+
+def _normalize_desirability_subject_key(value: Any) -> Optional[str]:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    return " ".join(text.replace(",", " ").split())
+
+
+def _desirability_rarity_priority(value: Any) -> int:
+    rarity = str(value or "").strip().lower()
+    if not rarity:
+        return 0
+
+    if "special illustration rare" in rarity or rarity == "sir":
+        return 100
+    if "alternate art" in rarity or "alt art" in rarity:
+        return 95
+    if "secret rare" in rarity or "hyper rare" in rarity or "gold" in rarity:
+        return 90
+    if "ultra rare" in rarity:
+        return 80
+    if "illustration rare" in rarity:
+        return 70
+    if "double rare" in rarity:
+        return 20
+    if any(token in rarity for token in (" ex", "-ex", " v", "-v", "vmax", "vstar", "gx")):
+        return 10
+    return 0
+
+
+def _desirability_driver_sort_key(driver: Dict[str, Any]) -> tuple[float, int, float, float, int, str]:
+    return (
+        _to_optional_float(driver.get("desirability_score")) or 0.0,
+        int(driver.get("_rarity_priority") or 0),
+        _to_optional_float(driver.get("favorite_score")) or 0.0,
+        _to_optional_float(driver.get("trend_score")) or 0.0,
+        int(driver.get("notable_hit_count") or 0),
+        str(driver.get("card_name") or ""),
+    )
+
+
+def _latest_composite_scores_by_reference(reference_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+    if not reference_ids:
+        return {}
+
+    response = (
+        public_read_client.table("pokemon_desirability_composite_scores")
+        .select(
+            "pokemon_reference_id,fan_popularity_score,current_trend_score,"
+            "desirability_score,created_at"
+        )
+        .in_("pokemon_reference_id", reference_ids[:50])
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    scores_by_reference: Dict[int, Dict[str, Any]] = {}
+    for row in response.data or []:
+        try:
+            reference_id = int(row.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            continue
+        scores_by_reference.setdefault(reference_id, row)
+    return scores_by_reference
+
+
+def _collect_desirability_reference_ids(summary_row: Dict[str, Any]) -> List[int]:
+    reference_ids: List[int] = []
+
+    for card in (summary_row.get("top_desirable_cards_json") or [])[:_DESIRABILITY_DRIVER_CARD_CANDIDATE_LIMIT]:
+        for link in card.get("linked_pokemon") or []:
+            try:
+                reference_id = int(link.get("pokemon_reference_id"))
+            except (TypeError, ValueError):
+                continue
+            if reference_id not in reference_ids:
+                reference_ids.append(reference_id)
+
+    for pokemon in (summary_row.get("top_desirable_pokemon_json") or [])[:_DESIRABILITY_DRIVER_POKEMON_LIMIT]:
+        try:
+            reference_id = int(pokemon.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            continue
+        if reference_id not in reference_ids:
+            reference_ids.append(reference_id)
+
+    return reference_ids
+
+
+def _public_desirability_driver_cards(
+    summary_row: Dict[str, Any],
+    scores_by_reference: Dict[int, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    candidates_by_subject: Dict[str, List[Dict[str, Any]]] = {}
+
+    for card in (summary_row.get("top_desirable_cards_json") or [])[:_DESIRABILITY_DRIVER_CARD_CANDIDATE_LIMIT]:
+        links = [link for link in (card.get("linked_pokemon") or []) if isinstance(link, dict)]
+        primary_link = links[0] if links else {}
+        reference_id: Optional[int] = None
+        try:
+            reference_id = int(primary_link.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            reference_id = None
+
+        composite_row = scores_by_reference.get(reference_id or -1) or {}
+        matched_names = [
+            str(link.get("pokemon_name")).strip()
+            for link in links
+            if str(link.get("pokemon_name") or "").strip()
+        ]
+        unique_matched_names = list(dict.fromkeys(matched_names))
+        matched_pokemon = ", ".join(unique_matched_names) if unique_matched_names else None
+        subject = matched_pokemon or _first_non_empty_text(card.get("name"))
+        subject_key = _normalize_desirability_subject_key(subject)
+        if not subject_key:
+            continue
+
+        rarity = _first_non_empty_text(card.get("rarity"))
+        rarity_priority = _desirability_rarity_priority(rarity)
+
+        candidates_by_subject.setdefault(subject_key, []).append(
+            {
+                "card_name": _first_non_empty_text(card.get("name")),
+                "matched_pokemon": matched_pokemon,
+                "matched_subject": subject,
+                "desirability_score": _public_score(card.get("card_desirability_score")),
+                "favorite_score": _public_score(composite_row.get("fan_popularity_score")),
+                "fan_score": _public_score(composite_row.get("fan_popularity_score")),
+                "trend_score": _public_score(composite_row.get("current_trend_score")),
+                "rarity": rarity,
+                "card_number": _first_non_empty_text(card.get("printed_number"), card.get("number")),
+                "printed_number": _first_non_empty_text(card.get("printed_number")),
+                "_rarity_priority": rarity_priority,
+            }
+        )
+
+    representatives: List[Dict[str, Any]] = []
+    for subject_candidates in candidates_by_subject.values():
+        ranked_candidates = sorted(
+            subject_candidates,
+            key=lambda item: (
+                int(item.get("_rarity_priority") or 0),
+                _to_optional_float(item.get("desirability_score")) or 0.0,
+                _to_optional_float(item.get("favorite_score")) or 0.0,
+                _to_optional_float(item.get("trend_score")) or 0.0,
+                str(item.get("card_name") or ""),
+            ),
+            reverse=True,
+        )
+        representative = dict(ranked_candidates[0])
+        representative["notable_hit_count"] = len(subject_candidates)
+        representatives.append(representative)
+
+    premium_representatives = [
+        item
+        for item in representatives
+        if int(item.get("_rarity_priority") or 0) >= _DESIRABILITY_PREMIUM_RARITY_MIN_PRIORITY
+    ]
+    fallback_representatives = [
+        item
+        for item in representatives
+        if int(item.get("_rarity_priority") or 0) < _DESIRABILITY_PREMIUM_RARITY_MIN_PRIORITY
+    ]
+    selected = sorted(premium_representatives, key=_desirability_driver_sort_key, reverse=True)[
+        :_DESIRABILITY_DRIVER_DISPLAY_LIMIT
+    ]
+    if len(selected) < _DESIRABILITY_DRIVER_DISPLAY_LIMIT:
+        selected.extend(
+            sorted(fallback_representatives, key=_desirability_driver_sort_key, reverse=True)[
+                : _DESIRABILITY_DRIVER_DISPLAY_LIMIT - len(selected)
+            ]
+        )
+
+    public_fields = {
+        "card_name",
+        "matched_pokemon",
+        "matched_subject",
+        "desirability_score",
+        "favorite_score",
+        "fan_score",
+        "trend_score",
+        "rarity",
+        "card_number",
+        "printed_number",
+        "notable_hit_count",
+    }
+    return [
+        {key: value for key, value in driver.items() if key in public_fields and value is not None}
+        for driver in selected
+    ]
+
+
+def _public_desirability_driver_pokemon(
+    summary_row: Dict[str, Any],
+    scores_by_reference: Dict[int, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    drivers: List[Dict[str, Any]] = []
+
+    for pokemon in (summary_row.get("top_desirable_pokemon_json") or [])[:_DESIRABILITY_DRIVER_POKEMON_LIMIT]:
+        try:
+            reference_id = int(pokemon.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            reference_id = None
+        composite_row = scores_by_reference.get(reference_id or -1) or {}
+        drivers.append(
+            {
+                "pokemon_name": _first_non_empty_text(pokemon.get("pokemon_name")),
+                "matched_subject": _first_non_empty_text(pokemon.get("pokemon_name")),
+                "desirability_score": _public_score(pokemon.get("desirability_score")),
+                "favorite_score": _public_score(composite_row.get("fan_popularity_score")),
+                "fan_score": _public_score(composite_row.get("fan_popularity_score")),
+                "trend_score": _public_score(composite_row.get("current_trend_score")),
+                "hit_card_count": pokemon.get("hit_card_count"),
+            }
+        )
+
+    return drivers
+
+
+def _populate_desirability_drivers_for_set(
+    summary: Dict[str, Any],
+    requested_target_id: str,
+    warnings: List[str],
+    sources: Dict[str, str],
+) -> None:
+    summary["top_desirability_cards"] = []
+    summary["top_desirability_pokemon"] = []
+
+    source_summary_id = str(summary.get("desirability_source_summary_id") or "").strip()
+    target_id = str(requested_target_id or "").strip()
+    if not source_summary_id and not target_id:
+        sources["pokemon_set_hit_desirability_summaries"] = "SKIPPED_MISSING_SET_ID"
+        return
+
+    try:
+        query = public_read_client.table("pokemon_set_hit_desirability_summaries").select(
+            "id,set_id,top_desirable_cards_json,top_desirable_pokemon_json,built_at"
+        )
+        if source_summary_id:
+            query = query.eq("id", source_summary_id)
+        else:
+            query = query.eq("set_id", target_id).order("built_at", desc=True)
+
+        response = query.limit(1).execute()
+        summary_row = _first_row(response)
+        if not summary_row:
+            sources["pokemon_set_hit_desirability_summaries"] = "NO_ROW"
+            return
+
+        reference_ids = _collect_desirability_reference_ids(summary_row)
+        try:
+            scores_by_reference = _latest_composite_scores_by_reference(reference_ids)
+            sources["pokemon_desirability_composite_scores"] = "OK" if reference_ids else "SKIPPED_NO_REFERENCES"
+        except Exception as composite_exc:
+            logger.warning(
+                "[explore-page] pokemon_desirability_composite_scores enrichment failed target_id=%s: %s",
+                target_id,
+                composite_exc,
+            )
+            warnings.append("Failed to load supplemental desirability driver score components")
+            sources["pokemon_desirability_composite_scores"] = "FAILED"
+            scores_by_reference = {}
+
+        summary["top_desirability_cards"] = _public_desirability_driver_cards(
+            summary_row,
+            scores_by_reference,
+        )
+        summary["top_desirability_pokemon"] = _public_desirability_driver_pokemon(
+            summary_row,
+            scores_by_reference,
+        )
+        sources["pokemon_set_hit_desirability_summaries"] = "OK"
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] pokemon_set_hit_desirability_summaries enrichment failed target_id=%s: %s",
+            target_id,
+            exc,
+        )
+        warnings.append("Failed to load top desirability drivers")
+        sources["pokemon_set_hit_desirability_summaries"] = "FAILED"
+
+
 def _lookup_latest_run_from_calculation_runs(target_type: str, target_id: str) -> str:
     """Fallback latest run lookup when canonical latest view is unavailable."""
     run_result = (
@@ -1510,6 +1821,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+        _populate_desirability_drivers_for_set(summary, requested_target_id, warnings, sources)
     _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
@@ -2568,6 +2880,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+        _populate_desirability_drivers_for_set(summary, requested_target_id, warnings, sources)
     _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)

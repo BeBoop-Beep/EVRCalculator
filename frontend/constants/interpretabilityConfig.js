@@ -386,12 +386,13 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
 
 /**
  * Score card tooltip explanations.
- * Provides detailed context for Pack Score, Profit, Safety, Stability.
+ * Provides detailed context for Pack Score, Profit, Safety, Desirability, Stability.
  */
 export const SCORE_CARD_TOOLTIPS = {
   "Pack Score": "Pack Score",
   "Profit": "Profit Score",
   "Safety": "Safety Score",
+  "Desirability": "Desirability Score",
   "Stability": "Stability Score",
 };
 
@@ -461,13 +462,21 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
+              <span className="font-semibold text-[var(--text-primary)]">Desirability</span>
+              <br />
+              <span className="text-[11px]">Collector appeal and hit-card desirability</span>
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="flex-none">•</span>
+            <span>
               <span className="font-semibold text-[var(--text-primary)]">Stability</span>
               <br />
               <span className="text-[11px]">Consistency of outcomes</span>
             </span>
           </li>
         </ul>
-        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">Higher scores indicate a stronger overall rip profile based on expected value, risk, and consistency.</p>
+        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">Higher scores indicate a stronger overall rip profile based on expected value, downside risk, collector appeal, and consistency.</p>
       </div>
     );
   }
@@ -536,6 +545,29 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>Considers worst-case/tail outcomes</span>
+          </li>
+        </ul>
+      </div>
+    );
+  }
+
+  if (scoreType === "Desirability") {
+    return (
+      <div className="space-y-1.5 text-left">
+        <p className="font-semibold text-[var(--text-primary)]">Collector Appeal</p>
+        <p className="text-[var(--text-secondary)]">Collector appeal based on featured Pokemon and hit-card desirability, independent of market price.</p>
+        <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
+          <li className="flex gap-2">
+            <span className="flex-none">•</span>
+            <span>Measures intrinsic set appeal</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="flex-none">•</span>
+            <span>Core component of Rip Score</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="flex-none">•</span>
+            <span>Independent of market price</span>
           </li>
         </ul>
       </div>

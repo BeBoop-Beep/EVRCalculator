@@ -115,6 +115,8 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_value_distribution_bins": lambda _q: [],
         "simulation_value_threshold_bins": lambda _q: [],
         "simulation_input_cards_with_near_mint_price": lambda _q: [],
+        "pokemon_set_hit_desirability_summaries": lambda _q: [],
+        "pokemon_desirability_composite_scores": lambda _q: [],
         "sets": lambda _q: [],
         "card_variants": lambda _q: [],
         "cards": lambda _q: [],
@@ -193,6 +195,209 @@ def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
     percentiles_calls = [c for c in client.calls if c.table_name == "simulation_percentiles"]
     assert len(percentiles_calls) == 1
     assert ("calculation_run_id", "run-rip") in percentiles_calls[0].eq_filters
+
+
+def test_desirability_driver_cards_are_publicly_enriched(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-rip",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 4.99,
+            "mean_value": 5.55,
+            "median_value": 5.10,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+            "desirability_source_summary_id": "summary-1",
+        }
+    ]
+    handlers["pokemon_set_hit_desirability_summaries"] = lambda _q: [
+        {
+            "id": "summary-1",
+            "set_id": "base-set",
+            "top_desirable_cards_json": [
+                {
+                    "name": "Charizard ex",
+                    "number": "183",
+                    "printed_number": "183/165",
+                    "rarity": "Ultra Rare",
+                    "card_desirability_score": 87.9598,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Charizard",
+                            "pokemon_reference_id": 6,
+                            "desirability_score": 87.9598,
+                        }
+                    ],
+                },
+                {
+                    "name": "Charizard ex",
+                    "number": "199",
+                    "printed_number": "199/165",
+                    "rarity": "Special Illustration Rare",
+                    "card_desirability_score": 87.9598,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Charizard",
+                            "pokemon_reference_id": 6,
+                            "desirability_score": 87.9598,
+                        }
+                    ],
+                },
+                {
+                    "name": "Charizard ex",
+                    "number": "6",
+                    "printed_number": "6/165",
+                    "rarity": "Double Rare",
+                    "card_desirability_score": 87.9598,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Charizard",
+                            "pokemon_reference_id": 6,
+                            "desirability_score": 87.9598,
+                        }
+                    ],
+                },
+                {
+                    "name": "Pikachu",
+                    "number": "173",
+                    "printed_number": "173/165",
+                    "rarity": "Illustration Rare",
+                    "card_desirability_score": 86.6387,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Pikachu",
+                            "pokemon_reference_id": 25,
+                            "desirability_score": 86.6387,
+                        }
+                    ],
+                },
+                {
+                    "name": "Mew ex",
+                    "number": "151",
+                    "printed_number": "151/165",
+                    "rarity": "Double Rare",
+                    "card_desirability_score": 80.674,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Mew",
+                            "pokemon_reference_id": 151,
+                            "desirability_score": 80.674,
+                        }
+                    ],
+                },
+            ],
+            "top_desirable_pokemon_json": [
+                {
+                    "pokemon_name": "Charizard",
+                    "pokemon_reference_id": 6,
+                    "desirability_score": 87.9598,
+                    "hit_card_count": 3,
+                }
+            ],
+        }
+    ]
+    handlers["pokemon_desirability_composite_scores"] = lambda _q: [
+        {
+            "pokemon_reference_id": 6,
+            "fan_popularity_score": 89.3298,
+            "current_trend_score": 83.8498,
+            "desirability_score": 87.9598,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        {
+            "pokemon_reference_id": 25,
+            "fan_popularity_score": 82.1849,
+            "current_trend_score": 100.0,
+            "desirability_score": 86.6387,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        {
+            "pokemon_reference_id": 151,
+            "fan_popularity_score": 86.3666,
+            "current_trend_score": 63.596,
+            "desirability_score": 80.674,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["summary"]["top_desirability_cards"] == [
+        {
+            "card_name": "Charizard ex",
+            "matched_pokemon": "Charizard",
+            "matched_subject": "Charizard",
+            "desirability_score": 87.9598,
+            "favorite_score": 89.3298,
+            "fan_score": 89.3298,
+            "trend_score": 83.8498,
+            "rarity": "Special Illustration Rare",
+            "card_number": "199/165",
+            "printed_number": "199/165",
+            "notable_hit_count": 3,
+        },
+        {
+            "card_name": "Pikachu",
+            "matched_pokemon": "Pikachu",
+            "matched_subject": "Pikachu",
+            "desirability_score": 86.6387,
+            "favorite_score": 82.1849,
+            "fan_score": 82.1849,
+            "trend_score": 100.0,
+            "rarity": "Illustration Rare",
+            "card_number": "173/165",
+            "printed_number": "173/165",
+            "notable_hit_count": 1,
+        },
+        {
+            "card_name": "Mew ex",
+            "matched_pokemon": "Mew",
+            "matched_subject": "Mew",
+            "desirability_score": 80.674,
+            "favorite_score": 86.3666,
+            "fan_score": 86.3666,
+            "trend_score": 63.596,
+            "rarity": "Double Rare",
+            "card_number": "151/165",
+            "printed_number": "151/165",
+            "notable_hit_count": 1,
+        },
+    ]
+    assert payload["summary"]["top_desirability_pokemon"][0]["pokemon_name"] == "Charizard"
+
+    summary_calls = [c for c in client.calls if c.table_name == "pokemon_set_hit_desirability_summaries"]
+    assert summary_calls[0].eq_filters == [("id", "summary-1")]
 
 
 def test_missing_target_returns_404(monkeypatch):

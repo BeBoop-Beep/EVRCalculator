@@ -12,7 +12,7 @@ import InfoPopover from "@/components/ui/InfoPopover";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
-import { getFriendlyMetricLabel, getScoreTootip, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
+import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import { getCalloutAccentStyle, getDangerValueStyle, getInterpretationTone } from "@/lib/explore/interpretationTone";
 import { getPokemonSetCards } from "@/lib/pokemon/pokemonSetCardsClient";
 import { normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
@@ -100,15 +100,21 @@ const SIMPLE_PILLAR_INFO_COPY = {
     "Profit explains the upside side of the set. A strong profit profile does not mean every pack feels good - it means the set has enough high-end outcomes to make the upside meaningful when the right cards show up.",
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
+  Desirability:
+    "Collector appeal based on featured Pokemon and hit-card desirability, independent of market price.",
   Stability:
     "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
 };
+
+const DESIRABILITY_FALLBACK_COPY = "Using a neutral collector appeal estimate until this set has enough desirability data.";
+const DESIRABILITY_NOT_CALCULATED_COPY = "Not calculated yet.";
 
 const METRIC_TREND_DIRECTIONS = {
   ripScore: "higher",
   packScore: "higher",
   profitScore: "higher",
   safetyScore: "higher",
+  desirabilityScore: "higher",
   stabilityScore: "higher",
   packCost: "neutral",
   setValue: "higher",
@@ -151,6 +157,7 @@ const HISTORY_METRIC_ALIASES = {
   ripScore: ["relative_pack_score", "relativePackScore", "pack_score", "packScore"],
   profitScore: ["relative_profit_score", "relativeProfitScore", "profit_score", "profitScore"],
   safetyScore: ["relative_safety_score", "relativeSafetyScore", "safety_score", "safetyScore"],
+  desirabilityScore: ["relative_desirability_score", "relativeDesirabilityScore", "desirability_score", "desirabilityScore"],
   stabilityScore: ["relative_stability_score", "relativeStabilityScore", "stability_score", "stabilityScore"],
   setValue: ["simulated_set_value", "simulatedSetValue", "set_value", "setValue"],
   averageHitValue: ["average_hit_value", "averageHitValue"],
@@ -171,6 +178,9 @@ const HISTORY_METRIC_ALIASES = {
 };
 
 function toNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -234,6 +244,20 @@ function formatScore(value) {
 function formatRawScore(value) {
   const parsed = toNumber(value);
   return parsed === null ? "—" : parsed.toFixed(1);
+}
+
+function isTruthyFlag(value) {
+  return value === true || String(value).toLowerCase() === "true";
+}
+
+function getDesirabilitySummary(summary) {
+  if (isTruthyFlag(summary?.desirability_is_fallback)) {
+    return DESIRABILITY_FALLBACK_COPY;
+  }
+  if (toNumber(summary?.relative_desirability_score) === null && toNumber(summary?.desirability_score) === null) {
+    return DESIRABILITY_NOT_CALCULATED_COPY;
+  }
+  return SIMPLE_PILLAR_INFO_COPY.Desirability;
 }
 
 function formatNumber(value, decimals = 2) {
@@ -719,9 +743,22 @@ function HorizontalBar({ widthPercent, nonzeroMin = 2 }) {
   );
 }
 
-function MetricRow({ label, value, infoText, trend = null }) {
+function MetricRow({ label, value, infoText, trend = null, content = null }) {
   const friendlyLabel = getFriendlyMetricLabel(label);
   const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
+
+  if (content) {
+    return (
+      <div className="border-b border-[var(--border-subtle)] py-2 last:border-b-0 last:pb-0 first:pt-0">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="text-sm font-medium text-[var(--text-primary)]">{friendlyLabel}</span>
+          {infoText ? <InfoPopover text={infoText} /> : null}
+        </div>
+        <div className="mt-2">{content}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] py-2 last:border-b-0 last:pb-0 first:pt-0">
       <div className="flex min-w-0 items-center gap-1.5">
@@ -732,6 +769,179 @@ function MetricRow({ label, value, infoText, trend = null }) {
         <TrendIndicator trend={trend} />
         <span>{value}</span>
       </span>
+    </div>
+  );
+}
+
+function getTopDesirabilityCards(summary) {
+  const cards = summary?.top_desirability_cards || summary?.topDesirabilityCards || [];
+  return Array.isArray(cards) ? cards.slice(0, 3) : [];
+}
+
+function formatDriverScore(value) {
+  const parsed = toNumber(value);
+  return parsed === null ? null : parsed.toFixed(1);
+}
+
+function getDriverSubject(driver) {
+  return driver?.matched_pokemon || driver?.matchedPokemon || driver?.matched_subject || driver?.matchedSubject || null;
+}
+
+function getTopFeaturedSubjects(summary, drivers = []) {
+  const subjects = [];
+  const addSubject = (value) => {
+    const text = String(value || "").trim();
+    if (!text || subjects.includes(text)) {
+      return;
+    }
+    subjects.push(text);
+  };
+
+  if (Array.isArray(drivers)) {
+    drivers.forEach((driver) => addSubject(getDriverSubject(driver)));
+  }
+
+  if (subjects.length > 0) {
+    return subjects;
+  }
+
+  const pokemonRows = summary?.top_desirability_pokemon || summary?.topDesirabilityPokemon || [];
+  if (Array.isArray(pokemonRows)) {
+    pokemonRows.forEach((row) => addSubject(row?.pokemon_name || row?.pokemonName || row?.matched_subject || row?.matchedSubject));
+  }
+
+  return subjects;
+}
+
+function averageAvailableScores(values = []) {
+  const parsed = values.map(toNumber).filter((value) => value !== null);
+  if (parsed.length === 0) {
+    return null;
+  }
+  return parsed.reduce((sum, value) => sum + value, 0) / parsed.length;
+}
+
+function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
+  const metrics = [
+    {
+      label: "How It Works",
+      value: "Collector appeal is based on the Pokemon featured in this set's hit pool, independent of current market price.",
+      trend: null,
+    },
+  ];
+
+  if (toNumber(displayedScore) !== null) {
+    metrics.push({
+      label: "Collector Appeal",
+      value: formatScore(displayedScore),
+      trend: null,
+    });
+  }
+
+  const featuredSubjects = getTopFeaturedSubjects(summary, drivers);
+  if (featuredSubjects.length > 0) {
+    metrics.push({
+      label: "Top Featured Pokemon",
+      value: featuredSubjects.slice(0, 3).join(", "),
+      trend: null,
+    });
+  }
+
+  if (featuredSubjects.length > 0) {
+    metrics.push({
+      label: "Unique Appeal Drivers",
+      value: String(featuredSubjects.length),
+      trend: null,
+    });
+  }
+
+  if (metrics.length < 4) {
+    const favoriteAppeal = averageAvailableScores(
+      drivers.map((driver) => driver?.favorite_score ?? driver?.favoriteScore ?? driver?.fan_score ?? driver?.fanScore)
+    );
+    if (favoriteAppeal !== null) {
+      metrics.push({
+        label: "Favorite Pokemon Appeal",
+        value: formatDriverScore(favoriteAppeal),
+        trend: null,
+      });
+    }
+  }
+
+  if (metrics.length < 4) {
+    const trendAppeal = averageAvailableScores(drivers.map((driver) => driver?.trend_score ?? driver?.trendScore));
+    if (trendAppeal !== null) {
+      metrics.push({
+        label: "Trend Appeal",
+        value: formatDriverScore(trendAppeal),
+        trend: null,
+      });
+    }
+  }
+
+  return metrics.slice(0, 4);
+}
+
+function TopDesirabilityDrivers({ drivers = [] }) {
+  const cards = Array.isArray(drivers) ? drivers.slice(0, 3) : [];
+
+  if (cards.length === 0) {
+    return <p className="text-sm text-[var(--text-secondary)]">Top desirability drivers are not available yet.</p>;
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {cards.map((driver, index) => {
+        const cardName = driver?.card_name || driver?.cardName || "Unknown card";
+        const matchedSubject = getDriverSubject(driver);
+        const desirabilityScore = formatDriverScore(driver?.desirability_score ?? driver?.desirabilityScore);
+        const favoriteScore = formatDriverScore(
+          driver?.favorite_score ?? driver?.favoriteScore ?? driver?.fan_score ?? driver?.fanScore
+        );
+        const trendScore = formatDriverScore(driver?.trend_score ?? driver?.trendScore);
+        const rarity = driver?.rarity ? String(driver.rarity) : null;
+        const cardNumber = driver?.card_number || driver?.cardNumber || driver?.printed_number || driver?.printedNumber || null;
+        const notableHitCount = toNumber(driver?.notable_hit_count ?? driver?.notableHitCount);
+
+        return (
+          <div
+            key={`${cardName}-${matchedSubject || "subject"}-${index}`}
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{cardName}</p>
+                {matchedSubject ? (
+                  <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Featured Pokemon: {matchedSubject}</p>
+                ) : null}
+                {rarity || cardNumber ? (
+                  <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                    {[rarity, cardNumber].filter(Boolean).join(" / ")}
+                  </p>
+                ) : null}
+              </div>
+              {desirabilityScore ? (
+                <span className="flex-none rounded-full border border-[rgba(94,234,212,0.18)] bg-[rgba(20,184,166,0.1)] px-2 py-1 text-xs font-semibold text-[var(--accent)]">
+                  {desirabilityScore}
+                </span>
+              ) : null}
+            </div>
+            {favoriteScore || trendScore ? (
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-[var(--text-secondary)]">
+                {favoriteScore ? (
+                  <span className="rounded-full bg-[rgba(255,255,255,0.045)] px-2 py-1">Fan appeal {favoriteScore}</span>
+                ) : null}
+                {trendScore ? (
+                  <span className="rounded-full bg-[rgba(255,255,255,0.045)] px-2 py-1">Trend appeal {trendScore}</span>
+                ) : null}
+                {notableHitCount && notableHitCount > 1 ? (
+                  <span className="rounded-full bg-[rgba(255,255,255,0.045)] px-2 py-1">{Math.round(notableHitCount)} notable hits</span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1212,6 +1422,7 @@ const BACKEND_SET_INTELLIGENCE_KEY_MAP = {
 const PILLAR_TITLE_TO_KEY = {
   Profit: "profit",
   Safety: "safety",
+  Desirability: "desirability",
   Stability: "stability",
 };
 
@@ -1507,6 +1718,7 @@ function ScorePillarCard({
               value={metric.value}
               trend={metric.trend}
               infoText={metric.infoText || getMetricTooltip(metric.label)}
+              content={metric.content}
             />
           ))}
         </div>
@@ -1528,6 +1740,7 @@ function ScorePillarCard({
               value={metric.value}
               trend={metric.trend}
               infoText={metric.infoText || getMetricTooltip(metric.label)}
+              content={metric.content}
             />
           ))}
         </div>
@@ -2028,7 +2241,7 @@ function SetPageNavigationRail({
           { id: "pull-rate-assumptions", label: "Pull Rate Assumptions", tab: "pull-rates", active: true },
         ]
       : [
-          { id: "pillars", label: "Profit / Safety / Stability", tab: "analytics", targetId: "set-detail-analytics", active: activeGraphMode === "outcome-distribution" },
+          { id: "pillars", label: "Profit / Safety / Desirability / Stability", tab: "analytics", targetId: "set-detail-analytics", active: activeGraphMode === "outcome-distribution" },
           { id: "value-drivers", label: "Value Drivers", tab: "analytics", targetId: "set-detail-analytics", active: false },
           { id: "rarity-contribution", label: "Rarity Contribution", tab: "analytics", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
           { id: "historical-trend", label: "Historical Trend", tab: "analytics", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
@@ -2352,6 +2565,7 @@ export default function RipStatisticsPageClient({
   const packScoreMeta = interpretationMeta?.packScore;
   const profitMeta = interpretationMeta?.profit;
   const safetyMeta = interpretationMeta?.safety;
+  const desirabilityMeta = interpretationMeta?.desirability;
   const stabilityMeta = interpretationMeta?.stability;
   const outcomeDistributionMeta = interpretationMeta?.outcomeDistribution;
   const historicalTrendMeta = interpretationMeta?.historicalTrend;
@@ -2754,8 +2968,17 @@ export default function RipStatisticsPageClient({
     toNumber(summary.relative_profit_score) ?? toNumber(summary.profit_score);
   const displayedSafetyScore =
     toNumber(summary.relative_safety_score) ?? toNumber(summary.safety_score);
+  const displayedDesirabilityScore =
+    toNumber(summary.relative_desirability_score) ?? toNumber(summary.desirability_score);
   const displayedStabilityScore =
     toNumber(summary.relative_stability_score) ?? toNumber(summary.stability_score);
+  const desirabilitySummary = getDesirabilitySummary(summary);
+  const topDesirabilityCards = getTopDesirabilityCards(summary);
+  const desirabilityOverviewMetrics = getDesirabilityOverviewMetrics(
+    summary,
+    displayedDesirabilityScore,
+    topDesirabilityCards
+  );
   const heroLogoUrl =
     selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
 
@@ -2811,6 +3034,11 @@ export default function RipStatisticsPageClient({
     safetyScore: getHistoryMetricTrend({
       metricKey: "safetyScore",
       currentValue: displayedSafetyScore,
+      previousPoint: previousTrendPoint,
+    }),
+    desirabilityScore: getHistoryMetricTrend({
+      metricKey: "desirabilityScore",
+      currentValue: displayedDesirabilityScore,
       previousPoint: previousTrendPoint,
     }),
     stabilityScore: getHistoryMetricTrend({
@@ -3688,7 +3916,7 @@ export default function RipStatisticsPageClient({
                             </div>
                           </MobileMetricAccordion>
 
-                          <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-3 md:gap-3">
+                          <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4 md:gap-3">
                             <SimplePillarSummaryCard
                               title="Profit"
                               rankTier={summary.profit_tier}
@@ -3704,6 +3932,14 @@ export default function RipStatisticsPageClient({
                               sectionMeta={safetyMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]}
                               fallbackSummary={interpretation?.safety}
+                            />
+                            <SimplePillarSummaryCard
+                              title="Desirability"
+                              rankTier={summary.desirability_tier}
+                              infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
+                              sectionMeta={desirabilityMeta}
+                              backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]}
+                              fallbackSummary={desirabilitySummary}
                             />
                             <SimplePillarSummaryCard
                               title="Stability"
@@ -3824,7 +4060,7 @@ export default function RipStatisticsPageClient({
 
             {effectiveViewMode === "expert" ? (
             <section id={setDetailMode ? "set-detail-analytics" : undefined} className="scroll-mt-24 pt-4 md:scroll-mt-28">
-              <div className="grid gap-4 xl:grid-cols-3">
+              <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
                 {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
                   title="Profit"
@@ -3869,6 +4105,26 @@ export default function RipStatisticsPageClient({
                     { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), trend: trendByMetricKey.averageLossWhenYouMiss, infoText: getMetricTooltip("Average Loss When You Miss") },
                     { label: "Typical Loss When You Miss", value: formatLossCurrency(summary.median_loss_when_losing), trend: trendByMetricKey.typicalLossWhenYouMiss, infoText: getMetricTooltip("Typical Loss When You Miss") },
                     { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.worstFivePercentShortfall?.trend === "unknown" ? trendByMetricKey.badPackFloorValue : trendByMetricKey.worstFivePercentShortfall, infoText: getMetricTooltip("Worst 5% Outcome") },
+                  ]}
+                />
+                <ScorePillarCard
+                  title="Desirability"
+                  score={displayedDesirabilityScore}
+                  scoreTrend={trendByMetricKey.desirabilityScore}
+                  rankValue={summary.desirability_rank}
+                  rankTier={summary.desirability_tier}
+                  rankLabel="Desirability Rank"
+                  sectionMeta={desirabilityMeta}
+                  fallbackSummary={desirabilitySummary}
+                  infoText={getFormattedTooltip("Desirability")}
+                  simpleMetrics={desirabilityOverviewMetrics}
+                  advancedMetrics={[
+                    {
+                      label: "Top Collector Appeal Drivers",
+                      value: null,
+                      content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
+                      trend: null,
+                    },
                   ]}
                 />
                 <ScorePillarCard

@@ -434,6 +434,16 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "stability_score": row.get("stability_score"),
                 "stability_rank": row.get("stability_rank"),
                 "stability_tier": row.get("stability_tier"),
+                "relative_desirability_score": row.get("relative_desirability_score"),
+                "desirability_score": row.get("desirability_score"),
+                "desirability_rank": row.get("desirability_rank"),
+                "desirability_tier": row.get("desirability_tier"),
+                "desirability_scoring_version": row.get("desirability_scoring_version"),
+                "desirability_source_summary_id": row.get("desirability_source_summary_id"),
+                "desirability_source_table": row.get("desirability_source_table"),
+                "desirability_source_metric": row.get("desirability_source_metric"),
+                "desirability_is_fallback": row.get("desirability_is_fallback"),
+                "desirability_fallback_reason": row.get("desirability_fallback_reason"),
                 "relative_experience_score": row.get("relative_experience_score"),
                 "experience_score": row.get("experience_score"),
                 "experience_rank": row.get("experience_rank"),
@@ -458,6 +468,30 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "run_at": row.get("run_at"),
             }
         )
+
+    desirability_rows = [
+        {
+            "target_id": target.get("target_id"),
+            "desirability_score": _to_optional_float(target.get("desirability_score")),
+        }
+        for target in targets
+    ]
+    desirability_ranks = _calculate_score_ranks_and_tiers(desirability_rows, "desirability_score")
+    desirability_relatives = _compute_relative_scores(desirability_rows, "desirability_score")
+    for target in targets:
+        target_id = str(target.get("target_id"))
+        rank_payload = desirability_ranks.get(target_id, {})
+        if target.get("relative_desirability_score") is None:
+            relative_desirability = desirability_relatives.get(target_id)
+            target["relative_desirability_score"] = (
+                round(relative_desirability, 2)
+                if relative_desirability is not None
+                else None
+            )
+        if target.get("desirability_rank") is None:
+            target["desirability_rank"] = rank_payload.get("rank")
+        if target.get("desirability_tier") is None:
+            target["desirability_tier"] = rank_payload.get("tier")
 
     # Blend Biggest Upside lens from P95 (Big Hit Upside) + P99 (God Pull Upside).
     blended_rows = [

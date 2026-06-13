@@ -125,6 +125,19 @@ def _coerce_optional_str(value: Any, field_name: str) -> str | None:
     return text
 
 
+def _coerce_optional_bool(value: Any, field_name: str) -> bool | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"true", "1", "yes"}:
+        return True
+    if text in {"false", "0", "no"}:
+        return False
+    raise ValueError(f"Invalid boolean field: {field_name}")
+
+
 def _require_score_0_100(value: Any, field_name: str) -> float:
     score = _require_float(value, field_name)
     if score < 0.0 or score > 100.0:
@@ -396,6 +409,7 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         canonical_pack_score = None
         canonical_profit_score = None
         canonical_safety_score = None
+        canonical_desirability_score = None
         canonical_stability_score = None
     else:
         canonical_pack_score = _require_score_0_100(
@@ -409,6 +423,14 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         canonical_safety_score = _require_score_0_100(
             pack_score.get("safety_score"),
             "derived.pack_score.safety_score",
+        )
+        canonical_desirability_score = (
+            _require_score_0_100(
+                pack_score.get("desirability_score"),
+                "derived.pack_score.desirability_score",
+            )
+            if pack_score.get("desirability_score") is not None
+            else None
         )
         canonical_stability_score = _require_score_0_100(
             pack_score.get("stability_score"),
@@ -481,7 +503,32 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
         "pack_score": canonical_pack_score,
         "profit_score": canonical_profit_score,
         "safety_score": canonical_safety_score,
+        "desirability_score": canonical_desirability_score,
         "stability_score": canonical_stability_score,
+        "desirability_scoring_version": _coerce_optional_str(
+            _first_present(pack_score, ("desirability_scoring_version",)),
+            "derived.pack_score.desirability_scoring_version",
+        ),
+        "desirability_source_summary_id": _coerce_optional_str(
+            _first_present(pack_score, ("desirability_source_summary_id",)),
+            "derived.pack_score.desirability_source_summary_id",
+        ),
+        "desirability_source_table": _coerce_optional_str(
+            _first_present(pack_score, ("desirability_source_table",)),
+            "derived.pack_score.desirability_source_table",
+        ),
+        "desirability_source_metric": _coerce_optional_str(
+            _first_present(pack_score, ("desirability_source_metric",)),
+            "derived.pack_score.desirability_source_metric",
+        ),
+        "desirability_is_fallback": _coerce_optional_bool(
+            _first_present(pack_score, ("desirability_is_fallback",)),
+            "derived.pack_score.desirability_is_fallback",
+        ),
+        "desirability_fallback_reason": _coerce_optional_str(
+            _first_present(pack_score, ("desirability_fallback_reason",)),
+            "derived.pack_score.desirability_fallback_reason",
+        ),
         "p95_value_to_cost_ratio": p95_value_to_cost_ratio,
         "p99_value_to_cost_ratio": p99_value_to_cost_ratio,
         "mean_value_to_cost_ratio": mean_value_to_cost_ratio,

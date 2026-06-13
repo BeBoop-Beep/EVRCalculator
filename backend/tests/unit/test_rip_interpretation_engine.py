@@ -32,6 +32,7 @@ def _make_summary(**kwargs):
         "pack_score": 50.0,
         "profit_score": 50.0,
         "safety_score": 50.0,
+        "desirability_score": 50.0,
         "stability_score": 50.0,
         "pack_cost": 5.0,
         "prob_profit": 0.40,
@@ -3026,7 +3027,7 @@ def test_contract_includes_structured_pillars_payload():
     pillars = result["meta"]["pillars"]
 
     assert isinstance(pillars, list)
-    assert {p["key"] for p in pillars} == {"profit", "safety", "stability"}
+    assert {p["key"] for p in pillars} == {"profit", "safety", "desirability", "stability"}
 
     for pillar in pillars:
         assert set(pillar.keys()) == {
@@ -3044,6 +3045,32 @@ def test_contract_includes_structured_pillars_payload():
             forbidden not in pillar
             for forbidden in ("weight", "weights", "threshold", "thresholds", "formula")
         )
+
+
+def test_pack_score_interpretation_uses_four_pillar_weights():
+    result = build_rip_interpretation(
+        {
+            "summary": _make_summary(
+                profit_score=80.0,
+                safety_score=60.0,
+                desirability_score=90.0,
+                stability_score=50.0,
+                pack_score=74.0,
+            ),
+            "top_hits": _broad_hits(),
+            "rankings": [],
+            "history_trend": [],
+            "rip_statistics": _rip_stats_normal(),
+        }
+    )
+
+    weights = result["meta"]["packScore"]["signals"]["interpretation_weights"]
+    assert weights == {
+        "profit": pytest.approx(0.45),
+        "safety": pytest.approx(0.25),
+        "desirability": pytest.approx(0.20),
+        "stability": pytest.approx(0.10),
+    }
 
 
 def test_contract_includes_structured_set_intelligence_payload():

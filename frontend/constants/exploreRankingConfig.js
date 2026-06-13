@@ -4,6 +4,9 @@
  */
 
 function toNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -50,6 +53,20 @@ export const EXPLORE_RANKING_MODES = {
     tierField: "safety_tier",
     scoreFormat: "decimal",
     description: "Safety score emphasizes protection from downside and loss mitigation.",
+  },
+  desirability: {
+    id: "desirability",
+    label: "Desirability",
+    title: "Most Desirable Sets",
+    subtitle: "Sets ranked by collector appeal based on featured Pokemon and hit-card desirability.",
+    tooltip: "Collector appeal based on featured Pokemon and hit-card desirability, independent of market price.",
+    scoreLabel: "DESIRABILITY",
+    tierLabel: "DESIRABILITY TIER",
+    scoreField: "relative_desirability_score",
+    rankField: "desirability_rank",
+    tierField: "desirability_tier",
+    scoreFormat: "decimal",
+    description: "Collector appeal based on featured Pokemon and hit-card desirability, independent of market price.",
   },
   stability: {
     id: "stability",

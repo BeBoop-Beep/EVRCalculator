@@ -26,7 +26,7 @@ V2 runtime scoring (fixed anchors)
     :func:`compute_all_derived_metrics` builds a real runtime score payload via
     fixed-anchor normalization for one run at a time (not population min-max
     and not a placeholder singleton). The runtime payload reports:
-            score_version = "pack_score_v2_chase_weighted"
+            score_version = "rip_score_v2_desirability_45_25_20_10"
             normalization_mode = "fixed_anchor_runtime_v2_chase_weighted"
       pack_score_is_placeholder = False
 
@@ -46,9 +46,15 @@ Stability Score (0-100)
     EV shares via HHI and effective chase count.
     HHI = sum(p_i^2), effective_chase_count = 1 / HHI when HHI > 0.
 
-PACK Score (0-100)
+Desirability Score (0-100)
+    Input: V1 set-level hit-card intrinsic desirability, sourced from
+    pokemon_set_hit_desirability_summaries.weighted_average_hit_desirability_score.
+    Missing data falls back to neutral 50 and remains an independent pillar.
+
+RIP/pack Score (0-100)
     Weighted blend of interpretable components:
-    50% Profit Score + 35% Safety Score + 15% Stability Score.
+    45% Profit Score + 25% Safety Score + 20% Desirability Score
+    + 10% Stability Score.
 """
 
 from __future__ import annotations
@@ -652,6 +658,7 @@ def derive_packs_to_hit_metrics(
 # ---------------------------------------------------------------------------
 
 _NEUTRAL_SCORE: float = 50.0
+_RIP_SCORE_V2_DESIRABILITY_VERSION = "rip_score_v2_desirability_45_25_20_10"
 
 _SCORE_DIRECTION_HIGHER_IS_BETTER = "higher_is_better"
 _SCORE_DIRECTION_LOWER_IS_BETTER = "lower_is_better"
@@ -661,8 +668,9 @@ _PROFIT_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 _SAFETY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 _STABILITY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 
-# Overall PACK Score weights.
-_PACK_SCORE_WEIGHTS: Tuple[float, float, float] = (0.50, 0.35, 0.15)
+# Overall RIP/pack score weights. Desirability is intentionally independent
+# from price, EV, liquidity, and historical pricing.
+_PACK_SCORE_WEIGHTS: Tuple[float, float, float, float] = (0.45, 0.25, 0.20, 0.10)
 
 
 # Runtime V2 component weights are declared as percentage-style values and
@@ -684,9 +692,10 @@ _STABILITY_V2_WEIGHTS_PCT: Dict[str, float] = {
     "effective_chase_count": 35.0,
 }
 _PACK_SCORE_V2_WEIGHTS_PCT: Dict[str, float] = {
-    "profit_score": 50.0,
-    "safety_score": 35.0,
-    "stability_score": 15.0,
+    "profit_score": 45.0,
+    "safety_score": 25.0,
+    "desirability_score": 20.0,
+    "stability_score": 10.0,
 }
 
 # Stage 1 derived metrics component weights (percentage-style)
@@ -976,11 +985,26 @@ def _extract_score_input_record(record: Dict[str, Any]) -> Dict[str, Optional[fl
             if record.get("top_5_ev_share") is not None
             else record.get("top5_ev_share")
         ),
+        # V1 intrinsic hit-card desirability rollup. This is not price-derived.
+        "desirability_score": _to_finite_float(
+            record.get("desirability_score")
+            if record.get("desirability_score") is not None
+            else record.get("weighted_average_hit_desirability_score")
+        ),
     }
 
 
+def _bounded_desirability_or_neutral(value: Optional[float]) -> Tuple[float, bool, Optional[str]]:
+    score = _to_finite_float(value)
+    if score is None:
+        return _NEUTRAL_SCORE, True, "missing_set_hit_desirability_score"
+    if score < 0.0 or score > 100.0:
+        return _NEUTRAL_SCORE, True, "out_of_range_set_hit_desirability_score"
+    return score, False, None
+
+
 def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Compute legacy V1 Profit/Safety/Stability/PACK scores for a set population.
+    """Compute population-relative Profit/Safety/Desirability/Stability/RIP scores.
 
     Each raw metric is min-max normalized against the supplied set population
     for this scoring run (population-relative mode). Penalty metrics (losses, CV, concentration) are
@@ -1037,26 +1061,32 @@ def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -
             _STABILITY_COMPONENT_WEIGHTS[0] * cv_score
             + _STABILITY_COMPONENT_WEIGHTS[1] * top5_score
         )
+        desirability_score, desirability_is_fallback, desirability_fallback_reason = (
+            _bounded_desirability_or_neutral(row["desirability_score"])
+        )
 
-        pack_score = (
-            _PACK_SCORE_WEIGHTS[0] * profit_score
-            + _PACK_SCORE_WEIGHTS[1] * safety_score
-            + _PACK_SCORE_WEIGHTS[2] * stability_score
+        pack_score = _weighted_average(
+            {
+                "profit_score": profit_score,
+                "safety_score": safety_score,
+                "desirability_score": desirability_score,
+                "stability_score": stability_score,
+            },
+            _PACK_SCORE_V2_WEIGHTS_PCT,
         )
 
         results.append(
             {
-                "score_version": "pack_score_v1",
+                "score_version": "pack_score_v1_population_desirability_45_25_20_10",
                 "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
                 "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
+                "desirability_score": round(_clamp(desirability_score, 0.0, 100.0), 2),
+                "desirability_is_fallback": desirability_is_fallback,
+                "desirability_fallback_reason": desirability_fallback_reason,
                 "stability_score": round(_clamp(stability_score, 0.0, 100.0), 2),
                 "pack_score": round(_clamp(pack_score, 0.0, 100.0), 2),
                 "weights": {
-                    "pack_score": {
-                        "profit_score": _PACK_SCORE_WEIGHTS[0],
-                        "safety_score": _PACK_SCORE_WEIGHTS[1],
-                        "stability_score": _PACK_SCORE_WEIGHTS[2],
-                    },
+                    "pack_score": _normalize_weights_from_percent(_PACK_SCORE_V2_WEIGHTS_PCT),
                     "profit_score": {
                         "prob_profit": _PROFIT_COMPONENT_WEIGHTS[0],
                         "ev_to_cost_ratio": _PROFIT_COMPONENT_WEIGHTS[1],
@@ -1112,6 +1142,15 @@ def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -
                         "max": top5_max,
                         "score": round(top5_score, 2),
                         "direction": "lower_is_better",
+                    },
+                    "desirability_score": {
+                        "value": row["desirability_score"],
+                        "min": 0.0,
+                        "max": 100.0,
+                        "score": round(desirability_score, 2),
+                        "direction": "higher_is_better",
+                        "is_fallback": desirability_is_fallback,
+                        "fallback_reason": desirability_fallback_reason,
                     },
                 },
             }
@@ -1230,8 +1269,35 @@ def _build_runtime_v2_pack_score_payload(
     *,
     pack_metrics: Dict[str, Any],
     chase_metrics: Optional[Dict[str, Any]],
+    set_desirability_metrics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build runtime V2 PACK scoring payload from one simulation run."""
+    desirability_source = set_desirability_metrics if isinstance(set_desirability_metrics, dict) else {}
+    raw_desirability_score = _to_finite_float(
+        desirability_source.get("desirability_score")
+        if desirability_source.get("desirability_score") is not None
+        else desirability_source.get("weighted_average_hit_desirability_score")
+    )
+    desirability_score, desirability_is_fallback, desirability_fallback_reason = (
+        _bounded_desirability_or_neutral(raw_desirability_score)
+    )
+    if bool(desirability_source.get("desirability_is_fallback")):
+        desirability_is_fallback = True
+    if not desirability_fallback_reason:
+        desirability_fallback_reason = str(desirability_source.get("desirability_fallback_reason") or "") or None
+    desirability_source_summary_id = desirability_source.get("desirability_source_summary_id") or desirability_source.get("id")
+    desirability_source_table = (
+        str(desirability_source.get("desirability_source_table") or "pokemon_set_hit_desirability_summaries")
+    )
+    desirability_source_metric = (
+        str(desirability_source.get("desirability_source_metric") or "weighted_average_hit_desirability_score")
+    )
+    desirability_scoring_version = (
+        desirability_source.get("desirability_scoring_version")
+        or desirability_source.get("aggregation_version")
+        or "pokemon_set_hit_desirability_v1"
+    )
+
     pack_cost = _to_finite_float(pack_metrics.get("pack_cost"))
     mean_value = _to_finite_float(pack_metrics.get("mean"))
     median_value = _to_finite_float(pack_metrics.get("median"))
@@ -1259,6 +1325,14 @@ def _build_runtime_v2_pack_score_payload(
         "effective_chase_count": _to_finite_float(
             chase_metrics.get("effective_chase_count") if chase_metrics is not None else None
         ),
+        "desirability_score": desirability_score,
+        "raw_desirability_score": raw_desirability_score,
+        "desirability_source_table": desirability_source_table,
+        "desirability_source_metric": desirability_source_metric,
+        "desirability_source_summary_id": desirability_source_summary_id,
+        "desirability_scoring_version": desirability_scoring_version,
+        "desirability_is_fallback": desirability_is_fallback,
+        "desirability_fallback_reason": desirability_fallback_reason,
     }
 
     def _score_metric(metric_name: str, value: Optional[float]) -> Dict[str, Any]:
@@ -1315,6 +1389,16 @@ def _build_runtime_v2_pack_score_payload(
             "effective_chase_count",
             raw_inputs["effective_chase_count"],
         ),
+        "desirability_score": {
+            "value": desirability_score,
+            "min": 0.0,
+            "max": 100.0,
+            "direction": _SCORE_DIRECTION_HIGHER_IS_BETTER,
+            "score": desirability_score,
+            "is_fallback": desirability_is_fallback,
+            "fallback_reason": desirability_fallback_reason,
+            "source_metric": desirability_source_metric,
+        },
     }
 
     profit_score = _weighted_average(
@@ -1350,6 +1434,7 @@ def _build_runtime_v2_pack_score_payload(
         {
             "profit_score": profit_score,
             "safety_score": safety_score,
+            "desirability_score": desirability_score,
             "stability_score": stability_score,
         },
         _PACK_SCORE_V2_WEIGHTS_PCT,
@@ -1416,11 +1501,18 @@ def _build_runtime_v2_pack_score_payload(
     # =========================================================================
 
     return {
-        "score_version": "pack_score_v2_chase_weighted",
+        "score_version": _RIP_SCORE_V2_DESIRABILITY_VERSION,
         "normalization_mode": "fixed_anchor_runtime_v2_chase_weighted",
         "pack_score_is_placeholder": False,
         "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
         "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
+        "desirability_score": round(_clamp(desirability_score, 0.0, 100.0), 2),
+        "desirability_scoring_version": str(desirability_scoring_version),
+        "desirability_source_summary_id": str(desirability_source_summary_id) if desirability_source_summary_id else None,
+        "desirability_source_table": desirability_source_table,
+        "desirability_source_metric": desirability_source_metric,
+        "desirability_is_fallback": desirability_is_fallback,
+        "desirability_fallback_reason": desirability_fallback_reason,
         "stability_score": round(_clamp(stability_score, 0.0, 100.0), 2),
         "pack_score": round(_clamp(pack_score, 0.0, 100.0), 2),
         "chase_potential_score": round(_clamp(chase_potential_score, 0.0, 100.0), 2),
@@ -1558,6 +1650,7 @@ def compute_all_derived_metrics(
     hit_cards_count: Optional[int] = None,
     hit_value_metrics: Optional[Dict[str, Any]] = None,
     set_value_metrics: Optional[Dict[str, Any]] = None,
+    set_desirability_metrics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Compute the full derived metrics suite from simulation outputs.
 
@@ -1594,6 +1687,8 @@ def compute_all_derived_metrics(
         Optional realized hit-only value metrics from the simulation counters.
     set_value_metrics:
         Optional one-copy simulated set value metrics for the priced universe.
+    set_desirability_metrics:
+        Optional V1 hit-card intrinsic desirability summary for the set.
 
     Returns
     -------
@@ -1643,6 +1738,7 @@ def compute_all_derived_metrics(
     pack_score_payload = _build_runtime_v2_pack_score_payload(
         pack_metrics=pack_metrics,
         chase_metrics=chase_metrics,
+        set_desirability_metrics=set_desirability_metrics,
     )
 
     return {
@@ -1651,6 +1747,7 @@ def compute_all_derived_metrics(
         "ev_composition_metrics": ev_comp_metrics,
         "hit_value_metrics": dict(hit_value_metrics or {}),
         "set_value_metrics": dict(set_value_metrics or {}),
+        "set_desirability_metrics": dict(set_desirability_metrics or {}),
         "session_metrics": sess_metrics,
         "packs_to_hit_metrics": pth_metrics,
         "pack_score": pack_score_payload,
@@ -1947,15 +2044,19 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
         if not weights:
             weights = idx.get("weights_normalized", {}).get("pack_score", {})
         print(
-            f"  Profit Score  (w={_fmt_float(weights.get('profit_score', 0.50), 2)}):    "
+            f"  Profit Score  (w={_fmt_float(weights.get('profit_score', 0.45), 2)}):    "
             f"{_fmt_float(idx.get('profit_score'))}"
         )
         print(
-            f"  Safety Score  (w={_fmt_float(weights.get('safety_score', 0.35), 2)}):    "
+            f"  Safety Score  (w={_fmt_float(weights.get('safety_score', 0.25), 2)}):    "
             f"{_fmt_float(idx.get('safety_score'))}"
         )
         print(
-            f"  Stability Score (w={_fmt_float(weights.get('stability_score', 0.15), 2)}): "
+            f"  Desirability Score (w={_fmt_float(weights.get('desirability_score', 0.20), 2)}): "
+            f"{_fmt_float(idx.get('desirability_score'))}"
+        )
+        print(
+            f"  Stability Score (w={_fmt_float(weights.get('stability_score', 0.10), 2)}): "
             f"{_fmt_float(idx.get('stability_score'))}"
         )
 
@@ -1965,6 +2066,7 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
             "pack_score_v2_2_runtime",
             "pack_score_v2_3_runtime",
             "pack_score_v2_chase_weighted",
+            _RIP_SCORE_V2_DESIRABILITY_VERSION,
         }:
             print()
             print("[PACK_SCORE_V2_RUNTIME]")
@@ -1989,6 +2091,8 @@ def print_derived_metrics_summary(all_metrics: Dict[str, Any]) -> None:
                 "coefficient_of_variation",
                 "hhi_ev_concentration",
                 "effective_chase_count",
+                "desirability_score",
+                "raw_desirability_score",
             ):
                 if key in raw_inputs:
                     print(f"    {key}: {raw_inputs.get(key)}")
