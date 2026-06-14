@@ -822,13 +822,19 @@ function averageAvailableScores(values = []) {
 }
 
 function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
-  const metrics = [
+  const overviewRows = [
     {
       label: "How It Works",
-      value: "Collector appeal is based on the Pokemon featured in this set's hit pool, independent of current market price.",
+      value: null,
+      content: (
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+          Collector appeal is based on the Pokemon featured in this set&apos;s hit pool, independent of current market price.
+        </p>
+      ),
       trend: null,
     },
   ];
+  const metrics = [];
 
   if (toNumber(displayedScore) !== null) {
     metrics.push({
@@ -855,7 +861,7 @@ function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
     });
   }
 
-  if (metrics.length < 4) {
+  if (metrics.length < 3) {
     const favoriteAppeal = averageAvailableScores(
       drivers.map((driver) => driver?.favorite_score ?? driver?.favoriteScore ?? driver?.fan_score ?? driver?.fanScore)
     );
@@ -868,7 +874,7 @@ function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
     }
   }
 
-  if (metrics.length < 4) {
+  if (metrics.length < 3) {
     const trendAppeal = averageAvailableScores(drivers.map((driver) => driver?.trend_score ?? driver?.trendScore));
     if (trendAppeal !== null) {
       metrics.push({
@@ -879,7 +885,7 @@ function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
     }
   }
 
-  return metrics.slice(0, 4);
+  return [...overviewRows, ...metrics.slice(0, 3)];
 }
 
 function TopDesirabilityDrivers({ drivers = [] }) {

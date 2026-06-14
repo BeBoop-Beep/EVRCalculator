@@ -1202,10 +1202,10 @@ def _desirability_rarity_priority(value: Any) -> int:
     return 0
 
 
-def _desirability_driver_sort_key(driver: Dict[str, Any]) -> tuple[float, int, float, float, int, str]:
+def _desirability_driver_sort_key(driver: Dict[str, Any]) -> tuple[int, float, float, float, int, str]:
     return (
-        _to_optional_float(driver.get("desirability_score")) or 0.0,
         int(driver.get("_rarity_priority") or 0),
+        _to_optional_float(driver.get("desirability_score")) or 0.0,
         _to_optional_float(driver.get("favorite_score")) or 0.0,
         _to_optional_float(driver.get("trend_score")) or 0.0,
         int(driver.get("notable_hit_count") or 0),
