@@ -47,8 +47,9 @@ Stability Score (0-100)
     HHI = sum(p_i^2), effective_chase_count = 1 / HHI when HHI > 0.
 
 Desirability Score (0-100)
-    Input: V1 set-level hit-card intrinsic desirability, sourced from
-    pokemon_set_hit_desirability_summaries.weighted_average_hit_desirability_score.
+    Input: production Opening Desirability from
+    pokemon_set_opening_desirability_latest.opening_desirability_score.
+    Collector-only rows can temporarily fall back to collector_appeal_score.
     Missing data falls back to neutral 50 and remains an independent pillar.
 
 RIP/pack Score (0-100)
@@ -668,8 +669,8 @@ _PROFIT_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 _SAFETY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 _STABILITY_COMPONENT_WEIGHTS: Tuple[float, float] = (0.50, 0.50)
 
-# Overall RIP/pack score weights. Desirability is intentionally independent
-# from price, EV, liquidity, and historical pricing.
+# Overall RIP/pack score weights. Desirability is supplied by the production
+# Opening Desirability model and kept independent from EV simulation math.
 _PACK_SCORE_WEIGHTS: Tuple[float, float, float, float] = (0.45, 0.25, 0.20, 0.10)
 
 
@@ -958,7 +959,28 @@ def _resolve_ev_to_cost_ratio(record: Dict[str, Any]) -> Optional[float]:
     return mean_value / pack_cost
 
 
-def _extract_score_input_record(record: Dict[str, Any]) -> Dict[str, Optional[float]]:
+def _resolve_opening_desirability_input(record: Dict[str, Any]) -> Tuple[Optional[float], str]:
+    opening_score = _to_finite_float(record.get("opening_desirability_score"))
+    if opening_score is not None:
+        return opening_score, "opening_desirability"
+
+    collector_score = _to_finite_float(record.get("collector_appeal_score"))
+    if collector_score is not None:
+        return collector_score, "collector_appeal_fallback"
+
+    legacy_score = _to_finite_float(
+        record.get("desirability_score")
+        if record.get("desirability_score") is not None
+        else record.get("weighted_average_hit_desirability_score")
+    )
+    if legacy_score is not None:
+        return legacy_score, str(record.get("rip_desirability_source") or "legacy_set_hit_desirability")
+
+    return None, "missing"
+
+
+def _extract_score_input_record(record: Dict[str, Any]) -> Dict[str, Any]:
+    desirability_score, rip_desirability_source = _resolve_opening_desirability_input(record)
     return {
         # Profit drivers (higher is better).
         "prob_profit": _to_finite_float(
@@ -985,12 +1007,8 @@ def _extract_score_input_record(record: Dict[str, Any]) -> Dict[str, Optional[fl
             if record.get("top_5_ev_share") is not None
             else record.get("top5_ev_share")
         ),
-        # V1 intrinsic hit-card desirability rollup. This is not price-derived.
-        "desirability_score": _to_finite_float(
-            record.get("desirability_score")
-            if record.get("desirability_score") is not None
-            else record.get("weighted_average_hit_desirability_score")
-        ),
+        "desirability_score": desirability_score,
+        "rip_desirability_source": rip_desirability_source,
     }
 
 
@@ -1081,6 +1099,9 @@ def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -
                 "profit_score": round(_clamp(profit_score, 0.0, 100.0), 2),
                 "safety_score": round(_clamp(safety_score, 0.0, 100.0), 2),
                 "desirability_score": round(_clamp(desirability_score, 0.0, 100.0), 2),
+                "rip_desirability_source": (
+                    "missing" if desirability_is_fallback else row["rip_desirability_source"]
+                ),
                 "desirability_is_fallback": desirability_is_fallback,
                 "desirability_fallback_reason": desirability_fallback_reason,
                 "stability_score": round(_clamp(stability_score, 0.0, 100.0), 2),
@@ -1149,6 +1170,7 @@ def compute_pack_scores_for_set_records(set_records: Sequence[Dict[str, Any]]) -
                         "max": 100.0,
                         "score": round(desirability_score, 2),
                         "direction": "higher_is_better",
+                        "source": "missing" if desirability_is_fallback else row["rip_desirability_source"],
                         "is_fallback": desirability_is_fallback,
                         "fallback_reason": desirability_fallback_reason,
                     },
@@ -1273,11 +1295,7 @@ def _build_runtime_v2_pack_score_payload(
 ) -> Dict[str, Any]:
     """Build runtime V2 PACK scoring payload from one simulation run."""
     desirability_source = set_desirability_metrics if isinstance(set_desirability_metrics, dict) else {}
-    raw_desirability_score = _to_finite_float(
-        desirability_source.get("desirability_score")
-        if desirability_source.get("desirability_score") is not None
-        else desirability_source.get("weighted_average_hit_desirability_score")
-    )
+    raw_desirability_score, rip_desirability_source = _resolve_opening_desirability_input(desirability_source)
     desirability_score, desirability_is_fallback, desirability_fallback_reason = (
         _bounded_desirability_or_neutral(raw_desirability_score)
     )
@@ -1286,17 +1304,27 @@ def _build_runtime_v2_pack_score_payload(
     if not desirability_fallback_reason:
         desirability_fallback_reason = str(desirability_source.get("desirability_fallback_reason") or "") or None
     desirability_source_summary_id = desirability_source.get("desirability_source_summary_id") or desirability_source.get("id")
-    desirability_source_table = (
-        str(desirability_source.get("desirability_source_table") or "pokemon_set_hit_desirability_summaries")
+    default_source_table = (
+        "pokemon_set_hit_desirability_summaries"
+        if rip_desirability_source == "legacy_set_hit_desirability"
+        else "pokemon_set_opening_desirability_latest"
     )
-    desirability_source_metric = (
-        str(desirability_source.get("desirability_source_metric") or "weighted_average_hit_desirability_score")
+    default_source_metric = (
+        "weighted_average_hit_desirability_score"
+        if rip_desirability_source == "legacy_set_hit_desirability"
+        else "opening_desirability_score"
     )
+    desirability_source_table = str(desirability_source.get("desirability_source_table") or default_source_table)
+    desirability_source_metric = str(desirability_source.get("desirability_source_metric") or default_source_metric)
     desirability_scoring_version = (
         desirability_source.get("desirability_scoring_version")
         or desirability_source.get("aggregation_version")
-        or "pokemon_set_hit_desirability_v1"
+        or ("pokemon_set_hit_desirability_v1" if rip_desirability_source == "legacy_set_hit_desirability" else "opening_desirability_v1")
     )
+    if desirability_is_fallback and rip_desirability_source == "missing":
+        rip_desirability_source = "missing"
+    elif desirability_source.get("rip_desirability_source"):
+        rip_desirability_source = str(desirability_source.get("rip_desirability_source"))
 
     pack_cost = _to_finite_float(pack_metrics.get("pack_cost"))
     mean_value = _to_finite_float(pack_metrics.get("mean"))
@@ -1331,6 +1359,7 @@ def _build_runtime_v2_pack_score_payload(
         "desirability_source_metric": desirability_source_metric,
         "desirability_source_summary_id": desirability_source_summary_id,
         "desirability_scoring_version": desirability_scoring_version,
+        "rip_desirability_source": rip_desirability_source,
         "desirability_is_fallback": desirability_is_fallback,
         "desirability_fallback_reason": desirability_fallback_reason,
     }
@@ -1398,6 +1427,7 @@ def _build_runtime_v2_pack_score_payload(
             "is_fallback": desirability_is_fallback,
             "fallback_reason": desirability_fallback_reason,
             "source_metric": desirability_source_metric,
+            "rip_desirability_source": rip_desirability_source,
         },
     }
 
@@ -1511,6 +1541,7 @@ def _build_runtime_v2_pack_score_payload(
         "desirability_source_summary_id": str(desirability_source_summary_id) if desirability_source_summary_id else None,
         "desirability_source_table": desirability_source_table,
         "desirability_source_metric": desirability_source_metric,
+        "rip_desirability_source": rip_desirability_source,
         "desirability_is_fallback": desirability_is_fallback,
         "desirability_fallback_reason": desirability_fallback_reason,
         "stability_score": round(_clamp(stability_score, 0.0, 100.0), 2),

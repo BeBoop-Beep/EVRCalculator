@@ -15,6 +15,7 @@ from backend.desirability.rarity_buckets import (
     UNKNOWN,
     classify_rarity,
 )
+from backend.desirability.rarity_overrides import apply_card_rarity_override
 
 
 SCORING_VERSION = "pokemon_set_desirability_components_v2_40_25_20_15"
@@ -60,7 +61,8 @@ def build_card_facts(
     warnings: List[str] = []
     for card in cards:
         card_id = str(card.get("id") or "")
-        classification = classify_rarity(card.get("rarity"))
+        base_classification = classify_rarity(card.get("rarity"))
+        classification, classification_override = apply_card_rarity_override(card, base_classification)
         card_links = links_by_card.get(card_id, [])
         if not card_links:
             card_links = _fallback_links_from_pokedex(card, references_by_pokedex)
@@ -71,11 +73,11 @@ def build_card_facts(
                 warnings.append(f"Pokemon hit card has no desirability link: {card.get('name')}")
             elif category == UNKNOWN_OR_UNCLASSIFIED_HIT:
                 warnings.append(f"Hit-like card could not be classified for desirability linking: {card.get('name')}")
-            facts.append(_card_fact(card, None, None, classification, hit_link_category=category))
+            facts.append(_card_fact(card, None, None, classification, hit_link_category=category, classification_override=classification_override))
             continue
 
         if not card_links:
-            facts.append(_card_fact(card, None, None, classification))
+            facts.append(_card_fact(card, None, None, classification, classification_override=classification_override))
             continue
 
         for link in card_links:
@@ -83,7 +85,7 @@ def build_card_facts(
             score_row = scores_by_reference.get(reference_id or -1)
             if score_row is None and classification.bucket in HIT_BUCKETS:
                 warnings.append(f"Linked hit-like card is missing composite score: {card.get('name')}")
-            facts.append(_card_fact(card, link, score_row, classification, hit_link_category="linked_pokemon_hit"))
+            facts.append(_card_fact(card, link, score_row, classification, hit_link_category="linked_pokemon_hit", classification_override=classification_override))
 
     return facts, sorted(set(warnings))
 
@@ -175,6 +177,7 @@ def compute_component_scores(
     warnings.extend(special_summary.get("warnings") or [])
     hit_link_counts = compute_hit_link_category_counts(card_facts)
     hit_link_samples = _hit_link_category_samples(card_facts)
+    rarity_override_summary = _rarity_override_summary(card_facts)
     if hit_link_counts.get("unsupported_subject_hit_count"):
         warnings.append(
             f"{hit_link_counts['unsupported_subject_hit_count']} unsupported non-Pokemon chase hit(s) were excluded from Pokemon-subject scoring."
@@ -201,6 +204,7 @@ def compute_component_scores(
             "chase_subject_depth": depth_inputs,
             "accessible_favorite_hits": accessible_inputs,
             "hit_link_category_counts": hit_link_counts,
+            "rarity_override_summary": rarity_override_summary,
         },
         "special_pack_summary_json": special_summary,
         "diagnostics_json": {
@@ -209,6 +213,7 @@ def compute_component_scores(
             "missing_top_subject_policy": "Missing top chase slots contribute zero; existing subjects are not renormalized upward.",
             "hit_link_category_counts": hit_link_counts,
             "hit_link_category_samples": hit_link_samples,
+            "rarity_override_summary": rarity_override_summary,
             "warning_policy": "Expected non-Pokemon hits are counted in diagnostics; warnings_json is reserved for actionable Pokemon-link or unsupported-subject issues.",
         },
         "warnings_json": sorted(set(warnings)),
@@ -326,6 +331,7 @@ def build_set_coverage_audit(
         bucket = fact.get("rarity_bucket")
         if card_id and bucket:
             card_ids_by_bucket[str(bucket)].add(card_id)
+    rarity_override_summary = _rarity_override_summary(card_facts)
 
     hit_rows = sorted(
         [fact for fact in card_facts if fact.get("rarity_bucket") in HIT_BUCKETS],
@@ -345,6 +351,8 @@ def build_set_coverage_audit(
         "premium_chase_count": len(card_ids_by_bucket.get(PREMIUM_CHASE, set())),
         "major_hit_count": len(card_ids_by_bucket.get(MAJOR_HIT, set())),
         "accessible_hit_count": len(card_ids_by_bucket.get(ACCESSIBLE_HIT, set())),
+        "rarity_override_count": rarity_override_summary["rarity_override_count"],
+        "rarity_override_counts_by_source": rarity_override_summary["rarity_override_counts_by_source"],
         "hit_link_category_counts": compute_hit_link_category_counts(card_facts),
         "rarity_bucket_counts": {
             bucket: len(card_ids)
@@ -356,6 +364,9 @@ def build_set_coverage_audit(
                 "rarity": fact.get("rarity"),
                 "supertype": fact.get("supertype"),
                 "bucket_classification": fact.get("rarity_bucket"),
+                "base_bucket_classification": fact.get("base_rarity_bucket"),
+                "rarity_override_source": fact.get("rarity_override_source"),
+                "classification_override_reason": fact.get("classification_override_reason"),
                 "has_pokemon_link": bool(fact.get("subject_key")),
                 "matched_pokemon": fact.get("subject_name"),
                 "reason_included_or_excluded": _audit_reason(fact),
@@ -560,12 +571,16 @@ def _card_fact(
     classification: Any,
     *,
     hit_link_category: Optional[str] = None,
+    classification_override: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     reference_id = _as_int((link or {}).get("pokemon_reference_id"))
     subject_name = (score_row or {}).get("pokemon_name") or (link or {}).get("pokemon_name")
     subject_key = f"ref:{reference_id}" if reference_id is not None else None
-    return {
+    base_classification = (classification_override or {}).get("base_rarity_classification") or {}
+    fact = {
         "pokemon_canonical_card_id": card.get("id"),
+        "pokemon_tcg_api_card_id": card.get("pokemon_tcg_api_card_id"),
+        "set_canonical_key": card.get("set_canonical_key"),
         "card_name": card.get("name"),
         "card_number": card.get("number"),
         "printed_number": card.get("printed_number"),
@@ -583,9 +598,21 @@ def _card_fact(
         "rarity_bucket": classification.bucket,
         "normalized_rarity_key": classification.normalized_key,
         "rarity_classification": asdict(classification),
+        "base_rarity_classification": base_classification or asdict(classification),
+        "base_rarity_bucket": base_classification.get("bucket", classification.bucket),
         "hit_link_category": hit_link_category,
         "hit_link_reason": _hit_link_reason(card, classification, hit_link_category),
     }
+    if classification_override:
+        fact.update(
+            {
+                "rarity_override_version": classification_override.get("rarity_override_version"),
+                "rarity_override_source": classification_override.get("rarity_override_source"),
+                "classification_override_reason": classification_override.get("classification_override_reason"),
+                "rarity_override_match": classification_override.get("match"),
+            }
+        )
+    return fact
 
 
 def _fallback_links_from_pokedex(
@@ -613,6 +640,8 @@ def _fallback_links_from_pokedex(
 
 
 def _missing_hit_link_category(card: Dict[str, Any], classification: Any) -> str:
+    if _is_energy_card(card):
+        return EXPECTED_NON_POKEMON_HIT
     if _looks_like_pokemon_card(card):
         return TRUE_MISSING_LINK if _pokedex_numbers(card) else UNMATCHED_POKEMON_HIT
     if _unsupported_subject_hit(card, classification):
@@ -631,6 +660,8 @@ def _unsupported_subject_hit(card: Dict[str, Any], classification: Any) -> bool:
 
 
 def _is_clearly_non_pokemon_card(card: Dict[str, Any]) -> bool:
+    if _is_energy_card(card):
+        return True
     supertype = _normalized_text(card.get("supertype"))
     subtypes = {_normalized_text(item) for item in (card.get("subtypes") if isinstance(card.get("subtypes"), list) else [])}
     if supertype in {"trainer", "energy"}:
@@ -639,6 +670,8 @@ def _is_clearly_non_pokemon_card(card: Dict[str, Any]) -> bool:
 
 
 def _looks_like_pokemon_card(card: Dict[str, Any]) -> bool:
+    if _is_energy_card(card):
+        return False
     supertype = _normalized_text(card.get("supertype"))
     if supertype == "pokemon":
         return True
@@ -661,6 +694,14 @@ def _looks_like_pokemon_card(card: Dict[str, Any]) -> bool:
         "restored",
     }
     return bool(pokemon_subtypes & subtypes)
+
+
+def _is_energy_card(card: Dict[str, Any]) -> bool:
+    supertype = _normalized_text(card.get("supertype"))
+    subtypes = {_normalized_text(item) for item in (card.get("subtypes") if isinstance(card.get("subtypes"), list) else [])}
+    if supertype == "energy":
+        return True
+    return bool({"energy", "special_energy", "basic_energy"} & subtypes)
 
 
 def _pokedex_numbers(card: Dict[str, Any]) -> List[int]:
@@ -709,10 +750,44 @@ def _hit_link_category_samples(card_facts: Sequence[Dict[str, Any]], *, limit: i
                 "rarity": fact.get("rarity"),
                 "supertype": fact.get("supertype"),
                 "rarity_bucket": fact.get("rarity_bucket"),
+                "base_rarity_bucket": fact.get("base_rarity_bucket"),
+                "rarity_override_source": fact.get("rarity_override_source"),
                 "reason": fact.get("hit_link_reason"),
             }
         )
     return samples
+
+
+def _rarity_override_summary(card_facts: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    ids_by_source: Dict[str, set] = defaultdict(set)
+    samples: List[Dict[str, Any]] = []
+    for fact in card_facts:
+        source = fact.get("rarity_override_source")
+        card_id = fact.get("pokemon_canonical_card_id")
+        if not source or not card_id:
+            continue
+        ids_by_source[str(source)].add(card_id)
+        if len(samples) < 10:
+            samples.append(
+                {
+                    "card_name": fact.get("card_name"),
+                    "printed_number": fact.get("printed_number"),
+                    "pokemon_tcg_api_card_id": fact.get("pokemon_tcg_api_card_id"),
+                    "rarity": fact.get("rarity"),
+                    "base_rarity_bucket": fact.get("base_rarity_bucket"),
+                    "effective_rarity_bucket": fact.get("rarity_bucket"),
+                    "rarity_override_source": source,
+                    "classification_override_reason": fact.get("classification_override_reason"),
+                }
+            )
+    return {
+        "rarity_override_count": len({card_id for ids in ids_by_source.values() for card_id in ids}),
+        "rarity_override_counts_by_source": {
+            source: len(ids)
+            for source, ids in sorted(ids_by_source.items())
+        },
+        "samples": samples,
+    }
 
 
 def _audit_reason(fact: Dict[str, Any]) -> str:

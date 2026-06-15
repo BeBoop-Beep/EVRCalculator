@@ -807,7 +807,7 @@ def _primary_reason(weighted_driver: str) -> str:
     reasons = {
         "profit": "Cards are paying back well for the pack price.",
         "safety": "Bad packs are less painful than usual.",
-        "desirability": "The hits have strong collector appeal.",
+        "desirability": "Opening Desirability adds meaningful appeal.",
         "stability": "Value is spread across enough cards.",
     }
     return reasons[weighted_driver]
@@ -819,7 +819,7 @@ def _main_catch(weighted_drag: str) -> str:
     if weighted_drag == "safety":
         return "Bad packs can still hurt."
     if weighted_drag == "desirability":
-        return "Collector appeal is not strong enough to add much excitement."
+        return "Opening Desirability is not strong enough to add much excitement."
     if weighted_drag == "stability":
         return "Too much depends on landing the right hits."
     return "The overall read still has a meaningful weak spot."

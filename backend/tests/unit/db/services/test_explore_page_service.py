@@ -116,6 +116,7 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_value_threshold_bins": lambda _q: [],
         "simulation_input_cards_with_near_mint_price": lambda _q: [],
         "pokemon_set_hit_desirability_summaries": lambda _q: [],
+        "pokemon_set_opening_desirability_latest": lambda _q: [],
         "pokemon_desirability_composite_scores": lambda _q: [],
         "sets": lambda _q: [],
         "card_variants": lambda _q: [],
@@ -398,6 +399,178 @@ def test_desirability_driver_cards_are_publicly_enriched(monkeypatch):
 
     summary_calls = [c for c in client.calls if c.table_name == "pokemon_set_hit_desirability_summaries"]
     assert summary_calls[0].eq_filters == [("id", "summary-1")]
+
+
+def test_opening_desirability_payload_is_public_safe(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-rip",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 4.99,
+            "mean_value": 5.55,
+            "median_value": 5.10,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+    handlers["pokemon_set_opening_desirability_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "opening_desirability_score": 81.0,
+            "opening_desirability_rank": 1,
+            "collector_appeal_score": 91.0,
+            "collector_appeal_rank": 2,
+            "chase_appeal_score": 60.0,
+            "chase_appeal_rank": 3,
+            "chase_appeal_data_quality": "usable",
+            "opening_desirability_display_status": "scored",
+            "opening_desirability_summary": "Strong set to open.",
+            "public_tooltip_copy_json": {
+                "opening_desirability": "Public opening copy",
+                "collector_appeal": "Public collector copy",
+                "chase_appeal": "Public chase copy",
+            },
+            "built_at": "2026-06-15T19:15:46+00:00",
+            "formula": "secret",
+            "weights": {"secret": 1},
+            "monetary_component_scores_json": {"secret": True},
+            "rip_component_scores_json": {"secret": True},
+        }
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    opening = payload["openingDesirability"]
+
+    assert opening == {
+        "openingDesirabilityScore": 81.0,
+        "openingDesirabilityRank": 1,
+        "collectorAppealScore": 91.0,
+        "collectorAppealRank": 2,
+        "chaseAppealScore": 60.0,
+        "chaseAppealRank": 3,
+        "chaseAppealDataQuality": "usable",
+        "displayStatus": "scored",
+        "summary": "Strong set to open.",
+        "tooltipCopy": {
+            "opening_desirability": "Public opening copy",
+            "collector_appeal": "Public collector copy",
+            "chase_appeal": "Public chase copy",
+        },
+        "builtAt": "2026-06-15T19:15:46+00:00",
+    }
+    assert payload["summary"]["rip_desirability_source"] == "opening_desirability"
+    assert "formula" not in str(opening).lower()
+    assert "weights" not in str(opening).lower()
+    assert "component_scores_json" not in str(opening).lower()
+
+
+def test_public_explore_payload_strips_interpretation_weight_metadata(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(
+        service,
+        "build_rip_interpretation",
+        lambda _payload: {
+            "summary": "Public summary",
+            "meta": {
+                "packScore": {
+                    "signals": {
+                        "decision_category": "good_open",
+                        "weighted_driver": "profit",
+                        "weighted_drag": "desirability",
+                        "interpretation_weights": {"profit": 0.45},
+                        "formula": "secret",
+                        "pillars": {
+                            "desirability": {
+                                "label": "Opening Desirability",
+                                "weight": 0.2,
+                                "weighted_impact": 12.3,
+                            }
+                        },
+                    }
+                }
+            },
+        },
+    )
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    serialized = str(payload["interpretation"]).lower()
+
+    assert payload["interpretation"]["summary"] == "Public summary"
+    assert payload["interpretation"]["meta"]["packScore"]["signals"]["decision_category"] == "good_open"
+    assert "opening desirability" in serialized
+    assert "weighted_driver" not in serialized
+    assert "weighted_drag" not in serialized
+    assert "interpretation_weights" not in serialized
+    assert "weighted_impact" not in serialized
+    assert "formula" not in serialized
+    assert "'weight'" not in serialized
+    assert "weights" not in serialized
+
+
+def test_collector_only_opening_desirability_stays_null_not_zero(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["pokemon_set_opening_desirability_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "opening_desirability_score": None,
+            "opening_desirability_rank": None,
+            "collector_appeal_score": 79.2,
+            "collector_appeal_rank": 4,
+            "chase_appeal_score": None,
+            "chase_appeal_rank": None,
+            "chase_appeal_data_quality": "missing",
+            "opening_desirability_display_status": "collector_only",
+            "opening_desirability_summary": "Collector Appeal is available; Chase Appeal needs more data.",
+            "public_tooltip_copy_json": {},
+            "built_at": "2026-06-15T19:15:46+00:00",
+        }
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    opening = payload["openingDesirability"]
+
+    assert opening["openingDesirabilityScore"] is None
+    assert opening["openingDesirabilityRank"] is None
+    assert opening["collectorAppealScore"] == 79.2
+    assert opening["chaseAppealScore"] is None
+    assert opening["displayStatus"] == "collector_only"
+    assert payload["summary"]["rip_desirability_source"] == "collector_appeal_fallback"
 
 
 def test_missing_target_returns_404(monkeypatch):

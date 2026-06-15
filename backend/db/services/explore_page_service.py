@@ -260,6 +260,13 @@ def _to_optional_float(value: Any) -> Optional[float]:
     return parsed
 
 
+def _to_optional_int(value: Any) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _load_history_trend_rows(
     requested_target_type: str,
     requested_target_id: str,
@@ -1148,6 +1155,113 @@ def _populate_p99_ratio_from_percentiles(summary: Dict[str, Any], percentiles: L
     summary["p99_value_to_cost_ratio"] = p99_value / pack_cost
 
 
+def _safe_tooltip_copy(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    return {}
+
+
+def _strip_public_weight_metadata(value: Any) -> Any:
+    """Remove internal weighting artifacts from the public Explore payload."""
+    blocked_keys = {
+        "formula",
+        "interpretation_weights",
+        "weight",
+        "weighted_drag",
+        "weighted_driver",
+        "weighted_impact",
+        "weights",
+        "weights_normalized",
+        "weights_pct",
+    }
+    if isinstance(value, dict):
+        return {
+            key: _strip_public_weight_metadata(child)
+            for key, child in value.items()
+            if str(key).lower() not in blocked_keys
+        }
+    if isinstance(value, list):
+        return [_strip_public_weight_metadata(item) for item in value]
+    return value
+
+
+def _opening_desirability_source(opening_payload: Optional[Dict[str, Any]]) -> str:
+    if not opening_payload:
+        return "missing"
+    if _to_optional_float(opening_payload.get("openingDesirabilityScore")) is not None:
+        return "opening_desirability"
+    if _to_optional_float(opening_payload.get("collectorAppealScore")) is not None:
+        return "collector_appeal_fallback"
+    return "missing"
+
+
+def _public_opening_desirability_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "openingDesirabilityScore": _to_optional_float(row.get("opening_desirability_score")),
+        "openingDesirabilityRank": _to_optional_int(row.get("opening_desirability_rank")),
+        "collectorAppealScore": _to_optional_float(row.get("collector_appeal_score")),
+        "collectorAppealRank": _to_optional_int(row.get("collector_appeal_rank")),
+        "chaseAppealScore": _to_optional_float(row.get("chase_appeal_score")),
+        "chaseAppealRank": _to_optional_int(row.get("chase_appeal_rank")),
+        "chaseAppealDataQuality": _to_optional_str(row.get("chase_appeal_data_quality")) or "missing",
+        "displayStatus": _to_optional_str(row.get("opening_desirability_display_status"))
+        or "insufficient_chase_data",
+        "summary": _to_optional_str(row.get("opening_desirability_summary")) or "",
+        "tooltipCopy": _safe_tooltip_copy(row.get("public_tooltip_copy_json")),
+        "builtAt": _to_optional_str(row.get("built_at")),
+    }
+
+
+def _populate_opening_desirability_for_set(
+    *,
+    summary: Dict[str, Any],
+    requested_target_id: str,
+    warnings: List[str],
+    sources: Dict[str, str],
+) -> Optional[Dict[str, Any]]:
+    target_id = str(requested_target_id or "").strip()
+    if not target_id:
+        sources["pokemon_set_opening_desirability_latest"] = "SKIPPED_MISSING_SET_ID"
+        summary["rip_desirability_source"] = "missing"
+        return None
+
+    try:
+        result = (
+            public_read_client.table("pokemon_set_opening_desirability_latest")
+            .select(
+                "set_id,set_name,set_canonical_key,opening_desirability_score,"
+                "opening_desirability_rank,collector_appeal_score,collector_appeal_rank,"
+                "chase_appeal_score,chase_appeal_rank,chase_appeal_data_quality,"
+                "opening_desirability_display_status,opening_desirability_summary,"
+                "public_tooltip_copy_json,scoring_version,built_at"
+            )
+            .eq("set_id", target_id)
+            .order("built_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        row = _first_row(result)
+        if not row:
+            sources["pokemon_set_opening_desirability_latest"] = "NO_ROW"
+            summary["rip_desirability_source"] = "missing"
+            return None
+
+        payload = _public_opening_desirability_payload(row)
+        summary["rip_desirability_source"] = _opening_desirability_source(payload)
+        sources["pokemon_set_opening_desirability_latest"] = "OK"
+        return payload
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] Opening Desirability query failed target_id=%s: %s",
+            target_id,
+            exc,
+        )
+        warnings.append("Failed to load Opening Desirability")
+        sources["pokemon_set_opening_desirability_latest"] = "FAILED"
+        summary["rip_desirability_source"] = "missing"
+        return None
+
+
 def _missing_required_fields(row: Dict[str, Any], required_fields: tuple[str, ...]) -> List[str]:
     """Return required field names that are absent from a row."""
     return [field for field in required_fields if field not in row]
@@ -1818,10 +1932,17 @@ def get_explore_page_payload(
     percentiles_ms = (time.perf_counter() - percentiles_started) * 1000
 
     _populate_p99_ratio_from_percentiles(summary, percentiles)
+    opening_desirability: Optional[Dict[str, Any]] = None
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
         _populate_desirability_drivers_for_set(summary, requested_target_id, warnings, sources)
+        opening_desirability = _populate_opening_desirability_for_set(
+            summary=summary,
+            requested_target_id=requested_target_id,
+            warnings=warnings,
+            sources=sources,
+        )
     _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
@@ -1914,17 +2035,19 @@ def get_explore_page_payload(
 
     total_ms = (time.perf_counter() - total_started) * 1000
 
-    interpretation = build_rip_interpretation(
-        {
-            "summary": summary,
-            "rankings": rankings,
-            "rip_statistics": rip_statistics,
-            "percentiles": percentiles,
-            "distribution_bins": distribution_bins,
-            "threshold_bins": threshold_bins,
-            "top_hits": top_hits,
-            "history_trend": history_trend,
-        }
+    interpretation = _strip_public_weight_metadata(
+        build_rip_interpretation(
+            {
+                "summary": summary,
+                "rankings": rankings,
+                "rip_statistics": rip_statistics,
+                "percentiles": percentiles,
+                "distribution_bins": distribution_bins,
+                "threshold_bins": threshold_bins,
+                "top_hits": top_hits,
+                "history_trend": history_trend,
+            }
+        )
     )
 
     pull_rate_assumptions = None
@@ -1955,6 +2078,7 @@ def get_explore_page_payload(
         "top_hits": top_hits,
         "history_trend": history_trend,
         "interpretation": interpretation,
+        "openingDesirability": opening_desirability,
         "pull_rate_assumptions": pull_rate_assumptions,
         "meta": {
             "request": {
@@ -2877,10 +3001,17 @@ def get_explore_page_payload(
     percentiles_ms = (time.perf_counter() - percentiles_started) * 1000
 
     _populate_p99_ratio_from_percentiles(summary, percentiles)
+    opening_desirability: Optional[Dict[str, Any]] = None
     if requested_target_type == "set":
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
         _populate_desirability_drivers_for_set(summary, requested_target_id, warnings, sources)
+        opening_desirability = _populate_opening_desirability_for_set(
+            summary=summary,
+            requested_target_id=requested_target_id,
+            warnings=warnings,
+            sources=sources,
+        )
     _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
@@ -2973,17 +3104,19 @@ def get_explore_page_payload(
 
     total_ms = (time.perf_counter() - total_started) * 1000
 
-    interpretation = build_rip_interpretation(
-        {
-            "summary": summary,
-            "rankings": rankings,
-            "rip_statistics": rip_statistics,
-            "percentiles": percentiles,
-            "distribution_bins": distribution_bins,
-            "threshold_bins": threshold_bins,
-            "top_hits": top_hits,
-            "history_trend": history_trend,
-        }
+    interpretation = _strip_public_weight_metadata(
+        build_rip_interpretation(
+            {
+                "summary": summary,
+                "rankings": rankings,
+                "rip_statistics": rip_statistics,
+                "percentiles": percentiles,
+                "distribution_bins": distribution_bins,
+                "threshold_bins": threshold_bins,
+                "top_hits": top_hits,
+                "history_trend": history_trend,
+            }
+        )
     )
 
     pull_rate_assumptions = None
@@ -3014,6 +3147,7 @@ def get_explore_page_payload(
         "top_hits": top_hits,
         "history_trend": history_trend,
         "interpretation": interpretation,
+        "openingDesirability": opening_desirability,
         "pull_rate_assumptions": pull_rate_assumptions,
         "meta": {
             "request": {

@@ -308,7 +308,7 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     meaning: "Lower concentration means value is spread across more cards.",
     impact: "Context signal",
     direction: "Lower is better",
-    interpretation: "Contextual concentration/spread diagnostic in runtime V2, not a direct weighted Stability input.",
+    interpretation: "Contextual concentration/spread diagnostic in runtime V2, not a direct Stability input.",
   }),
   "Effective Chase Count": buildMetricTooltip({
     meaning: "Higher means more cards meaningfully help the set's value.",
@@ -368,16 +368,16 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     meaning: "How much pack results swing between low and high outcomes. Higher volatility means the set is more hit-dependent and less predictable.",
     impact: "Direct Stability score input",
     direction: "Neutral",
-    interpretation: "This metric is directly weighted in Stability scoring in runtime V2.",
+    interpretation: "This metric directly contributes to Stability scoring in runtime V2.",
   }),
   "Value Spread": buildMetricTooltip({
     meaning: "How evenly value is distributed across meaningful pulls. Lower spread means value is concentrated into fewer cards or outcomes.",
     impact: "Context signal",
     direction: "Lower is better",
-    interpretation: "Contextual concentration/spread signal in runtime V2, not a direct weighted Stability input.",
+    interpretation: "Contextual concentration/spread signal in runtime V2, not a direct Stability input.",
   }),
   "Cards Carrying Value": buildMetricTooltip({
-    meaning: "An effective card-count estimate for how many cards meaningfully support the set’s value. It can be decimal because it is a weighted concentration metric, not a literal card count.",
+    meaning: "An effective card-count estimate for how many cards meaningfully support the set's value. It can be decimal because it is a concentration metric, not a literal card count.",
     impact: "Direct Stability score input",
     direction: "Higher is better",
     interpretation: "When mapped to Effective Chase Count, higher values directly strengthen Stability scoring in runtime V2.",
@@ -392,7 +392,7 @@ export const SCORE_CARD_TOOLTIPS = {
   "Pack Score": "Pack Score",
   "Profit": "Profit Score",
   "Safety": "Safety Score",
-  "Desirability": "Desirability Score",
+  "Desirability": "Opening Desirability",
   "Stability": "Stability Score",
 };
 
@@ -462,9 +462,9 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Desirability</span>
+              <span className="font-semibold text-[var(--text-primary)]">Opening Desirability</span>
               <br />
-              <span className="text-[11px]">Collector appeal and hit-card desirability</span>
+              <span className="text-[11px]">Collector appeal and chase appeal</span>
             </span>
           </li>
           <li className="flex gap-2">
@@ -476,7 +476,7 @@ export function getFormattedTooltip(scoreType) {
             </span>
           </li>
         </ul>
-        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">Higher scores indicate a stronger overall rip profile based on expected value, downside risk, collector appeal, and consistency.</p>
+        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">RIP Score combines pack value, risk, stability, and Opening Desirability to estimate how appealing a set is to open.</p>
       </div>
     );
   }
@@ -554,8 +554,8 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Desirability") {
     return (
       <div className="space-y-1.5 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Collector Appeal</p>
-        <p className="text-[var(--text-secondary)]">Collector appeal based on featured Pokemon and hit-card desirability, independent of market price.</p>
+        <p className="font-semibold text-[var(--text-primary)]">Opening Desirability</p>
+        <p className="text-[var(--text-secondary)]">Opening Desirability combines Collector Appeal and Chase Appeal to estimate how compelling the set is to open.</p>
         <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
             <span className="flex-none">•</span>

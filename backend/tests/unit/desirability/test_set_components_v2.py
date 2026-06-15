@@ -4,8 +4,10 @@ from backend.desirability.rarity_buckets import ACCESSIBLE_HIT, PREMIUM_CHASE, c
 from backend.desirability.set_components import (
     compute_component_scores,
     build_card_facts,
+    build_set_coverage_audit,
     collapse_subject_rollups,
     compute_hit_link_category_counts,
+    compute_counts,
     EXPECTED_NON_POKEMON_HIT,
     TRUE_MISSING_LINK,
     UNMATCHED_POKEMON_HIT,
@@ -63,6 +65,29 @@ def test_non_pokemon_hit_rows_without_links_are_diagnostic_not_scary_warnings():
     assert counts["true_missing_link_count"] == 0
 
 
+def test_energy_hit_rows_without_links_are_expected_non_pokemon_diagnostics():
+    cards = [
+        _card(
+            "energy",
+            "set",
+            "Basic Psychic Energy",
+            "207/198",
+            "Secret Rare",
+            supertype="Energy",
+            subtypes=["Basic"],
+        )
+    ]
+
+    facts, warnings = build_card_facts(cards=cards, links=[], scores_by_reference={})
+    counts = compute_hit_link_category_counts(facts)
+
+    assert warnings == []
+    assert facts[0]["hit_link_category"] == EXPECTED_NON_POKEMON_HIT
+    assert counts["expected_non_pokemon_hit_count"] == 1
+    assert counts["unmatched_pokemon_hit_count"] == 0
+    assert counts["true_missing_link_count"] == 0
+
+
 def test_pokemon_hit_row_without_link_is_actionable_missing_link():
     cards = [
         _card("pokemon-no-pokedex", "set", "Mysterymon ex", "001/100", "Special Illustration Rare", subtypes=["ex"]),
@@ -85,6 +110,57 @@ def test_pokemon_hit_row_without_link_is_actionable_missing_link():
     assert categories["Charizard"] == TRUE_MISSING_LINK
     assert counts["unmatched_pokemon_hit_count"] == 1
     assert counts["true_missing_link_count"] == 1
+
+
+def test_evolving_skies_alt_art_override_promotes_only_exact_card_to_premium_chase():
+    set_id = "00000000-0000-0000-0000-000000000002"
+    cards = [
+        _card(
+            "umbreon-full-art",
+            set_id,
+            "Umbreon V",
+            "188/203",
+            "Rare Ultra",
+            api_id="swsh7-188",
+            set_canonical_key="evolvingSkies",
+        ),
+        _card(
+            "umbreon-alt",
+            set_id,
+            "Umbreon V",
+            "189/203",
+            "Rare Ultra",
+            api_id="swsh7-189",
+            set_canonical_key="evolvingSkies",
+        ),
+    ]
+    facts, warnings = build_card_facts(
+        cards=cards,
+        links=[_link("umbreon-full-art", 197), _link("umbreon-alt", 197)],
+        scores_by_reference={197: _score(197, "Umbreon", 75, 80, 70)},
+    )
+    rollups = collapse_subject_rollups(facts)
+    counts = compute_counts(card_facts=facts, subject_rollups=rollups)
+    coverage = build_set_coverage_audit(
+        set_row={"name": "Evolving Skies", "canonical_key": "evolvingSkies"},
+        cards=cards,
+        card_facts=facts,
+    )
+
+    by_card_id = {fact["pokemon_canonical_card_id"]: fact for fact in facts}
+    assert warnings == []
+    assert by_card_id["umbreon-full-art"]["rarity_bucket"] == "major_hit"
+    assert by_card_id["umbreon-full-art"].get("rarity_override_source") is None
+    assert by_card_id["umbreon-alt"]["rarity_bucket"] == PREMIUM_CHASE
+    assert by_card_id["umbreon-alt"]["base_rarity_bucket"] == "major_hit"
+    assert by_card_id["umbreon-alt"]["rarity_override_source"] == "evolving_skies_alt_art_card_list"
+    assert "alternate-art chase card" in by_card_id["umbreon-alt"]["classification_override_reason"]
+    assert rollups[0]["best_rarity_bucket"] == PREMIUM_CHASE
+    assert counts["rarity_bucket_counts_json"] == {"major_hit": 1, "premium_chase": 1}
+    assert coverage["premium_chase_count"] == 1
+    assert coverage["major_hit_count"] == 1
+    assert coverage["rarity_override_count"] == 1
+    assert coverage["top_hit_like_rows"][0]["rarity_override_source"] == "evolving_skies_alt_art_card_list"
 
 
 def test_v2_pokedex_fallback_links_legacy_hit_when_link_table_skipped_it():
@@ -200,10 +276,23 @@ def _cards():
     ]
 
 
-def _card(card_id, set_id, name, printed_number, rarity, supertype="Pokemon", subtypes=None, pokedex_numbers=None):
+def _card(
+    card_id,
+    set_id,
+    name,
+    printed_number,
+    rarity,
+    supertype="Pokemon",
+    subtypes=None,
+    pokedex_numbers=None,
+    api_id=None,
+    set_canonical_key=None,
+):
     return {
         "id": card_id,
         "set_id": set_id,
+        "set_canonical_key": set_canonical_key,
+        "pokemon_tcg_api_card_id": api_id,
         "name": name,
         "supertype": supertype,
         "subtypes": subtypes if subtypes is not None else (["ex"] if name.endswith("ex") else []),

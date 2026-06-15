@@ -867,11 +867,51 @@ class TestComputeAllDerivedMetrics:
             "desirability_source_metric",
             "desirability_source_summary_id",
             "desirability_scoring_version",
+            "rip_desirability_source",
             "desirability_is_fallback",
             "desirability_fallback_reason",
         }
 
-    def test_pack_score_uses_set_hit_desirability_when_supplied(self):
+    def test_pack_score_uses_opening_desirability_when_supplied(self):
+        result = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            set_desirability_metrics={
+                "opening_desirability_score": 81.0,
+                "collector_appeal_score": 90.0,
+                "desirability_source_summary_id": "11111111-1111-1111-1111-111111111111",
+                "desirability_source_table": "pokemon_set_opening_desirability_latest",
+                "desirability_source_metric": "opening_desirability_score",
+                "desirability_scoring_version": "rip_desirability_v1",
+                "rip_desirability_source": "opening_desirability",
+            },
+        )
+        score = result["pack_score"]
+        assert score["desirability_score"] == pytest.approx(81.0)
+        assert score["desirability_is_fallback"] is False
+        assert score["desirability_source_metric"] == "opening_desirability_score"
+        assert score["rip_desirability_source"] == "opening_desirability"
+
+    def test_pack_score_uses_collector_appeal_fallback_when_opening_missing(self):
+        result = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            set_desirability_metrics={
+                "opening_desirability_score": None,
+                "collector_appeal_score": 74.0,
+                "desirability_source_metric": "collector_appeal_score",
+                "desirability_is_fallback": True,
+                "desirability_fallback_reason": "collector_appeal_fallback_missing_opening_desirability",
+                "rip_desirability_source": "collector_appeal_fallback",
+            },
+        )
+        score = result["pack_score"]
+        assert score["desirability_score"] == pytest.approx(74.0)
+        assert score["desirability_is_fallback"] is True
+        assert score["desirability_fallback_reason"] == "collector_appeal_fallback_missing_opening_desirability"
+        assert score["rip_desirability_source"] == "collector_appeal_fallback"
+
+    def test_pack_score_still_accepts_legacy_set_hit_desirability_when_supplied(self):
         result = compute_all_derived_metrics(
             TOY_VALUES,
             PACK_COST,
@@ -892,6 +932,7 @@ class TestComputeAllDerivedMetrics:
         assert score["desirability_score"] == pytest.approx(50.0)
         assert score["desirability_is_fallback"] is True
         assert score["desirability_fallback_reason"] == "missing_set_hit_desirability_score"
+        assert score["rip_desirability_source"] == "missing"
 
     def test_mean_value_to_cost_ratio_is_mean_over_pack_cost(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)

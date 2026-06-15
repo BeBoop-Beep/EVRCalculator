@@ -101,12 +101,12 @@ const SIMPLE_PILLAR_INFO_COPY = {
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   Desirability:
-    "Collector appeal based on featured Pokemon and hit-card desirability, independent of market price.",
+    "Opening Desirability combines Collector Appeal and Chase Appeal to show how appealing the set is to open.",
   Stability:
     "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
 };
 
-const DESIRABILITY_FALLBACK_COPY = "Using a neutral collector appeal estimate until this set has enough desirability data.";
+const DESIRABILITY_FALLBACK_COPY = "Using a fallback Opening Desirability estimate until this set has enough data.";
 const DESIRABILITY_NOT_CALCULATED_COPY = "Not calculated yet.";
 
 const METRIC_TREND_DIRECTIONS = {
@@ -251,6 +251,9 @@ function isTruthyFlag(value) {
 }
 
 function getDesirabilitySummary(summary) {
+  if (summary?.rip_desirability_source === "collector_appeal_fallback") {
+    return "Opening Desirability needs chase data for this set, so RIP Score is temporarily using Collector Appeal.";
+  }
   if (isTruthyFlag(summary?.desirability_is_fallback)) {
     return DESIRABILITY_FALLBACK_COPY;
   }
@@ -828,7 +831,7 @@ function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
       value: null,
       content: (
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-          Collector appeal is based on the Pokemon featured in this set&apos;s hit pool, independent of current market price.
+          Opening Desirability combines collector interest with chase-card appeal. Collector Appeal remains independent of current market price.
         </p>
       ),
       trend: null,
@@ -838,7 +841,7 @@ function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
 
   if (toNumber(displayedScore) !== null) {
     metrics.push({
-      label: "Collector Appeal",
+      label: "Opening Desirability",
       value: formatScore(displayedScore),
       trend: null,
     });
@@ -888,11 +891,100 @@ function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
   return [...overviewRows, ...metrics.slice(0, 3)];
 }
 
+function normalizeOpeningDesirabilityPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  return {
+    openingDesirabilityScore: toNumber(payload.openingDesirabilityScore ?? payload.opening_desirability_score),
+    openingDesirabilityRank: toNumber(payload.openingDesirabilityRank ?? payload.opening_desirability_rank),
+    collectorAppealScore: toNumber(payload.collectorAppealScore ?? payload.collector_appeal_score),
+    collectorAppealRank: toNumber(payload.collectorAppealRank ?? payload.collector_appeal_rank),
+    chaseAppealScore: toNumber(payload.chaseAppealScore ?? payload.chase_appeal_score),
+    chaseAppealRank: toNumber(payload.chaseAppealRank ?? payload.chase_appeal_rank),
+    chaseAppealDataQuality: payload.chaseAppealDataQuality ?? payload.chase_appeal_data_quality ?? "missing",
+    displayStatus: payload.displayStatus ?? payload.display_status ?? "insufficient_chase_data",
+    summary: payload.summary ?? "",
+    tooltipCopy: payload.tooltipCopy ?? payload.tooltip_copy ?? {},
+    builtAt: payload.builtAt ?? payload.built_at ?? null,
+  };
+}
+
+function formatOpeningScoreWithRank(score, rank, unavailableText = "Unavailable") {
+  const parsedScore = toNumber(score);
+  if (parsedScore === null) {
+    return unavailableText;
+  }
+  const parsedRank = toNumber(rank);
+  const rankText = parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`;
+  return `${parsedScore.toFixed(1)} / 100 | ${rankText}`;
+}
+
+function OpeningDesirabilityCard({ openingDesirability }) {
+  const payload = normalizeOpeningDesirabilityPayload(openingDesirability);
+  const tooltipCopy = payload?.tooltipCopy || {};
+  const isCollectorOnly =
+    payload?.displayStatus === "collector_only" ||
+    (payload?.openingDesirabilityScore === null && payload?.collectorAppealScore !== null);
+
+  const rows = [
+    {
+      label: "Collector Appeal",
+      value: formatOpeningScoreWithRank(payload?.collectorAppealScore, payload?.collectorAppealRank),
+      info: tooltipCopy.collector_appeal,
+    },
+    {
+      label: "Chase Appeal",
+      value: formatOpeningScoreWithRank(payload?.chaseAppealScore, payload?.chaseAppealRank, "Needs chase data"),
+      info: tooltipCopy.chase_appeal,
+    },
+  ];
+
+  return (
+    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">Opening Desirability</h3>
+            {tooltipCopy.opening_desirability ? <InfoPopover text={tooltipCopy.opening_desirability} /> : null}
+          </div>
+          <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
+            {formatOpeningScoreWithRank(
+              payload?.openingDesirabilityScore,
+              payload?.openingDesirabilityRank,
+              isCollectorOnly ? "Needs chase data" : "Unavailable"
+            )}
+          </p>
+          {payload?.summary ? (
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">{payload.summary}</p>
+          ) : (
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">
+              Opening Desirability is not available for this set yet.
+            </p>
+          )}
+        </div>
+
+        <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:min-w-[26rem]">
+          {rows.map((row) => (
+            <div key={row.label} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 p-3">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{row.label}</p>
+                {row.info ? <InfoPopover text={row.info} /> : null}
+              </div>
+              <p className="mt-1.5 text-sm font-semibold text-[var(--text-primary)]">{row.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function TopDesirabilityDrivers({ drivers = [] }) {
   const cards = Array.isArray(drivers) ? drivers.slice(0, 3) : [];
 
   if (cards.length === 0) {
-    return <p className="text-sm text-[var(--text-secondary)]">Top desirability drivers are not available yet.</p>;
+    return <p className="text-sm text-[var(--text-secondary)]">Top Collector Appeal drivers are not available yet.</p>;
   }
 
   return (
@@ -2556,6 +2648,7 @@ export default function RipStatisticsPageClient({
   const topHits = explorePayload?.top_hits || [];
   const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
+  const openingDesirability = explorePayload?.openingDesirability || explorePayload?.opening_desirability || null;
   const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
@@ -3940,7 +4033,7 @@ export default function RipStatisticsPageClient({
                               fallbackSummary={interpretation?.safety}
                             />
                             <SimplePillarSummaryCard
-                              title="Desirability"
+                              title="Opening Desirability"
                               rankTier={summary.desirability_tier}
                               infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
                               sectionMeta={desirabilityMeta}
@@ -4065,7 +4158,8 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {effectiveViewMode === "expert" ? (
-            <section id={setDetailMode ? "set-detail-analytics" : undefined} className="scroll-mt-24 pt-4 md:scroll-mt-28">
+            <section id={setDetailMode ? "set-detail-analytics" : undefined} className="scroll-mt-24 space-y-4 pt-4 md:scroll-mt-28">
+              {setDetailMode ? <OpeningDesirabilityCard openingDesirability={openingDesirability} /> : null}
               <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
                 {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
@@ -4114,12 +4208,12 @@ export default function RipStatisticsPageClient({
                   ]}
                 />
                 <ScorePillarCard
-                  title="Desirability"
+                  title="Opening Desirability"
                   score={displayedDesirabilityScore}
                   scoreTrend={trendByMetricKey.desirabilityScore}
                   rankValue={summary.desirability_rank}
                   rankTier={summary.desirability_tier}
-                  rankLabel="Desirability Rank"
+                  rankLabel="Opening Desirability Rank"
                   sectionMeta={desirabilityMeta}
                   fallbackSummary={desirabilitySummary}
                   infoText={getFormattedTooltip("Desirability")}
