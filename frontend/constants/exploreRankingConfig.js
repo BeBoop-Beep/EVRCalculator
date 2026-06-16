@@ -4,6 +4,9 @@
  */
 
 function toNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -50,6 +53,20 @@ export const EXPLORE_RANKING_MODES = {
     tierField: "safety_tier",
     scoreFormat: "decimal",
     description: "Safety score emphasizes protection from downside and loss mitigation.",
+  },
+  desirability: {
+    id: "desirability",
+    label: "Opening Desirability",
+    title: "Best Opening Desirability",
+    subtitle: "Sets ranked by Opening Desirability, including Collector Appeal and Chase Appeal.",
+    tooltip: "Opening Desirability combines Collector Appeal and Chase Appeal to estimate how compelling the set is to open.",
+    scoreLabel: "OPENING DESIRABILITY",
+    tierLabel: "DESIRABILITY TIER",
+    scoreField: "relative_desirability_score",
+    rankField: "desirability_rank",
+    tierField: "desirability_tier",
+    scoreFormat: "decimal",
+    description: "Opening Desirability combines Collector Appeal and Chase Appeal.",
   },
   stability: {
     id: "stability",

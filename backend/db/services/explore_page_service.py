@@ -88,6 +88,16 @@ _RIP_SUMMARY_SUPPLEMENT_FIELDS = (
     "relative_profit_score",
     "relative_safety_score",
     "relative_stability_score",
+    "desirability_score",
+    "relative_desirability_score",
+    "desirability_rank",
+    "desirability_tier",
+    "desirability_scoring_version",
+    "desirability_source_summary_id",
+    "desirability_source_table",
+    "desirability_source_metric",
+    "desirability_is_fallback",
+    "desirability_fallback_reason",
     "median_value_to_cost_ratio",
     "median_loss_when_losing_fraction",
     "experience_score",
@@ -109,6 +119,11 @@ _OPTIONAL_HIT_SET_VALUE_SUMMARY_FIELDS = (
     "hit_pull_rate",
     "hit_cards_pulled",
 )
+
+_DESIRABILITY_DRIVER_CARD_CANDIDATE_LIMIT = 25
+_DESIRABILITY_DRIVER_DISPLAY_LIMIT = 3
+_DESIRABILITY_DRIVER_POKEMON_LIMIT = 5
+_DESIRABILITY_PREMIUM_RARITY_MIN_PRIORITY = 70
 
 
 def _to_optional_str(value: Any) -> Optional[str]:
@@ -243,6 +258,13 @@ def _to_optional_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return parsed
+
+
+def _to_optional_int(value: Any) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _load_history_trend_rows(
@@ -432,16 +454,59 @@ def _fetch_set_metadata_for_target(requested_target_id: str) -> Optional[Dict[st
     # Reuse known-safe columns that are already queried elsewhere in service code.
     selected_columns = "id,name,canonical_key,pokemon_api_set_id"
 
-    set_result = (
-        public_read_client.table("sets")
-        .select(selected_columns)
-        .eq("id", target_id)
-        .limit(1)
-        .execute()
-    )
-    set_row = _first_row(set_result)
-    if set_row:
-        return set_row
+    identity_filters: List[tuple[str, str]] = [
+        ("id", target_id),
+        ("canonical_key", target_id),
+        ("pokemon_api_set_id", target_id),
+    ]
+
+    for field, value in identity_filters:
+        try:
+            set_result = (
+                public_read_client.table("sets")
+                .select(selected_columns)
+                .eq(field, value)
+                .limit(1)
+                .execute()
+            )
+            set_row = _first_row(set_result)
+            if set_row:
+                return set_row
+        except Exception:
+            continue
+
+    # Some datasets store a slug while others only expose canonical_key.
+    # Attempt slug match but tolerate schemas where slug is unavailable.
+    try:
+        slug_result = (
+            public_read_client.table("sets")
+            .select(selected_columns + ",slug")
+            .eq("slug", target_id)
+            .limit(1)
+            .execute()
+        )
+        slug_row = _first_row(slug_result)
+        if slug_row:
+            return slug_row
+    except Exception:
+        pass
+
+    # Name fallback for slug-like target ids.
+    candidate_name = target_id.replace("-", " ").replace("_", " ").strip()
+    if candidate_name:
+        try:
+            name_result = (
+                public_read_client.table("sets")
+                .select(selected_columns)
+                .eq("name", candidate_name)
+                .limit(1)
+                .execute()
+            )
+            name_row = _first_row(name_result)
+            if name_row:
+                return name_row
+        except Exception:
+            pass
 
     return None
 
@@ -1133,6 +1198,141 @@ def _populate_p99_ratio_from_percentiles(summary: Dict[str, Any], percentiles: L
     summary["p99_value_to_cost_ratio"] = p99_value / pack_cost
 
 
+def _safe_tooltip_copy(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    return {}
+
+
+def _strip_public_weight_metadata(value: Any) -> Any:
+    """Remove internal weighting artifacts from the public Explore payload."""
+    blocked_keys = {
+        "formula",
+        "interpretation_weights",
+        "weight",
+        "weighted_drag",
+        "weighted_driver",
+        "weighted_impact",
+        "weights",
+        "weights_normalized",
+        "weights_pct",
+    }
+    if isinstance(value, dict):
+        return {
+            key: _strip_public_weight_metadata(child)
+            for key, child in value.items()
+            if str(key).lower() not in blocked_keys
+        }
+    if isinstance(value, list):
+        return [_strip_public_weight_metadata(item) for item in value]
+    return value
+
+
+def _opening_desirability_source(opening_payload: Optional[Dict[str, Any]]) -> str:
+    if not opening_payload:
+        return "missing"
+    if _to_optional_float(opening_payload.get("openingDesirabilityScore")) is not None:
+        return "opening_desirability"
+    if _to_optional_float(opening_payload.get("collectorAppealScore")) is not None:
+        return "collector_appeal_fallback"
+    return "missing"
+
+
+def _public_opening_desirability_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "openingDesirabilityScore": _to_optional_float(row.get("opening_desirability_score")),
+        "openingDesirabilityRank": _to_optional_int(row.get("opening_desirability_rank")),
+        "collectorAppealScore": _to_optional_float(row.get("collector_appeal_score")),
+        "collectorAppealRank": _to_optional_int(row.get("collector_appeal_rank")),
+        "chaseAppealScore": _to_optional_float(row.get("chase_appeal_score")),
+        "chaseAppealRank": _to_optional_int(row.get("chase_appeal_rank")),
+        "chaseAppealDataQuality": _to_optional_str(row.get("chase_appeal_data_quality")) or "missing",
+        "displayStatus": _to_optional_str(row.get("opening_desirability_display_status"))
+        or "insufficient_chase_data",
+        "summary": _to_optional_str(row.get("opening_desirability_summary")) or "",
+        "tooltipCopy": _safe_tooltip_copy(row.get("public_tooltip_copy_json")),
+        "builtAt": _to_optional_str(row.get("built_at")),
+    }
+
+
+def _populate_opening_desirability_for_set(
+    *,
+    summary: Dict[str, Any],
+    requested_target_id: str,
+    resolved_set_id: Optional[str],
+    resolved_set_canonical_key: Optional[str],
+    warnings: List[str],
+    sources: Dict[str, str],
+) -> Optional[Dict[str, Any]]:
+    target_id = str(requested_target_id or "").strip()
+    resolved_id = str(resolved_set_id or "").strip()
+    resolved_canonical_key = str(resolved_set_canonical_key or "").strip()
+
+    if not target_id and not resolved_id and not resolved_canonical_key:
+        sources["pokemon_set_opening_desirability_latest"] = "SKIPPED_MISSING_SET_ID"
+        summary["rip_desirability_source"] = "missing"
+        return None
+
+    selected_columns = (
+        "set_id,set_name,set_canonical_key,opening_desirability_score,"
+        "opening_desirability_rank,collector_appeal_score,collector_appeal_rank,"
+        "chase_appeal_score,chase_appeal_rank,chase_appeal_data_quality,"
+        "opening_desirability_display_status,opening_desirability_summary,"
+        "public_tooltip_copy_json,scoring_version,built_at"
+    )
+
+    try:
+        row = None
+        lookup_attempts: List[tuple[str, str]] = [
+            ("set_id", resolved_id),
+            ("set_id", target_id),
+            ("set_canonical_key", resolved_canonical_key),
+            ("set_canonical_key", target_id),
+        ]
+        attempted_filters: List[tuple[str, str]] = []
+        for field, value in lookup_attempts:
+            lookup_value = str(value or "").strip()
+            if not lookup_value or (field, lookup_value) in attempted_filters:
+                continue
+            attempted_filters.append((field, lookup_value))
+            try:
+                result = (
+                    public_read_client.table("pokemon_set_opening_desirability_latest")
+                    .select(selected_columns)
+                    .eq(field, lookup_value)
+                    .order("built_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+            except Exception:
+                continue
+            row = _first_row(result)
+            if row:
+                break
+
+        if not row:
+            sources["pokemon_set_opening_desirability_latest"] = "NO_ROW"
+            summary["rip_desirability_source"] = "missing"
+            return None
+
+        payload = _public_opening_desirability_payload(row)
+        summary["rip_desirability_source"] = _opening_desirability_source(payload)
+        sources["pokemon_set_opening_desirability_latest"] = "OK"
+        return payload
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] Opening Desirability query failed target_id=%s resolved_set_id=%s resolved_set_canonical_key=%s: %s",
+            target_id,
+            resolved_id,
+            resolved_canonical_key,
+            exc,
+        )
+        warnings.append("Failed to load Opening Desirability")
+        sources["pokemon_set_opening_desirability_latest"] = "FAILED"
+        summary["rip_desirability_source"] = "missing"
+        return None
+
+
 def _missing_required_fields(row: Dict[str, Any], required_fields: tuple[str, ...]) -> List[str]:
     """Return required field names that are absent from a row."""
     return [field for field in required_fields if field not in row]
@@ -1141,6 +1341,407 @@ def _missing_required_fields(row: Dict[str, Any], required_fields: tuple[str, ..
 def _ensure_optional_summary_fields(summary: Dict[str, Any]) -> None:
     for field in _OPTIONAL_HIT_SET_VALUE_SUMMARY_FIELDS:
         summary.setdefault(field, None)
+
+
+def _public_score(value: Any) -> Optional[float]:
+    parsed = _to_optional_float(value)
+    if parsed is None or not math.isfinite(parsed):
+        return None
+    return round(parsed, 4)
+
+
+def _first_non_empty_text(*values: Any) -> Optional[str]:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return None
+
+
+def _normalize_desirability_subject_key(value: Any) -> Optional[str]:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    return " ".join(text.replace(",", " ").split())
+
+
+def _desirability_rarity_priority(value: Any) -> int:
+    rarity = str(value or "").strip().lower()
+    if not rarity:
+        return 0
+
+    if "special illustration rare" in rarity or rarity == "sir":
+        return 100
+    if "alternate art" in rarity or "alt art" in rarity:
+        return 95
+    if "secret rare" in rarity or "hyper rare" in rarity or "gold" in rarity:
+        return 90
+    if "ultra rare" in rarity:
+        return 80
+    if "illustration rare" in rarity:
+        return 70
+    if "double rare" in rarity:
+        return 20
+    if any(token in rarity for token in (" ex", "-ex", " v", "-v", "vmax", "vstar", "gx")):
+        return 10
+    return 0
+
+
+def _desirability_driver_sort_key(driver: Dict[str, Any]) -> tuple[int, float, float, float, int, str]:
+    return (
+        int(driver.get("_rarity_priority") or 0),
+        _to_optional_float(driver.get("desirability_score")) or 0.0,
+        _to_optional_float(driver.get("favorite_score")) or 0.0,
+        _to_optional_float(driver.get("trend_score")) or 0.0,
+        int(driver.get("notable_hit_count") or 0),
+        str(driver.get("card_name") or ""),
+    )
+
+
+def _latest_composite_scores_by_reference(reference_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+    if not reference_ids:
+        return {}
+
+    response = (
+        public_read_client.table("pokemon_desirability_composite_scores")
+        .select(
+            "pokemon_reference_id,fan_popularity_score,current_trend_score,"
+            "desirability_score,created_at"
+        )
+        .in_("pokemon_reference_id", reference_ids[:50])
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    scores_by_reference: Dict[int, Dict[str, Any]] = {}
+    for row in response.data or []:
+        try:
+            reference_id = int(row.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            continue
+        scores_by_reference.setdefault(reference_id, row)
+    return scores_by_reference
+
+
+def _collect_desirability_reference_ids(summary_row: Dict[str, Any]) -> List[int]:
+    reference_ids: List[int] = []
+
+    for card in (summary_row.get("top_desirable_cards_json") or [])[:_DESIRABILITY_DRIVER_CARD_CANDIDATE_LIMIT]:
+        for link in card.get("linked_pokemon") or []:
+            try:
+                reference_id = int(link.get("pokemon_reference_id"))
+            except (TypeError, ValueError):
+                continue
+            if reference_id not in reference_ids:
+                reference_ids.append(reference_id)
+
+    for pokemon in (summary_row.get("top_desirable_pokemon_json") or [])[:_DESIRABILITY_DRIVER_POKEMON_LIMIT]:
+        try:
+            reference_id = int(pokemon.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            continue
+        if reference_id not in reference_ids:
+            reference_ids.append(reference_id)
+
+    return reference_ids
+
+
+def _public_desirability_driver_cards(
+    summary_row: Dict[str, Any],
+    scores_by_reference: Dict[int, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    candidates_by_subject: Dict[str, List[Dict[str, Any]]] = {}
+
+    for card in (summary_row.get("top_desirable_cards_json") or [])[:_DESIRABILITY_DRIVER_CARD_CANDIDATE_LIMIT]:
+        links = [link for link in (card.get("linked_pokemon") or []) if isinstance(link, dict)]
+        primary_link = links[0] if links else {}
+        reference_id: Optional[int] = None
+        try:
+            reference_id = int(primary_link.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            reference_id = None
+
+        composite_row = scores_by_reference.get(reference_id or -1) or {}
+        matched_names = [
+            str(link.get("pokemon_name")).strip()
+            for link in links
+            if str(link.get("pokemon_name") or "").strip()
+        ]
+        unique_matched_names = list(dict.fromkeys(matched_names))
+        matched_pokemon = ", ".join(unique_matched_names) if unique_matched_names else None
+        subject = matched_pokemon or _first_non_empty_text(card.get("name"))
+        subject_key = _normalize_desirability_subject_key(subject)
+        if not subject_key:
+            continue
+
+        rarity = _first_non_empty_text(card.get("rarity"))
+        rarity_priority = _desirability_rarity_priority(rarity)
+
+        candidates_by_subject.setdefault(subject_key, []).append(
+            {
+                "card_name": _first_non_empty_text(card.get("name")),
+                "matched_pokemon": matched_pokemon,
+                "matched_subject": subject,
+                "desirability_score": _public_score(card.get("card_desirability_score")),
+                "favorite_score": _public_score(composite_row.get("fan_popularity_score")),
+                "fan_score": _public_score(composite_row.get("fan_popularity_score")),
+                "trend_score": _public_score(composite_row.get("current_trend_score")),
+                "rarity": rarity,
+                "card_number": _first_non_empty_text(card.get("printed_number"), card.get("number")),
+                "printed_number": _first_non_empty_text(card.get("printed_number")),
+                "_rarity_priority": rarity_priority,
+            }
+        )
+
+    representatives: List[Dict[str, Any]] = []
+    for subject_candidates in candidates_by_subject.values():
+        ranked_candidates = sorted(
+            subject_candidates,
+            key=lambda item: (
+                int(item.get("_rarity_priority") or 0),
+                _to_optional_float(item.get("desirability_score")) or 0.0,
+                _to_optional_float(item.get("favorite_score")) or 0.0,
+                _to_optional_float(item.get("trend_score")) or 0.0,
+                str(item.get("card_name") or ""),
+            ),
+            reverse=True,
+        )
+        representative = dict(ranked_candidates[0])
+        representative["notable_hit_count"] = len(subject_candidates)
+        representatives.append(representative)
+
+    premium_representatives = [
+        item
+        for item in representatives
+        if int(item.get("_rarity_priority") or 0) >= _DESIRABILITY_PREMIUM_RARITY_MIN_PRIORITY
+    ]
+    fallback_representatives = [
+        item
+        for item in representatives
+        if int(item.get("_rarity_priority") or 0) < _DESIRABILITY_PREMIUM_RARITY_MIN_PRIORITY
+    ]
+    selected = sorted(premium_representatives, key=_desirability_driver_sort_key, reverse=True)[
+        :_DESIRABILITY_DRIVER_DISPLAY_LIMIT
+    ]
+    if len(selected) < _DESIRABILITY_DRIVER_DISPLAY_LIMIT:
+        selected.extend(
+            sorted(fallback_representatives, key=_desirability_driver_sort_key, reverse=True)[
+                : _DESIRABILITY_DRIVER_DISPLAY_LIMIT - len(selected)
+            ]
+        )
+
+    public_fields = {
+        "card_name",
+        "matched_pokemon",
+        "matched_subject",
+        "desirability_score",
+        "favorite_score",
+        "fan_score",
+        "trend_score",
+        "rarity",
+        "card_number",
+        "printed_number",
+        "notable_hit_count",
+    }
+    return [
+        {key: value for key, value in driver.items() if key in public_fields and value is not None}
+        for driver in selected
+    ]
+
+
+def _normalize_public_collector_driver_card(card: Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(card, dict):
+        return None
+
+    linked_source = card.get("linked_pokemon")
+    if linked_source is None:
+        linked_source = card.get("linkedPokemon")
+
+    linked_pokemon: List[Dict[str, Any]] = []
+    if isinstance(linked_source, list):
+        for entry in linked_source:
+            if not isinstance(entry, dict):
+                continue
+            pokemon_name = _first_non_empty_text(
+                entry.get("pokemon_name"),
+                entry.get("pokemonName"),
+                entry.get("name"),
+            )
+            pokemon_reference_id = _first_non_empty_text(
+                entry.get("pokemon_reference_id"),
+                entry.get("pokemonReferenceId"),
+                entry.get("pokedex_number"),
+            )
+            if pokemon_name or pokemon_reference_id:
+                linked_pokemon.append(
+                    {
+                        "pokemonName": pokemon_name,
+                        "pokemonReferenceId": pokemon_reference_id,
+                    }
+                )
+
+    if not linked_pokemon:
+        matched_pokemon = _first_non_empty_text(card.get("matched_pokemon"), card.get("matchedPokemon"))
+        if matched_pokemon:
+            linked_pokemon = [{"pokemonName": matched_pokemon, "pokemonReferenceId": None}]
+
+    normalized = {
+        "name": _first_non_empty_text(card.get("name"), card.get("card_name"), card.get("cardName")),
+        "printedNumber": _first_non_empty_text(
+            card.get("printed_number"),
+            card.get("printedNumber"),
+            card.get("card_number"),
+            card.get("cardNumber"),
+            card.get("number"),
+        ),
+        "rarity": _first_non_empty_text(card.get("rarity")),
+        "cardDesirabilityScore": _public_score(
+            card.get("card_desirability_score")
+            if card.get("card_desirability_score") is not None
+            else card.get("cardDesirabilityScore")
+            if card.get("cardDesirabilityScore") is not None
+            else card.get("desirability_score")
+            if card.get("desirability_score") is not None
+            else card.get("desirabilityScore")
+        ),
+        "linkedPokemon": linked_pokemon,
+        "imageUrl": _first_non_empty_text(
+            card.get("image_url"),
+            card.get("imageUrl"),
+            card.get("image_small_url"),
+            card.get("imageSmallUrl"),
+            card.get("image_large_url"),
+            card.get("imageLargeUrl"),
+        ),
+        "imageSmallUrl": _first_non_empty_text(card.get("image_small_url"), card.get("imageSmallUrl")),
+        "imageLargeUrl": _first_non_empty_text(card.get("image_large_url"), card.get("imageLargeUrl")),
+    }
+
+    if not normalized["name"]:
+        return None
+    return normalized
+
+
+def _build_public_top_collector_appeal_drivers(
+    *,
+    summary_cards: Optional[List[Dict[str, Any]]] = None,
+    raw_cards: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    preferred_source = summary_cards if isinstance(summary_cards, list) and summary_cards else raw_cards
+    cards = preferred_source if isinstance(preferred_source, list) else []
+
+    drivers: List[Dict[str, Any]] = []
+    for card in cards:
+        normalized = _normalize_public_collector_driver_card(card)
+        if normalized:
+            drivers.append(normalized)
+        if len(drivers) >= 3:
+            break
+    return drivers
+
+
+def _public_desirability_driver_pokemon(
+    summary_row: Dict[str, Any],
+    scores_by_reference: Dict[int, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    drivers: List[Dict[str, Any]] = []
+
+    for pokemon in (summary_row.get("top_desirable_pokemon_json") or [])[:_DESIRABILITY_DRIVER_POKEMON_LIMIT]:
+        try:
+            reference_id = int(pokemon.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            reference_id = None
+        composite_row = scores_by_reference.get(reference_id or -1) or {}
+        drivers.append(
+            {
+                "pokemon_name": _first_non_empty_text(pokemon.get("pokemon_name")),
+                "matched_subject": _first_non_empty_text(pokemon.get("pokemon_name")),
+                "desirability_score": _public_score(pokemon.get("desirability_score")),
+                "favorite_score": _public_score(composite_row.get("fan_popularity_score")),
+                "fan_score": _public_score(composite_row.get("fan_popularity_score")),
+                "trend_score": _public_score(composite_row.get("current_trend_score")),
+                "hit_card_count": pokemon.get("hit_card_count"),
+            }
+        )
+
+    return drivers
+
+
+def _populate_desirability_drivers_for_set(
+    summary: Dict[str, Any],
+    requested_target_id: str,
+    warnings: List[str],
+    sources: Dict[str, str],
+) -> None:
+    summary["top_desirability_cards"] = []
+    summary["top_desirability_pokemon"] = []
+    summary["top_collector_appeal_drivers"] = []
+
+    source_summary_id = str(summary.get("desirability_source_summary_id") or "").strip()
+    target_id = str(requested_target_id or "").strip()
+    if not source_summary_id and not target_id:
+        sources["pokemon_set_hit_desirability_summaries"] = "SKIPPED_MISSING_SET_ID"
+        return
+
+    try:
+        base_query = public_read_client.table("pokemon_set_hit_desirability_summaries").select(
+            "id,set_id,top_desirable_cards_json,top_desirable_pokemon_json,built_at"
+        )
+        summary_row = None
+        if source_summary_id:
+            response = base_query.eq("id", source_summary_id).limit(1).execute()
+            summary_row = _first_row(response)
+
+        if not summary_row and target_id:
+            fallback_response = (
+                public_read_client.table("pokemon_set_hit_desirability_summaries")
+                .select("id,set_id,top_desirable_cards_json,top_desirable_pokemon_json,built_at")
+                .eq("set_id", target_id)
+                .order("built_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            summary_row = _first_row(fallback_response)
+
+        if not summary_row:
+            sources["pokemon_set_hit_desirability_summaries"] = "NO_ROW"
+            return
+
+        reference_ids = _collect_desirability_reference_ids(summary_row)
+        try:
+            scores_by_reference = _latest_composite_scores_by_reference(reference_ids)
+            sources["pokemon_desirability_composite_scores"] = "OK" if reference_ids else "SKIPPED_NO_REFERENCES"
+        except Exception as composite_exc:
+            logger.warning(
+                "[explore-page] pokemon_desirability_composite_scores enrichment failed target_id=%s: %s",
+                target_id,
+                composite_exc,
+            )
+            warnings.append("Failed to load supplemental desirability driver score components")
+            sources["pokemon_desirability_composite_scores"] = "FAILED"
+            scores_by_reference = {}
+
+        summary["top_desirability_cards"] = _public_desirability_driver_cards(
+            summary_row,
+            scores_by_reference,
+        )
+        summary["top_collector_appeal_drivers"] = _build_public_top_collector_appeal_drivers(
+            summary_cards=summary.get("top_desirability_cards"),
+            raw_cards=summary_row.get("top_desirable_cards_json"),
+        )
+        summary["top_desirability_pokemon"] = _public_desirability_driver_pokemon(
+            summary_row,
+            scores_by_reference,
+        )
+        sources["pokemon_set_hit_desirability_summaries"] = "OK"
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] pokemon_set_hit_desirability_summaries enrichment failed target_id=%s: %s",
+            target_id,
+            exc,
+        )
+        warnings.append("Failed to load top desirability drivers")
+        sources["pokemon_set_hit_desirability_summaries"] = "FAILED"
 
 
 def _lookup_latest_run_from_calculation_runs(target_type: str, target_id: str) -> str:
@@ -1207,6 +1808,8 @@ def get_explore_page_payload(
 
     # Prefer RIP-specific summary source for set targets first.
     summary: Dict[str, Any] = {}
+    resolved_set_id: Optional[str] = None
+    resolved_set_canonical_key: Optional[str] = None
     summary_from_canonical = False
     summary_from_rip_latest = False
     if requested_target_type == "set":
@@ -1220,6 +1823,7 @@ def get_explore_page_payload(
             )
             rip_latest_row = _first_row(rip_latest_result)
             if rip_latest_row:
+                resolved_set_id = _to_optional_str(rip_latest_row.get("set_id"))
                 rip_run_id = rip_latest_row.get("calculation_run_id")
                 if rip_run_id:
                     run_id = str(rip_run_id)
@@ -1507,9 +2111,42 @@ def get_explore_page_payload(
     percentiles_ms = (time.perf_counter() - percentiles_started) * 1000
 
     _populate_p99_ratio_from_percentiles(summary, percentiles)
+    opening_desirability: Optional[Dict[str, Any]] = None
     if requested_target_type == "set":
+        try:
+            opening_set_metadata = _fetch_set_metadata_for_target(requested_target_id)
+            if opening_set_metadata:
+                resolved_set_id = resolved_set_id or _to_optional_str(opening_set_metadata.get("id"))
+                resolved_set_canonical_key = resolved_set_canonical_key or _to_optional_str(
+                    opening_set_metadata.get("canonical_key")
+                )
+                sources["opening_desirability_set_metadata"] = "OK"
+            else:
+                sources["opening_desirability_set_metadata"] = "NO_ROW"
+        except Exception as exc:
+            logger.warning(
+                "[explore-page] Opening Desirability set metadata lookup failed target_id=%s: %s",
+                requested_target_id,
+                exc,
+            )
+            sources["opening_desirability_set_metadata"] = "FAILED"
+
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+        _populate_desirability_drivers_for_set(summary, requested_target_id, warnings, sources)
+        opening_desirability = _populate_opening_desirability_for_set(
+            summary=summary,
+            requested_target_id=requested_target_id,
+            resolved_set_id=resolved_set_id,
+            resolved_set_canonical_key=resolved_set_canonical_key,
+            warnings=warnings,
+            sources=sources,
+        )
+        if opening_desirability is not None:
+            opening_desirability["topCollectorAppealDrivers"] = _build_public_top_collector_appeal_drivers(
+                summary_cards=summary.get("top_collector_appeal_drivers"),
+                raw_cards=summary.get("top_desirability_cards"),
+            )
     _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
@@ -1602,17 +2239,19 @@ def get_explore_page_payload(
 
     total_ms = (time.perf_counter() - total_started) * 1000
 
-    interpretation = build_rip_interpretation(
-        {
-            "summary": summary,
-            "rankings": rankings,
-            "rip_statistics": rip_statistics,
-            "percentiles": percentiles,
-            "distribution_bins": distribution_bins,
-            "threshold_bins": threshold_bins,
-            "top_hits": top_hits,
-            "history_trend": history_trend,
-        }
+    interpretation = _strip_public_weight_metadata(
+        build_rip_interpretation(
+            {
+                "summary": summary,
+                "rankings": rankings,
+                "rip_statistics": rip_statistics,
+                "percentiles": percentiles,
+                "distribution_bins": distribution_bins,
+                "threshold_bins": threshold_bins,
+                "top_hits": top_hits,
+                "history_trend": history_trend,
+            }
+        )
     )
 
     pull_rate_assumptions = None
@@ -1643,6 +2282,7 @@ def get_explore_page_payload(
         "top_hits": top_hits,
         "history_trend": history_trend,
         "interpretation": interpretation,
+        "openingDesirability": opening_desirability,
         "pull_rate_assumptions": pull_rate_assumptions,
         "meta": {
             "request": {
@@ -2265,6 +2905,8 @@ def get_explore_page_payload(
 
     # Prefer RIP-specific summary source for set targets first.
     summary: Dict[str, Any] = {}
+    resolved_set_id: Optional[str] = None
+    resolved_set_canonical_key: Optional[str] = None
     summary_from_canonical = False
     summary_from_rip_latest = False
     if requested_target_type == "set":
@@ -2278,6 +2920,7 @@ def get_explore_page_payload(
             )
             rip_latest_row = _first_row(rip_latest_result)
             if rip_latest_row:
+                resolved_set_id = _to_optional_str(rip_latest_row.get("set_id"))
                 rip_run_id = rip_latest_row.get("calculation_run_id")
                 if rip_run_id:
                     run_id = str(rip_run_id)
@@ -2565,9 +3208,42 @@ def get_explore_page_payload(
     percentiles_ms = (time.perf_counter() - percentiles_started) * 1000
 
     _populate_p99_ratio_from_percentiles(summary, percentiles)
+    opening_desirability: Optional[Dict[str, Any]] = None
     if requested_target_type == "set":
+        try:
+            opening_set_metadata = _fetch_set_metadata_for_target(requested_target_id)
+            if opening_set_metadata:
+                resolved_set_id = resolved_set_id or _to_optional_str(opening_set_metadata.get("id"))
+                resolved_set_canonical_key = resolved_set_canonical_key or _to_optional_str(
+                    opening_set_metadata.get("canonical_key")
+                )
+                sources["opening_desirability_set_metadata"] = "OK"
+            else:
+                sources["opening_desirability_set_metadata"] = "NO_ROW"
+        except Exception as exc:
+            logger.warning(
+                "[explore-page] Opening Desirability set metadata lookup failed target_id=%s: %s",
+                requested_target_id,
+                exc,
+            )
+            sources["opening_desirability_set_metadata"] = "FAILED"
+
         _populate_biggest_upside_metrics_for_set(summary, requested_target_id, warnings, sources)
         _populate_relative_average_return_score_for_set(summary, requested_target_id, warnings, sources)
+        _populate_desirability_drivers_for_set(summary, requested_target_id, warnings, sources)
+        opening_desirability = _populate_opening_desirability_for_set(
+            summary=summary,
+            requested_target_id=requested_target_id,
+            resolved_set_id=resolved_set_id,
+            resolved_set_canonical_key=resolved_set_canonical_key,
+            warnings=warnings,
+            sources=sources,
+        )
+        if opening_desirability is not None:
+            opening_desirability["topCollectorAppealDrivers"] = _build_public_top_collector_appeal_drivers(
+                summary_cards=summary.get("top_collector_appeal_drivers"),
+                raw_cards=summary.get("top_desirability_cards"),
+            )
     _ensure_optional_summary_fields(summary)
 
     # Distribution bins (optional, separate query)
@@ -2660,17 +3336,19 @@ def get_explore_page_payload(
 
     total_ms = (time.perf_counter() - total_started) * 1000
 
-    interpretation = build_rip_interpretation(
-        {
-            "summary": summary,
-            "rankings": rankings,
-            "rip_statistics": rip_statistics,
-            "percentiles": percentiles,
-            "distribution_bins": distribution_bins,
-            "threshold_bins": threshold_bins,
-            "top_hits": top_hits,
-            "history_trend": history_trend,
-        }
+    interpretation = _strip_public_weight_metadata(
+        build_rip_interpretation(
+            {
+                "summary": summary,
+                "rankings": rankings,
+                "rip_statistics": rip_statistics,
+                "percentiles": percentiles,
+                "distribution_bins": distribution_bins,
+                "threshold_bins": threshold_bins,
+                "top_hits": top_hits,
+                "history_trend": history_trend,
+            }
+        )
     )
 
     pull_rate_assumptions = None
@@ -2701,6 +3379,7 @@ def get_explore_page_payload(
         "top_hits": top_hits,
         "history_trend": history_trend,
         "interpretation": interpretation,
+        "openingDesirability": opening_desirability,
         "pull_rate_assumptions": pull_rate_assumptions,
         "meta": {
             "request": {

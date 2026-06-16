@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections import Counter
 from typing import Any, Dict, List, Optional
 
 from backend.db.clients.supabase_client import public_read_client
@@ -86,6 +87,37 @@ def _resolve_card_count(set_row: Dict[str, Any]) -> Optional[int]:
     return None
 
 
+def _load_canonical_card_counts(set_ids: List[str]) -> Dict[str, int]:
+    if not set_ids:
+        return {}
+
+    counts: Counter[str] = Counter()
+    page_size = 1000
+
+    for index in range(0, len(set_ids), 100):
+        chunk = set_ids[index:index + 100]
+        offset = 0
+        while True:
+            query = (
+                public_read_client.table("pokemon_canonical_cards")
+                .select("set_id")
+                .in_("set_id", chunk)
+            )
+            if hasattr(query, "range"):
+                query = query.range(offset, offset + page_size - 1)
+            result = query.execute()
+            rows = list(result.data or [])
+            for row in rows:
+                row_set_id = _to_optional_str(row.get("set_id"))
+                if row_set_id:
+                    counts[row_set_id] += 1
+            if len(rows) < page_size:
+                break
+            offset += page_size
+
+    return dict(counts)
+
+
 def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
     total_started = time.perf_counter()
     warnings: List[str] = []
@@ -122,6 +154,22 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
             code="POKEMON_SETS_QUERY_FAILED",
         )
     sets_ms = (time.perf_counter() - sets_started) * 1000
+
+    set_ids = [
+        str(set_row.get("id"))
+        for set_row in raw_sets
+        if set_row.get("id") is not None
+    ]
+    canonical_counts_started = time.perf_counter()
+    try:
+        canonical_card_counts = _load_canonical_card_counts(set_ids)
+        sources["pokemon_canonical_cards"] = "OK"
+    except Exception as exc:
+        logger.warning("[pokemon-sets-catalog] canonical card count lookup failed error=%s", exc)
+        warnings.append("Failed to load canonical checklist counts for one or more sets")
+        canonical_card_counts = {}
+        sources["pokemon_canonical_cards"] = "FAILED"
+    canonical_counts_ms = (time.perf_counter() - canonical_counts_started) * 1000
 
     era_lookup: Dict[str, Dict[str, Any]] = {}
     era_ids = sorted(
@@ -166,7 +214,10 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
         pokemon_api_set_id = _to_optional_str(set_row.get("pokemon_api_set_id"))
         era_id = _to_optional_str(set_row.get("era_id"))
         era_name = _to_optional_str((era_lookup.get(era_id) or {}).get("name")) if era_id else None
-        resolved_card_count = _resolve_card_count(set_row)
+        # Canonical checklist count is the frontend card-count source of truth.
+        # Do not fall back to public.cards/card_variants here; those rows can be
+        # marketplace or variant inflated.
+        resolved_card_count = canonical_card_counts.get(set_id, 0)
         official_card_count = _to_optional_int(set_row.get("official_card_count"))
         printed_total = _to_optional_int(set_row.get("printed_total"))
         total_cards = _to_optional_int(set_row.get("total_cards"))
@@ -210,6 +261,7 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
                 "tcg_id_lookup_ms": round(tcg_id_ms, 3),
                 "sets_query_ms": round(sets_ms, 3),
                 "eras_query_ms": round(eras_ms, 3),
+                "canonical_card_counts_query_ms": round(canonical_counts_ms, 3),
                 "total_backend_ms": round((time.perf_counter() - total_started) * 1000, 3),
             },
         },

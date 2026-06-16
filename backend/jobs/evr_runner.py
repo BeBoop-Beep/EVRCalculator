@@ -29,6 +29,7 @@ from backend.db.services.calculation_run_persistence_service import (
     persist_simulation_outputs,
 )
 from backend.db.services.evr_input_preparation_service import EVRInputPreparationService
+from backend.db.services.set_desirability_service import get_latest_set_hit_desirability_score
 from backend.simulations import calculate_pack_simulations
 
 logger = logging.getLogger(__name__)
@@ -538,6 +539,9 @@ class EVRRunOrchestrator:
             config=config,
             set_id=canonical_key,
         )
+        set_desirability_metrics = get_latest_set_hit_desirability_score(
+            set_canonical_key=canonical_key,
+        )
 
         results.update(
             {
@@ -558,6 +562,7 @@ class EVRRunOrchestrator:
             hit_cards_count=len(results.get("hit_ev_contributions", {})) if results.get("hit_ev_contributions") else None,
             hit_value_metrics=hit_value_metrics,
             set_value_metrics=set_value_metrics,
+            set_desirability_metrics=set_desirability_metrics,
         )
         print_derived_metrics_summary(derived)
 

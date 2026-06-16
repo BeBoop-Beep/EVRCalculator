@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from ..models import (
+    DesirabilityInterpretation,
     EvidenceItem,
     PackScoreInterpretation,
     ProfitInterpretation,
@@ -16,6 +17,7 @@ from ..thresholds import (
     IMBALANCE_GAP_POINTS,
     PILLAR_INTERPRETATION_WEIGHTS,
     build_pack_context,
+    build_desirability_context,
     build_profit_context,
     build_safety_context,
     build_stability_context,
@@ -26,6 +28,7 @@ from ..thresholds import (
 PILLAR_LABELS = {
     "profit": "Profit",
     "safety": "Safety",
+    "desirability": "Desirability",
     "stability": "Stability",
 }
 
@@ -69,6 +72,7 @@ DECISION_SEVERITY = {
 def _pillar_scores(
     profit: ProfitInterpretation,
     safety: SafetyInterpretation,
+    desirability: DesirabilityInterpretation,
     stability: StabilityInterpretation,
     data: Dict[str, Any],
 ) -> Dict[str, Optional[float]]:
@@ -76,6 +80,7 @@ def _pillar_scores(
     return {
         "profit": profit.score if profit.score is not None else get_numeric(summary_data, "profit_score", "relative_profit_score"),
         "safety": safety.score if safety.score is not None else get_numeric(summary_data, "safety_score", "relative_safety_score"),
+        "desirability": desirability.score if desirability.score is not None else get_numeric(summary_data, "desirability_score", "relative_desirability_score"),
         "stability": stability.score if stability.score is not None else get_numeric(summary_data, "stability_score", "relative_stability_score"),
     }
 
@@ -151,6 +156,8 @@ def _build_pillar_snapshot(
         base = build_profit_context(summary_data)
     elif pillar == "safety":
         base = build_safety_context(summary_data)
+    elif pillar == "desirability":
+        base = build_desirability_context(summary_data)
     else:
         base = build_stability_context(summary_data)
 
@@ -800,6 +807,7 @@ def _primary_reason(weighted_driver: str) -> str:
     reasons = {
         "profit": "Cards are paying back well for the pack price.",
         "safety": "Bad packs are less painful than usual.",
+        "desirability": "Opening Desirability adds meaningful appeal.",
         "stability": "Value is spread across enough cards.",
     }
     return reasons[weighted_driver]
@@ -810,6 +818,8 @@ def _main_catch(weighted_drag: str) -> str:
         return "The wins are not strong enough for the price."
     if weighted_drag == "safety":
         return "Bad packs can still hurt."
+    if weighted_drag == "desirability":
+        return "Opening Desirability is not strong enough to add much excitement."
     if weighted_drag == "stability":
         return "Too much depends on landing the right hits."
     return "The overall read still has a meaningful weak spot."
@@ -873,16 +883,18 @@ def _determine_decision_category(
 def interpret_pack_score(
     profit: ProfitInterpretation,
     safety: SafetyInterpretation,
+    desirability: DesirabilityInterpretation,
     stability: StabilityInterpretation,
     data: Dict[str, Any] | None = None,
 ) -> PackScoreInterpretation:
     payload = data or {}
-    scores = _pillar_scores(profit, safety, stability, payload)
+    scores = _pillar_scores(profit, safety, desirability, stability, payload)
     summary_data = payload.get("summary") if isinstance(payload.get("summary"), dict) else payload
 
     pillars = {
         "profit": _build_pillar_snapshot("profit", scores["profit"], summary_data),
         "safety": _build_pillar_snapshot("safety", scores["safety"], summary_data),
+        "desirability": _build_pillar_snapshot("desirability", scores["desirability"], summary_data),
         "stability": _build_pillar_snapshot("stability", scores["stability"], summary_data),
     }
     pack_snapshot = build_pack_context(summary_data)
@@ -969,7 +981,7 @@ def interpret_pack_score(
         label=label,
         reason_code=reason_code,
         severity=severity,
-        confidence="high" if len(numeric_scores) == 3 else ("medium" if numeric_scores else "low"),
+        confidence="high" if len(numeric_scores) == 4 else ("medium" if numeric_scores else "low"),
         evidence=evidence,
         signals={
             "decision_category": decision_category,
@@ -992,6 +1004,7 @@ def interpret_pack_score(
             "pack_band": strength_to_band(pack_snapshot["strength"]),
             "profit_band": strength_to_band(pillars["profit"]["strength"]),
             "safety_tier_band": strength_to_band(pillars["safety"]["strength"]),
+            "desirability_tier_band": strength_to_band(pillars["desirability"]["strength"]),
             "stability_tier_band": strength_to_band(pillars["stability"]["strength"]),
             "pack": pack_snapshot,
             "pillars": pillars,

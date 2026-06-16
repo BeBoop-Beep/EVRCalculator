@@ -715,7 +715,12 @@ class TestScoreBreakdown:
                 },
             ]
         )[0]
-        expected = 0.50 * result["profit_score"] + 0.35 * result["safety_score"] + 0.15 * result["stability_score"]
+        expected = (
+            0.45 * result["profit_score"]
+            + 0.25 * result["safety_score"]
+            + 0.20 * result["desirability_score"]
+            + 0.10 * result["stability_score"]
+        )
         assert result["pack_score"] == pytest.approx(expected, abs=0.01)
 
 
@@ -723,15 +728,38 @@ class TestPackScorePillarWeightingRegression:
     """Directional guardrails for final score behavior across pillar mixes."""
 
     @staticmethod
-    def _pack_score_from_letters(profit: float, safety: float, stability: float) -> float:
+    def _pack_score_from_letters(
+        profit: float,
+        safety: float,
+        stability: float,
+        desirability: float = 50.0,
+    ) -> float:
         return _weighted_average(
             {
                 "profit_score": profit,
                 "safety_score": safety,
+                "desirability_score": desirability,
                 "stability_score": stability,
             },
             _PACK_SCORE_V2_WEIGHTS_PCT,
         )
+
+    def test_canonical_rip_weights_are_45_25_20_10(self):
+        assert _PACK_SCORE_V2_WEIGHTS_PCT == {
+            "profit_score": 45.0,
+            "safety_score": 25.0,
+            "desirability_score": 20.0,
+            "stability_score": 10.0,
+        }
+
+    def test_sample_four_pillar_rip_score_calculation(self):
+        score = self._pack_score_from_letters(
+            profit=80.0,
+            safety=60.0,
+            desirability=90.0,
+            stability=50.0,
+        )
+        assert score == pytest.approx(74.0)
 
     def test_b_b_f_does_not_collapse_to_bottom_tier_behavior(self):
         # B/B/F should remain middle-to-decent and not collapse solely on stability.
@@ -807,7 +835,7 @@ class TestComputeAllDerivedMetrics:
     def test_pack_score_always_present(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
         assert "pack_score" in result
-        assert result["pack_score"]["score_version"] == "pack_score_v2_chase_weighted"
+        assert result["pack_score"]["score_version"] == "rip_score_v2_desirability_45_25_20_10"
 
     def test_pack_score_runtime_v2_flags(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
@@ -833,7 +861,78 @@ class TestComputeAllDerivedMetrics:
             "coefficient_of_variation",
             "hhi_ev_concentration",
             "effective_chase_count",
+            "desirability_score",
+            "raw_desirability_score",
+            "desirability_source_table",
+            "desirability_source_metric",
+            "desirability_source_summary_id",
+            "desirability_scoring_version",
+            "rip_desirability_source",
+            "desirability_is_fallback",
+            "desirability_fallback_reason",
         }
+
+    def test_pack_score_uses_opening_desirability_when_supplied(self):
+        result = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            set_desirability_metrics={
+                "opening_desirability_score": 81.0,
+                "collector_appeal_score": 90.0,
+                "desirability_source_summary_id": "11111111-1111-1111-1111-111111111111",
+                "desirability_source_table": "pokemon_set_opening_desirability_latest",
+                "desirability_source_metric": "opening_desirability_score",
+                "desirability_scoring_version": "rip_desirability_v1",
+                "rip_desirability_source": "opening_desirability",
+            },
+        )
+        score = result["pack_score"]
+        assert score["desirability_score"] == pytest.approx(81.0)
+        assert score["desirability_is_fallback"] is False
+        assert score["desirability_source_metric"] == "opening_desirability_score"
+        assert score["rip_desirability_source"] == "opening_desirability"
+
+    def test_pack_score_uses_collector_appeal_fallback_when_opening_missing(self):
+        result = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            set_desirability_metrics={
+                "opening_desirability_score": None,
+                "collector_appeal_score": 74.0,
+                "desirability_source_metric": "collector_appeal_score",
+                "desirability_is_fallback": True,
+                "desirability_fallback_reason": "collector_appeal_fallback_missing_opening_desirability",
+                "rip_desirability_source": "collector_appeal_fallback",
+            },
+        )
+        score = result["pack_score"]
+        assert score["desirability_score"] == pytest.approx(74.0)
+        assert score["desirability_is_fallback"] is True
+        assert score["desirability_fallback_reason"] == "collector_appeal_fallback_missing_opening_desirability"
+        assert score["rip_desirability_source"] == "collector_appeal_fallback"
+
+    def test_pack_score_still_accepts_legacy_set_hit_desirability_when_supplied(self):
+        result = compute_all_derived_metrics(
+            TOY_VALUES,
+            PACK_COST,
+            set_desirability_metrics={
+                "weighted_average_hit_desirability_score": 90.0,
+                "desirability_source_summary_id": "11111111-1111-1111-1111-111111111111",
+                "aggregation_version": "pokemon_set_hit_desirability_v1",
+            },
+        )
+        score = result["pack_score"]
+        assert score["desirability_score"] == pytest.approx(90.0)
+        assert score["desirability_is_fallback"] is False
+        assert score["desirability_source_metric"] == "weighted_average_hit_desirability_score"
+
+    def test_pack_score_uses_neutral_desirability_fallback_when_missing(self):
+        result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
+        score = result["pack_score"]
+        assert score["desirability_score"] == pytest.approx(50.0)
+        assert score["desirability_is_fallback"] is True
+        assert score["desirability_fallback_reason"] == "missing_set_hit_desirability_score"
+        assert score["rip_desirability_source"] == "missing"
 
     def test_mean_value_to_cost_ratio_is_mean_over_pack_cost(self):
         result = compute_all_derived_metrics(TOY_VALUES, PACK_COST)
@@ -1000,6 +1099,12 @@ class TestComputeAllDerivedMetrics:
         assert sum(score["weights_pct"]["safety_score"].values()) == pytest.approx(100.0)
         assert sum(score["weights_pct"]["stability_score"].values()) == pytest.approx(100.0)
         assert sum(score["weights_pct"]["pack_score"].values()) == pytest.approx(100.0)
+        assert score["weights_normalized"]["pack_score"] == {
+            "profit_score": pytest.approx(0.45),
+            "safety_score": pytest.approx(0.25),
+            "desirability_score": pytest.approx(0.20),
+            "stability_score": pytest.approx(0.10),
+        }
 
     def test_component_weighted_averages_match_reported_scores(self):
         score = compute_all_derived_metrics(
@@ -1025,6 +1130,7 @@ class TestComputeAllDerivedMetrics:
         expected_pack = (
             float(weights["pack_score"]["profit_score"]) * expected_profit
             + float(weights["pack_score"]["safety_score"]) * expected_safety
+            + float(weights["pack_score"]["desirability_score"]) * score["desirability_score"]
             + float(weights["pack_score"]["stability_score"]) * expected_stability
         ) / 100.0
 
@@ -1186,7 +1292,7 @@ class TestPackSimulationSummary:
 
     def test_score_version_stored(self):
         s = self._build_summary()
-        assert s.score_version == "pack_score_v2_chase_weighted"
+        assert s.score_version == "rip_score_v2_desirability_45_25_20_10"
 
     def test_p95_fields_stored(self):
         s = self._build_summary()
