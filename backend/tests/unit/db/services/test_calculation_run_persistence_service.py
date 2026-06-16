@@ -12,6 +12,16 @@ from backend.db.services.calculation_run_persistence_service import (
     persist_simulation_inputs,
 )
 
+_NULL_DESIRABILITY_FIELDS = {
+    "desirability_score": None,
+    "desirability_scoring_version": None,
+    "desirability_source_summary_id": None,
+    "desirability_source_table": None,
+    "desirability_source_metric": None,
+    "desirability_is_fallback": None,
+    "desirability_fallback_reason": None,
+}
+
 
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_etb_summary")
 def test_persist_simulation_etb_summary_raises_when_metrics_missing(mock_create_simulation_etb_summary):
@@ -130,6 +140,7 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "pack_score": None,
             "profit_score": None,
             "safety_score": None,
+            **_NULL_DESIRABILITY_FIELDS,
             "stability_score": None,
             "p95_value_to_cost_ratio": None,
             "p99_value_to_cost_ratio": None,
@@ -302,6 +313,7 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "pack_score": None,
             "profit_score": None,
             "safety_score": None,
+            **_NULL_DESIRABILITY_FIELDS,
             "stability_score": None,
             "p95_value_to_cost_ratio": None,
             "p99_value_to_cost_ratio": None,
@@ -426,6 +438,7 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
             "pack_score": None,
             "profit_score": None,
             "safety_score": None,
+            **_NULL_DESIRABILITY_FIELDS,
             "stability_score": None,
             "p95_value_to_cost_ratio": None,
             "p99_value_to_cost_ratio": None,

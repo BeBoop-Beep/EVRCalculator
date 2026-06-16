@@ -22,8 +22,15 @@ function normalizePayload(payload) {
       name: toOptionalString(card?.name),
       setId: toOptionalString(card?.set_id ?? card?.setId),
       setName: toOptionalString(card?.set_name ?? card?.setName),
+      pokemonTcgApiCardId: toOptionalString(card?.pokemon_tcg_api_card_id ?? card?.pokemonTcgApiCardId),
       cardNumber: toOptionalString(card?.card_number ?? card?.collector_number ?? card?.number),
+      printedNumber: toOptionalString(card?.printed_number ?? card?.printedNumber),
       rarity: toOptionalString(card?.rarity),
+      supertype: toOptionalString(card?.supertype),
+      subtypes: Array.isArray(card?.subtypes) ? card.subtypes.map(toOptionalString).filter(Boolean) : [],
+      nationalPokedexNumbers: Array.isArray(card?.national_pokedex_numbers ?? card?.nationalPokedexNumbers)
+        ? (card?.national_pokedex_numbers ?? card?.nationalPokedexNumbers).map(toOptionalNumber).filter((value) => value !== null)
+        : [],
       imageSmallUrl: toOptionalString(card?.image_small_url ?? card?.small_image_url),
       imageLargeUrl: toOptionalString(card?.image_large_url ?? card?.large_image_url),
       marketPrice: toOptionalNumber(card?.market_price ?? card?.estimated_market_price),

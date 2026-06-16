@@ -115,6 +115,9 @@ def _build_success_handlers(run_id="run-1"):
         "simulation_value_distribution_bins": lambda _q: [],
         "simulation_value_threshold_bins": lambda _q: [],
         "simulation_input_cards_with_near_mint_price": lambda _q: [],
+        "pokemon_set_hit_desirability_summaries": lambda _q: [],
+        "pokemon_set_opening_desirability_latest": lambda _q: [],
+        "pokemon_desirability_composite_scores": lambda _q: [],
         "sets": lambda _q: [],
         "card_variants": lambda _q: [],
         "cards": lambda _q: [],
@@ -193,6 +196,678 @@ def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
     percentiles_calls = [c for c in client.calls if c.table_name == "simulation_percentiles"]
     assert len(percentiles_calls) == 1
     assert ("calculation_run_id", "run-rip") in percentiles_calls[0].eq_filters
+
+
+def test_desirability_driver_cards_are_publicly_enriched(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-rip",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 4.99,
+            "mean_value": 5.55,
+            "median_value": 5.10,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+            "desirability_source_summary_id": "summary-1",
+        }
+    ]
+    handlers["pokemon_set_hit_desirability_summaries"] = lambda _q: [
+        {
+            "id": "summary-1",
+            "set_id": "base-set",
+            "top_desirable_cards_json": [
+                {
+                    "name": "Charizard ex",
+                    "number": "183",
+                    "printed_number": "183/165",
+                    "rarity": "Ultra Rare",
+                    "card_desirability_score": 87.9598,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Charizard",
+                            "pokemon_reference_id": 6,
+                            "desirability_score": 87.9598,
+                        }
+                    ],
+                },
+                {
+                    "name": "Charizard ex",
+                    "number": "199",
+                    "printed_number": "199/165",
+                    "rarity": "Special Illustration Rare",
+                    "card_desirability_score": 87.9598,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Charizard",
+                            "pokemon_reference_id": 6,
+                            "desirability_score": 87.9598,
+                        }
+                    ],
+                },
+                {
+                    "name": "Charizard ex",
+                    "number": "6",
+                    "printed_number": "6/165",
+                    "rarity": "Double Rare",
+                    "card_desirability_score": 87.9598,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Charizard",
+                            "pokemon_reference_id": 6,
+                            "desirability_score": 87.9598,
+                        }
+                    ],
+                },
+                {
+                    "name": "Pikachu",
+                    "number": "173",
+                    "printed_number": "173/165",
+                    "rarity": "Illustration Rare",
+                    "card_desirability_score": 86.6387,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Pikachu",
+                            "pokemon_reference_id": 25,
+                            "desirability_score": 86.6387,
+                        }
+                    ],
+                },
+                {
+                    "name": "Mew ex",
+                    "number": "151",
+                    "printed_number": "151/165",
+                    "rarity": "Double Rare",
+                    "card_desirability_score": 80.674,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Mew",
+                            "pokemon_reference_id": 151,
+                            "desirability_score": 80.674,
+                        }
+                    ],
+                },
+            ],
+            "top_desirable_pokemon_json": [
+                {
+                    "pokemon_name": "Charizard",
+                    "pokemon_reference_id": 6,
+                    "desirability_score": 87.9598,
+                    "hit_card_count": 3,
+                }
+            ],
+        }
+    ]
+    handlers["pokemon_desirability_composite_scores"] = lambda _q: [
+        {
+            "pokemon_reference_id": 6,
+            "fan_popularity_score": 89.3298,
+            "current_trend_score": 83.8498,
+            "desirability_score": 87.9598,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        {
+            "pokemon_reference_id": 25,
+            "fan_popularity_score": 82.1849,
+            "current_trend_score": 100.0,
+            "desirability_score": 86.6387,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        {
+            "pokemon_reference_id": 151,
+            "fan_popularity_score": 86.3666,
+            "current_trend_score": 63.596,
+            "desirability_score": 80.674,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["summary"]["top_desirability_cards"] == [
+        {
+            "card_name": "Charizard ex",
+            "matched_pokemon": "Charizard",
+            "matched_subject": "Charizard",
+            "desirability_score": 87.9598,
+            "favorite_score": 89.3298,
+            "fan_score": 89.3298,
+            "trend_score": 83.8498,
+            "rarity": "Special Illustration Rare",
+            "card_number": "199/165",
+            "printed_number": "199/165",
+            "notable_hit_count": 3,
+        },
+        {
+            "card_name": "Pikachu",
+            "matched_pokemon": "Pikachu",
+            "matched_subject": "Pikachu",
+            "desirability_score": 86.6387,
+            "favorite_score": 82.1849,
+            "fan_score": 82.1849,
+            "trend_score": 100.0,
+            "rarity": "Illustration Rare",
+            "card_number": "173/165",
+            "printed_number": "173/165",
+            "notable_hit_count": 1,
+        },
+        {
+            "card_name": "Mew ex",
+            "matched_pokemon": "Mew",
+            "matched_subject": "Mew",
+            "desirability_score": 80.674,
+            "favorite_score": 86.3666,
+            "fan_score": 86.3666,
+            "trend_score": 63.596,
+            "rarity": "Double Rare",
+            "card_number": "151/165",
+            "printed_number": "151/165",
+            "notable_hit_count": 1,
+        },
+    ]
+    assert payload["summary"]["top_desirability_pokemon"][0]["pokemon_name"] == "Charizard"
+
+    summary_calls = [c for c in client.calls if c.table_name == "pokemon_set_hit_desirability_summaries"]
+    assert summary_calls[0].eq_filters == [("id", "summary-1")]
+
+
+def test_opening_desirability_payload_is_public_safe(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-rip",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 4.99,
+            "mean_value": 5.55,
+            "median_value": 5.10,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+            "desirability_source_summary_id": "summary-1",
+        }
+    ]
+    handlers["pokemon_set_hit_desirability_summaries"] = lambda _q: [
+        {
+            "id": "summary-1",
+            "set_id": "base-set",
+            "top_desirable_cards_json": [
+                {
+                    "name": "Charizard ex",
+                    "printed_number": "199/165",
+                    "rarity": "Special Illustration Rare",
+                    "card_desirability_score": 91.5,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Charizard",
+                            "pokemon_reference_id": 6,
+                        }
+                    ],
+                    "image_url": "https://example.com/charizard.jpg",
+                    "image_small_url": "https://example.com/charizard-sm.jpg",
+                    "image_large_url": "https://example.com/charizard-lg.jpg",
+                },
+                {
+                    "name": "Blastoise ex",
+                    "printed_number": "200/165",
+                    "rarity": "Special Illustration Rare",
+                    "card_desirability_score": 84.0,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Blastoise",
+                            "pokemon_reference_id": 9,
+                        }
+                    ],
+                    "image_url": "https://example.com/blastoise.jpg",
+                },
+                {
+                    "name": "Venusaur ex",
+                    "printed_number": "198/165",
+                    "rarity": "Special Illustration Rare",
+                    "card_desirability_score": 82.0,
+                    "linked_pokemon": [
+                        {
+                            "pokemon_name": "Venusaur",
+                            "pokemon_reference_id": 3,
+                        }
+                    ],
+                    "image_url": "https://example.com/venusaur.jpg",
+                },
+            ],
+            "top_desirable_pokemon_json": [],
+        }
+    ]
+    handlers["pokemon_desirability_composite_scores"] = lambda _q: [
+        {
+            "pokemon_reference_id": 6,
+            "fan_popularity_score": 89.0,
+            "current_trend_score": 88.0,
+            "desirability_score": 91.5,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        {
+            "pokemon_reference_id": 9,
+            "fan_popularity_score": 82.0,
+            "current_trend_score": 79.0,
+            "desirability_score": 84.0,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        {
+            "pokemon_reference_id": 3,
+            "fan_popularity_score": 80.0,
+            "current_trend_score": 77.0,
+            "desirability_score": 82.0,
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+    ]
+    handlers["pokemon_set_opening_desirability_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "opening_desirability_score": 81.0,
+            "opening_desirability_rank": 1,
+            "collector_appeal_score": 91.0,
+            "collector_appeal_rank": 2,
+            "chase_appeal_score": 60.0,
+            "chase_appeal_rank": 3,
+            "chase_appeal_data_quality": "usable",
+            "opening_desirability_display_status": "scored",
+            "opening_desirability_summary": "Strong set to open.",
+            "public_tooltip_copy_json": {
+                "opening_desirability": "Public opening copy",
+                "collector_appeal": "Public collector copy",
+                "chase_appeal": "Public chase copy",
+            },
+            "built_at": "2026-06-15T19:15:46+00:00",
+            "formula": "secret",
+            "weights": {"secret": 1},
+            "monetary_component_scores_json": {"secret": True},
+            "rip_component_scores_json": {"secret": True},
+        }
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    opening = payload["openingDesirability"]
+
+    assert opening == {
+        "openingDesirabilityScore": 81.0,
+        "openingDesirabilityRank": 1,
+        "collectorAppealScore": 91.0,
+        "collectorAppealRank": 2,
+        "chaseAppealScore": 60.0,
+        "chaseAppealRank": 3,
+        "chaseAppealDataQuality": "usable",
+        "displayStatus": "scored",
+        "summary": "Strong set to open.",
+        "tooltipCopy": {
+            "opening_desirability": "Public opening copy",
+            "collector_appeal": "Public collector copy",
+            "chase_appeal": "Public chase copy",
+        },
+        "builtAt": "2026-06-15T19:15:46+00:00",
+        "topCollectorAppealDrivers": [
+            {
+                "name": "Charizard ex",
+                "printedNumber": "199/165",
+                "rarity": "Special Illustration Rare",
+                "cardDesirabilityScore": 91.5,
+                "linkedPokemon": [{"pokemonName": "Charizard", "pokemonReferenceId": None}],
+                "imageUrl": None,
+                "imageSmallUrl": None,
+                "imageLargeUrl": None,
+            },
+            {
+                "name": "Blastoise ex",
+                "printedNumber": "200/165",
+                "rarity": "Special Illustration Rare",
+                "cardDesirabilityScore": 84.0,
+                "linkedPokemon": [{"pokemonName": "Blastoise", "pokemonReferenceId": None}],
+                "imageUrl": None,
+                "imageSmallUrl": None,
+                "imageLargeUrl": None,
+            },
+            {
+                "name": "Venusaur ex",
+                "printedNumber": "198/165",
+                "rarity": "Special Illustration Rare",
+                "cardDesirabilityScore": 82.0,
+                "linkedPokemon": [{"pokemonName": "Venusaur", "pokemonReferenceId": None}],
+                "imageUrl": None,
+                "imageSmallUrl": None,
+                "imageLargeUrl": None,
+            },
+        ],
+    }
+    assert payload["summary"]["rip_desirability_source"] == "opening_desirability"
+    assert len(opening["topCollectorAppealDrivers"]) == 3
+    assert opening["topCollectorAppealDrivers"][0]["name"] == "Charizard ex"
+
+    opening_serialized = str(opening).lower()
+    assert "formula" not in opening_serialized
+    assert "weights" not in opening_serialized
+    assert "70/30" not in opening_serialized
+    assert "60/40" not in opening_serialized
+    assert "component_scores_json" not in opening_serialized
+    assert "diagnostics_json" not in opening_serialized
+
+
+def test_desirability_driver_lookup_falls_back_to_latest_set_summary(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "calculation_run_id": "run-rip",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 78.1,
+            "relative_pack_score": 81.4,
+            "pack_rank": 3,
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "safety_rank": 2,
+            "stability_rank": 5,
+            "pack_cost": 4.99,
+            "mean_value": 5.55,
+            "median_value": 5.10,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "desirability_source_summary_id": "missing-summary-id",
+        }
+    ]
+
+    call_count = {"count": 0}
+
+    def _desirability_summary_handler(_q):
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            return []
+        return [
+            {
+                "id": "summary-fallback",
+                "set_id": "base-set",
+                "top_desirable_cards_json": [
+                    {
+                        "name": "Charizard ex",
+                        "printed_number": "199/165",
+                        "rarity": "Special Illustration Rare",
+                        "card_desirability_score": 91.5,
+                        "linked_pokemon": [{"pokemon_name": "Charizard", "pokemon_reference_id": 6}],
+                    }
+                ],
+                "top_desirable_pokemon_json": [],
+                "built_at": "2026-06-01T00:00:00Z",
+            }
+        ]
+
+    handlers["pokemon_set_hit_desirability_summaries"] = _desirability_summary_handler
+    handlers["pokemon_desirability_composite_scores"] = lambda _q: []
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    assert payload["summary"]["top_desirability_cards"][0]["card_name"] == "Charizard ex"
+
+    summary_calls = [c for c in client.calls if c.table_name == "pokemon_set_hit_desirability_summaries"]
+    assert len(summary_calls) == 2
+    assert summary_calls[0].eq_filters == [("id", "missing-summary-id")]
+    assert summary_calls[1].eq_filters == [("set_id", "base-set")]
+    assert summary_calls[1].order_field == "built_at"
+    assert summary_calls[1].order_desc is True
+
+
+def test_public_explore_payload_strips_interpretation_weight_metadata(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(
+        service,
+        "build_rip_interpretation",
+        lambda _payload: {
+            "summary": "Public summary",
+            "meta": {
+                "packScore": {
+                    "signals": {
+                        "decision_category": "good_open",
+                        "weighted_driver": "profit",
+                        "weighted_drag": "desirability",
+                        "interpretation_weights": {"profit": 0.45},
+                        "formula": "secret",
+                        "pillars": {
+                            "desirability": {
+                                "label": "Opening Desirability",
+                                "weight": 0.2,
+                                "weighted_impact": 12.3,
+                            }
+                        },
+                    }
+                }
+            },
+        },
+    )
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    serialized = str(payload["interpretation"]).lower()
+
+    assert payload["interpretation"]["summary"] == "Public summary"
+    assert payload["interpretation"]["meta"]["packScore"]["signals"]["decision_category"] == "good_open"
+    assert "opening desirability" in serialized
+    assert "weighted_driver" not in serialized
+    assert "weighted_drag" not in serialized
+    assert "interpretation_weights" not in serialized
+    assert "weighted_impact" not in serialized
+    assert "formula" not in serialized
+    assert "'weight'" not in serialized
+    assert "weights" not in serialized
+
+
+def test_collector_only_opening_desirability_stays_null_not_zero(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["pokemon_set_opening_desirability_latest"] = lambda _q: [
+        {
+            "set_id": "base-set",
+            "opening_desirability_score": None,
+            "opening_desirability_rank": None,
+            "collector_appeal_score": 79.2,
+            "collector_appeal_rank": 4,
+            "chase_appeal_score": None,
+            "chase_appeal_rank": None,
+            "chase_appeal_data_quality": "missing",
+            "opening_desirability_display_status": "collector_only",
+            "opening_desirability_summary": "Collector Appeal is available; Chase Appeal needs more data.",
+            "public_tooltip_copy_json": {},
+            "built_at": "2026-06-15T19:15:46+00:00",
+        }
+    ]
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    opening = payload["openingDesirability"]
+
+    assert opening["openingDesirabilityScore"] is None
+    assert opening["openingDesirabilityRank"] is None
+    assert opening["collectorAppealScore"] == 79.2
+    assert opening["chaseAppealScore"] is None
+    assert opening["displayStatus"] == "collector_only"
+    assert payload["summary"]["rip_desirability_source"] == "collector_appeal_fallback"
+
+
+def test_opening_desirability_falls_back_to_set_canonical_key(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["pokemon_set_opening_desirability_latest"] = lambda q: [
+        {
+            "set_id": "uuid-set-id",
+            "set_canonical_key": "base-set",
+            "opening_desirability_score": 81.0,
+            "opening_desirability_rank": 1,
+            "collector_appeal_score": 91.0,
+            "collector_appeal_rank": 2,
+            "chase_appeal_score": 60.0,
+            "chase_appeal_rank": 3,
+            "chase_appeal_data_quality": "usable",
+            "opening_desirability_display_status": "scored",
+            "opening_desirability_summary": "Strong set to open.",
+            "public_tooltip_copy_json": {},
+            "built_at": "2026-06-15T19:15:46+00:00",
+        }
+    ] if ("set_canonical_key", "base-set") in q.eq_filters else []
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "base-set")
+
+    opening = payload["openingDesirability"]
+    assert opening["openingDesirabilityScore"] == 81.0
+    assert opening["collectorAppealScore"] == 91.0
+    assert opening["chaseAppealScore"] == 60.0
+
+    opening_calls = [c for c in client.calls if c.table_name == "pokemon_set_opening_desirability_latest"]
+    assert len(opening_calls) == 2
+    assert opening_calls[0].eq_filters == [("set_id", "base-set")]
+    assert opening_calls[1].eq_filters == [("set_canonical_key", "base-set")]
+
+
+def test_opening_desirability_uses_resolved_rip_set_id_before_requested_target_id(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-rip")
+    handlers["explore_rip_statistics_latest"] = lambda _q: [
+        {
+            "set_id": "7f55a0a8-f3d6-4d38-9cb5-046fdf66f9f1",
+            "calculation_run_id": "run-rip",
+            "run_at": "2026-01-01T00:00:00Z",
+            "pack_score": 81.0,
+            "relative_pack_score": 81.0,
+            "pack_rank": 5,
+            "pack_tier": "A",
+            "profit_score": 70.0,
+            "safety_score": 73.0,
+            "stability_score": 69.0,
+            "profit_rank": 4,
+            "profit_tier": "A",
+            "safety_rank": 2,
+            "safety_tier": "A",
+            "stability_rank": 5,
+            "stability_tier": "A",
+            "relative_profit_score": 70.0,
+            "relative_safety_score": 73.0,
+            "relative_stability_score": 69.0,
+            "pack_cost": 4.99,
+            "mean_value": 5.55,
+            "median_value": 5.10,
+            "roi_percent": 11.2,
+            "prob_profit": 0.54,
+            "p95_value_to_cost_ratio": 1.9,
+            "p99_value_to_cost_ratio": 2.5,
+            "mean_value_to_cost_ratio": 1.11,
+            "median_value_to_cost_ratio": 1.02,
+            "expected_loss_when_losing_fraction": 0.33,
+            "median_loss_when_losing_fraction": 0.29,
+            "p05_shortfall_to_cost": 0.41,
+            "expected_loss_when_losing": 1.2,
+            "median_loss_when_losing": 1.0,
+            "expected_loss_per_pack": 0.6,
+            "tail_value_p05": 2.1,
+            "coefficient_of_variation": 0.8,
+            "hhi_ev_concentration": 0.14,
+            "effective_chase_count": 7.3,
+            "top1_ev_share": 0.18,
+            "top3_ev_share": 0.35,
+            "top5_ev_share": 0.47,
+        }
+    ]
+    handlers["pokemon_set_opening_desirability_latest"] = lambda q: [
+        {
+            "set_id": "7f55a0a8-f3d6-4d38-9cb5-046fdf66f9f1",
+            "set_canonical_key": "sv3pt5",
+            "opening_desirability_score": 81.0,
+            "opening_desirability_rank": 6,
+            "collector_appeal_score": 83.5,
+            "collector_appeal_rank": 3,
+            "chase_appeal_score": 46.6,
+            "chase_appeal_rank": 11,
+            "chase_appeal_data_quality": "usable",
+            "opening_desirability_display_status": "scored",
+            "opening_desirability_summary": "Strong nostalgic demand with moderate chase depth.",
+            "public_tooltip_copy_json": {},
+            "built_at": "2026-06-15T19:15:46+00:00",
+        }
+    ] if ("set_id", "7f55a0a8-f3d6-4d38-9cb5-046fdf66f9f1") in q.eq_filters else []
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+
+    payload = service.get_explore_page_payload("set", "scarlet-and-violet-151")
+    opening = payload["openingDesirability"]
+
+    assert opening["collectorAppealScore"] == 83.5
+    assert opening["collectorAppealRank"] == 3
+    assert opening["chaseAppealScore"] == 46.6
+    assert opening["chaseAppealRank"] == 11
+
+    opening_calls = [c for c in client.calls if c.table_name == "pokemon_set_opening_desirability_latest"]
+    assert len(opening_calls) >= 1
+    assert opening_calls[0].eq_filters == [("set_id", "7f55a0a8-f3d6-4d38-9cb5-046fdf66f9f1")]
 
 
 def test_missing_target_returns_404(monkeypatch):
