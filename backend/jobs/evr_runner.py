@@ -6,7 +6,12 @@ import sys
 from copy import deepcopy
 from typing import Any, Dict
 
-from backend.calculations.evr import compute_all_derived_metrics, print_derived_metrics_summary
+from backend.calculations.evr import (
+    compute_all_derived_metrics,
+    compute_hit_value_metrics,
+    compute_simulated_set_value,
+    print_derived_metrics_summary,
+)
 from backend.calculations.evrEtb import calculate_etb_metrics
 from backend.calculations.packCalcsRefractored import calculate_pack_stats
 from backend.constants.tcg.pokemon.megaEvolutionEra.setMap import (
@@ -531,6 +536,18 @@ class EVRRunOrchestrator:
             statistics.median(sim_results.get("values", [0.0])),
         )
         pack_price_value = _safe_pack_price(pack_price)
+        packs_simulated = len(sim_results.get("values", []) or [])
+        hit_value_metrics = compute_hit_value_metrics(
+            rarity_pull_counts=sim_results.get("rarity_pull_counts", {}) or {},
+            rarity_value_totals=sim_results.get("rarity_value_totals", {}) or {},
+            packs_simulated=packs_simulated,
+            config=config,
+        )
+        set_value_metrics = compute_simulated_set_value(
+            calculation_input,
+            config=config,
+            set_id=canonical_key,
+        )
 
         results.update(
             {
@@ -549,6 +566,8 @@ class EVRRunOrchestrator:
             total_pack_ev=pack_metrics.get("total_ev"),
             hit_ev=results.get("hit_ev"),
             hit_cards_count=len(results.get("hit_ev_contributions", {})) if results.get("hit_ev_contributions") else None,
+            hit_value_metrics=hit_value_metrics,
+            set_value_metrics=set_value_metrics,
         )
         print_derived_metrics_summary(derived)
 

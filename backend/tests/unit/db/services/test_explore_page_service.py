@@ -92,6 +92,12 @@ def _build_success_handlers(run_id="run-1"):
                 "std_dev": 3.20,
                 "roi_percent": 11.2,
                 "prob_profit": 0.54,
+                "simulated_set_value": 123.45,
+                "simulated_set_value_card_count": 2,
+                "average_hit_value": 40.0,
+                "hit_ev_per_pack": 12.0,
+                "hit_pull_rate": 0.3,
+                "hit_cards_pulled": 3,
                 "pack_score": 0.72,
                 "profit_score": 0.68,
                 "safety_score": 0.81,
@@ -289,6 +295,12 @@ def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
             "median_value": 5.10,
             "roi_percent": 11.2,
             "prob_profit": 0.54,
+            "simulated_set_value": 123.45,
+            "simulated_set_value_card_count": 2,
+            "average_hit_value": 40.0,
+            "hit_ev_per_pack": 12.0,
+            "hit_pull_rate": 0.3,
+            "hit_cards_pulled": 3,
             "p95_value_to_cost_ratio": 1.9,
             "p99_value_to_cost_ratio": 2.5,
             "mean_value_to_cost_ratio": 1.11,
@@ -316,6 +328,12 @@ def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
 
     assert payload["summary"]["relative_pack_score"] == 81.4
     assert payload["summary"]["pack_rank"] == 3
+    assert payload["summary"]["simulated_set_value"] == 123.45
+    assert payload["summary"]["simulated_set_value_card_count"] == 2
+    assert payload["summary"]["average_hit_value"] == 40.0
+    assert payload["summary"]["hit_ev_per_pack"] == 12.0
+    assert payload["summary"]["hit_pull_rate"] == 0.3
+    assert payload["summary"]["hit_cards_pulled"] == 3
     assert payload["meta"]["sources"]["summary_source"] == "explore_rip_statistics_latest"
     assert payload["meta"]["sources"]["latest_target_source"] == "explore_rip_statistics_latest"
 

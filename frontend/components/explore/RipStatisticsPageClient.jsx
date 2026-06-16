@@ -15,6 +15,8 @@ import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getScoreTootip, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import { getCalloutAccentStyle, getDangerValueStyle, getInterpretationTone } from "@/lib/explore/interpretationTone";
+import { getPokemonSetCards } from "@/lib/pokemon/pokemonSetCardsClient";
+import { normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -25,7 +27,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const REQUIRED_PACK_PATHS = ["normal", "demi_god_pack", "god_pack"];
 const ANALYSIS_SECTION_ID = "explore-outcomes";
-const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "pack-breakdown"]);
+const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "pack-breakdown", "value-contribution"]);
 const SECTION_ID_MAP = {
   "pack-score": "explore-score",
   "outcome-distribution": "explore-outcomes",
@@ -51,6 +53,7 @@ const RIP_COPY = {
   simpleMetrics: {
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     averagePackValue: "Average Pack Value",
+    averageHitValue: "Average Hit Value",
     currentPackCost: "Estimated Pack Market Price",
     averageLoss: "Average Loss",
     chanceAtBigPull: "Chance at a Big Pull",
@@ -102,9 +105,85 @@ const SIMPLE_PILLAR_INFO_COPY = {
     "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
 };
 
+const METRIC_TREND_DIRECTIONS = {
+  ripScore: "higher",
+  packScore: "higher",
+  profitScore: "higher",
+  safetyScore: "higher",
+  stabilityScore: "higher",
+  packCost: "neutral",
+  setValue: "higher",
+  simulatedSetValue: "higher",
+  averagePackValue: "higher",
+  meanValue: "higher",
+  averageHitValue: "higher",
+  chanceToBeatPackCost: "higher",
+  probProfit: "higher",
+  chanceToMissPackCost: "lower",
+  chanceAtBigPull: "higher",
+  probBigHit: "higher",
+  averageReturnVsCost: "higher",
+  meanValueToCostRatio: "higher",
+  typicalReturnVsCost: "higher",
+  medianValueToCostRatio: "higher",
+  bigHitUpside: "higher",
+  p95ValueToCostRatio: "higher",
+  godPullUpside: "higher",
+  p99ValueToCostRatio: "higher",
+  chaseDepth: "higher",
+  effectiveChaseCount: "higher",
+  averageLoss: "lower",
+  expectedLossPerPack: "lower",
+  averageLossWhenYouMiss: "lower",
+  expectedLossWhenLosing: "lower",
+  typicalLossWhenYouMiss: "lower",
+  medianLossWhenLosing: "lower",
+  p05ShortfallToCost: "lower",
+  outcomeVolatility: "lower",
+  coefficientOfVariation: "lower",
+  evConcentration: "lower",
+  hhiEvConcentration: "lower",
+  top1Share: "neutral",
+  top3Share: "neutral",
+  top5Share: "neutral",
+};
+
+const HISTORY_METRIC_ALIASES = {
+  ripScore: ["relative_pack_score", "relativePackScore", "pack_score", "packScore"],
+  profitScore: ["relative_profit_score", "relativeProfitScore", "profit_score", "profitScore"],
+  safetyScore: ["relative_safety_score", "relativeSafetyScore", "safety_score", "safetyScore"],
+  stabilityScore: ["relative_stability_score", "relativeStabilityScore", "stability_score", "stabilityScore"],
+  setValue: ["simulated_set_value", "simulatedSetValue", "set_value", "setValue"],
+  averageHitValue: ["average_hit_value", "averageHitValue"],
+  probProfit: ["prob_profit", "probProfit", "chance_to_beat_pack_cost", "chanceToBeatPackCost"],
+  probBigHit: ["prob_big_hit", "probBigHit", "chance_at_big_pull", "chanceAtBigPull"],
+  p99ValueToCostRatio: ["p99_value_to_cost_ratio", "p99ValueToCostRatio", "god_pull_upside", "godPullUpside"],
+  expectedLossWhenLosing: ["expected_loss_when_losing", "expectedLossWhenLosing"],
+  medianLossWhenLosing: ["median_loss_when_losing", "medianLossWhenLosing"],
+  tailValueP05: ["tail_value_p05", "tailValueP05", "p05_value", "p05Value", "bad_pack_floor_value", "badPackFloorValue"],
+  p05ShortfallToCost: ["p05_shortfall_to_cost", "p05ShortfallToCost", "worst_5_percent_shortfall", "worst5PercentShortfall"],
+  coefficientOfVariation: ["coefficient_of_variation", "coefficientOfVariation"],
+  hhiEvConcentration: ["hhi_ev_concentration", "hhiEvConcentration", "ev_concentration", "evConcentration"],
+  effectiveChaseCount: ["effective_chase_count", "effectiveChaseCount", "chase_depth", "chaseDepth"],
+  top1Share: ["top1_ev_share", "top1EvShare", "top_chase_share", "topChaseShare"],
+  top3Share: ["top3_ev_share", "top3EvShare"],
+  top5Share: ["top5_ev_share", "top5EvShare"],
+  maxValue: ["max_value", "maxValue", "best_pull", "bestPull"],
+};
+
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getFirstNumericValue(source, keys = []) {
+  for (const key of keys) {
+    const value = toNumber(source?.[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
 }
 
 function normalizeProbability(value) {
@@ -174,6 +253,55 @@ function formatMultiplier(value, decimals = 1) {
   return `${parsed.toFixed(decimals)}x`;
 }
 
+function getCardInitials(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "?";
+  }
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return `${words[0][0] || ""}${words[1][0] || ""}`.toUpperCase();
+}
+
+function ChecklistCardTile({ card }) {
+  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
+  const name = card?.name || "Unknown card";
+  const number = card?.cardNumber || null;
+  const rarity = card?.rarity || null;
+  const marketPrice = Number.isFinite(card?.marketPrice) ? currencyFormatter.format(card.marketPrice) : null;
+
+  return (
+    <article className="group overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(2,6,23,0.2)] transition-all duration-200 hover:-translate-y-1 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_34px_rgba(2,6,23,0.3)]">
+      <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-[rgba(2,6,23,0.46)]">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={name}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-3 text-center text-[var(--text-secondary)]">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]">
+              {getCardInitials(name)}
+            </span>
+            <p className="line-clamp-2 text-xs">{name}</p>
+          </div>
+        )}
+      </div>
+      <div className="space-y-1.5 px-3 py-3">
+        <p className="line-clamp-2 text-sm font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
+        {number ? <p className="text-xs text-[var(--text-secondary)]">No. {number}</p> : null}
+        {rarity ? <p className="text-xs text-[var(--text-secondary)]">{rarity}</p> : null}
+        {marketPrice ? <p className="text-xs font-medium text-[var(--text-primary)]">Market: {marketPrice}</p> : null}
+      </div>
+    </article>
+  );
+}
+
 function normalizePullRateAssumptions(explorePayload) {
   const source = explorePayload?.pull_rate_assumptions || explorePayload?.pullRateAssumptions || null;
 
@@ -208,25 +336,69 @@ function normalizePullRateAssumptions(explorePayload) {
   };
 }
 
-function normalizePullRateReferences(explorePayload) {
-  const source = explorePayload?.pull_rate_references || explorePayload?.pullRateReferences || null;
-
-  if (!source || typeof source !== "object") {
-    return null;
-  }
-
-  return {
-    ...source,
-    caveats: Array.isArray(source.caveats) ? source.caveats : [],
-    sources: Array.isArray(source.sources) ? source.sources : [],
-    bucket_evidence: Array.isArray(source.bucket_evidence) ? source.bucket_evidence : [],
-  };
-}
-
-function SectionViewTabs({ value, onChange, options, className = "" }) {
+function SectionViewTabs({ value, onChange, options, className = "", variant = "default" }) {
   const tabOptions = Array.isArray(options) ? options : [];
   if (tabOptions.length === 0) {
     return null;
+  }
+
+  if (variant === "primary") {
+    return (
+      <div className={className}>
+        <div
+          className="grid w-full items-center gap-0.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.72)] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(2,6,23,0.18)] backdrop-blur-md"
+          style={{ gridTemplateColumns: `repeat(${tabOptions.length}, minmax(0, 1fr))` }}
+        >
+          {tabOptions.map((option) => {
+            const isActive = value === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onChange(option.value)}
+                aria-pressed={isActive}
+                className={`min-w-0 rounded-md px-2 py-1 text-xs font-semibold leading-none transition-all duration-200 sm:px-3 sm:py-1.5 ${
+                  isActive
+                    ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]"
+                    : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                <span className="block truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "secondary") {
+    return (
+      <div className={className}>
+        <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.58)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          {tabOptions.map((option) => {
+            const isActive = value === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onChange(option.value)}
+                aria-pressed={isActive}
+                className={`min-w-0 rounded-full px-3 py-1.5 text-[11px] font-semibold leading-none transition-all duration-200 sm:px-4 sm:text-xs ${
+                  isActive
+                    ? "bg-[rgba(20,184,166,0.16)] text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(94,234,212,0.2)]"
+                    : "text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                <span className="block truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -269,6 +441,135 @@ function getSimpleAverageLossValue(summary) {
 
   const expectedLossPerPack = toNumber(summary?.expected_loss_per_pack);
   return expectedLossPerPack === null ? null : -Math.abs(expectedLossPerPack);
+}
+
+function getLossAmountFromMeanAndCost(meanValue, packCost) {
+  const mean = toNumber(meanValue);
+  const cost = toNumber(packCost);
+  if (mean === null || cost === null) {
+    return null;
+  }
+  return Math.max(cost - mean, 0);
+}
+
+function getHistoryMetricValue(point, metricKey) {
+  if (!point) {
+    return null;
+  }
+
+  const rawPoint = point.rawPoint || {};
+  const directValue = toNumber(point[metricKey]);
+  if (directValue !== null) {
+    return directValue;
+  }
+
+  switch (metricKey) {
+    case "packCost":
+      return toNumber(point.packCost) ?? getFirstNumericValue(rawPoint, ["pack_cost", "packCost", "cost"]);
+    case "meanValue":
+      return toNumber(point.meanValue) ?? getFirstNumericValue(rawPoint, ["mean_value", "meanValue", "average_pack_value", "averagePackValue"]);
+    case "medianValue":
+      return toNumber(point.medianValue) ?? getFirstNumericValue(rawPoint, ["median_value", "medianValue", "typical_pack_value", "typicalPackValue"]);
+    case "meanCostRatio":
+      return toNumber(point.meanCostRatio) ?? getFirstNumericValue(rawPoint, ["mean_value_to_cost_ratio", "meanValueToCostRatio", "average_return_vs_cost", "averageReturnVsCost"]);
+    case "medianCostRatio":
+      return toNumber(point.medianCostRatio) ?? getFirstNumericValue(rawPoint, ["median_value_to_cost_ratio", "medianValueToCostRatio", "typical_return_vs_cost", "typicalReturnVsCost"]);
+    case "p95CostRatio":
+      return toNumber(point.p95CostRatio) ?? getFirstNumericValue(rawPoint, ["p95_value_to_cost_ratio", "p95ValueToCostRatio", "big_hit_upside", "bigHitUpside"]);
+    default:
+      return getFirstNumericValue(rawPoint, HISTORY_METRIC_ALIASES[metricKey] || []);
+  }
+}
+
+function getMetricDirection(metricKey, fallbackDirection = "higher") {
+  return METRIC_TREND_DIRECTIONS[metricKey] || fallbackDirection;
+}
+
+function getMetricTrend({ currentValue, previousValue, direction = "higher", metricKey = null } = {}) {
+  const current = toNumber(currentValue);
+  const previous = toNumber(previousValue);
+  const resolvedDirection = metricKey ? getMetricDirection(metricKey, direction) : direction;
+
+  if (current === null || previous === null) {
+    return { trend: "unknown", isImprovement: null };
+  }
+
+  const delta = current - previous;
+  if (Math.abs(delta) < 0.000001) {
+    return { trend: "flat", isImprovement: null };
+  }
+
+  const trend = delta > 0 ? "up" : "down";
+  if (resolvedDirection === "neutral") {
+    return { trend, isImprovement: null };
+  }
+
+  const isImprovement = resolvedDirection === "lower" ? delta < 0 : delta > 0;
+  return { trend, isImprovement };
+}
+
+function getHistoryMetricTrend({ metricKey, currentValue, previousPoint, previousValue = null, direction = "higher" }) {
+  return getMetricTrend({
+    currentValue,
+    previousValue: previousValue ?? getHistoryMetricValue(previousPoint, metricKey),
+    direction,
+    metricKey,
+  });
+}
+
+function TrendIndicator({ trend, className = "" }) {
+  if (!trend || trend.trend === "unknown") {
+    return null;
+  }
+
+  const isFlat = trend.trend === "flat";
+  const iconClassName = isFlat ? "h-4 w-4" : "h-6 w-6";
+  const wrapperClassName = isFlat ? "h-5 w-5" : "h-7 w-7";
+  const displayTrend =
+    trend.isImprovement === true
+      ? "up"
+      : trend.isImprovement === false
+      ? "down"
+      : "flat";
+  const color =
+    trend.isImprovement === true
+      ? "var(--success,#10B981)"
+      : trend.isImprovement === false
+      ? "var(--danger,#EF4444)"
+      : "var(--text-secondary)";
+  const label =
+    trend.isImprovement === true
+      ? "Improved from previous snapshot"
+      : trend.isImprovement === false
+      ? "Worsened from previous snapshot"
+      : isFlat
+      ? "Unchanged from previous snapshot"
+      : "Neutral trend from previous snapshot";
+
+  return (
+    <span
+      className={["inline-flex flex-none items-center justify-center", wrapperClassName, className].filter(Boolean).join(" ")}
+      style={{ color }}
+      title={label}
+      aria-label={label}
+    >
+      <svg viewBox="0 0 20 20" aria-hidden="true" className={iconClassName}>
+        {displayTrend === "flat" ? (
+          <path d="M4.5 10h11" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+        ) : displayTrend === "up" ? (
+          <>
+            <path d="M4.4 13.1 8.1 9.4l2.6 2.5 4.9-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12.1 6.9h3.5v3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : (
+          <>
+            <path d="M4.4 6.9 8.1 10.6l2.6-2.5 4.9 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12.1 13.1h3.5V9.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        )}
+      </svg>
+    </span>
+  );
 }
 
 function titleCaseStateLabel(value) {
@@ -436,7 +737,7 @@ function HorizontalBar({ widthPercent, nonzeroMin = 2 }) {
   );
 }
 
-function MetricRow({ label, value, infoText }) {
+function MetricRow({ label, value, infoText, trend = null }) {
   const friendlyLabel = getFriendlyMetricLabel(label);
   const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
   return (
@@ -445,24 +746,31 @@ function MetricRow({ label, value, infoText }) {
         <span className="text-sm text-[var(--text-secondary)]">{friendlyLabel}</span>
         {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
-      <span className="text-sm font-medium" style={isNegativeValue ? getDangerValueStyle() : undefined}>{value}</span>
+      <span className="inline-flex flex-none items-center gap-1.5 text-sm font-medium" style={isNegativeValue ? getDangerValueStyle() : undefined}>
+        <TrendIndicator trend={trend} />
+        <span>{value}</span>
+      </span>
     </div>
   );
 }
 
-function HeroMetricTile({ label, value }) {
+function HeroMetricTile({ label, value, trend = null }) {
   const friendlyLabel = getFriendlyMetricLabel(label);
-  const infoText = getMetricTooltip(label);
+  const infoText =
+    label === RIP_COPY.simpleMetrics.averageHitValue
+      ? "Average market value of pulled hit cards in the simulation. Pattern overlays are excluded."
+      : getMetricTooltip(label);
   const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-3">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{friendlyLabel}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{friendlyLabel}</p>
         {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
-      <p className="mt-2 text-base font-semibold" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
-        {value}
-      </p>
+      <div className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold leading-tight [text-shadow:0_1px_1px_rgba(2,6,23,0.22)]" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
+        <span>{value}</span>
+        <TrendIndicator trend={trend} className="translate-y-px" />
+      </div>
     </div>
   );
 }
@@ -613,7 +921,7 @@ function RecommendationBadge({ label, rankTier }) {
     return null;
   }
 
-  return <InterpretationBadge label={label} rankTier={rankTier} className="px-2.5 py-0.5 text-[10px] tracking-[0.08em]" />;
+  return <InterpretationBadge label={label} rankTier={rankTier} className="px-3 py-1 text-[12px] tracking-[0.08em]" />;
 }
 
 function MobileMetricAccordion({
@@ -1155,6 +1463,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
 function ScorePillarCard({
   title,
   score,
+  scoreTrend = null,
   rankValue,
   rankTier,
   simpleMetrics,
@@ -1175,7 +1484,10 @@ function ScorePillarCard({
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
             <h3 className="text-base font-semibold tracking-[0.01em] text-[var(--text-secondary)]">{title}</h3>
-            <p className="text-2xl font-bold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
+            <p className="inline-flex items-center gap-1.5 text-2xl font-bold leading-none text-[var(--text-primary)]">
+              <span>{formatScore(score)}</span>
+              <TrendIndicator trend={scoreTrend} className="translate-y-0.5" />
+            </p>
             <RankBadge rank={rankTier} label={rankLabel} title={numericRankTitle} size="supporting" subtle />
           </div>
         </div>
@@ -1211,7 +1523,8 @@ function ScorePillarCard({
               key={metric.label}
               label={metric.label}
               value={metric.value}
-              infoText={getMetricTooltip(metric.label)}
+              trend={metric.trend}
+              infoText={metric.infoText || getMetricTooltip(metric.label)}
             />
           ))}
         </div>
@@ -1231,7 +1544,8 @@ function ScorePillarCard({
               key={`mobile-${title}-${metric.label}`}
               label={metric.label}
               value={metric.value}
-              infoText={getMetricTooltip(metric.label)}
+              trend={metric.trend}
+              infoText={metric.infoText || getMetricTooltip(metric.label)}
             />
           ))}
         </div>
@@ -1294,7 +1608,7 @@ function SimplePillarSummaryCard({
   );
 }
 
-function StatTile({ label, value, valueClassName = "text-lg", infoText = null }) {
+function StatTile({ label, value, valueClassName = "text-lg", infoText = null, trend = null }) {
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
       <div className="flex min-w-0 items-start justify-between gap-2">
@@ -1307,7 +1621,10 @@ function StatTile({ label, value, valueClassName = "text-lg", infoText = null })
           </span>
         ) : null}
       </div>
-      <p className={`mt-2 font-semibold text-[var(--text-primary)] ${valueClassName}`}>{value}</p>
+      <p className={`mt-2 inline-flex items-center gap-1.5 font-semibold text-[var(--text-primary)] ${valueClassName}`}>
+        <span>{value}</span>
+        <TrendIndicator trend={trend} className="translate-y-px" />
+      </p>
     </div>
   );
 }
@@ -1730,6 +2047,148 @@ function SectionNavigation({ items, activeSection, onSelect, mobile = false }) {
   );
 }
 
+function SetPageRailButton({ label, active, onClick, level = "primary" }) {
+  const isSubLink = level === "sub";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? "location" : undefined}
+      className={[
+        "group flex w-full items-center justify-between rounded-lg border text-left transition-colors",
+        isSubLink ? "px-2.5 py-1.5 text-xs" : "px-3 py-2 text-sm font-medium",
+        active
+          ? "border-[rgba(94,234,212,0.26)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--text-primary)]"
+          : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]",
+      ].join(" ")}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={[
+            "rounded-full transition-colors",
+            isSubLink ? "h-1.5 w-1.5" : "h-2 w-2",
+            active ? "bg-[var(--accent)]" : "bg-[var(--border-subtle)] group-hover:bg-[var(--text-secondary)]",
+          ].join(" ")}
+        />
+        <span className="min-w-0 truncate">{label}</span>
+      </span>
+    </button>
+  );
+}
+
+function SetPageNavigationRail({
+  targets,
+  requestedTargetId,
+  selectedTarget,
+  selectedName,
+  isPending,
+  activeTab,
+  activeCardsSubTab,
+  activeGraphMode,
+  onTargetChange,
+  onNavigate,
+}) {
+  const topSections = [
+    { id: "cards", label: "Cards" },
+    { id: "pull-rates", label: "Pull Rates" },
+    { id: "analytics", label: "Analytics" },
+  ];
+
+  const visibleSubLinks =
+    activeTab === "cards"
+      ? [
+          { id: "checklist", label: "Checklist", tab: "cards", cardsSubTab: "checklist", active: activeCardsSubTab === "checklist" },
+          { id: "simulated-impact", label: "Simulated Impact", tab: "cards", cardsSubTab: "simulated-impact", active: activeCardsSubTab === "simulated-impact" },
+        ]
+      : activeTab === "pull-rates"
+      ? [
+          { id: "pull-rate-assumptions", label: "Pull Rate Assumptions", tab: "pull-rates", active: true },
+        ]
+      : [
+          { id: "pillars", label: "Profit / Safety / Stability", tab: "analytics", targetId: "set-detail-analytics", active: activeGraphMode === "outcome-distribution" },
+          { id: "value-drivers", label: "Value Drivers", tab: "analytics", targetId: "set-detail-analytics", active: false },
+          { id: "rarity-contribution", label: "Rarity Contribution", tab: "analytics", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
+          { id: "historical-trend", label: "Historical Trend", tab: "analytics", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
+          { id: "pack-breakdown", label: "Pack Breakdown", tab: "analytics", graphMode: "pack-breakdown", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "pack-breakdown" },
+        ];
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_30px_rgba(2,6,23,0.18)] backdrop-blur-md">
+      <div className="space-y-2">
+        <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+          Set Control
+        </p>
+        <label htmlFor="set-page-rail-target" className="sr-only">
+          Switch set
+        </label>
+        <select
+          id="set-page-rail-target"
+          value={requestedTargetId || ""}
+          onChange={onTargetChange}
+          disabled={isPending || targets.length === 0}
+          title={targets.length > 0 ? "Switch set" : "No sets available"}
+          className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm font-medium text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {targets.map((target) => (
+            <option key={`rail-set:${target.target_type}:${target.target_id}`} value={target.target_id}>
+              {target.name}
+            </option>
+          ))}
+        </select>
+        {selectedTarget?.era ? (
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">Era</span>
+            <span className="inline-flex min-w-0 max-w-full items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
+              <span className="truncate">{selectedTarget.era}</span>
+            </span>
+          </div>
+        ) : (
+          <p className="px-1 text-[11px] text-[var(--text-secondary)]">{selectedName}</p>
+        )}
+      </div>
+
+      <div className="h-px w-full bg-[var(--border-subtle)]" />
+
+      <nav aria-label="Set page navigation" className="space-y-3">
+        <div>
+          <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+            Sections
+          </p>
+          <div className="mt-2 space-y-1">
+            {topSections.map((section) => (
+              <SetPageRailButton
+                key={section.id}
+                label={section.label}
+                active={activeTab === section.id}
+                onClick={() => onNavigate({ tab: section.id })}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+            In This View
+          </p>
+          <div className="mt-2 space-y-1">
+            {visibleSubLinks.map((link) => (
+              <SetPageRailButton
+                key={link.id}
+                label={link.label}
+                level="sub"
+                active={link.active}
+                onClick={() => onNavigate(link)}
+              />
+            ))}
+          </div>
+        </div>
+      </nav>
+    </div>
+  );
+}
+
 function buildEvidenceMap(sectionMeta) {
   const evidence = Array.isArray(sectionMeta?.evidence) ? sectionMeta.evidence : [];
   const mapping = {};
@@ -1942,6 +2401,9 @@ export default function RipStatisticsPageClient({
   requestedTargetId,
   explorePayload,
   pageError,
+  profileBaseHref = "/Explore/rip-statistics",
+  targetHrefById = null,
+  setDetailMode = false,
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -2005,11 +2467,20 @@ export default function RipStatisticsPageClient({
   const [viewMode, setViewMode] = useState("simple");
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
-  const isExpertMode = viewMode === "expert";
-  const effectiveValueView = isExpertMode ? activeValueView : "cards";
+  const effectiveViewMode = setDetailMode ? "expert" : viewMode;
+  const isExpertMode = effectiveViewMode === "expert";
+  const effectiveValueView = setDetailMode ? "value" : isExpertMode ? activeValueView : "cards";
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
+  const [setDetailTab, setSetDetailTab] = useState("cards");
+  const [cardsSubTab, setCardsSubTab] = useState("checklist");
+  const [checklistState, setChecklistState] = useState({
+    status: "idle",
+    cards: [],
+    error: null,
+  });
   const heroSetPickerRef = useRef(null);
+  const checklistCacheRef = useRef(new Map());
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
@@ -2019,6 +2490,8 @@ export default function RipStatisticsPageClient({
       ? historicalTrendMeta
       : graphMode === "pack-breakdown"
       ? packBreakdownMeta
+      : graphMode === "value-contribution"
+      ? rarityContributionMeta
       : outcomeDistributionMeta;
 
   const graphSectionFallback =
@@ -2026,6 +2499,8 @@ export default function RipStatisticsPageClient({
       ? interpretation?.historicalTrend
       : graphMode === "pack-breakdown"
       ? interpretation?.packBreakdown
+      : graphMode === "value-contribution"
+      ? interpretation?.rarityContribution
       : interpretation?.outcomeDistribution;
 
   const outcomeDistributionInfo = (
@@ -2084,7 +2559,7 @@ export default function RipStatisticsPageClient({
     ],
     []
   );
-  const displayedSectionNavItems = viewMode === "simple"
+  const displayedSectionNavItems = effectiveViewMode === "simple"
     ? [{ id: "pack-score", label: RIP_COPY.sections.packScore }]
     : sectionNavItems;
 
@@ -2185,6 +2660,23 @@ export default function RipStatisticsPageClient({
     window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
   };
 
+  const scrollToSetDetailElement = (targetId = "set-detail-content") => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      const target = getVisibleSectionElement(targetId);
+      if (!target) {
+        return;
+      }
+
+      const stickyOffset = getExploreStickyOffset();
+      const targetTop = target.getBoundingClientRect().top + window.scrollY - stickyOffset;
+      window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    });
+  };
+
   const handleSectionSelect = (sectionId) => {
     pendingNavSelectionRef.current = sectionId;
     pendingNavStartedAtRef.current = Date.now();
@@ -2211,6 +2703,32 @@ export default function RipStatisticsPageClient({
 
     setActiveSection(sectionId);
     scrollToExploreSection(sectionId);
+  };
+
+  const handleSetDetailNavSelect = ({ tab, cardsSubTab: nextCardsSubTab, graphMode: nextGraphMode, targetId } = {}) => {
+    const nextTab = tab || setDetailTab;
+
+    if (nextTab) {
+      setSetDetailTab(nextTab);
+    }
+
+    if (nextCardsSubTab) {
+      setCardsSubTab(nextCardsSubTab);
+    }
+
+    if (nextGraphMode) {
+      setGraphMode(nextGraphMode);
+      setActiveSection(nextGraphMode);
+    }
+
+    const fallbackTargetId =
+      nextTab === "cards"
+        ? "set-detail-cards"
+        : nextTab === "pull-rates"
+        ? "set-detail-pull-rates"
+        : "set-detail-analytics";
+
+    scrollToSetDetailElement(targetId || fallbackTargetId);
   };
 
   useEffect(() => {
@@ -2331,16 +2849,199 @@ export default function RipStatisticsPageClient({
   const recommendationBadge = packScoreMeta?.label || null;
   const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: summary.pack_tier });
   const simpleAverageLossValue = getSimpleAverageLossValue(summary);
+  const averageHitValue = getFirstNumericValue(summary, [
+    "average_hit_value",
+    "average_hit_value_when_hit",
+    "hit_average_value",
+    "average_value_when_hit",
+    "big_pull_average",
+    "hit_pack_average_value",
+    "average_hit_pack_value",
+    "average_pack_value_of_hits",
+  ]);
+  const setValue = getFirstNumericValue(summary, [
+    "simulated_set_value",
+    "set_value",
+    "total_set_value",
+    "total_card_value",
+    "set_market_value",
+    "collection_value",
+    "total_value",
+  ]);
+
+  const averageHitValueDisplay = averageHitValue === null ? "Coming soon" : formatCurrency(averageHitValue);
+  const setValueDisplay = setValue === null ? "Coming soon" : formatCurrency(setValue);
+  const normalizedHistoryTrendPoints = Array.isArray(historyTrend)
+    ? historyTrend.map((row, index) => normalizeHistoryTrendPoint(row, index, null))
+    : [];
+  const previousTrendPoint =
+    normalizedHistoryTrendPoints.length >= 2
+      ? normalizedHistoryTrendPoints[normalizedHistoryTrendPoints.length - 2]
+      : null;
+  const currentAverageLossAmount = getLossAmountFromMeanAndCost(summary.mean_value, summary.pack_cost);
+  const previousAverageLossAmount = getLossAmountFromMeanAndCost(
+    previousTrendPoint?.meanValue,
+    previousTrendPoint?.packCost
+  );
+  const trendByMetricKey = {
+    ripScore: getHistoryMetricTrend({
+      metricKey: "ripScore",
+      currentValue: topScoreRaw,
+      previousPoint: previousTrendPoint,
+    }),
+    profitScore: getHistoryMetricTrend({
+      metricKey: "profitScore",
+      currentValue: displayedProfitScore,
+      previousPoint: previousTrendPoint,
+    }),
+    safetyScore: getHistoryMetricTrend({
+      metricKey: "safetyScore",
+      currentValue: displayedSafetyScore,
+      previousPoint: previousTrendPoint,
+    }),
+    stabilityScore: getHistoryMetricTrend({
+      metricKey: "stabilityScore",
+      currentValue: displayedStabilityScore,
+      previousPoint: previousTrendPoint,
+    }),
+    packCost: getHistoryMetricTrend({
+      metricKey: "packCost",
+      currentValue: summary.pack_cost,
+      previousPoint: previousTrendPoint,
+    }),
+    setValue: getHistoryMetricTrend({
+      metricKey: "setValue",
+      currentValue: setValue,
+      previousPoint: previousTrendPoint,
+    }),
+    averagePackValue: getHistoryMetricTrend({
+      metricKey: "meanValue",
+      currentValue: summary.mean_value,
+      previousPoint: previousTrendPoint,
+    }),
+    averageHitValue: getHistoryMetricTrend({
+      metricKey: "averageHitValue",
+      currentValue: averageHitValue,
+      previousPoint: previousTrendPoint,
+    }),
+    averageLoss: getMetricTrend({
+      currentValue: currentAverageLossAmount,
+      previousValue: previousAverageLossAmount,
+      metricKey: "averageLoss",
+    }),
+    chanceToBeatPackCost: getHistoryMetricTrend({
+      metricKey: "probProfit",
+      currentValue: normalizeProbability(summary.prob_profit),
+      previousPoint: previousTrendPoint,
+    }),
+    chanceToMissPackCost: getHistoryMetricTrend({
+      metricKey: "chanceToMissPackCost",
+      currentValue: normalizeProbability(summary.prob_profit) === null ? null : 1 - normalizeProbability(summary.prob_profit),
+      previousValue:
+        getHistoryMetricValue(previousTrendPoint, "probProfit") === null
+          ? null
+          : 1 - normalizeProbability(getHistoryMetricValue(previousTrendPoint, "probProfit")),
+      direction: "lower",
+    }),
+    chanceAtBigPull: getHistoryMetricTrend({
+      metricKey: "probBigHit",
+      currentValue: normalizeProbability(summary.prob_big_hit),
+      previousPoint: previousTrendPoint,
+    }),
+    averageReturnVsCost: getHistoryMetricTrend({
+      metricKey: "meanCostRatio",
+      currentValue: meanValueToCostRatio,
+      previousPoint: previousTrendPoint,
+    }),
+    typicalReturnVsCost: getHistoryMetricTrend({
+      metricKey: "medianCostRatio",
+      currentValue: medianValueToCostRatio,
+      previousPoint: previousTrendPoint,
+    }),
+    bigHitUpside: getHistoryMetricTrend({
+      metricKey: "p95CostRatio",
+      currentValue: summary.p95_value_to_cost_ratio,
+      previousPoint: previousTrendPoint,
+    }),
+    godPullUpside: getHistoryMetricTrend({
+      metricKey: "p99ValueToCostRatio",
+      currentValue: summary.p99_value_to_cost_ratio,
+      previousPoint: previousTrendPoint,
+    }),
+    typicalPackValue: getHistoryMetricTrend({
+      metricKey: "medianValue",
+      currentValue: percentileP50 ?? summary.median_value,
+      previousPoint: previousTrendPoint,
+    }),
+    badPackFloorValue: getHistoryMetricTrend({
+      metricKey: "tailValueP05",
+      currentValue: percentileP5 ?? summary.tail_value_p05,
+      previousPoint: previousTrendPoint,
+    }),
+    averageLossWhenYouMiss: getHistoryMetricTrend({
+      metricKey: "expectedLossWhenLosing",
+      currentValue: summary.expected_loss_when_losing,
+      previousPoint: previousTrendPoint,
+    }),
+    typicalLossWhenYouMiss: getHistoryMetricTrend({
+      metricKey: "medianLossWhenLosing",
+      currentValue: summary.median_loss_when_losing,
+      previousPoint: previousTrendPoint,
+    }),
+    worstFivePercentShortfall: getHistoryMetricTrend({
+      metricKey: "p05ShortfallToCost",
+      currentValue: p05ShortfallToCost,
+      previousPoint: previousTrendPoint,
+    }),
+    outcomeVolatility: getHistoryMetricTrend({
+      metricKey: "coefficientOfVariation",
+      currentValue: summary.coefficient_of_variation,
+      previousPoint: previousTrendPoint,
+    }),
+    evConcentration: getHistoryMetricTrend({
+      metricKey: "hhiEvConcentration",
+      currentValue: summary.hhi_ev_concentration,
+      previousPoint: previousTrendPoint,
+    }),
+    chaseDepth: getHistoryMetricTrend({
+      metricKey: "effectiveChaseCount",
+      currentValue: summary.effective_chase_count,
+      previousPoint: previousTrendPoint,
+    }),
+    top1Share: getHistoryMetricTrend({
+      metricKey: "top1Share",
+      currentValue: summary.top1_ev_share,
+      previousPoint: previousTrendPoint,
+    }),
+    top3Share: getHistoryMetricTrend({
+      metricKey: "top3Share",
+      currentValue: summary.top3_ev_share,
+      previousPoint: previousTrendPoint,
+    }),
+    top5Share: getHistoryMetricTrend({
+      metricKey: "top5Share",
+      currentValue: summary.top5_ev_share,
+      previousPoint: previousTrendPoint,
+    }),
+    bestPull: getHistoryMetricTrend({
+      metricKey: "maxValue",
+      currentValue: summary.max_value,
+      previousPoint: previousTrendPoint,
+    }),
+  };
+
   const decisionMetrics = [
-    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
-    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
-    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
-    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
-    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
+    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost), trend: trendByMetricKey.packCost },
+    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value), trend: trendByMetricKey.averagePackValue },
+    { label: RIP_COPY.simpleMetrics.averageHitValue, value: averageHitValueDisplay, trend: trendByMetricKey.averageHitValue },
+    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue), trend: trendByMetricKey.averageLoss },
+    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
+    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
   ];
   const primaryDecisionMetricOrder = [
     RIP_COPY.simpleMetrics.currentPackCost,
     RIP_COPY.simpleMetrics.averagePackValue,
+    RIP_COPY.simpleMetrics.averageHitValue,
     RIP_COPY.simpleMetrics.averageLoss,
   ];
   const primaryDecisionMetrics = primaryDecisionMetricOrder
@@ -2350,13 +3051,13 @@ export default function RipStatisticsPageClient({
     (metric) => !primaryDecisionMetricOrder.includes(metric.label)
   );
   const technicalScoreMetrics = [
-    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
-    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
-    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
-    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
-    { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
-    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3) },
-    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2) },
+    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
+    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+    { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2), trend: trendByMetricKey.outcomeVolatility },
+    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
+    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2), trend: trendByMetricKey.chaseDepth },
   ];
 
   const handleTargetIdChange = (nextTargetId, options = {}) => {
@@ -2368,10 +3069,17 @@ export default function RipStatisticsPageClient({
       options.closeToolsPanel();
     }
 
-    const nextParams = new URLSearchParams(searchParams?.toString() || "");
-    nextParams.set("target_type", requestedTargetType || "set");
-    nextParams.set("target_id", nextTargetId);
+    const nextHref = targetHrefById?.[nextTargetId] || null;
+
     startTransition(() => {
+      if (nextHref) {
+        router.push(nextHref);
+        return;
+      }
+
+      const nextParams = new URLSearchParams(searchParams?.toString() || "");
+      nextParams.set("target_type", requestedTargetType || "set");
+      nextParams.set("target_id", nextTargetId);
       router.push(`${pathname}?${nextParams.toString()}`);
     });
   };
@@ -2412,6 +3120,74 @@ export default function RipStatisticsPageClient({
   useEffect(() => {
     setHeroSetPickerOpen(false);
   }, [requestedTargetId]);
+
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "cards" || cardsSubTab !== "checklist") {
+      return undefined;
+    }
+
+    const setId = String(requestedTargetId || "").trim();
+    if (!setId) {
+      setChecklistState({ status: "empty", cards: [], error: null });
+      return undefined;
+    }
+
+    const cached = checklistCacheRef.current.get(setId);
+    if (cached) {
+      setChecklistState({ status: "success", cards: cached, error: null });
+      return undefined;
+    }
+
+    let isCancelled = false;
+    setChecklistState((previous) => ({
+      status: "loading",
+      cards: previous.status === "success" ? previous.cards : [],
+      error: null,
+    }));
+
+    getPokemonSetCards(setId)
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+        checklistCacheRef.current.set(setId, cards);
+        setChecklistState({
+          status: cards.length > 0 ? "success" : "empty",
+          cards,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setChecklistState({
+          status: "error",
+          cards: [],
+          error: error?.message || "Unable to load cards for this set.",
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId]);
+
+  const setDetailSidebarContent = (
+    <SetPageNavigationRail
+      targets={targets}
+      requestedTargetId={requestedTargetId}
+      selectedTarget={selectedTarget}
+      selectedName={selectedName}
+      isPending={isPending}
+      activeTab={setDetailTab}
+      activeCardsSubTab={cardsSubTab}
+      activeGraphMode={graphMode}
+      onTargetChange={handleTargetChange}
+      onNavigate={handleSetDetailNavSelect}
+    />
+  );
 
   const desktopSidebarContent = (
     <div className="space-y-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/72 p-4 backdrop-blur-sm">
@@ -2539,25 +3315,26 @@ export default function RipStatisticsPageClient({
   return (
     <main className="w-full max-w-full pb-8 pt-0 lg:py-8">
       <PublicProfileLocalScaffold
-        profileBaseHref="/Explore/rip-statistics"
+        profileBaseHref={profileBaseHref}
         mode="public"
         sectionItems={[]}
         mobileNavItems={[]}
-        desktopSidebarContent={desktopSidebarContent}
-        mobileToolsPanelContent={renderMobileToolsPanelContent}
+        desktopSidebarContent={setDetailMode ? setDetailSidebarContent : desktopSidebarContent}
+        mobileToolsPanelContent={setDetailMode ? null : renderMobileToolsPanelContent}
         mobileToolsTitle="Explore Filters & Navigation"
         mobileToolsDescription="Switch TCG and set filters."
         mobileToolsPanelAriaLabel="Explore filters and navigation"
         mobileToolsTriggerLabel="Filters & Tools"
         mobileToolsTriggerTitle="Open filters and navigation"
-        useFloatingToolsOnTablet
-        forceCompactToolsBelow2xl
-        centerContentIgnoringSidebar
+        useFloatingToolsOnTablet={!setDetailMode}
+        forceCompactToolsBelow2xl={!setDetailMode}
+        centerContentIgnoringSidebar={!setDetailMode}
+        desktopSidebarClassName={setDetailMode ? "xl:w-[244px] xl:min-w-[244px] xl:pl-4 xl:pr-3" : ""}
         desktopContentOffsetClassName="xl:flex xl:justify-center"
         wrapDesktopContentInFrame={false}
         mobileBottomNavVariant="flat"
         mobileBottomNavContent={() => (
-          viewMode === "expert" ? (
+          !setDetailMode && effectiveViewMode === "expert" ? (
             <CompactBottomSectionNav
               activeSection={activeSection}
               onSelect={handleSectionSelect}
@@ -2565,7 +3342,13 @@ export default function RipStatisticsPageClient({
           ) : null
         )}
       >
-        <div className="dashboard-container space-y-8 w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border">
+        <div
+          className={`dashboard-container w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
+            setDetailMode
+              ? "mx-auto max-w-7xl space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
+              : "space-y-8 xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border"
+          }`}
+        >
         {pageError ? (
           <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6">
             <p className="text-base font-semibold text-[var(--text-primary)]">RIP Statistics unavailable</p>
@@ -2575,6 +3358,250 @@ export default function RipStatisticsPageClient({
 
         {!pageError && explorePayload ? (
           <>
+            {setDetailMode ? (
+              <>
+                <section className="page-hero-panel relative overflow-visible rounded-xl px-4 py-4 md:rounded-2xl md:px-6 md:py-5">
+                  <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-xl md:rounded-2xl">
+                    {heroLogoUrl ? (
+                      <div className="absolute left-1/2 top-1/2 h-[112%] w-[112%] -translate-x-1/2 -translate-y-1/2 select-none">
+                        <img
+                          src={heroLogoUrl}
+                          alt=""
+                          aria-hidden="true"
+                          className="h-full w-full object-contain opacity-[0.08] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.12))]"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-4">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] lg:items-stretch">
+                      <div className="flex h-full min-h-full flex-col gap-3">
+                      <div ref={heroSetPickerRef} data-hero-picker className="relative z-20 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
+                        <div className="space-y-4">
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setHeroSetPickerOpen((open) => !open)}
+                              disabled={isPending || targets.length === 0}
+                              aria-expanded={heroSetPickerOpen}
+                              aria-haspopup="listbox"
+                              aria-controls="hero-set-picker-list"
+                              className="flex w-full min-w-0 items-start justify-between gap-3 rounded-lg text-left text-xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] md:text-2xl disabled:cursor-not-allowed disabled:opacity-90"
+                              title={targets.length > 0 ? "Switch set" : "No sets available"}
+                            >
+                              <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight">{selectedName}</span>
+                              <span aria-hidden="true" className="mt-1 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/70">
+                                <svg
+                                  aria-hidden="true"
+                                  viewBox="0 0 20 20"
+                                  className={`h-4 w-4 flex-none text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
+                                  fill="currentColor"
+                                >
+                                  <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                                </svg>
+                              </span>
+                            </button>
+
+                            {heroSetPickerOpen ? (
+                              <div
+                                id="hero-set-picker-list"
+                                role="listbox"
+                                aria-label="Available sets"
+                                className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full max-w-full overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
+                              >
+                                {targets.map((target) => {
+                                  const isSelected = String(target.target_id) === String(requestedTargetId || "");
+                                  return (
+                                    <button
+                                      key={`hero-set-option:${target.target_type}:${target.target_id}`}
+                                      type="button"
+                                      role="option"
+                                      aria-selected={isSelected}
+                                      onClick={() => {
+                                        handleTargetIdChange(String(target.target_id || ""));
+                                        setHeroSetPickerOpen(false);
+                                      }}
+                                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
+                                        isSelected
+                                          ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
+                                          : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                                      }`}
+                                    >
+                                      <span className="min-w-0 flex-1 truncate whitespace-nowrap">{target.name}</span>
+                                      {isSelected ? (
+                                        <span className="shrink-0 text-xs font-medium text-[var(--accent)]">Current</span>
+                                      ) : null}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="space-y-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{RIP_COPY.scoreLabel}</p>
+                            <div className="flex items-end gap-2">
+                              <span className="inline-flex items-end gap-1.5 text-5xl font-semibold leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-6xl">
+                                <span>{displayedTopScore}</span>
+                                <span className="pb-1 text-xs font-medium tracking-normal text-[var(--text-secondary)]">/100</span>
+                                <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-1 md:mb-1.5" />
+                              </span>
+                            </div>
+                            <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <RankBadge
+                                rank={summary.pack_tier}
+                                label="Rank"
+                                size="supporting"
+                                title={
+                                  summary.pack_rank === null || summary.pack_rank === undefined
+                                    ? "Rank unavailable"
+                                    : `Rank #${summary.pack_rank}`
+                                }
+                              />
+                              <RecommendationBadge label={recommendationBadge} rankTier={summary.pack_tier} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">Set Value</p>
+                          <InfoPopover text="Simulated set value: one priced copy per unique card identity in this simulation universe. Variant and pattern rows are collapsed, so future canonical checklist pricing may differ." />
+                        </div>
+                        <p className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
+                          <span>{setValueDisplay}</span>
+                          <TrendIndicator trend={trendByMetricKey.setValue} className="translate-y-px" />
+                        </p>
+                      </div>
+                      </div>
+
+                      <div className="flex h-full flex-col justify-between gap-2.5">
+                        <div
+                          className="rounded-xl border-l-2 border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-4 py-3"
+                          style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: summary.pack_tier })}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
+                          <p className="mt-1.5 text-sm text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
+                        </div>
+
+                        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                          {decisionMetrics.map((metric) => (
+                            <HeroMetricTile key={`set-compact-${metric.label}`} label={metric.label} value={metric.value} trend={metric.trend} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <div id="set-detail-content" className="scroll-mt-24 md:scroll-mt-28">
+                  <SectionViewTabs
+                    className="mt-2"
+                    value={setDetailTab}
+                    onChange={setSetDetailTab}
+                    variant="primary"
+                    options={[
+                      { value: "cards", label: "Cards" },
+                      { value: "pull-rates", label: "Pull Rates" },
+                      { value: "analytics", label: "Analytics" },
+                    ]}
+                  />
+                </div>
+
+                {setDetailTab === "cards" ? (
+                  <section id="set-detail-cards" className="scroll-mt-24 space-y-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(2,6,23,0.68))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_54px_rgba(2,6,23,0.28)] backdrop-blur-md md:scroll-mt-28 md:p-6">
+                    <SectionViewTabs
+                      value={cardsSubTab}
+                      onChange={setCardsSubTab}
+                      variant="secondary"
+                      options={[
+                        { value: "checklist", label: "Checklist" },
+                        { value: "simulated-impact", label: "Simulated Impact" },
+                      ]}
+                    />
+
+                    {cardsSubTab === "checklist" ? (
+                      <div className="min-w-0">
+                        {checklistState.status === "loading" ? (
+                          <p className="text-sm text-[var(--text-secondary)]">Loading cards...</p>
+                        ) : null}
+
+                        {checklistState.status === "error" ? (
+                          <p className="text-sm text-red-300">{checklistState.error || "Unable to load cards for this set."}</p>
+                        ) : null}
+
+                        {checklistState.status === "empty" ? (
+                          <p className="text-sm text-[var(--text-secondary)]">No cards found for this set.</p>
+                        ) : null}
+
+                        {checklistState.status === "success" ? (
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                            {checklistState.cards.map((card) => (
+                              <ChecklistCardTile
+                                key={`${card.id || card.cardNumber || card.name}`}
+                                card={card}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="min-w-0 space-y-4">
+                        <div>
+                          <h3 className="text-base font-semibold text-[var(--text-primary)]">Simulated Impact</h3>
+                          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                            Cards ranked by how much they contribute to the simulated pack value.
+                          </p>
+                        </div>
+
+                        <InterpretationInsight
+                          sectionMeta={topEvDriversMeta}
+                          fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
+                          compact
+                          showEvidence={false}
+                          className="mb-3"
+                        />
+
+                        {topEvEvidenceRows.length > 0 ? (
+                          <div className="mb-3 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
+                            {topEvEvidenceRows.map(([label, value]) => (
+                              <span
+                                key={`${label}:${value}`}
+                                className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                              >
+                                <span className="shrink-0">{label}</span>
+                                <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                      </div>
+                    )}
+                  </section>
+                ) : null}
+
+                {setDetailTab === "pull-rates" ? (
+                  <section id="set-detail-pull-rates" className="scroll-mt-24 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5">
+                    {pullRateAssumptions ? (
+                      <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                    ) : (
+                      <p className="text-sm text-[var(--text-secondary)]">Pull-rate data coming soon for this set.</p>
+                    )}
+                  </section>
+                ) : null}
+              </>
+            ) : null}
+
+            {!setDetailMode || setDetailTab === "analytics" ? (
+              <>
+            {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
               {heroLogoUrl ? (
                 <div className="pointer-events-none absolute left-1/2 top-[18%] z-0 h-[100%] w-[100%] -translate-x-1/2 -translate-y-1/2 select-none sm:top-1/2 sm:h-[107%] sm:w-[107%]">
@@ -2666,11 +3693,12 @@ export default function RipStatisticsPageClient({
                         </div>
                       </div>
                       <div className="mt-3 flex w-full justify-center">
-                        <div className="relative inline-block leading-none">
+                        <div className="inline-flex items-end gap-1.5 leading-none">
                           <span className="text-[clamp(3.25rem,10vw,5rem)] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
                             {displayedTopScore}
                           </span>
-                          <span className="pointer-events-none absolute bottom-2 left-full ml-2 text-sm font-medium text-[var(--text-secondary)] sm:bottom-3">/100</span>
+                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/100</span>
+                          <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-2 sm:mb-3" />
                         </div>
                       </div>
                       <div className="mt-4 w-full max-w-lg">
@@ -2705,7 +3733,7 @@ export default function RipStatisticsPageClient({
                     </div>
 
                     <div className="mx-auto mt-5 w-full max-w-5xl text-left">
-                      {viewMode === "simple" ? (
+                      {effectiveViewMode === "simple" ? (
                         <>
                           <div className="hidden lg:block">
                             <div className="mb-3 flex items-center gap-2">
@@ -2714,13 +3742,13 @@ export default function RipStatisticsPageClient({
                             </div>
                             <div className="grid gap-2 sm:grid-cols-3">
                               {primaryDecisionMetrics.map((metric) => (
-                                <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                                <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} trend={metric.trend} />
                               ))}
                             </div>
                             {secondaryDecisionMetrics.length > 0 ? (
                               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                                 {secondaryDecisionMetrics.map((metric) => (
-                                  <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} />
+                                  <HeroMetricTile key={metric.label} label={metric.label} value={metric.value} trend={metric.trend} />
                                 ))}
                               </div>
                             ) : null}
@@ -2738,10 +3766,10 @@ export default function RipStatisticsPageClient({
                             </div>
                             <div className="grid gap-2 sm:grid-cols-2">
                               {primaryDecisionMetrics.map((metric) => (
-                                <HeroMetricTile key={`simple-mobile-${metric.label}`} label={metric.label} value={metric.value} />
+                                <HeroMetricTile key={`simple-mobile-${metric.label}`} label={metric.label} value={metric.value} trend={metric.trend} />
                               ))}
                               {secondaryDecisionMetrics.map((metric) => (
-                                <HeroMetricTile key={`simple-mobile-secondary-${metric.label}`} label={metric.label} value={metric.value} />
+                                <HeroMetricTile key={`simple-mobile-secondary-${metric.label}`} label={metric.label} value={metric.value} trend={metric.trend} />
                               ))}
                             </div>
                           </MobileMetricAccordion>
@@ -2788,7 +3816,8 @@ export default function RipStatisticsPageClient({
                                 key={metric.label}
                                 label={metric.label}
                                 value={metric.value}
-                                infoText={getMetricTooltip(metric.label)}
+                                trend={metric.trend}
+                                infoText={metric.infoText || getMetricTooltip(metric.label)}
                               />
                             ))}
                           </div>
@@ -2811,7 +3840,8 @@ export default function RipStatisticsPageClient({
                                 key={`expert-mobile-${metric.label}`}
                                 label={metric.label}
                                 value={metric.value}
-                                infoText={getMetricTooltip(metric.label)}
+                                trend={metric.trend}
+                                infoText={metric.infoText || getMetricTooltip(metric.label)}
                               />
                             ))}
                           </MobileMetricAccordion>
@@ -2819,7 +3849,7 @@ export default function RipStatisticsPageClient({
                       )}
                     </div>
 
-                    {viewMode === "expert" ? (
+                    {effectiveViewMode === "expert" ? (
                       <>
                         <div className="mx-auto mt-4 w-full max-w-2xl">
                           <button
@@ -2836,8 +3866,9 @@ export default function RipStatisticsPageClient({
                 </div>
               </div>
             </section>
+            ) : null}
 
-            {viewMode === "simple" ? (
+            {effectiveViewMode === "simple" ? (
               <SetIntelligenceSection
                 summary={summary}
                 simpleMode
@@ -2845,7 +3876,7 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-            {viewMode === "simple" ? (
+            {effectiveViewMode === "simple" ? (
             <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
               <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
                 <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
@@ -2877,13 +3908,14 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {viewMode === "expert" ? (
-            <section className="pt-8">
+            {effectiveViewMode === "expert" ? (
+            <section id={setDetailMode ? "set-detail-analytics" : undefined} className="scroll-mt-24 pt-4 md:scroll-mt-28">
               <div className="grid gap-4 xl:grid-cols-3">
                 {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
                   title="Profit"
                   score={displayedProfitScore}
+                  scoreTrend={trendByMetricKey.profitScore}
                   rankValue={summary.profit_rank}
                   rankTier={summary.profit_tier}
                   rankLabel="Profit Rank"
@@ -2891,22 +3923,23 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Profit")}
                   simpleMetrics={[
-                    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost) },
-                    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value) },
-                    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue) },
-                    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }) },
-                    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }) },
+                    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost), trend: trendByMetricKey.packCost },
+                    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value), trend: trendByMetricKey.averagePackValue },
+                    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue), trend: trendByMetricKey.averageLoss },
+                    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
+                    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
                   ]}
                   advancedMetrics={[
-                    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2) },
-                    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2) },
-                    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2) },
-                    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2) },
+                    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
+                    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+                    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+                    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
                   ]}
                 />
                 <ScorePillarCard
                   title="Safety"
                   score={displayedSafetyScore}
+                  scoreTrend={trendByMetricKey.safetyScore}
                   rankValue={summary.safety_rank}
                   rankTier={summary.safety_tier}
                   rankLabel="Safety Rank"
@@ -2914,19 +3947,20 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Safety")}
                   simpleMetrics={[
-                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), infoText: getMetricTooltip("Typical Pack Value") },
-                    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), infoText: getMetricTooltip("Bad Pack Floor Value") },
-                    { label: "Chance to Miss Pack Cost", value: formatPercent(1 - (toNumber(summary.prob_profit) > 1 ? toNumber(summary.prob_profit) / 100 : toNumber(summary.prob_profit)), { probability: true }), infoText: getMetricTooltip("Chance to Miss Pack Cost") },
+                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Pack Value") },
+                    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.badPackFloorValue, infoText: getMetricTooltip("Bad Pack Floor Value") },
+                    { label: "Chance to Miss Pack Cost", value: formatPercent(1 - (toNumber(summary.prob_profit) > 1 ? toNumber(summary.prob_profit) / 100 : toNumber(summary.prob_profit)), { probability: true }), trend: trendByMetricKey.chanceToMissPackCost, infoText: getMetricTooltip("Chance to Miss Pack Cost") },
                   ]}
                   advancedMetrics={[
-                    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), infoText: getMetricTooltip("Average Loss When You Miss") },
-                    { label: "Typical Loss When You Miss", value: formatLossCurrency(summary.median_loss_when_losing), infoText: getMetricTooltip("Typical Loss When You Miss") },
-                    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), infoText: getMetricTooltip("Worst 5% Outcome") },
+                    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), trend: trendByMetricKey.averageLossWhenYouMiss, infoText: getMetricTooltip("Average Loss When You Miss") },
+                    { label: "Typical Loss When You Miss", value: formatLossCurrency(summary.median_loss_when_losing), trend: trendByMetricKey.typicalLossWhenYouMiss, infoText: getMetricTooltip("Typical Loss When You Miss") },
+                    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.worstFivePercentShortfall?.trend === "unknown" ? trendByMetricKey.badPackFloorValue : trendByMetricKey.worstFivePercentShortfall, infoText: getMetricTooltip("Worst 5% Outcome") },
                   ]}
                 />
                 <ScorePillarCard
                   title="Stability"
                   score={displayedStabilityScore}
+                  scoreTrend={trendByMetricKey.stabilityScore}
                   rankValue={summary.stability_rank}
                   rankTier={summary.stability_tier}
                   rankLabel="Stability Rank"
@@ -2934,23 +3968,23 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Stability")}
                   simpleMetrics={[
-                    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2) },
-                    { label: "Top Chase Share", value: formatPercent(summary.top1_ev_share) },
-                    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3) },
+                    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2), trend: trendByMetricKey.chaseDepth },
+                    { label: "Top Chase Share", value: formatPercent(summary.top1_ev_share), trend: trendByMetricKey.top1Share },
+                    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
                   ]}
                   advancedMetrics={[
-                    { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2) },
-                    { label: "Effective Chase Count", value: formatNumber(summary.effective_chase_count, 2) },
-                    { label: "EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3) },
-                    { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share) },
-                    { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share) },
+                    { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2), trend: trendByMetricKey.outcomeVolatility },
+                    { label: "Effective Chase Count", value: formatNumber(summary.effective_chase_count, 2), trend: trendByMetricKey.chaseDepth },
+                    { label: "EV Concentration", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
+                    { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share), trend: trendByMetricKey.top3Share },
+                    { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share), trend: trendByMetricKey.top5Share },
                   ]}
                 />
               </div>
             </section>
             ) : null}
 
-            {viewMode === "expert" ? (
+            {effectiveViewMode === "expert" ? (
               <SetIntelligenceSection
                 summary={summary}
                 simpleMode={false}
@@ -2958,14 +3992,16 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-            {viewMode === "expert" ? (
-            <section id={ANALYSIS_SECTION_ID} style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 pt-7 md:scroll-mt-28">
+            {effectiveViewMode === "expert" ? (
+            <section id={ANALYSIS_SECTION_ID} style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 pt-4 md:scroll-mt-28">
               <SectionCard
                 title={
                   graphMode === "historical-trend"
                     ? RIP_COPY.sections.historicalTrend
                     : graphMode === "pack-breakdown"
                     ? RIP_COPY.sections.packBreakdown
+                    : graphMode === "value-contribution"
+                    ? "Value Contribution"
                     : RIP_COPY.sections.outcomeDistribution
                 }
                 subtitle={
@@ -2973,7 +4009,13 @@ export default function RipStatisticsPageClient({
                     ? "See where a typical pack lands, how often packs miss, and how far the best hits can run."
                     : null
                 }
-                titleInfoText={graphMode === "outcome-distribution" ? outcomeDistributionInfo : null}
+                titleInfoText={
+                  graphMode === "outcome-distribution"
+                    ? outcomeDistributionInfo
+                    : graphMode === "value-contribution"
+                    ? rarityContributionInfo
+                    : null
+                }
               >
                 <SectionViewTabs
                   className="mb-4"
@@ -2983,6 +4025,7 @@ export default function RipStatisticsPageClient({
                     { value: "outcome-distribution", label: RIP_COPY.sections.outcomeDistribution },
                     { value: "historical-trend", label: RIP_COPY.sections.historicalTrend },
                     { value: "pack-breakdown", label: RIP_COPY.sections.packBreakdown },
+                    ...(setDetailMode ? [{ value: "value-contribution", label: "Value Contribution" }] : []),
                   ]}
                 />
 
@@ -3009,37 +4052,42 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {graphMode === "historical-trend" ? (
-                  <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} />
+                  <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} />
                 ) : graphMode === "pack-breakdown" ? (
-                  packBreakdownDisplay?.mode === "modeled_outcome_states" ? (
-                    <ModeledOutcomeBars display={packBreakdownDisplay} />
-                  ) : (
-                    <div className="grid gap-5 md:grid-cols-2">
-                      <div>
-                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
-                        <PackPathBars packPaths={ripStatistics?.pack_paths} />
-                      </div>
-                      <div>
-                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
-                        <StateBars stateRows={normalStateRows} />
-                      </div>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
+                      <PackPathBars packPaths={ripStatistics?.pack_paths} />
                     </div>
-                  )
+                    <div>
+                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
+                      <StateBars stateRows={normalStateRows} />
+                    </div>
+                  </div>
+                ) : graphMode === "value-contribution" ? (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-base font-semibold text-[var(--text-primary)]">Where the Value Comes From</p>
+                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">See how each rarity bucket contributes to modeled pack value in this simulation.</p>
+                    </div>
+                    <RarityContributionContent rankings={rankings} />
+                  </div>
                 ) : (
                   <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
                 )}
 
-                {graphMode !== "pack-breakdown" ? (
+                {graphMode !== "pack-breakdown" && graphMode !== "value-contribution" ? (
                   <>
                     {graphMode === "historical-trend" ? (
                       <div className="mt-4 hidden gap-3 sm:grid-cols-3 lg:grid lg:grid-cols-6">
-                        <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                        <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                        <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                        <StatTile label={RIP_COPY.chartStats.bigHitUpside} value={formatMultiplier(summary.p95_value_to_cost_ratio, 1)} />
+                        <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} trend={trendByMetricKey.chanceToBeatPackCost} />
+                        <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} trend={trendByMetricKey.chanceAtBigPull} />
+                        <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} trend={trendByMetricKey.typicalPackValue} />
+                        <StatTile label={RIP_COPY.chartStats.bigHitUpside} value={formatMultiplier(summary.p95_value_to_cost_ratio, 1)} trend={trendByMetricKey.bigHitUpside} />
                         <StatTile
                           label={RIP_COPY.chartStats.godPullUpside}
                           value={formatMultiplier(summary.p99_value_to_cost_ratio, 1)}
+                          trend={trendByMetricKey.godPullUpside}
                           infoText={
                             <div className="space-y-1 text-left">
                               <p>Simple: Rare monster-hit outcome compared with pack price.</p>
@@ -3047,20 +4095,21 @@ export default function RipStatisticsPageClient({
                             </div>
                           }
                         />
-                        <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
+                        <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} trend={trendByMetricKey.bestPull} />
                       </div>
                     ) : null}
 
                     {graphMode === "historical-trend" ? (
                       <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} />
-                          <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} />
-                          <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} />
-                          <StatTile label={RIP_COPY.chartStats.bigHitUpside} value={formatMultiplier(summary.p95_value_to_cost_ratio, 1)} />
+                          <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} trend={trendByMetricKey.chanceToBeatPackCost} />
+                          <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} trend={trendByMetricKey.chanceAtBigPull} />
+                          <StatTile label={RIP_COPY.chartStats.typicalPack} value={formatCurrency(percentileP50 ?? summary.median_value)} trend={trendByMetricKey.typicalPackValue} />
+                          <StatTile label={RIP_COPY.chartStats.bigHitUpside} value={formatMultiplier(summary.p95_value_to_cost_ratio, 1)} trend={trendByMetricKey.bigHitUpside} />
                           <StatTile
                             label={RIP_COPY.chartStats.godPullUpside}
                             value={formatMultiplier(summary.p99_value_to_cost_ratio, 1)}
+                            trend={trendByMetricKey.godPullUpside}
                             infoText={
                               <div className="space-y-1 text-left">
                                 <p>Simple: Rare monster-hit outcome compared with pack price.</p>
@@ -3068,7 +4117,7 @@ export default function RipStatisticsPageClient({
                               </div>
                             }
                           />
-                          <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} />
+                          <StatTile label={RIP_COPY.chartStats.bestPull} value={formatCurrency(summary.max_value)} trend={trendByMetricKey.bestPull} />
                         </div>
                       </MobileMetricAccordion>
                     ) : null}
@@ -3078,19 +4127,21 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {viewMode === "expert" ? (
+            {effectiveViewMode === "expert" && !setDetailMode ? (
             <section id="explore-drivers" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="w-full max-w-full min-w-0 scroll-mt-24 pt-1 md:scroll-mt-28">
               <SectionCard title={RIP_COPY.sections.rarityContribution} subtitle={null} titleInfoText={rarityContributionInfo}>
-                <SectionViewTabs
-                  className="mb-4"
-                  value={activeValueView}
-                  onChange={setActiveValueView}
-                  options={[
-                    { value: "cards", label: "Cards Carrying the Set" },
-                    { value: "value", label: "Value Contribution" },
-                    { value: "pull-rates", label: "Pull Rates" },
-                  ]}
-                />
+                {!setDetailMode ? (
+                  <SectionViewTabs
+                    className="mb-4"
+                    value={activeValueView}
+                    onChange={setActiveValueView}
+                    options={[
+                      { value: "cards", label: "Cards Carrying the Set" },
+                      { value: "value", label: "Value Contribution" },
+                      { value: "pull-rates", label: "Pull Rates" },
+                    ]}
+                  />
+                ) : null}
 
                 <div id="explore-rarity" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 md:scroll-mt-28" />
 
@@ -3180,6 +4231,8 @@ export default function RipStatisticsPageClient({
                   )}
                 </div>
               </section>
+            ) : null}
+              </>
             ) : null}
           </>
         ) : null}
