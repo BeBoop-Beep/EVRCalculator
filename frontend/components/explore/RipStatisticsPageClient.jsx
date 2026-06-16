@@ -101,7 +101,7 @@ const SIMPLE_PILLAR_INFO_COPY = {
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   Desirability:
-    "Opening Desirability combines Collector Appeal and Chase Appeal to show how appealing the set is to open.",
+    "Desirability is the RIP Score pillar based on the Opening Desirability model. The headline score is adjusted for set-to-set ranking, while Collector Appeal and Chase Appeal show the main drivers behind it.",
   Stability:
     "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
 };
@@ -776,125 +776,160 @@ function MetricRow({ label, value, infoText, trend = null, content = null }) {
   );
 }
 
-function getTopDesirabilityCards(summary) {
-  const cards = summary?.top_desirability_cards || summary?.topDesirabilityCards || [];
-  return Array.isArray(cards) ? cards.slice(0, 3) : [];
-}
-
 function formatDriverScore(value) {
   const parsed = toNumber(value);
   return parsed === null ? null : parsed.toFixed(1);
 }
 
-function getDriverSubject(driver) {
-  return driver?.matched_pokemon || driver?.matchedPokemon || driver?.matched_subject || driver?.matchedSubject || null;
-}
-
-function getTopFeaturedSubjects(summary, drivers = []) {
-  const subjects = [];
-  const addSubject = (value) => {
-    const text = String(value || "").trim();
-    if (!text || subjects.includes(text)) {
-      return;
-    }
-    subjects.push(text);
-  };
-
-  if (Array.isArray(drivers)) {
-    drivers.forEach((driver) => addSubject(getDriverSubject(driver)));
-  }
-
-  if (subjects.length > 0) {
-    return subjects;
-  }
-
-  const pokemonRows = summary?.top_desirability_pokemon || summary?.topDesirabilityPokemon || [];
-  if (Array.isArray(pokemonRows)) {
-    pokemonRows.forEach((row) => addSubject(row?.pokemon_name || row?.pokemonName || row?.matched_subject || row?.matchedSubject));
-  }
-
-  return subjects;
-}
-
-function averageAvailableScores(values = []) {
-  const parsed = values.map(toNumber).filter((value) => value !== null);
-  if (parsed.length === 0) {
+function normalizeCollectorAppealDriverCard(card) {
+  if (!card || typeof card !== "object") {
     return null;
   }
-  return parsed.reduce((sum, value) => sum + value, 0) / parsed.length;
+
+  const linkedPokemonSource = card.linkedPokemon || card.linked_pokemon || [];
+  const linkedPokemon = Array.isArray(linkedPokemonSource)
+    ? linkedPokemonSource
+        .map((entry) => ({
+          pokemonName: entry?.pokemonName || entry?.pokemon_name || entry?.name || null,
+          pokemonReferenceId: toNumber(entry?.pokemonReferenceId ?? entry?.pokemon_reference_id),
+        }))
+        .filter((entry) => entry.pokemonName || entry.pokemonReferenceId !== null)
+    : [];
+
+  const normalized = {
+    name: card.name || card.card_name || card.cardName || null,
+    printedNumber:
+      card.printedNumber ||
+      card.printed_number ||
+      card.card_number ||
+      card.cardNumber ||
+      card.number ||
+      null,
+    rarity: card.rarity || null,
+    cardDesirabilityScore:
+      toNumber(
+        card.cardDesirabilityScore ??
+          card.card_desirability_score ??
+          card.desirability_score ??
+          card.desirabilityScore
+      ),
+    linkedPokemon,
+    imageUrl: card.imageUrl || card.image_url || null,
+    imageSmallUrl: card.imageSmallUrl || card.image_small_url || null,
+    imageLargeUrl: card.imageLargeUrl || card.image_large_url || null,
+    marketPrice:
+      toNumber(
+        card.marketPrice ??
+          card.market_price ??
+          card.current_near_mint_price ??
+          card.currentNearMintPrice
+      ),
+    favoriteScore: toNumber(card.favoriteScore ?? card.favorite_score ?? card.fanScore ?? card.fan_score),
+    trendScore: toNumber(card.trendScore ?? card.trend_score),
+    matchedPokemon: card.matchedPokemon || card.matched_pokemon || card.matchedSubject || card.matched_subject || null,
+  };
+
+  return normalized.name ? normalized : null;
 }
 
-function getDesirabilityOverviewMetrics(summary, displayedScore, drivers = []) {
-  const overviewRows = [
+function getTopCollectorAppealDrivers(explorePayload, summary, openingPayload) {
+  const candidateLists = [
+    openingPayload?.topCollectorAppealDrivers,
+    explorePayload?.openingDesirability?.topCollectorAppealDrivers,
+    openingPayload?.collectorAppealDrivers,
+    explorePayload?.topCollectorAppealDrivers,
+    explorePayload?.collectorAppealDrivers,
+    summary?.top_collector_appeal_drivers,
+    summary?.topCollectorAppealDrivers,
+    summary?.top_desirability_cards,
+    summary?.topDesirabilityCards,
+    summary?.desirabilityDrivers,
+  ];
+
+  for (const list of candidateLists) {
+    if (!Array.isArray(list) || list.length === 0) {
+      continue;
+    }
+    const normalized = list.map(normalizeCollectorAppealDriverCard).filter(Boolean);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return [];
+}
+
+function formatScoreWithOptionalRank(score, rank, { unavailableLabel = "—" } = {}) {
+  const parsedScore = toNumber(score);
+  if (parsedScore === null) {
+    return unavailableLabel;
+  }
+
+  const parsedRank = toNumber(rank);
+  if (parsedRank === null) {
+    return parsedScore.toFixed(1);
+  }
+
+  return `${parsedScore.toFixed(1)} · Rank #${Math.round(parsedRank)}`;
+}
+
+function isMissingChaseDataState(openingPayload) {
+  const status = String(openingPayload?.displayStatus || "").toLowerCase();
+  const dataQuality = String(openingPayload?.chaseAppealDataQuality || "").toLowerCase();
+
+  return (
+    status === "collector_only" ||
+    status === "insufficient_chase_data" ||
+    status === "missing_chase_data" ||
+    status === "no_chase_data" ||
+    dataQuality === "missing" ||
+    dataQuality === "insufficient" ||
+    dataQuality === "unavailable"
+  );
+}
+
+function getDesirabilityOverviewMetrics(openingPayload) {
+  const payload = openingPayload || {};
+  const needsChaseData = isMissingChaseDataState(payload);
+
+  const chaseValue =
+    toNumber(payload?.chaseAppealScore) === null && needsChaseData
+      ? "Needs chase data"
+      : formatScoreWithOptionalRank(payload?.chaseAppealScore, payload?.chaseAppealRank);
+
+  return [
     {
-      label: "How It Works",
-      value: null,
-      content: (
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-          Opening Desirability combines collector interest with chase-card appeal. Collector Appeal remains independent of current market price.
-        </p>
-      ),
+      label: "Collector Appeal",
+      value: formatScoreWithOptionalRank(payload?.collectorAppealScore, payload?.collectorAppealRank),
+      infoText:
+        "Collector Appeal reflects pure collector demand for the Pokémon and card subjects in this set, independent of current market price.",
+      trend: null,
+    },
+    {
+      label: "Chase Appeal",
+      value: chaseValue,
+      infoText:
+        "Chase Appeal reflects the strength, depth, and upside of the set's meaningful chase cards.",
       trend: null,
     },
   ];
-  const metrics = [];
-
-  if (toNumber(displayedScore) !== null) {
-    metrics.push({
-      label: "Opening Desirability",
-      value: formatScore(displayedScore),
-      trend: null,
-    });
-  }
-
-  const featuredSubjects = getTopFeaturedSubjects(summary, drivers);
-  if (featuredSubjects.length > 0) {
-    metrics.push({
-      label: "Top Featured Pokemon",
-      value: featuredSubjects.slice(0, 3).join(", "),
-      trend: null,
-    });
-  }
-
-  if (featuredSubjects.length > 0) {
-    metrics.push({
-      label: "Unique Appeal Drivers",
-      value: String(featuredSubjects.length),
-      trend: null,
-    });
-  }
-
-  if (metrics.length < 3) {
-    const favoriteAppeal = averageAvailableScores(
-      drivers.map((driver) => driver?.favorite_score ?? driver?.favoriteScore ?? driver?.fan_score ?? driver?.fanScore)
-    );
-    if (favoriteAppeal !== null) {
-      metrics.push({
-        label: "Favorite Pokemon Appeal",
-        value: formatDriverScore(favoriteAppeal),
-        trend: null,
-      });
-    }
-  }
-
-  if (metrics.length < 3) {
-    const trendAppeal = averageAvailableScores(drivers.map((driver) => driver?.trend_score ?? driver?.trendScore));
-    if (trendAppeal !== null) {
-      metrics.push({
-        label: "Trend Appeal",
-        value: formatDriverScore(trendAppeal),
-        trend: null,
-      });
-    }
-  }
-
-  return [...overviewRows, ...metrics.slice(0, 3)];
 }
 
 function normalizeOpeningDesirabilityPayload(payload) {
   if (!payload || typeof payload !== "object") {
     return null;
   }
+  const topCollectorAppealDrivers = [
+    payload.topCollectorAppealDrivers,
+    payload.top_collector_appeal_drivers,
+    payload.collectorAppealDrivers,
+    payload.collector_appeal_drivers,
+    payload.desirabilityDrivers,
+    payload.desirability_drivers,
+    payload.topDesirableCards,
+    payload.top_desirable_cards,
+  ].find((value) => Array.isArray(value));
+
   return {
     openingDesirabilityScore: toNumber(payload.openingDesirabilityScore ?? payload.opening_desirability_score),
     openingDesirabilityRank: toNumber(payload.openingDesirabilityRank ?? payload.opening_desirability_rank),
@@ -907,73 +942,59 @@ function normalizeOpeningDesirabilityPayload(payload) {
     summary: payload.summary ?? "",
     tooltipCopy: payload.tooltipCopy ?? payload.tooltip_copy ?? {},
     builtAt: payload.builtAt ?? payload.built_at ?? null,
+    topCollectorAppealDrivers: Array.isArray(topCollectorAppealDrivers)
+      ? topCollectorAppealDrivers.map(normalizeCollectorAppealDriverCard).filter(Boolean)
+      : [],
   };
 }
 
-function formatOpeningScoreWithRank(score, rank, unavailableText = "Unavailable") {
-  const parsedScore = toNumber(score);
-  if (parsedScore === null) {
-    return unavailableText;
+function getCollectorDriverSubjects(card) {
+  if (!card || !Array.isArray(card.linkedPokemon)) {
+    return [];
   }
-  const parsedRank = toNumber(rank);
-  const rankText = parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`;
-  return `${parsedScore.toFixed(1)} / 100 | ${rankText}`;
+
+  const names = card.linkedPokemon
+    .map((entry) => String(entry?.pokemonName || "").trim())
+    .filter(Boolean);
+
+  return [...new Set(names)];
 }
 
-function OpeningDesirabilityCard({ openingDesirability }) {
-  const payload = normalizeOpeningDesirabilityPayload(openingDesirability);
-  const tooltipCopy = payload?.tooltipCopy || {};
-  const isCollectorOnly =
-    payload?.displayStatus === "collector_only" ||
-    (payload?.openingDesirabilityScore === null && payload?.collectorAppealScore !== null);
-
-  const rows = [
-    {
-      label: "Collector Appeal",
-      value: formatOpeningScoreWithRank(payload?.collectorAppealScore, payload?.collectorAppealRank),
-      info: tooltipCopy.collector_appeal,
-    },
-    {
-      label: "Chase Appeal",
-      value: formatOpeningScoreWithRank(payload?.chaseAppealScore, payload?.chaseAppealRank, "Needs chase data"),
-      info: tooltipCopy.chase_appeal,
-    },
-  ];
+function CollectorAppealDriverRow({ card, index }) {
+  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const name = card?.name || "Unknown card";
+  const printedNumber = card?.printedNumber || null;
+  const rarity = card?.rarity || null;
+  const subjects = getCollectorDriverSubjects(card);
+  const cardAppeal = formatDriverScore(card?.cardDesirabilityScore);
 
   return (
-    <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">Opening Desirability</h3>
-            {tooltipCopy.opening_desirability ? <InfoPopover text={tooltipCopy.opening_desirability} /> : null}
-          </div>
-          <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
-            {formatOpeningScoreWithRank(
-              payload?.openingDesirabilityScore,
-              payload?.openingDesirabilityRank,
-              isCollectorOnly ? "Needs chase data" : "Unavailable"
-            )}
-          </p>
-          {payload?.summary ? (
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">{payload.summary}</p>
+    <article className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.62)] p-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-14 w-10 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)]">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">
-              Opening Desirability is not available for this set yet.
-            </p>
+            <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+              {getCardInitials(name)}
+            </span>
           )}
         </div>
-
-        <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:min-w-[26rem]">
-          {rows.map((row) => (
-            <div key={row.label} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 p-3">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{row.label}</p>
-                {row.info ? <InfoPopover text={row.info} /> : null}
-              </div>
-              <p className="mt-1.5 text-sm font-semibold text-[var(--text-primary)]">{row.value}</p>
-            </div>
-          ))}
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">
+            {index + 1}. {name}
+          </p>
+          <p className="text-xs text-[var(--text-secondary)]">
+            {[rarity, printedNumber].filter(Boolean).join(" · ") || "Card details unavailable"}
+          </p>
+          <p className="text-xs text-[var(--text-secondary)]">Pokémon Appeal: {cardAppeal || "—"}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Subject: {subjects.length > 0 ? subjects.join(", ") : "—"}</p>
         </div>
       </div>
     </article>
@@ -981,65 +1002,23 @@ function OpeningDesirabilityCard({ openingDesirability }) {
 }
 
 function TopDesirabilityDrivers({ drivers = [] }) {
-  const cards = Array.isArray(drivers) ? drivers.slice(0, 3) : [];
+  const cards = Array.isArray(drivers)
+    ? drivers.map(normalizeCollectorAppealDriverCard).filter(Boolean).slice(0, 3)
+    : [];
 
   if (cards.length === 0) {
-    return <p className="text-sm text-[var(--text-secondary)]">Top Collector Appeal drivers are not available yet.</p>;
+    return <p className="text-sm text-[var(--text-secondary)]">Top Collector Appeal drivers are not available for this set yet.</p>;
   }
 
   return (
     <div className="space-y-2.5">
-      {cards.map((driver, index) => {
-        const cardName = driver?.card_name || driver?.cardName || "Unknown card";
-        const matchedSubject = getDriverSubject(driver);
-        const desirabilityScore = formatDriverScore(driver?.desirability_score ?? driver?.desirabilityScore);
-        const favoriteScore = formatDriverScore(
-          driver?.favorite_score ?? driver?.favoriteScore ?? driver?.fan_score ?? driver?.fanScore
-        );
-        const trendScore = formatDriverScore(driver?.trend_score ?? driver?.trendScore);
-        const rarity = driver?.rarity ? String(driver.rarity) : null;
-        const cardNumber = driver?.card_number || driver?.cardNumber || driver?.printed_number || driver?.printedNumber || null;
-        const notableHitCount = toNumber(driver?.notable_hit_count ?? driver?.notableHitCount);
-
-        return (
-          <div
-            key={`${cardName}-${matchedSubject || "subject"}-${index}`}
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{cardName}</p>
-                {matchedSubject ? (
-                  <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Featured Pokemon: {matchedSubject}</p>
-                ) : null}
-                {rarity || cardNumber ? (
-                  <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                    {[rarity, cardNumber].filter(Boolean).join(" / ")}
-                  </p>
-                ) : null}
-              </div>
-              {desirabilityScore ? (
-                <span className="flex-none rounded-full border border-[rgba(94,234,212,0.18)] bg-[rgba(20,184,166,0.1)] px-2 py-1 text-xs font-semibold text-[var(--accent)]">
-                  {desirabilityScore}
-                </span>
-              ) : null}
-            </div>
-            {favoriteScore || trendScore ? (
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-[var(--text-secondary)]">
-                {favoriteScore ? (
-                  <span className="rounded-full bg-[rgba(255,255,255,0.045)] px-2 py-1">Fan appeal {favoriteScore}</span>
-                ) : null}
-                {trendScore ? (
-                  <span className="rounded-full bg-[rgba(255,255,255,0.045)] px-2 py-1">Trend appeal {trendScore}</span>
-                ) : null}
-                {notableHitCount && notableHitCount > 1 ? (
-                  <span className="rounded-full bg-[rgba(255,255,255,0.045)] px-2 py-1">{Math.round(notableHitCount)} notable hits</span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
+      {cards.map((card, index) => (
+        <CollectorAppealDriverRow
+          key={`${card?.name || "driver"}-${card?.printedNumber || index}`}
+          card={card}
+          index={index}
+        />
+      ))}
     </div>
   );
 }
@@ -2648,7 +2627,13 @@ export default function RipStatisticsPageClient({
   const topHits = explorePayload?.top_hits || [];
   const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
-  const openingDesirability = explorePayload?.openingDesirability || explorePayload?.opening_desirability || null;
+  const normalizedOpeningDesirability = useMemo(
+    () =>
+      normalizeOpeningDesirabilityPayload(
+        explorePayload?.openingDesirability || explorePayload?.opening_desirability
+      ),
+    [explorePayload?.openingDesirability, explorePayload?.opening_desirability]
+  );
   const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
@@ -3072,12 +3057,12 @@ export default function RipStatisticsPageClient({
   const displayedStabilityScore =
     toNumber(summary.relative_stability_score) ?? toNumber(summary.stability_score);
   const desirabilitySummary = getDesirabilitySummary(summary);
-  const topDesirabilityCards = getTopDesirabilityCards(summary);
-  const desirabilityOverviewMetrics = getDesirabilityOverviewMetrics(
+  const topDesirabilityCards = getTopCollectorAppealDrivers(
+    explorePayload,
     summary,
-    displayedDesirabilityScore,
-    topDesirabilityCards
+    normalizedOpeningDesirability
   );
+  const desirabilityOverviewMetrics = getDesirabilityOverviewMetrics(normalizedOpeningDesirability);
   const heroLogoUrl =
     selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
 
@@ -4033,7 +4018,7 @@ export default function RipStatisticsPageClient({
                               fallbackSummary={interpretation?.safety}
                             />
                             <SimplePillarSummaryCard
-                              title="Opening Desirability"
+                              title="Desirability"
                               rankTier={summary.desirability_tier}
                               infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
                               sectionMeta={desirabilityMeta}
@@ -4159,7 +4144,6 @@ export default function RipStatisticsPageClient({
 
             {effectiveViewMode === "expert" ? (
             <section id={setDetailMode ? "set-detail-analytics" : undefined} className="scroll-mt-24 space-y-4 pt-4 md:scroll-mt-28">
-              {setDetailMode ? <OpeningDesirabilityCard openingDesirability={openingDesirability} /> : null}
               <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
                 {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
@@ -4208,15 +4192,15 @@ export default function RipStatisticsPageClient({
                   ]}
                 />
                 <ScorePillarCard
-                  title="Opening Desirability"
+                  title="Desirability"
                   score={displayedDesirabilityScore}
                   scoreTrend={trendByMetricKey.desirabilityScore}
                   rankValue={summary.desirability_rank}
                   rankTier={summary.desirability_tier}
-                  rankLabel="Opening Desirability Rank"
+                  rankLabel="Desirability Rank"
                   sectionMeta={desirabilityMeta}
                   fallbackSummary={desirabilitySummary}
-                  infoText={getFormattedTooltip("Desirability")}
+                  infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
                   simpleMetrics={desirabilityOverviewMetrics}
                   advancedMetrics={[
                     {

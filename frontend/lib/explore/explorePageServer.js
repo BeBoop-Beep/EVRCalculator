@@ -52,6 +52,7 @@ function normalisePayload(payload) {
       : [],
     top_hits: Array.isArray(payload?.top_hits) ? payload.top_hits : [],
     history_trend: Array.isArray(payload?.history_trend) ? payload.history_trend : [],
+    openingDesirability: payload?.openingDesirability || payload?.opening_desirability || null,
     pull_rate_assumptions: payload?.pull_rate_assumptions || payload?.pullRateAssumptions || null,
     interpretation: payload?.interpretation || {},
     meta: payload?.meta || { warnings: [], timings: {}, sources: {} },

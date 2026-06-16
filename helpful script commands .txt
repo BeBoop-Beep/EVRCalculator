@@ -16,6 +16,8 @@ http://localhost:8000/docs#/
 python backend/scripts/run_pokemon_set_scrape.py --run
 run data scrape era:
 python backend/scripts/run_pokemon_set_scrape.py --run --era scarletAndVioletEra
+run data scrape set:
+python backend/scripts/run_pokemon_set_scrape.py --run --set chaosRising
 
 
 ----------------------------
@@ -27,6 +29,7 @@ python backend/scripts/run_all_v2_sets.py
 ----------------------------
 run sync images script:
 ----------------------------
+run for set:
 python backend/scripts/sync_pokemon_images.py --sets "Prismatic Evolutions" 
 python backend/scripts/sync_pokemon_images.py --sets "Temporal Forces" --apply
 main sync images run:
@@ -158,3 +161,110 @@ from pokemon_desirability_composite_scores
 where scoring_version = 'pokemon_desirability_composite_v1'
 order by desirability_rank
 limit 25;
+
+
+----------------------------
+set-level desirability input rebuild (new set safe rerun)
+----------------------------
+Use this when cards are already in public.cards but canonical/desirability set rows are missing or stale.
+
+single set dry-run (default):
+python backend/scripts/build_pokemon_set_desirability_inputs.py --set chaosRising --log-level INFO
+
+single set commit:
+python backend/scripts/build_pokemon_set_desirability_inputs.py --set chaosRising --commit --log-level INFO
+
+all sets dry-run:
+python backend/scripts/build_pokemon_set_desirability_inputs.py --all --log-level INFO
+
+all sets commit:
+python backend/scripts/build_pokemon_set_desirability_inputs.py --all --commit --log-level INFO
+
+This script chains:
+1) pokemon_canonical_cards fallback upsert from public.cards (source='tcgplayer_cards_fallback')
+2) pokemon_card_desirability_links builder
+3) pokemon_set_hit_desirability_summaries builder
+4) pokemon_set_desirability_component_scores builder
+5) pokemon_set_opening_desirability_scores persistence (idempotent snapshot guard)
+
+Pre/post coverage query (replace canonical key as needed):
+select
+  s.name as set_name,
+  s.canonical_key,
+  count(distinct c.id) as cards_rows,
+  count(distinct pcc.id) as canonical_cards_rows,
+  count(distinct pcdl.id) as desirability_link_rows,
+  count(distinct pcdl.pokemon_reference_id) as linked_pokemon_count
+from public.sets s
+left join public.cards c on c.set_id = s.id
+left join public.pokemon_canonical_cards pcc on pcc.set_id = s.id
+left join public.pokemon_card_desirability_links pcdl on pcdl.pokemon_canonical_card_id = pcc.id
+where s.canonical_key = 'chaosRising'
+group by s.name, s.canonical_key;
+
+Duplicate canonical guardrail:
+select set_id, number, name, count(*) as dup_count
+from public.pokemon_canonical_cards
+where set_id = (select id from public.sets where canonical_key = 'chaosRising')
+group by set_id, number, name
+having count(*) > 1;
+
+Duplicate API card id guardrail:
+select pokemon_tcg_api_card_id, count(*) as dup_count
+from public.pokemon_canonical_cards
+where set_id = (select id from public.sets where canonical_key = 'chaosRising')
+group by pokemon_tcg_api_card_id
+having count(*) > 1;
+
+Forbidden trainer/item/energy link guardrail (should return zero rows):
+select
+  pcc.name,
+  count(pcdl.id) as link_count
+from public.pokemon_canonical_cards pcc
+left join public.pokemon_card_desirability_links pcdl
+  on pcdl.pokemon_canonical_card_id = pcc.id
+where pcc.set_id = (select id from public.sets where canonical_key = 'chaosRising')
+  and pcc.name in (
+    'Great Haul Net',
+    'AZ''s Tranquility',
+    'Energy Retrieval',
+    'Special Red Card',
+    'Bubbly W Energy',
+    'Magnetic M Energy',
+    'Nitro R Energy'
+  )
+group by pcc.name
+having count(pcdl.id) > 0;
+
+Required Pokemon link spot-check:
+select
+  pcc.name,
+  count(pcdl.id) as link_count
+from public.pokemon_canonical_cards pcc
+left join public.pokemon_card_desirability_links pcdl
+  on pcdl.pokemon_canonical_card_id = pcc.id
+where pcc.set_id = (select id from public.sets where canonical_key = 'chaosRising')
+  and pcc.name in (
+    'Mega Greninja ex',
+    'Mega Floette ex',
+    'Mega Pyroar ex',
+    'Mega Dragalge ex',
+    'Cobalion ex',
+    'Cinccino ex',
+    'Gourgeist ex',
+    'Keldeo',
+    'Deoxys',
+    'Meowstic',
+    'Pumpkaboo'
+  )
+group by pcc.name
+order by pcc.name;
+
+
+---------------------------
+new set flow
+---------------------------
+update constants lib with file and set mapping in respective era
+python backend/scripts/run_pokemon_set_scrape.py --run --set <setKey>
+python backend/scripts/build_pokemon_set_desirability_inputs.py --set <setKey> --commit --log-level INFO
+python backend/scripts/run_all_v2_sets.py --set "<Set Name>"

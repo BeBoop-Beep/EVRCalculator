@@ -71,6 +71,25 @@ class RipDesirabilityPrototypeRepository:
             .order("built_at", desc=True)
         )
 
+    def list_v2_rows_any_version(self) -> List[Dict[str, Any]]:
+        return _paged_select(
+            self.client.table("pokemon_set_desirability_component_scores")
+            .select(
+                "id,set_id,set_name,set_canonical_key,set_desirability_score,"
+                "chase_subject_strength,chase_subject_depth,accessible_favorite_hits,"
+                "special_pack_chase_appeal,scoring_version,hit_policy_version,"
+                "composite_scoring_version,built_at,updated_at"
+            )
+            .order("built_at", desc=True)
+        )
+
+    def list_sets_metadata(self) -> List[Dict[str, Any]]:
+        return _paged_select(
+            self.client.table("sets")
+            .select("id,name,canonical_key,pokemon_api_set_id,release_date")
+            .order("release_date", desc=True)
+        )
+
     def list_latest_rip_rows(self) -> List[Dict[str, Any]]:
         return _paged_select(
             self.client.table("explore_rip_statistics_latest")
@@ -123,6 +142,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hit-policy-version", default=HIT_POLICY_VERSION)
     parser.add_argument("--composite-scoring-version", default=COMPOSITE_SCORING_VERSION)
     parser.add_argument(
+        "--debug-set",
+        default=None,
+        help="Optional set id/canonical key/name fragment for inclusion debugging.",
+    )
+    parser.add_argument(
         "--commit",
         action="store_true",
         help=(
@@ -148,6 +172,7 @@ def main() -> int:
         hit_policy_version=args.hit_policy_version,
         composite_scoring_version=args.composite_scoring_version,
         limit=args.limit,
+        debug_set=args.debug_set,
     )
     persistence = maybe_persist_opening_desirability(
         report=report,
@@ -181,21 +206,34 @@ def build_report(
     hit_policy_version: str,
     composite_scoring_version: str,
     limit: Optional[int] = None,
+    debug_set: Optional[str] = None,
 ) -> Dict[str, Any]:
-    v2_by_set = _latest_by_set_id(
-        repository.list_v2_rows(
-            scoring_version=scoring_version,
-            hit_policy_version=hit_policy_version,
-            composite_scoring_version=composite_scoring_version,
-        )
+    exact_v2_rows = repository.list_v2_rows(
+        scoring_version=scoring_version,
+        hit_policy_version=hit_policy_version,
+        composite_scoring_version=composite_scoring_version,
+    )
+    fallback_v2_rows = repository.list_v2_rows_any_version()
+    sets_rows = repository.list_sets_metadata()
+
+    v2_by_set = _resolve_v2_rows_by_set(
+        exact_rows=exact_v2_rows,
+        fallback_rows=fallback_v2_rows,
+        sets_rows=sets_rows,
     )
     rip_by_set = _latest_by_set_id(repository.list_latest_rip_rows())
+    rip_by_key = _latest_by_canonical_key(repository.list_latest_rip_rows(), key_field="canonical_key")
+    sets_by_id = _sets_by_id(sets_rows)
+    sets_by_key = _sets_by_canonical_key(sets_rows)
+
     run_ids = [str(row.get("calculation_run_id")) for row in rip_by_set.values() if row.get("calculation_run_id")]
     cards_by_run = repository.list_top_simulation_cards_for_runs(run_ids)
 
     rows: List[Dict[str, Any]] = []
     for set_id, v2_row in v2_by_set.items():
-        rip_row = rip_by_set.get(set_id, {})
+        set_meta = sets_by_id.get(set_id, {})
+        row_key = _canonical_key(v2_row.get("set_canonical_key") or set_meta.get("canonical_key"))
+        rip_row = rip_by_set.get(set_id) or (rip_by_key.get(row_key) if row_key else {}) or {}
         run_id = str(rip_row.get("calculation_run_id") or "")
         top_values = _top_value_inputs(cards_by_run.get(run_id, []))
         monetary_inputs = {
@@ -211,8 +249,12 @@ def build_report(
         rows.append(
             {
                 "set_id": set_id,
-                "set_name": v2_row.get("set_name") or rip_row.get("set_name"),
-                "set_canonical_key": v2_row.get("set_canonical_key") or rip_row.get("canonical_key"),
+                "set_name": v2_row.get("set_name") or set_meta.get("name") or rip_row.get("set_name"),
+                "set_canonical_key": (
+                    v2_row.get("set_canonical_key")
+                    or set_meta.get("canonical_key")
+                    or rip_row.get("canonical_key")
+                ),
                 "v2_component_row_id": v2_row.get("id"),
                 "v2_built_at": v2_row.get("built_at"),
                 "calculation_run_id": run_id or None,
@@ -265,6 +307,13 @@ def build_report(
         )
 
     output_rows = rows[:limit] if limit is not None else rows
+    debug_matches = _debug_set_matches(
+        debug_set=debug_set,
+        rows=rows,
+        sets_rows=sets_rows,
+        exact_v2_rows=exact_v2_rows,
+        fallback_v2_rows=fallback_v2_rows,
+    )
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "read_only": True,
@@ -279,7 +328,16 @@ def build_report(
             "composite_scoring_version": composite_scoring_version,
             "opening_desirability_scoring_version": RIP_DESIRABILITY_SCORING_VERSION,
             "limit": limit,
+            "debug_set": debug_set,
         },
+        "input_counts": {
+            "sets_metadata": len(sets_rows),
+            "v2_exact": len(exact_v2_rows),
+            "v2_any_version": len(fallback_v2_rows),
+            "rip_latest": len(rip_by_set),
+            "rows_built_before_limit": len(rows),
+        },
+        "debug_set_matches": debug_matches,
         "rows": output_rows,
     }
 
@@ -292,6 +350,13 @@ def maybe_persist_opening_desirability(
     scoring_version: str,
 ) -> Dict[str, Any]:
     rows = list(report.get("rows") or [])
+    limit = ((report.get("parameters") or {}).get("limit"))
+    if commit and limit is not None:
+        raise ValueError(
+            "Refusing to commit Opening Desirability ranks from a partial set run. "
+            "Run the builder globally with no set filter."
+        )
+
     if not commit:
         return {
             "committed": False,
@@ -487,6 +552,101 @@ def _latest_by_set_id(rows: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any
         if current is None or row_time > current_time:
             latest[set_id] = row
     return latest
+
+
+def _latest_by_canonical_key(rows: Sequence[Dict[str, Any]], *, key_field: str) -> Dict[str, Dict[str, Any]]:
+    latest: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        key = _canonical_key(row.get(key_field))
+        if not key:
+            continue
+        current = latest.get(key)
+        row_time = str(row.get("built_at") or row.get("run_at") or row.get("updated_at") or "")
+        current_time = str((current or {}).get("built_at") or (current or {}).get("run_at") or (current or {}).get("updated_at") or "")
+        if current is None or row_time > current_time:
+            latest[key] = row
+    return latest
+
+
+def _sets_by_id(sets_rows: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    return {
+        str(row.get("id")): row
+        for row in sets_rows
+        if row.get("id") is not None
+    }
+
+
+def _sets_by_canonical_key(sets_rows: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    mapped: Dict[str, Dict[str, Any]] = {}
+    for row in sets_rows:
+        key = _canonical_key(row.get("canonical_key"))
+        if key:
+            mapped[key] = row
+    return mapped
+
+
+def _resolve_v2_rows_by_set(
+    *,
+    exact_rows: Sequence[Dict[str, Any]],
+    fallback_rows: Sequence[Dict[str, Any]],
+    sets_rows: Sequence[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    sets_by_key = _sets_by_canonical_key(sets_rows)
+    selected: Dict[str, Dict[str, Any]] = {}
+
+    def upsert(row: Dict[str, Any]) -> None:
+        resolved_set_id = str(row.get("set_id") or "")
+        if not resolved_set_id:
+            set_by_key = sets_by_key.get(_canonical_key(row.get("set_canonical_key")) or "")
+            resolved_set_id = str((set_by_key or {}).get("id") or "")
+        if not resolved_set_id:
+            return
+        current = selected.get(resolved_set_id)
+        row_time = str(row.get("built_at") or row.get("updated_at") or "")
+        current_time = str((current or {}).get("built_at") or (current or {}).get("updated_at") or "")
+        if current is None or row_time > current_time:
+            selected[resolved_set_id] = row
+
+    for row in fallback_rows:
+        upsert(row)
+    for row in exact_rows:
+        upsert(row)
+    return selected
+
+
+def _debug_set_matches(
+    *,
+    debug_set: Optional[str],
+    rows: Sequence[Dict[str, Any]],
+    sets_rows: Sequence[Dict[str, Any]],
+    exact_v2_rows: Sequence[Dict[str, Any]],
+    fallback_v2_rows: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if not debug_set:
+        return {}
+    needle = str(debug_set).strip().lower()
+
+    def match(row: Dict[str, Any]) -> bool:
+        fields = [
+            str(row.get("set_id") or ""),
+            str(row.get("set_name") or row.get("name") or ""),
+            str(row.get("set_canonical_key") or row.get("canonical_key") or ""),
+            str(row.get("id") or ""),
+        ]
+        return any(needle in field.lower() for field in fields)
+
+    return {
+        "sets": [row for row in sets_rows if match(row)],
+        "v2_exact": [row for row in exact_v2_rows if match(row)],
+        "v2_any_version": [row for row in fallback_v2_rows if match(row)],
+        "output_rows": [row for row in rows if match(row)],
+    }
+
+
+def _canonical_key(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip().lower()
 
 
 def _add_rank(rows: List[Dict[str, Any]], score_field: str, rank_field: str) -> None:
