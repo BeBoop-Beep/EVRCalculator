@@ -69,7 +69,7 @@ function estimateAverageLoss(target) {
 }
 
 function buildRipLink(target) {
-  return buildTcgSetHrefFromTarget(target);
+  return buildTcgSetHrefFromTarget(target, { tab: "insights", section: "rip-score" });
 }
 
 function getLeaderboardRecommendationLabel(target) {

@@ -212,7 +212,7 @@ export default async function SetsPage() {
                           const releaseDateText = toDisplayDate(setSummary?.releaseDate ?? null);
                           const setImageUrl = getSetImageUrl(setSummary);
                           const slug = toSetSlug(setName, setSummary?.slug || setSummary?.id);
-                          const setHref = slug ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}` : "/TCGs/Pokemon/Sets";
+                          const setHref = slug ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}?tab=cards` : "/TCGs/Pokemon/Sets";
 
                           return (
                             <Link

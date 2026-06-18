@@ -250,9 +250,14 @@ function RatioPointLabel({ x, y, value, fillColor, dy = -10 }) {
 }
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
-function EmptyTrendState() {
+function EmptyTrendState({ flush = false }) {
   return (
-    <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-6 py-10 text-center">
+    <div className={[
+      "flex min-h-[24rem] flex-col items-center justify-center rounded-xl px-6 py-10 text-center",
+      flush
+        ? "border border-dashed border-[rgba(255,255,255,0.06)] bg-transparent"
+        : "border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60",
+    ].join(" ")}>
       <p className="max-w-md text-sm text-[var(--text-secondary)]">
         Historical trend will appear after multiple daily simulation snapshots.
       </p>
@@ -283,7 +288,7 @@ function LegendToggle({ active, onToggle, activeColor, inactiveColor, label }) {
 }
 
 // ─── Main chart ───────────────────────────────────────────────────────────────
-export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null }) {
+export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null, flush = false }) {
   const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
   const [showP95Line,    setShowP95Line]    = useState(true);
@@ -361,11 +366,11 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
   }, [packCost]);
 
   if (chartData.length < 2) {
-    return <EmptyTrendState />;
+    return <EmptyTrendState flush={flush} />;
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5">
+    <div className={flush ? "space-y-4" : "rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Historical Pack Value vs Cost</p>

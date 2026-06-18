@@ -52,6 +52,11 @@ from backend.db.services.pokemon_set_cards_service import (
     PokemonSetCardsError,
     get_pokemon_set_cards_payload,
 )
+from backend.db.services.pokemon_set_market_service import (
+    PokemonSetMarketError,
+    get_pokemon_set_top_market_cards_payload,
+    get_pokemon_set_value_history_payload,
+)
 
 
 app = FastAPI(title="EVR Collection API")
@@ -604,5 +609,47 @@ def get_pokemon_set_cards(set_id: str):
         logger.exception("/tcgs/pokemon/sets/%s/cards unexpected error", set_id)
         return JSONResponse(
             content={"message": "Unable to load Pokemon set cards", "code": "POKEMON_SET_CARDS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/top-cards")
+def get_pokemon_set_top_market_cards(
+    set_id: str,
+    limit: Optional[str] = Query(default=None),
+):
+    """Return highest-priced real market cards for a Pokemon set."""
+    try:
+        return get_pokemon_set_top_market_cards_payload(set_id=set_id, limit=limit)
+    except PokemonSetMarketError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/top-cards unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set market cards", "code": "POKEMON_SET_TOP_MARKET_CARDS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/value-history")
+def get_pokemon_set_value_history(
+    set_id: str,
+    days: Optional[str] = Query(default=None),
+):
+    """Return historical real set value snapshots for a Pokemon set."""
+    try:
+        return get_pokemon_set_value_history_payload(set_id=set_id, days=days)
+    except PokemonSetMarketError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/value-history unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set value history", "code": "POKEMON_SET_VALUE_HISTORY_FAILED"},
             status_code=500,
         )

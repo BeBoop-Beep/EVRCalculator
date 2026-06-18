@@ -1,4 +1,5 @@
 from backend.db.services import pokemon_set_cards_service
+from backend.db.services import pokemon_set_market_service
 from backend.db.services import pokemon_sets_catalog_service
 
 
@@ -15,6 +16,7 @@ class _Query:
         self.select_fields = None
         self.eq_filters = []
         self.in_filters = []
+        self.gte_filters = []
         self.order_fields = []
         self.limit_value = None
         self.range_value = None
@@ -30,6 +32,10 @@ class _Query:
 
     def in_(self, field, values):
         self.in_filters.append((field, list(values)))
+        return self
+
+    def gte(self, field, value):
+        self.gte_filters.append((field, value))
         return self
 
     def order(self, field, desc=False):
@@ -178,3 +184,304 @@ def test_set_cards_payload_reads_canonical_checklist_rows(monkeypatch):
         "market_price": None,
         "tcgplayer_product_id": None,
     }
+
+
+def test_top_market_cards_use_latest_market_prices_not_simulation(monkeypatch):
+    handlers = {
+        "sets": lambda _query: [
+            {
+                "id": "set-1",
+                "name": "Market Set",
+                "canonical_key": "marketSet",
+                "pokemon_api_set_id": "sv-market",
+            }
+        ],
+        "pokemon_canonical_cards": lambda _query: [
+            {
+                "id": "canonical-1",
+                "set_id": "set-1",
+                "pokemon_tcg_api_card_id": "api-1",
+                "name": "Alpha",
+                "number": "1",
+                "printed_number": "1/100",
+                "rarity": "Common",
+                "image_small_url": "https://img.test/alpha.png",
+                "image_large_url": None,
+            },
+            {
+                "id": "canonical-2",
+                "set_id": "set-1",
+                "pokemon_tcg_api_card_id": "api-2",
+                "name": "Beta",
+                "number": "2",
+                "printed_number": "2/100",
+                "rarity": "Rare",
+                "image_small_url": "https://img.test/beta.png",
+                "image_large_url": None,
+            },
+            {
+                "id": "canonical-3",
+                "set_id": "set-1",
+                "pokemon_tcg_api_card_id": "api-3",
+                "name": "Gamma",
+                "number": "3",
+                "printed_number": "3/100",
+                "rarity": "Uncommon",
+                "image_small_url": None,
+                "image_large_url": None,
+            },
+        ],
+        "cards": lambda _query: [
+            {"id": "card-1", "set_id": "set-1", "name": "Alpha", "rarity": "Common", "card_number": "1/100", "pokemon_tcg_api_id": "api-1"},
+            {"id": "card-2", "set_id": "set-1", "name": "Beta", "rarity": "Rare", "card_number": "2/100", "pokemon_tcg_api_id": "api-2"},
+            {"id": "card-3", "set_id": "set-1", "name": "Gamma", "rarity": "Uncommon", "card_number": "3/100", "pokemon_tcg_api_id": "api-3"},
+        ],
+        "card_variants": lambda _query: [
+            {"id": "variant-1", "card_id": "card-1", "pokemon_tcg_api_id": "api-1", "image_small_url": None, "image_large_url": None},
+            {"id": "variant-2", "card_id": "card-2", "pokemon_tcg_api_id": "api-2", "image_small_url": None, "image_large_url": None},
+            {"id": "variant-3", "card_id": "card-3", "pokemon_tcg_api_id": "api-3", "image_small_url": None, "image_large_url": None},
+        ],
+        "conditions": lambda _query: [{"id": "condition-nm", "name": "Near Mint"}],
+        "card_market_usd_latest_by_condition": lambda _query: [
+            {
+                "variant_id": "variant-1",
+                "condition_id": "condition-nm",
+                "market_price": 12.5,
+                "source": "TCGPLAYER",
+                "captured_at": "2026-06-15T12:00:00+00:00",
+            },
+            {
+                "variant_id": "variant-2",
+                "condition_id": "condition-nm",
+                "market_price": 125.75,
+                "source": "TCGPLAYER",
+                "captured_at": "2026-06-16T12:00:00+00:00",
+            },
+            {
+                "variant_id": "variant-3",
+                "condition_id": "condition-nm",
+                "market_price": 0,
+                "source": "TCGPLAYER",
+                "captured_at": "2026-06-16T12:00:00+00:00",
+            },
+        ],
+    }
+    client = _Client(handlers)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10)
+
+    assert [card["name"] for card in payload["cards"]] == ["Beta", "Alpha"]
+    assert payload["cards"][0]["cardId"] == "canonical-2"
+    assert payload["cards"][0]["estimatedMarketPrice"] == 125.75
+    assert payload["cards"][0]["priceUpdatedAt"] == "2026-06-16T12:00:00+00:00"
+    assert payload["cards"][0]["source"] == "TCGPLAYER"
+    assert payload["cards"][0]["deltas"] == {
+        "1D": None,
+        "7D": None,
+        "30D": None,
+        "3M": None,
+        "6M": None,
+        "1Y": None,
+        "lifetime": None,
+    }
+    assert "simulation_input_cards_with_near_mint_price" not in {call.table_name for call in client.calls}
+
+
+def test_top_market_cards_prefer_latest_simulation_input_prices(monkeypatch):
+    handlers = {
+        "sets": lambda _query: [
+            {
+                "id": "set-1",
+                "name": "Market Set",
+                "canonical_key": "marketSet",
+                "pokemon_api_set_id": "sv-market",
+            }
+        ],
+        "calculation_runs": lambda _query: [
+            {
+                "id": "run-1",
+                "created_at": "2026-06-16T12:00:00+00:00",
+                "target_type": "set",
+                "target_id": "set-1",
+                "valuation_method": "combined",
+            }
+        ],
+        "simulation_input_cards": lambda _query: [
+            {
+                "card_id": "card-1",
+                "card_variant_id": "variant-1",
+                "condition_id": "condition-nm",
+                "card_name": "Alpha",
+                "rarity": "Common",
+                "rarity_bucket": "Common",
+                "price_source": "simulation",
+                "price_used": 10,
+                "captured_at": "2026-06-16T12:00:00+00:00",
+            },
+            {
+                "card_id": "card-2",
+                "card_variant_id": "variant-2",
+                "condition_id": "condition-nm",
+                "card_name": "Beta",
+                "rarity": "Rare",
+                "rarity_bucket": "Rare",
+                "price_source": "simulation",
+                "price_used": 125.75,
+                "captured_at": "2026-06-16T12:00:00+00:00",
+            },
+        ],
+        "card_variants": lambda _query: [
+            {"id": "variant-1", "card_id": "card-1", "pokemon_tcg_api_id": "api-1", "image_small_url": None, "image_large_url": None},
+            {"id": "variant-2", "card_id": "card-2", "pokemon_tcg_api_id": "api-2", "image_small_url": "https://img.test/beta.png", "image_large_url": None},
+        ],
+        "cards": lambda _query: [
+            {"id": "card-1", "set_id": "set-1", "name": "Alpha", "rarity": "Common", "card_number": "1/100", "pokemon_tcg_api_id": "api-1", "image_small_url": None, "image_large_url": None},
+            {"id": "card-2", "set_id": "set-1", "name": "Beta", "rarity": "Rare", "card_number": "2/100", "pokemon_tcg_api_id": "api-2", "image_small_url": None, "image_large_url": None},
+        ],
+        "card_variant_price_observations": lambda _query: [
+            {
+                "card_variant_id": "variant-1",
+                "condition_id": "condition-nm",
+                "market_price": 100,
+                "source": "TCGPLAYER",
+                "captured_at": "2026-06-15T08:00:00+00:00",
+                "captured_date": "2026-06-15",
+            },
+            {
+                "card_variant_id": "variant-2",
+                "condition_id": "condition-nm",
+                "market_price": 125.75,
+                "source": "TCGPLAYER",
+                "captured_at": "2026-06-15T08:00:00+00:00",
+                "captured_date": "2026-06-15",
+            },
+        ],
+    }
+    client = _Client(handlers)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10)
+
+    assert [card["name"] for card in payload["cards"]] == ["Beta", "Alpha"]
+    assert payload["cards"][0]["cardVariantId"] == "variant-2"
+    assert payload["cards"][0]["estimatedMarketPrice"] == 125.75
+    assert len(payload["cards"][0]["priceHistory"]) == 30
+    assert payload["cards"][0]["priceHistory"][0]["date"] == "2026-05-17"
+    assert payload["cards"][0]["priceHistory"][0]["marketPrice"] is None
+    assert payload["cards"][0]["priceHistory"][-1]["date"] == "2026-06-15"
+    assert payload["cards"][0]["priceHistory"][-1]["marketPrice"] == 125.75
+    assert payload["cards"][0]["historyDiagnostics"]["latestHistoryPrice"] == 125.75
+    assert payload["meta"]["asOfDate"] == "2026-06-15"
+    assert payload["meta"]["windowStart"] == "2026-05-17"
+    assert payload["meta"]["windowEnd"] == "2026-06-15"
+    assert payload["meta"]["windowDays"] == 30
+    assert payload["meta"]["priceBasis"] == "latest combined simulation_input_cards.price_used with matching simulation_input_cards.condition_id for trends"
+
+
+def test_set_value_history_uses_simulation_derived_metrics(monkeypatch):
+    handlers = {
+        "sets": lambda _query: [
+            {
+                "id": "set-1",
+                "name": "Market Set",
+                "canonical_key": "marketSet",
+                "pokemon_api_set_id": "sv-market",
+            },
+        ],
+        "calculation_runs": lambda _query: [
+            {
+                "id": "run-1",
+                "created_at": "2026-06-15T08:00:00+00:00",
+                "target_type": "set",
+                "target_id": "set-1",
+                "valuation_method": "combined",
+            },
+            {
+                "id": "run-2",
+                "created_at": "2026-06-16T08:00:00+00:00",
+                "target_type": "set",
+                "target_id": "set-1",
+                "valuation_method": "combined",
+            },
+        ],
+        "simulation_derived_metrics": lambda _query: [
+            {
+                "calculation_run_id": "run-1",
+                "simulated_set_value": 30.25,
+                "simulated_set_value_card_count": 2,
+            },
+            {
+                "calculation_run_id": "run-2",
+                "simulated_set_value": 7678.76,
+                "simulated_set_value_card_count": 295,
+            },
+        ],
+    }
+    client = _Client(handlers)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("set-1", days=2)
+
+    assert payload["history"] == [
+        {
+            "date": "2026-06-15",
+            "setValue": 30.25,
+            "set_value": 30.25,
+            "cardCountPriced": 2,
+            "card_count_priced": 2,
+            "source": "simulation_derived_metrics",
+            "provider": "simulation_derived_metrics",
+            "calculationRunId": "run-1",
+            "calculation_run_id": "run-1",
+            "createdAt": "2026-06-15T08:00:00+00:00",
+            "created_at": "2026-06-15T08:00:00+00:00",
+            "isCarriedForward": False,
+            "is_carried_forward": False,
+            "sourceDate": "2026-06-15",
+            "source_date": "2026-06-15",
+        },
+        {
+            "date": "2026-06-16",
+            "setValue": 7678.76,
+            "set_value": 7678.76,
+            "cardCountPriced": 295,
+            "card_count_priced": 295,
+            "source": "simulation_derived_metrics",
+            "provider": "simulation_derived_metrics",
+            "calculationRunId": "run-2",
+            "calculation_run_id": "run-2",
+            "createdAt": "2026-06-16T08:00:00+00:00",
+            "created_at": "2026-06-16T08:00:00+00:00",
+            "isCarriedForward": False,
+            "is_carried_forward": False,
+            "sourceDate": "2026-06-16",
+            "source_date": "2026-06-16",
+        },
+    ]
+    assert payload["meta"]["asOfDate"] == "2026-06-16"
+    assert payload["meta"]["windowStart"] == "2026-06-15"
+    assert payload["meta"]["windowEnd"] == "2026-06-16"
+    assert payload["meta"]["windowDays"] == 2
+    assert payload["meta"]["warnings"] == []
+
+
+def test_set_value_history_returns_empty_when_snapshots_unavailable(monkeypatch):
+    handlers = {
+        "sets": lambda _query: [
+            {
+                "id": "set-1",
+                "name": "Market Set",
+                "canonical_key": "marketSet",
+                "pokemon_api_set_id": "sv-market",
+            }
+        ],
+        "calculation_runs": lambda _query: [],
+    }
+    client = _Client(handlers)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("set-1", days=365)
+
+    assert payload["history"] == []
+    assert "No combined calculation run history is available for this set." in payload["meta"]["warnings"]

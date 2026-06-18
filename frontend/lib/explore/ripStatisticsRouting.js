@@ -1,16 +1,38 @@
 import { toSetSlug as toCanonicalSetSlug } from "@/utils/slugify";
 
 const TCG_SETS_BASE_PATH = "/TCGs/Pokemon/Sets";
+const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
+const SET_DETAIL_TAB_ALIASES = {
+  market: "overview",
+};
 
 function normaliseString(value) {
   return String(value || "").trim();
+}
+
+function appendSetDetailParams(href, options = {}) {
+  const rawTab = normaliseString(options.tab).toLowerCase();
+  const tab = SET_DETAIL_TAB_ALIASES[rawTab] || rawTab;
+  const section = normaliseString(options.section);
+  const params = new URLSearchParams();
+
+  if (SET_DETAIL_TABS.has(tab)) {
+    params.set("tab", tab);
+  }
+
+  if (section) {
+    params.set("section", section);
+  }
+
+  const query = params.toString();
+  return query ? `${href}?${query}` : href;
 }
 
 export function toSetSlug(name, fallback = "") {
   return toCanonicalSetSlug(normaliseString(name), normaliseString(fallback));
 }
 
-export function buildTcgSetHrefFromTarget(target) {
+export function buildTcgSetHrefFromTarget(target, options = {}) {
   const targetType = normaliseString(target?.target_type).toLowerCase();
   if (targetType !== "set") {
     return "/Explore/rip-statistics";
@@ -21,7 +43,7 @@ export function buildTcgSetHrefFromTarget(target) {
     return "/Explore/rip-statistics";
   }
 
-  return `${TCG_SETS_BASE_PATH}/${encodeURIComponent(slug)}`;
+  return appendSetDetailParams(`${TCG_SETS_BASE_PATH}/${encodeURIComponent(slug)}`, options);
 }
 
 export function findTargetBySetSlug(targets, setSlug) {
@@ -53,14 +75,14 @@ export function findTargetBySetSlug(targets, setSlug) {
   );
 }
 
-export function buildTargetHrefById(targets) {
+export function buildTargetHrefById(targets, options = {}) {
   const hrefById = {};
   (Array.isArray(targets) ? targets : []).forEach((target) => {
     const targetId = normaliseString(target?.target_id);
     if (!targetId) {
       return;
     }
-    hrefById[targetId] = buildTcgSetHrefFromTarget(target);
+    hrefById[targetId] = buildTcgSetHrefFromTarget(target, options);
   });
   return hrefById;
 }
