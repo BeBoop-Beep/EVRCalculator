@@ -60,10 +60,10 @@ const TONE_PALETTE = {
     badgeBackground: "rgba(2,8,23,0.58)",
   },
   danger: {
-    accentColor: "rgba(251,113,133,0.96)",
-    borderColor: "rgba(251,113,133,0.22)",
-    textColor: "rgba(251,113,133,0.86)",
-    softBackground: "rgba(58,19,28,0.52)",
+    accentColor: "rgba(248,113,113,0.96)",
+    borderColor: "rgba(248,113,113,0.22)",
+    textColor: "rgba(248,113,113,0.86)",
+    softBackground: "rgba(58,19,24,0.52)",
     badgeBackground: "rgba(2,8,23,0.58)",
   },
   neutral: {
@@ -74,6 +74,9 @@ const TONE_PALETTE = {
     badgeBackground: "rgba(2,8,23,0.58)",
   },
 };
+
+export const NEGATIVE_VALUE_COLOR = RANK_CONFIG.F?.color || "rgba(248,113,113,0.9)";
+export const POSITIVE_VALUE_COLOR = "rgba(45,212,191,0.96)";
 
 function getRankTonePalette(tier, fallbackPalette) {
   const rankColor = RANK_CONFIG[tier]?.color;
@@ -183,8 +186,8 @@ export function getInterpretationTone({ label, rankTier, severity } = {}) {
     badgeBorderColor: borderColor,
     badgeTextColor: textColor,
     dotColor: accentColor,
-    glowColor: withAlpha(accentColor, 0.18),
-    panelShadow: `0 0 18px ${withAlpha(accentColor, 0.14)}`,
+    glowColor: withAlpha(accentColor, 0.1),
+    panelShadow: `inset 0 0 0 1px ${withAlpha(accentColor, 0.08)}`,
   };
 }
 
@@ -194,7 +197,7 @@ export function getInterpretationBadgeStyle({ label, rankTier, severity } = {}) 
     background: tone.badgeBackground,
     borderColor: tone.badgeBorderColor,
     color: tone.badgeTextColor,
-    boxShadow: `0 0 5px 0px ${tone.glowColor}, inset 0 0 4px ${withAlpha(tone.accentColor, 0.03)}`,
+    boxShadow: `inset 0 0 0 1px ${withAlpha(tone.accentColor, 0.04)}`,
   };
 }
 
@@ -209,9 +212,7 @@ export function getCalloutAccentStyle({ label, rankTier, severity } = {}) {
 }
 
 export function getDangerValueStyle() {
-  const dangerColor = RANK_CONFIG.F?.color || "rgba(248,113,113,0.9)";
   return {
-    color: dangerColor,
-    textShadow: `0 0 10px ${withAlpha(dangerColor, 0.28)}`,
+    color: NEGATIVE_VALUE_COLOR,
   };
 }

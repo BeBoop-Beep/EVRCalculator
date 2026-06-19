@@ -269,7 +269,7 @@ def test_top_market_cards_use_latest_market_prices_not_simulation(monkeypatch):
     client = _Client(handlers)
     monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
 
-    payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10)
+    payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10, days=30)
 
     assert [card["name"] for card in payload["cards"]] == ["Beta", "Alpha"]
     assert payload["cards"][0]["cardId"] == "canonical-2"
@@ -361,7 +361,7 @@ def test_top_market_cards_prefer_latest_simulation_input_prices(monkeypatch):
     client = _Client(handlers)
     monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
 
-    payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10)
+    payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10, days=30)
 
     assert [card["name"] for card in payload["cards"]] == ["Beta", "Alpha"]
     assert payload["cards"][0]["cardVariantId"] == "variant-2"
@@ -379,7 +379,7 @@ def test_top_market_cards_prefer_latest_simulation_input_prices(monkeypatch):
     assert payload["meta"]["priceBasis"] == "latest combined simulation_input_cards.price_used with matching simulation_input_cards.condition_id for trends"
 
 
-def test_set_value_history_uses_simulation_derived_metrics(monkeypatch):
+def test_set_value_history_uses_daily_market_history_table(monkeypatch):
     handlers = {
         "sets": lambda _query: [
             {
@@ -389,80 +389,103 @@ def test_set_value_history_uses_simulation_derived_metrics(monkeypatch):
                 "pokemon_api_set_id": "sv-market",
             },
         ],
-        "calculation_runs": lambda _query: [
-            {
-                "id": "run-1",
-                "created_at": "2026-06-15T08:00:00+00:00",
-                "target_type": "set",
-                "target_id": "set-1",
-                "valuation_method": "combined",
-            },
-            {
-                "id": "run-2",
-                "created_at": "2026-06-16T08:00:00+00:00",
-                "target_type": "set",
-                "target_id": "set-1",
-                "valuation_method": "combined",
-            },
-        ],
-        "simulation_derived_metrics": lambda _query: [
-            {
-                "calculation_run_id": "run-1",
-                "simulated_set_value": 30.25,
-                "simulated_set_value_card_count": 2,
-            },
-            {
-                "calculation_run_id": "run-2",
-                "simulated_set_value": 7678.76,
-                "simulated_set_value_card_count": 295,
-            },
-        ],
+        "pokemon_set_value_daily_history": lambda query: (
+            [{"snapshot_date": "2026-06-18"}]
+            if query.select_fields == "snapshot_date"
+            else [
+                {
+                    "snapshot_date": "2026-06-15",
+                    "set_value": 30.25,
+                    "priced_card_count": 2,
+                    "total_card_count": 100,
+                    "source": "card_variant_price_observations_near_mint_latest_as_of_day",
+                    "created_at": "2026-06-15T08:00:00+00:00",
+                    "updated_at": "2026-06-15T08:00:00+00:00",
+                },
+                {
+                    "snapshot_date": "2026-06-17",
+                    "set_value": 90.75,
+                    "priced_card_count": 3,
+                    "total_card_count": 100,
+                    "source": "card_variant_price_observations_near_mint_latest_as_of_day",
+                    "created_at": "2026-06-17T08:00:00+00:00",
+                    "updated_at": "2026-06-17T08:00:00+00:00",
+                },
+                {
+                    "snapshot_date": "2026-06-18",
+                    "set_value": 95.50,
+                    "priced_card_count": 3,
+                    "total_card_count": 100,
+                    "source": "card_variant_price_observations_near_mint_latest_as_of_day",
+                    "created_at": "2026-06-18T08:00:00+00:00",
+                    "updated_at": "2026-06-18T08:00:00+00:00",
+                },
+            ]
+        ),
     }
     client = _Client(handlers)
     monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
 
-    payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("set-1", days=2)
+    payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("set-1", days=4)
 
-    assert payload["history"] == [
-        {
-            "date": "2026-06-15",
-            "setValue": 30.25,
+    assert payload["history"][:2] == [
+            {
+                "date": "2026-06-15",
+                "valueScope": "standard",
+                "value_scope": "standard",
+                "setValue": 30.25,
             "set_value": 30.25,
             "cardCountPriced": 2,
             "card_count_priced": 2,
-            "source": "simulation_derived_metrics",
-            "provider": "simulation_derived_metrics",
-            "calculationRunId": "run-1",
-            "calculation_run_id": "run-1",
+            "totalCardCount": 100,
+            "total_card_count": 100,
+            "source": "card_variant_price_observations_near_mint_latest_as_of_day",
+            "provider": "card_variant_price_observations_near_mint_latest_as_of_day",
+            "calculationRunId": None,
+            "calculation_run_id": None,
             "createdAt": "2026-06-15T08:00:00+00:00",
             "created_at": "2026-06-15T08:00:00+00:00",
+            "updatedAt": "2026-06-15T08:00:00+00:00",
+            "updated_at": "2026-06-15T08:00:00+00:00",
             "isCarriedForward": False,
             "is_carried_forward": False,
             "sourceDate": "2026-06-15",
             "source_date": "2026-06-15",
         },
-        {
-            "date": "2026-06-16",
-            "setValue": 7678.76,
-            "set_value": 7678.76,
-            "cardCountPriced": 295,
-            "card_count_priced": 295,
-            "source": "simulation_derived_metrics",
-            "provider": "simulation_derived_metrics",
-            "calculationRunId": "run-2",
-            "calculation_run_id": "run-2",
-            "createdAt": "2026-06-16T08:00:00+00:00",
-            "created_at": "2026-06-16T08:00:00+00:00",
-            "isCarriedForward": False,
-            "is_carried_forward": False,
-            "sourceDate": "2026-06-16",
-            "source_date": "2026-06-16",
+            {
+                "date": "2026-06-16",
+                "valueScope": "standard",
+                "value_scope": "standard",
+                "setValue": 30.25,
+            "set_value": 30.25,
+            "cardCountPriced": 2,
+            "card_count_priced": 2,
+            "totalCardCount": 100,
+            "total_card_count": 100,
+            "source": "card_variant_price_observations_near_mint_latest_as_of_day",
+            "provider": "card_variant_price_observations_near_mint_latest_as_of_day",
+            "calculationRunId": None,
+            "calculation_run_id": None,
+            "createdAt": "2026-06-15T08:00:00+00:00",
+            "created_at": "2026-06-15T08:00:00+00:00",
+            "updatedAt": "2026-06-15T08:00:00+00:00",
+            "updated_at": "2026-06-15T08:00:00+00:00",
+            "isCarriedForward": True,
+            "is_carried_forward": True,
+            "sourceDate": "2026-06-15",
+            "source_date": "2026-06-15",
         },
     ]
-    assert payload["meta"]["asOfDate"] == "2026-06-16"
+    assert payload["history"][2]["date"] == "2026-06-17"
+    assert payload["history"][2]["setValue"] == 90.75
+    assert payload["history"][3]["date"] == "2026-06-18"
+    assert payload["history"][3]["setValue"] == 95.5
+    assert payload["meta"]["asOfDate"] == "2026-06-18"
     assert payload["meta"]["windowStart"] == "2026-06-15"
-    assert payload["meta"]["windowEnd"] == "2026-06-16"
-    assert payload["meta"]["windowDays"] == 2
+    assert payload["meta"]["windowEnd"] == "2026-06-18"
+    assert payload["meta"]["windowDays"] == 4
+    assert payload["meta"]["valueScope"] == "standard"
+    assert payload["meta"]["valueField"] == "pokemon_set_value_daily_history.set_value"
     assert payload["meta"]["warnings"] == []
 
 
@@ -476,7 +499,7 @@ def test_set_value_history_returns_empty_when_snapshots_unavailable(monkeypatch)
                 "pokemon_api_set_id": "sv-market",
             }
         ],
-        "calculation_runs": lambda _query: [],
+        "pokemon_set_value_daily_history": lambda _query: [],
     }
     client = _Client(handlers)
     monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
@@ -484,4 +507,4 @@ def test_set_value_history_returns_empty_when_snapshots_unavailable(monkeypatch)
     payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("set-1", days=365)
 
     assert payload["history"] == []
-    assert "No combined calculation run history is available for this set." in payload["meta"]["warnings"]
+    assert "No daily market set value history is available for this set." in payload["meta"]["warnings"]

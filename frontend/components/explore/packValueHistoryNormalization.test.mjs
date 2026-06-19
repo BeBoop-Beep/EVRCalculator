@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  forwardFillDailyHistoryThroughToday,
   normalizeHistoryTrendPoint,
   patchLatestHistoryRowWithSummaryRatios,
   shouldUseSummaryRatioFallback,
 } from "./packValueHistoryNormalization.mjs";
+import { formatHistoryDate } from "./historyDateFormatting.mjs";
 
 test("shouldUseSummaryRatioFallback returns true for null or zero latest ratio when summary ratio is non-zero", () => {
   assert.equal(shouldUseSummaryRatioFallback(null, 1.23), true);
@@ -82,4 +84,61 @@ test("normalizeHistoryTrendPoint resolves snake_case historical fields", () => {
   assert.equal(point.meanCostRatio, 0.494);
   assert.equal(point.medianCostRatio, 0.1282);
   assert.equal(point.p95CostRatio, 2.8173);
+});
+
+test("formatHistoryDate keeps date-only snapshots on their calendar day", () => {
+  assert.equal(
+    formatHistoryDate("2026-06-17", { month: "short", day: "numeric" }),
+    "Jun 17"
+  );
+  assert.equal(
+    formatHistoryDate("2026-06-17", { year: "numeric", month: "short", day: "numeric" }),
+    "Jun 17, 2026"
+  );
+});
+
+test("forwardFillDailyHistoryThroughToday appends local today from latest actual point", () => {
+  const points = forwardFillDailyHistoryThroughToday(
+    [
+      { date: "2026-06-16", value: 100 },
+      { date: "2026-06-17", value: 123.45 },
+    ],
+    { todayDateKey: "2026-06-18" }
+  );
+
+  assert.equal(points.length, 3);
+  assert.deepEqual(points.map((point) => point.date), ["2026-06-16", "2026-06-17", "2026-06-18"]);
+  assert.equal(points[1].isCarriedForward, false);
+  assert.equal(points[2].value, 123.45);
+  assert.equal(points[2].isCarriedForward, true);
+  assert.equal(points[2].sourceDate, "2026-06-17");
+});
+
+test("forwardFillDailyHistoryThroughToday leaves real current-day data in place", () => {
+  const points = forwardFillDailyHistoryThroughToday(
+    [
+      { date: "2026-06-17", value: 123.45 },
+      { date: "2026-06-18", value: 130 },
+    ],
+    { todayDateKey: "2026-06-18" }
+  );
+
+  assert.equal(points.length, 2);
+  assert.equal(points[1].date, "2026-06-18");
+  assert.equal(points[1].value, 130);
+  assert.equal(points[1].isCarriedForward, false);
+  assert.equal(points[1].sourceDate, null);
+});
+
+test("forwardFillDailyHistoryThroughToday never carries before the first actual value", () => {
+  const points = forwardFillDailyHistoryThroughToday(
+    [
+      { date: "2026-06-17", value: null },
+    ],
+    { todayDateKey: "2026-06-18" }
+  );
+
+  assert.equal(points.length, 1);
+  assert.equal(points[0].date, "2026-06-17");
+  assert.equal(points[0].isCarriedForward, false);
 });

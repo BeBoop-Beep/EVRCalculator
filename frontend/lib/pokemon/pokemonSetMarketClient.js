@@ -63,6 +63,8 @@ function normalizeDailySetValueHistory(history) {
     }
     dailyPoints.set(date, {
       date,
+      valueScope: toOptionalString(point?.valueScope ?? point?.value_scope),
+      value_scope: toOptionalString(point?.value_scope ?? point?.valueScope),
       setValue,
       cardCountPriced: toOptionalNumber(point?.cardCountPriced ?? point?.card_count_priced),
       source: toOptionalString(point?.source ?? point?.provider),
@@ -134,6 +136,11 @@ function normalizeTopMarketCardsPayload(payload) {
 
 function normalizeSetValueHistoryPayload(payload) {
   const history = Array.isArray(payload?.history) ? payload.history : [];
+  const availableScopes = Array.isArray(payload?.meta?.availableScopes)
+    ? payload.meta.availableScopes
+    : Array.isArray(payload?.meta?.available_scopes)
+    ? payload.meta.available_scopes
+    : [];
 
   return {
     set: {
@@ -142,7 +149,16 @@ function normalizeSetValueHistoryPayload(payload) {
       slug: toOptionalString(payload?.set?.slug),
     },
     history: normalizeDailySetValueHistory(history),
-    meta: payload?.meta || { sources: {}, warnings: [] },
+    meta: {
+      ...(payload?.meta || { sources: {}, warnings: [] }),
+      valueScope: toOptionalString(payload?.meta?.valueScope ?? payload?.meta?.value_scope),
+      value_scope: toOptionalString(payload?.meta?.value_scope ?? payload?.meta?.valueScope),
+      availableScopes: availableScopes.map((scope) => ({
+        key: toOptionalString(scope?.key),
+        label: toOptionalString(scope?.label),
+        latestDate: toOptionalString(scope?.latestDate ?? scope?.latest_date),
+      })).filter((scope) => scope.key),
+    },
   };
 }
 
@@ -164,7 +180,7 @@ async function readJsonResponse(response, fallbackMessage) {
   return payload;
 }
 
-export async function getPokemonSetTopMarketCards(setId, { limit = 10 } = {}) {
+export async function getPokemonSetTopMarketCards(setId, { limit = 10, days = 365 } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
@@ -173,6 +189,9 @@ export async function getPokemonSetTopMarketCards(setId, { limit = 10 } = {}) {
   const params = new URLSearchParams();
   if (limit) {
     params.set("limit", String(limit));
+  }
+  if (days) {
+    params.set("days", String(days));
   }
 
   const response = await fetch(
@@ -188,7 +207,7 @@ export async function getPokemonSetTopMarketCards(setId, { limit = 10 } = {}) {
   );
 }
 
-export async function getPokemonSetValueHistory(setId, { days = 365 } = {}) {
+export async function getPokemonSetValueHistory(setId, { days = 365, scope = "standard" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
@@ -197,6 +216,9 @@ export async function getPokemonSetValueHistory(setId, { days = 365 } = {}) {
   const params = new URLSearchParams();
   if (days) {
     params.set("days", String(days));
+  }
+  if (scope) {
+    params.set("scope", String(scope));
   }
 
   const response = await fetch(

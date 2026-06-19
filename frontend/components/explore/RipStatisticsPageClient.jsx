@@ -18,14 +18,31 @@ import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
 import InfoPopover from "@/components/ui/InfoPopover";
+import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
-import { getCalloutAccentStyle, getDangerValueStyle, getInterpretationTone } from "@/lib/explore/interpretationTone";
+import {
+  NEGATIVE_VALUE_COLOR,
+  POSITIVE_VALUE_COLOR,
+  getCalloutAccentStyle,
+  getDangerValueStyle,
+  getInterpretationTone,
+} from "@/lib/explore/interpretationTone";
 import { getPokemonSetCards } from "@/lib/pokemon/pokemonSetCardsClient";
 import { getPokemonSetTopMarketCards, getPokemonSetValueHistory } from "@/lib/pokemon/pokemonSetMarketClient";
-import { normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
+import {
+  computeDeltaWindowsFromHistory,
+  extractDeltaWindows,
+  filterHistoryPointsForDeltaWindow,
+  getDeltaWindowLabel,
+  getPreferredDeltaWindowKey,
+  getSelectedDeltaWindowFromHistory,
+  getStandardDeltaWindowDefinitions,
+} from "@/lib/explore/marketDeltaWindows.mjs";
+import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
+import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -53,6 +70,12 @@ const SECTION_SCROLL_ORDER = [
 ];
 const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
+const SET_VALUE_HISTORY_REQUEST_DAYS = 1825;
+const SET_VALUE_SCOPE_OPTIONS = [
+  { key: "standard", label: "Standard" },
+  { key: "hits", label: "Hits" },
+  { key: "top10", label: "Top 10" },
+];
 const SET_DETAIL_TAB_ALIASES = {
   analytics: "insights",
   market: "overview",
@@ -514,7 +537,7 @@ function ChecklistCardTile({ card }) {
             <div className="shrink-0 text-right">
               <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(marketPrice)}</p>
               {marketDelta ? (
-                <div className="mt-0.5 text-[10px] font-semibold" style={deltaTone < 0 ? getNegativeValueStyle() : deltaTone > 0 ? getPositiveValueStyle() : undefined}>
+                <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight" style={getDeltaBadgeStyle(deltaTone)}>
                   {marketDelta.amount !== null ? <p>{formatSignedCurrency(marketDelta.amount)}</p> : null}
                   {marketDelta.percent !== null ? <p>{marketDelta.percent > 0 ? "+" : ""}{marketDelta.percent.toFixed(1)}%</p> : null}
                 </div>
@@ -647,42 +670,25 @@ function formatShortDate(value) {
   if (!value) {
     return null;
   }
-  const date = parseCalendarDate(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value).slice(0, 10);
-  }
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatHistoryDate(value, { month: "short", day: "numeric" }) || String(value).slice(0, 10);
 }
 
 function formatCompactDay(value) {
   if (!value) {
     return "";
   }
-  const date = parseCalendarDate(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value).slice(8, 10) || String(value).slice(0, 10);
+  const dateKey = getHistoryDateKey(value);
+  if (dateKey) {
+    return String(Number(dateKey.slice(8, 10)));
   }
-  return String(date.getDate());
+  return String(value).slice(8, 10) || String(value).slice(0, 10);
 }
 
 function formatLongDate(value) {
   if (!value) {
     return "Date unavailable";
   }
-  const date = parseCalendarDate(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
-function parseCalendarDate(value) {
-  const text = String(value || "").trim();
-  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  }
-  return new Date(text);
+  return formatHistoryDate(value, { year: "numeric", month: "short", day: "numeric" }) || String(value);
 }
 
 function getPriceDeltaPercent(currentValue, previousValue) {
@@ -705,17 +711,117 @@ function getPriceDeltaAmount(currentValue, previousValue) {
 
 function getPositiveValueStyle() {
   return {
-    color: "rgb(32,255,222)",
-    textShadow: "0 0 13px rgba(32,255,222,0.38)",
+    color: POSITIVE_VALUE_COLOR,
   };
 }
 
 function getNegativeValueStyle() {
+  return getDangerValueStyle();
+}
+
+function getDeltaTextStyle(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return undefined;
+  }
+  return parsed < 0 ? getNegativeValueStyle() : parsed > 0 ? getPositiveValueStyle() : undefined;
+}
+
+function getDeltaBadgeStyle(value) {
+  const parsed = toNumber(value);
+  if (parsed === null || Math.abs(parsed) < 0.000001) {
+    return {
+      borderColor: "var(--border-subtle)",
+      backgroundColor: "rgba(255,255,255,0.035)",
+      color: "var(--text-secondary)",
+      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.025)",
+    };
+  }
+
+  const color = parsed < 0 ? NEGATIVE_VALUE_COLOR : POSITIVE_VALUE_COLOR;
   return {
-    ...getDangerValueStyle(),
-    color: "rgb(255,70,70)",
-    textShadow: "0 0 14px rgba(255,70,70,0.42)",
+    borderColor: withAlpha(color, 0.26),
+    backgroundColor: withAlpha(color, 0.075),
+    color,
+    boxShadow: `inset 0 0 0 1px ${withAlpha(color, 0.035)}`,
   };
+}
+
+function MarketWindowSelector({ windows, value, onChange, className = "" }) {
+  const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
+  if (windowOptions.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className={["flex min-w-0 flex-wrap gap-1.5", className].filter(Boolean).join(" ")}>
+      {windowOptions.map((entry) => {
+        const isActive = entry.key === value;
+        return (
+          <button
+            key={`market-window:${entry.key}`}
+            type="button"
+            onClick={() => onChange(entry.key)}
+            aria-pressed={isActive}
+            className={[
+              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+              isActive
+                ? ""
+                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+            ].join(" ")}
+            style={
+              isActive
+                ? {
+                    borderColor: withAlpha(POSITIVE_VALUE_COLOR, 0.34),
+                    backgroundColor: withAlpha(POSITIVE_VALUE_COLOR, 0.1),
+                    color: POSITIVE_VALUE_COLOR,
+                  }
+                : undefined
+            }
+          >
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SetValueScopeSelector({ scopes, value, onChange }) {
+  const scopeOptions = Array.isArray(scopes) && scopes.length > 0 ? scopes : SET_VALUE_SCOPE_OPTIONS;
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-1.5">
+      {scopeOptions.map((entry) => {
+        const isActive = entry.key === value;
+        return (
+          <button
+            key={`set-value-scope:${entry.key}`}
+            type="button"
+            onClick={() => onChange(entry.key)}
+            aria-pressed={isActive}
+            className={[
+              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+              isActive
+                ? ""
+                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+            ].join(" ")}
+            style={
+              isActive
+                ? {
+                    borderColor: withAlpha(POSITIVE_VALUE_COLOR, 0.34),
+                    backgroundColor: withAlpha(POSITIVE_VALUE_COLOR, 0.1),
+                    color: POSITIVE_VALUE_COLOR,
+                  }
+                : undefined
+            }
+          >
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function formatAxisCurrency(value) {
@@ -813,9 +919,9 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
   const numericPoints = chartPoints.filter((point) => point.y !== null);
   const strokeColor =
     trendDirection === "negative"
-      ? "rgba(255,70,70,0.96)"
+      ? NEGATIVE_VALUE_COLOR
       : trendDirection === "positive"
-      ? "rgba(32,255,222,0.96)"
+      ? POSITIVE_VALUE_COLOR
       : "rgba(148,163,184,0.8)";
   const activePoint = activeIndex === null ? null : numericPoints[activeIndex] || null;
   const firstPoint = numericPoints[0] || null;
@@ -892,13 +998,13 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(activePoint.date)}</p>
           <p className="mt-1 text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(activePoint.y)}</p>
           {activeDeltaAmount !== null ? (
-            <p className="mt-0.5 text-[10px] font-semibold" style={activeDeltaAmount < 0 ? getNegativeValueStyle() : activeDeltaAmount > 0 ? getPositiveValueStyle() : undefined}>
+            <p className="mt-0.5 text-[10px] font-semibold" style={getDeltaTextStyle(activeDeltaAmount)}>
               From start {formatSignedCurrency(activeDeltaAmount)}
               {activeDeltaPercent !== null ? <span> ({activeDeltaPercent > 0 ? "+" : ""}{activeDeltaPercent.toFixed(1)}%)</span> : null}
             </p>
           ) : null}
           {activePoint.isCarriedForward && activePoint.sourceDate ? (
-            <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Held from {formatShortDate(activePoint.sourceDate)}</p>
+            <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(activePoint.sourceDate)}</p>
           ) : null}
         </div>
       ) : null}
@@ -906,10 +1012,10 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
   );
 }
 
-function SetValueLineChart({ points, trendDirection = "neutral" }) {
+function normalizeSetValueHistoryPoints(points) {
   const dailyPointMap = new Map();
   (Array.isArray(points) ? points : []).forEach((point) => {
-    const date = String(point?.date || "").trim().slice(0, 10);
+    const date = getHistoryDateKey(point?.date);
     const setValue = toNumber(point?.setValue ?? point?.value);
     if (!date) {
       return;
@@ -919,12 +1025,21 @@ function SetValueLineChart({ points, trendDirection = "neutral" }) {
       date,
       setValue,
       isCarriedForward: Boolean(point?.isCarriedForward ?? point?.is_carried_forward),
-      sourceDate: point?.sourceDate ?? point?.source_date ?? null,
+      sourceDate: getHistoryDateKey(point?.sourceDate ?? point?.source_date),
     });
   });
 
-  const numericPoints = Array.from(dailyPointMap.values())
-    .sort((a, b) => a.date.localeCompare(b.date))
+  return forwardFillDailyHistoryThroughToday(
+    Array.from(dailyPointMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
+    {
+      dateField: "date",
+      valueKeys: ["setValue"],
+    }
+  );
+}
+
+function SetValueLineChart({ points, trendDirection = "neutral" }) {
+  const numericPoints = normalizeSetValueHistoryPoints(points)
     .map((point, index, rows) => {
       const previous = rows
         .slice(0, index)
@@ -954,13 +1069,13 @@ function SetValueLineChart({ points, trendDirection = "neutral" }) {
   const yAxisTicks = buildCurrencyTicks(valuedPoints);
   const yMin = Math.max(0, Math.min(...yAxisTicks, minValue - range * 0.14));
   const yMax = Math.max(...yAxisTicks, maxValue + range * 0.14);
-  const showEveryDayTick = numericPoints.length <= 7;
+  const showEveryDayTick = numericPoints.length <= 8;
   const xAxisTicks = showEveryDayTick ? numericPoints.map((point) => point.date) : undefined;
   const trendColor =
     trendDirection === "negative"
-      ? "rgba(248,113,113,0.95)"
+      ? NEGATIVE_VALUE_COLOR
       : trendDirection === "positive"
-      ? "rgba(94,234,212,0.95)"
+      ? POSITIVE_VALUE_COLOR
       : "rgba(148,163,184,0.9)";
 
   return (
@@ -1006,35 +1121,72 @@ function SetValueLineChart({ points, trendDirection = "neutral" }) {
   );
 }
 
-function SetValueTrendCard({ history, status, error, fallbackValue }) {
-  const dailyPointMap = new Map();
-  (Array.isArray(history) ? history : []).forEach((point) => {
-    const date = String(point?.date || "").trim().slice(0, 10);
-    const setValue = toNumber(point?.setValue);
-    if (date) {
-      dailyPointMap.set(date, {
-        ...point,
-        date,
-        setValue,
-        isCarriedForward: Boolean(point?.isCarriedForward ?? point?.is_carried_forward),
-        sourceDate: point?.sourceDate ?? point?.source_date ?? null,
-      });
-    }
-  });
-  const points = Array.from(dailyPointMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+function SetValueTrendCard({ history, historiesByScope, availableScopes, status, error, fallbackValue }) {
+  const [selectedWindowKey, setSelectedWindowKey] = useState(null);
+  const [selectedScope, setSelectedScope] = useState("standard");
+  const scopeOptions = useMemo(() => {
+    const optionMap = new Map(SET_VALUE_SCOPE_OPTIONS.map((entry) => [entry.key, entry]));
+    (Array.isArray(availableScopes) ? availableScopes : []).forEach((entry) => {
+      if (entry?.key) {
+        optionMap.set(entry.key, {
+          key: entry.key,
+          label: entry.label || SET_VALUE_SCOPE_OPTIONS.find((option) => option.key === entry.key)?.label || entry.key,
+        });
+      }
+    });
+    return SET_VALUE_SCOPE_OPTIONS.filter((entry) => optionMap.has(entry.key)).map((entry) => optionMap.get(entry.key));
+  }, [availableScopes]);
+  const selectedHistory = Array.isArray(historiesByScope?.[selectedScope])
+    ? historiesByScope[selectedScope]
+    : selectedScope === "standard"
+    ? history
+    : [];
+  const points = normalizeSetValueHistoryPoints(selectedHistory);
   const valuedPoints = points.filter((point) => toNumber(point?.setValue) !== null);
-  const firstPoint = valuedPoints[0] || null;
   const lastPoint = valuedPoints[valuedPoints.length - 1] || null;
+  const {
+    windows: availableDeltaWindows,
+    effectiveKey: effectiveWindowKey,
+    selectedWindow: selectedDeltaWindow,
+  } = useMemo(
+    () => getSelectedDeltaWindowFromHistory(valuedPoints, {
+      selectedKey: selectedWindowKey,
+      preferredKey: "30D",
+      dateKey: "date",
+      valueKey: "setValue",
+    }),
+    [selectedWindowKey, valuedPoints]
+  );
+  const firstPoint =
+    selectedDeltaWindow?.startDate
+      ? valuedPoints.find((point) => point.date === selectedDeltaWindow.startDate) || valuedPoints[0] || null
+      : valuedPoints[0] || null;
+  const chartPoints = filterHistoryPointsForDeltaWindow(points, selectedDeltaWindow, { dateKey: "date" });
   const currentValue = toNumber(lastPoint?.setValue) ?? toNumber(fallbackValue);
-  const deltaAmount = getPriceDeltaAmount(lastPoint?.setValue, firstPoint?.setValue);
-  const deltaPercent = getPriceDeltaPercent(lastPoint?.setValue, firstPoint?.setValue);
+  const deltaAmount = selectedDeltaWindow?.amount ?? getPriceDeltaAmount(lastPoint?.setValue, firstPoint?.setValue);
+  const deltaPercent = selectedDeltaWindow?.percent ?? getPriceDeltaPercent(lastPoint?.setValue, firstPoint?.setValue);
+  const deltaWindowLabel = selectedDeltaWindow ? getDeltaWindowLabel(selectedDeltaWindow.key) : "Trend";
   const hasTrend = valuedPoints.length >= 2;
   const trendDirection = deltaAmount === null ? "neutral" : deltaAmount < 0 ? "negative" : deltaAmount > 0 ? "positive" : "neutral";
+
+  useEffect(() => {
+    if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
+      return;
+    }
+    setSelectedWindowKey(effectiveWindowKey);
+  }, [effectiveWindowKey, selectedWindowKey]);
+
+  useEffect(() => {
+    if (scopeOptions.some((entry) => entry.key === selectedScope)) {
+      return;
+    }
+    setSelectedScope(scopeOptions[0]?.key || "standard");
+  }, [scopeOptions, selectedScope]);
 
   return (
     <SectionCard
       title="Set Value Trend"
-      titleInfoText="Daily set value history from recent set calculation snapshots."
+      titleInfoText="Daily set value history from Near Mint card market observations. Standard sums tracked cards, Hits excludes common low-rarity buckets, and Top 10 sums the highest-value tracked cards for each date."
       className="h-full"
     >
       {status === "loading" || status === "idle" ? (
@@ -1050,39 +1202,46 @@ function SetValueTrendCard({ history, status, error, fallbackValue }) {
           <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-3 py-3 text-sm text-[var(--text-secondary)]">
             Not enough set value history yet.
           </p>
+          <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
         </div>
       ) : (
         <div className="flex min-h-[26rem] flex-col space-y-4">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Set Value</p>
-              <p className="mt-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</p>
+              <p className="mt-1 inline-flex min-w-0 items-center gap-1.5 text-2xl font-semibold leading-none text-[var(--text-primary)]">
+                <span className="truncate">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</span>
+                <DeltaTrendIcon value={deltaAmount} size="md" />
+              </p>
             </div>
             <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2 text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">7D Delta</p>
-                <p
-                  className="mt-1 text-sm font-semibold"
-                  style={deltaAmount === null ? undefined : deltaAmount < 0 ? getNegativeValueStyle() : deltaAmount > 0 ? getPositiveValueStyle() : undefined}
-                >
+              <div className="rounded-lg border px-3 py-2 text-right" style={getDeltaBadgeStyle(deltaAmount)}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{deltaWindowLabel} Delta</p>
+                <p className="mt-1 text-sm font-semibold">
                   {deltaAmount === null ? "N/A" : formatSignedCurrency(deltaAmount)}
                 </p>
               </div>
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2 text-right">
+              <div className="rounded-lg border px-3 py-2 text-right" style={getDeltaBadgeStyle(deltaPercent)}>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                  7D %
+                  {deltaWindowLabel} %
                 </p>
-                <p
-                  className="mt-1 text-sm font-semibold"
-                  style={deltaPercent === null ? undefined : deltaPercent < 0 ? getNegativeValueStyle() : deltaPercent > 0 ? getPositiveValueStyle() : undefined}
-                >
+                <p className="mt-1 text-sm font-semibold">
                   {deltaPercent === null ? "N/A" : `${deltaPercent > 0 ? "+" : ""}${deltaPercent.toFixed(1)}%`}
                 </p>
               </div>
             </div>
           </div>
 
-          <SetValueLineChart points={points} trendDirection={trendDirection} />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+            <MarketWindowSelector
+              windows={availableDeltaWindows}
+              value={effectiveWindowKey}
+              onChange={setSelectedWindowKey}
+            />
+          </div>
+
+          <SetValueLineChart points={chartPoints} trendDirection={trendDirection} />
 
           <div className="flex min-w-0 items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
             <span className="truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
@@ -1144,21 +1303,22 @@ function OverviewReadPanel({ metrics, compactRead, detailRead }) {
   );
 }
 
-function TopMarketCardRow({ card, index }) {
+function TopMarketCardRow({ card, index, selectedWindowKey }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
   const name = card?.name || "Unknown card";
   const rarity = card?.rarity || null;
   const price = getChecklistCardMarketPrice(card);
   const historyPoints = getTopCardPriceHistory(card);
+  const topCardDeltaWindow = getTopCardDeltaWindow(card, historyPoints, selectedWindowKey);
+  const sparklinePoints = filterHistoryPointsForDeltaWindow(historyPoints, topCardDeltaWindow, { dateKey: "date" });
   const valuedHistoryPoints = historyPoints.filter((point) => point.value !== null);
   const firstPrice = valuedHistoryPoints[0]?.value ?? null;
   const lastPrice = valuedHistoryPoints[valuedHistoryPoints.length - 1]?.value ?? null;
   const historyDeltaAmount = getPriceDeltaAmount(lastPrice, firstPrice);
-  const historyDelta = getPriceDeltaPercent(lastPrice, firstPrice);
-  const fallbackDelta = getTopCardDeltaEntries(card)[0]?.value ?? null;
-  const displayDelta = historyDelta ?? fallbackDelta;
+  const displayDeltaAmount = topCardDeltaWindow?.amount ?? (selectedWindowKey ? null : historyDeltaAmount);
+  const displayDelta = topCardDeltaWindow?.percent ?? (selectedWindowKey ? null : getPriceDeltaPercent(lastPrice, firstPrice));
   const sparklineTone =
-    historyDeltaAmount === null
+    displayDeltaAmount === null
       ? displayDelta === null
         ? "neutral"
         : displayDelta < 0
@@ -1166,9 +1326,9 @@ function TopMarketCardRow({ card, index }) {
         : displayDelta > 0
         ? "positive"
         : "neutral"
-      : historyDeltaAmount < 0
+      : displayDeltaAmount < 0
       ? "negative"
-      : historyDeltaAmount > 0
+      : displayDeltaAmount > 0
       ? "positive"
       : "neutral";
 
@@ -1196,20 +1356,23 @@ function TopMarketCardRow({ card, index }) {
         <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{rarity || "N/A"}</p>
       </div>
       <div className="col-span-3 flex min-w-0 flex-col items-center sm:col-span-1">
-        <CompactSparkline points={historyPoints} trendDirection={sparklineTone} className="h-16 w-48 max-w-full" />
-        {historyPoints.length >= 2 ? (
+        <CompactSparkline points={sparklinePoints} trendDirection={sparklineTone} className="h-16 w-48 max-w-full" />
+        {sparklinePoints.length >= 2 ? (
           <div className="mt-1 flex w-48 max-w-full min-w-0 items-center justify-between gap-2 text-[10px] text-[var(--text-secondary)]">
-            <span className="truncate">{formatShortDate(historyPoints[0]?.date)}</span>
-            <span className="truncate text-right">{formatShortDate(historyPoints[historyPoints.length - 1]?.date)}</span>
+            <span className="truncate">{formatShortDate(sparklinePoints[0]?.date)}</span>
+            <span className="truncate text-right">{formatShortDate(sparklinePoints[sparklinePoints.length - 1]?.date)}</span>
           </div>
         ) : null}
       </div>
       <div className="col-span-3 flex min-w-0 items-end justify-between gap-4 sm:col-span-1 sm:block sm:text-right">
-        <p className="flex-none text-sm font-semibold text-[var(--text-primary)]">{price === null ? "N/A" : formatCurrency(price)}</p>
-        {displayDelta !== null ? (
-          <div className="mt-0.5 text-xs font-semibold" style={displayDelta < 0 ? getNegativeValueStyle() : displayDelta > 0 ? getPositiveValueStyle() : undefined}>
-            {historyDeltaAmount !== null ? <p>{formatSignedCurrency(historyDeltaAmount)}</p> : null}
-            <p>{displayDelta > 0 ? "+" : ""}{displayDelta.toFixed(1)}%</p>
+        <p className="inline-flex flex-none items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] sm:justify-end">
+          <span>{price === null ? "N/A" : formatCurrency(price)}</span>
+          <DeltaTrendIcon value={displayDeltaAmount ?? displayDelta} />
+        </p>
+        {displayDeltaAmount !== null || displayDelta !== null ? (
+          <div className="mt-1 inline-flex min-w-[4.8rem] flex-col rounded-md border px-2 py-1.5 text-xs font-semibold leading-tight" style={getDeltaBadgeStyle(displayDeltaAmount ?? displayDelta)}>
+            {displayDeltaAmount !== null ? <p>{formatSignedCurrency(displayDeltaAmount)}</p> : null}
+            {displayDelta !== null ? <p>{displayDelta > 0 ? "+" : ""}{displayDelta.toFixed(1)}%</p> : null}
           </div>
         ) : (
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Awaiting trend</p>
@@ -1220,6 +1383,23 @@ function TopMarketCardRow({ card, index }) {
 }
 
 function TopMarketCardsContent({ cards, status, error, maxRows = 10 }) {
+  const [selectedWindowKey, setSelectedWindowKey] = useState(null);
+  const availableDeltaWindows = useMemo(
+    () => getTopCardsAvailableDeltaWindows(cards),
+    [cards]
+  );
+  const effectiveWindowKey =
+    selectedWindowKey && availableDeltaWindows.some((entry) => entry.key === selectedWindowKey)
+      ? selectedWindowKey
+      : getPreferredDeltaWindowKey(availableDeltaWindows, "30D");
+
+  useEffect(() => {
+    if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
+      return;
+    }
+    setSelectedWindowKey(effectiveWindowKey);
+  }, [effectiveWindowKey, selectedWindowKey]);
+
   if (status === "loading" || status === "idle") {
     return <p className="text-sm text-[var(--text-secondary)]">Loading market cards...</p>;
   }
@@ -1233,22 +1413,30 @@ function TopMarketCardsContent({ cards, status, error, maxRows = 10 }) {
   }
 
   return (
-    <div className="overflow-visible rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42">
-      <div className="hidden grid-cols-[2.5rem_3.5rem_minmax(0,1fr)_minmax(12rem,0.8fr)_minmax(6.5rem,auto)] items-center gap-3.5 border-b border-[var(--border-subtle)] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] sm:grid">
-        <span>Rank</span>
-        <span></span>
-        <span>Card</span>
-        <span className="text-center">Trend</span>
-        <span className="text-right">Price</span>
-      </div>
-      <div className="divide-y divide-[var(--border-subtle)]">
-        {cards.slice(0, maxRows).map((card, index) => (
-          <TopMarketCardRow
-            key={`top-market-card:${card?.id || card?.cardNumber || card?.name || index}`}
-            card={card}
-            index={index}
-          />
-        ))}
+    <div className="space-y-3">
+      <MarketWindowSelector
+        windows={availableDeltaWindows}
+        value={effectiveWindowKey}
+        onChange={setSelectedWindowKey}
+      />
+      <div className="overflow-visible rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42">
+        <div className="hidden grid-cols-[2.5rem_3.5rem_minmax(0,1fr)_minmax(12rem,0.8fr)_minmax(6.5rem,auto)] items-center gap-3.5 border-b border-[var(--border-subtle)] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] sm:grid">
+          <span>Rank</span>
+          <span></span>
+          <span>Card</span>
+          <span className="text-center">Trend</span>
+          <span className="text-right">Price</span>
+        </div>
+        <div className="divide-y divide-[var(--border-subtle)]">
+          {cards.slice(0, maxRows).map((card, index) => (
+            <TopMarketCardRow
+              key={`top-market-card:${card?.id || card?.cardNumber || card?.name || index}`}
+              card={card}
+              index={index}
+              selectedWindowKey={effectiveWindowKey}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1256,21 +1444,48 @@ function TopMarketCardsContent({ cards, status, error, maxRows = 10 }) {
 
 function getTopCardDeltaEntries(card) {
   const deltas = card?.deltas && typeof card.deltas === "object" ? card.deltas : {};
-  return ["7D", "30D", "3M", "1Y"]
-    .map((label) => ({ label, value: toNumber(deltas[label] ?? deltas[label.toLowerCase()] ?? deltas[label.replace("D", "d")]) }))
-    .filter((entry) => entry.value !== null);
+  return extractDeltaWindows({ deltas }).map((entry) => ({ label: entry.label, value: entry.percent, key: entry.key }));
+}
+
+function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
+  const historyWindows = computeDeltaWindowsFromHistory(historyPoints, { dateKey: "date", valueKey: "value" });
+  const selectedHistoryWindow = historyWindows.find((entry) => entry.key === selectedWindowKey);
+  if (selectedHistoryWindow) {
+    return selectedHistoryWindow;
+  }
+
+  const fieldWindows = extractDeltaWindows({ deltas: card?.deltas });
+  const selectedFieldWindow = fieldWindows.find((entry) => entry.key === selectedWindowKey);
+  if (selectedFieldWindow) {
+    return selectedFieldWindow;
+  }
+  if (selectedWindowKey) {
+    return null;
+  }
+
+  const preferredHistoryKey = getPreferredDeltaWindowKey(historyWindows, "30D");
+  return preferredHistoryKey ? historyWindows.find((entry) => entry.key === preferredHistoryKey) || null : null;
+}
+
+function getTopCardsAvailableDeltaWindows(cards) {
+  return Array.isArray(cards) && cards.length > 0 ? getStandardDeltaWindowDefinitions() : [];
 }
 
 function getTopCardPriceHistory(card) {
   const history = Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [];
-  return history
+  const points = history
     .map((point) => ({
-      date: point?.date,
+      date: getHistoryDateKey(point?.date),
       value: toNumber(point?.marketPrice ?? point?.market_price ?? point?.price),
       isCarriedForward: Boolean(point?.isCarriedForward ?? point?.is_carried_forward),
-      sourceDate: point?.sourceDate ?? point?.source_date ?? null,
+      sourceDate: getHistoryDateKey(point?.sourceDate ?? point?.source_date),
     }))
     .filter((point) => point.date);
+
+  return forwardFillDailyHistoryThroughToday(points, {
+    dateField: "date",
+    valueKeys: ["value"],
+  });
 }
 
 function TopChaseCardsModule({ cards, status, error, infoText }) {
@@ -2027,7 +2242,7 @@ function HeroMetricTile({ label, value, trend = null }) {
         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{friendlyLabel}</p>
         {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
-      <div className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold leading-tight [text-shadow:0_1px_1px_rgba(2,6,23,0.22)]" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
+      <div className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold leading-tight" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
         <span>{value}</span>
         <TrendIndicator trend={trend} className="translate-y-px" />
       </div>
@@ -2859,7 +3074,7 @@ function SimplePillarSummaryCard({
       {label ? (
         <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
           <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: tone.dotColor }} />
-          <InterpretationBadge label={label} rankTier={rankTier} severity={backendSeverity} className="px-0 py-0 text-[10px] tracking-[0.08em]" />
+          <InterpretationBadge label={label} rankTier={rankTier} severity={backendSeverity} className="px-2 py-0.5 text-[10px] tracking-[0.08em]" />
         </div>
       ) : null}
 
@@ -3078,20 +3293,18 @@ function DecisionSignalRow({ signal, expanded }) {
 
   return (
     <article className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-3">
-      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+      <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem] sm:items-center">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{signal.label}</p>
           <p className={`mt-1 text-xs leading-snug text-[var(--text-primary)] ${expanded ? "" : "line-clamp-2"}`}>
             {summaryText}
           </p>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
-          {signal.scoreText ? (
-            <span className="inline-flex items-center gap-1 text-base font-semibold leading-none text-[var(--text-primary)]">
-              {signal.scoreText}
-              {signal.scoreTrend ? <TrendIndicator trend={signal.scoreTrend} className="translate-y-px" /> : null}
-            </span>
-          ) : null}
+        <span className="inline-flex min-w-[4.25rem] items-center justify-start gap-1 text-base font-semibold leading-none text-[var(--text-primary)] tabular-nums sm:min-w-0 sm:justify-end">
+          {signal.scoreText || "—"}
+          {signal.scoreTrend ? <TrendIndicator trend={signal.scoreTrend} className="translate-y-px" /> : null}
+        </span>
+        <div className="flex min-w-[5.75rem] justify-start sm:min-w-0 sm:justify-center">
           <RankBadge
             rank={signal.rankTier}
             format="tier"
@@ -3099,10 +3312,10 @@ function DecisionSignalRow({ signal, expanded }) {
             subtle
             title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
           />
-          <span className="text-[10px] leading-none text-[var(--text-secondary)]">
-            {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
-          </span>
         </div>
+        <span className="min-w-[3.25rem] text-left text-[10px] leading-none text-[var(--text-secondary)] tabular-nums sm:min-w-0 sm:text-right">
+          {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
+        </span>
       </div>
     </article>
   );
@@ -3218,29 +3431,6 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] 
   );
 }
 
-function getPillarStatusPillStyle(title) {
-  const forcedTierByTitle = {
-    Profit: "A",
-    Safety: "B",
-    Desirability: "S",
-    Stability: "F",
-  };
-  const tier = forcedTierByTitle[title] || null;
-  const config = tier ? RANK_CONFIG[tier] : null;
-  const color = config?.color || "rgba(148,163,184,0.86)";
-  const glowColor = config?.glowColor || withAlpha(color, 0.2);
-  const borderColor = withAlpha(color, tier === "S" ? 0.6 : 0.48);
-  const background = "rgba(2,8,23,0.5)";
-
-  return {
-    background,
-    borderColor,
-    color,
-    textShadow: `0 0 12px ${withAlpha(color, 0.36)}`,
-    boxShadow: `0 0 14px ${withAlpha(glowColor, 0.68)}, inset 0 0 0 1px ${withAlpha(color, 0.08)}`,
-  };
-}
-
 function CompactPillarSignalTile({
   title,
   score,
@@ -3278,12 +3468,7 @@ function CompactPillarSignalTile({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span
-          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
-          style={getPillarStatusPillStyle(title)}
-        >
-          {statusLabel}
-        </span>
+        <InterpretationBadge label={statusLabel} rankTier={rankTier} className="px-2 py-0.5 text-[10px] tracking-[0.08em]" />
         {parsedRank !== null ? (
           <span className="text-[10px] text-[var(--text-secondary)]">Rank #{Math.round(parsedRank)}</span>
         ) : null}
@@ -3420,7 +3605,7 @@ function SectionCard({ title, subtitle, titleInfoText, children, className = "",
 
 const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 
-function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl }) {
+function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, condensed = false }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
 
@@ -3431,8 +3616,8 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
 
   return (
-    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-2.5">
-      <div className="flex min-w-0 flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <div className={`w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 ${condensed ? "p-2" : "p-2.5"}`}>
+      <div className={`flex min-w-0 flex-col ${condensed ? "gap-2" : "gap-3"} sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center`}>
         <div className="flex min-w-0 items-center gap-3">
           <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
             {shouldRenderImage ? (
@@ -3452,14 +3637,14 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
             {evShare ? <p className="break-words text-xs text-[var(--text-secondary)]">{evShare} of pack value</p> : null}
           </div>
         </div>
-        <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 text-left sm:mt-0 sm:min-w-[14rem] sm:text-right">
+        <div className={`grid min-w-0 grid-cols-2 text-left sm:mt-0 sm:text-right ${condensed ? "mt-1 gap-2 sm:min-w-[11rem]" : "mt-3 gap-3 sm:min-w-[14rem]"}`}>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Estimated Card Market Price</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{condensed ? "Market Price" : "Estimated Card Market Price"}</p>
             <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{nearMintPrice === null ? "—" : formatCurrency(nearMintPrice)}</p>
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Value Contribution</p>
-            <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
+            <p className={`mt-1 truncate font-semibold text-[var(--text-primary)] ${condensed ? "text-sm" : "text-base"}`}>{formatCurrency(evContribution)}</p>
           </div>
         </div>
       </div>
@@ -3548,7 +3733,7 @@ function SimpleTopCardsContent({ topHits }) {
   );
 }
 
-function TopEVDriversContent({ topHits, meanValue }) {
+function TopEVDriversContent({ topHits, meanValue, condensed = false }) {
   const hits = Array.isArray(topHits) ? topHits : [];
   const totalEV = toNumber(meanValue);
   const visibleTopEV = hits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
@@ -3562,15 +3747,16 @@ function TopEVDriversContent({ topHits, meanValue }) {
 
   return (
     <div className="w-full max-w-full min-w-0 space-y-2">
-      <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className={`${condensed ? "mb-2" : "mb-3"} flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{totalLabel}</span>
           {totalEV !== null ? <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} /> : null}
         </div>
         <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
       </div>
-      <p className="text-xs text-[var(--text-secondary)]">Price-based metrics use estimated third-party market snapshots and may change over time.</p>
+      {!condensed ? <p className="text-xs text-[var(--text-secondary)]">Price-based metrics use estimated third-party market snapshots and may change over time.</p> : null}
 
+      <div className={condensed ? "grid gap-2 lg:grid-cols-2" : "space-y-2"}>
       {hits.map((hit) => {
         const ev = toNumber(hit?.ev_contribution);
         const evShare = ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null;
@@ -3586,14 +3772,16 @@ function TopEVDriversContent({ topHits, meanValue }) {
             imageUrl={hit?.image_url}
             imageSmallUrl={hit?.image_small_url}
             imageLargeUrl={hit?.image_large_url}
+            condensed={condensed}
           />
         );
       })}
+      </div>
     </div>
   );
 }
 
-function RarityContributionContent({ rankings }) {
+function RarityContributionContent({ rankings, condensed = false }) {
   const rows = useMemo(() => (Array.isArray(rankings) ? rankings : []), [rankings]);
 
   const evRows = useMemo(() => {
@@ -3623,7 +3811,7 @@ function RarityContributionContent({ rankings }) {
       {evRows.maxEV === 0 ? (
         <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
       ) : (
-        <div className="space-y-1">
+        <div className={condensed ? "grid gap-x-4 gap-y-1 md:grid-cols-2" : "space-y-1"}>
           {evRows.sorted.map((ranking) => {
             const value = toNumber(ranking?.total_sampled_value) ?? 0;
             const valueShare = evRows.totalEV > 0 ? ((value / evRows.totalEV) * 100).toFixed(1) : null;
@@ -3739,7 +3927,7 @@ function PackBreakdownContent({ packPaths, normalStateRows, evidenceRows = [], c
           ))}
         </div>
       ) : null}
-      <div className={`grid ${condensed ? "gap-4" : "gap-5 md:grid-cols-2"}`}>
+      <div className={`grid ${condensed ? "gap-4 md:grid-cols-2" : "gap-5 md:grid-cols-2"}`}>
         <div>
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
           <PackPathBars packPaths={packPaths} />
@@ -4252,6 +4440,8 @@ export default function RipStatisticsPageClient({
   const [setValueHistoryState, setSetValueHistoryState] = useState({
     status: "idle",
     history: [],
+    historiesByScope: {},
+    availableScopes: SET_VALUE_SCOPE_OPTIONS,
     error: null,
     meta: null,
   });
@@ -5278,7 +5468,14 @@ export default function RipStatisticsPageClient({
 
     const setId = String(requestedTargetId || "").trim();
     if (!setId) {
-      setSetValueHistoryState({ status: "empty", history: [], error: null, meta: null });
+      setSetValueHistoryState({
+        status: "empty",
+        history: [],
+        historiesByScope: {},
+        availableScopes: SET_VALUE_SCOPE_OPTIONS,
+        error: null,
+        meta: null,
+      });
       return undefined;
     }
 
@@ -5287,6 +5484,8 @@ export default function RipStatisticsPageClient({
       setSetValueHistoryState({
         status: cached.history.length > 0 ? "success" : "empty",
         history: cached.history,
+        historiesByScope: cached.historiesByScope || {},
+        availableScopes: cached.availableScopes || SET_VALUE_SCOPE_OPTIONS,
         error: null,
         meta: cached.meta,
       });
@@ -5297,21 +5496,63 @@ export default function RipStatisticsPageClient({
     setSetValueHistoryState((previous) => ({
       status: "loading",
       history: previous.status === "success" ? previous.history : [],
+      historiesByScope: previous.status === "success" ? previous.historiesByScope : {},
+      availableScopes: previous.availableScopes || SET_VALUE_SCOPE_OPTIONS,
       error: null,
       meta: previous.meta,
     }));
 
-    getPokemonSetValueHistory(setId, { days: 7 })
-      .then((payload) => {
+    Promise.allSettled(
+      SET_VALUE_SCOPE_OPTIONS.map((scopeOption) =>
+        getPokemonSetValueHistory(setId, {
+          days: SET_VALUE_HISTORY_REQUEST_DAYS,
+          scope: scopeOption.key,
+        }).then((payload) => ({ scope: scopeOption.key, payload }))
+      )
+    )
+      .then((results) => {
         if (isCancelled) {
           return;
         }
-        const history = Array.isArray(payload?.history) ? payload.history : [];
-        const cacheEntry = { history, meta: payload?.meta || null };
+        const fulfilled = results
+          .filter((result) => result.status === "fulfilled")
+          .map((result) => result.value);
+        if (fulfilled.length === 0) {
+          const rejected = results.find((result) => result.status === "rejected");
+          throw rejected?.reason || new Error("Unable to load set value history for this set.");
+        }
+
+        const historiesByScope = {};
+        const availableScopeKeys = new Set();
+        let meta = null;
+        fulfilled.forEach(({ scope, payload }) => {
+          const history = Array.isArray(payload?.history) ? payload.history : [];
+          historiesByScope[scope] = history;
+          if (history.length > 0) {
+            availableScopeKeys.add(scope);
+          }
+          if (!meta || scope === "standard") {
+            meta = payload?.meta || null;
+          }
+          (payload?.meta?.availableScopes || []).forEach((entry) => {
+            if (entry?.key) {
+              availableScopeKeys.add(entry.key);
+            }
+          });
+        });
+
+        const availableScopes = SET_VALUE_SCOPE_OPTIONS.filter((entry) =>
+          availableScopeKeys.size === 0 ? true : availableScopeKeys.has(entry.key)
+        );
+        const history = historiesByScope.standard || [];
+        const hasAnyHistory = Object.values(historiesByScope).some((scopeHistory) => scopeHistory.length > 0);
+        const cacheEntry = { history, historiesByScope, availableScopes, meta };
         setValueHistoryCacheRef.current.set(setId, cacheEntry);
         setSetValueHistoryState({
-          status: history.length > 0 ? "success" : "empty",
+          status: hasAnyHistory ? "success" : "empty",
           history,
+          historiesByScope,
+          availableScopes,
           error: null,
           meta: cacheEntry.meta,
         });
@@ -5323,6 +5564,8 @@ export default function RipStatisticsPageClient({
         setSetValueHistoryState({
           status: "error",
           history: [],
+          historiesByScope: {},
+          availableScopes: SET_VALUE_SCOPE_OPTIONS,
           error: error?.message || "Unable to load set value history for this set.",
           meta: null,
         });
@@ -5688,6 +5931,8 @@ export default function RipStatisticsPageClient({
                       <div className="min-w-0 lg:h-full">
                         <SetValueTrendCard
                           history={setValueHistoryState.history}
+                          historiesByScope={setValueHistoryState.historiesByScope}
+                          availableScopes={setValueHistoryState.availableScopes}
                           status={setValueHistoryState.status}
                           error={setValueHistoryState.error}
                           fallbackValue={setValue}
@@ -6112,6 +6357,8 @@ export default function RipStatisticsPageClient({
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   <SectionCard
                     title="Opening Outcomes"
+                    className="min-h-[38rem]"
+                    bodyClassName="min-h-[32rem]"
                     subtitle={activeInsightsGraphMode === "outcome-distribution" ? openingOutcomesSubtitle : null}
                     titleInfoText={
                       activeInsightsGraphMode === "value-contribution"
@@ -6147,7 +6394,7 @@ export default function RipStatisticsPageClient({
                     />
 
                     {activeInsightsGraphMode === "simulation-drivers" ? (
-                      <div id="set-detail-simulation-drivers" className="scroll-mt-24 md:scroll-mt-28">
+                      <div id="set-detail-simulation-drivers" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
                         <InterpretationInsight
                           sectionMeta={topEvDriversMeta}
                           fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
@@ -6155,10 +6402,10 @@ export default function RipStatisticsPageClient({
                           showEvidence={false}
                           className="mb-3"
                         />
-                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed />
                       </div>
                     ) : activeInsightsGraphMode === "value-contribution" ? (
-                      <div id="set-detail-value-structure" className="scroll-mt-24 md:scroll-mt-28">
+                      <div id="set-detail-value-structure" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
                         <InterpretationInsight
                           sectionMeta={rarityContributionMeta}
                           fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
@@ -6167,14 +6414,15 @@ export default function RipStatisticsPageClient({
                           maxEvidence={4}
                           className="mb-3"
                         />
-                        <RarityContributionContent rankings={rankings} />
+                        <RarityContributionContent rankings={rankings} condensed />
                       </div>
                     ) : activeInsightsGraphMode === "pack-breakdown" ? (
-                      <div id="set-detail-pack-breakdown" className="scroll-mt-24 md:scroll-mt-28">
+                      <div id="set-detail-pack-breakdown" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
                         <PackBreakdownContent
                           packPaths={ripStatistics?.pack_paths}
                           normalStateRows={normalStateRows}
                           evidenceRows={packBreakdownEvidenceRows}
+                          condensed
                         />
                       </div>
                     ) : (

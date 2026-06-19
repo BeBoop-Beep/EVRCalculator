@@ -91,6 +91,36 @@ def _prices_match(incoming: Dict[str, Any], existing: Dict[str, Any]) -> bool:
     return True
 
 
+def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str, Any]]) -> None:
+    changed_rows = [row for row in price_rows if row.get("card_variant_id")]
+    if not changed_rows:
+        return
+
+    variant_ids = sorted({str(row.get("card_variant_id")) for row in changed_rows if row.get("card_variant_id")})
+    captured_dates = [
+        _parse_captured_at(row.get("captured_at")).date().isoformat()
+        for row in changed_rows
+        if row.get("captured_at")
+    ]
+    start_date = min(captured_dates) if captured_dates else datetime.now(timezone.utc).date().isoformat()
+
+    try:
+        refresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        refresh_client.rpc(
+            "refresh_pokemon_set_value_daily_history_for_variants",
+            {
+                "p_card_variant_ids": variant_ids,
+                "p_start_date": start_date,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.warning(
+            "Unable to refresh pokemon_set_value_daily_history for %s changed card variant price row(s): %s",
+            len(changed_rows),
+            exc,
+        )
+
+
 def _fetch_existing_same_day_observations(
     normalized_rows: List[Dict[str, Any]],
 ) -> Tuple[Dict[str, Dict[str, Any]], int]:
@@ -179,7 +209,8 @@ def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
             inserted = res.data
             if not inserted:
                 raise RuntimeError("Insert returned no data")
-            
+
+            _refresh_pokemon_set_value_history_for_price_rows([normalized_row])
             return inserted[0]["id"]
         
         except APIError as e:
@@ -393,7 +424,7 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
     existing_by_identity, dedupe_query_ops = _fetch_existing_same_day_observations(normalized_rows)
 
     rows_to_insert: List[Dict[str, Any]] = []
-    rows_to_update: List[Tuple[int, Dict[str, Any]]] = []  # (existing_id, price_fields_dict)
+    rows_to_update: List[Tuple[int, Dict[str, Any], Dict[str, Any]]] = []  # (existing_id, price_fields_dict, normalized_row)
     seen_identity_keys: Set[str] = set()
     skipped_existing_duplicates = 0
     duplicate_rows_in_batch = 0
@@ -421,6 +452,7 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
                         "high_price": row.get("high_price"),
                         "low_price": row.get("low_price"),
                     },
+                    row,
                 ))
         else:
             rows_to_insert.append(row)
@@ -428,6 +460,7 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
     db_ops = dedupe_query_ops
     inserted_ids: List[int] = []
     updated_count = 0
+    updated_rows: List[Dict[str, Any]] = []
 
     # Batch INSERT new rows
     if rows_to_insert:
@@ -468,13 +501,16 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
     # UPDATE changed same-day rows individually (price drift within a day is rare)
     if rows_to_update:
         update_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        for existing_id, price_fields in rows_to_update:
+        for existing_id, price_fields, normalized_row in rows_to_update:
             db_ops += 1
             try:
                 update_client.table("card_variant_price_observations").update(price_fields).eq("id", existing_id).execute()
                 updated_count += 1
+                updated_rows.append(normalized_row)
             except Exception as exc:
                 logger.warning("Failed to update card price observation id=%s: %s", existing_id, exc)
+
+    _refresh_pokemon_set_value_history_for_price_rows([*rows_to_insert, *updated_rows])
 
     return {
         "attempted_rows": len(price_rows),

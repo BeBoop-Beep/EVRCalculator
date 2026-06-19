@@ -19,6 +19,10 @@ export async function GET(request, { params }) {
   if (limit) {
     backendUrl.searchParams.set("limit", limit);
   }
+  const days = request?.nextUrl?.searchParams?.get("days");
+  if (days) {
+    backendUrl.searchParams.set("days", days);
+  }
 
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",

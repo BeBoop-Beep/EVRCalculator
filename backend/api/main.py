@@ -617,10 +617,11 @@ def get_pokemon_set_cards(set_id: str):
 def get_pokemon_set_top_market_cards(
     set_id: str,
     limit: Optional[str] = Query(default=None),
+    days: Optional[str] = Query(default=None),
 ):
     """Return highest-priced real market cards for a Pokemon set."""
     try:
-        return get_pokemon_set_top_market_cards_payload(set_id=set_id, limit=limit)
+        return get_pokemon_set_top_market_cards_payload(set_id=set_id, limit=limit, days=days)
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -638,10 +639,11 @@ def get_pokemon_set_top_market_cards(
 def get_pokemon_set_value_history(
     set_id: str,
     days: Optional[str] = Query(default=None),
+    value_scope: Optional[str] = Query(default=None),
 ):
     """Return historical real set value snapshots for a Pokemon set."""
     try:
-        return get_pokemon_set_value_history_payload(set_id=set_id, days=days)
+        return get_pokemon_set_value_history_payload(set_id=set_id, days=days, value_scope=value_scope)
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},

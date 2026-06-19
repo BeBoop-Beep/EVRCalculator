@@ -1,3 +1,5 @@
+import { getHistoryDateKey, getLocalHistoryDateKey } from "./historyDateFormatting.mjs";
+
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -126,7 +128,102 @@ export function patchLatestHistoryRowWithSummaryRatios(
   };
 }
 
+function hasForwardFillValue(point, valueKeys) {
+  if (!Array.isArray(valueKeys) || valueKeys.length === 0) {
+    return true;
+  }
+
+  return valueKeys.some((key) => {
+    const value = point?.[key];
+    if (value === null || value === undefined || value === "") {
+      return false;
+    }
+    return toNumber(value) !== null;
+  });
+}
+
+function shouldReplaceDailyPoint(existing, candidate) {
+  if (!existing) {
+    return true;
+  }
+
+  if (existing.isCarriedForward && !candidate.isCarriedForward) {
+    return true;
+  }
+
+  if (!existing.isCarriedForward && candidate.isCarriedForward) {
+    return false;
+  }
+
+  return true;
+}
+
+export function forwardFillDailyHistoryThroughToday(
+  points,
+  {
+    dateField = "date",
+    valueKeys = ["value"],
+    todayDateKey = getLocalHistoryDateKey(),
+  } = {}
+) {
+  const today = getHistoryDateKey(todayDateKey);
+  const dailyPointMap = new Map();
+
+  (Array.isArray(points) ? points : []).forEach((point) => {
+    if (!point || typeof point !== "object") {
+      return;
+    }
+
+    const date = getHistoryDateKey(point?.[dateField]);
+    if (!date) {
+      return;
+    }
+
+    const isCarriedForward = Boolean(point?.isCarriedForward ?? point?.is_carried_forward);
+    const normalizedPoint = {
+      ...point,
+      [dateField]: date,
+      isCarriedForward,
+      sourceDate: point?.sourceDate ?? point?.source_date ?? null,
+    };
+    const existing = dailyPointMap.get(date);
+    if (shouldReplaceDailyPoint(existing, normalizedPoint)) {
+      dailyPointMap.set(date, normalizedPoint);
+    }
+  });
+
+  const rows = Array.from(dailyPointMap.values()).sort((a, b) =>
+    String(a?.[dateField] || "").localeCompare(String(b?.[dateField] || ""))
+  );
+  if (!today || rows.length === 0 || rows.some((point) => point?.[dateField] === today)) {
+    return rows;
+  }
+
+  const latestActualPoint = [...rows]
+    .reverse()
+    .find((point) => !point?.isCarriedForward && hasForwardFillValue(point, valueKeys));
+  const sourceDate = latestActualPoint?.[dateField] || null;
+  if (!latestActualPoint || !sourceDate || sourceDate >= today) {
+    return rows;
+  }
+
+  return [
+    ...rows,
+    {
+      ...latestActualPoint,
+      id: `${latestActualPoint?.id || sourceDate}:carried-forward:${today}`,
+      [dateField]: today,
+      isCarriedForward: true,
+      sourceDate,
+      originalPoint: latestActualPoint?.originalPoint ?? latestActualPoint?.rawPoint ?? latestActualPoint,
+    },
+  ];
+}
+
 export function normalizeHistoryTrendPoint(raw, index, fallbackPackCost) {
+  const snapshotDate = getHistoryDateKey(raw?.snapshot_date || raw?.snapshotDate);
+  const isCarriedForward = Boolean(raw?.isCarriedForward ?? raw?.is_carried_forward);
+  const sourceDate = getHistoryDateKey(raw?.sourceDate ?? raw?.source_date);
   const meanRatioMetric = firstFiniteMetric(raw, [
     "mean_value_to_cost_ratio",
     "meanValueToCostRatio",
@@ -217,11 +314,13 @@ export function normalizeHistoryTrendPoint(raw, index, fallbackPackCost) {
   const normalizedMedian = normalizeReturnMetrics(medianRatioRaw, medianValueDirect, packCostValue);
 
   return {
-    id: `${index}:${raw?.snapshot_date || raw?.snapshotDate || "na"}:${raw?.calculation_run_id || raw?.calculationRunId || "na"}`,
+    id: `${index}:${snapshotDate || "na"}:${raw?.calculation_run_id || raw?.calculationRunId || "na"}`,
     rawPoint: raw,
-    snapshotDate: raw?.snapshot_date || raw?.snapshotDate || null,
+    snapshotDate,
     runCreatedAt: raw?.run_created_at || raw?.runCreatedAt || null,
     calculationRunId: raw?.calculation_run_id || raw?.calculationRunId || null,
+    isCarriedForward,
+    sourceDate,
     packCost: packCostValue,
     meanCostRatio: normalizedMean.ratioValue,
     medianCostRatio: normalizedMedian.ratioValue,

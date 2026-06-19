@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   CartesianGrid,
@@ -14,14 +14,21 @@ import {
 } from "recharts";
 
 import InfoPopover from "@/components/ui/InfoPopover";
+import { POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import {
+  filterHistoryPointsForDeltaWindow,
+  getSelectedDeltaWindowFromHistory,
+} from "@/lib/explore/marketDeltaWindows.mjs";
+import {
+  forwardFillDailyHistoryThroughToday,
   normalizeHistoryTrendPoint,
   patchLatestHistoryRowWithSummaryRatios,
 } from "./packValueHistoryNormalization.mjs";
+import { formatHistoryDate } from "./historyDateFormatting.mjs";
 
 // ─── Color tokens for this chart only ────────────────────────────────────────
 const HISTORICAL_TREND_COLORS = {
-  meanToCost:   "rgba(20,184,166,0.98)",      // emerald/teal — primary value signal
+  meanToCost:   POSITIVE_VALUE_COLOR,          // shared positive value signal
   meanLabel:    "rgba(183,245,231,0.86)",
   medianToCost: "rgba(99,130,191,0.90)",      // blue-slate — secondary, visible but not competing
   medianLabel:  "rgba(180,200,230,0.82)",
@@ -169,26 +176,18 @@ function formatShortDate(value) {
   if (!value) {
     return "\u2014";
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+  return formatHistoryDate(value, { month: "short", day: "numeric" }) || String(value);
 }
 
 function formatLongDate(value) {
   if (!value) {
     return "\u2014";
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-  return new Intl.DateTimeFormat("en-US", {
+  return formatHistoryDate(value, {
     year: "numeric",
     month: "short",
     day: "numeric",
-  }).format(date);
+  }) || String(value);
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -231,6 +230,11 @@ function TrendTooltip({ active, payload, packCost }) {
       <p className="text-xs text-[var(--text-secondary)]">
         Pack Cost <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(effectivePackCost)}</span>
       </p>
+      {row.isCarriedForward ? (
+        <p className="text-xs text-[var(--text-secondary)]">
+          Carried forward{row.sourceDate ? <span> from {formatShortDate(row.sourceDate)}</span> : null}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -288,10 +292,42 @@ function LegendToggle({ active, onToggle, activeColor, inactiveColor, label }) {
 }
 
 // ─── Main chart ───────────────────────────────────────────────────────────────
+function MarketWindowSelector({ windows, value, onChange }) {
+  const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
+  if (windowOptions.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-1.5">
+      {windowOptions.map((entry) => {
+        const isActive = entry.key === value;
+        return (
+          <button
+            key={`performance-window:${entry.key}`}
+            type="button"
+            onClick={() => onChange(entry.key)}
+            aria-pressed={isActive}
+            className={[
+              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+              isActive
+                ? "border-[rgba(45,212,191,0.34)] bg-[rgba(45,212,191,0.10)] text-[rgb(45,212,191)]"
+                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+            ].join(" ")}
+          >
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null, flush = false }) {
   const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
   const [showP95Line,    setShowP95Line]    = useState(true);
+  const [selectedWindowKey, setSelectedWindowKey] = useState(null);
 
   const historicalTrendInfo = (
     <div className="space-y-1.5 text-left">
@@ -306,7 +342,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
     </div>
   );
 
-  const chartData = useMemo(
+  const fullChartData = useMemo(
     () => {
       const normalizedRows = (Array.isArray(historyTrend) ? historyTrend : [])
         .map((row, index) => normalizeHistoryPoint(row, index, packCost));
@@ -338,12 +374,43 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         effectivePackCost: effectiveLatestPackCost,
       });
 
-      return [...normalizedRows.slice(0, -1), patchedLatestRow].filter(
+      const rows = [...normalizedRows.slice(0, -1), patchedLatestRow].filter(
         (row) => row.snapshotDate && (row.meanCostRatio !== null || row.medianCostRatio !== null)
       );
+
+      return forwardFillDailyHistoryThroughToday(rows, {
+        dateField: "snapshotDate",
+        valueKeys: ["meanCostRatio", "medianCostRatio", "p95CostRatio"],
+      });
     },
     [historyTrend, packCost, summary]
   );
+
+  const {
+    windows: availableDeltaWindows,
+    effectiveKey: effectiveWindowKey,
+    selectedWindow: selectedDeltaWindow,
+  } = useMemo(
+    () => getSelectedDeltaWindowFromHistory(fullChartData, {
+      selectedKey: selectedWindowKey,
+      preferredKey: "30D",
+      dateKey: "snapshotDate",
+      valueKey: "meanCostRatio",
+    }),
+    [fullChartData, selectedWindowKey]
+  );
+
+  const chartData = useMemo(
+    () => filterHistoryPointsForDeltaWindow(fullChartData, selectedDeltaWindow, { dateKey: "snapshotDate" }),
+    [fullChartData, selectedDeltaWindow]
+  );
+
+  useEffect(() => {
+    if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
+      return;
+    }
+    setSelectedWindowKey(effectiveWindowKey);
+  }, [effectiveWindowKey, selectedWindowKey]);
 
   // Determine whether any row actually has P95 data so we can hide the toggle
   // gracefully when the backend view does not yet expose that column.
@@ -377,13 +444,18 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
           <InfoPopover text={historicalTrendInfo} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="flex flex-wrap items-center justify-end gap-2 text-[11px]">
           {/* TODO(perf-vs-cost): Optional future mode toggle (Standard | Include God Pull) if we need a P99 line without changing default readability. */}
+          <MarketWindowSelector
+            windows={availableDeltaWindows}
+            value={effectiveWindowKey}
+            onChange={setSelectedWindowKey}
+          />
           <LegendToggle
             active={showMeanLine}
             onToggle={() => setShowMeanLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.meanToCost}
-            inactiveColor="rgba(20,184,166,0.25)"
+            inactiveColor="rgba(45,212,191,0.25)"
             label="Average Return"
           />
           <LegendToggle

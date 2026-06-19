@@ -13,9 +13,17 @@ DEFAULT_TOP_MARKET_CARDS_LIMIT = 10
 MAX_TOP_MARKET_CARDS_LIMIT = 50
 DEFAULT_SET_VALUE_HISTORY_DAYS = 7
 MAX_SET_VALUE_HISTORY_DAYS = 1825
-TOP_CHASE_HISTORY_DAYS = 30
+DEFAULT_TOP_CHASE_HISTORY_DAYS = 365
+MAX_TOP_CHASE_HISTORY_DAYS = 365
 _IN_CHUNK_SIZE = 500
 _DELTA_KEYS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
+SET_VALUE_SCOPES = ("standard", "hits", "top10")
+DEFAULT_SET_VALUE_SCOPE = "standard"
+SET_VALUE_SCOPE_LABELS = {
+    "standard": "Standard",
+    "hits": "Hits",
+    "top10": "Top 10",
+}
 
 # TODO(pokemon-market-deltas): Replace ad hoc history reads with a daily snapshot
 # machine shared across cards, sets, and sealed products. A future
@@ -72,6 +80,28 @@ def _sanitize_days(value: Any) -> int:
     except (TypeError, ValueError):
         return DEFAULT_SET_VALUE_HISTORY_DAYS
     return max(1, min(parsed, MAX_SET_VALUE_HISTORY_DAYS))
+
+
+def _sanitize_value_scope(value: Any) -> str:
+    normalized = str(value or "").strip().lower().replace("_", "").replace("-", "")
+    aliases = {
+        "": DEFAULT_SET_VALUE_SCOPE,
+        "standard": "standard",
+        "all": "standard",
+        "hits": "hits",
+        "hit": "hits",
+        "top10": "top10",
+        "topten": "top10",
+    }
+    return aliases.get(normalized, DEFAULT_SET_VALUE_SCOPE)
+
+
+def _sanitize_top_chase_history_days(value: Any) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_TOP_CHASE_HISTORY_DAYS
+    return max(1, min(parsed, MAX_TOP_CHASE_HISTORY_DAYS))
 
 
 def _chunk(values: List[str], size: int = _IN_CHUNK_SIZE) -> Iterable[List[str]]:
@@ -822,6 +852,7 @@ def _public_simulation_card(
 def _load_simulation_top_market_cards_payload(
     set_row: Dict[str, Any],
     limit: int,
+    history_days: int,
     warnings: List[str],
     sources: Dict[str, str],
 ) -> Optional[Dict[str, Any]]:
@@ -840,7 +871,7 @@ def _load_simulation_top_market_cards_payload(
     variant_lookup, card_lookup = _load_simulation_card_image_context(rows, sources)
     history_by_variant, trend_diagnostics_by_variant, trend_window_meta = _load_variant_price_history(
         rows,
-        TOP_CHASE_HISTORY_DAYS,
+        history_days,
         sources,
         warnings,
     )
@@ -853,7 +884,7 @@ def _load_simulation_top_market_cards_payload(
             variant_lookup=variant_lookup,
             card_lookup=card_lookup,
             price_history=history_by_variant.get(variant_id or "", []),
-            history_period_key=f"{TOP_CHASE_HISTORY_DAYS}D",
+            history_period_key=f"{history_days}D",
             trend_diagnostics=trend_diagnostics_by_variant.get(variant_id or ""),
         )
         if public_card:
@@ -874,7 +905,7 @@ def _load_simulation_top_market_cards_payload(
             "created_at": _to_optional_str((run_row or {}).get("created_at")),
         },
         "price_basis": "latest combined simulation_input_cards.price_used with matching simulation_input_cards.condition_id for trends",
-        "trend_days": TOP_CHASE_HISTORY_DAYS,
+        "trend_days": history_days,
         "trend_window": trend_window_meta,
         "trend_diagnostics": [
             card.get("historyDiagnostics")
@@ -884,14 +915,15 @@ def _load_simulation_top_market_cards_payload(
     }
 
 
-def get_pokemon_set_top_market_cards_payload(set_id: str, limit: Any = None) -> Dict[str, Any]:
+def get_pokemon_set_top_market_cards_payload(set_id: str, limit: Any = None, days: Any = None) -> Dict[str, Any]:
     started = time.perf_counter()
     warnings: List[str] = []
     sources: Dict[str, str] = {}
     set_row = _resolve_set_row(set_id)
     clamped_limit = _sanitize_limit(limit)
+    clamped_days = _sanitize_top_chase_history_days(days)
 
-    simulation_payload = _load_simulation_top_market_cards_payload(set_row, clamped_limit, warnings, sources)
+    simulation_payload = _load_simulation_top_market_cards_payload(set_row, clamped_limit, clamped_days, warnings, sources)
     if simulation_payload is not None:
         return {
             "set": simulation_payload["set"],
@@ -967,124 +999,160 @@ def get_pokemon_set_top_market_cards_payload(set_id: str, limit: Any = None) -> 
     }
 
 
-def _load_simulation_set_value_history(
+def _public_set_value_history_point(
+    row: Dict[str, Any],
+    *,
+    is_carried_forward: bool = False,
+    source_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    snapshot_date = _parse_date(row.get("snapshot_date") or row.get("date"))
+    set_value = _to_optional_float(row.get("set_value") or row.get("setValue"))
+    priced_card_count = _to_optional_int(row.get("priced_card_count") or row.get("cardCountPriced") or row.get("card_count_priced"))
+    total_card_count = _to_optional_int(row.get("total_card_count") or row.get("totalCardCount"))
+    created_at = _to_optional_str(row.get("created_at") or row.get("createdAt"))
+    updated_at = _to_optional_str(row.get("updated_at") or row.get("updatedAt"))
+    source = _to_optional_str(row.get("source")) or "pokemon_set_value_daily_history"
+    value_scope = _sanitize_value_scope(row.get("value_scope") or row.get("valueScope"))
+
+    return {
+        "date": snapshot_date,
+        "valueScope": value_scope,
+        "value_scope": value_scope,
+        "setValue": round(set_value, 2) if set_value is not None else None,
+        "set_value": round(set_value, 2) if set_value is not None else None,
+        "cardCountPriced": priced_card_count,
+        "card_count_priced": priced_card_count,
+        "totalCardCount": total_card_count,
+        "total_card_count": total_card_count,
+        "source": source,
+        "provider": source,
+        "calculationRunId": None,
+        "calculation_run_id": None,
+        "createdAt": created_at,
+        "created_at": created_at,
+        "updatedAt": updated_at,
+        "updated_at": updated_at,
+        "isCarriedForward": is_carried_forward,
+        "is_carried_forward": is_carried_forward,
+        "sourceDate": source_date or snapshot_date,
+        "source_date": source_date or snapshot_date,
+    }
+
+
+def _load_available_set_value_scopes(set_id: str, sources: Dict[str, str]) -> List[Dict[str, Any]]:
+    try:
+        result = (
+            public_read_client.table("pokemon_set_value_daily_history")
+                .select("value_scope,snapshot_date")
+                .eq("set_id", set_id)
+                .order("snapshot_date", desc=True)
+                .execute()
+        )
+        sources["pokemon_set_value_daily_history_scopes"] = "OK"
+    except Exception as exc:
+        sources["pokemon_set_value_daily_history_scopes"] = "FAILED"
+        logger.warning("[pokemon-set-market] daily set value scopes lookup failed set_id=%s: %s", set_id, exc)
+        return []
+
+    latest_by_scope: Dict[str, str] = {}
+    for row in result.data or []:
+        scope = _sanitize_value_scope(row.get("value_scope"))
+        date_key = _parse_date(row.get("snapshot_date"))
+        if not date_key:
+            continue
+        existing = latest_by_scope.get(scope)
+        if existing is None or date_key > existing:
+            latest_by_scope[scope] = date_key
+
+    return [
+        {
+            "key": scope,
+            "label": SET_VALUE_SCOPE_LABELS.get(scope, scope),
+            "latestDate": latest_by_scope[scope],
+        }
+        for scope in SET_VALUE_SCOPES
+        if scope in latest_by_scope
+    ]
+
+
+def _load_market_set_value_history(
     set_id: str,
     days: int,
+    value_scope: str,
     warnings: List[str],
     sources: Dict[str, str],
 ) -> List[Dict[str, Any]]:
-    run_limit = min(5000, max(days * 12, days + 90, 250))
     try:
-        runs_result = (
-            public_read_client.table("calculation_runs")
-            .select("id,created_at,target_type,target_id,valuation_method")
-            .eq("target_type", "set")
-            .eq("valuation_method", "combined")
-            .eq("target_id", set_id)
-            .order("created_at", desc=True)
-            .limit(run_limit)
-            .execute()
-        )
-        run_rows = list(runs_result.data or [])
-        sources["calculation_runs_set_value_history"] = "OK"
-    except Exception as exc:
-        sources["calculation_runs_set_value_history"] = "FAILED"
-        warnings.append("Failed to load calculation run history for set value trend.")
-        logger.warning("[pokemon-set-market] calculation run history failed set_id=%s: %s", set_id, exc)
-        return []
-
-    run_ids = [
-        str(row.get("id"))
-        for row in run_rows
-        if row.get("id") is not None
-    ]
-    if not run_ids:
-        warnings.append("No combined calculation run history is available for this set.")
-        return []
-
-    derived_by_run_id: Dict[str, Dict[str, Any]] = {}
-    try:
-        for run_id_chunk in _chunk(run_ids):
-            derived_result = (
-                public_read_client.table("simulation_derived_metrics")
-                .select("calculation_run_id,simulated_set_value,simulated_set_value_card_count")
-                .in_("calculation_run_id", run_id_chunk)
+        latest_result = (
+            public_read_client.table("pokemon_set_value_daily_history")
+                .select("snapshot_date")
+                .eq("set_id", set_id)
+                .eq("value_scope", value_scope)
+                .order("snapshot_date", desc=True)
+                .limit(1)
                 .execute()
-            )
-            for row in derived_result.data or []:
-                run_id = _to_optional_str(row.get("calculation_run_id"))
-                if run_id:
-                    derived_by_run_id[run_id] = row
-        sources["simulation_derived_metrics_set_value_history"] = "OK"
+        )
+        latest_row = _first_row(latest_result)
+        sources["pokemon_set_value_daily_history_latest"] = "OK"
     except Exception as exc:
-        sources["simulation_derived_metrics_set_value_history"] = "FAILED"
-        warnings.append("Failed to load simulation-derived set value history.")
-        logger.warning("[pokemon-set-market] derived set value history failed set_id=%s: %s", set_id, exc)
+        sources["pokemon_set_value_daily_history_latest"] = "FAILED"
+        warnings.append("Failed to load daily set value market history.")
+        logger.warning("[pokemon-set-market] daily set value latest lookup failed set_id=%s: %s", set_id, exc)
         return []
 
-    valid_rows: List[Tuple[date, Optional[datetime], Dict[str, Any], Dict[str, Any], float]] = []
-    for run_row in run_rows:
-        run_id = _to_optional_str(run_row.get("id"))
-        derived_row = derived_by_run_id.get(run_id or "")
-        value = _to_optional_float((derived_row or {}).get("simulated_set_value"))
-        created_at = _to_optional_str(run_row.get("created_at"))
-        date_key = _parse_date(created_at)
-        if not run_id or value is None or not date_key:
-            continue
-        try:
-            parsed_date = date.fromisoformat(date_key)
-        except ValueError:
-            continue
-        valid_rows.append((parsed_date, _parse_datetime(created_at), run_row, derived_row, value))
-
-    if not valid_rows:
-        warnings.append("No simulation-derived set value points are available for this set.")
+    latest_date_key = _parse_date((latest_row or {}).get("snapshot_date"))
+    if not latest_date_key:
+        warnings.append("No daily market set value history is available for this set.")
         return []
 
-    latest_date = max(row[0] for row in valid_rows)
+    try:
+        latest_date = date.fromisoformat(latest_date_key)
+    except ValueError:
+        warnings.append("Daily market set value history has an invalid latest snapshot date.")
+        return []
+
     start_date = latest_date - timedelta(days=max(days - 1, 0))
-    latest_by_day: Dict[str, Dict[str, Any]] = {}
-    prior_point: Optional[Dict[str, Any]] = None
+    try:
+        history_result = (
+            public_read_client.table("pokemon_set_value_daily_history")
+                .select("snapshot_date,value_scope,set_value,priced_card_count,total_card_count,source,created_at,updated_at")
+                .eq("set_id", set_id)
+                .eq("value_scope", value_scope)
+                .gte("snapshot_date", start_date.isoformat())
+                .order("snapshot_date", desc=False)
+                .execute()
+        )
+        raw_rows = list(history_result.data or [])
+        sources["pokemon_set_value_daily_history"] = "OK"
+    except Exception as exc:
+        sources["pokemon_set_value_daily_history"] = "FAILED"
+        warnings.append("Failed to load daily set value market history.")
+        logger.warning("[pokemon-set-market] daily set value history failed set_id=%s: %s", set_id, exc)
+        return []
 
-    for parsed_date, created_dt, run_row, derived_row, value in valid_rows:
-        run_id = _to_optional_str(run_row.get("id"))
-        card_count = _to_optional_int((derived_row or {}).get("simulated_set_value_card_count"))
-        created_at = _to_optional_str(run_row.get("created_at"))
-        date_key = parsed_date.isoformat()
-        point = {
-            "date": date_key,
-            "setValue": round(value, 2),
-            "set_value": round(value, 2),
-            "cardCountPriced": card_count,
-            "card_count_priced": card_count,
-            "source": "simulation_derived_metrics",
-            "provider": "simulation_derived_metrics",
-            "calculationRunId": run_id,
-            "calculation_run_id": run_id,
-            "createdAt": created_at,
-            "created_at": created_at,
-            "isCarriedForward": False,
-            "is_carried_forward": False,
-            "sourceDate": date_key,
-            "source_date": date_key,
-        }
-        if parsed_date < start_date:
-            prior_dt = _parse_datetime((prior_point or {}).get("createdAt"))
-            if prior_point is None or (created_dt is not None and (prior_dt is None or created_dt > prior_dt)):
-                prior_point = point
+    actual_by_day: Dict[str, Dict[str, Any]] = {}
+    for row in raw_rows:
+        date_key = _parse_date(row.get("snapshot_date"))
+        value = _to_optional_float(row.get("set_value"))
+        if not date_key or value is None:
             continue
-        if parsed_date > latest_date:
-            continue
-        existing_dt = _parse_datetime((latest_by_day.get(date_key) or {}).get("createdAt"))
-        if created_dt is not None and existing_dt is not None and created_dt <= existing_dt:
-            continue
-        latest_by_day[date_key] = point
+        actual_by_day[date_key] = _public_set_value_history_point(row)
+
+    if not actual_by_day:
+        warnings.append("No daily market set value points are available for this set in the requested range.")
+        return []
+
+    try:
+        first_actual_date = date.fromisoformat(min(actual_by_day.keys()))
+    except ValueError:
+        warnings.append("Daily market set value history has an invalid snapshot date.")
+        return []
 
     history: List[Dict[str, Any]] = []
-    carried_point = prior_point
-    for bucket_date in _daily_bucket_dates(latest_date, days):
+    carried_point: Optional[Dict[str, Any]] = None
+    for bucket_date in _inclusive_daily_bucket_dates(first_actual_date, latest_date):
         date_key = bucket_date.isoformat()
-        observed_point = latest_by_day.get(date_key)
+        observed_point = actual_by_day.get(date_key)
         if observed_point:
             carried_point = observed_point
             history.append(observed_point)
@@ -1097,41 +1165,24 @@ def _load_simulation_set_value_history(
                 "sourceDate": carried_point.get("date"),
                 "source_date": carried_point.get("date"),
             })
-        else:
-            history.append({
-                "date": date_key,
-                "setValue": None,
-                "set_value": None,
-                "cardCountPriced": None,
-                "card_count_priced": None,
-                "source": "simulation_derived_metrics",
-                "provider": "simulation_derived_metrics",
-                "calculationRunId": None,
-                "calculation_run_id": None,
-                "createdAt": None,
-                "created_at": None,
-                "isCarriedForward": True,
-                "is_carried_forward": True,
-                "sourceDate": None,
-                "source_date": None,
-            })
-
-    if not history:
-        warnings.append("No simulation-derived set value points are available for this set.")
 
     return history
 
 
-def get_pokemon_set_value_history_payload(set_id: str, days: Any = None) -> Dict[str, Any]:
+def get_pokemon_set_value_history_payload(set_id: str, days: Any = None, value_scope: Any = None) -> Dict[str, Any]:
     started = time.perf_counter()
     warnings: List[str] = []
     sources: Dict[str, str] = {}
     set_row = _resolve_set_row(set_id)
     clamped_days = _sanitize_days(days)
+    selected_scope = _sanitize_value_scope(value_scope)
+    resolved_set_id = _to_optional_str(set_row.get("id")) or ""
+    available_scopes = _load_available_set_value_scopes(resolved_set_id, sources)
 
-    history = _load_simulation_set_value_history(
-        _to_optional_str(set_row.get("id")) or "",
+    history = _load_market_set_value_history(
+        resolved_set_id,
         clamped_days,
+        selected_scope,
         warnings,
         sources,
     )
@@ -1146,13 +1197,20 @@ def get_pokemon_set_value_history_payload(set_id: str, days: Any = None) -> Dict
         "history": history,
         "meta": {
             "days": clamped_days,
+            "valueScope": selected_scope,
+            "value_scope": selected_scope,
+            "availableScopes": available_scopes,
+            "available_scopes": available_scopes,
             "asOfDate": history[-1].get("date") if history else None,
             "windowStart": history[0].get("date") if history else None,
             "windowEnd": history[-1].get("date") if history else None,
             "windowDays": len(history),
-            "priceBasis": "combined calculation_runs joined to simulation_derived_metrics.simulated_set_value",
+            "priceBasis": "Near Mint card_variant_price_observations rolled up into pokemon_set_value_daily_history",
+            "freshnessDependency": "Updates when card price observations are inserted or updated and the daily set value history refresh runs; simulator runs are not required.",
+            "dateField": "pokemon_set_value_daily_history.snapshot_date",
+            "valueField": "pokemon_set_value_daily_history.set_value",
             "historyGranularity": "daily",
-            "historyGrouping": "one latest combined calculation run per UTC calendar day",
+            "historyGrouping": "one latest-known Near Mint card market price per card per UTC calendar day, summed by set",
             "sources": sources,
             "warnings": warnings,
             "timings": {"total_backend_ms": round((time.perf_counter() - started) * 1000, 3)},
