@@ -7,6 +7,10 @@ import {
   patchLatestHistoryRowWithSummaryRatios,
   shouldUseSummaryRatioFallback,
 } from "./packValueHistoryNormalization.mjs";
+import {
+  buildPerformanceTooltipRows,
+  formatRatioWithCurrency,
+} from "./performanceVsCostFormatting.mjs";
 import { formatHistoryDate } from "./historyDateFormatting.mjs";
 
 test("shouldUseSummaryRatioFallback returns true for null or zero latest ratio when summary ratio is non-zero", () => {
@@ -141,4 +145,61 @@ test("forwardFillDailyHistoryThroughToday never carries before the first actual 
   assert.equal(points.length, 1);
   assert.equal(points[0].date, "2026-06-17");
   assert.equal(points[0].isCarriedForward, false);
+});
+
+test("performance line-end labels can render ratio with dollar value", () => {
+  assert.equal(formatRatioWithCurrency(1.11, 15.48), "1.11x ($15.48)");
+  assert.equal(formatRatioWithCurrency(0.78, 10.93), "0.78x ($10.93)");
+});
+
+test("performance labels omit empty parentheses when dollar value is missing", () => {
+  assert.equal(formatRatioWithCurrency(0.21, null), "0.21x");
+  assert.equal(formatRatioWithCurrency(null, null), "\u2014");
+});
+
+test("performance endpoint labels render absolute return multiples, not deltas", () => {
+  assert.equal(formatRatioWithCurrency(-1.11, -15.48), "1.11x ($15.48)");
+  assert.equal(formatRatioWithCurrency(-0.78, 10.93), "0.78x ($10.93)");
+});
+
+test("performance tooltip rows put upside first and cost context last", () => {
+  const rows = buildPerformanceTooltipRows(
+    {
+      snapshotDate: "2026-06-20",
+      p95CostRatio: 1.11,
+      p95Value: 15.48,
+      meanCostRatio: 0.78,
+      meanValue: 10.93,
+      medianCostRatio: 0.21,
+      medianValue: 2.96,
+      packCost: 13.94,
+    },
+    null
+  );
+
+  assert.deepEqual(
+    rows.map((row) => row.label),
+    ["Big Hit Upside", "Average Return", "Typical Return", "Break-even", "Pack Cost"]
+  );
+  assert.deepEqual(
+    rows.map((row) => row.value),
+    ["1.11x ($15.48)", "0.78x ($10.93)", "0.21x ($2.96)", "1.00x", "$13.94"]
+  );
+});
+
+test("performance tooltip rows do not expose carried-forward copy", () => {
+  const rows = buildPerformanceTooltipRows(
+    {
+      isCarriedForward: true,
+      sourceDate: "2026-06-18",
+      meanCostRatio: 0.78,
+      meanValue: 10.93,
+      medianCostRatio: 0.21,
+      medianValue: 2.96,
+    },
+    13.94
+  );
+
+  assert.equal(JSON.stringify(rows).includes("Carried forward"), false);
+  assert.equal(JSON.stringify(rows).includes("sourceDate"), false);
 });

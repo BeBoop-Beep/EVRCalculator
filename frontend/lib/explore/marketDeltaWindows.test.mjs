@@ -12,6 +12,7 @@ import {
   getPreferredDeltaWindowKey,
   getSelectedDeltaWindowFromHistory,
   getStandardDeltaWindowDefinitions,
+  getVisibleHistoryWindowMetrics,
   STANDARD_DELTA_WINDOW_KEYS,
 } from "./marketDeltaWindows.mjs";
 
@@ -131,6 +132,109 @@ test("selected-window delta uses the selected period rather than a hardcoded def
 
   assert.equal(selected7D.amount, 6);
   assert.equal(selected30D.amount, 29);
+});
+
+test("visible history metrics recompute current value and delta from the selected window", () => {
+  const rows = buildDailyRows(31, { startDate: "2026-05-21", startValue: 100 });
+  const selected7D = getSelectedDeltaWindowFromHistory(rows, { selectedKey: "7D" }).selectedWindow;
+  const selected30D = getSelectedDeltaWindowFromHistory(rows, { selectedKey: "30D" }).selectedWindow;
+  const metrics7D = getVisibleHistoryWindowMetrics(rows, selected7D);
+  const metrics30D = getVisibleHistoryWindowMetrics(rows, selected30D);
+
+  assert.equal(metrics7D.currentValue, 130);
+  assert.equal(metrics7D.deltaAmount, 6);
+  assert.equal(metrics30D.currentValue, 130);
+  assert.equal(metrics30D.deltaAmount, 29);
+  assert.notEqual(metrics7D.deltaAmount, metrics30D.deltaAmount);
+});
+
+test("visible history metrics change when the active value scope changes", () => {
+  const standardRows = [
+    { date: "2026-06-18", value: 100 },
+    { date: "2026-06-19", value: 110 },
+    { date: "2026-06-20", value: 130 },
+  ];
+  const hitsRows = [
+    { date: "2026-06-18", value: 25 },
+    { date: "2026-06-19", value: 30 },
+    { date: "2026-06-20", value: 50 },
+  ];
+  const standardWindow = getSelectedDeltaWindowFromHistory(standardRows, { selectedKey: "lifetime" }).selectedWindow;
+  const hitsWindow = getSelectedDeltaWindowFromHistory(hitsRows, { selectedKey: "lifetime" }).selectedWindow;
+  const standardMetrics = getVisibleHistoryWindowMetrics(standardRows, standardWindow);
+  const hitsMetrics = getVisibleHistoryWindowMetrics(hitsRows, hitsWindow);
+
+  assert.equal(standardMetrics.currentValue, 130);
+  assert.equal(standardMetrics.deltaAmount, 30);
+  assert.equal(hitsMetrics.currentValue, 50);
+  assert.equal(hitsMetrics.deltaAmount, 25);
+});
+
+test("visible history point changes use the first visible point in the selected window", () => {
+  const rows = [
+    { date: "2026-06-16", value: 100 },
+    { date: "2026-06-17", value: 105 },
+    { date: "2026-06-18", value: 103 },
+    { date: "2026-06-19", value: 120 },
+  ];
+  const window = {
+    startDate: "2026-06-17",
+  };
+  const metrics = getVisibleHistoryWindowMetrics(rows, window);
+
+  assert.deepEqual(
+    metrics.points.map((point) => [point.date, point.deltaFromPrevious]),
+    [
+      ["2026-06-17", null],
+      ["2026-06-18", -2],
+      ["2026-06-19", 15],
+    ]
+  );
+  assert.equal(metrics.deltaAmount, 15);
+});
+
+test("visible history latest tooltip change equals selected-window delta", () => {
+  const rows = buildDailyRows(31, { startDate: "2026-05-21", startValue: 100 });
+  const selected30D = getSelectedDeltaWindowFromHistory(rows, { selectedKey: "30D" }).selectedWindow;
+  const metrics = getVisibleHistoryWindowMetrics(rows, selected30D);
+  const latestPoint = metrics.points[metrics.points.length - 1];
+
+  assert.equal(latestPoint.deltaFromPrevious, metrics.deltaAmount);
+  assert.equal(latestPoint.deltaPercentFromPrevious, metrics.deltaPercent);
+});
+
+test("visible history tooltip changes recalculate by active scope", () => {
+  const checklistRows = [
+    { date: "2026-06-18", value: 100 },
+    { date: "2026-06-19", value: 110 },
+    { date: "2026-06-20", value: 90 },
+  ];
+  const top10Rows = [
+    { date: "2026-06-18", value: 30 },
+    { date: "2026-06-19", value: 35 },
+    { date: "2026-06-20", value: 45 },
+  ];
+  const checklistWindow = getSelectedDeltaWindowFromHistory(checklistRows, { selectedKey: "lifetime" }).selectedWindow;
+  const top10Window = getSelectedDeltaWindowFromHistory(top10Rows, { selectedKey: "lifetime" }).selectedWindow;
+  const checklistMetrics = getVisibleHistoryWindowMetrics(checklistRows, checklistWindow);
+  const top10Metrics = getVisibleHistoryWindowMetrics(top10Rows, top10Window);
+  const checklistLatest = checklistMetrics.points[checklistMetrics.points.length - 1];
+  const top10Latest = top10Metrics.points[top10Metrics.points.length - 1];
+
+  assert.equal(checklistLatest.deltaFromPrevious, -10);
+  assert.equal(top10Latest.deltaFromPrevious, 15);
+  assert.equal(top10Metrics.deltaAmount, 15);
+});
+
+test("visible history metrics return neutral values for missing series", () => {
+  const metrics = getVisibleHistoryWindowMetrics([], { startDate: "2026-06-01" });
+
+  assert.deepEqual(metrics.points, []);
+  assert.equal(metrics.currentValue, null);
+  assert.equal(metrics.deltaAmount, null);
+  assert.equal(metrics.deltaPercent, null);
+  assert.equal(metrics.firstPoint, null);
+  assert.equal(metrics.latestPoint, null);
 });
 
 test("getPreferredDeltaWindowKey does not invent unavailable windows", () => {

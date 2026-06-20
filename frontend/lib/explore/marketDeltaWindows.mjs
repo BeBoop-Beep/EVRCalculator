@@ -226,6 +226,52 @@ export function getSelectedDeltaWindowFromHistory(
   };
 }
 
+export function getVisibleHistoryWindowMetrics(
+  points,
+  selectedWindow,
+  { dateKey = "date", valueKey = "value", amountKey = "deltaFromPrevious", percentKey = "deltaPercentFromPrevious" } = {}
+) {
+  const visiblePoints = filterHistoryPointsForDeltaWindow(points, selectedWindow, { dateKey });
+  let firstValuedPoint = null;
+
+  const pointsWithChanges = visiblePoints.map((point) => {
+    const value = toNumber(point?.[valueKey]);
+    if (value !== null && !firstValuedPoint) {
+      firstValuedPoint = { value, point };
+    }
+
+    const baselineValue = firstValuedPoint?.value ?? null;
+    const isBaselinePoint = value !== null && point === firstValuedPoint?.point;
+    const amount = value !== null && baselineValue !== null && !isBaselinePoint ? value - baselineValue : null;
+    const percent = amount !== null && baselineValue !== 0 ? (amount / baselineValue) * 100 : null;
+    const nextPoint = {
+      ...point,
+      [amountKey]: amount,
+      [percentKey]: percent,
+    };
+
+    return nextPoint;
+  });
+
+  const valuedPoints = pointsWithChanges.filter((point) => toNumber(point?.[valueKey]) !== null);
+  const firstPoint = valuedPoints[0] || null;
+  const latestPoint = valuedPoints[valuedPoints.length - 1] || null;
+  const firstValue = toNumber(firstPoint?.[valueKey]);
+  const currentValue = toNumber(latestPoint?.[valueKey]);
+  const hasWindowDelta = firstPoint && latestPoint && firstPoint !== latestPoint && firstValue !== null && currentValue !== null;
+  const deltaAmount = hasWindowDelta ? currentValue - firstValue : null;
+
+  return {
+    points: pointsWithChanges,
+    valuedPoints,
+    firstPoint,
+    latestPoint,
+    currentValue,
+    deltaAmount,
+    deltaPercent: deltaAmount !== null && firstValue !== 0 ? (deltaAmount / firstValue) * 100 : null,
+  };
+}
+
 export function filterHistoryPointsForDeltaWindow(points, window, { dateKey = "date" } = {}) {
   const rows = Array.isArray(points) ? points : [];
   const startDate = window?.startDate || null;

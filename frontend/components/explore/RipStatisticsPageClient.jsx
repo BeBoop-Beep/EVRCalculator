@@ -21,6 +21,7 @@ import InfoPopover from "@/components/ui/InfoPopover";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import {
@@ -40,6 +41,7 @@ import {
   getPreferredDeltaWindowKey,
   getSelectedDeltaWindowFromHistory,
   getStandardDeltaWindowDefinitions,
+  getVisibleHistoryWindowMetrics,
 } from "@/lib/explore/marketDeltaWindows.mjs";
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
@@ -72,7 +74,7 @@ const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
 const SET_VALUE_HISTORY_REQUEST_DAYS = 1825;
 const SET_VALUE_SCOPE_OPTIONS = [
-  { key: "standard", label: "Standard" },
+  { key: "standard", label: "Checklist" },
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
 ];
@@ -791,36 +793,13 @@ function SetValueScopeSelector({ scopes, value, onChange }) {
   const scopeOptions = Array.isArray(scopes) && scopes.length > 0 ? scopes : SET_VALUE_SCOPE_OPTIONS;
 
   return (
-    <div className="flex min-w-0 flex-wrap gap-1.5">
-      {scopeOptions.map((entry) => {
-        const isActive = entry.key === value;
-        return (
-          <button
-            key={`set-value-scope:${entry.key}`}
-            type="button"
-            onClick={() => onChange(entry.key)}
-            aria-pressed={isActive}
-            className={[
-              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
-              isActive
-                ? ""
-                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
-            ].join(" ")}
-            style={
-              isActive
-                ? {
-                    borderColor: withAlpha(POSITIVE_VALUE_COLOR, 0.34),
-                    backgroundColor: withAlpha(POSITIVE_VALUE_COLOR, 0.1),
-                    color: POSITIVE_VALUE_COLOR,
-                  }
-                : undefined
-            }
-          >
-            {entry.label}
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedControl
+      className="flex justify-center"
+      options={scopeOptions.map((entry) => ({ value: entry.key, label: entry.label }))}
+      value={value}
+      onChange={onChange}
+      ariaLabel="Set value scope"
+    />
   );
 }
 
@@ -897,8 +876,8 @@ function SetValueTooltip({ active, payload }) {
       ) : null}
       {deltaAmount !== null ? (
         <p className="text-xs text-[var(--text-secondary)]">
-          Change <span className="font-semibold text-[var(--text-primary)]">{formatSignedCurrency(deltaAmount)}</span>
-          {deltaPercent !== null ? <span> ({deltaPercent > 0 ? "+" : ""}{deltaPercent.toFixed(1)}%)</span> : null}
+          Change <span className="font-semibold" style={getDeltaTextStyle(deltaAmount)}>{formatSignedCurrency(deltaAmount)}</span>
+          {deltaPercent !== null ? <span style={getDeltaTextStyle(deltaAmount)}> ({deltaPercent > 0 ? "+" : ""}{deltaPercent.toFixed(1)}%)</span> : null}
         </p>
       ) : null}
     </div>
@@ -1039,19 +1018,32 @@ function normalizeSetValueHistoryPoints(points) {
 }
 
 function SetValueLineChart({ points, trendDirection = "neutral" }) {
-  const numericPoints = normalizeSetValueHistoryPoints(points)
-    .map((point, index, rows) => {
-      const previous = rows
-        .slice(0, index)
-        .reverse()
-        .find((candidate) => toNumber(candidate?.setValue) !== null) || null;
-      return {
+  let previousValuedPoint = null;
+  const numericPoints = (Array.isArray(points) ? points : [])
+    .map((point, index) => {
+      const setValue = toNumber(point?.setValue ?? point?.value);
+      const explicitDeltaAmount = toNumber(point?.deltaFromPrevious);
+      const explicitDeltaPercent = toNumber(point?.deltaPercentFromPrevious);
+      const fallbackDeltaAmount =
+        setValue !== null && previousValuedPoint ? getPriceDeltaAmount(setValue, previousValuedPoint.setValue) : null;
+      const fallbackDeltaPercent =
+        setValue !== null && previousValuedPoint ? getPriceDeltaPercent(setValue, previousValuedPoint.setValue) : null;
+      const nextPoint = {
         ...point,
+        date: getHistoryDateKey(point?.date),
+        setValue,
         index,
-        deltaFromPrevious: point.setValue !== null && previous ? getPriceDeltaAmount(point.setValue, previous.setValue) : null,
-        deltaPercentFromPrevious: point.setValue !== null && previous ? getPriceDeltaPercent(point.setValue, previous.setValue) : null,
+        deltaFromPrevious: explicitDeltaAmount ?? fallbackDeltaAmount,
+        deltaPercentFromPrevious: explicitDeltaPercent ?? fallbackDeltaPercent,
       };
-    });
+
+      if (setValue !== null) {
+        previousValuedPoint = nextPoint;
+      }
+
+      return nextPoint;
+    })
+    .filter((point) => point.date);
   const valuedPoints = numericPoints.filter((point) => toNumber(point?.setValue) !== null);
 
   if (valuedPoints.length < 2) {
@@ -1121,29 +1113,33 @@ function SetValueLineChart({ points, trendDirection = "neutral" }) {
   );
 }
 
-function SetValueTrendCard({ history, historiesByScope, availableScopes, status, error, fallbackValue }) {
+function SetValueTrendCard({ history, historiesByScope, availableScopes, status, error }) {
   const [selectedWindowKey, setSelectedWindowKey] = useState(null);
   const [selectedScope, setSelectedScope] = useState("standard");
   const scopeOptions = useMemo(() => {
     const optionMap = new Map(SET_VALUE_SCOPE_OPTIONS.map((entry) => [entry.key, entry]));
     (Array.isArray(availableScopes) ? availableScopes : []).forEach((entry) => {
       if (entry?.key) {
+        const defaultOption = SET_VALUE_SCOPE_OPTIONS.find((option) => option.key === entry.key);
         optionMap.set(entry.key, {
           key: entry.key,
-          label: entry.label || SET_VALUE_SCOPE_OPTIONS.find((option) => option.key === entry.key)?.label || entry.key,
+          label: defaultOption?.label || entry.label || entry.key,
         });
       }
     });
     return SET_VALUE_SCOPE_OPTIONS.filter((entry) => optionMap.has(entry.key)).map((entry) => optionMap.get(entry.key));
   }, [availableScopes]);
-  const selectedHistory = Array.isArray(historiesByScope?.[selectedScope])
-    ? historiesByScope[selectedScope]
-    : selectedScope === "standard"
-    ? history
-    : [];
-  const points = normalizeSetValueHistoryPoints(selectedHistory);
-  const valuedPoints = points.filter((point) => toNumber(point?.setValue) !== null);
-  const lastPoint = valuedPoints[valuedPoints.length - 1] || null;
+  const selectedHistory = useMemo(() => {
+    if (Array.isArray(historiesByScope?.[selectedScope])) {
+      return historiesByScope[selectedScope];
+    }
+    return selectedScope === "standard" ? history : [];
+  }, [historiesByScope, history, selectedScope]);
+  const points = useMemo(() => normalizeSetValueHistoryPoints(selectedHistory), [selectedHistory]);
+  const valuedPoints = useMemo(
+    () => points.filter((point) => toNumber(point?.setValue) !== null),
+    [points]
+  );
   const {
     windows: availableDeltaWindows,
     effectiveKey: effectiveWindowKey,
@@ -1157,16 +1153,21 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
     }),
     [selectedWindowKey, valuedPoints]
   );
-  const firstPoint =
-    selectedDeltaWindow?.startDate
-      ? valuedPoints.find((point) => point.date === selectedDeltaWindow.startDate) || valuedPoints[0] || null
-      : valuedPoints[0] || null;
-  const chartPoints = filterHistoryPointsForDeltaWindow(points, selectedDeltaWindow, { dateKey: "date" });
-  const currentValue = toNumber(lastPoint?.setValue) ?? toNumber(fallbackValue);
-  const deltaAmount = selectedDeltaWindow?.amount ?? getPriceDeltaAmount(lastPoint?.setValue, firstPoint?.setValue);
-  const deltaPercent = selectedDeltaWindow?.percent ?? getPriceDeltaPercent(lastPoint?.setValue, firstPoint?.setValue);
-  const deltaWindowLabel = selectedDeltaWindow ? getDeltaWindowLabel(selectedDeltaWindow.key) : "Trend";
-  const hasTrend = valuedPoints.length >= 2;
+  const visibleWindowMetrics = useMemo(
+    () => getVisibleHistoryWindowMetrics(points, selectedDeltaWindow, {
+      dateKey: "date",
+      valueKey: "setValue",
+    }),
+    [points, selectedDeltaWindow]
+  );
+  const chartPoints = visibleWindowMetrics.points;
+  const firstPoint = visibleWindowMetrics.firstPoint;
+  const lastPoint = visibleWindowMetrics.latestPoint;
+  const currentValue = visibleWindowMetrics.currentValue;
+  const deltaAmount = visibleWindowMetrics.deltaAmount;
+  const deltaPercent = visibleWindowMetrics.deltaPercent;
+  const deltaWindowLabel = effectiveWindowKey ? getDeltaWindowLabel(effectiveWindowKey) : "Trend";
+  const hasTrend = visibleWindowMetrics.valuedPoints.length >= 2;
   const trendDirection = deltaAmount === null ? "neutral" : deltaAmount < 0 ? "negative" : deltaAmount > 0 ? "positive" : "neutral";
 
   useEffect(() => {
@@ -1186,7 +1187,7 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
   return (
     <SectionCard
       title="Set Value Trend"
-      titleInfoText="Daily set value history from Near Mint card market observations. Standard sums tracked cards, Hits excludes common low-rarity buckets, and Top 10 sums the highest-value tracked cards for each date."
+      titleInfoText="Daily set value history from Near Mint card market observations. Checklist sums tracked checklist cards, Hits excludes common low-rarity buckets, and Top 10 sums the highest-value tracked cards for each date."
       className="h-full"
     >
       {status === "loading" || status === "idle" ? (
@@ -1202,7 +1203,9 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
           <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-3 py-3 text-sm text-[var(--text-secondary)]">
             Not enough set value history yet.
           </p>
-          <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+          <div className="pt-1">
+            <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+          </div>
         </div>
       ) : (
         <div className="flex min-h-[26rem] flex-col space-y-4">
@@ -1232,8 +1235,7 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+          <div className="flex flex-wrap items-center gap-2">
             <MarketWindowSelector
               windows={availableDeltaWindows}
               value={effectiveWindowKey}
@@ -1243,9 +1245,12 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
 
           <SetValueLineChart points={chartPoints} trendDirection={trendDirection} />
 
-          <div className="flex min-w-0 items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
-            <span className="truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
-            <span className="truncate text-right">{formatShortDate(lastPoint?.date) || "Latest"}</span>
+          <div className="grid min-w-0 grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)] max-[420px]:grid-cols-2">
+            <span className="min-w-0 justify-self-start truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
+            <div className="min-w-0 justify-self-center max-[420px]:order-3 max-[420px]:col-span-2">
+              <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+            </div>
+            <span className="min-w-0 justify-self-end truncate text-right">{formatShortDate(lastPoint?.date) || "Latest"}</span>
           </div>
         </div>
       )}
@@ -1569,29 +1574,13 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
 
   if (variant === "secondary") {
     return (
-      <div className={className}>
-        <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.58)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          {tabOptions.map((option) => {
-            const isActive = value === option.value;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => onChange(option.value)}
-                aria-pressed={isActive}
-                className={`min-w-0 rounded-full px-3 py-1.5 text-[11px] font-semibold leading-none transition-all duration-200 sm:px-4 sm:text-xs ${
-                  isActive
-                    ? "bg-[rgba(20,184,166,0.16)] text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(94,234,212,0.2)]"
-                    : "text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
-                }`}
-              >
-                <span className="block truncate">{option.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <SegmentedControl
+        className={className}
+        options={tabOptions}
+        value={value}
+        onChange={onChange}
+        ariaLabel="Section view"
+      />
     );
   }
 
@@ -5935,14 +5924,14 @@ export default function RipStatisticsPageClient({
                           availableScopes={setValueHistoryState.availableScopes}
                           status={setValueHistoryState.status}
                           error={setValueHistoryState.error}
-                          fallbackValue={setValue}
                         />
                       </div>
                       <div className="min-w-0 lg:h-full">
                         <SectionCard
                           title="Performance vs Cost"
                           titleInfoText="Compares current pack price against modeled pack value and recent performance when history is available."
-                          className="h-full"
+                          className="flex h-full flex-col"
+                          bodyClassName="flex min-h-0 flex-1 flex-col"
                         >
                           <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} flush />
                         </SectionCard>

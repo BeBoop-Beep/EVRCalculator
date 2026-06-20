@@ -57,7 +57,7 @@ function normalizeDailySetValueHistory(history) {
 
   (Array.isArray(history) ? history : []).forEach((point) => {
     const date = normalizeDateKey(point?.date);
-    const setValue = toOptionalNumber(point?.setValue ?? point?.set_value);
+    const setValue = toOptionalNumber(point?.setValue ?? point?.set_value ?? point?.value);
     if (!date) {
       return;
     }
