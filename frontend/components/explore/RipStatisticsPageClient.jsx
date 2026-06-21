@@ -975,10 +975,13 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
       {activePoint ? (
         <div className="pointer-events-none absolute left-1/2 top-0 z-20 min-w-[9rem] -translate-x-1/2 -translate-y-[calc(100%+0.45rem)] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(activePoint.date)}</p>
-          <p className="mt-1 text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(activePoint.y)}</p>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] tabular-nums">
+            <span>{formatCurrency(activePoint.y)}</span>
+            <DeltaTrendIcon value={activeDeltaAmount} size="md" />
+          </p>
           {activeDeltaAmount !== null ? (
-            <p className="mt-0.5 text-[10px] font-semibold" style={getDeltaTextStyle(activeDeltaAmount)}>
-              From start {formatSignedCurrency(activeDeltaAmount)}
+            <p className="mt-0.5 text-[11px] font-semibold tabular-nums" style={getDeltaTextStyle(activeDeltaAmount)}>
+              {formatSignedCurrency(activeDeltaAmount)}
               {activeDeltaPercent !== null ? <span> ({activeDeltaPercent > 0 ? "+" : ""}{activeDeltaPercent.toFixed(1)}%)</span> : null}
             </p>
           ) : null}
@@ -1338,49 +1341,55 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
       : "neutral";
 
   return (
-    <div className="grid min-w-0 grid-cols-[2rem_3.25rem_minmax(0,1fr)] gap-3.5 px-3.5 py-3.5 sm:grid-cols-[2.5rem_3.5rem_minmax(0,1fr)_minmax(12rem,0.8fr)_minmax(6.5rem,auto)] sm:items-center sm:px-4 sm:py-4">
-      <span className="text-xs font-semibold text-[var(--text-secondary)]">#{index + 1}</span>
-      <div className="flex h-16 w-12 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] shadow-[0_10px_24px_rgba(2,6,23,0.24)]">
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt={name}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
-            {getCardInitials(name)}
-          </span>
-        )}
+    <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-3 py-2.5 lg:grid-cols-[3.5rem_minmax(13.75rem,1fr)_minmax(11.25rem,14.5rem)_6.875rem_6rem] lg:items-center lg:gap-3.5 lg:px-4 lg:py-3">
+      <span className="self-start pt-1 text-xs font-semibold text-[var(--text-secondary)] lg:self-auto lg:pt-0">#{index + 1}</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-[4.875rem] w-14 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] shadow-[0_10px_24px_rgba(2,6,23,0.24)]">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt={name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+              {getCardInitials(name)}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name}</p>
+          <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{rarity || "N/A"}</p>
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name}</p>
-        <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{rarity || "N/A"}</p>
-      </div>
-      <div className="col-span-3 flex min-w-0 flex-col items-center sm:col-span-1">
-        <CompactSparkline points={sparklinePoints} trendDirection={sparklineTone} className="h-16 w-48 max-w-full" />
+      <div className="col-span-2 flex min-w-0 flex-col items-center lg:col-span-1">
+        <CompactSparkline points={sparklinePoints} trendDirection={sparklineTone} className="h-14 w-full max-w-[12.25rem] lg:max-w-[13.75rem]" />
         {sparklinePoints.length >= 2 ? (
-          <div className="mt-1 flex w-48 max-w-full min-w-0 items-center justify-between gap-2 text-[10px] text-[var(--text-secondary)]">
+          <div className="mt-1 flex w-full max-w-[12.25rem] min-w-0 items-center justify-between gap-2 text-[9px] text-[var(--text-secondary)] lg:max-w-[13.75rem] lg:text-[10px]">
             <span className="truncate">{formatShortDate(sparklinePoints[0]?.date)}</span>
             <span className="truncate text-right">{formatShortDate(sparklinePoints[sparklinePoints.length - 1]?.date)}</span>
           </div>
         ) : null}
       </div>
-      <div className="col-span-3 flex min-w-0 items-end justify-between gap-4 sm:col-span-1 sm:block sm:text-right">
-        <p className="inline-flex flex-none items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] sm:justify-end">
-          <span>{price === null ? "N/A" : formatCurrency(price)}</span>
-          <DeltaTrendIcon value={displayDeltaAmount ?? displayDelta} />
+      <div className="col-span-2 flex min-w-0 items-end justify-between gap-3 lg:contents">
+        <p className="min-w-0 flex-1 text-left text-sm font-semibold text-[var(--text-primary)] lg:justify-self-stretch">
+          <span className="inline-grid min-w-0 grid-cols-[minmax(0,max-content)_0.75rem] items-center gap-1.5 tabular-nums lg:w-full lg:grid-cols-[minmax(0,1fr)_0.75rem]">
+            <span className="min-w-0 text-right">{price === null ? "N/A" : formatCurrency(price)}</span>
+            <span className="inline-flex w-3 justify-center">
+              {price !== null ? <DeltaTrendIcon value={displayDeltaAmount ?? displayDelta} size="sm" /> : null}
+            </span>
+          </span>
         </p>
         {displayDeltaAmount !== null || displayDelta !== null ? (
-          <div className="mt-1 inline-flex min-w-[4.8rem] flex-col rounded-md border px-2 py-1.5 text-xs font-semibold leading-tight" style={getDeltaBadgeStyle(displayDeltaAmount ?? displayDelta)}>
+          <div className="inline-flex min-w-[4.7rem] flex-none flex-col items-end gap-px justify-self-end rounded-md border px-1.5 py-1 text-right text-xs font-semibold leading-[1.12] tabular-nums" style={getDeltaBadgeStyle(displayDeltaAmount ?? displayDelta)}>
             {displayDeltaAmount !== null ? <p>{formatSignedCurrency(displayDeltaAmount)}</p> : null}
             {displayDelta !== null ? <p>{displayDelta > 0 ? "+" : ""}{displayDelta.toFixed(1)}%</p> : null}
           </div>
         ) : (
-          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Awaiting trend</p>
+          <p className="flex-none text-right text-[11px] text-[var(--text-secondary)]">Awaiting trend</p>
         )}
       </div>
     </div>
@@ -1425,12 +1434,15 @@ function TopMarketCardsContent({ cards, status, error, maxRows = 10 }) {
         onChange={setSelectedWindowKey}
       />
       <div className="overflow-visible rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42">
-        <div className="hidden grid-cols-[2.5rem_3.5rem_minmax(0,1fr)_minmax(12rem,0.8fr)_minmax(6.5rem,auto)] items-center gap-3.5 border-b border-[var(--border-subtle)] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] sm:grid">
+        <div className="hidden grid-cols-[3.5rem_minmax(13.75rem,1fr)_minmax(11.25rem,14.5rem)_6.875rem_6rem] items-center gap-3.5 border-b border-[var(--border-subtle)] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
           <span>Rank</span>
-          <span></span>
           <span>Card</span>
           <span className="text-center">Trend</span>
-          <span className="text-right">Price</span>
+          <span className="grid grid-cols-[minmax(0,1fr)_0.75rem] items-center gap-1.5">
+            <span className="text-right">Price</span>
+            <span aria-hidden="true"></span>
+          </span>
+          <span className="text-right">Change</span>
         </div>
         <div className="divide-y divide-[var(--border-subtle)]">
           {cards.slice(0, maxRows).map((card, index) => (
