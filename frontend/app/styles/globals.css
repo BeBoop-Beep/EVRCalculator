@@ -421,6 +421,52 @@ body::-webkit-scrollbar-thumb:hover {
   }
 }
 
+.route-transition-feedback {
+  position: fixed;
+  top: var(--app-header-offset, 64px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.route-transition-feedback--visible {
+  opacity: 1;
+}
+
+.route-transition-feedback__bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(20, 184, 166, 0.2), rgba(20, 184, 166, 0.95), rgba(45, 212, 191, 0.55));
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.45);
+  animation: route-transition-feedback-progress 1.15s ease-in-out infinite;
+}
+
+@keyframes route-transition-feedback-progress {
+  0% {
+    transform: scaleX(0.18);
+  }
+  55% {
+    transform: scaleX(0.72);
+  }
+  100% {
+    transform: scaleX(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-transition-feedback,
+  .route-transition-feedback__bar {
+    transition: none;
+    animation: none;
+  }
+}
+
 /* For page-level sticky controls that should sit below the global sticky header. */
 .page-sticky-bar {
   position: sticky;

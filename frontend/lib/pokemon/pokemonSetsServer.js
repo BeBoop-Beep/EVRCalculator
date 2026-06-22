@@ -59,7 +59,7 @@ const _fetchPokemonSets = cache(async function _fetchPokemonSets() {
 
   const promise = (async () => {
     const url = `${BACKEND_URL}/tcgs/pokemon/sets`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 900 } });
 
     if (res.status === 404) {
       const emptyPayload = normalisePayload(null);

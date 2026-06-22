@@ -2,6 +2,7 @@ import StickyNav from "@/components/StickyNav";
 import GlobalMobileBottomNav from "@/components/GlobalMobileBottomNav";
 import { CartContextProvider } from "@/components/Cart/CartContext";
 import { AuthProvider } from "@/components/AuthContext";
+import RouteTransitionFeedback from "@/components/navigation/RouteTransitionFeedback";
 import { getAuthenticatedUserFromCookiesWithTimeout } from "@/lib/authServer";
 import { Manrope } from "next/font/google";
 import "./styles/globals.css";
@@ -46,6 +47,7 @@ export default async function RootLayout({ children }) {
         <CartContextProvider>
           <AuthProvider initialUser={initialUser}>
             <StickyNav />
+            <RouteTransitionFeedback />
             <main className="flex-1 w-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
             <GlobalMobileBottomNav />
           </AuthProvider>

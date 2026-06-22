@@ -11,14 +11,15 @@ export default function InDexLogoLoader({
   shouldDelay = false,
   isLoading = true,
   delayConfig = {},
+  delayAfterAppShellReady = true,
 }) {
-  // Always call the hook - it handles the delayed logic internally
-  const delayedLoaderReady = useDelayedLoader(isLoading, delayConfig);
+  const isAppShellReady =
+    typeof window !== "undefined" && window.__INDEX_APP_SHELL_READY__ === true;
+  const shouldUseDelay = shouldDelay && (!delayAfterAppShellReady || isAppShellReady);
+  const delayedLoaderReady = useDelayedLoader(shouldUseDelay ? isLoading : false, delayConfig);
 
-  // Determine if loader should be shown
-  const shouldShowLoader = shouldDelay ? delayedLoaderReady : true;
+  const shouldShowLoader = shouldUseDelay ? delayedLoaderReady : true;
 
-  // Don't render anything if loader should be delayed and not ready yet
   if (!shouldShowLoader) {
     return null;
   }

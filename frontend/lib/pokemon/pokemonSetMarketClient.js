@@ -3,6 +3,45 @@ function toOptionalString(value) {
   return text || null;
 }
 
+const MARKET_DASHBOARD_TTL_MS = 6 * 60 * 60 * 1000;
+const marketDashboardCache = new Map();
+const marketDashboardInflight = new Map();
+const isDev = process.env.NODE_ENV !== "production";
+
+function nowMs() {
+  return Date.now();
+}
+
+function debugTiming(label, details = {}) {
+  if (!isDev) {
+    return;
+  }
+  console.debug(`[pokemon-set-perf] ${label}`, details);
+}
+
+function getMarketDashboardCacheKey(setId, { window = "30D", days = null } = {}) {
+  return `pokemon-market-dashboard:${String(setId || "").trim()}:window=${String(window || "30D")}:days=${days || ""}`;
+}
+
+function readMarketDashboardCache(cacheKey) {
+  const cached = marketDashboardCache.get(cacheKey);
+  if (!cached || cached.expiresAt <= nowMs()) {
+    if (cached) {
+      marketDashboardCache.delete(cacheKey);
+    }
+    return null;
+  }
+  return cached.payload;
+}
+
+function writeMarketDashboardCache(cacheKey, payload) {
+  marketDashboardCache.set(cacheKey, {
+    payload,
+    cachedAt: nowMs(),
+    expiresAt: nowMs() + MARKET_DASHBOARD_TTL_MS,
+  });
+}
+
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -52,6 +91,63 @@ function normalizeDailyPriceHistory(history) {
   return Array.from(dailyPoints.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function normalizeTopChaseCardHistories(payload) {
+  const source =
+    payload?.topChaseCardHistories && typeof payload.topChaseCardHistories === "object"
+      ? payload.topChaseCardHistories
+      : payload?.top_chase_card_histories && typeof payload.top_chase_card_histories === "object"
+      ? payload.top_chase_card_histories
+      : {};
+
+  if (Array.isArray(source)) {
+    return Object.fromEntries(
+      source
+        .map((entry, index) => {
+          const key =
+            toOptionalString(entry?.cardVariantId ?? entry?.card_variant_id) ||
+            toOptionalString(entry?.cardId ?? entry?.card_id) ||
+            toOptionalString(entry?.rank ? `rank:${entry.rank}` : null) ||
+            `rank:${index + 1}`;
+          const history = Array.isArray(entry?.history)
+            ? entry.history
+            : Array.isArray(entry?.priceHistory)
+            ? entry.priceHistory
+            : Array.isArray(entry?.price_history)
+            ? entry.price_history
+            : [];
+          return key ? [key, normalizeDailyPriceHistory(history)] : null;
+        })
+        .filter(Boolean)
+    );
+  }
+
+  return Object.fromEntries(
+    Object.entries(source).map(([key, history]) => [
+      key,
+      normalizeDailyPriceHistory(Array.isArray(history) ? history : []),
+    ])
+  );
+}
+
+function getTopChaseHistoryForCard(card, histories, index) {
+  const keys = [
+    toOptionalString(card?.cardVariantId ?? card?.card_variant_id),
+    toOptionalString(card?.cardId ?? card?.card_id),
+    toOptionalString(card?.id),
+    toOptionalString(card?.rank),
+    toOptionalString(card?.marketRank ?? card?.market_rank),
+    `rank:${index + 1}`,
+    String(index + 1),
+  ].filter(Boolean);
+
+  for (const key of keys) {
+    if (Array.isArray(histories?.[key]) && histories[key].length > 0) {
+      return histories[key];
+    }
+  }
+  return [];
+}
+
 function normalizeDailySetValueHistory(history) {
   const dailyPoints = new Map();
 
@@ -83,6 +179,7 @@ function normalizeDailySetValueHistory(history) {
 
 function normalizeTopMarketCardsPayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+  const topChaseCardHistories = normalizeTopChaseCardHistories(payload);
 
   return {
     set: {
@@ -90,10 +187,12 @@ function normalizeTopMarketCardsPayload(payload) {
       name: toOptionalString(payload?.set?.name),
       slug: toOptionalString(payload?.set?.slug),
     },
-    cards: cards.map((card) => {
-      const priceHistory = normalizeDailyPriceHistory(
-        Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : []
-      );
+    cards: cards.map((card, index) => {
+      const explicitHistory =
+        Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [];
+      const priceHistory = explicitHistory.length > 0
+        ? normalizeDailyPriceHistory(explicitHistory)
+        : getTopChaseHistoryForCard(card, topChaseCardHistories, index);
 
       return {
         id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
@@ -112,6 +211,7 @@ function normalizeTopMarketCardsPayload(payload) {
         priceUpdatedAt: toOptionalString(card?.priceUpdatedAt ?? card?.price_updated_at),
         source: toOptionalString(card?.source ?? card?.provider),
         provider: toOptionalString(card?.provider ?? card?.source),
+        rank: toOptionalNumber(card?.rank ?? card?.marketRank ?? card?.market_rank) ?? index + 1,
         deltas: card?.deltas && typeof card.deltas === "object" ? card.deltas : null,
         priceHistory,
         price_history: priceHistory,
@@ -130,7 +230,70 @@ function normalizeTopMarketCardsPayload(payload) {
             : null,
       };
     }),
+    topChaseCardHistories,
+    top_chase_card_histories: topChaseCardHistories,
     meta: payload?.meta || { sources: {}, warnings: [] },
+  };
+}
+
+function normalizeMarketMoverCard(card) {
+  const currentPrice = toOptionalNumber(card?.currentPrice ?? card?.current_price ?? card?.marketPrice ?? card?.market_price);
+  const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount);
+  const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent);
+  const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score);
+  const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label);
+
+  return {
+    id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
+    cardId: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
+    cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id),
+    setId: toOptionalString(card?.setId ?? card?.set_id),
+    name: toOptionalString(card?.name),
+    imageUrl: toOptionalString(card?.imageUrl ?? card?.image_url),
+    imageSmallUrl: toOptionalString(card?.imageSmallUrl ?? card?.image_small_url),
+    imageLargeUrl: toOptionalString(card?.imageLargeUrl ?? card?.image_large_url),
+    rarity: toOptionalString(card?.rarity),
+    setNumber: toOptionalString(card?.setNumber ?? card?.set_number ?? card?.cardNumber ?? card?.card_number),
+    cardNumber: toOptionalString(card?.cardNumber ?? card?.card_number ?? card?.setNumber ?? card?.set_number),
+    currentPrice,
+    marketPrice: currentPrice,
+    change30dAmount,
+    change30dPercent,
+    movementScore,
+    movementLabel,
+    enoughHistory: Boolean(card?.enoughHistory ?? card?.enough_history),
+    confidence: toOptionalString(card?.confidence),
+    historyPointCount: toOptionalNumber(card?.historyPointCount ?? card?.history_point_count),
+    historyStartDate: toOptionalString(card?.historyStartDate ?? card?.history_start_date),
+    historyEndDate: toOptionalString(card?.historyEndDate ?? card?.history_end_date),
+  };
+}
+
+function normalizeMarketMoversPayload(payload) {
+  const source =
+    payload?.marketMovers && typeof payload.marketMovers === "object"
+      ? payload.marketMovers
+      : payload?.market_movers && typeof payload.market_movers === "object"
+      ? payload.market_movers
+      : {};
+  const heating = Array.isArray(source?.heatingUp)
+    ? source.heatingUp
+    : Array.isArray(source?.heating_up)
+    ? source.heating_up
+    : [];
+  const cooling = Array.isArray(source?.coolingOff)
+    ? source.coolingOff
+    : Array.isArray(source?.cooling_off)
+    ? source.cooling_off
+    : [];
+  const all = Array.isArray(source?.all) ? source.all : [...heating, ...cooling];
+
+  return {
+    window: toOptionalString(source?.window ?? payload?.window ?? payload?.window_key) || "30D",
+    windowDays: toOptionalNumber(source?.windowDays ?? source?.window_days ?? payload?.windowDays ?? payload?.window_days) ?? 30,
+    heatingUp: heating.map(normalizeMarketMoverCard).filter((card) => card.name),
+    coolingOff: cooling.map(normalizeMarketMoverCard).filter((card) => card.name),
+    all: all.map(normalizeMarketMoverCard).filter((card) => card.name),
   };
 }
 
@@ -162,6 +325,66 @@ function normalizeSetValueHistoryPayload(payload) {
   };
 }
 
+function normalizeMarketDashboardPayload(payload) {
+  const historiesByScope =
+    payload?.setValueHistoriesByScope && typeof payload.setValueHistoriesByScope === "object"
+      ? payload.setValueHistoriesByScope
+      : payload?.set_value_histories_by_scope && typeof payload.set_value_histories_by_scope === "object"
+      ? payload.set_value_histories_by_scope
+      : {};
+  const availableScopes = Array.isArray(payload?.availableScopes)
+    ? payload.availableScopes
+    : Array.isArray(payload?.available_scopes)
+    ? payload.available_scopes
+    : Array.isArray(payload?.meta?.availableScopes)
+    ? payload.meta.availableScopes
+    : [];
+  const topCardsPayload = normalizeTopMarketCardsPayload({
+    set: payload?.set,
+    cards: payload?.topChaseCards || payload?.top_chase_cards || [],
+    topChaseCardHistories: payload?.topChaseCardHistories,
+    top_chase_card_histories: payload?.top_chase_card_histories,
+    meta: payload?.meta,
+  });
+  const marketMovers = normalizeMarketMoversPayload(payload);
+
+  const normalizedHistoriesByScope = Object.fromEntries(
+    Object.entries(historiesByScope).map(([scope, history]) => [
+      scope,
+      normalizeDailySetValueHistory(Array.isArray(history) ? history : []),
+    ])
+  );
+
+  return {
+    set: {
+      id: toOptionalString(payload?.set?.id),
+      name: toOptionalString(payload?.set?.name),
+      slug: toOptionalString(payload?.set?.slug),
+    },
+    window: toOptionalString(payload?.window ?? payload?.window_key ?? payload?.meta?.window ?? payload?.meta?.window_key),
+    topChaseCards: topCardsPayload.cards,
+    top_chase_cards: topCardsPayload.cards,
+    topChaseCardHistories: topCardsPayload.topChaseCardHistories,
+    top_chase_card_histories: topCardsPayload.top_chase_card_histories,
+    marketMovers,
+    market_movers: marketMovers,
+    setValueHistoriesByScope: normalizedHistoriesByScope,
+    set_value_histories_by_scope: normalizedHistoriesByScope,
+    performanceVsCostHistory: normalizeDailySetValueHistory(
+      payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
+    ),
+    availableScopes: availableScopes
+      .map((scope) => ({
+        key: toOptionalString(scope?.key),
+        label: toOptionalString(scope?.label),
+        latestDate: toOptionalString(scope?.latestDate ?? scope?.latest_date),
+      }))
+      .filter((scope) => scope.key),
+    latestMarketDate: toOptionalString(payload?.latestMarketDate ?? payload?.latest_market_date),
+    meta: payload?.meta || { sources: {}, warnings: [] },
+  };
+}
+
 async function readJsonResponse(response, fallbackMessage) {
   let payload = null;
   try {
@@ -178,6 +401,84 @@ async function readJsonResponse(response, fallbackMessage) {
   }
 
   return payload;
+}
+
+export async function getPokemonSetMarketDashboard(setId, { window = "30D", days = null } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+
+  const cacheOptions = { window, days };
+  const cacheKey = getMarketDashboardCacheKey(resolvedSetId, cacheOptions);
+  const cached = readMarketDashboardCache(cacheKey);
+  if (cached) {
+    debugTiming("market_dashboard.cache_hit", { setId: resolvedSetId, window, days });
+    return cached;
+  }
+  if (marketDashboardInflight.has(cacheKey)) {
+    debugTiming("market_dashboard.inflight_join", { setId: resolvedSetId, window, days });
+    return marketDashboardInflight.get(cacheKey);
+  }
+
+  const params = new URLSearchParams();
+  if (window) {
+    params.set("window", String(window));
+  }
+  if (days) {
+    params.set("days", String(days));
+  }
+
+  const startedAt = performance.now();
+  debugTiming("market_dashboard.fetch_start", { setId: resolvedSetId, window, days });
+
+  const request = (async () => {
+    const response = await fetch(
+    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/dashboard${params.toString() ? `?${params}` : ""}`,
+    {
+      method: "GET",
+    }
+  );
+
+    const normalized = normalizeMarketDashboardPayload(
+      await readJsonResponse(response, "Unable to load market dashboard")
+    );
+    writeMarketDashboardCache(cacheKey, normalized);
+    debugTiming("market_dashboard.fetch_success", {
+      setId: resolvedSetId,
+      window,
+      days,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      topCards: normalized.topChaseCards.length,
+      scopes: Object.keys(normalized.setValueHistoriesByScope || {}).length,
+    });
+    return normalized;
+  })().finally(() => {
+    marketDashboardInflight.delete(cacheKey);
+  });
+
+  marketDashboardInflight.set(cacheKey, request);
+  return request;
+}
+
+export function getCachedPokemonSetMarketDashboard(setId, options = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  return resolvedSetId ? readMarketDashboardCache(getMarketDashboardCacheKey(resolvedSetId, options)) : null;
+}
+
+export function prefetchPokemonSetMarketDashboard(setId, options = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    return Promise.resolve(null);
+  }
+  return getPokemonSetMarketDashboard(resolvedSetId, options).catch((error) => {
+    debugTiming("market_dashboard.prefetch_error", {
+      setId: resolvedSetId,
+      window: options.window || "30D",
+      error: error?.message || String(error),
+    });
+    return null;
+  });
 }
 
 export async function getPokemonSetTopMarketCards(setId, { limit = 10, days = 365 } = {}) {
@@ -198,7 +499,6 @@ export async function getPokemonSetTopMarketCards(setId, { limit = 10, days = 36
     `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-cards${params.toString() ? `?${params}` : ""}`,
     {
       method: "GET",
-      cache: "no-store",
     }
   );
 
@@ -225,7 +525,6 @@ export async function getPokemonSetValueHistory(setId, { days = 365, scope = "st
     `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/value-history${params.toString() ? `?${params}` : ""}`,
     {
       method: "GET",
-      cache: "no-store",
     }
   );
 

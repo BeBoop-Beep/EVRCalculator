@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
@@ -31,8 +31,20 @@ import {
   getDangerValueStyle,
   getInterpretationTone,
 } from "@/lib/explore/interpretationTone";
-import { getPokemonSetCards } from "@/lib/pokemon/pokemonSetCardsClient";
-import { getPokemonSetTopMarketCards, getPokemonSetValueHistory } from "@/lib/pokemon/pokemonSetMarketClient";
+import {
+  getCachedPokemonSetCards,
+  getPokemonSetCards,
+  prefetchPokemonSetCards,
+} from "@/lib/pokemon/pokemonSetCardsClient";
+import {
+  getCachedPokemonSetMarketDashboard,
+  getPokemonSetMarketDashboard,
+  prefetchPokemonSetMarketDashboard,
+} from "@/lib/pokemon/pokemonSetMarketClient";
+import {
+  announceNavigationStart,
+  debugLoadingTiming,
+} from "@/lib/navigation/loadingPolicy";
 import {
   computeDeltaWindowsFromHistory,
   extractDeltaWindows,
@@ -72,12 +84,26 @@ const SECTION_SCROLL_ORDER = [
 ];
 const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
-const SET_VALUE_HISTORY_REQUEST_DAYS = 1825;
 const SET_VALUE_SCOPE_OPTIONS = [
   { key: "standard", label: "Checklist" },
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
 ];
+const CARD_BASE_SORT_OPTIONS = [
+  { value: "set-number", label: "Set Number" },
+];
+const CARD_MOVEMENT_SORT_OPTIONS = [
+  { value: "30d-gainers", label: "Biggest 30D Gainers" },
+  { value: "30d-decliners", label: "Biggest 30D Decliners" },
+];
+const CARD_MOVEMENT_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "heating", label: "Heating Up" },
+  { value: "cooling", label: "Cooling Off" },
+];
+const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
+const SET_PREFETCH_ADJACENT_LIMIT = 2;
+const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
 const SET_DETAIL_TAB_ALIASES = {
   analytics: "insights",
   market: "overview",
@@ -92,7 +118,53 @@ const SET_DETAIL_SECTION_TARGETS = {
   "pack-breakdown": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "pack-breakdown" },
   "performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" },
   "top-market-cards": { tab: "overview", targetId: "set-detail-top-market-cards" },
+  "market-movers": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
 };
+
+function debugSetPagePerf(label, details = {}) {
+  if (!isDevPerfLoggingEnabled) {
+    return;
+  }
+  console.debug(`[pokemon-set-perf] ${label}`, details);
+}
+
+function getTopMarketCardsCacheKey(setId, windowKey = DEFAULT_TOP_MARKET_CARDS_WINDOW) {
+  return `${String(setId || "").trim()}:${windowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW}`;
+}
+
+function buildMarketDashboardStateFromPayload(payload) {
+  const rawHistoriesByScope = payload?.setValueHistoriesByScope || {};
+  const historiesByScope = Object.fromEntries(
+    SET_VALUE_SCOPE_OPTIONS.map((scopeOption) => [
+      scopeOption.key,
+      Array.isArray(rawHistoriesByScope?.[scopeOption.key]) ? rawHistoriesByScope[scopeOption.key] : [],
+    ])
+  );
+  const availableScopeKeys = new Set(
+    (payload?.availableScopes || []).map((entry) => entry?.key).filter(Boolean)
+  );
+  Object.entries(historiesByScope).forEach(([scope, history]) => {
+    if (history.length > 0) {
+      availableScopeKeys.add(scope);
+    }
+  });
+
+  const availableScopes = SET_VALUE_SCOPE_OPTIONS.filter((entry) =>
+    availableScopeKeys.size === 0 ? true : availableScopeKeys.has(entry.key)
+  );
+  const history = historiesByScope.standard || [];
+  const hasAnyHistory = Object.values(historiesByScope).some((scopeHistory) => scopeHistory.length > 0);
+  const cards = Array.isArray(payload?.topChaseCards) ? payload.topChaseCards : [];
+  const marketMovers = payload?.marketMovers && typeof payload.marketMovers === "object"
+    ? payload.marketMovers
+    : { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW, windowDays: 30 };
+  const meta = payload?.meta || null;
+
+  return {
+    topCards: { cards, meta, marketMovers },
+    setValue: { history, historiesByScope, availableScopes, meta, hasAnyHistory },
+  };
+}
 
 const RIP_COPY = {
   scoreLabel: "Rip Score",
@@ -526,6 +598,46 @@ function getCardMarketDelta(card) {
   return { amount, percent };
 }
 
+function getCardMovement30d(card) {
+  const amount = (
+    toNumber(card?.change30dAmount) ??
+    toNumber(card?.change_30d_amount) ??
+    toNumber(card?.movement30d?.changeAmount) ??
+    toNumber(card?.movement30d?.change_amount) ??
+    null
+  );
+  const percent = (
+    toNumber(card?.change30dPercent) ??
+    toNumber(card?.change_30d_percent) ??
+    toNumber(card?.movement30d?.changePercent) ??
+    toNumber(card?.movement30d?.change_percent) ??
+    null
+  );
+  const score = (
+    toNumber(card?.movementScore) ??
+    toNumber(card?.movement_score) ??
+    toNumber(card?.movement30d?.score) ??
+    toNumber(card?.movement30d?.movementScore) ??
+    null
+  );
+  const label = card?.movementLabel || card?.movement_label || card?.movement30d?.label || null;
+  const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? card?.movement30d?.enoughHistory ?? card?.movement30d?.enough_history);
+  if (amount === null && percent === null && score === null) {
+    return null;
+  }
+  return { amount, percent, score, label, enoughHistory };
+}
+
+function hasPositiveMovement(card) {
+  const movement = getCardMovement30d(card);
+  return (movement?.amount ?? movement?.score ?? 0) > 0;
+}
+
+function hasNegativeMovement(card) {
+  const movement = getCardMovement30d(card);
+  return (movement?.amount ?? movement?.score ?? 0) < 0;
+}
+
 function ChecklistCardTile({ card }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
   const name = card?.name || "Unknown card";
@@ -534,7 +646,7 @@ function ChecklistCardTile({ card }) {
   const subtypeLabel = Array.isArray(card?.subtypes) && card.subtypes.length > 0 ? card.subtypes.join(" / ") : null;
   const marketPrice = getCardMarketPrice(card);
   // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
-  const marketDelta = getCardMarketDelta(card);
+  const marketDelta = getCardMovement30d(card) || getCardMarketDelta(card);
   const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
 
   return (
@@ -608,6 +720,73 @@ function getCardMarketPrice(card) {
   );
 
   return price !== null && price > 0 ? price : null;
+}
+
+function getCardNumberSortValue(card) {
+  const raw = String(card?.cardNumber || card?.printedNumber || "").trim();
+  if (!raw) {
+    return { bucket: 9, number: Number.MAX_SAFE_INTEGER, suffix: "", raw: "" };
+  }
+  const front = raw.replace(/\s+/g, "").split("/", 1)[0];
+  const match = front.match(/^(\d+)([a-zA-Z]*)$/);
+  if (match) {
+    return { bucket: 0, number: Number(match[1]), suffix: match[2].toLowerCase(), raw: front.toLowerCase() };
+  }
+  const mixed = front.match(/(\d+)/);
+  if (mixed) {
+    return { bucket: 1, number: Number(mixed[1]), suffix: front.toLowerCase(), raw: front.toLowerCase() };
+  }
+  return { bucket: 2, number: Number.MAX_SAFE_INTEGER, suffix: front.toLowerCase(), raw: front.toLowerCase() };
+}
+
+function compareCardSetNumber(left, right) {
+  const leftValue = getCardNumberSortValue(left);
+  const rightValue = getCardNumberSortValue(right);
+  return (
+    leftValue.bucket - rightValue.bucket ||
+    leftValue.number - rightValue.number ||
+    leftValue.suffix.localeCompare(rightValue.suffix) ||
+    leftValue.raw.localeCompare(rightValue.raw) ||
+    String(left?.name || "").localeCompare(String(right?.name || ""))
+  );
+}
+
+function getDisplayChecklistCards(cards, sortMode, movementFilter) {
+  let result = Array.isArray(cards) ? [...cards] : [];
+
+  if (movementFilter === "heating") {
+    result = result.filter(hasPositiveMovement);
+  } else if (movementFilter === "cooling") {
+    result = result.filter(hasNegativeMovement);
+  }
+
+  if (sortMode === "price-desc") {
+    result.sort((left, right) => (getCardMarketPrice(right) ?? -1) - (getCardMarketPrice(left) ?? -1) || compareCardSetNumber(left, right));
+  } else if (sortMode === "30d-gainers") {
+    result.sort((left, right) => {
+      const leftMovement = getCardMovement30d(left);
+      const rightMovement = getCardMovement30d(right);
+      return (rightMovement?.score ?? rightMovement?.amount ?? -Infinity) - (leftMovement?.score ?? leftMovement?.amount ?? -Infinity) || compareCardSetNumber(left, right);
+    });
+  } else if (sortMode === "30d-decliners") {
+    result.sort((left, right) => {
+      const leftMovement = getCardMovement30d(left);
+      const rightMovement = getCardMovement30d(right);
+      return (leftMovement?.score ?? leftMovement?.amount ?? Infinity) - (rightMovement?.score ?? rightMovement?.amount ?? Infinity) || compareCardSetNumber(left, right);
+    });
+  } else {
+    result.sort(compareCardSetNumber);
+  }
+
+  return result;
+}
+
+function getCardMovementDataCount(cards) {
+  return (Array.isArray(cards) ? cards : []).filter((card) => {
+    const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
+    const movement = getCardMovement30d(card);
+    return price !== null && movement && (movement.amount !== null || movement.percent !== null);
+  }).length;
 }
 
 function normalizeTopPricedCard(card, source) {
@@ -1208,7 +1387,7 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
       return;
     }
     setSelectedWindowKey(effectiveWindowKey);
-  }, [effectiveWindowKey, selectedWindowKey]);
+  }, [effectiveWindowKey, selectedWindowKey, setSelectedWindowKey]);
 
   useEffect(() => {
     if (scopeOptions.some((entry) => entry.key === selectedScope)) {
@@ -1223,8 +1402,8 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
       titleInfoText="Daily set value history from Near Mint card market observations. Checklist sums tracked checklist cards, Hits excludes common low-rarity buckets, and Top 10 sums the highest-value tracked cards for each date."
       className="h-full"
     >
-      {status === "loading" || status === "idle" ? (
-        <p className="text-sm text-[var(--text-secondary)]">Loading set value history...</p>
+      {(status === "loading" || status === "idle") && points.length === 0 ? (
+        <InlinePanelSkeleton rows={4} />
       ) : status === "error" ? (
         <p className="text-sm text-red-300">{error || "Unable to load set value history for this set."}</p>
       ) : !hasTrend ? (
@@ -1426,8 +1605,43 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
   );
 }
 
-function TopMarketCardsContent({ cards, status, error, maxRows = 10 }) {
-  const [selectedWindowKey, setSelectedWindowKey] = useState(null);
+function InlinePanelSkeleton({ rows = 3, className = "" }) {
+  return (
+    <div className={`animate-pulse space-y-3 ${className}`.trim()} aria-hidden="true">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div
+          key={`inline-skeleton:${index}`}
+          className="h-12 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/50"
+        />
+      ))}
+    </div>
+  );
+}
+
+function CardGridSkeleton({ count = 12 }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" aria-hidden="true">
+      {Array.from({ length: count }).map((_, index) => (
+        <div
+          key={`card-grid-skeleton:${index}`}
+          className="min-h-[13rem] animate-pulse rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
+        />
+      ))}
+    </div>
+  );
+}
+
+function TopMarketCardsContent({
+  cards,
+  status,
+  error,
+  maxRows = 10,
+  selectedWindowKey: controlledSelectedWindowKey = null,
+  onWindowChange = null,
+}) {
+  const [localSelectedWindowKey, setLocalSelectedWindowKey] = useState(null);
+  const selectedWindowKey = controlledSelectedWindowKey ?? localSelectedWindowKey;
+  const setSelectedWindowKey = onWindowChange || setLocalSelectedWindowKey;
   const availableDeltaWindows = useMemo(
     () => getTopCardsAvailableDeltaWindows(cards),
     [cards]
@@ -1442,17 +1656,19 @@ function TopMarketCardsContent({ cards, status, error, maxRows = 10 }) {
       return;
     }
     setSelectedWindowKey(effectiveWindowKey);
-  }, [effectiveWindowKey, selectedWindowKey]);
+  }, [effectiveWindowKey, selectedWindowKey, setSelectedWindowKey]);
 
-  if (status === "loading" || status === "idle") {
-    return <p className="text-sm text-[var(--text-secondary)]">Loading market cards...</p>;
+  const hasCards = Array.isArray(cards) && cards.length > 0;
+
+  if ((status === "loading" || status === "idle") && !hasCards) {
+    return <InlinePanelSkeleton rows={5} />;
   }
 
   if (status === "error") {
     return <p className="text-sm text-red-300">{error || "Unable to load market cards for this set."}</p>;
   }
 
-  if (cards.length === 0) {
+  if (!hasCards) {
     return <p className="text-sm text-[var(--text-secondary)]">No priced cards are available yet for this set.</p>;
   }
 
@@ -1535,10 +1751,102 @@ function getTopCardPriceHistory(card) {
   });
 }
 
-function TopChaseCardsModule({ cards, status, error, infoText }) {
+function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange }) {
   return (
     <SectionCard title="Top Chase Cards" titleInfoText={infoText}>
-      <TopMarketCardsContent cards={cards} status={status} error={error} maxRows={10} />
+      <TopMarketCardsContent
+        cards={cards}
+        status={status}
+        error={error}
+        maxRows={10}
+        selectedWindowKey={selectedWindowKey}
+        onWindowChange={onWindowChange}
+      />
+    </SectionCard>
+  );
+}
+
+function MarketMoverRow({ card }) {
+  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const name = card?.name || "Unknown card";
+  const rarity = card?.rarity || null;
+  const movement = getCardMovement30d(card);
+  const currentPrice = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
+  const tone = movement?.amount ?? movement?.percent ?? movement?.score ?? null;
+
+  return (
+    <div className="grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-2.5 py-2">
+      <div className="flex h-10 w-8 items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.45)]">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt={name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        ) : (
+          <span className="text-[9px] font-semibold text-[var(--text-secondary)]">{getCardInitials(name)}</span>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-xs font-semibold text-[var(--text-primary)]">{name}</p>
+        <p className="truncate text-[10px] text-[var(--text-secondary)]">{rarity || "Rarity unavailable"}</p>
+      </div>
+      <div className="min-w-[4.5rem] text-right">
+        <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(currentPrice)}</p>
+        {movement ? (
+          <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight tabular-nums" style={getDeltaBadgeStyle(tone)}>
+            {movement.amount !== null ? <span>{formatSignedCurrency(movement.amount)}</span> : null}
+            {movement.percent !== null ? <span>{movement.percent > 0 ? "+" : ""}{movement.percent.toFixed(1)}%</span> : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MarketMoverColumn({ title, cards, emptyLabel }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
+      {cards.length > 0 ? (
+        <div className="space-y-2">
+          {cards.slice(0, 5).map((card, index) => (
+            <MarketMoverRow key={`market-mover:${title}:${card?.cardId || card?.id || card?.name || index}`} card={card} />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3 text-sm text-[var(--text-secondary)]">{emptyLabel}</p>
+      )}
+    </div>
+  );
+}
+
+function MarketMoversModule({ movers, onViewAll }) {
+  const heatingUp = Array.isArray(movers?.heatingUp) ? movers.heatingUp : [];
+  const coolingOff = Array.isArray(movers?.coolingOff) ? movers.coolingOff : [];
+  const hasMovers = heatingUp.length > 0 || coolingOff.length > 0;
+  const windowLabel = movers?.window || "30D";
+
+  if (!hasMovers) {
+    return null;
+  }
+
+  return (
+    <SectionCard
+      title="Market Movers"
+      subtitle={`${windowLabel} card price movement with noise guardrails applied.`}
+      titleInfoText="Ranks card-level 30D movement using current price, absolute dollar move, enough observed history, and outlier filtering."
+    >
+      <div className="grid gap-4 xl:grid-cols-2">
+        <MarketMoverColumn title="Heating Up" cards={heatingUp} emptyLabel="No reliable 30D gainers yet." />
+        <MarketMoverColumn title="Cooling Off" cards={coolingOff} emptyLabel="No reliable 30D decliners yet." />
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
+        >
+          View all movers
+        </button>
+      </div>
     </SectionCard>
   );
 }
@@ -4051,11 +4359,13 @@ function SetPageNavigationRail({
   selectedTarget,
   selectedName,
   isPending,
+  isSwitchingTarget = false,
   activeTab,
   activeCardsSubTab,
   activeGraphMode,
   showTopMarketCards = false,
   onTargetChange,
+  onTargetPrefetch,
   onNavigate,
 }) {
   const topSections = [
@@ -4103,6 +4413,7 @@ function SetPageNavigationRail({
           id="set-page-rail-target"
           value={requestedTargetId || ""}
           onChange={onTargetChange}
+          onFocus={() => onTargetPrefetch?.(requestedTargetId, { includeAdjacent: true, reason: "rail-focus" })}
           disabled={isPending || targets.length === 0}
           title={targets.length > 0 ? "Switch set" : "No sets available"}
           className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm font-medium text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-70"
@@ -4123,6 +4434,9 @@ function SetPageNavigationRail({
         ) : (
           <p className="px-1 text-[11px] text-[var(--text-secondary)]">{selectedName}</p>
         )}
+        {isSwitchingTarget ? (
+          <p className="px-1 text-[11px] font-medium text-[var(--accent)]">Switching set...</p>
+        ) : null}
       </div>
 
       <div className="h-px w-full bg-[var(--border-subtle)]" />
@@ -4384,7 +4698,8 @@ export default function RipStatisticsPageClient({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const targets = targetsPayload?.targets || [];
+  const rawTargets = targetsPayload?.targets;
+  const targets = useMemo(() => (Array.isArray(rawTargets) ? rawTargets : []), [rawTargets]);
   const summary = explorePayload?.summary || {};
   const percentiles = explorePayload?.percentiles || [];
   const distributionBins = explorePayload?.distribution_bins || [];
@@ -4454,22 +4769,31 @@ export default function RipStatisticsPageClient({
   const effectiveValueView = setDetailMode ? "value" : isExpertMode ? activeValueView : "cards";
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
+  const [pendingTargetId, setPendingTargetId] = useState(null);
+  const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
+  const [cardSortMode, setCardSortMode] = useState("set-number");
+  const [cardMovementFilter, setCardMovementFilter] = useState("all");
   const [checklistState, setChecklistState] = useState({
     status: "idle",
+    setId: null,
     cards: [],
     error: null,
   });
   const [topMarketCardsState, setTopMarketCardsState] = useState({
     status: "idle",
+    setId: null,
     cards: [],
+    marketMovers: null,
     error: null,
     meta: null,
   });
+  const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState(DEFAULT_TOP_MARKET_CARDS_WINDOW);
   const [setValueHistoryState, setSetValueHistoryState] = useState({
     status: "idle",
+    setId: null,
     history: [],
     historiesByScope: {},
     availableScopes: SET_VALUE_SCOPE_OPTIONS,
@@ -4480,6 +4804,7 @@ export default function RipStatisticsPageClient({
   const checklistCacheRef = useRef(new Map());
   const topMarketCardsCacheRef = useRef(new Map());
   const setValueHistoryCacheRef = useRef(new Map());
+  const setPrefetchStartedRef = useRef(new Set());
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
@@ -4505,6 +4830,63 @@ export default function RipStatisticsPageClient({
       : activeInsightsGraphMode === "value-contribution"
       ? interpretation?.rarityContribution
       : interpretation?.outcomeDistribution;
+
+  const applyMarketDashboardPayload = useCallback((setId, payload, windowKey = topMarketCardsWindowKey) => {
+    const marketState = buildMarketDashboardStateFromPayload(payload);
+    const topCardsCacheKey = getTopMarketCardsCacheKey(setId, windowKey);
+    topMarketCardsCacheRef.current.set(topCardsCacheKey, marketState.topCards);
+    setValueHistoryCacheRef.current.set(setId, marketState.setValue);
+    return marketState;
+  }, [topMarketCardsWindowKey]);
+
+  const warmSetDetailResources = useCallback((setId, { includeAdjacent = false, reason = "prefetch" } = {}) => {
+    const startPrefetch = (targetSetId, prefetchReason) => {
+      const resolvedSetId = String(targetSetId || "").trim();
+      if (!resolvedSetId) {
+        return;
+      }
+      const prefetchKey = `${resolvedSetId}:${DEFAULT_TOP_MARKET_CARDS_WINDOW}`;
+      if (!setPrefetchStartedRef.current.has(prefetchKey)) {
+        setPrefetchStartedRef.current.add(prefetchKey);
+        debugSetPagePerf("set.prefetch_start", { setId: resolvedSetId, reason: prefetchReason });
+        prefetchPokemonSetCards(resolvedSetId).then((payload) => {
+          const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+          if (cards.length > 0) {
+            checklistCacheRef.current.set(resolvedSetId, cards);
+          }
+          debugSetPagePerf("cards.prefetch_ready", { setId: resolvedSetId, count: cards.length, reason: prefetchReason });
+        });
+        prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW }).then((payload) => {
+          if (payload) {
+            applyMarketDashboardPayload(resolvedSetId, payload, DEFAULT_TOP_MARKET_CARDS_WINDOW);
+            debugSetPagePerf("market.prefetch_ready", { setId: resolvedSetId, reason: prefetchReason });
+          }
+        });
+      }
+    };
+
+    const resolvedSetId = String(setId || "").trim();
+    startPrefetch(resolvedSetId, reason);
+    if (!includeAdjacent || !Array.isArray(targets) || targets.length === 0) {
+      return;
+    }
+    const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);
+    if (currentIndex < 0) {
+      return;
+    }
+    const adjacentTargets = [];
+    for (let offset = 1; offset <= SET_PREFETCH_ADJACENT_LIMIT; offset += 1) {
+      if (targets[currentIndex - offset]?.id) {
+        adjacentTargets.push(targets[currentIndex - offset].id);
+      }
+      if (targets[currentIndex + offset]?.id) {
+        adjacentTargets.push(targets[currentIndex + offset].id);
+      }
+    }
+    adjacentTargets.forEach((adjacentSetId) => {
+      startPrefetch(adjacentSetId, "adjacent");
+    });
+  }, [applyMarketDashboardPayload, targets]);
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
@@ -4741,6 +5123,10 @@ export default function RipStatisticsPageClient({
     if (nextCardsSubTab) {
       setCardsSubTab(nextCardsSubTab);
     }
+    if (section === "market-movers") {
+      setCardSortMode("30d-gainers");
+      setCardMovementFilter("all");
+    }
 
     if (nextGraphMode) {
       setGraphMode(nextGraphMode);
@@ -4773,6 +5159,13 @@ export default function RipStatisticsPageClient({
     const resolvedTab = nextTab;
 
     setSetDetailTab(resolvedTab);
+    if (sectionTarget?.cardsSubTab) {
+      setCardsSubTab(sectionTarget.cardsSubTab);
+    }
+    if (nextSection === "market-movers") {
+      setCardSortMode("30d-gainers");
+      setCardMovementFilter("all");
+    }
 
     if (sectionTarget?.graphMode) {
       setGraphMode(sectionTarget.graphMode);
@@ -5183,6 +5576,32 @@ export default function RipStatisticsPageClient({
     topPricedCardsResult.source === "topMarketCards"
       ? "Highest priced chase-card variants from the current set calculation, sorted by estimated card market price descending."
       : "Highest checklist card market prices in this set, sorted by estimated card market price descending.";
+  const marketMovers = topMarketCardsState.marketMovers || { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW };
+  const hasMarketMovers =
+    (Array.isArray(marketMovers.heatingUp) && marketMovers.heatingUp.length > 0) ||
+    (Array.isArray(marketMovers.coolingOff) && marketMovers.coolingOff.length > 0);
+  const cardMovementDataCount = getCardMovementDataCount(checklistState.cards);
+  const hasCardMovementData = cardMovementDataCount >= 5;
+  const effectiveCardSortMode =
+    hasCardMovementData || !CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === cardSortMode)
+      ? cardSortMode
+      : "set-number";
+  const effectiveCardMovementFilter = hasCardMovementData ? cardMovementFilter : "all";
+  const cardSortOptions = hasCardMovementData
+    ? [...CARD_BASE_SORT_OPTIONS, ...CARD_MOVEMENT_SORT_OPTIONS]
+    : CARD_BASE_SORT_OPTIONS;
+  const displayedChecklistCards = useMemo(
+    () => getDisplayChecklistCards(checklistState.cards, effectiveCardSortMode, effectiveCardMovementFilter),
+    [checklistState.cards, effectiveCardSortMode, effectiveCardMovementFilter]
+  );
+  const handleViewAllMarketMovers = () => {
+    setSetDetailTab("cards");
+    setCardsSubTab("checklist");
+    setCardSortMode("30d-gainers");
+    setCardMovementFilter("all");
+    pushSetDetailRouteState({ tab: "cards", section: "market-movers" });
+    scrollToSetDetailElement("set-detail-cards");
+  };
 
   const decisionMetrics = [
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost), trend: trendByMetricKey.packCost },
@@ -5305,6 +5724,9 @@ export default function RipStatisticsPageClient({
     if (!nextTargetId) {
       return;
     }
+    if (String(nextTargetId) === String(requestedTargetId || "")) {
+      return;
+    }
 
     if (typeof options.closeToolsPanel === "function") {
       options.closeToolsPanel();
@@ -5313,6 +5735,16 @@ export default function RipStatisticsPageClient({
     const nextHref = setDetailMode
       ? appendSetDetailIntentToHref(targetHrefById?.[nextTargetId] || null, { tab: setDetailTab })
       : targetHrefById?.[nextTargetId] || null;
+
+    setPendingTargetId(nextTargetId);
+    announceNavigationStart({
+      href: nextHref,
+      source: setDetailMode ? "set-to-set" : "target-select",
+    });
+    debugLoadingTiming("set_to_set_transition_start", {
+      targetId: nextTargetId,
+      href: nextHref,
+    });
 
     startTransition(() => {
       if (nextHref) {
@@ -5331,6 +5763,18 @@ export default function RipStatisticsPageClient({
     const nextTargetId = String(event.target.value || "").trim();
     handleTargetIdChange(nextTargetId, options);
   };
+
+  const handleTargetPrefetch = (targetId, options = {}) => {
+    warmSetDetailResources(targetId, options);
+  };
+
+  useEffect(() => {
+    setPendingTargetId(null);
+    debugLoadingTiming("critical_data_ready", {
+      label: setDetailMode ? "set-route-shell" : "rip-statistics-route-shell",
+      targetId: requestedTargetId,
+    });
+  }, [requestedTargetId, setDetailMode]);
 
   useEffect(() => {
     if (!heroSetPickerOpen || typeof document === "undefined") {
@@ -5365,31 +5809,53 @@ export default function RipStatisticsPageClient({
   }, [requestedTargetId]);
 
   useEffect(() => {
-    const shouldLoadChecklist =
-      setDetailMode &&
-      ((setDetailTab === "market" || setDetailTab === "overview") ||
-        (setDetailTab === "cards" && cardsSubTab === "checklist"));
+    if (!setDetailMode) {
+      return undefined;
+    }
+    const setId = String(requestedTargetId || "").trim();
+    if (!setId) {
+      return undefined;
+    }
+    debugSetPagePerf("set.bootstrap_ready", { setId });
+    warmSetDetailResources(setId, { includeAdjacent: true, reason: "bootstrap" });
+    return undefined;
+  }, [setDetailMode, requestedTargetId, warmSetDetailResources]);
 
-    if (!shouldLoadChecklist) {
+  useEffect(() => {
+    if (!setDetailMode) {
       return undefined;
     }
 
     const setId = String(requestedTargetId || "").trim();
     if (!setId) {
-      setChecklistState({ status: "empty", cards: [], error: null });
+      setChecklistState({ status: "empty", setId: null, cards: [], error: null });
       return undefined;
     }
 
-    const cached = checklistCacheRef.current.get(setId);
+    const shouldRenderChecklist = setDetailTab === "cards" && cardsSubTab === "checklist";
+    const cached = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId)?.cards || null;
     if (cached) {
-      setChecklistState({ status: "success", cards: cached, error: null });
+      setChecklistState({ status: "success", setId, cards: cached, error: null });
+      if (!shouldRenderChecklist) {
+        return undefined;
+      }
+    }
+
+    if (!shouldRenderChecklist && cached) {
+      return undefined;
+    }
+    if (!shouldRenderChecklist) {
+      warmSetDetailResources(setId, { reason: "cards-background" });
       return undefined;
     }
 
     let isCancelled = false;
+    const clickStartedAt = performance.now();
+    debugSetPagePerf("cards.tab_fetch_start", { setId });
     setChecklistState((previous) => ({
       status: "loading",
-      cards: previous.status === "success" ? previous.cards : [],
+      setId,
+      cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
       error: null,
     }));
 
@@ -5402,8 +5868,20 @@ export default function RipStatisticsPageClient({
         checklistCacheRef.current.set(setId, cards);
         setChecklistState({
           status: cards.length > 0 ? "success" : "empty",
+          setId,
           cards,
           error: null,
+        });
+        debugSetPagePerf("cards.tab_ready", {
+          setId,
+          elapsedMs: Math.round(performance.now() - clickStartedAt),
+          count: cards.length,
+        });
+        debugLoadingTiming("critical_data_ready", {
+          label: "cards-tab",
+          setId,
+          elapsedMs: Math.round(performance.now() - clickStartedAt),
+          count: cards.length,
         });
       })
       .catch((error) => {
@@ -5412,6 +5890,7 @@ export default function RipStatisticsPageClient({
         }
         setChecklistState({
           status: "error",
+          setId,
           cards: [],
           error: error?.message || "Unable to load cards for this set.",
         });
@@ -5420,87 +5899,19 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId]);
+  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId, warmSetDetailResources]);
 
   useEffect(() => {
-    const shouldLoadMarketData =
-      setDetailMode && setDetailTab === "overview";
-
-    if (!shouldLoadMarketData) {
+    if (!setDetailMode) {
       return undefined;
     }
 
     const setId = String(requestedTargetId || "").trim();
     if (!setId) {
-      setTopMarketCardsState({ status: "empty", cards: [], error: null, meta: null });
-      setSetValueHistoryState({ status: "empty", history: [], error: null, meta: null });
-      return undefined;
-    }
-
-    const cachedTopCards = topMarketCardsCacheRef.current.get(setId);
-    if (cachedTopCards) {
-      setTopMarketCardsState({
-        status: cachedTopCards.cards.length > 0 ? "success" : "empty",
-        cards: cachedTopCards.cards,
-        error: null,
-        meta: cachedTopCards.meta,
-      });
-    } else {
-      let isTopCardsCancelled = false;
-      setTopMarketCardsState((previous) => ({
-        status: "loading",
-        cards: previous.status === "success" ? previous.cards : [],
-        error: null,
-        meta: previous.meta,
-      }));
-
-      getPokemonSetTopMarketCards(setId, { limit: 10 })
-        .then((payload) => {
-          if (isTopCardsCancelled) {
-            return;
-          }
-          const cards = Array.isArray(payload?.cards) ? payload.cards : [];
-          const cacheEntry = { cards, meta: payload?.meta || null };
-          topMarketCardsCacheRef.current.set(setId, cacheEntry);
-          setTopMarketCardsState({
-            status: cards.length > 0 ? "success" : "empty",
-            cards,
-            error: null,
-            meta: cacheEntry.meta,
-          });
-        })
-        .catch((error) => {
-          if (isTopCardsCancelled) {
-            return;
-          }
-          setTopMarketCardsState({
-            status: "error",
-            cards: [],
-            error: error?.message || "Unable to load market cards for this set.",
-            meta: null,
-          });
-        });
-
-      return () => {
-        isTopCardsCancelled = true;
-      };
-    }
-
-    return undefined;
-  }, [setDetailMode, setDetailTab, requestedTargetId]);
-
-  useEffect(() => {
-    const shouldLoadValueHistory =
-      setDetailMode && setDetailTab === "overview";
-
-    if (!shouldLoadValueHistory) {
-      return undefined;
-    }
-
-    const setId = String(requestedTargetId || "").trim();
-    if (!setId) {
+      setTopMarketCardsState({ status: "empty", setId: null, cards: [], marketMovers: null, error: null, meta: null });
       setSetValueHistoryState({
         status: "empty",
+        setId: null,
         history: [],
         historiesByScope: {},
         availableScopes: SET_VALUE_SCOPE_OPTIONS,
@@ -5510,90 +5921,126 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const cached = setValueHistoryCacheRef.current.get(setId);
-    if (cached) {
-      setSetValueHistoryState({
-        status: cached.history.length > 0 ? "success" : "empty",
-        history: cached.history,
-        historiesByScope: cached.historiesByScope || {},
-        availableScopes: cached.availableScopes || SET_VALUE_SCOPE_OPTIONS,
+    const shouldRenderMarketData = setDetailTab === "overview";
+    const topCardsCacheKey = getTopMarketCardsCacheKey(setId, topMarketCardsWindowKey);
+    const cachedTopCards = topMarketCardsCacheRef.current.get(topCardsCacheKey);
+    const cachedValueHistory = setValueHistoryCacheRef.current.get(setId);
+    const cachedDashboard = getCachedPokemonSetMarketDashboard(setId, { window: topMarketCardsWindowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW });
+    let seededMarketState = null;
+    if ((!cachedTopCards || !cachedValueHistory) && cachedDashboard) {
+      seededMarketState = applyMarketDashboardPayload(setId, cachedDashboard);
+    }
+    const effectiveCachedTopCards = cachedTopCards || seededMarketState?.topCards || null;
+    const effectiveCachedValueHistory = cachedValueHistory || seededMarketState?.setValue || null;
+
+    if (effectiveCachedTopCards) {
+      setTopMarketCardsState({
+        status: effectiveCachedTopCards.cards.length > 0 ? "success" : "empty",
+        setId,
+        cards: effectiveCachedTopCards.cards,
+        marketMovers: effectiveCachedTopCards.marketMovers || null,
         error: null,
-        meta: cached.meta,
+        meta: effectiveCachedTopCards.meta,
       });
+    }
+    if (effectiveCachedValueHistory) {
+      setSetValueHistoryState({
+        status: effectiveCachedValueHistory.history.length > 0 ? "success" : "empty",
+        setId,
+        history: effectiveCachedValueHistory.history,
+        historiesByScope: effectiveCachedValueHistory.historiesByScope || {},
+        availableScopes: effectiveCachedValueHistory.availableScopes || SET_VALUE_SCOPE_OPTIONS,
+        error: null,
+        meta: effectiveCachedValueHistory.meta,
+      });
+    }
+    if (!shouldRenderMarketData) {
+      warmSetDetailResources(setId, { reason: "market-background" });
+      return undefined;
+    }
+    if (effectiveCachedTopCards && effectiveCachedValueHistory) {
       return undefined;
     }
 
     let isCancelled = false;
-    setSetValueHistoryState((previous) => ({
-      status: "loading",
-      history: previous.status === "success" ? previous.history : [],
-      historiesByScope: previous.status === "success" ? previous.historiesByScope : {},
-      availableScopes: previous.availableScopes || SET_VALUE_SCOPE_OPTIONS,
-      error: null,
-      meta: previous.meta,
-    }));
+    const clickStartedAt = performance.now();
+    debugSetPagePerf("market.tab_fetch_start", { setId, window: topMarketCardsWindowKey });
+    if (!effectiveCachedTopCards) {
+      setTopMarketCardsState((previous) => ({
+        status: "loading",
+        setId,
+        cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
+        marketMovers: previous.setId === setId ? previous.marketMovers || null : null,
+        error: null,
+        meta: previous.setId === setId ? previous.meta : null,
+      }));
+    }
+    if (!effectiveCachedValueHistory) {
+      setSetValueHistoryState((previous) => ({
+        status: "loading",
+        setId,
+        history: previous.status === "success" && previous.setId === setId ? previous.history : [],
+        historiesByScope: previous.status === "success" && previous.setId === setId ? previous.historiesByScope : {},
+        availableScopes: previous.setId === setId ? previous.availableScopes || SET_VALUE_SCOPE_OPTIONS : SET_VALUE_SCOPE_OPTIONS,
+        error: null,
+        meta: previous.setId === setId ? previous.meta : null,
+      }));
+    }
 
-    Promise.allSettled(
-      SET_VALUE_SCOPE_OPTIONS.map((scopeOption) =>
-        getPokemonSetValueHistory(setId, {
-          days: SET_VALUE_HISTORY_REQUEST_DAYS,
-          scope: scopeOption.key,
-        }).then((payload) => ({ scope: scopeOption.key, payload }))
-      )
-    )
-      .then((results) => {
+    getPokemonSetMarketDashboard(setId, { window: topMarketCardsWindowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW })
+      .then((payload) => {
         if (isCancelled) {
           return;
         }
-        const fulfilled = results
-          .filter((result) => result.status === "fulfilled")
-          .map((result) => result.value);
-        if (fulfilled.length === 0) {
-          const rejected = results.find((result) => result.status === "rejected");
-          throw rejected?.reason || new Error("Unable to load set value history for this set.");
-        }
-
-        const historiesByScope = {};
-        const availableScopeKeys = new Set();
-        let meta = null;
-        fulfilled.forEach(({ scope, payload }) => {
-          const history = Array.isArray(payload?.history) ? payload.history : [];
-          historiesByScope[scope] = history;
-          if (history.length > 0) {
-            availableScopeKeys.add(scope);
-          }
-          if (!meta || scope === "standard") {
-            meta = payload?.meta || null;
-          }
-          (payload?.meta?.availableScopes || []).forEach((entry) => {
-            if (entry?.key) {
-              availableScopeKeys.add(entry.key);
-            }
-          });
-        });
-
-        const availableScopes = SET_VALUE_SCOPE_OPTIONS.filter((entry) =>
-          availableScopeKeys.size === 0 ? true : availableScopeKeys.has(entry.key)
-        );
-        const history = historiesByScope.standard || [];
-        const hasAnyHistory = Object.values(historiesByScope).some((scopeHistory) => scopeHistory.length > 0);
-        const cacheEntry = { history, historiesByScope, availableScopes, meta };
-        setValueHistoryCacheRef.current.set(setId, cacheEntry);
-        setSetValueHistoryState({
-          status: hasAnyHistory ? "success" : "empty",
-          history,
-          historiesByScope,
-          availableScopes,
+        const marketState = applyMarketDashboardPayload(setId, payload, topMarketCardsWindowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW);
+        setTopMarketCardsState({
+          status: marketState.topCards.cards.length > 0 ? "success" : "empty",
+          setId,
+          cards: marketState.topCards.cards,
+          marketMovers: marketState.topCards.marketMovers || null,
           error: null,
-          meta: cacheEntry.meta,
+          meta: marketState.topCards.meta,
+        });
+        setSetValueHistoryState({
+          status: marketState.setValue.hasAnyHistory ? "success" : "empty",
+          setId,
+          history: marketState.setValue.history,
+          historiesByScope: marketState.setValue.historiesByScope,
+          availableScopes: marketState.setValue.availableScopes,
+          error: null,
+          meta: marketState.setValue.meta,
+        });
+        debugSetPagePerf("market.tab_ready", {
+          setId,
+          window: topMarketCardsWindowKey,
+          elapsedMs: Math.round(performance.now() - clickStartedAt),
+          topCards: marketState.topCards.cards.length,
+          standardPoints: marketState.setValue.history.length,
+        });
+        debugLoadingTiming("critical_data_ready", {
+          label: "market-overview",
+          setId,
+          window: topMarketCardsWindowKey,
+          elapsedMs: Math.round(performance.now() - clickStartedAt),
+          topCards: marketState.topCards.cards.length,
+          standardPoints: marketState.setValue.history.length,
         });
       })
       .catch((error) => {
         if (isCancelled) {
           return;
         }
+        setTopMarketCardsState({
+          status: "error",
+          setId,
+          cards: [],
+          marketMovers: null,
+          error: error?.message || "Unable to load market cards for this set.",
+          meta: null,
+        });
         setSetValueHistoryState({
           status: "error",
+          setId,
           history: [],
           historiesByScope: {},
           availableScopes: SET_VALUE_SCOPE_OPTIONS,
@@ -5605,20 +6052,22 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, setDetailTab, requestedTargetId]);
+  }, [setDetailMode, setDetailTab, requestedTargetId, topMarketCardsWindowKey, applyMarketDashboardPayload, warmSetDetailResources]);
 
   const setDetailSidebarContent = (
     <SetPageNavigationRail
       targets={targets}
-      requestedTargetId={requestedTargetId}
+      requestedTargetId={displayedTargetId}
       selectedTarget={selectedTarget}
       selectedName={selectedName}
       isPending={isPending}
+      isSwitchingTarget={Boolean(pendingTargetId)}
       activeTab={setDetailTab}
       activeCardsSubTab={cardsSubTab}
       activeGraphMode={graphMode}
       showTopMarketCards={shouldShowTopMarketCards}
       onTargetChange={handleTargetChange}
+      onTargetPrefetch={handleTargetPrefetch}
       onNavigate={handleSetDetailNavSelect}
     />
   );
@@ -5655,8 +6104,9 @@ export default function RipStatisticsPageClient({
             </label>
             <select
               id="sidebar-rip-target"
-              value={requestedTargetId || ""}
+              value={displayedTargetId || ""}
               onChange={handleTargetChange}
+              onFocus={() => handleTargetPrefetch(requestedTargetId, { includeAdjacent: true, reason: "sidebar-focus" })}
               disabled={isPending || targets.length === 0}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             >
@@ -5721,8 +6171,9 @@ export default function RipStatisticsPageClient({
             </label>
             <select
               id="mobile-rip-target"
-              value={requestedTargetId || ""}
+              value={displayedTargetId || ""}
               onChange={(event) => handleTargetChange(event, { closeToolsPanel })}
+              onFocus={() => handleTargetPrefetch(requestedTargetId, { includeAdjacent: true, reason: "mobile-focus" })}
               disabled={isPending || targets.length === 0}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             >
@@ -5855,6 +6306,8 @@ export default function RipStatisticsPageClient({
                                       type="button"
                                       role="option"
                                       aria-selected={isSelected}
+                                      onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
+                                      onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
                                       onClick={() => {
                                         handleTargetIdChange(String(target.target_id || ""));
                                         setHeroSetPickerOpen(false);
@@ -5980,6 +6433,15 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
+                    {hasMarketMovers ? (
+                      <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
+                        <MarketMoversModule
+                          movers={marketMovers}
+                          onViewAll={handleViewAllMarketMovers}
+                        />
+                      </div>
+                    ) : null}
+
                     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)] lg:items-start">
                       {shouldShowTopMarketCards ? (
                         <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
@@ -5988,6 +6450,8 @@ export default function RipStatisticsPageClient({
                             status={topPricedCardsStatus}
                             error={topMarketCardsState.error}
                             infoText={topPricedCardsInfo}
+                            selectedWindowKey={topMarketCardsWindowKey}
+                            onWindowChange={setTopMarketCardsWindowKey}
                           />
                         </div>
                       ) : null}
@@ -6016,8 +6480,8 @@ export default function RipStatisticsPageClient({
 
                     {cardsSubTab === "checklist" ? (
                       <div className="min-w-0">
-                        {checklistState.status === "loading" ? (
-                          <p className="text-sm text-[var(--text-secondary)]">Loading cards...</p>
+                        {checklistState.status === "loading" && checklistState.cards.length === 0 ? (
+                          <CardGridSkeleton />
                         ) : null}
 
                         {checklistState.status === "error" ? (
@@ -6028,15 +6492,55 @@ export default function RipStatisticsPageClient({
                           <p className="text-sm text-[var(--text-secondary)]">No cards found for this set.</p>
                         ) : null}
 
-                        {checklistState.status === "success" ? (
-                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                            {checklistState.cards.map((card) => (
-                              <ChecklistCardTile
-                                key={`${card.id || card.cardNumber || card.name}`}
-                                card={card}
-                              />
-                            ))}
-                          </div>
+                        {checklistState.cards.length > 0 ? (
+                          <>
+                            {hasCardMovementData ? (
+                            <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3 sm:flex-row sm:items-end sm:justify-between">
+                              <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
+                                <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
+                                  <span className="mb-1 block uppercase tracking-[0.08em]">Sort</span>
+                                  <select
+                                    value={cardSortMode}
+                                    onChange={(event) => setCardSortMode(event.target.value)}
+                                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                  >
+                                    {cardSortOptions.map((option) => (
+                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
+                                  <span className="mb-1 block uppercase tracking-[0.08em]">Movement</span>
+                                  <select
+                                    value={cardMovementFilter}
+                                    onChange={(event) => setCardMovementFilter(event.target.value)}
+                                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                  >
+                                    {CARD_MOVEMENT_FILTER_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+                              <p className="text-xs text-[var(--text-secondary)]">
+                                {displayedChecklistCards.length.toLocaleString("en-US")} of {checklistState.cards.length.toLocaleString("en-US")} cards
+                              </p>
+                            </div>
+                            ) : null}
+
+                            {displayedChecklistCards.length > 0 ? (
+                              <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 ${checklistState.status === "loading" ? "opacity-80" : ""}`.trim()}>
+                                {displayedChecklistCards.map((card) => (
+                                  <ChecklistCardTile
+                                    key={`${card.id || card.cardNumber || card.name}`}
+                                    card={card}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-[var(--text-secondary)]">No cards match this movement filter yet.</p>
+                            )}
+                          </>
                         ) : null}
                       </div>
                     ) : null}
@@ -6114,6 +6618,8 @@ export default function RipStatisticsPageClient({
                             type="button"
                             role="option"
                             aria-selected={isSelected}
+                            onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
+                            onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
                             onClick={() => {
                               handleTargetIdChange(String(target.target_id || ""));
                               setHeroSetPickerOpen(false);

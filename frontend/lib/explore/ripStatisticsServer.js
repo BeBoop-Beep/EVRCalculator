@@ -55,7 +55,7 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
     const url = new URL(`${BACKEND_URL}/explore/rip-statistics/targets`);
     url.searchParams.set("limit", String(limit));
 
-    const res = await fetch(url.toString(), { cache: "no-store" });
+    const res = await fetch(url.toString(), { next: { revalidate: 300 } });
     if (res.status === 404) {
       const emptyPayload = normalisePayload(null);
       targetsCache.set(cacheKey, {
