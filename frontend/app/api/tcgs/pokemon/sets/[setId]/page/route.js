@@ -3,7 +3,7 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 
-export async function GET(request, { params }) {
+export async function GET(_request, { params }) {
   const resolvedParams = (await params) || {};
   const setId = String(resolvedParams?.setId || "").trim();
 
@@ -15,22 +15,12 @@ export async function GET(request, { params }) {
   }
 
   const backendUrl = new URL(
-    `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/market/value-history`
+    `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/page`
   );
-  const days = request?.nextUrl?.searchParams?.get("days");
-  if (days) {
-    backendUrl.searchParams.set("days", days);
-  }
-  const valueScope = request?.nextUrl?.searchParams?.get("value_scope") || request?.nextUrl?.searchParams?.get("scope");
-  if (valueScope) {
-    backendUrl.searchParams.set("value_scope", valueScope);
-  }
 
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
     next: { revalidate: 300 },
   });
 
@@ -45,3 +35,4 @@ export async function GET(request, { params }) {
     },
   });
 }
+

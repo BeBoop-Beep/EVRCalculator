@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
+const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
+
 export async function GET(request, { params }) {
   const resolvedParams = (await params) || {};
   const setId = String(resolvedParams?.setId || "").trim();
@@ -29,7 +31,7 @@ export async function GET(request, { params }) {
     headers: {
       Accept: "application/json",
     },
-    cache: "no-store",
+    next: { revalidate: 300 },
   });
 
   const payload = await proxyResponse.text();
@@ -39,6 +41,7 @@ export async function GET(request, { params }) {
     status: proxyResponse.status,
     headers: {
       "content-type": contentType,
+      "Cache-Control": PUBLIC_ANALYTICS_CACHE_CONTROL,
     },
   });
 }

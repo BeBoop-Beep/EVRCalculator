@@ -1,4 +1,5 @@
 import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
+import { FULL_LOADER_DELAY_MS, MIN_FULL_LOADER_VISIBLE_MS } from "@/lib/navigation/loadingPolicy";
 
 export default function RipStatisticsLoading() {
   return (
@@ -8,8 +9,9 @@ export default function RipStatisticsLoading() {
       shouldDelay={true}
       isLoading={true}
       delayConfig={{
-        showDelayMs: 200,
-        minVisibleMs: 450,
+        showDelayMs: FULL_LOADER_DELAY_MS,
+        minVisibleMs: MIN_FULL_LOADER_VISIBLE_MS,
+        debugLabel: "rip-statistics-route",
       }}
     />
   );

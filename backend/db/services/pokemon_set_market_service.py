@@ -15,6 +15,13 @@ DEFAULT_SET_VALUE_HISTORY_DAYS = 7
 MAX_SET_VALUE_HISTORY_DAYS = 1825
 DEFAULT_TOP_CHASE_HISTORY_DAYS = 365
 MAX_TOP_CHASE_HISTORY_DAYS = 365
+DEFAULT_CARD_MOVERS_WINDOW_DAYS = 30
+DEFAULT_CARD_MOVERS_LIMIT = 5
+CARD_MOVERS_HISTORY_LOOKBACK_DAYS = 45
+CARD_MOVERS_MIN_CURRENT_PRICE = 1.00
+CARD_MOVERS_MIN_ABSOLUTE_MOVE = 0.25
+CARD_MOVERS_MIN_HISTORY_SPAN_DAYS = 14
+CARD_MOVERS_MAX_ABS_PERCENT_CHANGE = 300.0
 _IN_CHUNK_SIZE = 500
 _DELTA_KEYS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 SET_VALUE_SCOPES = ("standard", "hits", "top10")
@@ -305,7 +312,6 @@ def _load_price_observation_rows(
         sources["card_variant_price_observations"] = "NO_VARIANTS_OR_CONDITION"
         return []
 
-    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows: List[Dict[str, Any]] = []
     for variant_id_chunk in _chunk(variant_ids):
         result = (
@@ -319,6 +325,68 @@ def _load_price_observation_rows(
         )
         rows.extend(result.data or [])
     sources["card_variant_price_observations"] = "OK"
+    return rows
+
+
+def _load_conditioned_latest_price_rows(
+    variant_ids: List[str],
+    condition_by_variant: Dict[str, str],
+    sources: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    if not variant_ids or not condition_by_variant:
+        sources["card_market_usd_latest_by_condition_for_movers"] = "NO_VARIANTS_OR_CONDITIONS"
+        return []
+
+    rows: List[Dict[str, Any]] = []
+    condition_ids = sorted(set(condition_by_variant.values()))
+    for variant_id_chunk in _chunk(variant_ids):
+        query = (
+            public_read_client.table("card_market_usd_latest_by_condition")
+            .select("variant_id,condition_id,market_price,source,captured_at")
+            .in_("variant_id", variant_id_chunk)
+        )
+        if condition_ids:
+            query = query.in_("condition_id", condition_ids)
+        result = query.execute()
+        for row in result.data or []:
+            variant_id = _to_optional_str(row.get("variant_id"))
+            condition_id = _to_optional_str(row.get("condition_id"))
+            if variant_id and condition_id == condition_by_variant.get(variant_id):
+                rows.append(row)
+    sources["card_market_usd_latest_by_condition_for_movers"] = "OK"
+    return rows
+
+
+def _load_conditioned_price_observation_rows(
+    variant_ids: List[str],
+    condition_by_variant: Dict[str, str],
+    days: int,
+    sources: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    if not variant_ids or not condition_by_variant:
+        sources["card_variant_price_observations_for_movers"] = "NO_VARIANTS_OR_CONDITIONS"
+        return []
+
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    rows: List[Dict[str, Any]] = []
+    condition_ids = sorted(set(condition_by_variant.values()))
+    for variant_id_chunk in _chunk(variant_ids):
+        query = (
+            public_read_client.table("card_variant_price_observations")
+            .select("card_variant_id,condition_id,market_price,source,captured_at")
+            .in_("card_variant_id", variant_id_chunk)
+            .order("captured_at", desc=False)
+            .limit(10000)
+        )
+        if condition_ids:
+            query = query.in_("condition_id", condition_ids)
+        result = query.execute()
+        for row in result.data or []:
+            variant_id = _to_optional_str(row.get("card_variant_id"))
+            condition_id = _to_optional_str(row.get("condition_id"))
+            if variant_id and condition_id == condition_by_variant.get(variant_id):
+                rows.append(row)
+    sources["card_variant_price_observations_for_movers"] = "OK"
     return rows
 
 
@@ -392,6 +460,292 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
         "variant_rows_by_id": variant_rows_by_id,
         "variant_ids": sorted(variant_to_canonical_id.keys()),
         "condition_id": condition_id,
+    }
+
+
+def _movement_label(amount: Optional[float]) -> Optional[str]:
+    if amount is None:
+        return None
+    if amount > 0:
+        return "heating_up"
+    if amount < 0:
+        return "cooling_off"
+    return "flat"
+
+
+def _public_card_movement(
+    *,
+    canonical_card: Dict[str, Any],
+    variant_id: str,
+    condition_id: Optional[str],
+    current_price: float,
+    current_source: Any,
+    current_captured_at: Any,
+    first_point: Dict[str, Any],
+    last_point: Dict[str, Any],
+    observation_count: int,
+    window_days: int,
+) -> Optional[Dict[str, Any]]:
+    first_price = _to_optional_float(first_point.get("market_price"))
+    last_observed_price = _to_optional_float(last_point.get("market_price"))
+    if first_price is None or last_observed_price is None or current_price <= 0:
+        return None
+
+    first_date_key = _parse_date(first_point.get("captured_at"))
+    last_date_key = _parse_date(last_point.get("captured_at") or current_captured_at)
+    if not first_date_key or not last_date_key:
+        return None
+
+    try:
+        history_span_days = (date.fromisoformat(last_date_key) - date.fromisoformat(first_date_key)).days
+    except ValueError:
+        history_span_days = 0
+
+    amount = round(current_price - first_price, 2)
+    percent = round((amount / first_price) * 100, 2) if first_price else None
+    enough_history = observation_count >= 2 and history_span_days >= CARD_MOVERS_MIN_HISTORY_SPAN_DAYS
+    passes_guardrails = (
+        enough_history
+        and current_price >= CARD_MOVERS_MIN_CURRENT_PRICE
+        and abs(amount) >= CARD_MOVERS_MIN_ABSOLUTE_MOVE
+        and percent is not None
+        and abs(percent) <= CARD_MOVERS_MAX_ABS_PERCENT_CHANGE
+    )
+    if not passes_guardrails:
+        return None
+
+    score = round((abs(amount) * 0.72) + (min(abs(percent), 100.0) * current_price * 0.0028), 4)
+    signed_score = score if amount > 0 else -score if amount < 0 else 0.0
+    label = _movement_label(amount)
+    image_url = _to_optional_str(canonical_card.get("image_small_url")) or _to_optional_str(canonical_card.get("image_large_url"))
+    card_number = _to_optional_str(canonical_card.get("printed_number")) or _to_optional_str(canonical_card.get("number"))
+
+    return {
+        "cardId": _to_optional_str(canonical_card.get("id")),
+        "card_id": _to_optional_str(canonical_card.get("id")),
+        "cardVariantId": variant_id,
+        "card_variant_id": variant_id,
+        "setId": _to_optional_str(canonical_card.get("set_id")),
+        "set_id": _to_optional_str(canonical_card.get("set_id")),
+        "name": _to_optional_str(canonical_card.get("name")),
+        "rarity": _to_optional_str(canonical_card.get("rarity")),
+        "setNumber": card_number,
+        "set_number": card_number,
+        "cardNumber": card_number,
+        "card_number": card_number,
+        "imageUrl": image_url,
+        "image_url": image_url,
+        "imageSmallUrl": _to_optional_str(canonical_card.get("image_small_url")),
+        "imageLargeUrl": _to_optional_str(canonical_card.get("image_large_url")),
+        "currentPrice": round(current_price, 2),
+        "current_price": round(current_price, 2),
+        "marketPrice": round(current_price, 2),
+        "market_price": round(current_price, 2),
+        "change30dAmount": amount,
+        "change_30d_amount": amount,
+        "change30dPercent": percent,
+        "change_30d_percent": percent,
+        "movementScore": signed_score,
+        "movement_score": signed_score,
+        "movementLabel": label,
+        "movement_label": label,
+        "enoughHistory": enough_history,
+        "enough_history": enough_history,
+        "confidence": "medium" if observation_count >= 3 else "low",
+        "windowDays": window_days,
+        "window_days": window_days,
+        "historyPointCount": observation_count,
+        "history_point_count": observation_count,
+        "historyStartDate": first_date_key,
+        "history_start_date": first_date_key,
+        "historyEndDate": last_date_key,
+        "history_end_date": last_date_key,
+        "conditionIdUsed": condition_id,
+        "condition_id_used": condition_id,
+        "source": _to_optional_str(current_source),
+        "provider": _to_optional_str(current_source),
+        "priceUpdatedAt": _to_optional_str(current_captured_at),
+        "price_updated_at": _to_optional_str(current_captured_at),
+    }
+
+
+def _build_card_movements_from_context(
+    context: Dict[str, Any],
+    *,
+    window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
+    warnings: Optional[List[str]] = None,
+    sources: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, Any]]:
+    movement_sources = sources if sources is not None else {}
+    near_mint_condition_id = _to_optional_str(context.get("condition_id"))
+    variant_ids = list(context.get("variant_ids") or [])
+    if not near_mint_condition_id or not variant_ids:
+        if warnings is not None:
+            warnings.append("Card movement is unavailable because Near Mint variant pricing is missing.")
+        return []
+
+    condition_by_variant = {variant_id: near_mint_condition_id for variant_id in variant_ids}
+    latest_rows = _load_conditioned_latest_price_rows(variant_ids, condition_by_variant, movement_sources)
+    observation_rows = _load_conditioned_price_observation_rows(
+        variant_ids,
+        condition_by_variant,
+        max(window_days + 1, CARD_MOVERS_HISTORY_LOOKBACK_DAYS),
+        movement_sources,
+    )
+
+    latest_by_variant: Dict[str, Dict[str, Any]] = {}
+    for row in latest_rows:
+        variant_id = _to_optional_str(row.get("variant_id"))
+        price = _to_optional_float(row.get("market_price"))
+        if not variant_id or price is None:
+            continue
+        existing = latest_by_variant.get(variant_id)
+        existing_dt = _parse_datetime((existing or {}).get("captured_at"))
+        row_dt = _parse_datetime(row.get("captured_at"))
+        if existing is None or (row_dt is not None and (existing_dt is None or row_dt > existing_dt)):
+            latest_by_variant[variant_id] = row
+
+    observations_by_variant: Dict[str, List[Dict[str, Any]]] = {}
+    for row in observation_rows:
+        variant_id = _to_optional_str(row.get("card_variant_id"))
+        price = _to_optional_float(row.get("market_price"))
+        captured_at = _parse_datetime(row.get("captured_at"))
+        if not variant_id or price is None or captured_at is None:
+            continue
+        observations_by_variant.setdefault(variant_id, []).append(row)
+
+    best_by_canonical: Dict[str, Dict[str, Any]] = {}
+    for variant_id, latest_row in latest_by_variant.items():
+        canonical_id = (context.get("variant_to_canonical_id") or {}).get(variant_id)
+        canonical_card = (context.get("canonical_by_id") or {}).get(canonical_id or "")
+        current_price = _to_optional_float(latest_row.get("market_price"))
+        if not canonical_id or not canonical_card or current_price is None:
+            continue
+
+        observations = sorted(
+            observations_by_variant.get(variant_id, []),
+            key=lambda row: _to_optional_str(row.get("captured_at")) or "",
+        )
+        if len(observations) < 2:
+            continue
+        latest_dt = _parse_datetime(latest_row.get("captured_at")) or _parse_datetime(observations[-1].get("captured_at"))
+        if latest_dt is None:
+            continue
+        window_start_dt = latest_dt - timedelta(days=window_days)
+        baseline_point = None
+        last_before_window = None
+        window_observations: List[Dict[str, Any]] = []
+        for observation in observations:
+            observed_dt = _parse_datetime(observation.get("captured_at"))
+            if observed_dt is None:
+                continue
+            if observed_dt < window_start_dt:
+                last_before_window = observation
+                continue
+            if baseline_point is None:
+                baseline_point = observation
+            window_observations.append(observation)
+        if baseline_point is None:
+            baseline_point = last_before_window
+        latest_point = {
+            "card_variant_id": variant_id,
+            "condition_id": _to_optional_str(latest_row.get("condition_id")) or near_mint_condition_id,
+            "market_price": current_price,
+            "source": latest_row.get("source"),
+            "captured_at": latest_row.get("captured_at"),
+        }
+        latest_point_dt = _parse_datetime(latest_point.get("captured_at"))
+        last_window_dt = _parse_datetime(window_observations[-1].get("captured_at")) if window_observations else None
+        if latest_point_dt is not None and (last_window_dt is None or latest_point_dt > last_window_dt):
+            window_observations.append(latest_point)
+        if baseline_point is None or not window_observations:
+            continue
+        history_points_for_confidence = [baseline_point, *window_observations]
+        movement = _public_card_movement(
+            canonical_card=canonical_card,
+            variant_id=variant_id,
+            condition_id=_to_optional_str(latest_row.get("condition_id")) or near_mint_condition_id,
+            current_price=current_price,
+            current_source=latest_row.get("source"),
+            current_captured_at=latest_row.get("captured_at"),
+            first_point=baseline_point,
+            last_point=window_observations[-1],
+            observation_count=len(history_points_for_confidence),
+            window_days=window_days,
+        )
+        if movement is None:
+            continue
+
+        existing = best_by_canonical.get(canonical_id)
+        if existing is None or abs(movement["movementScore"]) > abs(existing["movementScore"]):
+            best_by_canonical[canonical_id] = movement
+
+    return list(best_by_canonical.values())
+
+
+def build_pokemon_set_card_movement_payload(
+    set_id: str,
+    *,
+    limit: int = DEFAULT_CARD_MOVERS_LIMIT,
+    window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
+) -> Dict[str, Any]:
+    warnings: List[str] = []
+    sources: Dict[str, str] = {}
+    set_row = _resolve_set_row(set_id)
+    context = _build_market_context(set_row, warnings, sources)
+    movements = _build_card_movements_from_context(
+        context,
+        window_days=window_days,
+        warnings=warnings,
+        sources=sources,
+    )
+    heating = sorted(
+        [movement for movement in movements if movement.get("change30dAmount", 0) > 0],
+        key=lambda movement: movement.get("movementScore") or 0,
+        reverse=True,
+    )
+    cooling = sorted(
+        [movement for movement in movements if movement.get("change30dAmount", 0) < 0],
+        key=lambda movement: movement.get("movementScore") or 0,
+    )
+
+    return {
+        "set": context.get("set"),
+        "window": f"{window_days}D",
+        "window_key": f"{window_days}D",
+        "windowDays": window_days,
+        "window_days": window_days,
+        "movements": movements,
+        "marketMovers": {
+            "window": f"{window_days}D",
+            "windowDays": window_days,
+            "heatingUp": heating[:limit],
+            "heating_up": heating[:limit],
+            "coolingOff": cooling[:limit],
+            "cooling_off": cooling[:limit],
+            "all": movements,
+        },
+        "market_movers": {
+            "window": f"{window_days}D",
+            "window_days": window_days,
+            "heating_up": heating[:limit],
+            "cooling_off": cooling[:limit],
+            "all": movements,
+        },
+        "meta": {
+            "limit": limit,
+            "windowDays": window_days,
+            "window_days": window_days,
+            "guardrails": {
+                "minimumCurrentPrice": CARD_MOVERS_MIN_CURRENT_PRICE,
+                "minimumAbsoluteMove": CARD_MOVERS_MIN_ABSOLUTE_MOVE,
+                "minimumHistorySpanDays": CARD_MOVERS_MIN_HISTORY_SPAN_DAYS,
+                "maximumAbsolutePercentChange": CARD_MOVERS_MAX_ABS_PERCENT_CHANGE,
+            },
+            "priceBasis": "Near Mint card_variant_price_observations and card_market_usd_latest_by_condition mapped to canonical Pokemon cards",
+            "sources": sources,
+            "warnings": warnings,
+        },
     }
 
 

@@ -42,7 +42,6 @@ from backend.db.services.public_profile_page_service import PublicProfilePageErr
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
 from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
-    get_rip_statistics_targets_payload,
 )
 from backend.db.services.pokemon_sets_catalog_service import (
     PokemonSetsCatalogError,
@@ -50,12 +49,17 @@ from backend.db.services.pokemon_sets_catalog_service import (
 )
 from backend.db.services.pokemon_set_cards_service import (
     PokemonSetCardsError,
-    get_pokemon_set_cards_payload,
 )
 from backend.db.services.pokemon_set_market_service import (
     PokemonSetMarketError,
-    get_pokemon_set_top_market_cards_payload,
-    get_pokemon_set_value_history_payload,
+)
+from backend.db.services.pokemon_public_snapshot_service import (
+    get_pokemon_explore_rankings_snapshot_payload,
+    get_pokemon_set_cards_snapshot_payload,
+    get_pokemon_set_market_dashboard_snapshot_payload,
+    get_pokemon_set_page_snapshot_payload,
+    get_pokemon_set_top_market_cards_snapshot_payload,
+    get_pokemon_set_value_history_snapshot_payload,
 )
 
 
@@ -383,6 +387,8 @@ def get_explore_page(
 ):
     """Return complete Explore page payload for a target (set, edition, pack, etc.)."""
     try:
+        if str(target_type or "").strip().lower() == "set":
+            return get_pokemon_set_page_snapshot_payload(set_id=target_id)
         payload = get_explore_page_payload(
             target_type=target_type,
             target_id=target_id,
@@ -413,7 +419,7 @@ def get_explore_rip_statistics_targets(
 ):
     """Return available RIP Statistics targets plus the best default target."""
     try:
-        return get_rip_statistics_targets_payload(limit=limit)
+        return get_pokemon_explore_rankings_snapshot_payload(limit=limit)
     except ExploreRipStatisticsTargetsError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -599,7 +605,7 @@ def get_pokemon_sets_catalog():
 def get_pokemon_set_cards(set_id: str):
     """Return checklist cards for a single Pokemon set."""
     try:
-        return get_pokemon_set_cards_payload(set_id=set_id)
+        return get_pokemon_set_cards_snapshot_payload(set_id=set_id)
     except PokemonSetCardsError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -613,6 +619,54 @@ def get_pokemon_set_cards(set_id: str):
         )
 
 
+@app.get("/tcgs/pokemon/sets/{set_id}/page")
+def get_pokemon_set_page(set_id: str):
+    """Return page-ready public Pokemon set analytics snapshot."""
+    try:
+        return get_pokemon_set_page_snapshot_payload(set_id=set_id)
+    except ExplorePageError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except PokemonSetMarketError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/page unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set page snapshot", "code": "POKEMON_SET_PAGE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/dashboard")
+def get_pokemon_set_market_dashboard(
+    set_id: str,
+    window: Optional[str] = Query(default=None),
+    days: Optional[str] = Query(default=None),
+):
+    """Return page-ready market dashboard snapshot for a Pokemon set."""
+    try:
+        return get_pokemon_set_market_dashboard_snapshot_payload(set_id=set_id, window=window or "30D", days=days)
+    except PokemonSetMarketError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/dashboard unexpected error", set_id)
+        return JSONResponse(
+            content={
+                "message": "Unable to load Pokemon set market dashboard",
+                "code": "POKEMON_SET_MARKET_DASHBOARD_FAILED",
+            },
+            status_code=500,
+        )
+
+
 @app.get("/tcgs/pokemon/sets/{set_id}/market/top-cards")
 def get_pokemon_set_top_market_cards(
     set_id: str,
@@ -621,7 +675,7 @@ def get_pokemon_set_top_market_cards(
 ):
     """Return highest-priced real market cards for a Pokemon set."""
     try:
-        return get_pokemon_set_top_market_cards_payload(set_id=set_id, limit=limit, days=days)
+        return get_pokemon_set_top_market_cards_snapshot_payload(set_id=set_id, limit=limit, days=days)
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -643,7 +697,7 @@ def get_pokemon_set_value_history(
 ):
     """Return historical real set value snapshots for a Pokemon set."""
     try:
-        return get_pokemon_set_value_history_payload(set_id=set_id, days=days, value_scope=value_scope)
+        return get_pokemon_set_value_history_snapshot_payload(set_id=set_id, days=days, value_scope=value_scope)
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},

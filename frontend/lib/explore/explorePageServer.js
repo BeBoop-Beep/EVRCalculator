@@ -91,18 +91,23 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
   }
 
   const promise = (async () => {
-    const url = new URL(`${BACKEND_URL}/explore/page`);
-    url.searchParams.set("target_type", targetType);
-    url.searchParams.set("target_id", targetId);
-    url.searchParams.set("limit_distribution_bins", String(limitDistributionBins));
-    url.searchParams.set("limit_top_hits", String(limitTopHits));
+    const isPokemonSetPage = targetType === "set";
+    const url = isPokemonSetPage
+      ? new URL(`${BACKEND_URL}/tcgs/pokemon/sets/${encodeURIComponent(targetId)}/page`)
+      : new URL(`${BACKEND_URL}/explore/page`);
+    if (!isPokemonSetPage) {
+      url.searchParams.set("target_type", targetType);
+      url.searchParams.set("target_id", targetId);
+      url.searchParams.set("limit_distribution_bins", String(limitDistributionBins));
+      url.searchParams.set("limit_top_hits", String(limitTopHits));
+    }
 
     const startedAt = Date.now();
     console.info("[explore-page-server] fetch_start", { targetType, targetId });
 
     let res;
     try {
-      res = await fetch(url.toString(), { cache: "no-store" });
+      res = await fetch(url.toString(), { next: { revalidate: 300 } });
     } catch (networkErr) {
       console.error("[explore-page-server] network_error", {
         targetType,

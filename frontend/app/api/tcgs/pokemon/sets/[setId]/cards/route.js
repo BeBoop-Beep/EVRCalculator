@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
+const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=900, stale-while-revalidate=86400";
+
 function getBackendBaseUrl() {
   return getBackendApiBaseUrl();
+}
+
+function shouldBypassCache(request) {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+  const params = request?.nextUrl?.searchParams;
+  return params?.get("cache") === "no-store" || params?.get("bypassCache") === "1";
 }
 
 export async function GET(request, { params }) {
@@ -20,12 +30,13 @@ export async function GET(request, { params }) {
     `${getBackendBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/cards`
   );
 
+  const bypassCache = shouldBypassCache(request);
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",
     headers: {
       Accept: "application/json",
     },
-    cache: "no-store",
+    ...(bypassCache ? { cache: "no-store" } : { next: { revalidate: 900 } }),
   });
 
   const payload = await proxyResponse.text();
@@ -35,6 +46,7 @@ export async function GET(request, { params }) {
     status: proxyResponse.status,
     headers: {
       "content-type": contentType,
+      "Cache-Control": bypassCache ? "no-store" : PUBLIC_ANALYTICS_CACHE_CONTROL,
     },
   });
 }
