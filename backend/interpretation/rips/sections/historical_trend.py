@@ -50,7 +50,7 @@ def _p95_supplement(
     if last_p95 >= 3.0:
         return (
             "High-end upside is very strong relative to pack cost, "
-            "so the set can still attract chase demand even if average returns are not favorable."
+            "so the set can still attract chase demand even if Expected Value is not favorable."
         )
     if weakening and last_p95 >= 1.0:
         if p95_falling:

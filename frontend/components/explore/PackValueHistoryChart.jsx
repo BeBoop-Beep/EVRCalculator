@@ -423,7 +423,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             onToggle={() => setShowMeanLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.meanToCost}
             inactiveColor="rgba(45,212,191,0.25)"
-            label="Average Return"
+            label="Expected Value"
           />
           <LegendToggle
             active={showMedianLine}
@@ -486,7 +486,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               }}
             />
 
-            {/* Big Hit Upside — rendered below Average Return so Average Return stays visually on top */}
+            {/* Big Hit Upside rendered below Expected Value so Expected Value stays visually on top. */}
             {hasP95Data && showP95Line ? (
               <Line
                 type="monotone"
@@ -510,7 +510,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               <Line
                 type="monotone"
                 dataKey="meanCostRatio"
-                name="Average Return"
+                name="Expected Value"
                 stroke={HISTORICAL_TREND_COLORS.meanToCost}
                 strokeWidth={2.5}
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.meanToCost, strokeWidth: 0 }}

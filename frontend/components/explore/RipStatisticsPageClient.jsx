@@ -103,9 +103,9 @@ const RIP_COPY = {
   recommendationLabel: "Recommendation",
   simpleMetrics: {
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
-    averagePackValue: "Average Pack Value",
+    averagePackValue: "Expected Value",
     averageHitValue: "Average Hit Value",
-    currentPackCost: "Estimated Pack Market Price",
+    currentPackCost: "Pack Market Price",
     averageLoss: "Average Loss",
     chanceAtBigPull: "Chance at a Big Pull",
   },
@@ -118,7 +118,7 @@ const RIP_COPY = {
     rarityContribution: "Where the Value Comes From",
   },
   chartMarkers: {
-    packCost: "Pack Cost",
+    packCost: "Pack Market Price",
     typicalPack: "Typical Pack",
     averagePack: "Average Pack",
     badFloor: "Bad Floor",
@@ -207,7 +207,7 @@ function appendSetDetailIntentToHref(href, { tab, section } = {}) {
 
 const SIMPLE_PILLAR_INFO_COPY = {
   Profit:
-    "Profit explains the upside side of the set. A strong profit profile does not mean every pack feels good - it means the set has enough high-end outcomes to make the upside meaningful when the right cards show up.",
+    "Profit explains how often simulated openings beat cost, how Expected Value compares with pack cost, and how much upside the better pulls create. A strong profit profile does not guarantee a profitable pack.",
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   Desirability:
@@ -218,6 +218,36 @@ const SIMPLE_PILLAR_INFO_COPY = {
 
 const DESIRABILITY_FALLBACK_COPY = "Using a fallback Opening Desirability estimate until this set has enough data.";
 const DESIRABILITY_NOT_CALCULATED_COPY = "Not calculated yet.";
+const PERFORMANCE_VS_COST_INFO_TEXT = (
+  <div className="space-y-2 text-left">
+    <p className="font-semibold text-[var(--text-primary)]">Performance vs Cost</p>
+    <p>Tracks how simulated opening outcomes compare against pack market price over time.</p>
+    <ul className="space-y-1 pl-3">
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span>
+          <span className="font-semibold text-[var(--text-primary)]">Big Hit Upside:</span> 95th percentile simulated pack outcome from the RIP Score breakdown.
+        </span>
+      </li>
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span>
+          <span className="font-semibold text-[var(--text-primary)]">Expected Value:</span> average simulated pack value.
+        </span>
+      </li>
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span>
+          <span className="font-semibold text-[var(--text-primary)]">Typical Return:</span> median simulated pack value.
+        </span>
+      </li>
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span>Above 1.0x means that outcome is above pack market price; below 1.0x means it is below pack market price.</span>
+      </li>
+    </ul>
+  </div>
+);
 
 const METRIC_TREND_DIRECTIONS = {
   ripScore: "higher",
@@ -418,7 +448,7 @@ function getMarketReadSummary({ packCost, averagePackValue, returnRatio, setValu
       : "Value concentration is still mixed from the available data";
 
   if (hasPriceValue) {
-    return `The current pack price is ${pricePosition} modeled average pack value, so this reads like ${setType} at today's inputs. ${concentration}. The price/value relationship points to ${returnRatio !== null && returnRatio >= 1 ? "average openings that can meet or clear cost before fees" : "openings that still need strong pulls to overcome pack cost"}.`;
+    return `The current pack price is ${pricePosition} modeled Expected Value, so this reads like ${setType} at today's inputs. ${concentration}. The price/value relationship points to ${returnRatio !== null && returnRatio >= 1 ? "long-run EV that can meet or clear cost before fees" : "openings that still need strong pulls to overcome pack cost"}.`;
   }
 
   if (setValue !== null) {
@@ -438,7 +468,7 @@ function getCompactMarketRead({ packCost, averagePackValue, returnRatio, setValu
         : chaseDepth !== null && chaseDepth >= 8
         ? "value is spread across a deeper checklist"
         : "value concentration is mixed";
-    return `Average pack value is ${formatCurrency(averagePackValue)} against a ${formatCurrency(packCost)} pack price, with ${ratioText} and ${concentration}.`;
+    return `Expected Value is ${formatCurrency(averagePackValue)} against a ${formatCurrency(packCost)} pack price, with ${ratioText} and ${concentration}.`;
   }
 
   if (setValue !== null) {
@@ -1287,7 +1317,7 @@ function OverviewReadPanel({ metrics, compactRead, detailRead }) {
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">Overview Context</h2>
-          <InfoPopover text="Asset-style set context using existing set value, pack price, modeled average pack value, and return ratio." />
+          <InfoPopover text="Asset-style set context using existing set value, pack price, modeled Expected Value, and return ratio." />
         </div>
       </div>
 
@@ -2553,7 +2583,7 @@ const SET_INTELLIGENCE_LENSES = [
   },
   {
     key: "averageReturn",
-    label: "Average Return",
+    label: "Expected Value",
     scoreFields: [
       "relative_average_return_score",
       "relative_mean_value_to_cost_score",
@@ -2563,13 +2593,13 @@ const SET_INTELLIGENCE_LENSES = [
     tierField: "mean_value_to_cost_tier",
     rankField: "mean_value_to_cost_rank",
     format: "score",
-    heading: "Average value compared with cost",
+    heading: "Expected Value compared with cost",
     simpleCardSummary:
-      "This shows whether the set tends to give back more or less value compared with similar sets.",
+      "This shows whether the set's mean simulated value gives back more or less value compared with similar sets.",
     simpleDetailSummary:
-      "This lens describes the typical value return profile. It sets expectations for whether average openings tend to feel closer to cost or noticeably behind it.",
+      "This lens describes the Expected Value profile. It sets long-run expectations for whether mean simulated value sits closer to cost or noticeably behind it.",
     description:
-      "This lens compares average simulated pack value against current estimated pack cost.",
+      "This lens compares mean simulated pack value against current pack market price.",
     evidenceKeys: ["mean_value", "pack_cost", "expected_loss_per_pack"],
   },
 ];
@@ -2630,7 +2660,7 @@ function getLensEvidenceRow(key, summary) {
     case "prob_profit":
       return { label: "Chance to beat cost", value: formatPercent(summary.prob_profit, { probability: true }) };
     case "mean_value":
-      return { label: "Average pack value", value: formatCurrency(summary.mean_value) };
+      return { label: "Expected Value", value: formatCurrency(summary.mean_value) };
     case "expected_loss_when_losing":
       return { label: "Avg loss when missing", value: formatLossCurrency(summary.expected_loss_when_losing) };
     case "prob_big_hit":
@@ -2684,10 +2714,10 @@ function getLensTagline(lens, summary, resolvedLensScore = null) {
   }
   if (lens.key === "averageReturn") {
     const ratio = toNumber(summary.mean_value_to_cost_ratio);
-    if (ratio !== null && ratio >= 1.0) return "Average value meets or exceeds pack cost.";
-    if (tier === "B" || tier === "A" || tier === "S") return "Above-average value recovery compared with peers.";
-    if (tier === "C") return "Average value trails pack cost modestly.";
-    return "Average value still trails pack cost.";
+    if (ratio !== null && ratio >= 1.0) return "Expected Value meets or exceeds pack cost.";
+    if (tier === "B" || tier === "A" || tier === "S") return "Stronger EV recovery than peers.";
+    if (tier === "C") return "Expected Value trails pack cost modestly.";
+    return "Expected Value still trails pack cost.";
   }
   return "";
 }
@@ -3110,7 +3140,7 @@ function getPillarSignalHighlight(title, score) {
   if (title === "Profit") {
     if (isStrong) return "Strong average, meaningful upside";
     if (isSolid) return "Playable return profile";
-    if (isWeak) return "Average return trails cost";
+    if (isWeak) return "Expected Value trails cost";
     return "Mixed profit profile";
   }
 
@@ -3275,7 +3305,7 @@ function OpeningProfileSignalsCard({ summary, setIntelligenceMeta = [] }) {
   return (
     <SectionCard
       title="Opening Profile"
-      titleInfoText="Compact at-a-glance opening lenses for experience, chase potential, upside, and average return."
+      titleInfoText="Compact at-a-glance opening lenses for experience, chase potential, upside, and Expected Value."
     >
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
         {signals.map((signal) => (
@@ -3339,7 +3369,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] 
       "Opening Experience": "Swingy pack feel",
       "Chase Potential": "Rare top-heavy chase",
       "Biggest Upside": "Huge but rare spikes",
-      "Average Return": "Strong average return",
+      "Expected Value": "Strong Expected Value",
     };
     const signalByTitle = new Map(
       (Array.isArray(pillarSignals) ? pillarSignals : [])
@@ -3347,7 +3377,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] 
         .map((signal) => [signal.title, signal])
     );
     const pillarRows = [
-      ["Profit", "Profitability", "Profit profile", "Compares average value, upside, and pack cost pressure."],
+      ["Profit", "Profitability", "Profit profile", "Compares Expected Value, upside, and pack cost pressure."],
       ["Safety", "Safety", "Miss protection", "Shows how well the set protects against rough openings and downside outcomes."],
       ["Desirability", "Desirability", "Collector demand", "Reflects collector appeal and chase-card strength for this set."],
       ["Stability", "Stability", "Value spread", "Shows whether value is broadly distributed or concentrated in a few cards."],
@@ -3739,7 +3769,7 @@ function TopEVDriversContent({ topHits, meanValue, condensed = false }) {
   const totalEV = toNumber(meanValue);
   const visibleTopEV = hits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
   const hasPackTotalEV = totalEV !== null;
-  const totalLabel = hasPackTotalEV ? "Simulated Average Pack Value" : "Top 10 Simulated Value";
+  const totalLabel = hasPackTotalEV ? "Simulated Expected Value" : "Top 10 Simulated Value";
   const totalValue = hasPackTotalEV ? totalEV : visibleTopEV;
 
   if (hits.length === 0) {
@@ -4151,7 +4181,7 @@ const SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT = (
   <div className="space-y-1.5 text-left">
     <p className="font-semibold text-[var(--text-primary)]">How cards impact pack value</p>
     <p className="text-[var(--text-secondary)]">
-      Simulated Average Pack Value is the average value generated per simulated pack using current card values and pull odds. Value Contribution shows how much each card adds to that average after pull odds are considered.
+      Expected Value is the mean value generated per simulated pack using current card values and pull odds. Value Contribution shows how much each card adds to that mean after pull odds are considered.
     </p>
   </div>
 );
@@ -4171,8 +4201,8 @@ function collectorFriendlyText(text) {
     .replace(/EV-leading rarity share/gi, "Top Rarity Share")
     .replace(/EV-leading rarity/gi, "Top Value Rarity")
     .replace(/EV and pull aligned/gi, "Value and Pulls Align")
-    .replace(/expected pack value/gi, "simulated average pack value")
-    .replace(/expected value/gi, "simulated value")
+    .replace(/expected pack value/gi, "Expected Value")
+    .replace(/expected value/gi, "Expected Value")
     .replace(/\bEV\b/g, "value");
 }
 
@@ -4493,7 +4523,7 @@ export default function RipStatisticsPageClient({
       <p className="font-semibold text-[var(--text-primary)]">Where the Value Comes From</p>
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
         <li className="flex gap-2"><span className="flex-none">•</span><span>Shows which rarity groups contribute most to the simulated value in the run.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Higher contribution means that rarity bucket drives more of the pack&apos;s simulated average value.</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>Higher contribution means that rarity bucket drives more of the pack&apos;s simulated Expected Value.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>Use this to see whether value is spread across many rarities or concentrated in a narrow chase tier.</span></li>
       </ul>
     </div>
@@ -5112,25 +5142,25 @@ export default function RipStatisticsPageClient({
       infoText: "Simulated set value: one priced copy per unique card identity in this simulation universe.",
     },
     {
-      label: "Pack Price",
+      label: "Pack Market Price",
       rawValue: toNumber(summary.pack_cost),
       value: formatCurrency(summary.pack_cost),
       trend: trendByMetricKey.packCost,
       infoText: "Estimated current pack market price used by the simulation.",
     },
     {
-      label: "Average Pack Value",
+      label: "Expected Value",
       rawValue: toNumber(summary.mean_value),
       value: formatCurrency(summary.mean_value),
       trend: trendByMetricKey.averagePackValue,
       infoText: SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT,
     },
     {
-      label: "Return vs Cost",
+      label: "Expected Value vs Cost",
       rawValue: toNumber(meanValueToCostRatio),
       value: formatNumber(meanValueToCostRatio, 2),
       trend: trendByMetricKey.averageReturnVsCost,
-      infoText: "Modeled average pack value divided by estimated pack market price.",
+      infoText: "Expected Value divided by the current estimated pack market price.",
     },
   ].filter((metric) => metric.rawValue !== null);
   const topPricedCardsResult = getTopPricedCards({
@@ -5175,7 +5205,7 @@ export default function RipStatisticsPageClient({
     (metric) => !primaryDecisionMetricOrder.includes(metric.label)
   );
   const technicalScoreMetrics = [
-    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
+    { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
     { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
@@ -5191,7 +5221,7 @@ export default function RipStatisticsPageClient({
     { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue), trend: trendByMetricKey.averageLoss },
     { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
-    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
+    { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
     { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
@@ -5941,7 +5971,7 @@ export default function RipStatisticsPageClient({
                       <div className="min-w-0 lg:h-full">
                         <SectionCard
                           title="Performance vs Cost"
-                          titleInfoText="Compares current pack price against modeled pack value and recent performance when history is available."
+                          titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}
                           className="flex h-full flex-col"
                           bodyClassName="flex min-h-0 flex-1 flex-col"
                         >
@@ -6456,7 +6486,7 @@ export default function RipStatisticsPageClient({
                     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
                   ]}
                   advancedMetrics={[
-                    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
+                    { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
                     { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
                     { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
                     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
@@ -6579,6 +6609,8 @@ export default function RipStatisticsPageClient({
                     ? outcomeDistributionInfo
                     : activeInsightsGraphMode === "value-contribution"
                     ? rarityContributionInfo
+                    : activeInsightsGraphMode === "historical-trend"
+                    ? PERFORMANCE_VS_COST_INFO_TEXT
                     : null
                 }
               >

@@ -594,7 +594,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     "average_return:low:medium": {
         "label": "Average, rough misses",
         "summary": (
-            "This set has average return potential, but bad packs can hurt. "
+            "This set has average Expected Value potential, but bad packs can hurt. "
             "The value is not strong enough to offset the downside pressure, "
             "making this harder to justify at the current price."
         ),
@@ -603,7 +603,7 @@ PACK_ARCHETYPE_MATRIX: Dict[str, Dict[str, str]] = {
     "average_return:low:low": {
         "label": "Average, but risky",
         "summary": (
-            "This set has average return potential, but it comes with real risk on both fronts: "
+            "This set has average Expected Value potential, but it comes with real risk on both fronts: "
             "the misses are rough and too much depends on the right hits. "
             "Average value with above-average downside."
         ),

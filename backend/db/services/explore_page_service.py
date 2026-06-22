@@ -1141,7 +1141,7 @@ def _populate_relative_average_return_score_for_set(
             requested_target_id,
             exc,
         )
-        warnings.append("Failed to compute relative Average Return context")
+        warnings.append("Failed to compute relative Expected Value context")
         sources["average_return_relative"] = "FAILED"
         summary["relative_average_return_score"] = None
         return
@@ -2779,7 +2779,7 @@ def _populate_relative_average_return_score_for_set(
             requested_target_id,
             exc,
         )
-        warnings.append("Failed to compute relative Average Return context")
+        warnings.append("Failed to compute relative Expected Value context")
         sources["average_return_relative"] = "FAILED"
         summary["relative_average_return_score"] = None
         return
