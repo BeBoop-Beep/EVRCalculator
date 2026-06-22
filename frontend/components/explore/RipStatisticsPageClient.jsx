@@ -84,6 +84,7 @@ const SECTION_SCROLL_ORDER = [
 ];
 const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
+const CANONICAL_SET_VALUE_SCOPE = "standard";
 const SET_VALUE_SCOPE_OPTIONS = [
   { key: "standard", label: "Checklist" },
   { key: "hits", label: "Hits" },
@@ -117,6 +118,7 @@ const SET_DETAIL_SECTION_TARGETS = {
   value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" },
   "pack-breakdown": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "pack-breakdown" },
   "performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" },
+  "set-value-trend": { tab: "overview", targetId: "set-detail-set-value-trend" },
   "top-market-cards": { tab: "overview", targetId: "set-detail-top-market-cards" },
   "market-movers": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
 };
@@ -126,6 +128,46 @@ function debugSetPagePerf(label, details = {}) {
     return;
   }
   console.debug(`[pokemon-set-perf] ${label}`, details);
+}
+
+function toStableIdentifier(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "undefined" || text === "null") {
+    return null;
+  }
+  return text;
+}
+
+function getSetSnapshotIdentity(explorePayload) {
+  const meta = explorePayload?.meta || {};
+  return (
+    meta.set ||
+    meta.setIdentity ||
+    meta.set_identity ||
+    meta.snapshot?.set ||
+    meta.snapshot?.setIdentity ||
+    meta.snapshot?.set_identity ||
+    null
+  );
+}
+
+function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload }) {
+  const snapshotIdentity = getSetSnapshotIdentity(explorePayload);
+  return (
+    toStableIdentifier(snapshotIdentity?.id ?? snapshotIdentity?.set_id) ||
+    toStableIdentifier(selectedTarget?.id ?? selectedTarget?.set_id) ||
+    toStableIdentifier(selectedTarget?.target_id) ||
+    toStableIdentifier(requestedTargetId)
+  );
+}
+
+function getSetValueScopeLabel(scope) {
+  const scopeKey = String(scope || CANONICAL_SET_VALUE_SCOPE).trim() || CANONICAL_SET_VALUE_SCOPE;
+  return SET_VALUE_SCOPE_OPTIONS.find((entry) => entry.key === scopeKey)?.label || scopeKey;
+}
+
+function getSetValueMetricLabel(scope) {
+  return `${getSetValueScopeLabel(scope)} Set Value`;
 }
 
 function getTopMarketCardsCacheKey(setId, windowKey = DEFAULT_TOP_MARKET_CARDS_WINDOW) {
@@ -398,13 +440,17 @@ function toNumber(value) {
 }
 
 function getFirstNumericValue(source, keys = []) {
+  return getFirstNumericMetric(source, keys).value;
+}
+
+function getFirstNumericMetric(source, keys = []) {
   for (const key of keys) {
     const value = toNumber(source?.[key]);
     if (value !== null) {
-      return value;
+      return { key, value };
     }
   }
-  return null;
+  return { key: null, value: null };
 }
 
 function normalizeProbability(value) {
@@ -524,7 +570,7 @@ function getMarketReadSummary({ packCost, averagePackValue, returnRatio, setValu
   }
 
   if (setValue !== null) {
-    return `Market context is partially available for this set, with modeled set value at ${formatCurrency(setValue)}. ${concentration}, so the read is more useful for understanding where value sits than for judging pack price today.`;
+    return `Market context is partially available for this set, with checklist set value at ${formatCurrency(setValue)}. ${concentration}, so the read is more useful for understanding where value sits than for judging pack price today.`;
   }
 
   return "Market context is limited for this set, so this read is based only on the modeled values currently available.";
@@ -544,7 +590,7 @@ function getCompactMarketRead({ packCost, averagePackValue, returnRatio, setValu
   }
 
   if (setValue !== null) {
-    return `Modeled set value is ${formatCurrency(setValue)}, with pack price context still limited for this set.`;
+    return `Checklist set value is ${formatCurrency(setValue)}, with pack price context still limited for this set.`;
   }
 
   return "Market context is limited, so this view is based on currently available modeled set data.";
@@ -1058,7 +1104,7 @@ function buildCurrencyTicks(points) {
   );
 }
 
-function SetValueTooltip({ active, payload }) {
+function SetValueTooltip({ active, payload, scopeLabel = "Checklist" }) {
   if (!active || !payload?.length) {
     return null;
   }
@@ -1076,7 +1122,7 @@ function SetValueTooltip({ active, payload }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Date</p>
       <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.date)}</p>
       <p className="mt-2 text-xs text-[var(--text-secondary)]">
-        Set Value <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(row.setValue)}</span>
+        {scopeLabel} Set Value <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(row.setValue)}</span>
       </p>
       {row.isCarriedForward ? (
         <p className="text-xs text-[var(--text-secondary)]">
@@ -1229,7 +1275,90 @@ function normalizeSetValueHistoryPoints(points) {
   );
 }
 
-function SetValueLineChart({ points, trendDirection = "neutral" }) {
+function getSetValueHistoryForScope({ history, historiesByScope, scope = CANONICAL_SET_VALUE_SCOPE }) {
+  if (Array.isArray(historiesByScope?.[scope])) {
+    return historiesByScope[scope];
+  }
+  return scope === CANONICAL_SET_VALUE_SCOPE ? history : [];
+}
+
+function getSetValueHistoryMetrics(rawHistory, { preferredWindowKey = "30D" } = {}) {
+  const points = normalizeSetValueHistoryPoints(rawHistory);
+  const valuedPoints = points.filter((point) => toNumber(point?.setValue) !== null);
+  const { effectiveKey, selectedWindow } = getSelectedDeltaWindowFromHistory(valuedPoints, {
+    selectedKey: preferredWindowKey,
+    preferredKey: preferredWindowKey,
+    dateKey: "date",
+    valueKey: "setValue",
+  });
+  const visibleWindowMetrics = getVisibleHistoryWindowMetrics(points, selectedWindow, {
+    dateKey: "date",
+    valueKey: "setValue",
+  });
+  const currentValue = visibleWindowMetrics.currentValue;
+  const baselineValue = toNumber(visibleWindowMetrics.firstPoint?.setValue);
+
+  return {
+    points,
+    visiblePoints: visibleWindowMetrics.points,
+    valuedPoints,
+    selectedWindow,
+    effectiveWindowKey: effectiveKey,
+    currentValue,
+    deltaAmount: visibleWindowMetrics.deltaAmount,
+    deltaPercent: visibleWindowMetrics.deltaPercent,
+    asOf: visibleWindowMetrics.latestPoint?.date || valuedPoints[valuedPoints.length - 1]?.date || null,
+    sourcePoint: visibleWindowMetrics.latestPoint || valuedPoints[valuedPoints.length - 1] || null,
+    trend:
+      currentValue !== null && baselineValue !== null && visibleWindowMetrics.firstPoint !== visibleWindowMetrics.latestPoint
+        ? getMetricTrend({ currentValue, previousValue: baselineValue, metricKey: "setValue" })
+        : { trend: "unknown", isImprovement: null },
+  };
+}
+
+function getCanonicalChecklistSetValueMetrics({
+  history,
+  historiesByScope,
+  meta,
+  fallbackMetric,
+  fallbackAsOf,
+}) {
+  const marketMetrics = getSetValueHistoryMetrics(
+    getSetValueHistoryForScope({ history, historiesByScope, scope: CANONICAL_SET_VALUE_SCOPE }),
+    { preferredWindowKey: "30D" }
+  );
+
+  if (marketMetrics.currentValue !== null) {
+    return {
+      ...marketMetrics,
+      value: marketMetrics.currentValue,
+      valueScope: CANONICAL_SET_VALUE_SCOPE,
+      source: `market_dashboard.setValueHistoriesByScope.${CANONICAL_SET_VALUE_SCOPE}`,
+      sourcePayloadKey: `setValueHistoriesByScope.${CANONICAL_SET_VALUE_SCOPE}`,
+      asOf:
+        marketMetrics.asOf ||
+        meta?.asOfDate ||
+        meta?.as_of_date ||
+        meta?.windowEnd ||
+        meta?.window_end ||
+        null,
+      isFallback: false,
+    };
+  }
+
+  return {
+    ...marketMetrics,
+    value: fallbackMetric?.value ?? null,
+    valueScope: CANONICAL_SET_VALUE_SCOPE,
+    source: fallbackMetric?.key ? `set_page_snapshot.summary.${fallbackMetric.key}` : "set_page_snapshot.summary",
+    sourcePayloadKey: fallbackMetric?.key || null,
+    asOf: fallbackAsOf || null,
+    isFallback: true,
+    trend: { trend: "unknown", isImprovement: null },
+  };
+}
+
+function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "Checklist" }) {
   let previousValuedPoint = null;
   const numericPoints = (Array.isArray(points) ? points : [])
     .map((point, index) => {
@@ -1307,11 +1436,11 @@ function SetValueLineChart({ points, trendDirection = "neutral" }) {
               tickFormatter={formatAxisCurrency}
               width={58}
             />
-            <RechartsTooltip content={<SetValueTooltip />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
+            <RechartsTooltip content={<SetValueTooltip scopeLabel={scopeLabel} />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
             <Line
               type="linear"
               dataKey="setValue"
-              name="Set Value"
+              name={`${scopeLabel} Set Value`}
               stroke={trendColor}
               strokeWidth={2.5}
               dot={{ r: 2.5, fill: trendColor, strokeWidth: 0 }}
@@ -1325,9 +1454,16 @@ function SetValueLineChart({ points, trendDirection = "neutral" }) {
   );
 }
 
-function SetValueTrendCard({ history, historiesByScope, availableScopes, status, error }) {
+function SetValueTrendCard({
+  history,
+  historiesByScope,
+  availableScopes,
+  status,
+  error,
+  selectedScope = CANONICAL_SET_VALUE_SCOPE,
+  onSelectedScopeChange,
+}) {
   const [selectedWindowKey, setSelectedWindowKey] = useState(null);
-  const [selectedScope, setSelectedScope] = useState("standard");
   const scopeOptions = useMemo(() => {
     const optionMap = new Map(SET_VALUE_SCOPE_OPTIONS.map((entry) => [entry.key, entry]));
     (Array.isArray(availableScopes) ? availableScopes : []).forEach((entry) => {
@@ -1342,11 +1478,16 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
     return SET_VALUE_SCOPE_OPTIONS.filter((entry) => optionMap.has(entry.key)).map((entry) => optionMap.get(entry.key));
   }, [availableScopes]);
   const selectedHistory = useMemo(() => {
-    if (Array.isArray(historiesByScope?.[selectedScope])) {
-      return historiesByScope[selectedScope];
-    }
-    return selectedScope === "standard" ? history : [];
+    return getSetValueHistoryForScope({ history, historiesByScope, scope: selectedScope });
   }, [historiesByScope, history, selectedScope]);
+  const handleSelectedScopeChange = useCallback(
+    (nextScope) => {
+      onSelectedScopeChange?.(nextScope);
+    },
+    [onSelectedScopeChange]
+  );
+  const selectedScopeLabel = getSetValueScopeLabel(selectedScope);
+  const selectedMetricLabel = getSetValueMetricLabel(selectedScope);
   const points = useMemo(() => normalizeSetValueHistoryPoints(selectedHistory), [selectedHistory]);
   const valuedPoints = useMemo(
     () => points.filter((point) => toNumber(point?.setValue) !== null),
@@ -1393,8 +1534,8 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
     if (scopeOptions.some((entry) => entry.key === selectedScope)) {
       return;
     }
-    setSelectedScope(scopeOptions[0]?.key || "standard");
-  }, [scopeOptions, selectedScope]);
+    handleSelectedScopeChange(scopeOptions[0]?.key || CANONICAL_SET_VALUE_SCOPE);
+  }, [handleSelectedScopeChange, scopeOptions, selectedScope]);
 
   return (
     <SectionCard
@@ -1409,21 +1550,21 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
       ) : !hasTrend ? (
         <div className="space-y-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Set Value</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
             <p className="mt-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</p>
           </div>
           <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-3 py-3 text-sm text-[var(--text-secondary)]">
             Not enough set value history yet.
           </p>
           <div className="pt-1">
-            <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+            <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={handleSelectedScopeChange} />
           </div>
         </div>
       ) : (
         <div className="flex min-h-[26rem] flex-col space-y-4">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Set Value</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
               <p className="mt-1 inline-flex min-w-0 items-center gap-1.5 text-2xl font-semibold leading-none text-[var(--text-primary)]">
                 <span className="truncate">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</span>
                 <DeltaTrendIcon value={deltaAmount} size="md" />
@@ -1455,12 +1596,12 @@ function SetValueTrendCard({ history, historiesByScope, availableScopes, status,
             />
           </div>
 
-          <SetValueLineChart points={chartPoints} trendDirection={trendDirection} />
+          <SetValueLineChart points={chartPoints} trendDirection={trendDirection} scopeLabel={selectedScopeLabel} />
 
           <div className="grid min-w-0 grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)] max-[420px]:grid-cols-2">
             <span className="min-w-0 justify-self-start truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
             <div className="min-w-0 justify-self-center max-[420px]:order-3 max-[420px]:col-span-2">
-              <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+              <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={handleSelectedScopeChange} />
             </div>
             <span className="min-w-0 justify-self-end truncate text-right">{formatShortDate(lastPoint?.date) || "Latest"}</span>
           </div>
@@ -4700,6 +4841,10 @@ export default function RipStatisticsPageClient({
 
   const rawTargets = targetsPayload?.targets;
   const targets = useMemo(() => (Array.isArray(rawTargets) ? rawTargets : []), [rawTargets]);
+  const resolvedSetResourceId = useMemo(
+    () => getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload }),
+    [requestedTargetId, selectedTarget, explorePayload]
+  );
   const summary = explorePayload?.summary || {};
   const percentiles = explorePayload?.percentiles || [];
   const distributionBins = explorePayload?.distribution_bins || [];
@@ -4800,6 +4945,7 @@ export default function RipStatisticsPageClient({
     error: null,
     meta: null,
   });
+  const [setValueTrendScope, setSetValueTrendScope] = useState(CANONICAL_SET_VALUE_SCOPE);
   const heroSetPickerRef = useRef(null);
   const checklistCacheRef = useRef(new Map());
   const topMarketCardsCacheRef = useRef(new Map());
@@ -4858,7 +5004,18 @@ export default function RipStatisticsPageClient({
         });
         prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW }).then((payload) => {
           if (payload) {
-            applyMarketDashboardPayload(resolvedSetId, payload, DEFAULT_TOP_MARKET_CARDS_WINDOW);
+            const marketState = applyMarketDashboardPayload(resolvedSetId, payload, DEFAULT_TOP_MARKET_CARDS_WINDOW);
+            if (prefetchReason !== "adjacent") {
+              setSetValueHistoryState(() => ({
+                status: marketState.setValue.hasAnyHistory ? "success" : "empty",
+                setId: resolvedSetId,
+                history: marketState.setValue.history,
+                historiesByScope: marketState.setValue.historiesByScope,
+                availableScopes: marketState.setValue.availableScopes,
+                error: null,
+                meta: marketState.setValue.meta,
+              }));
+            }
             debugSetPagePerf("market.prefetch_ready", { setId: resolvedSetId, reason: prefetchReason });
           }
         });
@@ -5146,6 +5303,14 @@ export default function RipStatisticsPageClient({
     scrollToSetDetailElement(targetId || getSetDetailFallbackTargetId(nextTab));
   };
 
+  const handleViewSetValueTrend = () => {
+    handleSetDetailNavSelect({
+      tab: "overview",
+      section: "set-value-trend",
+      targetId: "set-detail-set-value-trend",
+    });
+  };
+
   useEffect(() => {
     if (!setDetailMode) {
       return;
@@ -5326,7 +5491,7 @@ export default function RipStatisticsPageClient({
     "average_hit_pack_value",
     "average_pack_value_of_hits",
   ]);
-  const setValue = getFirstNumericValue(summary, [
+  const setValueSummaryMetric = getFirstNumericMetric(summary, [
     "simulated_set_value",
     "set_value",
     "total_set_value",
@@ -5335,9 +5500,108 @@ export default function RipStatisticsPageClient({
     "collection_value",
     "total_value",
   ]);
+  const isSetValueHistoryForActiveSet = !setDetailMode || setValueHistoryState.setId === resolvedSetResourceId;
+  const activeSetValueHistory = isSetValueHistoryForActiveSet
+    ? setValueHistoryState
+    : {
+        status: "idle",
+        setId: resolvedSetResourceId,
+        history: [],
+        historiesByScope: {},
+        availableScopes: SET_VALUE_SCOPE_OPTIONS,
+        error: null,
+        meta: null,
+      };
+  const fallbackSetValueAsOf =
+    explorePayload?.meta?.asOfDate ||
+    explorePayload?.meta?.as_of_date ||
+    explorePayload?.meta?.run_at ||
+    summary.run_at ||
+    null;
+  const setValueSummaryKey = setValueSummaryMetric.key;
+  const setValueSummaryValue = setValueSummaryMetric.value;
+  const canonicalSetValueMetrics = useMemo(
+    () =>
+      getCanonicalChecklistSetValueMetrics({
+        history: activeSetValueHistory.history,
+        historiesByScope: activeSetValueHistory.historiesByScope,
+        meta: activeSetValueHistory.meta,
+        fallbackMetric: { key: setValueSummaryKey, value: setValueSummaryValue },
+        fallbackAsOf: fallbackSetValueAsOf,
+      }),
+    [
+      activeSetValueHistory.history,
+      activeSetValueHistory.historiesByScope,
+      activeSetValueHistory.meta,
+      fallbackSetValueAsOf,
+      setValueSummaryKey,
+      setValueSummaryValue,
+    ]
+  );
+  const setValue = canonicalSetValueMetrics.value;
 
   const averageHitValueDisplay = averageHitValue === null ? "Coming soon" : formatCurrency(averageHitValue);
   const setValueDisplay = setValue === null ? "Coming soon" : formatCurrency(setValue);
+  const setValueMetricLabel = getSetValueMetricLabel(canonicalSetValueMetrics.valueScope);
+  const setValueDeltaAmount = canonicalSetValueMetrics.deltaAmount;
+  const setValueDeltaPercent = canonicalSetValueMetrics.deltaPercent;
+  const setValueSparklineTone =
+    setValueDeltaAmount === null
+      ? "neutral"
+      : setValueDeltaAmount < 0
+      ? "negative"
+      : setValueDeltaAmount > 0
+      ? "positive"
+      : "neutral";
+  const setValueSparklinePoints = canonicalSetValueMetrics.visiblePoints || [];
+  const activeChartSetValueMetrics = useMemo(
+    () =>
+      getSetValueHistoryMetrics(
+        getSetValueHistoryForScope({
+          history: activeSetValueHistory.history,
+          historiesByScope: activeSetValueHistory.historiesByScope,
+          scope: setValueTrendScope,
+        }),
+        { preferredWindowKey: "30D" }
+      ),
+    [activeSetValueHistory.history, activeSetValueHistory.historiesByScope, setValueTrendScope]
+  );
+  const snapshotIdentityForDebug = getSetSnapshotIdentity(explorePayload);
+  const activeSetSlug =
+    toStableIdentifier(selectedTarget?.slug ?? selectedTarget?.canonical_key) ||
+    toStableIdentifier(snapshotIdentityForDebug?.slug ?? snapshotIdentityForDebug?.canonical_key) ||
+    null;
+
+  useEffect(() => {
+    if (!setDetailMode) {
+      return;
+    }
+    debugSetPagePerf("set_value.consistency", {
+      headerSetValue: canonicalSetValueMetrics.value,
+      chartCurrentSetValue: activeChartSetValueMetrics.currentValue,
+      headerSource: canonicalSetValueMetrics.source,
+      chartSource: `market_dashboard.setValueHistoriesByScope.${setValueTrendScope}`,
+      headerSourcePayloadKey: canonicalSetValueMetrics.sourcePayloadKey,
+      chartSourcePayloadKey: `setValueHistoriesByScope.${setValueTrendScope}`,
+      headerAsOf: canonicalSetValueMetrics.asOf,
+      chartAsOf: activeChartSetValueMetrics.asOf,
+      activeSetId: resolvedSetResourceId,
+      activeSetSlug,
+      activeValueScope: setValueTrendScope,
+      activeValueScopeLabel: getSetValueScopeLabel(setValueTrendScope),
+    });
+  }, [
+    activeChartSetValueMetrics.asOf,
+    activeChartSetValueMetrics.currentValue,
+    activeSetSlug,
+    canonicalSetValueMetrics.asOf,
+    canonicalSetValueMetrics.source,
+    canonicalSetValueMetrics.sourcePayloadKey,
+    canonicalSetValueMetrics.value,
+    resolvedSetResourceId,
+    setDetailMode,
+    setValueTrendScope,
+  ]);
   const normalizedTopShareForMarket =
     toNumber(summary.top1_ev_share) === null
       ? null
@@ -5525,14 +5789,17 @@ export default function RipStatisticsPageClient({
       previousPoint: previousTrendPoint,
     }),
   };
+  trendByMetricKey.setValue = canonicalSetValueMetrics.isFallback
+    ? trendByMetricKey.setValue
+    : canonicalSetValueMetrics.trend;
 
   const marketReadMetrics = [
     {
-      label: "Set Value",
+      label: setValueMetricLabel,
       rawValue: setValue,
       value: setValueDisplay,
       trend: trendByMetricKey.setValue,
-      infoText: "Simulated set value: one priced copy per unique card identity in this simulation universe.",
+      infoText: "Checklist set value from daily Near Mint card market observations.",
     },
     {
       label: "Pack Market Price",
@@ -5812,21 +6079,25 @@ export default function RipStatisticsPageClient({
     if (!setDetailMode) {
       return undefined;
     }
-    const setId = String(requestedTargetId || "").trim();
+    const setId = resolvedSetResourceId;
     if (!setId) {
       return undefined;
     }
-    debugSetPagePerf("set.bootstrap_ready", { setId });
+    debugSetPagePerf("set.bootstrap_ready", {
+      routeSetId: requestedTargetId,
+      selectedTargetId: selectedTarget?.target_id,
+      resolvedSetId: setId,
+    });
     warmSetDetailResources(setId, { includeAdjacent: true, reason: "bootstrap" });
     return undefined;
-  }, [setDetailMode, requestedTargetId, warmSetDetailResources]);
+  }, [setDetailMode, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources]);
 
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
     }
 
-    const setId = String(requestedTargetId || "").trim();
+    const setId = resolvedSetResourceId;
     if (!setId) {
       setChecklistState({ status: "empty", setId: null, cards: [], error: null });
       return undefined;
@@ -5851,7 +6122,11 @@ export default function RipStatisticsPageClient({
 
     let isCancelled = false;
     const clickStartedAt = performance.now();
-    debugSetPagePerf("cards.tab_fetch_start", { setId });
+    debugSetPagePerf("cards.tab_fetch_start", {
+      routeSetId: requestedTargetId,
+      selectedTargetId: selectedTarget?.target_id,
+      resolvedSetId: setId,
+    });
     setChecklistState((previous) => ({
       status: "loading",
       setId,
@@ -5899,14 +6174,14 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId, warmSetDetailResources]);
+  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources]);
 
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
     }
 
-    const setId = String(requestedTargetId || "").trim();
+    const setId = resolvedSetResourceId;
     if (!setId) {
       setTopMarketCardsState({ status: "empty", setId: null, cards: [], marketMovers: null, error: null, meta: null });
       setSetValueHistoryState({
@@ -5964,7 +6239,12 @@ export default function RipStatisticsPageClient({
 
     let isCancelled = false;
     const clickStartedAt = performance.now();
-    debugSetPagePerf("market.tab_fetch_start", { setId, window: topMarketCardsWindowKey });
+    debugSetPagePerf("market.tab_fetch_start", {
+      routeSetId: requestedTargetId,
+      selectedTargetId: selectedTarget?.target_id,
+      resolvedSetId: setId,
+      window: topMarketCardsWindowKey,
+    });
     if (!effectiveCachedTopCards) {
       setTopMarketCardsState((previous) => ({
         status: "loading",
@@ -6052,7 +6332,16 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, setDetailTab, requestedTargetId, topMarketCardsWindowKey, applyMarketDashboardPayload, warmSetDetailResources]);
+  }, [
+    setDetailMode,
+    setDetailTab,
+    requestedTargetId,
+    selectedTarget?.target_id,
+    resolvedSetResourceId,
+    topMarketCardsWindowKey,
+    applyMarketDashboardPayload,
+    warmSetDetailResources,
+  ]);
 
   const setDetailSidebarContent = (
     <SetPageNavigationRail
@@ -6364,14 +6653,50 @@ export default function RipStatisticsPageClient({
                       </div>
 
                       <div className="flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">Set Value</p>
-                          <InfoPopover text="Simulated set value: one priced copy per unique card identity in this simulation universe. Variant and pattern rows are collapsed, so future canonical checklist pricing may differ." />
+                        <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[minmax(0,0.95fr)_minmax(9rem,1fr)] sm:items-stretch">
+                          <div className="flex min-w-0 flex-col justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{setValueMetricLabel}</p>
+                                <InfoPopover text="Checklist set value from daily Near Mint card market observations. Falls back to the set page snapshot only while market history is unavailable." />
+                              </div>
+                              <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
+                                <span className="min-w-0 truncate">{setValueDisplay}</span>
+                                <DeltaTrendIcon value={setValueDeltaAmount} size="md" className="translate-y-px" title="30D checklist set value movement" />
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleViewSetValueTrend}
+                              className="inline-flex w-fit items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                            >
+                              View Set Value Trend
+                            </button>
+                          </div>
+
+                          <div className="flex min-w-0 flex-col justify-between gap-2">
+                            <CompactSparkline
+                              points={setValueSparklinePoints}
+                              valueKey="setValue"
+                              trendDirection={setValueSparklineTone}
+                              className="h-14 w-full"
+                            />
+                            <div className="grid min-w-0 grid-cols-2 gap-2">
+                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setValueDeltaAmount)}>
+                                <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D Delta</p>
+                                <p className="mt-0.5 text-xs font-semibold tabular-nums">
+                                  {setValueDeltaAmount === null ? "N/A" : formatSignedCurrency(setValueDeltaAmount)}
+                                </p>
+                              </div>
+                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setValueDeltaPercent)}>
+                                <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D %</p>
+                                <p className="mt-0.5 text-xs font-semibold tabular-nums">
+                                  {setValueDeltaPercent === null ? "N/A" : `${setValueDeltaPercent > 0 ? "+" : ""}${setValueDeltaPercent.toFixed(1)}%`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <p className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
-                          <span>{setValueDisplay}</span>
-                          <TrendIndicator trend={trendByMetricKey.setValue} className="translate-y-px" />
-                        </p>
                       </div>
                       </div>
 
@@ -6412,13 +6737,15 @@ export default function RipStatisticsPageClient({
                 {setDetailTab === "overview" ? (
                   <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
-                      <div className="min-w-0 lg:h-full">
+                      <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         <SetValueTrendCard
-                          history={setValueHistoryState.history}
-                          historiesByScope={setValueHistoryState.historiesByScope}
-                          availableScopes={setValueHistoryState.availableScopes}
-                          status={setValueHistoryState.status}
-                          error={setValueHistoryState.error}
+                          history={activeSetValueHistory.history}
+                          historiesByScope={activeSetValueHistory.historiesByScope}
+                          availableScopes={activeSetValueHistory.availableScopes}
+                          status={activeSetValueHistory.status}
+                          error={activeSetValueHistory.error}
+                          selectedScope={setValueTrendScope}
+                          onSelectedScopeChange={setSetValueTrendScope}
                         />
                       </div>
                       <div className="min-w-0 lg:h-full">

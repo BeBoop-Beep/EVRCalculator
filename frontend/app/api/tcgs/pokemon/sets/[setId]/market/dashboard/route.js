@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
+const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
 
 function shouldBypassCache(request) {
   if (process.env.NODE_ENV === "production") {
@@ -38,17 +39,19 @@ export async function GET(request, { params }) {
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",
     headers: { Accept: "application/json" },
-    ...(bypassCache ? { cache: "no-store" } : { next: { revalidate: 300 } }),
+    cache: "no-store",
   });
 
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
+  const cacheControl =
+    bypassCache || !proxyResponse.ok ? FAILED_ANALYTICS_CACHE_CONTROL : PUBLIC_ANALYTICS_CACHE_CONTROL;
 
   return new NextResponse(payload, {
     status: proxyResponse.status,
     headers: {
       "content-type": contentType,
-      "Cache-Control": bypassCache ? "no-store" : PUBLIC_ANALYTICS_CACHE_CONTROL,
+      "Cache-Control": cacheControl,
     },
   });
 }
