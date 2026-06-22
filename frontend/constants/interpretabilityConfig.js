@@ -60,16 +60,16 @@ export const FRIENDLY_METRIC_LABELS = {
   // Profit card
   "Probability of Profit": "Chance to Beat Pack Cost",
   "Chance to Beat Pack Cost": "Chance to Beat Pack Cost",
-  "EV / Mean Value": "Average Return",
+  "EV / Mean Value": "Expected Value",
   "Median-to-Cost Ratio": "Typical Return",
   "P95-to-Cost Ratio": "Big Hit Upside",
   "P95 Value / Cost Ratio": "Big Hit Upside",
   "P99-to-Cost Ratio": "God Pull Upside",
   "P99 Value / Cost Ratio": "God Pull Upside",
   ROI: "Return on Investment",
-  "Pack Cost": "Estimated Pack Market Price",
-  "Average Pack Value": "Average Pack Value",
-  "Current Pack Cost": "Estimated Pack Market Price",
+  "Pack Cost": "Pack Market Price",
+  "Average Pack Value": "Expected Value",
+  "Current Pack Cost": "Pack Market Price",
   "Average Loss": "Average Loss",
   "Chance at a Big Pull": "Chance at a Big Pull",
 
@@ -116,7 +116,10 @@ export const FRIENDLY_METRIC_LABELS = {
 
 const METRIC_TOOLTIP_ALIASES = {
   "Chance to Beat Pack Cost": "Probability of Profit",
+  "Chance to Miss Pack Cost": "Chance to Miss Pack Cost",
   "Current Pack Cost": "Pack Cost",
+  "Pack Market Price": "Pack Cost",
+  "Expected Value": "EV / Mean Value",
   "Big Hit Upside": "P95-to-Cost Ratio",
   "God Pull Upside": "P99-to-Cost Ratio",
   "Average Loss per Pack": "Expected Loss Per Pack",
@@ -124,6 +127,7 @@ const METRIC_TOOLTIP_ALIASES = {
   "Typical Loss When You Miss": "Median Loss When Losing",
   "Typical Pack Value": "Typical Pack Value",
   "Bad Pack Floor Value": "Bad Pack Floor Value",
+  "Worst 5% Outcome": "Tail Value P5",
   "Chase Depth": "Effective Chase Count",
   "Cards Carrying Value": "Effective Chase Count",
   "Top Card Share": "Top 1 EV Share",
@@ -131,6 +135,7 @@ const METRIC_TOOLTIP_ALIASES = {
   "Top 3 Share": "Top 3 EV Share",
   "Top 5 Share": "Top 5 EV Share",
   "Value Concentration": "HHI EV Concentration",
+  "EV Concentration": "HHI EV Concentration",
   "Value Spread": "HHI EV Concentration",
   "Best Simulated Pull": "Best Simulated Pull",
   "Average Loss": "Average Loss",
@@ -183,34 +188,34 @@ const PROFIT_SCORE_TOOLTIP_IMPACTS = {
  */
 export const METRIC_TOOLTIP_EXPLANATIONS = {
   "Probability of Profit": buildMetricTooltip({
-    meaning: "Estimated chance a simulated pack returns at least pack cost.",
+    meaning: "Estimated chance a simulated pack returns at least the current pack market price.",
     impact: PROFIT_SCORE_TOOLTIP_IMPACTS.prob_profit,
     direction: "Higher is better",
-    interpretation: "Higher values mean profit outcomes occur more frequently.",
+    interpretation: "Higher values mean simulated openings beat cost more often. This is not a guarantee for any pack.",
   }),
   "EV / Mean Value": buildMetricTooltip({
-    meaning: "Average simulated return divided by pack cost.",
+    meaning: "Expected Value is the average simulated pack value across many openings using modeled pull rates and current card prices.",
     impact: PROFIT_SCORE_TOOLTIP_IMPACTS.mean_value_to_cost_ratio,
     direction: "Higher is better",
-    interpretation: "Values above 1.00 indicate average return exceeds cost.",
+    interpretation: "It is a long-run average, not the typical result of a single pack.",
   }),
   "Median-to-Cost Ratio": buildMetricTooltip({
-    meaning: "Typical (median) simulated return divided by pack cost.",
+    meaning: "Typical return is the median simulated pack value divided by the current pack market price.",
     impact: PROFIT_SCORE_TOOLTIP_IMPACTS.median_value_to_cost_ratio,
     direction: "Higher is better",
-    interpretation: "Shows whether the middle outcome usually beats cost.",
+    interpretation: "It shows the middle simulated outcome, which can differ from Expected Value when rare chase cards pull the average upward.",
   }),
   "P95-to-Cost Ratio": buildMetricTooltip({
-    meaning: "Shows the stronger upside outcomes when a pack lands in its better results.",
+    meaning: "Big Hit Upside compares the 95th percentile simulated pack outcome against the current pack market price.",
     impact: PROFIT_SCORE_TOOLTIP_IMPACTS.p95_value_to_cost_ratio,
     direction: "Higher is better.",
-    interpretation: "Higher values mean the set has stronger high-end payoff relative to pack cost.",
+    interpretation: "Values above 1.00 mean the P95 outcome beats pack cost. This shows upper-end outcomes, not average profitability.",
   }),
   "P99-to-Cost Ratio": buildMetricTooltip({
-    meaning: "Shows extreme chase outcomes at the very top of the simulated tail.",
+    meaning: "God Pull Upside is based on the 99th percentile simulated outcome.",
     impact: "Context signal",
     direction: "Higher is better.",
-    interpretation: "Higher values mean the set has stronger rare spike potential relative to pack cost.",
+    interpretation: "It represents rare, extreme results near the top 1% of simulations, not a likely single-pack outcome.",
   }),
   ROI: buildMetricTooltip({
     meaning: "Expected return on investment relative to pack cost.",
@@ -219,28 +224,34 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     interpretation: "Useful snapshot of expected gain/loss.",
   }),
   "Pack Cost": buildMetricTooltip({
-    meaning: "Estimated market snapshot for this pack. Prices may be incomplete, delayed, noisy, or change quickly. This is used as an input to the simulation, not a guaranteed sale or purchase price.",
+    meaning: "Pack Market Price is the current estimated market cost to buy one pack of this set.",
     impact: "Context signal",
     direction: "Lower is better",
-    interpretation: "Used as a denominator for ratio metrics.",
+    interpretation: "It is used as the cost basis for EV, risk, and upside comparisons. It is an estimate, not a guaranteed sale or purchase price.",
   }),
   "Average Loss": buildMetricTooltip({
-    meaning: "Simple gap between average pack value and pack cost, shown as a loss when average value is below cost.",
+    meaning: "Simple gap between Expected Value and pack cost, shown as a loss when EV is below cost.",
     impact: "Context signal",
     direction: "Closer to zero is better",
     interpretation: "Useful collector-facing shorthand for how far the average pack sits below cost.",
   }),
   "Average Pack Value": buildMetricTooltip({
-    meaning: "The average simulated value of one pack using current price inputs and pull-rate assumptions. Real openings can be much higher or much lower.",
+    meaning: "Expected Value is the average simulated value of one pack using current price inputs and pull-rate assumptions.",
     impact: "Context signal",
     direction: "Higher is better",
-    interpretation: "This is a statistical average from simulations, not a guarantee or typical outcome.",
+    interpretation: "This is a long-run statistical average from simulations, not a guarantee or typical single-pack outcome.",
   }),
   "Chance at a Big Pull": buildMetricTooltip({
     meaning: "Estimated chance a simulated pack clears the page's big-hit threshold.",
     impact: "Context signal",
     direction: "Higher is better",
     interpretation: "Shows how often the set lands one of its higher-end outcomes.",
+  }),
+  "Chance to Miss Pack Cost": buildMetricTooltip({
+    meaning: "Estimated chance a simulated pack finishes below the current pack market price.",
+    impact: "Safety context",
+    direction: "Lower is better",
+    interpretation: "This is the inverse of Chance to Beat Pack Cost. It describes simulated frequency, not a guarantee for any pack.",
   }),
 
   "Expected Loss When Losing / Cost": buildMetricTooltip({
@@ -280,41 +291,41 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     interpretation: "Shows how painful misses are on average when a pack does not clear cost.",
   }),
   "Tail Value P5": buildMetricTooltip({
-    meaning: "Dollar value at the 5th percentile of simulated outcomes.",
+    meaning: "Worst 5% Outcome represents the 5th percentile simulated result.",
     impact: "Core safety signal",
     direction: "Higher is better",
-    interpretation: "Shows the low-end outcome level in weaker runs.",
+    interpretation: "About 5% of simulated openings finish at or below this value.",
   }),
   "Typical Pack Value": buildMetricTooltip({
-    meaning: "The typical simulated pack value in dollars. This helps show what a normal opening tends to return before considering bigger hits.",
+    meaning: "Typical Pack Value represents the median simulated pack outcome.",
     impact: "Context signal",
     direction: "Higher is better",
-    interpretation: "Useful shorthand for baseline opening feel before upside spikes.",
+    interpretation: "About half of simulated packs finish above this value and half finish below it. It can differ from Expected Value because rare chase cards can pull the average upward.",
   }),
   "Bad Pack Floor Value": buildMetricTooltip({
-    meaning: "A low-end simulated pack value. This helps show how bad the weaker openings can feel.",
+    meaning: "Bad Pack Floor Value uses the low-end simulated outcome represented by the 5th percentile when available.",
     impact: "Core safety signal",
     direction: "Higher is better",
-    interpretation: "Represents downside pressure in weaker simulated outcomes.",
+    interpretation: "It describes downside pressure in weaker simulated outcomes, not the worst possible pack.",
   }),
 
   "Coefficient of Variation": buildMetricTooltip({
-    meaning: "Outcome dispersion relative to mean return.",
+    meaning: "Outcome Volatility measures spread in simulated outcomes using coefficient of variation.",
     impact: "Core stability signal",
     direction: "Lower is better",
-    interpretation: "Lower volatility implies more consistent expected outcomes.",
+    interpretation: "Higher volatility means outcomes are more uneven and chase-dependent.",
   }),
   "HHI EV Concentration": buildMetricTooltip({
-    meaning: "Lower concentration means value is spread across more cards.",
+    meaning: "EV Concentration measures how much of the set's expected value is carried by a small number of cards.",
     impact: "Context signal",
     direction: "Lower is better",
-    interpretation: "Contextual concentration/spread diagnostic in runtime V2, not a direct Stability input.",
+    interpretation: "Higher concentration means the set relies more heavily on top chase cards. Lower values mean value is more spread out.",
   }),
   "Effective Chase Count": buildMetricTooltip({
-    meaning: "Higher means more cards meaningfully help the set's value.",
+    meaning: "Chase Depth estimates how many meaningful chase cards contribute to the set's value profile after accounting for concentration.",
     impact: "Direct Stability score input",
     direction: "Higher is better",
-    interpretation: "Higher values directly strengthen Stability scoring in runtime V2.",
+    interpretation: "Higher depth means value is spread across more chase cards instead of relying on one or two cards.",
   }),
   "Top 1 EV Share": buildMetricTooltip({
     meaning: "How much the biggest card carries the set by itself.",
@@ -340,35 +351,35 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     direction: "Higher is better",
     interpretation: "Shows the ceiling, not the typical outcome.",
   }),
-  "Average Return vs Cost": buildMetricTooltip({
-    meaning: "How the average simulated pack value compares with the estimated pack market price. 1.00 means the average pack value matches the pack cost.",
+  "Expected Value vs Cost": buildMetricTooltip({
+    meaning: "Expected Value vs Cost is the mean simulated pack value divided by the current pack market price.",
     impact: "Direct Profit score input",
     direction: "Higher is better",
-    interpretation: "Higher values directly strengthen Profit scoring in runtime V2.",
+    interpretation: "1.00 means long-run simulated EV matches pack cost. It does not mean a single pack is expected to break even.",
   }),
   "Typical Return vs Cost": buildMetricTooltip({
-    meaning: "How the typical simulated pack compares with the estimated pack market price. Lower values mean most packs return much less than the pack cost.",
+    meaning: "Typical Return vs Cost is the median simulated pack value divided by the current pack market price.",
     impact: "Direct Profit score input",
     direction: "Higher is better",
-    interpretation: "Higher values directly strengthen Profit scoring in runtime V2.",
+    interpretation: "It shows whether the middle simulated outcome is close to cost, not whether the set is profitable on average.",
   }),
   "Big Hit Upside": buildMetricTooltip({
-    meaning: "How a strong realistic outcome compares with pack cost. Values above 1.00 mean that outcome beats the estimated pack market price.",
+    meaning: "Big Hit Upside compares the 95th percentile simulated pack outcome against the current pack market price.",
     impact: "Context signal",
     direction: "Higher is better",
-    interpretation: "Indicates the strength of high-end outcomes.",
+    interpretation: "Values above 1.00 mean the P95 outcome beats pack cost. This is upper-end upside, not average profitability.",
   }),
   "God Pull Upside": buildMetricTooltip({
-    meaning: "How the rare top-end outcome compares with pack cost. This captures chase-card upside, not what usually happens.",
+    meaning: "God Pull Upside is based on the 99th percentile simulated outcome compared with pack cost.",
     impact: "Context signal",
     direction: "Higher is better",
-    interpretation: "Shows the potential for rare, high-value pulls.",
+    interpretation: "It represents rare, extreme opening results near the top 1% of simulations, not a likely outcome.",
   }),
   "Outcome Volatility": buildMetricTooltip({
-    meaning: "How much pack results swing between low and high outcomes. Higher volatility means the set is more hit-dependent and less predictable.",
+    meaning: "Outcome Volatility measures how much simulated pack results swing between low and high outcomes using coefficient of variation.",
     impact: "Direct Stability score input",
     direction: "Neutral",
-    interpretation: "This metric directly contributes to Stability scoring in runtime V2.",
+    interpretation: "Higher volatility means outcomes are more uneven and chase-dependent; it is not a price prediction.",
   }),
   "Value Spread": buildMetricTooltip({
     meaning: "How evenly value is distributed across meaningful pulls. Lower spread means value is concentrated into fewer cards or outcomes.",
@@ -377,10 +388,10 @@ export const METRIC_TOOLTIP_EXPLANATIONS = {
     interpretation: "Contextual concentration/spread signal in runtime V2, not a direct Stability input.",
   }),
   "Cards Carrying Value": buildMetricTooltip({
-    meaning: "An effective card-count estimate for how many cards meaningfully support the set's value. It can be decimal because it is a concentration metric, not a literal card count.",
+    meaning: "An effective card-count estimate for how many cards meaningfully support the set's value after accounting for concentration.",
     impact: "Direct Stability score input",
     direction: "Higher is better",
-    interpretation: "When mapped to Effective Chase Count, higher values directly strengthen Stability scoring in runtime V2.",
+    interpretation: "It can be decimal because it is a concentration metric, not a literal card count.",
   }),
 };
 
@@ -501,7 +512,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Considers average return</span>
+            <span>Considers Expected Value</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>

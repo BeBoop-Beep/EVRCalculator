@@ -1336,12 +1336,12 @@ def _build_average_return_lens(summary_data: Dict[str, Any]) -> Dict[str, Any]:
     state = "near_cost"
     tone = "neutral"
     short_summary = "The average pack is close to the current pack price."
-    long_summary = "When average return is near cost, the opening feel and chase setup matter more."
+    long_summary = "When Expected Value is near cost, the opening feel and chase setup matter more."
 
     if mean_to_cost is None:
         state = "near_cost"
         tone = "neutral"
-        short_summary = "Average return context is limited for this run."
+        short_summary = "Expected Value context is limited for this run."
         long_summary = None
     elif mean_to_cost >= 1.05:
         state = "above_cost"
@@ -1366,7 +1366,7 @@ def _build_average_return_lens(summary_data: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "key": "average_return",
-        "label": "Average Return",
+        "label": "Expected Value",
         "variant": "metric_lens",
         "state": state,
         "tone": tone,
@@ -1379,7 +1379,7 @@ def _build_average_return_lens(summary_data: Dict[str, Any]) -> Dict[str, Any]:
         "expert_long_summary": long_summary,
         "supporting_signals": ["Mean value vs cost"],
         "evidence": [
-            {"label": "Average return vs cost", "value": format_ratio(mean_to_cost)},
+            {"label": "Expected Value vs Cost", "value": format_ratio(mean_to_cost)},
         ],
     }
 

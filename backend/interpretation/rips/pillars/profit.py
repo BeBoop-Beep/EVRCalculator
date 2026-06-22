@@ -117,7 +117,7 @@ def _profit_why_phrase(
     p95_to_cost: float | None,
 ) -> str:
     if profile == "strong_average_capped_upside":
-        return "Average return is doing most of the work, even though normal packs still come in below cost."
+        return "Expected Value is doing most of the work, even though normal packs still come in below cost."
     if profile == "rare_wins_huge_upside":
         return "The score is carried by big-hit potential, not by normal packs."
     if profile == "rare_wins_good_upside":
@@ -145,7 +145,7 @@ def _profit_why_phrase(
     if p95_to_cost is not None and p95_to_cost >= 2.50:
         return "The score is carried more by upside than by normal packs."
     if mean_to_cost is not None and mean_to_cost >= 0.70:
-        return "Average return is doing most of the work in this score."
+        return "Expected Value is doing most of the work in this score."
     if median_to_cost is not None and median_to_cost < 0.25:
         return "Normal packs are still below cost often enough to cap the score."
     return "The score lands in the middle because no single profit signal clearly stands out."

@@ -59,7 +59,7 @@ export function buildPerformanceTooltipRows(row = {}, packCost = null) {
   rows.push(
     {
       key: "average",
-      label: "Average Return",
+      label: "Expected Value",
       value: formatRatioWithCurrency(row?.meanCostRatio, row?.meanValue),
     },
     {
@@ -74,7 +74,7 @@ export function buildPerformanceTooltipRows(row = {}, packCost = null) {
     },
     {
       key: "pack-cost",
-      label: "Pack Cost",
+      label: "Pack Market Price",
       value: formatPerformanceCurrency(effectivePackCost),
     }
   );

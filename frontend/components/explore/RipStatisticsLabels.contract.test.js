@@ -17,7 +17,7 @@ test("Set Intelligence Biggest Upside wiring references relative-first score fie
   assert.ok(source.includes('"God Pull Upside"'));
 });
 
-test("Set Intelligence Average Return wiring prefers relative score fields", () => {
+test("Set Intelligence Expected Value wiring prefers relative score fields", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(source.includes('"relative_average_return_score"'));
@@ -28,7 +28,7 @@ test("Set Intelligence Average Return wiring prefers relative score fields", () 
 test("Performance vs Cost chart uses standardized line labels and drops High-End / Cost", () => {
   const source = fs.readFileSync(historyChartPath, "utf8");
 
-  assert.ok(source.includes('label="Average Return"'));
+  assert.ok(source.includes('label="Expected Value"'));
   assert.ok(source.includes('label="Typical Return"'));
   assert.ok(source.includes('label="Big Hit Upside"'));
   assert.ok(!source.includes('label="God Pull Upside"'));
@@ -36,6 +36,26 @@ test("Performance vs Cost chart uses standardized line labels and drops High-End
   assert.ok(!source.includes("High-End / Cost"));
   assert.ok(!source.includes("Mean / Cost"));
   assert.ok(!source.includes("Median / Cost"));
+});
+
+test("Performance vs Cost info bubble explains chart series and P95 basis", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("<p>Tracks how simulated opening outcomes compare against pack market price over time.</p>"));
+  assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Expected Value:</span> average simulated pack value."));
+  assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Typical Return:</span> median simulated pack value."));
+  assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Big Hit Upside:</span> 95th percentile simulated pack outcome from the RIP Score breakdown."));
+  assert.ok(source.includes("Above 1.0x means that outcome is above pack market price; below 1.0x means it is below pack market price."));
+  assert.ok(
+    source.indexOf("Big Hit Upside:</span> 95th percentile simulated pack outcome") <
+      source.indexOf("Expected Value:</span> average simulated pack value.")
+  );
+  assert.ok(
+    source.indexOf("Expected Value:</span> average simulated pack value.") <
+      source.indexOf("Typical Return:</span> median simulated pack value.")
+  );
+  assert.ok(source.includes("titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}"));
+  assert.ok(source.includes("? PERFORMANCE_VS_COST_INFO_TEXT"));
 });
 
 test("Performance vs Cost metrics include God Pull Upside tile wired to P99 ratio", () => {
