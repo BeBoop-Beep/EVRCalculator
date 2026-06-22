@@ -2,6 +2,15 @@
 
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
@@ -9,13 +18,33 @@ import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
 import InfoPopover from "@/components/ui/InfoPopover";
+import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
-import { getCalloutAccentStyle, getDangerValueStyle, getInterpretationTone } from "@/lib/explore/interpretationTone";
+import {
+  NEGATIVE_VALUE_COLOR,
+  POSITIVE_VALUE_COLOR,
+  getCalloutAccentStyle,
+  getDangerValueStyle,
+  getInterpretationTone,
+} from "@/lib/explore/interpretationTone";
 import { getPokemonSetCards } from "@/lib/pokemon/pokemonSetCardsClient";
-import { normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
+import { getPokemonSetTopMarketCards, getPokemonSetValueHistory } from "@/lib/pokemon/pokemonSetMarketClient";
+import {
+  computeDeltaWindowsFromHistory,
+  extractDeltaWindows,
+  filterHistoryPointsForDeltaWindow,
+  getDeltaWindowLabel,
+  getPreferredDeltaWindowKey,
+  getSelectedDeltaWindowFromHistory,
+  getStandardDeltaWindowDefinitions,
+  getVisibleHistoryWindowMetrics,
+} from "@/lib/explore/marketDeltaWindows.mjs";
+import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
+import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -26,7 +55,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const REQUIRED_PACK_PATHS = ["normal", "demi_god_pack", "god_pack"];
 const ANALYSIS_SECTION_ID = "explore-outcomes";
-const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "pack-breakdown", "value-contribution"]);
+const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "simulation-drivers", "pack-breakdown", "value-contribution"]);
 const SECTION_ID_MAP = {
   "pack-score": "explore-score",
   "outcome-distribution": "explore-outcomes",
@@ -41,6 +70,29 @@ const SECTION_SCROLL_ORDER = [
   { sectionId: "explore-drivers", navId: "top-ev-drivers" },
   { sectionId: "explore-rarity", navId: "rarity-contribution" },
 ];
+const SET_DETAIL_DEFAULT_TAB = "cards";
+const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
+const SET_VALUE_HISTORY_REQUEST_DAYS = 1825;
+const SET_VALUE_SCOPE_OPTIONS = [
+  { key: "standard", label: "Checklist" },
+  { key: "hits", label: "Hits" },
+  { key: "top10", label: "Top 10" },
+];
+const SET_DETAIL_TAB_ALIASES = {
+  analytics: "insights",
+  market: "overview",
+};
+const SET_DETAIL_SECTION_TARGETS = {
+  "set-intelligence": { tab: "overview", targetId: "set-detail-set-intelligence" },
+  "set-signals": { tab: "overview", targetId: "set-detail-set-intelligence" },
+  "rip-score": { tab: "insights", targetId: "set-detail-rip-score", graphMode: "outcome-distribution" },
+  "opening-outcomes": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" },
+  "simulation-cards": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-drivers" },
+  value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" },
+  "pack-breakdown": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "pack-breakdown" },
+  "performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" },
+  "top-market-cards": { tab: "overview", targetId: "set-detail-top-market-cards" },
+};
 
 const RIP_COPY = {
   scoreLabel: "Rip Score",
@@ -59,7 +111,7 @@ const RIP_COPY = {
   },
   sections: {
     packScore: "Rip Score",
-    outcomeDistribution: "What Usually Happens",
+    outcomeDistribution: "Opening Outcomes",
     historicalTrend: "Performance vs Cost",
     packBreakdown: "Pack Breakdown",
     topEvDrivers: "Cards Carrying the Set",
@@ -94,6 +146,64 @@ const RIP_COPY = {
     effectiveChaseCount: "Chase Depth",
   },
 };
+
+function normalizeSetDetailTab(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  const alias = SET_DETAIL_TAB_ALIASES[normalized] || normalized;
+  return SET_DETAIL_TABS.has(alias) ? alias : SET_DETAIL_DEFAULT_TAB;
+}
+
+function isValidSetDetailTab(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  const alias = SET_DETAIL_TAB_ALIASES[normalized] || normalized;
+  return SET_DETAIL_TABS.has(alias);
+}
+
+function getSetDetailTabParam(searchParams) {
+  return normalizeSetDetailTab(searchParams?.get?.("tab"));
+}
+
+function getSetDetailSectionParam(searchParams) {
+  return String(searchParams?.get?.("section") || "").trim().toLowerCase();
+}
+
+function getSetDetailFallbackTargetId(tab) {
+  if (tab === "overview") return "set-detail-overview";
+  if (tab === "cards") return "set-detail-cards";
+  if (tab === "pull-rates") return "set-detail-pull-rates";
+  return "set-detail-insights";
+}
+
+function updateSetDetailQueryParams({ pathname, searchParams, tab, section }) {
+  const nextParams = new URLSearchParams(searchParams?.toString() || "");
+  const nextTab = normalizeSetDetailTab(tab);
+  nextParams.set("tab", nextTab);
+
+  if (section) {
+    nextParams.set("section", section);
+  } else {
+    nextParams.delete("section");
+  }
+
+  const query = nextParams.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+function appendSetDetailIntentToHref(href, { tab, section } = {}) {
+  if (!href) return href;
+  const nextTab = normalizeSetDetailTab(tab);
+  const [baseWithQuery, hash = ""] = String(href).split("#");
+  const [base, query = ""] = baseWithQuery.split("?");
+  const params = new URLSearchParams(query);
+  params.set("tab", nextTab);
+  if (section) {
+    params.set("section", section);
+  } else {
+    params.delete("section");
+  }
+  const nextQuery = params.toString();
+  return `${base}${nextQuery ? `?${nextQuery}` : ""}${hash ? `#${hash}` : ""}`;
+}
 
 const SIMPLE_PILLAR_INFO_COPY = {
   Profit:
@@ -279,6 +389,73 @@ function formatMultiplier(value, decimals = 1) {
   return `${parsed.toFixed(decimals)}x`;
 }
 
+function getMarketReadSummary({ packCost, averagePackValue, returnRatio, setValue, topShare, chaseDepth }) {
+  const hasPriceValue = packCost !== null && averagePackValue !== null;
+  const pricePosition = hasPriceValue
+    ? packCost > averagePackValue
+      ? "above"
+      : packCost < averagePackValue
+      ? "below"
+      : "right in line with"
+    : null;
+
+  let setType = "a weak rip";
+  if (returnRatio !== null && returnRatio >= 0.95) {
+    setType = "a value set";
+  } else if (
+    (returnRatio !== null && returnRatio >= 0.65) ||
+    (topShare !== null && topShare >= 35) ||
+    (chaseDepth !== null && chaseDepth <= 4)
+  ) {
+    setType = "a chase set";
+  }
+
+  const concentration =
+    topShare !== null && topShare >= 35
+      ? "Value looks concentrated in the top cards"
+      : chaseDepth !== null && chaseDepth >= 8
+      ? "Value appears more spread across the checklist"
+      : "Value concentration is still mixed from the available data";
+
+  if (hasPriceValue) {
+    return `The current pack price is ${pricePosition} modeled average pack value, so this reads like ${setType} at today's inputs. ${concentration}. The price/value relationship points to ${returnRatio !== null && returnRatio >= 1 ? "average openings that can meet or clear cost before fees" : "openings that still need strong pulls to overcome pack cost"}.`;
+  }
+
+  if (setValue !== null) {
+    return `Market context is partially available for this set, with modeled set value at ${formatCurrency(setValue)}. ${concentration}, so the read is more useful for understanding where value sits than for judging pack price today.`;
+  }
+
+  return "Market context is limited for this set, so this read is based only on the modeled values currently available.";
+}
+
+function getCompactMarketRead({ packCost, averagePackValue, returnRatio, setValue, topShare, chaseDepth }) {
+  const hasPriceValue = packCost !== null && averagePackValue !== null;
+  if (hasPriceValue) {
+    const ratioText = returnRatio === null ? "an unavailable return ratio" : `${returnRatio.toFixed(2)}x return vs cost`;
+    const concentration =
+      topShare !== null && topShare >= 35
+        ? "value is concentrated in the top chase cards"
+        : chaseDepth !== null && chaseDepth >= 8
+        ? "value is spread across a deeper checklist"
+        : "value concentration is mixed";
+    return `Average pack value is ${formatCurrency(averagePackValue)} against a ${formatCurrency(packCost)} pack price, with ${ratioText} and ${concentration}.`;
+  }
+
+  if (setValue !== null) {
+    return `Modeled set value is ${formatCurrency(setValue)}, with pack price context still limited for this set.`;
+  }
+
+  return "Market context is limited, so this view is based on currently available modeled set data.";
+}
+
+function getSimulationContextSubtitle(simulationCount) {
+  const count = toNumber(simulationCount);
+  if (count !== null && count > 0) {
+    return `Modeled from ${count.toLocaleString("en-US")} simulated packs using current pack price, card values, pull rates, and pack path assumptions.`;
+  }
+  return "Modeled from simulated pack openings using current pack price, card values, pull rates, and pack path assumptions.";
+}
+
 function getCardInitials(value) {
   const text = String(value || "").trim();
   if (!text) {
@@ -291,22 +468,53 @@ function getCardInitials(value) {
   return `${words[0][0] || ""}${words[1][0] || ""}`.toUpperCase();
 }
 
+function getCardMarketDelta(card) {
+  // TODO: sealed products, boxes, cases, and portfolio assets need this same snapshot/delta system later.
+  const amount = (
+    toNumber(card?.marketDelta) ??
+    toNumber(card?.market_delta) ??
+    toNumber(card?.priceDelta) ??
+    toNumber(card?.price_delta) ??
+    toNumber(card?.deltaAmount) ??
+    toNumber(card?.delta_amount)
+  );
+  const percent = (
+    toNumber(card?.marketDeltaPercent) ??
+    toNumber(card?.market_delta_percent) ??
+    toNumber(card?.priceDeltaPercent) ??
+    toNumber(card?.price_delta_percent) ??
+    toNumber(card?.deltaPercent) ??
+    toNumber(card?.delta_percent) ??
+    getTopCardDeltaEntries(card)[0]?.value ??
+    null
+  );
+
+  if (amount === null && percent === null) {
+    return null;
+  }
+
+  return { amount, percent };
+}
+
 function ChecklistCardTile({ card }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
   const name = card?.name || "Unknown card";
   const number = card?.printedNumber || card?.cardNumber || null;
   const rarity = card?.rarity || null;
   const subtypeLabel = Array.isArray(card?.subtypes) && card.subtypes.length > 0 ? card.subtypes.join(" / ") : null;
-  const marketPrice = Number.isFinite(card?.marketPrice) ? currencyFormatter.format(card.marketPrice) : null;
+  const marketPrice = getCardMarketPrice(card);
+  // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
+  const marketDelta = getCardMarketDelta(card);
+  const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
 
   return (
-    <article className="group overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_26px_rgba(2,6,23,0.2)] transition-all duration-200 hover:-translate-y-1 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_34px_rgba(2,6,23,0.3)]">
-      <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-[rgba(2,6,23,0.46)]">
+    <article className="group overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
+      <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-[rgba(2,6,23,0.46)] p-1">
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
+            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.01]"
             loading="lazy"
             decoding="async"
           />
@@ -319,14 +527,989 @@ function ChecklistCardTile({ card }) {
           </div>
         )}
       </div>
-      <div className="space-y-1.5 px-3 py-3">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
-        {number ? <p className="text-xs text-[var(--text-secondary)]">No. {number}</p> : null}
-        {rarity ? <p className="text-xs text-[var(--text-secondary)]">{rarity}</p> : null}
-        {subtypeLabel ? <p className="line-clamp-1 text-xs text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
-        {marketPrice ? <p className="text-xs font-medium text-[var(--text-primary)]">Market: {marketPrice}</p> : null}
+      <div className="space-y-1 px-2.5 py-2.5">
+        <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div className="min-w-0">
+            {number ? <p className="truncate text-[11px] text-[var(--text-secondary)]">No. {number}</p> : null}
+            {rarity ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{rarity}</p> : null}
+            {subtypeLabel ? <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
+          </div>
+          {marketPrice !== null ? (
+            <div className="shrink-0 text-right">
+              <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(marketPrice)}</p>
+              {marketDelta ? (
+                <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight" style={getDeltaBadgeStyle(deltaTone)}>
+                  {marketDelta.amount !== null ? <p>{formatSignedCurrency(marketDelta.amount)}</p> : null}
+                  {marketDelta.percent !== null ? <p>{marketDelta.percent > 0 ? "+" : ""}{marketDelta.percent.toFixed(1)}%</p> : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     </article>
+  );
+}
+
+function getChecklistCardMarketPrice(card) {
+  return getCardMarketPrice(card);
+}
+
+function getCardMarketPrice(card) {
+  const price = (
+    toNumber(card?.marketPrice) ??
+    toNumber(card?.market_price) ??
+    toNumber(card?.price) ??
+    toNumber(card?.estimatedMarketPrice) ??
+    toNumber(card?.estimated_market_price) ??
+    toNumber(card?.current_near_mint_price) ??
+    toNumber(card?.currentNearMintPrice) ??
+    toNumber(card?.price_used) ??
+    toNumber(card?.priceUsed) ??
+    toNumber(card?.card_price) ??
+    toNumber(card?.cardPrice) ??
+    toNumber(card?.card_market_price) ??
+    toNumber(card?.cardMarketPrice) ??
+    toNumber(card?.tcgplayer?.prices?.holofoil?.market) ??
+    toNumber(card?.tcgplayer?.prices?.reverseHolofoil?.market) ??
+    toNumber(card?.tcgplayer?.prices?.normal?.market) ??
+    toNumber(card?.cardmarket?.prices?.averageSellPrice)
+  );
+
+  return price !== null && price > 0 ? price : null;
+}
+
+function normalizeTopPricedCard(card, source) {
+  if (!card || typeof card !== "object") {
+    return null;
+  }
+
+  const marketPrice = getCardMarketPrice(card);
+  if (marketPrice === null) {
+    return null;
+  }
+
+  const setNumber =
+    card?.setNumber ??
+    card?.set_number ??
+    card?.cardNumber ??
+    card?.card_number ??
+    card?.printedNumber ??
+    card?.printed_number ??
+    card?.number ??
+    null;
+
+  return {
+    id: card?.id ?? card?.cardId ?? card?.card_id ?? card?.pokemonTcgApiCardId ?? card?.pokemon_tcg_api_card_id ?? null,
+    cardId: card?.cardId ?? card?.card_id ?? card?.id ?? null,
+    cardVariantId: card?.cardVariantId ?? card?.card_variant_id ?? null,
+    name: card?.name ?? card?.cardName ?? card?.card_name ?? "Unknown card",
+    imageUrl: card?.imageUrl ?? card?.image_url ?? card?.imageSmallUrl ?? card?.image_small_url ?? card?.imageLargeUrl ?? card?.image_large_url ?? null,
+    imageSmallUrl: card?.imageSmallUrl ?? card?.image_small_url ?? null,
+    imageLargeUrl: card?.imageLargeUrl ?? card?.image_large_url ?? null,
+    rarity: card?.rarity ?? null,
+    setNumber,
+    cardNumber: card?.cardNumber ?? card?.card_number ?? setNumber,
+    marketPrice,
+    estimatedMarketPrice: toNumber(card?.estimatedMarketPrice ?? card?.estimated_market_price),
+    priceUsed: toNumber(card?.priceUsed ?? card?.price_used),
+    priceHistory: Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [],
+    price_history: Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [],
+    historyPointCount: toNumber(card?.historyPointCount ?? card?.history_point_count),
+    historyStartDate: card?.historyStartDate ?? card?.history_start_date ?? null,
+    historyEndDate: card?.historyEndDate ?? card?.history_end_date ?? null,
+    conditionIdUsed: card?.conditionIdUsed ?? card?.condition_id_used ?? null,
+    matchingConditionObservationCount: toNumber(card?.matchingConditionObservationCount ?? card?.matching_condition_observation_count),
+    historyDiagnostics:
+      card?.historyDiagnostics && typeof card.historyDiagnostics === "object"
+        ? card.historyDiagnostics
+        : card?.history_diagnostics && typeof card.history_diagnostics === "object"
+        ? card.history_diagnostics
+        : null,
+    deltas: card?.deltas && typeof card.deltas === "object" ? card.deltas : null,
+    source,
+  };
+}
+
+function getTopPricedCards({ topMarketCards, checklistCards } = {}) {
+  const topMarketPricedCards = (Array.isArray(topMarketCards) ? topMarketCards : [])
+    .map((card) => normalizeTopPricedCard(card, "topMarketCards"))
+    .filter(Boolean)
+    .sort((a, b) => b.marketPrice - a.marketPrice);
+
+  if (topMarketPricedCards.length > 0) {
+    return {
+      cards: topMarketPricedCards.slice(0, 10),
+      source: "topMarketCards",
+      hasFullChecklistPricing: false,
+    };
+  }
+
+  const checklistSource = Array.isArray(checklistCards) ? checklistCards : [];
+  const checklistPricedCards = checklistSource
+    .map((card) => normalizeTopPricedCard(card, "checklist"))
+    .filter(Boolean)
+    .sort((a, b) => b.marketPrice - a.marketPrice);
+  const hasFullChecklistPricing = checklistSource.length > 0 && checklistPricedCards.length > 0;
+
+  if (hasFullChecklistPricing) {
+    return {
+      cards: checklistPricedCards.slice(0, 10),
+      source: "checklist",
+      hasFullChecklistPricing,
+    };
+  }
+
+  return {
+    cards: [],
+    source: "none",
+    hasFullChecklistPricing: false,
+  };
+}
+
+function formatShortDate(value) {
+  if (!value) {
+    return null;
+  }
+  return formatHistoryDate(value, { month: "short", day: "numeric" }) || String(value).slice(0, 10);
+}
+
+function formatCompactDay(value) {
+  if (!value) {
+    return "";
+  }
+  const dateKey = getHistoryDateKey(value);
+  if (dateKey) {
+    return String(Number(dateKey.slice(8, 10)));
+  }
+  return String(value).slice(8, 10) || String(value).slice(0, 10);
+}
+
+function formatLongDate(value) {
+  if (!value) {
+    return "Date unavailable";
+  }
+  return formatHistoryDate(value, { year: "numeric", month: "short", day: "numeric" }) || String(value);
+}
+
+function getPriceDeltaPercent(currentValue, previousValue) {
+  const current = toNumber(currentValue);
+  const previous = toNumber(previousValue);
+  if (current === null || previous === null || previous === 0) {
+    return null;
+  }
+  return ((current - previous) / previous) * 100;
+}
+
+function getPriceDeltaAmount(currentValue, previousValue) {
+  const current = toNumber(currentValue);
+  const previous = toNumber(previousValue);
+  if (current === null || previous === null) {
+    return null;
+  }
+  return current - previous;
+}
+
+function getPositiveValueStyle() {
+  return {
+    color: POSITIVE_VALUE_COLOR,
+  };
+}
+
+function getNegativeValueStyle() {
+  return getDangerValueStyle();
+}
+
+function getDeltaTextStyle(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return undefined;
+  }
+  return parsed < 0 ? getNegativeValueStyle() : parsed > 0 ? getPositiveValueStyle() : undefined;
+}
+
+function getDeltaBadgeStyle(value) {
+  const parsed = toNumber(value);
+  if (parsed === null || Math.abs(parsed) < 0.000001) {
+    return {
+      borderColor: "var(--border-subtle)",
+      backgroundColor: "rgba(255,255,255,0.035)",
+      color: "var(--text-secondary)",
+      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.025)",
+    };
+  }
+
+  const color = parsed < 0 ? NEGATIVE_VALUE_COLOR : POSITIVE_VALUE_COLOR;
+  return {
+    borderColor: withAlpha(color, 0.26),
+    backgroundColor: withAlpha(color, 0.075),
+    color,
+    boxShadow: `inset 0 0 0 1px ${withAlpha(color, 0.035)}`,
+  };
+}
+
+function MarketWindowSelector({ windows, value, onChange, className = "" }) {
+  const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
+  if (windowOptions.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className={["flex min-w-0 flex-wrap gap-1.5", className].filter(Boolean).join(" ")}>
+      {windowOptions.map((entry) => {
+        const isActive = entry.key === value;
+        return (
+          <button
+            key={`market-window:${entry.key}`}
+            type="button"
+            onClick={() => onChange(entry.key)}
+            aria-pressed={isActive}
+            className={[
+              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+              isActive
+                ? ""
+                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+            ].join(" ")}
+            style={
+              isActive
+                ? {
+                    borderColor: withAlpha(POSITIVE_VALUE_COLOR, 0.34),
+                    backgroundColor: withAlpha(POSITIVE_VALUE_COLOR, 0.1),
+                    color: POSITIVE_VALUE_COLOR,
+                  }
+                : undefined
+            }
+          >
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SetValueScopeSelector({ scopes, value, onChange }) {
+  const scopeOptions = Array.isArray(scopes) && scopes.length > 0 ? scopes : SET_VALUE_SCOPE_OPTIONS;
+
+  return (
+    <SegmentedControl
+      className="flex justify-center"
+      options={scopeOptions.map((entry) => ({ value: entry.key, label: entry.label }))}
+      value={value}
+      onChange={onChange}
+      ariaLabel="Set value scope"
+    />
+  );
+}
+
+function formatAxisCurrency(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) return "N/A";
+  const abs = Math.abs(parsed);
+  if (abs >= 1000000) return `$${(parsed / 1000000).toFixed(1)}M`;
+  if (abs >= 1000) return `$${(parsed / 1000).toFixed(abs >= 10000 ? 0 : 1)}K`;
+  return formatCurrency(parsed);
+}
+
+function buildCurrencyTicks(points) {
+  const values = points.map((point) => toNumber(point?.setValue ?? point?.value)).filter((value) => value !== null);
+  if (values.length === 0) {
+    return [];
+  }
+
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const rawRange = maxValue - minValue;
+  const padding = rawRange > 0 ? rawRange * 0.16 : Math.max(Math.abs(maxValue) * 0.08, 1);
+  const lower = Math.max(0, minValue - padding);
+  const upper = maxValue + padding;
+  const range = upper - lower || Math.max(upper, 1);
+  const stepBase = Math.pow(10, Math.floor(Math.log10(range / 3 || 1)));
+  const roughStep = range / 3;
+  const stepMultiplier = roughStep / stepBase <= 2 ? 2 : roughStep / stepBase <= 5 ? 5 : 10;
+  const step = stepBase * stepMultiplier;
+  const start = Math.floor(lower / step) * step;
+  const end = Math.ceil(upper / step) * step;
+  const ticks = [];
+
+  for (let value = start; value <= end + step * 0.5; value += step) {
+    const rounded = Number(value.toFixed(2));
+    if (rounded >= 0 && !ticks.includes(rounded)) {
+      ticks.push(rounded);
+    }
+  }
+
+  if (ticks.length >= 2) {
+    return ticks;
+  }
+
+  return [Math.max(0, minValue - padding), maxValue + padding].filter(
+    (value, index, list) => list.findIndex((candidate) => Math.abs(candidate - value) < 0.01) === index
+  );
+}
+
+function SetValueTooltip({ active, payload }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const row = payload[0]?.payload;
+  if (!row) {
+    return null;
+  }
+
+  const deltaAmount = toNumber(row.deltaFromPrevious);
+  const deltaPercent = toNumber(row.deltaPercentFromPrevious);
+
+  return (
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Date</p>
+      <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.date)}</p>
+      <p className="mt-2 text-xs text-[var(--text-secondary)]">
+        Set Value <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(row.setValue)}</span>
+      </p>
+      {row.isCarriedForward ? (
+        <p className="text-xs text-[var(--text-secondary)]">
+          Carried forward{row.sourceDate ? <span> from {formatLongDate(row.sourceDate)}</span> : null}
+        </p>
+      ) : null}
+      {deltaAmount !== null ? (
+        <p className="text-xs text-[var(--text-secondary)]">
+          Change <span className="font-semibold" style={getDeltaTextStyle(deltaAmount)}>{formatSignedCurrency(deltaAmount)}</span>
+          {deltaPercent !== null ? <span style={getDeltaTextStyle(deltaAmount)}> ({deltaPercent > 0 ? "+" : ""}{deltaPercent.toFixed(1)}%)</span> : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CompactSparkline({ points, valueKey = "value", trendDirection = "neutral", className = "" }) {
+  const [activeIndex, setActiveIndex] = useState(null);
+  const chartPoints = Array.isArray(points)
+    ? points.map((point, index) => ({
+        index,
+        date: point?.date ?? null,
+        y: toNumber(point?.[valueKey] ?? point?.value),
+        isCarriedForward: Boolean(point?.isCarriedForward),
+        sourceDate: point?.sourceDate ?? null,
+      }))
+    : [];
+  const numericPoints = chartPoints.filter((point) => point.y !== null);
+  const strokeColor =
+    trendDirection === "negative"
+      ? NEGATIVE_VALUE_COLOR
+      : trendDirection === "positive"
+      ? POSITIVE_VALUE_COLOR
+      : "rgba(148,163,184,0.8)";
+  const activePoint = activeIndex === null ? null : numericPoints[activeIndex] || null;
+  const firstPoint = numericPoints[0] || null;
+  const activeDeltaAmount = activePoint && firstPoint ? getPriceDeltaAmount(activePoint.y, firstPoint.y) : null;
+  const activeDeltaPercent = activePoint && firstPoint ? getPriceDeltaPercent(activePoint.y, firstPoint.y) : null;
+
+  const handlePointerMove = (event) => {
+    if (numericPoints.length === 0) {
+      return;
+    }
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const ratio = bounds.width > 0 ? (event.clientX - bounds.left) / bounds.width : 0;
+    const targetIndex = Math.round(Math.max(0, Math.min(1, ratio)) * Math.max(chartPoints.length - 1, 1));
+    let nearestIndex = 0;
+    let nearestDistance = Infinity;
+    numericPoints.forEach((point, index) => {
+      const distance = Math.abs(point.index - targetIndex);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+    setActiveIndex(nearestIndex);
+  };
+
+  if (numericPoints.length < 2) {
+    return (
+      <div className={["flex h-16 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-xs text-[var(--text-secondary)]", className].filter(Boolean).join(" ")}>
+        Awaiting trend
+      </div>
+    );
+  }
+
+  const minY = Math.min(...numericPoints.map((point) => point.y));
+  const maxY = Math.max(...numericPoints.map((point) => point.y));
+  const yRange = maxY - minY || 1;
+  const xRange = chartPoints.length - 1 || numericPoints.length - 1 || 1;
+  const polylinePoints = numericPoints
+    .map((point) => {
+      const x = (point.index / xRange) * 100;
+      const y = 38 - ((point.y - minY) / yRange) * 30;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  const activeX = activePoint ? (activePoint.index / xRange) * 100 : null;
+  const activeY = activePoint ? 38 - ((activePoint.y - minY) / yRange) * 30 : null;
+
+  return (
+    <div
+      className={["group relative rounded-lg", className].filter(Boolean).join(" ")}
+      onMouseMove={handlePointerMove}
+      onMouseLeave={() => setActiveIndex(null)}
+      onFocus={() => setActiveIndex(numericPoints.length - 1)}
+      onBlur={() => setActiveIndex(null)}
+      tabIndex={0}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 100 42"
+        preserveAspectRatio="none"
+        className="h-full w-full overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42"
+      >
+        <path d="M0 36H100" stroke="rgba(255,255,255,0.08)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <polyline points={polylinePoints} fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {activePoint && activeX !== null && activeY !== null ? (
+          <>
+            <line x1={activeX} x2={activeX} y1="5" y2="38" stroke="rgba(255,255,255,0.16)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <circle cx={activeX} cy={activeY} r="3" fill={strokeColor} stroke="rgba(2,6,23,0.95)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+          </>
+        ) : null}
+      </svg>
+      {activePoint ? (
+        <div className="pointer-events-none absolute left-1/2 top-0 z-20 min-w-[9rem] -translate-x-1/2 -translate-y-[calc(100%+0.45rem)] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(activePoint.date)}</p>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] tabular-nums">
+            <span>{formatCurrency(activePoint.y)}</span>
+            <DeltaTrendIcon value={activeDeltaAmount} size="md" />
+          </p>
+          {activeDeltaAmount !== null ? (
+            <p className="mt-0.5 text-[11px] font-semibold tabular-nums" style={getDeltaTextStyle(activeDeltaAmount)}>
+              {formatSignedCurrency(activeDeltaAmount)}
+              {activeDeltaPercent !== null ? <span> ({activeDeltaPercent > 0 ? "+" : ""}{activeDeltaPercent.toFixed(1)}%)</span> : null}
+            </p>
+          ) : null}
+          {activePoint.isCarriedForward && activePoint.sourceDate ? (
+            <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(activePoint.sourceDate)}</p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function normalizeSetValueHistoryPoints(points) {
+  const dailyPointMap = new Map();
+  (Array.isArray(points) ? points : []).forEach((point) => {
+    const date = getHistoryDateKey(point?.date);
+    const setValue = toNumber(point?.setValue ?? point?.value);
+    if (!date) {
+      return;
+    }
+    dailyPointMap.set(date, {
+      ...point,
+      date,
+      setValue,
+      isCarriedForward: Boolean(point?.isCarriedForward ?? point?.is_carried_forward),
+      sourceDate: getHistoryDateKey(point?.sourceDate ?? point?.source_date),
+    });
+  });
+
+  return forwardFillDailyHistoryThroughToday(
+    Array.from(dailyPointMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
+    {
+      dateField: "date",
+      valueKeys: ["setValue"],
+    }
+  );
+}
+
+function SetValueLineChart({ points, trendDirection = "neutral" }) {
+  let previousValuedPoint = null;
+  const numericPoints = (Array.isArray(points) ? points : [])
+    .map((point, index) => {
+      const setValue = toNumber(point?.setValue ?? point?.value);
+      const explicitDeltaAmount = toNumber(point?.deltaFromPrevious);
+      const explicitDeltaPercent = toNumber(point?.deltaPercentFromPrevious);
+      const fallbackDeltaAmount =
+        setValue !== null && previousValuedPoint ? getPriceDeltaAmount(setValue, previousValuedPoint.setValue) : null;
+      const fallbackDeltaPercent =
+        setValue !== null && previousValuedPoint ? getPriceDeltaPercent(setValue, previousValuedPoint.setValue) : null;
+      const nextPoint = {
+        ...point,
+        date: getHistoryDateKey(point?.date),
+        setValue,
+        index,
+        deltaFromPrevious: explicitDeltaAmount ?? fallbackDeltaAmount,
+        deltaPercentFromPrevious: explicitDeltaPercent ?? fallbackDeltaPercent,
+      };
+
+      if (setValue !== null) {
+        previousValuedPoint = nextPoint;
+      }
+
+      return nextPoint;
+    })
+    .filter((point) => point.date);
+  const valuedPoints = numericPoints.filter((point) => toNumber(point?.setValue) !== null);
+
+  if (valuedPoints.length < 2) {
+    return (
+      <div className="flex min-h-[20rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-sm text-[var(--text-secondary)]">
+        Not enough set value history yet.
+      </div>
+    );
+  }
+
+  const values = valuedPoints.map((point) => point.setValue);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue || Math.max(maxValue, 1) * 0.08 || 1;
+  const yAxisTicks = buildCurrencyTicks(valuedPoints);
+  const yMin = Math.max(0, Math.min(...yAxisTicks, minValue - range * 0.14));
+  const yMax = Math.max(...yAxisTicks, maxValue + range * 0.14);
+  const showEveryDayTick = numericPoints.length <= 8;
+  const xAxisTicks = showEveryDayTick ? numericPoints.map((point) => point.date) : undefined;
+  const trendColor =
+    trendDirection === "negative"
+      ? NEGATIVE_VALUE_COLOR
+      : trendDirection === "positive"
+      ? POSITIVE_VALUE_COLOR
+      : "rgba(148,163,184,0.9)";
+
+  return (
+    <div className="min-h-[21rem] w-full">
+      <div className="h-[21rem] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={numericPoints} margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
+            <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
+            <XAxis
+              dataKey="date"
+              ticks={xAxisTicks}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+              tickFormatter={(value) => (showEveryDayTick ? formatCompactDay(value) : formatShortDate(value) || "")}
+              minTickGap={showEveryDayTick ? 0 : 22}
+              interval={showEveryDayTick ? 0 : "preserveStartEnd"}
+            />
+            <YAxis
+              domain={[yMin, yMax]}
+              ticks={yAxisTicks}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+              tickFormatter={formatAxisCurrency}
+              width={58}
+            />
+            <RechartsTooltip content={<SetValueTooltip />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
+            <Line
+              type="linear"
+              dataKey="setValue"
+              name="Set Value"
+              stroke={trendColor}
+              strokeWidth={2.5}
+              dot={{ r: 2.5, fill: trendColor, strokeWidth: 0 }}
+              activeDot={{ r: 4.5, stroke: "var(--surface-page)", strokeWidth: 2 }}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function SetValueTrendCard({ history, historiesByScope, availableScopes, status, error }) {
+  const [selectedWindowKey, setSelectedWindowKey] = useState(null);
+  const [selectedScope, setSelectedScope] = useState("standard");
+  const scopeOptions = useMemo(() => {
+    const optionMap = new Map(SET_VALUE_SCOPE_OPTIONS.map((entry) => [entry.key, entry]));
+    (Array.isArray(availableScopes) ? availableScopes : []).forEach((entry) => {
+      if (entry?.key) {
+        const defaultOption = SET_VALUE_SCOPE_OPTIONS.find((option) => option.key === entry.key);
+        optionMap.set(entry.key, {
+          key: entry.key,
+          label: defaultOption?.label || entry.label || entry.key,
+        });
+      }
+    });
+    return SET_VALUE_SCOPE_OPTIONS.filter((entry) => optionMap.has(entry.key)).map((entry) => optionMap.get(entry.key));
+  }, [availableScopes]);
+  const selectedHistory = useMemo(() => {
+    if (Array.isArray(historiesByScope?.[selectedScope])) {
+      return historiesByScope[selectedScope];
+    }
+    return selectedScope === "standard" ? history : [];
+  }, [historiesByScope, history, selectedScope]);
+  const points = useMemo(() => normalizeSetValueHistoryPoints(selectedHistory), [selectedHistory]);
+  const valuedPoints = useMemo(
+    () => points.filter((point) => toNumber(point?.setValue) !== null),
+    [points]
+  );
+  const {
+    windows: availableDeltaWindows,
+    effectiveKey: effectiveWindowKey,
+    selectedWindow: selectedDeltaWindow,
+  } = useMemo(
+    () => getSelectedDeltaWindowFromHistory(valuedPoints, {
+      selectedKey: selectedWindowKey,
+      preferredKey: "30D",
+      dateKey: "date",
+      valueKey: "setValue",
+    }),
+    [selectedWindowKey, valuedPoints]
+  );
+  const visibleWindowMetrics = useMemo(
+    () => getVisibleHistoryWindowMetrics(points, selectedDeltaWindow, {
+      dateKey: "date",
+      valueKey: "setValue",
+    }),
+    [points, selectedDeltaWindow]
+  );
+  const chartPoints = visibleWindowMetrics.points;
+  const firstPoint = visibleWindowMetrics.firstPoint;
+  const lastPoint = visibleWindowMetrics.latestPoint;
+  const currentValue = visibleWindowMetrics.currentValue;
+  const deltaAmount = visibleWindowMetrics.deltaAmount;
+  const deltaPercent = visibleWindowMetrics.deltaPercent;
+  const deltaWindowLabel = effectiveWindowKey ? getDeltaWindowLabel(effectiveWindowKey) : "Trend";
+  const hasTrend = visibleWindowMetrics.valuedPoints.length >= 2;
+  const trendDirection = deltaAmount === null ? "neutral" : deltaAmount < 0 ? "negative" : deltaAmount > 0 ? "positive" : "neutral";
+
+  useEffect(() => {
+    if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
+      return;
+    }
+    setSelectedWindowKey(effectiveWindowKey);
+  }, [effectiveWindowKey, selectedWindowKey]);
+
+  useEffect(() => {
+    if (scopeOptions.some((entry) => entry.key === selectedScope)) {
+      return;
+    }
+    setSelectedScope(scopeOptions[0]?.key || "standard");
+  }, [scopeOptions, selectedScope]);
+
+  return (
+    <SectionCard
+      title="Set Value Trend"
+      titleInfoText="Daily set value history from Near Mint card market observations. Checklist sums tracked checklist cards, Hits excludes common low-rarity buckets, and Top 10 sums the highest-value tracked cards for each date."
+      className="h-full"
+    >
+      {status === "loading" || status === "idle" ? (
+        <p className="text-sm text-[var(--text-secondary)]">Loading set value history...</p>
+      ) : status === "error" ? (
+        <p className="text-sm text-red-300">{error || "Unable to load set value history for this set."}</p>
+      ) : !hasTrend ? (
+        <div className="space-y-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Set Value</p>
+            <p className="mt-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</p>
+          </div>
+          <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-3 py-3 text-sm text-[var(--text-secondary)]">
+            Not enough set value history yet.
+          </p>
+          <div className="pt-1">
+            <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+          </div>
+        </div>
+      ) : (
+        <div className="flex min-h-[26rem] flex-col space-y-4">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current Set Value</p>
+              <p className="mt-1 inline-flex min-w-0 items-center gap-1.5 text-2xl font-semibold leading-none text-[var(--text-primary)]">
+                <span className="truncate">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</span>
+                <DeltaTrendIcon value={deltaAmount} size="md" />
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
+              <div className="rounded-lg border px-3 py-2 text-right" style={getDeltaBadgeStyle(deltaAmount)}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{deltaWindowLabel} Delta</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {deltaAmount === null ? "N/A" : formatSignedCurrency(deltaAmount)}
+                </p>
+              </div>
+              <div className="rounded-lg border px-3 py-2 text-right" style={getDeltaBadgeStyle(deltaPercent)}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                  {deltaWindowLabel} %
+                </p>
+                <p className="mt-1 text-sm font-semibold">
+                  {deltaPercent === null ? "N/A" : `${deltaPercent > 0 ? "+" : ""}${deltaPercent.toFixed(1)}%`}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <MarketWindowSelector
+              windows={availableDeltaWindows}
+              value={effectiveWindowKey}
+              onChange={setSelectedWindowKey}
+            />
+          </div>
+
+          <SetValueLineChart points={chartPoints} trendDirection={trendDirection} />
+
+          <div className="grid min-w-0 grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)] max-[420px]:grid-cols-2">
+            <span className="min-w-0 justify-self-start truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
+            <div className="min-w-0 justify-self-center max-[420px]:order-3 max-[420px]:col-span-2">
+              <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={setSelectedScope} />
+            </div>
+            <span className="min-w-0 justify-self-end truncate text-right">{formatShortDate(lastPoint?.date) || "Latest"}</span>
+          </div>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+function OverviewMetricTile({ label, value, trend = null, infoText = null }) {
+  const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
+
+  return (
+    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3.5 py-3.5">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+        {infoText ? <InfoPopover text={infoText} /> : null}
+      </div>
+      <p
+        className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-semibold leading-none text-[var(--text-primary)] md:text-2xl"
+        style={isNegativeValue ? getDangerValueStyle() : undefined}
+      >
+        <span className="truncate">{value}</span>
+        <TrendIndicator trend={trend} className="translate-y-px" />
+      </p>
+    </div>
+  );
+}
+
+function OverviewReadPanel({ metrics, compactRead, detailRead }) {
+  return (
+    <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Overview Context</h2>
+          <InfoPopover text="Asset-style set context using existing set value, pack price, modeled average pack value, and return ratio." />
+        </div>
+      </div>
+
+      {metrics.length > 0 ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric) => (
+            <OverviewMetricTile key={`overview-context-${metric.label}`} {...metric} />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-3.5 py-3">
+        <div className="flex items-start gap-2">
+          <p className="flex-1 text-sm leading-relaxed text-[var(--text-primary)]">
+            <span className="font-semibold">Quick Read:</span> {compactRead}
+          </p>
+          {detailRead ? <InfoPopover text={detailRead} /> : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function TopMarketCardRow({ card, index, selectedWindowKey }) {
+  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const name = card?.name || "Unknown card";
+  const rarity = card?.rarity || null;
+  const price = getChecklistCardMarketPrice(card);
+  const historyPoints = getTopCardPriceHistory(card);
+  const topCardDeltaWindow = getTopCardDeltaWindow(card, historyPoints, selectedWindowKey);
+  const sparklinePoints = filterHistoryPointsForDeltaWindow(historyPoints, topCardDeltaWindow, { dateKey: "date" });
+  const valuedHistoryPoints = historyPoints.filter((point) => point.value !== null);
+  const firstPrice = valuedHistoryPoints[0]?.value ?? null;
+  const lastPrice = valuedHistoryPoints[valuedHistoryPoints.length - 1]?.value ?? null;
+  const historyDeltaAmount = getPriceDeltaAmount(lastPrice, firstPrice);
+  const displayDeltaAmount = topCardDeltaWindow?.amount ?? (selectedWindowKey ? null : historyDeltaAmount);
+  const displayDelta = topCardDeltaWindow?.percent ?? (selectedWindowKey ? null : getPriceDeltaPercent(lastPrice, firstPrice));
+  const sparklineTone =
+    displayDeltaAmount === null
+      ? displayDelta === null
+        ? "neutral"
+        : displayDelta < 0
+        ? "negative"
+        : displayDelta > 0
+        ? "positive"
+        : "neutral"
+      : displayDeltaAmount < 0
+      ? "negative"
+      : displayDeltaAmount > 0
+      ? "positive"
+      : "neutral";
+
+  return (
+    <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-3 py-2.5 lg:grid-cols-[3.5rem_minmax(13.75rem,1fr)_minmax(11.25rem,14.5rem)_6.875rem_6rem] lg:items-center lg:gap-3.5 lg:px-4 lg:py-3">
+      <span className="self-start pt-1 text-xs font-semibold text-[var(--text-secondary)] lg:self-auto lg:pt-0">#{index + 1}</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-[4.875rem] w-14 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] shadow-[0_10px_24px_rgba(2,6,23,0.24)]">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt={name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+              {getCardInitials(name)}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name}</p>
+          <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{rarity || "N/A"}</p>
+        </div>
+      </div>
+      <div className="col-span-2 flex min-w-0 flex-col items-center lg:col-span-1">
+        <CompactSparkline points={sparklinePoints} trendDirection={sparklineTone} className="h-14 w-full max-w-[12.25rem] lg:max-w-[13.75rem]" />
+        {sparklinePoints.length >= 2 ? (
+          <div className="mt-1 flex w-full max-w-[12.25rem] min-w-0 items-center justify-between gap-2 text-[9px] text-[var(--text-secondary)] lg:max-w-[13.75rem] lg:text-[10px]">
+            <span className="truncate">{formatShortDate(sparklinePoints[0]?.date)}</span>
+            <span className="truncate text-right">{formatShortDate(sparklinePoints[sparklinePoints.length - 1]?.date)}</span>
+          </div>
+        ) : null}
+      </div>
+      <div className="col-span-2 flex min-w-0 items-end justify-between gap-3 lg:contents">
+        <p className="min-w-0 flex-1 text-left text-sm font-semibold text-[var(--text-primary)] lg:justify-self-stretch">
+          <span className="inline-grid min-w-0 grid-cols-[minmax(0,max-content)_0.75rem] items-center gap-1.5 tabular-nums lg:w-full lg:grid-cols-[minmax(0,1fr)_0.75rem]">
+            <span className="min-w-0 text-right">{price === null ? "N/A" : formatCurrency(price)}</span>
+            <span className="inline-flex w-3 justify-center">
+              {price !== null ? <DeltaTrendIcon value={displayDeltaAmount ?? displayDelta} size="sm" /> : null}
+            </span>
+          </span>
+        </p>
+        {displayDeltaAmount !== null || displayDelta !== null ? (
+          <div className="inline-flex min-w-[4.7rem] flex-none flex-col items-end gap-px justify-self-end rounded-md border px-1.5 py-1 text-right text-xs font-semibold leading-[1.12] tabular-nums" style={getDeltaBadgeStyle(displayDeltaAmount ?? displayDelta)}>
+            {displayDeltaAmount !== null ? <p>{formatSignedCurrency(displayDeltaAmount)}</p> : null}
+            {displayDelta !== null ? <p>{displayDelta > 0 ? "+" : ""}{displayDelta.toFixed(1)}%</p> : null}
+          </div>
+        ) : (
+          <p className="flex-none text-right text-[11px] text-[var(--text-secondary)]">Awaiting trend</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TopMarketCardsContent({ cards, status, error, maxRows = 10 }) {
+  const [selectedWindowKey, setSelectedWindowKey] = useState(null);
+  const availableDeltaWindows = useMemo(
+    () => getTopCardsAvailableDeltaWindows(cards),
+    [cards]
+  );
+  const effectiveWindowKey =
+    selectedWindowKey && availableDeltaWindows.some((entry) => entry.key === selectedWindowKey)
+      ? selectedWindowKey
+      : getPreferredDeltaWindowKey(availableDeltaWindows, "30D");
+
+  useEffect(() => {
+    if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
+      return;
+    }
+    setSelectedWindowKey(effectiveWindowKey);
+  }, [effectiveWindowKey, selectedWindowKey]);
+
+  if (status === "loading" || status === "idle") {
+    return <p className="text-sm text-[var(--text-secondary)]">Loading market cards...</p>;
+  }
+
+  if (status === "error") {
+    return <p className="text-sm text-red-300">{error || "Unable to load market cards for this set."}</p>;
+  }
+
+  if (cards.length === 0) {
+    return <p className="text-sm text-[var(--text-secondary)]">No priced cards are available yet for this set.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <MarketWindowSelector
+        windows={availableDeltaWindows}
+        value={effectiveWindowKey}
+        onChange={setSelectedWindowKey}
+      />
+      <div className="overflow-visible rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42">
+        <div className="hidden grid-cols-[3.5rem_minmax(13.75rem,1fr)_minmax(11.25rem,14.5rem)_6.875rem_6rem] items-center gap-3.5 border-b border-[var(--border-subtle)] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
+          <span>Rank</span>
+          <span>Card</span>
+          <span className="text-center">Trend</span>
+          <span className="grid grid-cols-[minmax(0,1fr)_0.75rem] items-center gap-1.5">
+            <span className="text-right">Price</span>
+            <span aria-hidden="true"></span>
+          </span>
+          <span className="text-right">Change</span>
+        </div>
+        <div className="divide-y divide-[var(--border-subtle)]">
+          {cards.slice(0, maxRows).map((card, index) => (
+            <TopMarketCardRow
+              key={`top-market-card:${card?.id || card?.cardNumber || card?.name || index}`}
+              card={card}
+              index={index}
+              selectedWindowKey={effectiveWindowKey}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getTopCardDeltaEntries(card) {
+  const deltas = card?.deltas && typeof card.deltas === "object" ? card.deltas : {};
+  return extractDeltaWindows({ deltas }).map((entry) => ({ label: entry.label, value: entry.percent, key: entry.key }));
+}
+
+function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
+  const historyWindows = computeDeltaWindowsFromHistory(historyPoints, { dateKey: "date", valueKey: "value" });
+  const selectedHistoryWindow = historyWindows.find((entry) => entry.key === selectedWindowKey);
+  if (selectedHistoryWindow) {
+    return selectedHistoryWindow;
+  }
+
+  const fieldWindows = extractDeltaWindows({ deltas: card?.deltas });
+  const selectedFieldWindow = fieldWindows.find((entry) => entry.key === selectedWindowKey);
+  if (selectedFieldWindow) {
+    return selectedFieldWindow;
+  }
+  if (selectedWindowKey) {
+    return null;
+  }
+
+  const preferredHistoryKey = getPreferredDeltaWindowKey(historyWindows, "30D");
+  return preferredHistoryKey ? historyWindows.find((entry) => entry.key === preferredHistoryKey) || null : null;
+}
+
+function getTopCardsAvailableDeltaWindows(cards) {
+  return Array.isArray(cards) && cards.length > 0 ? getStandardDeltaWindowDefinitions() : [];
+}
+
+function getTopCardPriceHistory(card) {
+  const history = Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [];
+  const points = history
+    .map((point) => ({
+      date: getHistoryDateKey(point?.date),
+      value: toNumber(point?.marketPrice ?? point?.market_price ?? point?.price),
+      isCarriedForward: Boolean(point?.isCarriedForward ?? point?.is_carried_forward),
+      sourceDate: getHistoryDateKey(point?.sourceDate ?? point?.source_date),
+    }))
+    .filter((point) => point.date);
+
+  return forwardFillDailyHistoryThroughToday(points, {
+    dateField: "date",
+    valueKeys: ["value"],
+  });
+}
+
+function TopChaseCardsModule({ cards, status, error, infoText }) {
+  return (
+    <SectionCard title="Top Chase Cards" titleInfoText={infoText}>
+      <TopMarketCardsContent cards={cards} status={status} error={error} maxRows={10} />
+    </SectionCard>
   );
 }
 
@@ -403,29 +1586,13 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
 
   if (variant === "secondary") {
     return (
-      <div className={className}>
-        <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.58)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          {tabOptions.map((option) => {
-            const isActive = value === option.value;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => onChange(option.value)}
-                aria-pressed={isActive}
-                className={`min-w-0 rounded-full px-3 py-1.5 text-[11px] font-semibold leading-none transition-all duration-200 sm:px-4 sm:text-xs ${
-                  isActive
-                    ? "bg-[rgba(20,184,166,0.16)] text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(94,234,212,0.2)]"
-                    : "text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
-                }`}
-              >
-                <span className="block truncate">{option.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <SegmentedControl
+        className={className}
+        options={tabOptions}
+        value={value}
+        onChange={onChange}
+        ariaLabel="Section view"
+      />
     );
   }
 
@@ -796,6 +1963,39 @@ function normalizeCollectorAppealDriverCard(card) {
         .filter((entry) => entry.pokemonName || entry.pokemonReferenceId !== null)
     : [];
 
+  const nestedImageSources = [
+    card,
+    card.card,
+    card.canonicalCard,
+    card.canonical_card,
+    card.variant,
+    card.cardVariant,
+    card.card_variant,
+  ].filter(Boolean);
+  const pickImageField = (...fields) => {
+    for (const source of nestedImageSources) {
+      for (const field of fields) {
+        const value = source?.[field];
+        if (typeof value === "string" && value.trim()) {
+          return value.trim();
+        }
+      }
+      const nestedSmall = source?.images?.small;
+      const nestedLarge = source?.images?.large;
+      if (fields.includes("imageSmallUrl") && typeof nestedSmall === "string" && nestedSmall.trim()) {
+        return nestedSmall.trim();
+      }
+      if (fields.includes("imageLargeUrl") && typeof nestedLarge === "string" && nestedLarge.trim()) {
+        return nestedLarge.trim();
+      }
+    }
+    return null;
+  };
+
+  const imageSmallUrl = pickImageField("imageSmallUrl", "image_small_url", "smallImageUrl", "small_image_url");
+  const imageLargeUrl = pickImageField("imageLargeUrl", "image_large_url", "largeImageUrl", "large_image_url");
+  const imageUrl = pickImageField("imageUrl", "image_url", "cardImageUrl", "card_image_url", "image") || imageSmallUrl || imageLargeUrl;
+
   const normalized = {
     name: card.name || card.card_name || card.cardName || null,
     printedNumber:
@@ -814,9 +2014,9 @@ function normalizeCollectorAppealDriverCard(card) {
           card.desirabilityScore
       ),
     linkedPokemon,
-    imageUrl: card.imageUrl || card.image_url || null,
-    imageSmallUrl: card.imageSmallUrl || card.image_small_url || null,
-    imageLargeUrl: card.imageLargeUrl || card.image_large_url || null,
+    imageUrl,
+    imageSmallUrl,
+    imageLargeUrl,
     marketPrice:
       toNumber(
         card.marketPrice ??
@@ -962,23 +2162,30 @@ function getCollectorDriverSubjects(card) {
 
 function CollectorAppealDriverRow({ card, index }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const [hasImageError, setHasImageError] = useState(false);
   const name = card?.name || "Unknown card";
   const printedNumber = card?.printedNumber || null;
   const rarity = card?.rarity || null;
   const subjects = getCollectorDriverSubjects(card);
   const cardAppeal = formatDriverScore(card?.cardDesirabilityScore);
+  const shouldRenderImage = Boolean(imageUrl) && !hasImageError;
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [imageUrl]);
 
   return (
     <article className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.62)] p-3">
       <div className="flex items-start gap-3">
         <div className="flex h-14 w-10 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)]">
-          {imageUrl ? (
+          {shouldRenderImage ? (
             <img
               src={imageUrl}
               alt={name}
               className="h-full w-full object-cover"
               loading="lazy"
               decoding="async"
+              onError={() => setHasImageError(true)}
             />
           ) : (
             <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
@@ -1036,7 +2243,7 @@ function HeroMetricTile({ label, value, trend = null }) {
         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{friendlyLabel}</p>
         {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
-      <div className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold leading-tight [text-shadow:0_1px_1px_rgba(2,6,23,0.22)]" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
+      <div className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold leading-tight" style={isNegativeValue ? getDangerValueStyle() : { color: "var(--text-primary)" }}>
         <span>{value}</span>
         <TrendIndicator trend={trend} className="translate-y-px" />
       </div>
@@ -1584,33 +2791,16 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
   );
 
   return (
-    <section className="pt-4 md:pt-5">
-      <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
+    <section id="set-detail-set-intelligence" className="scroll-mt-24 pt-4 md:scroll-mt-28 md:pt-5">
+      <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Set Intelligence</h2>
             <InfoPopover text={setIntelligenceInfo} />
           </div>
-          <p className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] opacity-75 sm:justify-end">
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              aria-hidden="true"
-              className="h-3.5 w-3.5 flex-none"
-            >
-              <path
-                d="M4.75 2.75L9.8 14.2L11.95 9.95L16.2 7.8L4.75 2.75Z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>{simpleMode ? "Tap a lens to understand this set." : "Select a lens to understand more."}</span>
-          </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 min-[340px]:gap-2.5">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {resolvedLenses.map((lens) => {
             const resolvedLensScore = resolveLensScore(lens, summary);
             const tier = toOptionalUpper(lens?.backend?.tier ?? summary[lens.tierField]);
@@ -1625,7 +2815,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
                 onClick={() => setSelectedLensKey(lens.key)}
                 aria-pressed={isSelected}
                 className={[
-                  "relative flex h-full min-w-0 cursor-pointer flex-col rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]/70 sm:px-3.5",
+                  "relative flex h-full min-w-0 cursor-pointer flex-col rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]/70",
                   isSelected
                     ? "bg-[var(--surface-page)]/70 border-[var(--accent)]"
                     : "bg-[var(--surface-page)]/45 border-[var(--border-subtle)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]",
@@ -1639,7 +2829,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
                     : undefined
                 }
               >
-                <span className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+                <span className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
                   {lens.label}
                 </span>
                 {simpleMode ? (
@@ -1655,7 +2845,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
                   </div>
                 ) : (
                   <div className="flex items-baseline gap-1.5 sm:gap-2">
-                    <span className="text-base font-bold leading-none text-[var(--text-primary)] sm:text-lg">
+                    <span className="text-lg font-bold leading-none text-[var(--text-primary)]">
                       {resolvedLensScore.usedRawFallback
                         ? resolvedLensScore.rawText || "—"
                         : formatLensScore(resolvedLensScore.score, resolvedLensScore.format)}
@@ -1678,7 +2868,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
                     Rank #{Math.round(rank)}
                   </span>
                 ) : null}
-                <span className="mt-2 line-clamp-2 text-[10px] leading-snug text-[var(--text-secondary)] sm:text-[11px] sm:leading-relaxed">
+                <span className="mt-2 line-clamp-2 text-[11px] leading-snug text-[var(--text-secondary)]">
                   {shortSummary}
                 </span>
               </button>
@@ -1686,17 +2876,25 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
           })}
         </div>
 
-        <div
-          className="mt-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-4 py-3.5"
+        <details
+          className="group mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3.5 py-3"
           style={selectedDetailBorder ? { borderLeftColor: selectedDetailBorder, borderLeftWidth: "2px" } : undefined}
         >
-          <div className="mb-1 flex items-start justify-between gap-3">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedLens.heading}</p>
-            <span className="flex-none text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] opacity-70">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-[var(--text-primary)]">
+            <span className="min-w-0 truncate">{selectedLens.heading}</span>
+            <span className="inline-flex flex-none items-center gap-2 text-[10px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">
               {selectedLens.label}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                className="h-4 w-4 transition-transform group-open:rotate-180"
+                fill="currentColor"
+              >
+                <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+              </svg>
             </span>
-          </div>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+          </summary>
+          <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">
             {selectedLongSummary}
           </p>
           {!simpleMode && selectedSupportingSignals.length > 0 ? (
@@ -1724,7 +2922,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
               ))}
             </div>
           ) : null}
-        </div>
+        </details>
       </article>
     </section>
   );
@@ -1747,9 +2945,10 @@ function ScorePillarCard({
   const parsedRank = toNumber(rankValue);
   const numericRankTitle = parsedRank === null ? "Rank unavailable" : `${rankLabel} #${Math.round(parsedRank)}`;
   const metricsToDisplay = metricMode === "overview" ? simpleMetrics : advancedMetrics;
+  const keySignals = Array.isArray(simpleMetrics) ? simpleMetrics.slice(0, 2) : [];
 
   return (
-    <article className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
+    <article className="flex h-full flex-col rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
@@ -1779,49 +2978,54 @@ function ScorePillarCard({
         />
       </div>
 
-      <div className="mt-5 hidden lg:block">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
-            <InfoPopover text="Switch between simple collector-facing metrics and score details." />
-          </div>
-          <CompactMetricModeToggle mode={metricMode} onChange={setMetricMode} />
-        </div>
-        <div className="min-h-[12.5rem] space-y-1">
-          {metricsToDisplay.map((metric) => (
-            <MetricRow
-              key={metric.label}
-              label={metric.label}
-              value={metric.value}
-              trend={metric.trend}
-              infoText={metric.infoText || getMetricTooltip(metric.label)}
-              content={metric.content}
-            />
+      {keySignals.length > 0 ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          {keySignals.map((metric) => (
+            <div key={`${title}-signal-${metric.label}`} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{metric.label}</p>
+              <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
+                <span>{metric.value}</span>
+                <TrendIndicator trend={metric.trend} className="translate-y-px" />
+              </p>
+            </div>
           ))}
         </div>
-      </div>
+      ) : null}
 
-      <MobileMetricAccordion title={`${title} Metrics`} defaultOpen={false} className="mt-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
-            <InfoPopover text="Switch between simple collector-facing metrics and score details." />
+      <details className="group mt-auto border-t border-[var(--border-subtle)] pt-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]">
+          <span>Details</span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            className="h-4 w-4 flex-none transition-transform group-open:rotate-180"
+            fill="currentColor"
+          >
+            <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+          </svg>
+        </summary>
+        <div className="mt-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Metrics</p>
+              <InfoPopover text="Switch between simple collector-facing metrics and score details." />
+            </div>
+            <CompactMetricModeToggle mode={metricMode} onChange={setMetricMode} />
           </div>
-          <CompactMetricModeToggle mode={metricMode} onChange={setMetricMode} />
+          <div className="space-y-1">
+            {metricsToDisplay.map((metric) => (
+              <MetricRow
+                key={`${title}-${metricMode}-${metric.label}`}
+                label={metric.label}
+                value={metric.value}
+                trend={metric.trend}
+                infoText={metric.infoText || getMetricTooltip(metric.label)}
+                content={metric.content}
+              />
+            ))}
+          </div>
         </div>
-        <div className="space-y-1">
-          {metricsToDisplay.map((metric) => (
-            <MetricRow
-              key={`mobile-${title}-${metric.label}`}
-              label={metric.label}
-              value={metric.value}
-              trend={metric.trend}
-              infoText={metric.infoText || getMetricTooltip(metric.label)}
-              content={metric.content}
-            />
-          ))}
-        </div>
-      </MobileMetricAccordion>
+      </details>
     </article>
   );
 }
@@ -1871,12 +3075,496 @@ function SimplePillarSummaryCard({
       {label ? (
         <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
           <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: tone.dotColor }} />
-          <InterpretationBadge label={label} rankTier={rankTier} severity={backendSeverity} className="px-0 py-0 text-[10px] tracking-[0.08em]" />
+          <InterpretationBadge label={label} rankTier={rankTier} severity={backendSeverity} className="px-2 py-0.5 text-[10px] tracking-[0.08em]" />
         </div>
       ) : null}
 
       <p className="mt-3 text-sm leading-relaxed text-[var(--text-primary)]">{summary}</p>
     </article>
+  );
+}
+
+function getPillarStatusLabel({ label, score }) {
+  const normalizedLabel = toDisplayStateLabel(label) || String(label || "").trim();
+  if (normalizedLabel) {
+    return normalizedLabel;
+  }
+
+  const numericScore = toNumber(score);
+  if (numericScore === null) {
+    return "Mixed";
+  }
+  if (numericScore >= 80) return "Strong Support";
+  if (numericScore >= 65) return "Support";
+  if (numericScore >= 45) return "Mixed";
+  if (numericScore >= 30) return "Drag";
+  return "Major Risk";
+}
+
+function getPillarSignalHighlight(title, score) {
+  const numericScore = toNumber(score);
+  const isStrong = numericScore !== null && numericScore >= 80;
+  const isSolid = numericScore !== null && numericScore >= 65;
+  const isWeak = numericScore !== null && numericScore < 45;
+
+  if (title === "Profit") {
+    if (isStrong) return "Strong average, meaningful upside";
+    if (isSolid) return "Playable return profile";
+    if (isWeak) return "Average return trails cost";
+    return "Mixed profit profile";
+  }
+
+  if (title === "Safety") {
+    if (isStrong) return "Controlled misses";
+    if (isSolid) return "Manageable downside";
+    if (isWeak) return "Misses can bite";
+    return "Mixed miss protection";
+  }
+
+  if (title === "Desirability") {
+    if (isStrong) return "High opening desirability";
+    if (isSolid) return "Clear collector demand";
+    if (isWeak) return "Demand signal is muted";
+    return "Mixed desirability signal";
+  }
+
+  if (title === "Stability") {
+    if (isStrong) return "Value spread is healthy";
+    if (isSolid) return "Some depth beyond top hits";
+    if (isWeak) return "Fragile value spread";
+    return "Mixed value spread";
+  }
+
+  return "Signal available";
+}
+
+function OverviewPillarSignalTile({ title, score, scoreTrend = null, rankTier, rankValue, highlight, infoText }) {
+  const parsedRank = toNumber(rankValue);
+
+  return (
+    <article className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2.5">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
+            {infoText ? <InfoPopover text={infoText} /> : null}
+          </div>
+          {highlight ? (
+            <p className="mt-1 truncate text-xs leading-snug text-[var(--text-primary)]">{highlight}</p>
+          ) : null}
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          <p className="inline-flex items-center gap-1 text-lg font-semibold leading-none text-[var(--text-primary)]">
+            <span>{formatScore(score)}</span>
+            <TrendIndicator trend={scoreTrend} className="translate-y-px" />
+          </p>
+          <div className="flex flex-col items-end gap-1">
+            <RankBadge
+              rank={rankTier}
+              format="tier"
+              size="supporting"
+              subtle
+              title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
+            />
+            <span className="text-[10px] leading-none text-[var(--text-secondary)]">
+              {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
+            </span>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function OverviewPillarSignalsCard({ signals }) {
+  const visibleSignals = Array.isArray(signals) ? signals.filter(Boolean) : [];
+  if (visibleSignals.length === 0) {
+    return null;
+  }
+
+  return (
+    <SectionCard
+      title="RIP Signals"
+      titleInfoText="Compact overview signals from the four RIP pillars. Full details are in Insights -> RIP Score Breakdown."
+    >
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+        {visibleSignals.map((signal) => (
+          <OverviewPillarSignalTile key={`overview-pillar:${signal.title}`} {...signal} />
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+function OpeningProfileSignalTile({ lens }) {
+  const parsedRank = toNumber(lens.rank);
+
+  return (
+    <article className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2.5">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{lens.label}</p>
+          {lens.highlight ? (
+            <p className="mt-1 truncate text-xs leading-snug text-[var(--text-primary)]">{lens.highlight}</p>
+          ) : null}
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          {lens.scoreText ? (
+            <p className="text-lg font-semibold leading-none text-[var(--text-primary)]">{lens.scoreText}</p>
+          ) : null}
+          <div className="flex flex-col items-end gap-1">
+            <RankBadge
+              rank={lens.tier}
+              format="tier"
+              size="supporting"
+              subtle
+              title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
+            />
+            <span className="text-[10px] leading-none text-[var(--text-secondary)]">
+              {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
+            </span>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function OpeningProfileSignalsCard({ summary, setIntelligenceMeta = [] }) {
+  const backendLensByKey = useMemo(
+    () => normalizeBackendSetIntelligence(setIntelligenceMeta),
+    [setIntelligenceMeta]
+  );
+
+  const signals = useMemo(
+    () =>
+      SET_INTELLIGENCE_LENSES.map((lens) => {
+        const backendLens = backendLensByKey.get(lens.key) || null;
+        const resolvedScore = resolveLensScore(lens, summary);
+        const tier = toOptionalUpper(backendLens?.tier ?? summary[lens.tierField]);
+        const rank = toNumber(summary[lens.rankField]);
+        const hasScore = resolvedScore.usedRawFallback || toNumber(resolvedScore.score) !== null;
+        const scoreText = resolvedScore.usedRawFallback
+          ? resolvedScore.rawText || null
+          : hasScore
+          ? formatLensScore(resolvedScore.score, resolvedScore.format)
+          : null;
+        const highlight =
+          backendLens?.short_summary ||
+          (hasScore || tier || rank !== null ? getLensTagline(lens, summary, resolvedScore) : null);
+
+        if (!hasScore && !tier && rank === null && !highlight) {
+          return null;
+        }
+
+        return {
+          label: backendLens?.label || lens.label,
+          scoreText,
+          tier,
+          rank,
+          highlight,
+        };
+      }).filter(Boolean),
+    [backendLensByKey, summary]
+  );
+
+  if (signals.length === 0) {
+    return null;
+  }
+
+  return (
+    <SectionCard
+      title="Opening Profile"
+      titleInfoText="Compact at-a-glance opening lenses for experience, chase potential, upside, and average return."
+    >
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+        {signals.map((signal) => (
+          <OpeningProfileSignalTile key={`opening-profile:${signal.label}`} lens={signal} />
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+function DecisionSignalRow({ signal, expanded }) {
+  const parsedRank = toNumber(signal.rankValue);
+  const summaryText = expanded
+    ? signal.detailSummary || signal.summary
+    : signal.summary || signal.detailSummary;
+
+  return (
+    <article className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-3">
+      <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem] sm:items-center">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{signal.label}</p>
+          <p className={`mt-1 text-xs leading-snug text-[var(--text-primary)] ${expanded ? "" : "line-clamp-2"}`}>
+            {summaryText}
+          </p>
+        </div>
+        <span className="inline-flex min-w-[4.25rem] items-center justify-start gap-1 text-base font-semibold leading-none text-[var(--text-primary)] tabular-nums sm:min-w-0 sm:justify-end">
+          {signal.scoreText || "—"}
+          {signal.scoreTrend ? <TrendIndicator trend={signal.scoreTrend} className="translate-y-px" /> : null}
+        </span>
+        <div className="flex min-w-[5.75rem] justify-start sm:min-w-0 sm:justify-center">
+          <RankBadge
+            rank={signal.rankTier}
+            format="tier"
+            size="supporting"
+            subtle
+            title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
+          />
+        </div>
+        <span className="min-w-[3.25rem] text-left text-[10px] leading-none text-[var(--text-secondary)] tabular-nums sm:min-w-0 sm:text-right">
+          {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] }) {
+  const [displayMode, setDisplayMode] = useState("compact");
+  const expanded = displayMode === "expanded";
+  const backendLensByKey = useMemo(
+    () => normalizeBackendSetIntelligence(setIntelligenceMeta),
+    [setIntelligenceMeta]
+  );
+
+  const signals = useMemo(() => {
+    const compactSummaries = {
+      Profitability: "Strong average upside",
+      Safety: "Manageable downside",
+      Desirability: "High collector demand",
+      Stability: "Fragile value spread",
+      "Opening Experience": "Swingy pack feel",
+      "Chase Potential": "Rare top-heavy chase",
+      "Biggest Upside": "Huge but rare spikes",
+      "Average Return": "Strong average return",
+    };
+    const signalByTitle = new Map(
+      (Array.isArray(pillarSignals) ? pillarSignals : [])
+        .filter(Boolean)
+        .map((signal) => [signal.title, signal])
+    );
+    const pillarRows = [
+      ["Profit", "Profitability", "Profit profile", "Compares average value, upside, and pack cost pressure."],
+      ["Safety", "Safety", "Miss protection", "Shows how well the set protects against rough openings and downside outcomes."],
+      ["Desirability", "Desirability", "Collector demand", "Reflects collector appeal and chase-card strength for this set."],
+      ["Stability", "Stability", "Value spread", "Shows whether value is broadly distributed or concentrated in a few cards."],
+    ]
+      .map(([title, label, fallbackSummary, detailSummary]) => {
+        const signal = signalByTitle.get(title);
+        if (!signal) return null;
+        return {
+          label,
+          scoreText: formatScore(signal.score),
+          scoreTrend: signal.scoreTrend,
+          rankTier: signal.rankTier,
+          rankValue: signal.rankValue,
+          summary: compactSummaries[label] || signal.highlight || fallbackSummary,
+          detailSummary: signal.highlight || detailSummary,
+        };
+      })
+      .filter(Boolean);
+
+    const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
+      const backendLens = backendLensByKey.get(lens.key) || null;
+      const resolvedScore = resolveLensScore(lens, summary);
+      const rankTier = toOptionalUpper(backendLens?.tier ?? summary[lens.tierField]);
+      const rankValue = toNumber(summary[lens.rankField]);
+      const hasScore = resolvedScore.usedRawFallback || toNumber(resolvedScore.score) !== null;
+      const summaryText =
+        backendLens?.short_summary ||
+        (hasScore || rankTier || rankValue !== null ? getLensTagline(lens, summary, resolvedScore) : null);
+
+      if (!hasScore && !rankTier && rankValue === null && !summaryText) {
+        return null;
+      }
+
+      return {
+        label: backendLens?.label || lens.label,
+        scoreText: resolvedScore.usedRawFallback
+          ? resolvedScore.rawText || null
+          : hasScore
+          ? formatLensScore(resolvedScore.score, resolvedScore.format)
+          : null,
+        scoreTrend: null,
+        rankTier,
+        rankValue,
+        summary: compactSummaries[backendLens?.label || lens.label] || summaryText || lens.simpleCardSummary || lens.description,
+        detailSummary:
+          backendLens?.long_summary ||
+          backendLens?.summary ||
+          summaryText ||
+          lens.simpleDetailSummary ||
+          lens.description,
+      };
+    }).filter(Boolean);
+
+    return [...pillarRows, ...openingRows].filter(Boolean);
+  }, [backendLensByKey, pillarSignals, summary]);
+
+  if (signals.length === 0) {
+    return null;
+  }
+
+  return (
+    <SectionCard
+      title="Decision Signals"
+      titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
+    >
+      <SectionViewTabs
+        className="mb-4"
+        value={displayMode}
+        onChange={setDisplayMode}
+        variant="secondary"
+        options={[
+          { value: "compact", label: "Compact" },
+          { value: "expanded", label: "Expanded" },
+        ]}
+      />
+      <div className="grid gap-2">
+        {signals.map((signal) => (
+          <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} expanded={expanded} />
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+function CompactPillarSignalTile({
+  title,
+  score,
+  scoreTrend = null,
+  rankValue,
+  rankTier,
+  statusLabel,
+  highlight,
+  metrics = [],
+  infoText,
+  detailsExpanded = false,
+}) {
+  const parsedRank = toNumber(rankValue);
+
+  return (
+    <article className="flex h-full flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</h3>
+            {infoText ? <InfoPopover text={infoText} /> : null}
+          </div>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-2xl font-semibold leading-none text-[var(--text-primary)]">
+            <span>{formatScore(score)}</span>
+            <TrendIndicator trend={scoreTrend} className="translate-y-px" />
+          </p>
+        </div>
+        <RankBadge
+          rank={rankTier}
+          format="tier"
+          size="supporting"
+          subtle
+          title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <InterpretationBadge label={statusLabel} rankTier={rankTier} className="px-2 py-0.5 text-[10px] tracking-[0.08em]" />
+        {parsedRank !== null ? (
+          <span className="text-[10px] text-[var(--text-secondary)]">Rank #{Math.round(parsedRank)}</span>
+        ) : null}
+      </div>
+
+      {highlight ? (
+        <p className="mt-2 line-clamp-2 text-xs leading-snug text-[var(--text-secondary)]">{highlight}</p>
+      ) : null}
+
+      {detailsExpanded && metrics.length > 0 ? (
+        <div className="mt-3 flex-1 border-t border-[var(--border-subtle)] pt-2">
+          <div className="mt-2 space-y-1.5">
+            {metrics.map((metric) => (
+              <MetricRow
+                key={`${title}-detail-${metric.label}`}
+                label={metric.label}
+                value={metric.value}
+                trend={metric.trend}
+                infoText={metric.infoText || getMetricTooltip(metric.label)}
+                content={metric.content}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function RipScoreBreakdownModule({
+  score,
+  scoreTrend = null,
+  rankTier,
+  rankValue,
+  verdict,
+  explanation,
+  pillars,
+  titleInfoText,
+}) {
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const parsedRank = toNumber(rankValue);
+
+  return (
+    <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
+      <article className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
+            {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => setDetailsExpanded((current) => !current)}
+            className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55"
+            aria-expanded={detailsExpanded}
+          >
+            {detailsExpanded ? "Hide Details" : "Show Details"}
+            <svg
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+              className={`h-3.5 w-3.5 opacity-70 transition-transform duration-200 ${detailsExpanded ? "rotate-180" : ""}`}
+              fill="currentColor"
+            >
+              <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="inline-flex items-end gap-1.5 text-4xl font-semibold leading-none text-[var(--text-primary)]">
+                <span>{formatRawScore(score)}</span>
+                <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
+                <TrendIndicator trend={scoreTrend} className="mb-1" />
+              </p>
+              <RankBadge
+                rank={rankTier}
+                label="Rank"
+                size="supporting"
+                title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
+              />
+              <RecommendationBadge label={verdict} rankTier={rankTier} />
+              {explanation ? <InfoPopover text={explanation} /> : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {pillars.map((pillar) => (
+            <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
+          ))}
+        </div>
+      </article>
+    </section>
   );
 }
 
@@ -1901,9 +3589,9 @@ function StatTile({ label, value, valueClassName = "text-lg", infoText = null, t
   );
 }
 
-function SectionCard({ title, subtitle, titleInfoText, children }) {
+function SectionCard({ title, subtitle, titleInfoText, children, className = "", bodyClassName = "" }) {
   return (
-    <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">
+    <article className={["w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5", className].filter(Boolean).join(" ")}>
       <div>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
@@ -1911,14 +3599,14 @@ function SectionCard({ title, subtitle, titleInfoText, children }) {
         </div>
         {subtitle ? <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">{subtitle}</p> : null}
       </div>
-      <div className="mt-4 min-w-0 max-w-full">{children}</div>
+      <div className={["mt-4 min-w-0 max-w-full", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
     </article>
   );
 }
 
 const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 
-function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl }) {
+function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, condensed = false }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
 
@@ -1929,8 +3617,8 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
   const shouldRenderImage = Boolean(imageSrc) && !hasImageError;
 
   return (
-    <div className="w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-2.5">
-      <div className="flex min-w-0 flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <div className={`w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 ${condensed ? "p-2" : "p-2.5"}`}>
+      <div className={`flex min-w-0 flex-col ${condensed ? "gap-2" : "gap-3"} sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center`}>
         <div className="flex min-w-0 items-center gap-3">
           <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
             {shouldRenderImage ? (
@@ -1950,14 +3638,14 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
             {evShare ? <p className="break-words text-xs text-[var(--text-secondary)]">{evShare} of pack value</p> : null}
           </div>
         </div>
-        <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 text-left sm:mt-0 sm:min-w-[14rem] sm:text-right">
+        <div className={`grid min-w-0 grid-cols-2 text-left sm:mt-0 sm:text-right ${condensed ? "mt-1 gap-2 sm:min-w-[11rem]" : "mt-3 gap-3 sm:min-w-[14rem]"}`}>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Estimated Card Market Price</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{condensed ? "Market Price" : "Estimated Card Market Price"}</p>
             <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{nearMintPrice === null ? "—" : formatCurrency(nearMintPrice)}</p>
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Value Contribution</p>
-            <p className="mt-1 truncate text-base font-semibold text-[var(--text-primary)]">{formatCurrency(evContribution)}</p>
+            <p className={`mt-1 truncate font-semibold text-[var(--text-primary)] ${condensed ? "text-sm" : "text-base"}`}>{formatCurrency(evContribution)}</p>
           </div>
         </div>
       </div>
@@ -1973,10 +3661,15 @@ function getTopHitCardPrice(hit) {
   // TODO: If top_hits never includes a price field, wire a backend payload field (for example price_used) in a later API-safe pass.
   return (
     toNumber(hit?.current_near_mint_price) ??
+    toNumber(hit?.currentNearMintPrice) ??
     toNumber(hit?.price_used) ??
+    toNumber(hit?.priceUsed) ??
     toNumber(hit?.market_price) ??
+    toNumber(hit?.marketPrice) ??
     toNumber(hit?.card_price) ??
+    toNumber(hit?.cardPrice) ??
     toNumber(hit?.card_market_price) ??
+    toNumber(hit?.cardMarketPrice) ??
     toNumber(hit?.price)
   );
 }
@@ -2041,7 +3734,7 @@ function SimpleTopCardsContent({ topHits }) {
   );
 }
 
-function TopEVDriversContent({ topHits, meanValue }) {
+function TopEVDriversContent({ topHits, meanValue, condensed = false }) {
   const hits = Array.isArray(topHits) ? topHits : [];
   const totalEV = toNumber(meanValue);
   const visibleTopEV = hits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
@@ -2055,15 +3748,16 @@ function TopEVDriversContent({ topHits, meanValue }) {
 
   return (
     <div className="w-full max-w-full min-w-0 space-y-2">
-      <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className={`${condensed ? "mb-2" : "mb-3"} flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{totalLabel}</span>
           {totalEV !== null ? <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} /> : null}
         </div>
         <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
       </div>
-      <p className="text-xs text-[var(--text-secondary)]">Price-based metrics use estimated third-party market snapshots and may change over time.</p>
+      {!condensed ? <p className="text-xs text-[var(--text-secondary)]">Price-based metrics use estimated third-party market snapshots and may change over time.</p> : null}
 
+      <div className={condensed ? "grid gap-2 lg:grid-cols-2" : "space-y-2"}>
       {hits.map((hit) => {
         const ev = toNumber(hit?.ev_contribution);
         const evShare = ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null;
@@ -2079,15 +3773,17 @@ function TopEVDriversContent({ topHits, meanValue }) {
             imageUrl={hit?.image_url}
             imageSmallUrl={hit?.image_small_url}
             imageLargeUrl={hit?.image_large_url}
+            condensed={condensed}
           />
         );
       })}
+      </div>
     </div>
   );
 }
 
-function RarityContributionContent({ rankings }) {
-  const rows = Array.isArray(rankings) ? rankings : [];
+function RarityContributionContent({ rankings, condensed = false }) {
+  const rows = useMemo(() => (Array.isArray(rankings) ? rankings : []), [rankings]);
 
   const evRows = useMemo(() => {
     const sorted = [...rows].sort(
@@ -2116,7 +3812,7 @@ function RarityContributionContent({ rankings }) {
       {evRows.maxEV === 0 ? (
         <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
       ) : (
-        <div className="space-y-1">
+        <div className={condensed ? "grid gap-x-4 gap-y-1 md:grid-cols-2" : "space-y-1"}>
           {evRows.sorted.map((ranking) => {
             const value = toNumber(ranking?.total_sampled_value) ?? 0;
             const valueShare = evRows.totalEV > 0 ? ((value / evRows.totalEV) * 100).toFixed(1) : null;
@@ -2216,6 +3912,36 @@ function StateBars({ stateRows }) {
   );
 }
 
+function PackBreakdownContent({ packPaths, normalStateRows, evidenceRows = [], condensed = false }) {
+  return (
+    <>
+      {evidenceRows.length > 0 ? (
+        <div className={`${condensed ? "mb-3" : "mb-4"} flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2`}>
+          {evidenceRows.map(([label, value]) => (
+            <span
+              key={`${label}:${value}`}
+              className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+            >
+              <span className="shrink-0 text-[var(--text-secondary)]">{label}</span>
+              <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className={`grid ${condensed ? "gap-4 md:grid-cols-2" : "gap-5 md:grid-cols-2"}`}>
+        <div>
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
+          <PackPathBars packPaths={packPaths} />
+        </div>
+        <div>
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
+          <StateBars stateRows={normalStateRows} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function SectionNavigation({ items, activeSection, onSelect, mobile = false }) {
   const isItemActive = (itemId) => {
     if (itemId === "outcome-distribution") {
@@ -2298,31 +4024,40 @@ function SetPageNavigationRail({
   activeTab,
   activeCardsSubTab,
   activeGraphMode,
+  showTopMarketCards = false,
   onTargetChange,
   onNavigate,
 }) {
   const topSections = [
+    { id: "overview", label: "Overview" },
     { id: "cards", label: "Cards" },
     { id: "pull-rates", label: "Pull Rates" },
-    { id: "analytics", label: "Analytics" },
+    { id: "insights", label: "Insights" },
   ];
 
   const visibleSubLinks =
-    activeTab === "cards"
+    activeTab === "overview"
       ? [
-          { id: "checklist", label: "Checklist", tab: "cards", cardsSubTab: "checklist", active: activeCardsSubTab === "checklist" },
-          { id: "simulated-impact", label: "Simulated Impact", tab: "cards", cardsSubTab: "simulated-impact", active: activeCardsSubTab === "simulated-impact" },
+          { id: "performance-vs-cost", label: "Market Snapshot", tab: "overview", section: "performance-vs-cost", graphMode: "historical-trend", targetId: "set-detail-overview-performance", active: activeGraphMode === "historical-trend" },
+          ...(showTopMarketCards
+            ? [{ id: "top-market-cards", label: "Top Chase Cards", tab: "overview", section: "top-market-cards", targetId: "set-detail-top-market-cards", active: false }]
+            : []),
+          { id: "set-signals", label: "Decision Signals", tab: "overview", section: "set-signals", targetId: "set-detail-set-intelligence", active: activeGraphMode !== "historical-trend" },
+        ]
+      : activeTab === "cards"
+      ? [
+          { id: "all-cards", label: "All Cards", tab: "cards", cardsSubTab: "checklist", active: activeCardsSubTab === "checklist" },
         ]
       : activeTab === "pull-rates"
       ? [
           { id: "pull-rate-assumptions", label: "Pull Rate Assumptions", tab: "pull-rates", active: true },
         ]
       : [
-          { id: "pillars", label: "Profit / Safety / Desirability / Stability", tab: "analytics", targetId: "set-detail-analytics", active: activeGraphMode === "outcome-distribution" },
-          { id: "value-drivers", label: "Value Drivers", tab: "analytics", targetId: "set-detail-analytics", active: false },
-          { id: "rarity-contribution", label: "Rarity Contribution", tab: "analytics", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
-          { id: "historical-trend", label: "Historical Trend", tab: "analytics", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
-          { id: "pack-breakdown", label: "Pack Breakdown", tab: "analytics", graphMode: "pack-breakdown", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "pack-breakdown" },
+          { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
+          { id: "opening-outcomes", label: "Opening Outcomes", tab: "insights", section: "opening-outcomes", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
+          { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
+          { id: "value", label: "Value Structure", tab: "insights", section: "value", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
+          { id: "pack-breakdown", label: "Pack Paths", tab: "insights", section: "pack-breakdown", graphMode: "pack-breakdown", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "pack-breakdown" },
         ];
 
   return (
@@ -2683,46 +4418,69 @@ export default function RipStatisticsPageClient({
   const [viewMode, setViewMode] = useState("simple");
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
+  const [, setInsightsValueView] = useState("value-structure");
   const effectiveViewMode = setDetailMode ? "expert" : viewMode;
   const isExpertMode = effectiveViewMode === "expert";
   const effectiveValueView = setDetailMode ? "value" : isExpertMode ? activeValueView : "cards";
   const [activeSection, setActiveSection] = useState("pack-score");
   const [heroSetPickerOpen, setHeroSetPickerOpen] = useState(false);
-  const [setDetailTab, setSetDetailTab] = useState("cards");
+  // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
+  const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
   const [checklistState, setChecklistState] = useState({
     status: "idle",
     cards: [],
     error: null,
   });
+  const [topMarketCardsState, setTopMarketCardsState] = useState({
+    status: "idle",
+    cards: [],
+    error: null,
+    meta: null,
+  });
+  const [setValueHistoryState, setSetValueHistoryState] = useState({
+    status: "idle",
+    history: [],
+    historiesByScope: {},
+    availableScopes: SET_VALUE_SCOPE_OPTIONS,
+    error: null,
+    meta: null,
+  });
   const heroSetPickerRef = useRef(null);
   const checklistCacheRef = useRef(new Map());
+  const topMarketCardsCacheRef = useRef(new Map());
+  const setValueHistoryCacheRef = useRef(new Map());
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
+  const activeInsightsGraphMode =
+    setDetailMode && setDetailTab === "insights" && graphMode === "historical-trend"
+      ? "outcome-distribution"
+      : graphMode;
 
   const graphSectionMeta =
-    graphMode === "historical-trend"
+    activeInsightsGraphMode === "historical-trend"
       ? historicalTrendMeta
-      : graphMode === "pack-breakdown"
+      : activeInsightsGraphMode === "pack-breakdown"
       ? packBreakdownMeta
-      : graphMode === "value-contribution"
+      : activeInsightsGraphMode === "value-contribution"
       ? rarityContributionMeta
       : outcomeDistributionMeta;
 
   const graphSectionFallback =
-    graphMode === "historical-trend"
+    activeInsightsGraphMode === "historical-trend"
       ? interpretation?.historicalTrend
-      : graphMode === "pack-breakdown"
+      : activeInsightsGraphMode === "pack-breakdown"
       ? interpretation?.packBreakdown
-      : graphMode === "value-contribution"
+      : activeInsightsGraphMode === "value-contribution"
       ? interpretation?.rarityContribution
       : interpretation?.outcomeDistribution;
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
-      <p className="font-semibold text-[var(--text-primary)]">What Usually Happens</p>
+      <p className="font-semibold text-[var(--text-primary)]">Opening Outcomes</p>
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
+        <li className="flex gap-2"><span className="flex-none">â€¢</span><span>{getSimulationContextSubtitle(summary.simulation_count ?? summary.packs_simulated)}</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often packs land in each value range.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows how often a pack reaches at least a given value.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>Marker chips let you compare pack cost, typical and average outcomes, floor outcomes, and upper-end upside markers against the distribution.</span></li>
@@ -2760,7 +4518,9 @@ export default function RipStatisticsPageClient({
     ([, value]) => toNumber(value) !== null
   );
 
-  const showDebugTimings = process.env.NODE_ENV !== "production";
+  const showDebugTimings =
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_SHOW_BACKEND_TIMINGS === "true";
 
   const sectionNavItems = useMemo(
     () => [
@@ -2917,8 +4677,32 @@ export default function RipStatisticsPageClient({
     scrollToExploreSection(sectionId);
   };
 
-  const handleSetDetailNavSelect = ({ tab, cardsSubTab: nextCardsSubTab, graphMode: nextGraphMode, targetId } = {}) => {
-    const nextTab = tab || setDetailTab;
+  const pushSetDetailRouteState = ({ tab, section } = {}) => {
+    if (!setDetailMode) {
+      return;
+    }
+
+    const nextHref = updateSetDetailQueryParams({
+      pathname,
+      searchParams,
+      tab: tab || setDetailTab,
+      section,
+    });
+    router.push(nextHref, { scroll: false });
+  };
+
+  const handleSetDetailTabChange = (nextTab) => {
+    const normalizedTab = normalizeSetDetailTab(nextTab);
+    setSetDetailTab(normalizedTab);
+    if (normalizedTab === "insights" && graphMode === "historical-trend") {
+      setGraphMode("outcome-distribution");
+      setActiveSection("outcome-distribution");
+    }
+    pushSetDetailRouteState({ tab: normalizedTab });
+  };
+
+  const handleSetDetailNavSelect = ({ tab, section, cardsSubTab: nextCardsSubTab, graphMode: nextGraphMode, targetId } = {}) => {
+    const nextTab = normalizeSetDetailTab(tab || setDetailTab);
 
     if (nextTab) {
       setSetDetailTab(nextTab);
@@ -2931,17 +4715,56 @@ export default function RipStatisticsPageClient({
     if (nextGraphMode) {
       setGraphMode(nextGraphMode);
       setActiveSection(nextGraphMode);
+      if (nextGraphMode === "pack-breakdown") {
+        setInsightsValueView("pack-paths");
+      } else if (nextGraphMode === "value-contribution") {
+        setInsightsValueView("value-structure");
+      }
+    } else if (nextTab === "insights" && graphMode === "historical-trend") {
+      setGraphMode("outcome-distribution");
+      setActiveSection("outcome-distribution");
     }
 
-    const fallbackTargetId =
-      nextTab === "cards"
-        ? "set-detail-cards"
-        : nextTab === "pull-rates"
-        ? "set-detail-pull-rates"
-        : "set-detail-analytics";
+    pushSetDetailRouteState({ tab: nextTab, section });
 
-    scrollToSetDetailElement(targetId || fallbackTargetId);
+    scrollToSetDetailElement(targetId || getSetDetailFallbackTargetId(nextTab));
   };
+
+  useEffect(() => {
+    if (!setDetailMode) {
+      return;
+    }
+
+    const rawTab = searchParams?.get?.("tab");
+    const nextTab = getSetDetailTabParam(searchParams);
+    const nextSection = getSetDetailSectionParam(searchParams);
+    const rawSectionTarget = isValidSetDetailTab(rawTab) ? SET_DETAIL_SECTION_TARGETS[nextSection] || null : null;
+    const sectionTarget = rawSectionTarget?.tab === nextTab ? rawSectionTarget : null;
+    const resolvedTab = nextTab;
+
+    setSetDetailTab(resolvedTab);
+
+    if (sectionTarget?.graphMode) {
+      setGraphMode(sectionTarget.graphMode);
+      setActiveSection(sectionTarget.graphMode);
+      if (sectionTarget.graphMode === "pack-breakdown") {
+        setInsightsValueView("pack-paths");
+      } else if (sectionTarget.graphMode === "value-contribution") {
+        setInsightsValueView("value-structure");
+      } else if (sectionTarget.graphMode === "simulation-drivers") {
+        setInsightsValueView("simulation-drivers");
+      }
+    } else if (resolvedTab === "insights") {
+      setGraphMode("outcome-distribution");
+      setActiveSection("outcome-distribution");
+    }
+
+    if (!nextSection) {
+      return;
+    }
+
+    scrollToSetDetailElement(sectionTarget?.targetId || getSetDetailFallbackTargetId(resolvedTab));
+  }, [setDetailMode, searchParams]);
 
   useEffect(() => {
     const nextActiveSection = resolveActiveSectionFromScroll();
@@ -3092,6 +4915,30 @@ export default function RipStatisticsPageClient({
 
   const averageHitValueDisplay = averageHitValue === null ? "Coming soon" : formatCurrency(averageHitValue);
   const setValueDisplay = setValue === null ? "Coming soon" : formatCurrency(setValue);
+  const normalizedTopShareForMarket =
+    toNumber(summary.top1_ev_share) === null
+      ? null
+      : toNumber(summary.top1_ev_share) <= 1
+      ? toNumber(summary.top1_ev_share) * 100
+      : toNumber(summary.top1_ev_share);
+  const marketReadSummary = getMarketReadSummary({
+    packCost: toNumber(summary.pack_cost),
+    averagePackValue: toNumber(summary.mean_value),
+    returnRatio: toNumber(meanValueToCostRatio),
+    setValue,
+    topShare: normalizedTopShareForMarket,
+    chaseDepth: toNumber(summary.effective_chase_count),
+  });
+  const compactMarketReadSummary = getCompactMarketRead({
+    packCost: toNumber(summary.pack_cost),
+    averagePackValue: toNumber(summary.mean_value),
+    returnRatio: toNumber(meanValueToCostRatio),
+    setValue,
+    topShare: normalizedTopShareForMarket,
+    chaseDepth: toNumber(summary.effective_chase_count),
+  });
+  const simulationCount = summary.simulation_count ?? summary.packs_simulated;
+  const openingOutcomesSubtitle = getSimulationContextSubtitle(simulationCount);
   const normalizedHistoryTrendPoints = Array.isArray(historyTrend)
     ? historyTrend.map((row, index) => normalizeHistoryTrendPoint(row, index, null))
     : [];
@@ -3256,6 +5103,57 @@ export default function RipStatisticsPageClient({
     }),
   };
 
+  const marketReadMetrics = [
+    {
+      label: "Set Value",
+      rawValue: setValue,
+      value: setValueDisplay,
+      trend: trendByMetricKey.setValue,
+      infoText: "Simulated set value: one priced copy per unique card identity in this simulation universe.",
+    },
+    {
+      label: "Pack Price",
+      rawValue: toNumber(summary.pack_cost),
+      value: formatCurrency(summary.pack_cost),
+      trend: trendByMetricKey.packCost,
+      infoText: "Estimated current pack market price used by the simulation.",
+    },
+    {
+      label: "Average Pack Value",
+      rawValue: toNumber(summary.mean_value),
+      value: formatCurrency(summary.mean_value),
+      trend: trendByMetricKey.averagePackValue,
+      infoText: SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT,
+    },
+    {
+      label: "Return vs Cost",
+      rawValue: toNumber(meanValueToCostRatio),
+      value: formatNumber(meanValueToCostRatio, 2),
+      trend: trendByMetricKey.averageReturnVsCost,
+      infoText: "Modeled average pack value divided by estimated pack market price.",
+    },
+  ].filter((metric) => metric.rawValue !== null);
+  const topPricedCardsResult = getTopPricedCards({
+    topMarketCards: topMarketCardsState.cards,
+    checklistCards: checklistState.cards,
+  });
+  const topPricedCards = topPricedCardsResult.cards;
+  const hasTopPricedCards = topPricedCards.length > 0;
+  const shouldShowTopMarketCards =
+    topMarketCardsState.status === "loading" || topMarketCardsState.status === "error" || hasTopPricedCards;
+  const topPricedCardsStatus =
+    topMarketCardsState.status === "error" && !hasTopPricedCards
+      ? "error"
+      : hasTopPricedCards
+      ? "success"
+      : topMarketCardsState.status === "loading" || topMarketCardsState.status === "idle"
+      ? "loading"
+      : "success";
+  const topPricedCardsInfo =
+    topPricedCardsResult.source === "topMarketCards"
+      ? "Highest priced chase-card variants from the current set calculation, sorted by estimated card market price descending."
+      : "Highest checklist card market prices in this set, sorted by estimated card market price descending.";
+
   const decisionMetrics = [
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost), trend: trendByMetricKey.packCost },
     { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value), trend: trendByMetricKey.averagePackValue },
@@ -3285,6 +5183,93 @@ export default function RipStatisticsPageClient({
     { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
     { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2), trend: trendByMetricKey.chaseDepth },
   ];
+  const chanceToMissPackCostValue =
+    normalizeProbability(summary.prob_profit) === null ? null : 1 - normalizeProbability(summary.prob_profit);
+  const profitPillarMetrics = [
+    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost), trend: trendByMetricKey.packCost },
+    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value), trend: trendByMetricKey.averagePackValue },
+    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatSignedCurrency(simpleAverageLossValue), trend: trendByMetricKey.averageLoss },
+    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
+    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
+    { label: "Average Return vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
+    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+  ];
+  const safetyPillarMetrics = [
+    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Pack Value") },
+    { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.badPackFloorValue, infoText: getMetricTooltip("Bad Pack Floor Value") },
+    { label: "Chance to Miss Pack Cost", value: formatPercent(chanceToMissPackCostValue, { probability: true }), trend: trendByMetricKey.chanceToMissPackCost, infoText: getMetricTooltip("Chance to Miss Pack Cost") },
+    { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), trend: trendByMetricKey.averageLossWhenYouMiss, infoText: getMetricTooltip("Average Loss When You Miss") },
+    { label: "Typical Loss When You Miss", value: formatLossCurrency(summary.median_loss_when_losing), trend: trendByMetricKey.typicalLossWhenYouMiss, infoText: getMetricTooltip("Typical Loss When You Miss") },
+    { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.worstFivePercentShortfall?.trend === "unknown" ? trendByMetricKey.badPackFloorValue : trendByMetricKey.worstFivePercentShortfall, infoText: getMetricTooltip("Worst 5% Outcome") },
+  ];
+  const desirabilityPillarMetrics = [
+    ...desirabilityOverviewMetrics,
+    {
+      label: "Top Collector Appeal Drivers",
+      value: null,
+      content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
+      trend: null,
+    },
+  ];
+  const stabilityPillarMetrics = [
+    { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2), trend: trendByMetricKey.chaseDepth },
+    { label: "Top Chase Share", value: formatPercent(summary.top1_ev_share), trend: trendByMetricKey.top1Share },
+    { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
+    { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2), trend: trendByMetricKey.outcomeVolatility },
+    { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share), trend: trendByMetricKey.top3Share },
+    { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share), trend: trendByMetricKey.top5Share },
+  ];
+  const ripBreakdownInfo =
+    "RIP Score combines profit, safety, desirability, and stability into a collector-facing opening score.";
+  const ripPillarTiles = [
+    {
+      title: "Profit",
+      score: displayedProfitScore,
+      scoreTrend: trendByMetricKey.profitScore,
+      rankValue: summary.profit_rank,
+      rankTier: summary.profit_tier,
+      statusLabel: getPillarStatusLabel({ label: profitMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]?.state, score: displayedProfitScore }),
+      highlight: getPillarSignalHighlight("Profit", displayedProfitScore),
+      metrics: profitPillarMetrics,
+      infoText: getFormattedTooltip("Profit"),
+    },
+    {
+      title: "Safety",
+      score: displayedSafetyScore,
+      scoreTrend: trendByMetricKey.safetyScore,
+      rankValue: summary.safety_rank,
+      rankTier: summary.safety_tier,
+      statusLabel: getPillarStatusLabel({ label: safetyMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]?.state, score: displayedSafetyScore }),
+      highlight: getPillarSignalHighlight("Safety", displayedSafetyScore),
+      metrics: safetyPillarMetrics,
+      infoText: getFormattedTooltip("Safety"),
+    },
+    {
+      title: "Desirability",
+      score: displayedDesirabilityScore,
+      scoreTrend: trendByMetricKey.desirabilityScore,
+      rankValue: summary.desirability_rank,
+      rankTier: summary.desirability_tier,
+      statusLabel: getPillarStatusLabel({ label: desirabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]?.state, score: displayedDesirabilityScore }),
+      highlight: getPillarSignalHighlight("Desirability", displayedDesirabilityScore),
+      metrics: desirabilityPillarMetrics,
+      infoText: SIMPLE_PILLAR_INFO_COPY.Desirability,
+    },
+    {
+      title: "Stability",
+      score: displayedStabilityScore,
+      scoreTrend: trendByMetricKey.stabilityScore,
+      rankValue: summary.stability_rank,
+      rankTier: summary.stability_tier,
+      statusLabel: getPillarStatusLabel({ label: stabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]?.state, score: displayedStabilityScore }),
+      highlight: getPillarSignalHighlight("Stability", displayedStabilityScore),
+      metrics: stabilityPillarMetrics,
+      infoText: getFormattedTooltip("Stability"),
+    },
+  ];
+  const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
 
   const handleTargetIdChange = (nextTargetId, options = {}) => {
     if (!nextTargetId) {
@@ -3295,7 +5280,9 @@ export default function RipStatisticsPageClient({
       options.closeToolsPanel();
     }
 
-    const nextHref = targetHrefById?.[nextTargetId] || null;
+    const nextHref = setDetailMode
+      ? appendSetDetailIntentToHref(targetHrefById?.[nextTargetId] || null, { tab: setDetailTab })
+      : targetHrefById?.[nextTargetId] || null;
 
     startTransition(() => {
       if (nextHref) {
@@ -3348,7 +5335,12 @@ export default function RipStatisticsPageClient({
   }, [requestedTargetId]);
 
   useEffect(() => {
-    if (!setDetailMode || setDetailTab !== "cards" || cardsSubTab !== "checklist") {
+    const shouldLoadChecklist =
+      setDetailMode &&
+      ((setDetailTab === "market" || setDetailTab === "overview") ||
+        (setDetailTab === "cards" && cardsSubTab === "checklist"));
+
+    if (!shouldLoadChecklist) {
       return undefined;
     }
 
@@ -3400,6 +5392,191 @@ export default function RipStatisticsPageClient({
     };
   }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId]);
 
+  useEffect(() => {
+    const shouldLoadMarketData =
+      setDetailMode && setDetailTab === "overview";
+
+    if (!shouldLoadMarketData) {
+      return undefined;
+    }
+
+    const setId = String(requestedTargetId || "").trim();
+    if (!setId) {
+      setTopMarketCardsState({ status: "empty", cards: [], error: null, meta: null });
+      setSetValueHistoryState({ status: "empty", history: [], error: null, meta: null });
+      return undefined;
+    }
+
+    const cachedTopCards = topMarketCardsCacheRef.current.get(setId);
+    if (cachedTopCards) {
+      setTopMarketCardsState({
+        status: cachedTopCards.cards.length > 0 ? "success" : "empty",
+        cards: cachedTopCards.cards,
+        error: null,
+        meta: cachedTopCards.meta,
+      });
+    } else {
+      let isTopCardsCancelled = false;
+      setTopMarketCardsState((previous) => ({
+        status: "loading",
+        cards: previous.status === "success" ? previous.cards : [],
+        error: null,
+        meta: previous.meta,
+      }));
+
+      getPokemonSetTopMarketCards(setId, { limit: 10 })
+        .then((payload) => {
+          if (isTopCardsCancelled) {
+            return;
+          }
+          const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+          const cacheEntry = { cards, meta: payload?.meta || null };
+          topMarketCardsCacheRef.current.set(setId, cacheEntry);
+          setTopMarketCardsState({
+            status: cards.length > 0 ? "success" : "empty",
+            cards,
+            error: null,
+            meta: cacheEntry.meta,
+          });
+        })
+        .catch((error) => {
+          if (isTopCardsCancelled) {
+            return;
+          }
+          setTopMarketCardsState({
+            status: "error",
+            cards: [],
+            error: error?.message || "Unable to load market cards for this set.",
+            meta: null,
+          });
+        });
+
+      return () => {
+        isTopCardsCancelled = true;
+      };
+    }
+
+    return undefined;
+  }, [setDetailMode, setDetailTab, requestedTargetId]);
+
+  useEffect(() => {
+    const shouldLoadValueHistory =
+      setDetailMode && setDetailTab === "overview";
+
+    if (!shouldLoadValueHistory) {
+      return undefined;
+    }
+
+    const setId = String(requestedTargetId || "").trim();
+    if (!setId) {
+      setSetValueHistoryState({
+        status: "empty",
+        history: [],
+        historiesByScope: {},
+        availableScopes: SET_VALUE_SCOPE_OPTIONS,
+        error: null,
+        meta: null,
+      });
+      return undefined;
+    }
+
+    const cached = setValueHistoryCacheRef.current.get(setId);
+    if (cached) {
+      setSetValueHistoryState({
+        status: cached.history.length > 0 ? "success" : "empty",
+        history: cached.history,
+        historiesByScope: cached.historiesByScope || {},
+        availableScopes: cached.availableScopes || SET_VALUE_SCOPE_OPTIONS,
+        error: null,
+        meta: cached.meta,
+      });
+      return undefined;
+    }
+
+    let isCancelled = false;
+    setSetValueHistoryState((previous) => ({
+      status: "loading",
+      history: previous.status === "success" ? previous.history : [],
+      historiesByScope: previous.status === "success" ? previous.historiesByScope : {},
+      availableScopes: previous.availableScopes || SET_VALUE_SCOPE_OPTIONS,
+      error: null,
+      meta: previous.meta,
+    }));
+
+    Promise.allSettled(
+      SET_VALUE_SCOPE_OPTIONS.map((scopeOption) =>
+        getPokemonSetValueHistory(setId, {
+          days: SET_VALUE_HISTORY_REQUEST_DAYS,
+          scope: scopeOption.key,
+        }).then((payload) => ({ scope: scopeOption.key, payload }))
+      )
+    )
+      .then((results) => {
+        if (isCancelled) {
+          return;
+        }
+        const fulfilled = results
+          .filter((result) => result.status === "fulfilled")
+          .map((result) => result.value);
+        if (fulfilled.length === 0) {
+          const rejected = results.find((result) => result.status === "rejected");
+          throw rejected?.reason || new Error("Unable to load set value history for this set.");
+        }
+
+        const historiesByScope = {};
+        const availableScopeKeys = new Set();
+        let meta = null;
+        fulfilled.forEach(({ scope, payload }) => {
+          const history = Array.isArray(payload?.history) ? payload.history : [];
+          historiesByScope[scope] = history;
+          if (history.length > 0) {
+            availableScopeKeys.add(scope);
+          }
+          if (!meta || scope === "standard") {
+            meta = payload?.meta || null;
+          }
+          (payload?.meta?.availableScopes || []).forEach((entry) => {
+            if (entry?.key) {
+              availableScopeKeys.add(entry.key);
+            }
+          });
+        });
+
+        const availableScopes = SET_VALUE_SCOPE_OPTIONS.filter((entry) =>
+          availableScopeKeys.size === 0 ? true : availableScopeKeys.has(entry.key)
+        );
+        const history = historiesByScope.standard || [];
+        const hasAnyHistory = Object.values(historiesByScope).some((scopeHistory) => scopeHistory.length > 0);
+        const cacheEntry = { history, historiesByScope, availableScopes, meta };
+        setValueHistoryCacheRef.current.set(setId, cacheEntry);
+        setSetValueHistoryState({
+          status: hasAnyHistory ? "success" : "empty",
+          history,
+          historiesByScope,
+          availableScopes,
+          error: null,
+          meta: cacheEntry.meta,
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setSetValueHistoryState({
+          status: "error",
+          history: [],
+          historiesByScope: {},
+          availableScopes: SET_VALUE_SCOPE_OPTIONS,
+          error: error?.message || "Unable to load set value history for this set.",
+          meta: null,
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [setDetailMode, setDetailTab, requestedTargetId]);
+
   const setDetailSidebarContent = (
     <SetPageNavigationRail
       targets={targets}
@@ -3410,6 +5587,7 @@ export default function RipStatisticsPageClient({
       activeTab={setDetailTab}
       activeCardsSubTab={cardsSubTab}
       activeGraphMode={graphMode}
+      showTopMarketCards={shouldShowTopMarketCards}
       onTargetChange={handleTargetChange}
       onNavigate={handleSetDetailNavSelect}
     />
@@ -3557,6 +5735,7 @@ export default function RipStatisticsPageClient({
         centerContentIgnoringSidebar={!setDetailMode}
         desktopSidebarClassName={setDetailMode ? "xl:w-[244px] xl:min-w-[244px] xl:pl-4 xl:pr-3" : ""}
         desktopContentOffsetClassName="xl:flex xl:justify-center"
+        contentShellClassName={setDetailMode ? "lg:w-full lg:max-w-[1440px] lg:px-4 2xl:px-5" : undefined}
         wrapDesktopContentInFrame={false}
         mobileBottomNavVariant="flat"
         mobileBottomNavContent={() => (
@@ -3571,7 +5750,7 @@ export default function RipStatisticsPageClient({
         <div
           className={`dashboard-container w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
             setDetailMode
-              ? "mx-auto max-w-7xl space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
+              ? "mx-auto max-w-[1400px] space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
               : "space-y-8 xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border"
           }`}
         >
@@ -3602,7 +5781,7 @@ export default function RipStatisticsPageClient({
                     ) : null}
                   </div>
 
-                  <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-4">
+                  <div className="relative z-10 mx-auto flex w-full max-w-[1360px] flex-col gap-4">
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] lg:items-stretch">
                       <div className="flex h-full min-h-full flex-col gap-3">
                       <div ref={heroSetPickerRef} data-hero-picker className="relative z-20 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
@@ -3690,6 +5869,13 @@ export default function RipStatisticsPageClient({
                               />
                               <RecommendationBadge label={recommendationBadge} rankTier={summary.pack_tier} />
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
+                              className="inline-flex w-fit items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                            >
+                              View RIP Breakdown
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -3729,15 +5915,63 @@ export default function RipStatisticsPageClient({
                   <SectionViewTabs
                     className="mt-2"
                     value={setDetailTab}
-                    onChange={setSetDetailTab}
+                    onChange={handleSetDetailTabChange}
                     variant="primary"
                     options={[
+                      { value: "overview", label: "Overview" },
                       { value: "cards", label: "Cards" },
                       { value: "pull-rates", label: "Pull Rates" },
-                      { value: "analytics", label: "Analytics" },
+                      { value: "insights", label: "Insights" },
                     ]}
                   />
                 </div>
+
+                {setDetailTab === "overview" ? (
+                  <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
+                    <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
+                      <div className="min-w-0 lg:h-full">
+                        <SetValueTrendCard
+                          history={setValueHistoryState.history}
+                          historiesByScope={setValueHistoryState.historiesByScope}
+                          availableScopes={setValueHistoryState.availableScopes}
+                          status={setValueHistoryState.status}
+                          error={setValueHistoryState.error}
+                        />
+                      </div>
+                      <div className="min-w-0 lg:h-full">
+                        <SectionCard
+                          title="Performance vs Cost"
+                          titleInfoText="Compares current pack price against modeled pack value and recent performance when history is available."
+                          className="flex h-full flex-col"
+                          bodyClassName="flex min-h-0 flex-1 flex-col"
+                        >
+                          <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} flush />
+                        </SectionCard>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)] lg:items-start">
+                      {shouldShowTopMarketCards ? (
+                        <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                          <TopChaseCardsModule
+                            cards={topPricedCards}
+                            status={topPricedCardsStatus}
+                            error={topMarketCardsState.error}
+                            infoText={topPricedCardsInfo}
+                          />
+                        </div>
+                      ) : null}
+
+                      <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                        <DecisionSignalsCard
+                          pillarSignals={overviewPillarSignals}
+                          summary={summary}
+                          setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                        />
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
 
                 {setDetailTab === "cards" ? (
                   <section id="set-detail-cards" className="scroll-mt-24 space-y-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(2,6,23,0.68))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_54px_rgba(2,6,23,0.28)] backdrop-blur-md md:scroll-mt-28 md:p-6">
@@ -3746,8 +5980,7 @@ export default function RipStatisticsPageClient({
                       onChange={setCardsSubTab}
                       variant="secondary"
                       options={[
-                        { value: "checklist", label: "Checklist" },
-                        { value: "simulated-impact", label: "Simulated Impact" },
+                        { value: "checklist", label: "All Cards" },
                       ]}
                     />
 
@@ -3766,7 +5999,7 @@ export default function RipStatisticsPageClient({
                         ) : null}
 
                         {checklistState.status === "success" ? (
-                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                             {checklistState.cards.map((card) => (
                               <ChecklistCardTile
                                 key={`${card.id || card.cardNumber || card.name}`}
@@ -3776,40 +6009,7 @@ export default function RipStatisticsPageClient({
                           </div>
                         ) : null}
                       </div>
-                    ) : (
-                      <div className="min-w-0 space-y-4">
-                        <div>
-                          <h3 className="text-base font-semibold text-[var(--text-primary)]">Simulated Impact</h3>
-                          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                            Cards ranked by how much they contribute to the simulated pack value.
-                          </p>
-                        </div>
-
-                        <InterpretationInsight
-                          sectionMeta={topEvDriversMeta}
-                          fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
-                          compact
-                          showEvidence={false}
-                          className="mb-3"
-                        />
-
-                        {topEvEvidenceRows.length > 0 ? (
-                          <div className="mb-3 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
-                            {topEvEvidenceRows.map(([label, value]) => (
-                              <span
-                                key={`${label}:${value}`}
-                                className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
-                              >
-                                <span className="shrink-0">{label}</span>
-                                <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-
-                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
-                      </div>
-                    )}
+                    ) : null}
                   </section>
                 ) : null}
 
@@ -3825,7 +6025,7 @@ export default function RipStatisticsPageClient({
               </>
             ) : null}
 
-            {!setDetailMode || setDetailTab === "analytics" ? (
+            {!setDetailMode || setDetailTab === "insights" ? (
               <>
             {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
@@ -4142,8 +6342,100 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {effectiveViewMode === "expert" ? (
-            <section id={setDetailMode ? "set-detail-analytics" : undefined} className="scroll-mt-24 space-y-4 pt-4 md:scroll-mt-28">
+            {setDetailMode ? (
+              <section id="set-detail-insights" className="scroll-mt-24 space-y-4 pt-0 md:scroll-mt-28">
+                <RipScoreBreakdownModule
+                  score={topScoreRaw}
+                  scoreTrend={trendByMetricKey.ripScore}
+                  rankTier={summary.pack_tier}
+                  rankValue={summary.pack_rank}
+                  verdict={recommendationBadge}
+                  explanation={recommendationSummary}
+                  pillars={ripPillarTiles}
+                  titleInfoText={ripBreakdownInfo}
+                />
+
+                <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
+                  <SectionCard
+                    title="Opening Outcomes"
+                    className="min-h-[38rem]"
+                    bodyClassName="min-h-[32rem]"
+                    subtitle={activeInsightsGraphMode === "outcome-distribution" ? openingOutcomesSubtitle : null}
+                    titleInfoText={
+                      activeInsightsGraphMode === "value-contribution"
+                        ? rarityContributionInfo
+                        : activeInsightsGraphMode === "simulation-drivers"
+                        ? "Cards contributing most to modeled pack value after pull odds are applied."
+                        : activeInsightsGraphMode === "pack-breakdown"
+                        ? "Simulation pack paths and normal pack states used by this set model."
+                        : outcomeDistributionInfo
+                    }
+                  >
+                    <SectionViewTabs
+                      className="mb-4"
+                      value={activeInsightsGraphMode}
+                      onChange={(nextView) => {
+                        setGraphMode(nextView);
+                        setActiveSection(nextView);
+                        if (nextView === "pack-breakdown") {
+                          setInsightsValueView("pack-paths");
+                        } else if (nextView === "value-contribution") {
+                          setInsightsValueView("value-structure");
+                        } else if (nextView === "simulation-drivers") {
+                          setInsightsValueView("simulation-drivers");
+                        }
+                      }}
+                      variant="secondary"
+                      options={[
+                        { value: "outcome-distribution", label: "Outcome Distribution" },
+                        { value: "simulation-drivers", label: "Simulation Drivers" },
+                        { value: "value-contribution", label: "Value Structure" },
+                        { value: "pack-breakdown", label: "Pack Paths" },
+                      ]}
+                    />
+
+                    {activeInsightsGraphMode === "simulation-drivers" ? (
+                      <div id="set-detail-simulation-drivers" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
+                        <InterpretationInsight
+                          sectionMeta={topEvDriversMeta}
+                          fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
+                          compact
+                          showEvidence={false}
+                          className="mb-3"
+                        />
+                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed />
+                      </div>
+                    ) : activeInsightsGraphMode === "value-contribution" ? (
+                      <div id="set-detail-value-structure" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
+                        <InterpretationInsight
+                          sectionMeta={rarityContributionMeta}
+                          fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
+                          compact
+                          showEvidence
+                          maxEvidence={4}
+                          className="mb-3"
+                        />
+                        <RarityContributionContent rankings={rankings} condensed />
+                      </div>
+                    ) : activeInsightsGraphMode === "pack-breakdown" ? (
+                      <div id="set-detail-pack-breakdown" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
+                        <PackBreakdownContent
+                          packPaths={ripStatistics?.pack_paths}
+                          normalStateRows={normalStateRows}
+                          evidenceRows={packBreakdownEvidenceRows}
+                          condensed
+                        />
+                      </div>
+                    ) : (
+                      <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
+                    )}
+                  </SectionCard>
+                </section>
+              </section>
+            ) : null}
+
+            {effectiveViewMode === "expert" && !setDetailMode ? (
+            <section className="scroll-mt-24 space-y-4 pt-4 md:scroll-mt-28">
               <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
                 {/* Expert pillar metrics: Overview should be user-readable outcomes; Details should prioritize direct score inputs or close precursors. Context rows are allowed only when they clarify pillar behavior. Do not reuse hero Score Details mappings for pillar Details without ownership audit. */}
                 <ScorePillarCard
@@ -4191,26 +6483,28 @@ export default function RipStatisticsPageClient({
                     { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.worstFivePercentShortfall?.trend === "unknown" ? trendByMetricKey.badPackFloorValue : trendByMetricKey.worstFivePercentShortfall, infoText: getMetricTooltip("Worst 5% Outcome") },
                   ]}
                 />
-                <ScorePillarCard
-                  title="Desirability"
-                  score={displayedDesirabilityScore}
-                  scoreTrend={trendByMetricKey.desirabilityScore}
-                  rankValue={summary.desirability_rank}
-                  rankTier={summary.desirability_tier}
-                  rankLabel="Desirability Rank"
-                  sectionMeta={desirabilityMeta}
-                  fallbackSummary={desirabilitySummary}
-                  infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
-                  simpleMetrics={desirabilityOverviewMetrics}
-                  advancedMetrics={[
-                    {
-                      label: "Top Collector Appeal Drivers",
-                      value: null,
-                      content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
-                      trend: null,
-                    },
-                  ]}
-                />
+                <div id="set-detail-desirability" className="h-full scroll-mt-24 md:scroll-mt-28">
+                  <ScorePillarCard
+                    title="Desirability"
+                    score={displayedDesirabilityScore}
+                    scoreTrend={trendByMetricKey.desirabilityScore}
+                    rankValue={summary.desirability_rank}
+                    rankTier={summary.desirability_tier}
+                    rankLabel="Desirability Rank"
+                    sectionMeta={desirabilityMeta}
+                    fallbackSummary={desirabilitySummary}
+                    infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
+                    simpleMetrics={desirabilityOverviewMetrics}
+                    advancedMetrics={[
+                      {
+                        label: "Top Collector Appeal Drivers",
+                        value: null,
+                        content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
+                        trend: null,
+                      },
+                    ]}
+                  />
+                </div>
                 <ScorePillarCard
                   title="Stability"
                   score={displayedStabilityScore}
@@ -4235,10 +6529,27 @@ export default function RipStatisticsPageClient({
                   ]}
                 />
               </div>
+              {setDetailMode ? (
+                <div id="set-detail-simulation-cards" className="scroll-mt-24 md:scroll-mt-28">
+                  <SectionCard
+                    title="Cards Driving the Simulation"
+                    subtitle="Cards contributing most to modeled pack value."
+                  >
+                    <InterpretationInsight
+                      sectionMeta={topEvDriversMeta}
+                      fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
+                      compact
+                      showEvidence={false}
+                      className="mb-3"
+                    />
+                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                  </SectionCard>
+                </div>
+              ) : null}
             </section>
             ) : null}
 
-            {effectiveViewMode === "expert" ? (
+            {effectiveViewMode === "expert" && !setDetailMode ? (
               <SetIntelligenceSection
                 summary={summary}
                 simpleMode={false}
@@ -4246,38 +6557,38 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-            {effectiveViewMode === "expert" ? (
+            {effectiveViewMode === "expert" && !setDetailMode ? (
             <section id={ANALYSIS_SECTION_ID} style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="scroll-mt-24 pt-4 md:scroll-mt-28">
               <SectionCard
                 title={
-                  graphMode === "historical-trend"
+                  activeInsightsGraphMode === "historical-trend"
                     ? RIP_COPY.sections.historicalTrend
-                    : graphMode === "pack-breakdown"
+                    : activeInsightsGraphMode === "pack-breakdown"
                     ? RIP_COPY.sections.packBreakdown
-                    : graphMode === "value-contribution"
+                    : activeInsightsGraphMode === "value-contribution"
                     ? "Value Contribution"
                     : RIP_COPY.sections.outcomeDistribution
                 }
                 subtitle={
-                  graphMode === "outcome-distribution"
-                    ? "See where a typical pack lands, how often packs miss, and how far the best hits can run."
+                  activeInsightsGraphMode === "outcome-distribution"
+                    ? openingOutcomesSubtitle
                     : null
                 }
                 titleInfoText={
-                  graphMode === "outcome-distribution"
+                  activeInsightsGraphMode === "outcome-distribution"
                     ? outcomeDistributionInfo
-                    : graphMode === "value-contribution"
+                    : activeInsightsGraphMode === "value-contribution"
                     ? rarityContributionInfo
                     : null
                 }
               >
                 <SectionViewTabs
                   className="mb-4"
-                  value={graphMode}
+                  value={activeInsightsGraphMode}
                   onChange={handleSectionSelect}
                   options={[
                     { value: "outcome-distribution", label: RIP_COPY.sections.outcomeDistribution },
-                    { value: "historical-trend", label: RIP_COPY.sections.historicalTrend },
+                    ...(!setDetailMode ? [{ value: "historical-trend", label: RIP_COPY.sections.historicalTrend }] : []),
                     { value: "pack-breakdown", label: RIP_COPY.sections.packBreakdown },
                     ...(setDetailMode ? [{ value: "value-contribution", label: "Value Contribution" }] : []),
                   ]}
@@ -4291,7 +6602,7 @@ export default function RipStatisticsPageClient({
                   className="mb-3"
                 />
 
-                {graphMode === "pack-breakdown" && packBreakdownEvidenceRows.length > 0 ? (
+                {activeInsightsGraphMode === "pack-breakdown" && packBreakdownEvidenceRows.length > 0 ? (
                   <div className="mb-4 flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2">
                     {packBreakdownEvidenceRows.map(([label, value]) => (
                       <span
@@ -4305,9 +6616,9 @@ export default function RipStatisticsPageClient({
                   </div>
                 ) : null}
 
-                {graphMode === "historical-trend" ? (
+                {activeInsightsGraphMode === "historical-trend" ? (
                   <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} />
-                ) : graphMode === "pack-breakdown" ? (
+                ) : activeInsightsGraphMode === "pack-breakdown" ? (
                   <div className="grid gap-5 md:grid-cols-2">
                     <div>
                       <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
@@ -4318,7 +6629,7 @@ export default function RipStatisticsPageClient({
                       <StateBars stateRows={normalStateRows} />
                     </div>
                   </div>
-                ) : graphMode === "value-contribution" ? (
+                ) : activeInsightsGraphMode === "value-contribution" ? (
                   <div className="space-y-3">
                     <div>
                       <p className="text-base font-semibold text-[var(--text-primary)]">Where the Value Comes From</p>
@@ -4330,9 +6641,9 @@ export default function RipStatisticsPageClient({
                   <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
                 )}
 
-                {graphMode !== "pack-breakdown" && graphMode !== "value-contribution" ? (
+                {activeInsightsGraphMode !== "pack-breakdown" && activeInsightsGraphMode !== "value-contribution" ? (
                   <>
-                    {graphMode === "historical-trend" ? (
+                    {activeInsightsGraphMode === "historical-trend" ? (
                       <div className="mt-4 hidden gap-3 sm:grid-cols-3 lg:grid lg:grid-cols-6">
                         <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} trend={trendByMetricKey.chanceToBeatPackCost} />
                         <StatTile label={RIP_COPY.chartStats.chanceAtBigPull} value={formatPercent(summary.prob_big_hit, { probability: true })} trend={trendByMetricKey.chanceAtBigPull} />
@@ -4353,7 +6664,7 @@ export default function RipStatisticsPageClient({
                       </div>
                     ) : null}
 
-                    {graphMode === "historical-trend" ? (
+                    {activeInsightsGraphMode === "historical-trend" ? (
                       <MobileMetricAccordion title="Metrics" defaultOpen={false} className="mt-4">
                         <div className="grid gap-3 sm:grid-cols-2">
                           <StatTile label={RIP_COPY.chartStats.chanceToBeatPackCost} value={formatPercent(summary.prob_profit, { probability: true })} trend={trendByMetricKey.chanceToBeatPackCost} />

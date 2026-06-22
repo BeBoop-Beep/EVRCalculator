@@ -26,7 +26,7 @@ export default async function RipStatisticsPage({ searchParams }) {
   if (!requestedTargetId) {
     if (defaultTarget?.target_type && defaultTarget?.target_id) {
       if (String(defaultTarget.target_type).toLowerCase() === "set") {
-        redirect(buildTcgSetHrefFromTarget(defaultTarget));
+        redirect(buildTcgSetHrefFromTarget(defaultTarget, { tab: "insights", section: "rip-score" }));
       }
       redirect(`/Explore/rip-statistics?target_type=${encodeURIComponent(defaultTarget.target_type)}&target_id=${encodeURIComponent(defaultTarget.target_id)}`);
     }
@@ -35,7 +35,7 @@ export default async function RipStatisticsPage({ searchParams }) {
   if (requestedTargetType === "set" && requestedTargetId) {
     const matchingSetTarget = targets.find((target) => String(target?.target_id || "") === requestedTargetId);
     if (matchingSetTarget) {
-      redirect(buildTcgSetHrefFromTarget(matchingSetTarget));
+      redirect(buildTcgSetHrefFromTarget(matchingSetTarget, { tab: "insights", section: "rip-score" }));
     }
   }
 

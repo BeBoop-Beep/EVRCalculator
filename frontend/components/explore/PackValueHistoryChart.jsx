@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   CartesianGrid,
@@ -13,15 +13,27 @@ import {
   YAxis,
 } from "recharts";
 
-import InfoPopover from "@/components/ui/InfoPopover";
+import { POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import {
+  filterHistoryPointsForDeltaWindow,
+  getSelectedDeltaWindowFromHistory,
+} from "@/lib/explore/marketDeltaWindows.mjs";
+import {
+  forwardFillDailyHistoryThroughToday,
   normalizeHistoryTrendPoint,
   patchLatestHistoryRowWithSummaryRatios,
 } from "./packValueHistoryNormalization.mjs";
+import {
+  buildPerformanceTooltipRows,
+  formatPerformanceCurrency,
+  formatPerformanceRatio,
+  formatReturnMultiple,
+} from "./performanceVsCostFormatting.mjs";
+import { formatHistoryDate } from "./historyDateFormatting.mjs";
 
 // ─── Color tokens for this chart only ────────────────────────────────────────
 const HISTORICAL_TREND_COLORS = {
-  meanToCost:   "rgba(20,184,166,0.98)",      // emerald/teal — primary value signal
+  meanToCost:   POSITIVE_VALUE_COLOR,          // shared positive value signal
   meanLabel:    "rgba(183,245,231,0.86)",
   medianToCost: "rgba(99,130,191,0.90)",      // blue-slate — secondary, visible but not competing
   medianLabel:  "rgba(180,200,230,0.82)",
@@ -57,24 +69,11 @@ function firstFiniteMetric(raw, keys) {
 }
 
 function formatRatio(value) {
-  const parsed = toNumber(value);
-  if (parsed === null) {
-    return "\u2014";
-  }
-  return `${parsed.toFixed(2)}x`;
+  return formatPerformanceRatio(value);
 }
 
 function formatCurrency(value) {
-  const parsed = toNumber(value);
-  if (parsed === null) {
-    return "\u2014";
-  }
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(parsed);
+  return formatPerformanceCurrency(value);
 }
 
 function resolveDollarValue(explicitValue, ratioValue, packCostValue) {
@@ -169,26 +168,18 @@ function formatShortDate(value) {
   if (!value) {
     return "\u2014";
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+  return formatHistoryDate(value, { month: "short", day: "numeric" }) || String(value);
 }
 
 function formatLongDate(value) {
   if (!value) {
     return "\u2014";
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-  return new Intl.DateTimeFormat("en-US", {
+  return formatHistoryDate(value, {
     year: "numeric",
     month: "short",
     day: "numeric",
-  }).format(date);
+  }) || String(value);
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -202,57 +193,57 @@ function TrendTooltip({ active, payload, packCost }) {
     return null;
   }
 
-  const meanRatio = toNumber(row.meanCostRatio);
-  const medianRatio = toNumber(row.medianCostRatio);
-  const p95Ratio = toNumber(row.p95CostRatio);
-  const effectivePackCost = toNumber(row.packCost) ?? toNumber(packCost);
+  const tooltipRows = buildPerformanceTooltipRows(row, packCost);
 
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Date</p>
       <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.snapshotDate)}</p>
-      <p className="mt-2 text-xs text-[var(--text-secondary)]">
-        Average Return <span className="font-semibold text-[var(--text-primary)]">{formatRatio(meanRatio)}</span>{" "}
-        <span className="text-[var(--text-secondary)]">({formatCurrency(row.meanValue)})</span>
-      </p>
-      <p className="text-xs text-[var(--text-secondary)]">
-        Typical Return <span className="font-semibold text-[var(--text-primary)]">{formatRatio(medianRatio)}</span>{" "}
-        <span className="text-[var(--text-secondary)]">({formatCurrency(row.medianValue)})</span>
-      </p>
-      {p95Ratio !== null && (
-        <p className="text-xs text-[var(--text-secondary)]">
-          Big Hit Upside <span className="font-semibold text-[var(--text-primary)]">{formatRatio(p95Ratio)}</span>{" "}
-          <span className="text-[var(--text-secondary)]">({formatCurrency(row.p95Value)})</span>
-        </p>
-      )}
-      <p className="text-xs text-[var(--text-secondary)]">
-        Break-even <span className="font-semibold text-[var(--text-primary)]">1.00x</span>
-      </p>
-      <p className="text-xs text-[var(--text-secondary)]">
-        Pack Cost <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(effectivePackCost)}</span>
-      </p>
+      <div className="mt-2 space-y-0.5">
+        {tooltipRows.map((entry) => (
+          <p key={entry.key} className="text-xs text-[var(--text-secondary)]">
+            {entry.label} <span className="font-semibold text-[var(--text-primary)]">{entry.value}</span>
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
 
 // ─── Final-point labels ───────────────────────────────────────────────────────
-function RatioPointLabel({ x, y, value, fillColor, dy = -10 }) {
+function RatioPointLabel({ x, y, value, dollarValue = null }) {
   const parsed = toNumber(value);
   if (parsed === null || !Number.isFinite(x) || !Number.isFinite(y)) {
     return null;
   }
 
+  const dollar = toNumber(dollarValue);
+  const labelX = x + 8;
+  const labelY = y + 3;
+
   return (
-    <text x={x + 8} y={y + dy} textAnchor="start" fontSize={10} fill={fillColor} opacity={0.8}>
-      {formatRatio(parsed)}
-    </text>
+    <g opacity={0.96}>
+      <text x={labelX} y={labelY} textAnchor="start" fontSize={10.5} fontWeight={650} fill="rgba(248,250,252,0.94)">
+        <tspan>{formatReturnMultiple(parsed)}</tspan>
+        {dollar !== null ? (
+          <tspan className="hidden sm:inline" dx="3" fill="rgba(203,213,225,0.78)" fontWeight={600}>
+            ({formatCurrency(Math.abs(dollar))})
+          </tspan>
+        ) : null}
+      </text>
+    </g>
   );
 }
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
-function EmptyTrendState() {
+function EmptyTrendState({ flush = false }) {
   return (
-    <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-6 py-10 text-center">
+    <div className={[
+      "flex min-h-[24rem] flex-col items-center justify-center rounded-xl px-6 py-10 text-center",
+      flush
+        ? "border border-dashed border-[rgba(255,255,255,0.06)] bg-transparent"
+        : "border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60",
+    ].join(" ")}>
       <p className="max-w-md text-sm text-[var(--text-secondary)]">
         Historical trend will appear after multiple daily simulation snapshots.
       </p>
@@ -283,25 +274,44 @@ function LegendToggle({ active, onToggle, activeColor, inactiveColor, label }) {
 }
 
 // ─── Main chart ───────────────────────────────────────────────────────────────
-export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null }) {
+function MarketWindowSelector({ windows, value, onChange }) {
+  const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
+  if (windowOptions.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-1.5">
+      {windowOptions.map((entry) => {
+        const isActive = entry.key === value;
+        return (
+          <button
+            key={`performance-window:${entry.key}`}
+            type="button"
+            onClick={() => onChange(entry.key)}
+            aria-pressed={isActive}
+            className={[
+              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+              isActive
+                ? "border-[rgba(45,212,191,0.34)] bg-[rgba(45,212,191,0.10)] text-[rgb(45,212,191)]"
+                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+            ].join(" ")}
+          >
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null, flush = false }) {
   const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
   const [showP95Line,    setShowP95Line]    = useState(true);
+  const [selectedWindowKey, setSelectedWindowKey] = useState(null);
 
-  const historicalTrendInfo = (
-    <div className="space-y-1.5 text-left">
-      <p className="font-semibold text-[var(--text-primary)]">Historical Pack Value vs Cost</p>
-      <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Average Return compares average simulated pack value to pack cost over time.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Typical Return compares typical simulated pack value to pack cost over time.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>Big Hit Upside shows the 95th-percentile outcome versus pack cost.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>1.0x is break-even. Above 1.0x means simulated value exceeded pack cost.</span></li>
-        <li className="flex gap-2"><span className="flex-none">•</span><span>The break-even label includes the estimated pack market price when available.</span></li>
-      </ul>
-    </div>
-  );
-
-  const chartData = useMemo(
+  const fullChartData = useMemo(
     () => {
       const normalizedRows = (Array.isArray(historyTrend) ? historyTrend : [])
         .map((row, index) => normalizeHistoryPoint(row, index, packCost));
@@ -333,12 +343,43 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         effectivePackCost: effectiveLatestPackCost,
       });
 
-      return [...normalizedRows.slice(0, -1), patchedLatestRow].filter(
+      const rows = [...normalizedRows.slice(0, -1), patchedLatestRow].filter(
         (row) => row.snapshotDate && (row.meanCostRatio !== null || row.medianCostRatio !== null)
       );
+
+      return forwardFillDailyHistoryThroughToday(rows, {
+        dateField: "snapshotDate",
+        valueKeys: ["meanCostRatio", "medianCostRatio", "p95CostRatio"],
+      });
     },
     [historyTrend, packCost, summary]
   );
+
+  const {
+    windows: availableDeltaWindows,
+    effectiveKey: effectiveWindowKey,
+    selectedWindow: selectedDeltaWindow,
+  } = useMemo(
+    () => getSelectedDeltaWindowFromHistory(fullChartData, {
+      selectedKey: selectedWindowKey,
+      preferredKey: "30D",
+      dateKey: "snapshotDate",
+      valueKey: "meanCostRatio",
+    }),
+    [fullChartData, selectedWindowKey]
+  );
+
+  const chartData = useMemo(
+    () => filterHistoryPointsForDeltaWindow(fullChartData, selectedDeltaWindow, { dateKey: "snapshotDate" }),
+    [fullChartData, selectedDeltaWindow]
+  );
+
+  useEffect(() => {
+    if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
+      return;
+    }
+    setSelectedWindowKey(effectiveWindowKey);
+  }, [effectiveWindowKey, selectedWindowKey]);
 
   // Determine whether any row actually has P95 data so we can hide the toggle
   // gracefully when the backend view does not yet expose that column.
@@ -361,24 +402,27 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
   }, [packCost]);
 
   if (chartData.length < 2) {
-    return <EmptyTrendState />;
+    return <EmptyTrendState flush={flush} />;
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Historical Pack Value vs Cost</p>
-          <InfoPopover text={historicalTrendInfo} />
+    <div className={flush ? "flex h-full min-h-[26rem] flex-col" : "rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5"}>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <MarketWindowSelector
+            windows={availableDeltaWindows}
+            value={effectiveWindowKey}
+            onChange={setSelectedWindowKey}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 text-[11px]">
           {/* TODO(perf-vs-cost): Optional future mode toggle (Standard | Include God Pull) if we need a P99 line without changing default readability. */}
           <LegendToggle
             active={showMeanLine}
             onToggle={() => setShowMeanLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.meanToCost}
-            inactiveColor="rgba(20,184,166,0.25)"
+            inactiveColor="rgba(45,212,191,0.25)"
             label="Average Return"
           />
           <LegendToggle
@@ -400,9 +444,9 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         </div>
       </div>
 
-      <div className="mt-4 h-[20rem] w-full sm:h-[23rem]">
+      <div className={flush ? "mt-3 min-h-[24rem] w-full flex-1" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 10, right: 52, left: 0, bottom: 8 }}>
+          <LineChart data={chartData} margin={{ top: 10, right: 112, left: 6, bottom: 14 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
 
             <XAxis
@@ -411,6 +455,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               axisLine={false}
               tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
               tickFormatter={formatShortDate}
+              tickMargin={12}
               minTickGap={22}
               interval="preserveStartEnd"
             />
@@ -422,7 +467,8 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               axisLine={false}
               tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
               tickFormatter={formatRatio}
-              width={52}
+              tickMargin={10}
+              width={60}
             />
 
             <Tooltip content={<TrendTooltip packCost={packCost} />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
@@ -451,7 +497,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.p95ToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
                   index === latestDataIndex
-                    ? <RatioPointLabel x={x} y={y} value={value} fillColor={HISTORICAL_TREND_COLORS.p95Label} dy={-10} />
+                    ? <RatioPointLabel x={x} y={y} value={value} dollarValue={chartData[index]?.p95Value} />
                     : null
                 }
                 activeDot={{ r: 4, stroke: "var(--surface-page)", strokeWidth: 2 }}
@@ -470,7 +516,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.meanToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
                   index === latestDataIndex
-                    ? <RatioPointLabel x={x} y={y} value={value} fillColor={HISTORICAL_TREND_COLORS.meanLabel} dy={hasP95Data ? 12 : -10} />
+                    ? <RatioPointLabel x={x} y={y} value={value} dollarValue={chartData[index]?.meanValue} />
                     : null
                 }
                 activeDot={{ r: 4, stroke: "var(--surface-page)", strokeWidth: 2 }}
@@ -489,7 +535,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
                 dot={{ r: 2, fill: HISTORICAL_TREND_COLORS.medianToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
                   index === latestDataIndex
-                    ? <RatioPointLabel x={x} y={y} value={value} fillColor={HISTORICAL_TREND_COLORS.medianLabel} dy={24} />
+                    ? <RatioPointLabel x={x} y={y} value={value} dollarValue={chartData[index]?.medianValue} />
                     : null
                 }
                 activeDot={{ r: 3.5, stroke: "var(--surface-page)", strokeWidth: 2 }}

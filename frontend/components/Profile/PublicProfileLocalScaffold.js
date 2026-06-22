@@ -61,6 +61,7 @@ export default function PublicProfileLocalScaffold({
   desktopSidebarClassName = "",
   floatingToolsContainerClassName = null,
   forceCompactToolsBelow2xl = false,
+  contentShellClassName = "lg:w-full lg:max-w-7xl lg:px-6",
   mobileBottomNavContent = null,
   mobileBottomNavVariant = "card",
 }) {
@@ -445,7 +446,7 @@ export default function PublicProfileLocalScaffold({
         </aside>
 
         <div className={`min-w-0 pb-4 lg:pb-0 ${desktopContentOffsetClassName}`}>
-          <div className="lg:w-full lg:max-w-7xl lg:px-6">
+          <div className={contentShellClassName}>
             {wrapDesktopContentInFrame ? (
               <div className="hidden xl:block xl:rounded-3xl xl:border xl:border-[var(--border-subtle)] xl:bg-[var(--surface-page)]/70 xl:p-4 2xl:p-5">
                 {desktopHeader ? <div className="mb-6">{desktopHeader}</div> : null}
