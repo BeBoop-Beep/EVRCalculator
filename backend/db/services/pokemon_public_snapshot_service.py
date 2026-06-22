@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -40,6 +41,10 @@ def _to_optional_str(value: Any) -> Optional[str]:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _normalise_set_lookup_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
 
 
 def _first_row(result: Any) -> Optional[Dict[str, Any]]:
@@ -219,6 +224,146 @@ def enrich_cards_payload_with_movements(
     return {**payload, "cards": cards, "meta": meta}
 
 
+def _latest_composite_scores_for_references(reference_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+    clean_ids = sorted({reference_id for reference_id in reference_ids if reference_id is not None})
+    if not clean_ids:
+        return {}
+
+    try:
+        response = (
+            public_read_client.table("pokemon_desirability_composite_scores")
+            .select("pokemon_reference_id,pokedex_number,pokemon_name,desirability_score,created_at")
+            .in_("pokemon_reference_id", clean_ids)
+            .order("created_at", desc=True)
+            .execute()
+        )
+    except Exception:
+        logger.warning("[pokemon-snapshot] card desirability score lookup failed", exc_info=True)
+        return {}
+
+    scores_by_reference: Dict[int, Dict[str, Any]] = {}
+    for row in response.data or []:
+        try:
+            reference_id = int(row.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            continue
+        scores_by_reference.setdefault(reference_id, row)
+    return scores_by_reference
+
+
+def enrich_cards_payload_with_desirability(payload: Dict[str, Any]) -> Dict[str, Any]:
+    cards = list(payload.get("cards") or [])
+    card_ids = [_card_id_key(card) for card in cards if isinstance(card, dict)]
+    clean_card_ids = sorted({card_id for card_id in card_ids if card_id})
+    if not clean_card_ids:
+        return payload
+
+    try:
+        links_result = (
+            public_read_client.table("pokemon_card_desirability_links")
+            .select(
+                "pokemon_canonical_card_id,pokemon_reference_id,pokedex_number,link_position,"
+                "link_count,contribution_weight,match_confidence,is_hit_eligible"
+            )
+            .in_("pokemon_canonical_card_id", clean_card_ids)
+            .execute()
+        )
+    except Exception:
+        logger.warning("[pokemon-snapshot] card desirability link lookup failed", exc_info=True)
+        return payload
+
+    links_by_card: Dict[str, List[Dict[str, Any]]] = {}
+    reference_ids: List[int] = []
+    for link in links_result.data or []:
+        card_id = _to_optional_str(link.get("pokemon_canonical_card_id"))
+        if not card_id:
+            continue
+        try:
+            reference_id = int(link.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            reference_id = None
+        if reference_id is not None:
+            reference_ids.append(reference_id)
+        links_by_card.setdefault(card_id, []).append(link)
+
+    scores_by_reference = _latest_composite_scores_for_references(reference_ids)
+    if not links_by_card or not scores_by_reference:
+        return payload
+
+    enriched_cards: List[Dict[str, Any]] = []
+    enriched_count = 0
+    hit_eligible_count = 0
+    for card in cards:
+        card_payload = dict(card or {})
+        card_id = _card_id_key(card_payload)
+        card_links = links_by_card.get(card_id or "", [])
+        linked_pokemon: List[Dict[str, Any]] = []
+        weighted_score = 0.0
+        total_weight = 0.0
+        is_hit_eligible = False
+        for link in card_links:
+            try:
+                reference_id = int(link.get("pokemon_reference_id"))
+            except (TypeError, ValueError):
+                continue
+            score_row = scores_by_reference.get(reference_id)
+            score = _to_optional_float((score_row or {}).get("desirability_score"))
+            weight = _to_optional_float(link.get("contribution_weight")) or 0.0
+            if score is None or weight <= 0:
+                continue
+            is_hit_eligible = is_hit_eligible or bool(link.get("is_hit_eligible"))
+            weighted_score += score * weight
+            total_weight += weight
+            linked_pokemon.append(
+                {
+                    "pokemonName": _to_optional_str((score_row or {}).get("pokemon_name")),
+                    "pokemon_name": _to_optional_str((score_row or {}).get("pokemon_name")),
+                    "pokemonReferenceId": reference_id,
+                    "pokemon_reference_id": reference_id,
+                    "pokedexNumber": link.get("pokedex_number") or (score_row or {}).get("pokedex_number"),
+                    "pokedex_number": link.get("pokedex_number") or (score_row or {}).get("pokedex_number"),
+                    "desirabilityScore": round(score, 2),
+                    "desirability_score": round(score, 2),
+                    "contributionWeight": weight,
+                    "contribution_weight": weight,
+                    "matchConfidence": link.get("match_confidence"),
+                    "match_confidence": link.get("match_confidence"),
+                }
+            )
+
+        if total_weight > 0:
+            card_score = round(weighted_score / total_weight, 2)
+            card_payload.update(
+                {
+                    "cardDesirabilityScore": card_score,
+                    "card_desirability_score": card_score,
+                    "pokemonDesirabilityScore": card_score,
+                    "pokemon_desirability_score": card_score,
+                    "linkedPokemon": linked_pokemon,
+                    "linked_pokemon": linked_pokemon,
+                    "isHitEligible": is_hit_eligible,
+                    "is_hit_eligible": is_hit_eligible,
+                }
+            )
+            enriched_count += 1
+            if is_hit_eligible:
+                hit_eligible_count += 1
+
+        enriched_cards.append(card_payload)
+
+    meta = dict(payload.get("meta") or {})
+    desirability_meta = {
+        "source": "pokemon_card_desirability_links+pokemon_desirability_composite_scores",
+        "enrichedCardCount": enriched_count,
+        "enriched_card_count": enriched_count,
+        "hitEligibleCardCount": hit_eligible_count,
+        "hit_eligible_card_count": hit_eligible_count,
+    }
+    meta["cardDesirability"] = desirability_meta
+    meta["card_desirability"] = desirability_meta
+    return {**payload, "cards": enriched_cards, "meta": meta}
+
+
 def _resolve_set_row(set_id: str) -> Dict[str, Any]:
     resolved = _to_optional_str(set_id)
     if not resolved:
@@ -235,9 +380,42 @@ def _resolve_set_row(set_id: str) -> Dict[str, Any]:
             )
             row = _first_row(result)
             if row:
+                logger.info(
+                    "[pokemon-snapshot] resolved set identifier raw=%s field=%s canonical_set_id=%s canonical_key=%s",
+                    resolved,
+                    field,
+                    row.get("id"),
+                    row.get("canonical_key"),
+                )
                 return row
         except Exception:
             logger.warning("[pokemon-snapshot] set lookup failed field=%s set_id=%s", field, resolved)
+
+    normalized_resolved = _normalise_set_lookup_key(resolved)
+    if normalized_resolved:
+        try:
+            result = (
+                public_read_client.table("sets")
+                .select("id,name,canonical_key,pokemon_api_set_id")
+                .execute()
+            )
+            for row in list(result.data or []):
+                candidate_keys = (
+                    row.get("id"),
+                    row.get("name"),
+                    row.get("canonical_key"),
+                    row.get("pokemon_api_set_id"),
+                )
+                if any(_normalise_set_lookup_key(candidate) == normalized_resolved for candidate in candidate_keys):
+                    logger.info(
+                        "[pokemon-snapshot] resolved set identifier by normalized slug raw=%s canonical_set_id=%s canonical_key=%s",
+                        resolved,
+                        row.get("id"),
+                        row.get("canonical_key"),
+                    )
+                    return row
+        except Exception:
+            logger.warning("[pokemon-snapshot] normalized set lookup failed set_id=%s", resolved)
 
     raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
 
@@ -266,6 +444,13 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
     started = time.perf_counter()
     set_row = _resolve_set_row(set_id)
     resolved_set_id = str(set_row["id"])
+    set_identity = {
+        "id": _to_optional_str(set_row.get("id")),
+        "name": _to_optional_str(set_row.get("name")),
+        "slug": _to_optional_str(set_row.get("canonical_key")),
+        "canonical_key": _to_optional_str(set_row.get("canonical_key")),
+        "pokemon_api_set_id": _to_optional_str(set_row.get("pokemon_api_set_id")),
+    }
 
     try:
         result = (
@@ -278,9 +463,12 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         row = _first_row(result)
         if row and isinstance(row.get("payload_json"), dict):
             payload = _merge_snapshot_meta(row["payload_json"], row, "pokemon_set_page_snapshot_latest")
+            meta = dict(payload.get("meta") or {})
+            meta["set"] = {**(meta.get("set") or {}), **set_identity}
             timings = dict((payload.get("meta") or {}).get("timings") or {})
             timings["snapshot_read_ms"] = round((time.perf_counter() - started) * 1000, 3)
-            payload["meta"] = {**(payload.get("meta") or {}), "timings": timings}
+            meta["timings"] = timings
+            payload["meta"] = meta
             return payload
     except Exception:
         logger.exception("[pokemon-snapshot] set page snapshot read failed set_id=%s", resolved_set_id)
@@ -289,6 +477,7 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
     logger.warning("[pokemon-snapshot] missing set page snapshot; falling back to live assembly set_id=%s", resolved_set_id)
     payload = get_explore_page_payload("set", resolved_set_id)
     meta = dict(payload.get("meta") or {})
+    meta["set"] = {**(meta.get("set") or {}), **set_identity}
     warnings = list(meta.get("warnings") or [])
     warnings.append("Pokemon set page snapshot is missing; served live fallback data.")
     meta["warnings"] = warnings
@@ -298,6 +487,118 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         "isStaleFallback": False,
     }
     return {**payload, "meta": meta}
+
+
+def _latest_standard_set_value_from_histories(histories_by_scope: Any) -> Dict[str, Any]:
+    if not isinstance(histories_by_scope, dict):
+        return {}
+    history = histories_by_scope.get("standard") or histories_by_scope.get("checklist") or []
+    if not isinstance(history, list):
+        return {}
+
+    latest: Dict[str, Any] = {}
+    latest_date: Optional[str] = None
+    for point in history:
+        if not isinstance(point, dict):
+            continue
+        value = _to_optional_float(point.get("setValue") or point.get("set_value") or point.get("value"))
+        if value is None:
+            continue
+        date_key = _parse_date_key(point.get("date") or point.get("snapshot_date") or point.get("sourceDate") or point.get("source_date"))
+        if latest_date is not None and date_key is not None and date_key < latest_date:
+            continue
+        latest = {"value": round(value, 2), "date": date_key}
+        if date_key:
+            latest_date = date_key
+
+    return latest
+
+
+def _load_latest_checklist_set_values(set_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    clean_ids = sorted({_to_optional_str(set_id) for set_id in set_ids if _to_optional_str(set_id)})
+    if not clean_ids:
+        return {}
+
+    window_priority = {
+        DEFAULT_TOP_CHASE_DASHBOARD_WINDOW: 0,
+        DEFAULT_DASHBOARD_WINDOW: 1,
+    }
+    try:
+        result = (
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at")
+            .in_("set_id", clean_ids)
+            .in_("window_key", [DEFAULT_TOP_CHASE_DASHBOARD_WINDOW, DEFAULT_DASHBOARD_WINDOW])
+            .execute()
+        )
+    except Exception:
+        logger.warning("[pokemon-snapshot] checklist set value enrichment failed", exc_info=True)
+        return {}
+
+    values: Dict[str, Dict[str, Any]] = {}
+    for row in result.data or []:
+        set_id = _to_optional_str(row.get("set_id"))
+        if not set_id:
+            continue
+        latest = _latest_standard_set_value_from_histories(row.get("set_value_histories_json"))
+        value = _to_optional_float(latest.get("value"))
+        if value is None:
+            continue
+        candidate = {
+            "value": round(value, 2),
+            "date": latest.get("date") or _parse_date_key(row.get("latest_market_date")),
+            "updated_at": _to_optional_str(row.get("updated_at")),
+            "window_key": _to_optional_str(row.get("window_key")),
+        }
+        existing = values.get(set_id)
+        if existing is None or window_priority.get(candidate["window_key"], 99) < window_priority.get(existing.get("window_key"), 99):
+            values[set_id] = candidate
+
+    return values
+
+
+def _enrich_rankings_payload_with_checklist_set_values(payload: Dict[str, Any]) -> Dict[str, Any]:
+    targets = list(payload.get("targets") or [])
+    if not targets:
+        return payload
+
+    set_ids = [
+        _to_optional_str(target.get("set_id") or target.get("id") or target.get("target_id"))
+        for target in targets
+    ]
+    value_lookup = _load_latest_checklist_set_values([set_id for set_id in set_ids if set_id])
+    if not value_lookup:
+        return payload
+
+    enriched_targets: List[Dict[str, Any]] = []
+    for target in targets:
+        set_id = _to_optional_str(target.get("set_id") or target.get("id") or target.get("target_id"))
+        checklist_value = value_lookup.get(set_id or "")
+        if not checklist_value:
+            enriched_targets.append(target)
+            continue
+        value = checklist_value["value"]
+        enriched_targets.append(
+            {
+                **target,
+                "checklistSetValue": value,
+                "checklist_set_value": value,
+                "currentChecklistSetValue": value,
+                "current_checklist_set_value": value,
+                "latestChecklistSetValue": value,
+                "latest_checklist_set_value": value,
+                "checklistSetValueAsOf": checklist_value.get("date"),
+                "checklist_set_value_as_of": checklist_value.get("date"),
+                "checklistSetValueSourceWindow": checklist_value.get("window_key"),
+                "checklist_set_value_source_window": checklist_value.get("window_key"),
+            }
+        )
+
+    meta = dict(payload.get("meta") or {})
+    sources = dict(meta.get("sources") or {})
+    sources["checklist_set_value_enrichment"] = "pokemon_set_market_dashboard_snapshot_latest"
+    meta["sources"] = sources
+    return {**payload, "targets": enriched_targets, "meta": meta}
 
 
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
@@ -328,12 +629,12 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             )
             meta["request"] = request
             meta["snapshot"] = snapshot
-            return {
+            return _enrich_rankings_payload_with_checklist_set_values({
                 **payload,
                 "targets": targets,
                 "default_target": payload.get("default_target") or row.get("default_target_json") or None,
                 "meta": meta,
-            }
+            })
     except Exception:
         logger.exception("[pokemon-snapshot] explore rankings snapshot read failed")
         raise ExploreRipStatisticsTargetsError(
@@ -353,7 +654,7 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         "updatedAt": datetime.now(timezone.utc).isoformat(),
         "isStaleFallback": False,
     }
-    return {**payload, "meta": meta}
+    return _enrich_rankings_payload_with_checklist_set_values({**payload, "meta": meta})
 
 
 def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
@@ -381,7 +682,7 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
                 }
             )
             meta["snapshot"] = snapshot
-            return {**payload, "meta": meta}
+            return enrich_cards_payload_with_desirability({**payload, "meta": meta})
     except Exception:
         logger.exception("[pokemon-snapshot] cards snapshot read failed set_id=%s", resolved_set_id)
         raise PokemonSetCardsError(500, "Failed to read Pokemon set cards snapshot", "POKEMON_SET_CARDS_SNAPSHOT_FAILED")
@@ -397,7 +698,7 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
         "updatedAt": datetime.now(timezone.utc).isoformat(),
         "isStaleFallback": False,
     }
-    return {**payload, "meta": meta}
+    return enrich_cards_payload_with_desirability({**payload, "meta": meta})
 
 
 def _read_market_dashboard_snapshot(set_id: str, window: str = DEFAULT_DASHBOARD_WINDOW) -> Optional[Dict[str, Any]]:

@@ -7,6 +7,7 @@ const CARD_SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
 const cardSnapshotCache = new Map();
 const cardSnapshotInflight = new Map();
 const isDev = process.env.NODE_ENV !== "production";
+const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
 
 function nowMs() {
   return Date.now();
@@ -40,6 +41,16 @@ function writeCardCache(cacheKey, payload) {
     cachedAt: nowMs(),
     expiresAt: nowMs() + CARD_SNAPSHOT_TTL_MS,
   });
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isRetryableSnapshotError(error) {
+  return RETRYABLE_SNAPSHOT_STATUSES.has(Number(error?.status));
 }
 
 function toOptionalNumber(value) {
@@ -125,27 +136,39 @@ export async function getPokemonSetCards(setId) {
   debugTiming("cards.fetch_start", { setId: resolvedSetId });
 
   const request = (async () => {
-  const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards`,
-    {
-      method: "GET",
+    const url = `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards`;
+    let payload = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+        });
+
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+
+        if (!response.ok) {
+          const message = payload?.message || payload?.error || "Unable to load set cards";
+          const requestError = new Error(message);
+          requestError.status = response.status;
+          throw requestError;
+        }
+        break;
+      } catch (error) {
+        if (attempt > 0 || !isRetryableSnapshotError(error)) {
+          throw error;
+        }
+        debugTiming("cards.fetch_retry", {
+          setId: resolvedSetId,
+          status: error?.status,
+          error: error?.message || String(error),
+        });
+        await wait(175);
+      }
     }
-  );
-
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    const message = payload?.message || payload?.error || "Unable to load set cards";
-    const requestError = new Error(message);
-    requestError.status = response.status;
-    throw requestError;
-  }
-
     const normalized = normalizePayload(payload);
     writeCardCache(cacheKey, normalized);
     debugTiming("cards.fetch_success", {

@@ -268,3 +268,10 @@ update constants lib with file and set mapping in respective era
 python backend/scripts/run_pokemon_set_scrape.py --run --set <setKey>
 python backend/scripts/build_pokemon_set_desirability_inputs.py --set <setKey> --commit --log-level INFO
 python backend/scripts/run_all_v2_sets.py --set "<Set Name>"
+# VM scrape flow
+ssh -i ~/.ssh/id_rsa ubuntu@129.146.130.104
+cd ~/repos/EVRCalculator
+git status
+git pull origin main
+python3 -m pip install --user -r backend/requirements.txt
+python3 backend/scripts/run_pokemon_set_scrape.py --run --set "<Set Name>"

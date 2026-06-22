@@ -7,6 +7,7 @@ const MARKET_DASHBOARD_TTL_MS = 6 * 60 * 60 * 1000;
 const marketDashboardCache = new Map();
 const marketDashboardInflight = new Map();
 const isDev = process.env.NODE_ENV !== "production";
+const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
 
 function nowMs() {
   return Date.now();
@@ -40,6 +41,16 @@ function writeMarketDashboardCache(cacheKey, payload) {
     cachedAt: nowMs(),
     expiresAt: nowMs() + MARKET_DASHBOARD_TTL_MS,
   });
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isRetryableSnapshotError(error) {
+  return RETRYABLE_SNAPSHOT_STATUSES.has(Number(error?.status));
 }
 
 function toOptionalNumber(value) {
@@ -433,16 +444,33 @@ export async function getPokemonSetMarketDashboard(setId, { window = "30D", days
   debugTiming("market_dashboard.fetch_start", { setId: resolvedSetId, window, days });
 
   const request = (async () => {
-    const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/dashboard${params.toString() ? `?${params}` : ""}`,
-    {
-      method: "GET",
+    const url = `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/dashboard${
+      params.toString() ? `?${params}` : ""
+    }`;
+    let normalized = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+        });
+        normalized = normalizeMarketDashboardPayload(
+          await readJsonResponse(response, "Unable to load market dashboard")
+        );
+        break;
+      } catch (error) {
+        if (attempt > 0 || !isRetryableSnapshotError(error)) {
+          throw error;
+        }
+        debugTiming("market_dashboard.fetch_retry", {
+          setId: resolvedSetId,
+          window,
+          days,
+          status: error?.status,
+          error: error?.message || String(error),
+        });
+        await wait(175);
+      }
     }
-  );
-
-    const normalized = normalizeMarketDashboardPayload(
-      await readJsonResponse(response, "Unable to load market dashboard")
-    );
     writeMarketDashboardCache(cacheKey, normalized);
     debugTiming("market_dashboard.fetch_success", {
       setId: resolvedSetId,
