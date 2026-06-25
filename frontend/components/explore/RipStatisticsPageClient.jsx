@@ -24,6 +24,7 @@ import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import { getCardAppealSampleDiagnostics } from "./cardAppealSampleDiagnostics.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import {
@@ -41,6 +42,7 @@ import {
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketDashboard,
+  getPokemonSetValueHistory,
   normalizeMarketDashboardWindow,
   prefetchPokemonSetMarketDashboard,
 } from "@/lib/pokemon/pokemonSetMarketClient";
@@ -66,6 +68,7 @@ import {
 } from "@/lib/explore/marketDeltaWindows.mjs";
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
+import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -246,6 +249,26 @@ function getSetValueMetricLabel(scope) {
 
 function getTopMarketCardsCacheKey(setId, sourceWindowKey = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW) {
   return `${String(setId || "").trim()}:${normalizeMarketDashboardWindow(sourceWindowKey || DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW)}`;
+}
+
+function createSetValueHistoryState({
+  status = "idle",
+  setId = null,
+  historiesByScope = {},
+  loadedScopes = [],
+  availableScopes = SET_VALUE_SCOPE_OPTIONS,
+  meta = null,
+  error = null,
+} = {}) {
+  return {
+    status,
+    setId: toStableIdentifier(setId),
+    historiesByScope: historiesByScope && typeof historiesByScope === "object" ? historiesByScope : {},
+    loadedScopes: Array.isArray(loadedScopes) ? loadedScopes.filter(Boolean) : [],
+    availableScopes: Array.isArray(availableScopes) && availableScopes.length > 0 ? availableScopes : SET_VALUE_SCOPE_OPTIONS,
+    meta: meta || null,
+    error: error || null,
+  };
 }
 
 const RIP_COPY = {
@@ -453,7 +476,7 @@ const HISTORY_METRIC_ALIASES = {
   safetyScore: ["relative_safety_score", "relativeSafetyScore", "safety_score", "safetyScore"],
   desirabilityScore: ["relative_desirability_score", "relativeDesirabilityScore", "desirability_score", "desirabilityScore"],
   stabilityScore: ["relative_stability_score", "relativeStabilityScore", "stability_score", "stabilityScore"],
-  setValue: ["simulated_set_value", "simulatedSetValue", "set_value", "setValue"],
+  setValue: ["set_value_for_validation", "setValueForValidation", "current_checklist_set_value", "currentChecklistSetValue", "checklist_set_value", "checklistSetValue", "simulated_set_value", "simulatedSetValue", "set_value", "setValue"],
   averageHitValue: ["average_hit_value", "averageHitValue"],
   probProfit: ["prob_profit", "probProfit", "chance_to_beat_pack_cost", "chanceToBeatPackCost"],
   probBigHit: ["prob_big_hit", "probBigHit", "chance_at_big_pull", "chanceAtBigPull"],
@@ -586,6 +609,8 @@ function getValidationSetValueMetric(setRow) {
   }
 
   const directMetric = getFirstNumericFromValues([
+    { key: "set_value_for_validation", value: setRow.set_value_for_validation },
+    { key: "setValueForValidation", value: setRow.setValueForValidation },
     { key: "checklistSetValue", value: setRow.checklistSetValue },
     { key: "checklist_set_value", value: setRow.checklist_set_value },
     { key: "currentChecklistSetValue", value: setRow.currentChecklistSetValue },
@@ -655,6 +680,61 @@ function getDesirabilityValidationMissingSetValueSample(rows) {
     }));
 }
 
+function getDesirabilityValidationDiagnostics(rows, metric, points) {
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  const selectedMetric = metric || DESIRABILITY_VALIDATION_METRICS[0];
+  const samples = {
+    missingDesirability: [],
+    missingMetric: [],
+    plotted: [],
+  };
+  const counts = sourceRows.reduce(
+    (acc, row) => {
+      const desirability = getFirstNumericValue(row, ["desirability_score", "desirabilityScore", "pure_desirability_score", "pureDesirabilityScore", "relative_desirability_score", "relativeDesirabilityScore"]);
+      const metricResult = selectedMetric.resolver ? selectedMetric.resolver(row) : getFirstNumericMetric(row, selectedMetric.valueKeys);
+      const metricValue = metricResult.value;
+      const sample = {
+        name: row?.name || row?.set_name || row?.target_id || null,
+        slug: row?.slug || row?.canonical_key || row?.target_id || null,
+        desirability,
+        metricValue,
+        metricSourceKey: metricResult.key,
+      };
+
+      if (desirability !== null) {
+        acc.rowsWithDesirability += 1;
+      } else if (samples.missingDesirability.length < 3) {
+        samples.missingDesirability.push(sample);
+      }
+
+      if (metricValue !== null) {
+        acc.rowsWithSelectedMetric += 1;
+      } else if (samples.missingMetric.length < 3) {
+        samples.missingMetric.push(sample);
+      }
+
+      if (desirability !== null && metricValue !== null && samples.plotted.length < 3) {
+        samples.plotted.push(sample);
+      }
+
+      return acc;
+    },
+    {
+      totalRows: sourceRows.length,
+      rowsWithDesirability: 0,
+      rowsWithSelectedMetric: 0,
+      finalPlottedRows: Array.isArray(points) ? points.length : 0,
+    }
+  );
+
+  return {
+    metricKey: selectedMetric.key,
+    metricLabel: selectedMetric.label,
+    ...counts,
+    samples,
+  };
+}
+
 function normalizeProbability(value) {
   const parsed = toNumber(value);
   if (parsed === null) {
@@ -721,6 +801,103 @@ function getDesirabilitySummary(summary) {
     return DESIRABILITY_NOT_CALCULATED_COPY;
   }
   return SIMPLE_PILLAR_INFO_COPY.Desirability;
+}
+
+function getFirstNumericFromSources(sources, keys = []) {
+  for (const source of sources) {
+    const value = getFirstNumericValue(source, keys);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function getFirstTextFromSources(sources, keys = []) {
+  for (const source of sources) {
+    for (const key of keys) {
+      const text = String(source?.[key] || "").trim();
+      if (text) {
+        return text;
+      }
+    }
+  }
+  return null;
+}
+
+function getRipDesirabilityImpactLabel({ label, scoreDelta, rankDelta }) {
+  if (label) {
+    return label;
+  }
+  if (rankDelta !== null && rankDelta >= 2) {
+    return "Rank lift";
+  }
+  if (rankDelta !== null && rankDelta <= -2) {
+    return "Rank drag";
+  }
+  if (scoreDelta !== null && scoreDelta >= 2) {
+    return "Score lift";
+  }
+  if (scoreDelta !== null && scoreDelta <= -2) {
+    return "Score drag";
+  }
+  if (scoreDelta !== null || rankDelta !== null) {
+    return "Minimal impact";
+  }
+  return "Missing desirability";
+}
+
+function normalizeRipDesirabilityComparison(summary, selectedTarget) {
+  const sources = [summary, selectedTarget].filter(Boolean);
+  const withoutScore = getFirstNumericFromSources(sources, ["rip_score_without_desirability", "ripScoreWithoutDesirability"]);
+  const withScore = getFirstNumericFromSources(sources, ["rip_score_with_desirability", "ripScoreWithDesirability"]);
+  const scoreDelta = getFirstNumericFromSources(sources, ["rip_score_delta", "ripScoreDelta"]);
+  const withoutRank = getFirstNumericFromSources(sources, ["rip_rank_without_desirability", "ripRankWithoutDesirability"]);
+  const withRank = getFirstNumericFromSources(sources, ["rip_rank_with_desirability", "ripRankWithDesirability"]);
+  const rankDelta = getFirstNumericFromSources(sources, ["rip_rank_delta", "ripRankDelta"]);
+  const componentScore = getFirstNumericFromSources(sources, ["desirability_component_score", "desirabilityComponentScore"]);
+  const label = getFirstTextFromSources(sources, ["rip_desirability_impact_label", "ripDesirabilityImpactLabel"]);
+
+  if (
+    withoutScore === null &&
+    withScore === null &&
+    scoreDelta === null &&
+    withoutRank === null &&
+    withRank === null &&
+    rankDelta === null &&
+    componentScore === null
+  ) {
+    return null;
+  }
+
+  return {
+    withoutScore,
+    withScore,
+    scoreDelta,
+    withoutRank,
+    withRank,
+    rankDelta,
+    componentScore,
+    label: getRipDesirabilityImpactLabel({ label, scoreDelta, rankDelta }),
+  };
+}
+
+function formatSignedScore(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return "--";
+  }
+  const sign = parsed > 0 ? "+" : "";
+  return `${sign}${parsed.toFixed(1)}`;
+}
+
+function formatRankDelta(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return "--";
+  }
+  const sign = parsed > 0 ? "+" : "";
+  return `${sign}${Math.round(parsed)}`;
 }
 
 function formatNumber(value, decimals = 2) {
@@ -1498,8 +1675,9 @@ function SetValueTooltip({ active, payload, scopeLabel = "Checklist" }) {
   );
 }
 
-function CompactSparkline({ points, valueKey = "value", trendDirection = "neutral", className = "" }) {
+function CompactSparkline({ points, valueKey = "value", trendDirection = "neutral", className = "", showTooltip = true }) {
   const [activeIndex, setActiveIndex] = useState(null);
+  const [tooltipX, setTooltipX] = useState(null);
   const chartPoints = Array.isArray(points)
     ? points.map((point, index) => ({
         index,
@@ -1520,6 +1698,14 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
   const firstPoint = numericPoints[0] || null;
   const activeDeltaAmount = activePoint && firstPoint ? getPriceDeltaAmount(activePoint.y, firstPoint.y) : null;
   const activeDeltaPercent = activePoint && firstPoint ? getPriceDeltaPercent(activePoint.y, firstPoint.y) : null;
+  const getLocalTooltipX = (bounds, localX) => {
+    const width = Number(bounds?.width) || 0;
+    const margin = Math.min(72, Math.max(width / 2, 0));
+    if (width <= 0) {
+      return 0;
+    }
+    return Math.max(margin, Math.min(width - margin, localX));
+  };
 
   const handlePointerMove = (event) => {
     if (numericPoints.length === 0) {
@@ -1538,6 +1724,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
       }
     });
     setActiveIndex(nearestIndex);
+    setTooltipX(getLocalTooltipX(bounds, event.clientX - bounds.left));
   };
 
   if (numericPoints.length < 2) {
@@ -1564,11 +1751,22 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
 
   return (
     <div
-      className={["group relative z-[60] rounded-lg", className].filter(Boolean).join(" ")}
+      data-compact-sparkline
+      className={["group relative z-[60] overflow-visible rounded-lg", className].filter(Boolean).join(" ")}
       onMouseMove={handlePointerMove}
-      onMouseLeave={() => setActiveIndex(null)}
-      onFocus={() => setActiveIndex(numericPoints.length - 1)}
-      onBlur={() => setActiveIndex(null)}
+      onMouseLeave={() => {
+        setActiveIndex(null);
+        setTooltipX(null);
+      }}
+      onFocus={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        setActiveIndex(numericPoints.length - 1);
+        setTooltipX(getLocalTooltipX(bounds, bounds.width / 2));
+      }}
+      onBlur={() => {
+        setActiveIndex(null);
+        setTooltipX(null);
+      }}
       tabIndex={0}
     >
       <svg
@@ -1586,8 +1784,12 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
           </>
         ) : null}
       </svg>
-      {activePoint ? (
-        <div className="pointer-events-none absolute left-1/2 top-0 z-[999] min-w-[9rem] -translate-x-1/2 -translate-y-[calc(100%+0.45rem)] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]">
+      {showTooltip && activePoint && tooltipX !== null ? (
+        <div
+          data-compact-sparkline-tooltip
+          className="pointer-events-none absolute bottom-[calc(100%+0.55rem)] z-[9999] min-w-[9rem] max-w-[min(14rem,calc(100vw-1.5rem))] -translate-x-1/2 rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]"
+          style={{ left: tooltipX }}
+        >
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(activePoint.date)}</p>
           <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] tabular-nums">
             <span>{formatCurrency(activePoint.y)}</span>
@@ -1836,51 +2038,38 @@ function SetValueTrendCard({
     });
     return SET_VALUE_SCOPE_OPTIONS.filter((entry) => optionMap.has(entry.key)).map((entry) => optionMap.get(entry.key));
   }, [availableScopes]);
-  const selectedHistory = useMemo(() => {
-    return getSetValueHistoryForScope({ history, historiesByScope, scope: selectedScope });
-  }, [historiesByScope, history, selectedScope]);
   const handleSelectedScopeChange = useCallback(
     (nextScope) => {
       onSelectedScopeChange?.(nextScope);
     },
     [onSelectedScopeChange]
   );
-  const selectedScopeLabel = getSetValueScopeLabel(selectedScope);
-  const selectedMetricLabel = getSetValueMetricLabel(selectedScope);
-  const points = useMemo(() => normalizeSetValueHistoryPoints(selectedHistory), [selectedHistory]);
-  const valuedPoints = useMemo(
-    () => points.filter((point) => toNumber(point?.setValue) !== null),
-    [points]
+  const selectedTrend = useMemo(
+    () =>
+      selectOverviewSetValueTrendByScope({
+        history,
+        historiesByScope,
+        selectedScope,
+        selectedWindowKey,
+        preferredWindowKey: "30D",
+      }),
+    [historiesByScope, history, selectedScope, selectedWindowKey]
   );
-  const {
-    windows: availableDeltaWindows,
-    effectiveKey: effectiveWindowKey,
-    selectedWindow: selectedDeltaWindow,
-  } = useMemo(
-    () => getSelectedDeltaWindowFromHistory(valuedPoints, {
-      selectedKey: selectedWindowKey,
-      preferredKey: "30D",
-      dateKey: "date",
-      valueKey: "setValue",
-    }),
-    [selectedWindowKey, valuedPoints]
-  );
-  const visibleWindowMetrics = useMemo(
-    () => getVisibleHistoryWindowMetrics(points, selectedDeltaWindow, {
-      dateKey: "date",
-      valueKey: "setValue",
-    }),
-    [points, selectedDeltaWindow]
-  );
-  const chartPoints = visibleWindowMetrics.points;
-  const firstPoint = visibleWindowMetrics.firstPoint;
-  const lastPoint = visibleWindowMetrics.latestPoint;
-  const currentValue = visibleWindowMetrics.currentValue;
-  const deltaAmount = visibleWindowMetrics.deltaAmount;
-  const deltaPercent = visibleWindowMetrics.deltaPercent;
+  const selectedScopeLabel = selectedTrend.label;
+  const selectedMetricLabel = selectedTrend.metricLabel;
+  const points = selectedTrend.points;
+  const chartPoints = selectedTrend.series;
+  const firstPoint = selectedTrend.firstPoint;
+  const lastPoint = selectedTrend.lastPoint;
+  const currentValue = selectedTrend.currentValue;
+  const deltaAmount = selectedTrend.deltaAmount;
+  const deltaPercent = selectedTrend.deltaPercent;
+  const availableDeltaWindows = selectedTrend.availableDeltaWindows;
+  const effectiveWindowKey = selectedTrend.effectiveWindowKey;
   const deltaWindowLabel = effectiveWindowKey ? getDeltaWindowLabel(effectiveWindowKey) : "Trend";
-  const hasTrend = visibleWindowMetrics.valuedPoints.length >= 2;
+  const hasTrend = selectedTrend.hasTrend;
   const trendDirection = deltaAmount === null ? "neutral" : deltaAmount < 0 ? "negative" : deltaAmount > 0 ? "positive" : "neutral";
+  const chartKey = `${selectedTrend.scope}:${effectiveWindowKey || "window"}:${firstPoint?.date || "start"}:${lastPoint?.date || "latest"}:${chartPoints.length}`;
 
   useEffect(() => {
     if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
@@ -1916,7 +2105,7 @@ function SetValueTrendCard({
             Not enough set value history yet.
           </p>
           <div className="pt-1">
-            <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={handleSelectedScopeChange} />
+            <SetValueScopeSelector scopes={scopeOptions} value={selectedTrend.scope} onChange={handleSelectedScopeChange} />
           </div>
         </div>
       ) : (
@@ -1955,12 +2144,12 @@ function SetValueTrendCard({
             />
           </div>
 
-          <SetValueLineChart points={chartPoints} trendDirection={trendDirection} scopeLabel={selectedScopeLabel} />
+          <SetValueLineChart key={chartKey} points={chartPoints} trendDirection={trendDirection} scopeLabel={selectedScopeLabel} />
 
           <div className="grid min-w-0 grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)] max-[420px]:grid-cols-2">
             <span className="min-w-0 justify-self-start truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
             <div className="min-w-0 justify-self-center max-[420px]:order-3 max-[420px]:col-span-2">
-              <SetValueScopeSelector scopes={scopeOptions} value={selectedScope} onChange={handleSelectedScopeChange} />
+              <SetValueScopeSelector scopes={scopeOptions} value={selectedTrend.scope} onChange={handleSelectedScopeChange} />
             </div>
             <span className="min-w-0 justify-self-end truncate text-right">{formatShortDate(lastPoint?.date) || "Latest"}</span>
           </div>
@@ -2266,6 +2455,7 @@ function getTopCardPriceHistory(card) {
     .map((point) => ({
       date: getHistoryDateKey(point?.date),
       value: toNumber(point?.marketPrice ?? point?.market_price ?? point?.price),
+      isObserved: Boolean(point?.isObserved ?? point?.is_observed),
       isCarriedForward: Boolean(point?.isCarriedForward ?? point?.is_carried_forward),
       sourceDate: getHistoryDateKey(point?.sourceDate ?? point?.source_date),
     }))
@@ -4363,6 +4553,38 @@ function CompactPillarSignalTile({
   );
 }
 
+function RipDesirabilityComparisonStrip({ comparison }) {
+  if (!comparison) {
+    return null;
+  }
+
+  const metrics = [
+    { label: "Without Desirability", value: formatRawScore(comparison.withoutScore) },
+    { label: "With Desirability", value: formatRawScore(comparison.withScore) },
+    { label: "Score Delta", value: formatSignedScore(comparison.scoreDelta) },
+    { label: "Rank Delta", value: formatRankDelta(comparison.rankDelta) },
+  ];
+
+  return (
+    <div className="mt-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Desirability Comparison</p>
+        <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
+          {comparison.label}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={`rip-desirability-comparison:${metric.label}`} className="min-w-0">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{metric.label}</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{metric.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RipScoreBreakdownModule({
   score,
   scoreTrend = null,
@@ -4372,6 +4594,7 @@ function RipScoreBreakdownModule({
   explanation,
   pillars,
   titleInfoText,
+  ripDesirabilityComparison = null,
 }) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const parsedRank = toNumber(rankValue);
@@ -4427,6 +4650,7 @@ function RipScoreBreakdownModule({
             <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
           ))}
         </div>
+        <RipDesirabilityComparisonStrip comparison={ripDesirabilityComparison} />
       </article>
     </section>
   );
@@ -4680,14 +4904,19 @@ function DesirabilityValidationCard({ targets }) {
   const sampleLabel = `n=${points.length} ${selectedMetric.sampleLabel || "opening sets"}`;
 
   useEffect(() => {
-    if (process.env.NODE_ENV === "production" || selectedMetric.key !== "setValue" || points.length > 0) {
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
+    const diagnostics = getDesirabilityValidationDiagnostics(rows, selectedMetric, points);
+    console.debug("[desirability-validation] sample diagnostics", diagnostics);
+    if (selectedMetric.key !== "setValue" || points.length > 0) {
       return;
     }
     const sample = getDesirabilityValidationMissingSetValueSample(rows);
     if (sample.length > 0) {
       console.debug("[desirability-validation] missing Set Value sample", sample);
     }
-  }, [points.length, rows, selectedMetric.key]);
+  }, [points, rows, selectedMetric]);
 
   return (
     <section id="set-detail-desirability-validation" className="scroll-mt-24 md:scroll-mt-28">
@@ -4898,6 +5127,12 @@ const CARD_VALIDATION_SCOPES = [
   { key: "scarcity", label: "Scarcity-Qualified", filter: (point) => point.scarcityScore !== null || point.scarcityAdjustedCardAppealScore !== null },
 ];
 
+const CARD_APPEAL_MARKET_PRICE_INFO_TEXT =
+  "Card Appeal is currently calculated for Pokémon cards only. This chart includes cards that have both a valid market price and a Card Appeal score. Trainer, Item, Stadium, Energy, and other non-Pokémon cards may still have market prices, but they are excluded from this chart because they do not have a Pokémon demand score yet.";
+
+const CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT =
+  "This chart only includes priced cards with a Card Appeal score. Card Appeal currently uses Pokémon demand + card treatment, so non-Pokémon cards are excluded even if they have prices.";
+
 function getCardValidationMetricValue(card, metric) {
   return toNumber(metric?.resolver?.(card));
 }
@@ -4924,6 +5159,40 @@ function getCardValidationDiagnostics({ rows, rawPoints, points, selectedMetric,
     activeMetricLabel: selectedMetric?.label || null,
     currentCardScope: selectedScope?.label || null,
   };
+}
+
+function getCanonicalCardAppealCorrelationForSelection(correlation, selectedMetric, selectedScope) {
+  if (selectedMetric?.key !== "pure" || selectedScope?.key !== "priced") {
+    return null;
+  }
+  const sampleSource = correlation?.sampleSource || correlation?.sample_source;
+  const n = toNumber(correlation?.n ?? correlation?.includedCount ?? correlation?.included_count);
+  if (!correlation || n === null) {
+    return null;
+  }
+  return {
+    n,
+    pearson: toNumber(correlation?.pearson),
+    spearman: toNumber(correlation?.spearman),
+    sampleSource: sampleSource || "legacy_display_sample",
+  };
+}
+
+function getCanonicalCardAppealRows(correlation, selectedMetric) {
+  if (!["pure", "cardAppeal", "treatment"].includes(selectedMetric?.key)) {
+    return [];
+  }
+  const rows = Array.isArray(correlation?.plotRows)
+    ? correlation.plotRows
+    : Array.isArray(correlation?.rows)
+    ? correlation.rows
+    : [];
+  return rows;
+}
+
+function getCardValidationRowsForMetric(rows, correlation, metric) {
+  const canonicalRows = getCanonicalCardAppealRows(correlation, metric);
+  return canonicalRows.length > 0 ? canonicalRows : rows;
 }
 
 function buildCardDesirabilityMarketPoint(card, totalVisibleMarketValue, selectedMetric) {
@@ -5049,24 +5318,27 @@ function getCardValidationBuckets(points) {
   ];
 }
 
-function CardDesirabilityMarketValidationCard({ cards, diagnosticsContext = {} }) {
+function CardDesirabilityMarketValidationCard({ cards, cardAppealMarketPriceCorrelation = null, diagnosticsContext = {} }) {
   const [selectedMetricKey, setSelectedMetricKey] = useState("cardAppeal");
   const [selectedScopeKey, setSelectedScopeKey] = useState("hits");
   const rows = useMemo(() => (Array.isArray(cards) ? cards : []), [cards]);
+  const cardAppealSampleDiagnostics = useMemo(() => getCardAppealSampleDiagnostics(rows), [rows]);
   const metricOptions = useMemo(
     () =>
       CARD_VALIDATION_X_METRICS.filter((metric) => {
+        const metricRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, metric);
         if (metric.key === "scarcity" || metric.key === "scarcityAdjusted") {
-          return hasEnoughCardValidationMetricRows(rows, metric);
+          return hasEnoughCardValidationMetricRows(metricRows, metric);
         }
-        return metric.key === "pure" || hasEnoughCardValidationMetricRows(rows, metric);
+        return metric.key === "pure" || hasEnoughCardValidationMetricRows(metricRows, metric);
       }),
-    [rows]
+    [cardAppealMarketPriceCorrelation, rows]
   );
   const defaultMetricKey = useMemo(() => {
     const appealMetric = CARD_VALIDATION_X_METRICS.find((metric) => metric.key === "cardAppeal");
-    return appealMetric && hasEnoughCardValidationMetricRows(rows, appealMetric) ? "cardAppeal" : "pure";
-  }, [rows]);
+    const appealRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, appealMetric);
+    return appealMetric && hasEnoughCardValidationMetricRows(appealRows, appealMetric) ? "cardAppeal" : "pure";
+  }, [cardAppealMarketPriceCorrelation, rows]);
   const selectedMetric =
     metricOptions.find((metric) => metric.key === selectedMetricKey) ||
     metricOptions.find((metric) => metric.key === defaultMetricKey) ||
@@ -5079,13 +5351,14 @@ function CardDesirabilityMarketValidationCard({ cards, diagnosticsContext = {} }
   }, [selectedMetric?.key, selectedMetricKey]);
 
   const rawPoints = useMemo(() => {
-    const pricedCards = rows.filter((card) => getCardValidationMetricValue(card, selectedMetric) !== null && getCardMarketPrice(card) !== null);
+    const sourceRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, selectedMetric);
+    const pricedCards = sourceRows.filter((card) => getCardValidationMetricValue(card, selectedMetric) !== null && getCardMarketPrice(card) !== null);
     const totalVisibleMarketValue = pricedCards.reduce((sum, card) => sum + (getCardMarketPrice(card) || 0), 0);
     return pricedCards
       .map((card) => buildCardDesirabilityMarketPoint(card, totalVisibleMarketValue, selectedMetric))
       .filter(Boolean)
       .sort((a, b) => a.x - b.x);
-  }, [rows, selectedMetric]);
+  }, [cardAppealMarketPriceCorrelation, rows, selectedMetric]);
   const scopeOptions = useMemo(() => {
     const countsByScope = Object.fromEntries(CARD_VALIDATION_SCOPES.map((scope) => [scope.key, rawPoints.filter(scope.filter).length]));
     return CARD_VALIDATION_SCOPES.filter((scope) => {
@@ -5103,12 +5376,40 @@ function CardDesirabilityMarketValidationCard({ cards, diagnosticsContext = {} }
   }, [rawPoints]);
   const selectedScope = scopeOptions.find((scope) => scope.key === selectedScopeKey) || CARD_VALIDATION_SCOPES[0];
   const points = useMemo(() => rawPoints.filter(selectedScope.filter), [rawPoints, selectedScope]);
-  const pearson = calculatePearsonCorrelation(points);
-  const spearman = calculateSpearmanCorrelation(points);
+  const canonicalCorrelation = getCanonicalCardAppealCorrelationForSelection(cardAppealMarketPriceCorrelation, selectedMetric, selectedScope);
+  const canonicalRowsAvailable = getCanonicalCardAppealRows(cardAppealMarketPriceCorrelation, selectedMetric).length > 0;
+  const pointPearson = calculatePearsonCorrelation(points);
+  const pointSpearman = calculateSpearmanCorrelation(points);
+  const pearson = canonicalRowsAvailable ? pointPearson : canonicalCorrelation ? canonicalCorrelation.pearson : pointPearson;
+  const spearman = canonicalRowsAvailable ? pointSpearman : canonicalCorrelation ? canonicalCorrelation.spearman : pointSpearman;
   const regressionLinePoints = useMemo(() => calculateRegressionLine(points), [points]);
   const buckets = getCardValidationBuckets(points);
   const hasEnoughPoints = points.length >= 3;
   const relationshipLabel = getRelationshipLabel(pearson);
+  const sampleCount = canonicalCorrelation && !canonicalRowsAvailable ? canonicalCorrelation.n : points.length;
+  const isCardAppealMetric = selectedMetric?.key === "cardAppeal";
+  const sampleCountLabel =
+    isCardAppealMetric && cardAppealSampleDiagnostics.pricedCards > 0
+      ? `n=${sampleCount} / ${cardAppealSampleDiagnostics.pricedCards} priced cards`
+      : `n=${sampleCount}`;
+  const excludedNonPokemonCount = cardAppealSampleDiagnostics.excludedNonPokemonPriced;
+  const excludedNonPokemonLabel =
+    excludedNonPokemonCount > 0
+      ? `${excludedNonPokemonCount} priced non-Pokémon ${excludedNonPokemonCount === 1 ? "card" : "cards"} excluded from Card Appeal.`
+      : null;
+  const cardAppealInfoText = `${CARD_APPEAL_MARKET_PRICE_INFO_TEXT}${
+    excludedNonPokemonLabel ? ` ${excludedNonPokemonLabel}` : ""
+  }`;
+  const sampleSourceLabel =
+    canonicalRowsAvailable && selectedScope?.key === "priced"
+      ? "canonical cards"
+      : canonicalRowsAvailable && selectedScope?.key === "hits"
+      ? "hits only"
+      : canonicalCorrelation?.sampleSource === "canonical_checklist_cards"
+      ? "canonical cards"
+      : canonicalCorrelation
+      ? "legacy sample"
+      : null;
   const xDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.x), { floorAtZero: true, fallback: [0, 100] }), [points]);
   const yDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.y), { floorAtZero: true }), [points]);
 
@@ -5128,7 +5429,8 @@ function CardDesirabilityMarketValidationCard({ cards, diagnosticsContext = {} }
     <section id="set-detail-card-desirability-price" className="scroll-mt-24 md:scroll-mt-28">
       <SectionCard
         title={`${selectedMetric.label} vs Market Price`}
-        subtitle={selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set."}
+        subtitle={isCardAppealMetric ? CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT : selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set."}
+        titleInfoText={isCardAppealMetric ? cardAppealInfoText : null}
         bodyClassName="space-y-4"
       >
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -5143,7 +5445,15 @@ function CardDesirabilityMarketValidationCard({ cards, diagnosticsContext = {} }
             </div>
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Sample</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">n={points.length}</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{sampleCountLabel}</p>
+              {isCardAppealMetric && excludedNonPokemonLabel ? (
+                <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">{excludedNonPokemonLabel}</p>
+              ) : sampleSourceLabel || sampleCount !== points.length ? (
+                <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">
+                  {sampleSourceLabel || "display sample"}
+                  {sampleSourceLabel ? `; ${points.length} plotted` : sampleCount !== points.length ? `; ${points.length} plotted` : ""}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
@@ -6105,6 +6415,7 @@ export default function RipStatisticsPageClient({
     status: "idle",
     setId: null,
     cards: [],
+    cardAppealMarketPriceCorrelation: null,
     error: null,
   });
   const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState(DEFAULT_TOP_MARKET_CARDS_WINDOW);
@@ -6113,6 +6424,7 @@ export default function RipStatisticsPageClient({
     {},
     createMarketDashboardState
   );
+  const [setValueHistoryState, setSetValueHistoryState] = useState(() => createSetValueHistoryState());
   const [setValueTrendScope, setSetValueTrendScope] = useState(CANONICAL_SET_VALUE_SCOPE);
   const heroSetPickerRef = useRef(null);
   const checklistCacheRef = useRef(new Map());
@@ -6613,6 +6925,10 @@ export default function RipStatisticsPageClient({
     toNumber(summary.relative_desirability_score) ?? toNumber(summary.desirability_score);
   const displayedStabilityScore =
     toNumber(summary.relative_stability_score) ?? toNumber(summary.stability_score);
+  const ripDesirabilityComparison = useMemo(
+    () => normalizeRipDesirabilityComparison(summary, selectedTarget),
+    [summary, selectedTarget]
+  );
   const desirabilitySummary = getDesirabilitySummary(summary);
   const topDesirabilityCards = getTopCollectorAppealDrivers(
     explorePayload,
@@ -6654,19 +6970,55 @@ export default function RipStatisticsPageClient({
     () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload),
     [activeMarketDashboardState.payload]
   );
-  const activeSetValueHistory = {
-    status:
-      activeMarketDashboardState.status === "success"
+  const activeDirectSetValueState =
+    setValueHistoryState.setId === resolvedSetResourceId
+      ? setValueHistoryState
+      : createSetValueHistoryState({ setId: resolvedSetResourceId });
+  const activeDirectSetValueLoadedScopes = new Set(activeDirectSetValueState.loadedScopes || []);
+  const activeSetValueHistoriesByScope = {
+    ...(activeMarketDashboardDerivedState.setValue.historiesByScope || {}),
+  };
+  Object.entries(activeDirectSetValueState.historiesByScope || {}).forEach(([scope, history]) => {
+    if (activeDirectSetValueLoadedScopes.has(scope)) {
+      activeSetValueHistoriesByScope[scope] = Array.isArray(history) ? history : [];
+    }
+  });
+  const activeSetValueStandardHistory = activeDirectSetValueLoadedScopes.has(CANONICAL_SET_VALUE_SCOPE)
+    ? activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || []
+    : activeMarketDashboardDerivedState.setValue.history;
+  const activeSetValueAvailableScopes =
+    activeDirectSetValueState.availableScopes?.length > 0
+      ? activeDirectSetValueState.availableScopes
+      : activeMarketDashboardDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS;
+  const activeSetValueHasAnyHistory = Object.values(activeSetValueHistoriesByScope).some((scopeHistory) => scopeHistory.length > 0);
+  const activeSetValueStatus =
+    activeDirectSetValueState.status === "success"
+      ? activeSetValueHasAnyHistory
+        ? "success"
+        : "empty"
+      : activeDirectSetValueState.status === "error"
+      ? activeMarketDashboardState.status === "success"
         ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
           ? "success"
           : "empty"
-        : activeMarketDashboardState.status,
-    setId: activeMarketDashboardState.setId || resolvedSetResourceId,
-    history: activeMarketDashboardDerivedState.setValue.history,
-    historiesByScope: activeMarketDashboardDerivedState.setValue.historiesByScope,
-    availableScopes: activeMarketDashboardDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS,
-    error: activeMarketDashboardState.error,
-    meta: activeMarketDashboardDerivedState.setValue.meta,
+        : "error"
+      : activeDirectSetValueState.status === "loading"
+      ? activeSetValueHasAnyHistory
+        ? "success"
+        : "loading"
+      : activeMarketDashboardState.status === "success"
+      ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
+        ? "success"
+        : "empty"
+      : activeMarketDashboardState.status;
+  const activeSetValueHistory = {
+    status: activeSetValueStatus,
+    setId: activeDirectSetValueState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
+    history: activeSetValueStandardHistory,
+    historiesByScope: activeSetValueHistoriesByScope,
+    availableScopes: activeSetValueAvailableScopes,
+    error: activeDirectSetValueState.error || activeMarketDashboardState.error,
+    meta: activeDirectSetValueState.meta || activeMarketDashboardDerivedState.setValue.meta,
   };
   const activeTopMarketCardsState = {
     status:
@@ -7326,20 +7678,22 @@ export default function RipStatisticsPageClient({
 
     const setId = resolvedSetResourceId;
     if (!setId) {
-      setChecklistState({ status: "empty", setId: null, cards: [], error: null });
+      setChecklistState({ status: "empty", setId: null, cards: [], cardAppealMarketPriceCorrelation: null, error: null });
       return undefined;
     }
 
     const shouldRenderChecklist = (setDetailTab === "cards" && cardsSubTab === "checklist") || setDetailTab === "insights";
-    const cached = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId)?.cards || null;
-    if (cached) {
-      setChecklistState({ status: "success", setId, cards: cached, error: null });
+    const cachedPayload = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId) || null;
+    const cachedCards = Array.isArray(cachedPayload) ? cachedPayload : Array.isArray(cachedPayload?.cards) ? cachedPayload.cards : null;
+    const cachedCorrelation = Array.isArray(cachedPayload) ? null : cachedPayload?.cardAppealMarketPriceCorrelation || null;
+    if (cachedCards) {
+      setChecklistState({ status: "success", setId, cards: cachedCards, cardAppealMarketPriceCorrelation: cachedCorrelation, error: null });
       if (!shouldRenderChecklist) {
         return undefined;
       }
     }
 
-    if (!shouldRenderChecklist && cached) {
+    if (!shouldRenderChecklist && cachedCards) {
       return undefined;
     }
     if (!shouldRenderChecklist) {
@@ -7358,6 +7712,7 @@ export default function RipStatisticsPageClient({
       status: "loading",
       setId,
       cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
+      cardAppealMarketPriceCorrelation: previous.status === "success" && previous.setId === setId ? previous.cardAppealMarketPriceCorrelation : null,
       error: null,
     }));
 
@@ -7367,11 +7722,12 @@ export default function RipStatisticsPageClient({
           return;
         }
         const cards = Array.isArray(payload?.cards) ? payload.cards : [];
-        checklistCacheRef.current.set(setId, cards);
+        checklistCacheRef.current.set(setId, payload);
         setChecklistState({
           status: cards.length > 0 ? "success" : "empty",
           setId,
           cards,
+          cardAppealMarketPriceCorrelation: payload?.cardAppealMarketPriceCorrelation || null,
           error: null,
         });
         debugSetPagePerf("cards.tab_ready", {
@@ -7394,6 +7750,7 @@ export default function RipStatisticsPageClient({
           status: "error",
           setId,
           cards: [],
+          cardAppealMarketPriceCorrelation: null,
           error: error?.message || "Unable to load cards for this set.",
         });
       });
@@ -7402,6 +7759,113 @@ export default function RipStatisticsPageClient({
       isCancelled = true;
     };
   }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources]);
+
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    if (!setId) {
+      setSetValueHistoryState(createSetValueHistoryState({ status: "empty" }));
+      return undefined;
+    }
+
+    const requestedScopes = Array.from(new Set([CANONICAL_SET_VALUE_SCOPE, setValueTrendScope].filter(Boolean)));
+    let isCancelled = false;
+    const clickStartedAt = performance.now();
+
+    setSetValueHistoryState((previous) =>
+      previous.setId === setId
+        ? createSetValueHistoryState({
+            ...previous,
+            status: previous.status === "success" || previous.status === "empty" ? previous.status : "loading",
+            error: null,
+          })
+        : createSetValueHistoryState({ status: "loading", setId })
+    );
+
+    debugSetPagePerf("set_value.direct_fetch_start", {
+      resolvedSetId: setId,
+      scopes: requestedScopes,
+    });
+
+    Promise.all(
+      requestedScopes.map((scope) =>
+        getPokemonSetValueHistory(setId, { days: 365, scope }).then((payload) => ({
+          scope,
+          payload,
+        }))
+      )
+    )
+      .then((results) => {
+        if (isCancelled) {
+          return;
+        }
+
+        const historiesByScope = {};
+        const loadedScopes = [];
+        const availableScopeLookup = new Map();
+        let selectedMeta = null;
+        results.forEach(({ scope, payload }) => {
+          historiesByScope[scope] = Array.isArray(payload?.history) ? payload.history : [];
+          loadedScopes.push(scope);
+          if (!selectedMeta || scope === CANONICAL_SET_VALUE_SCOPE) {
+            selectedMeta = payload?.meta || null;
+          }
+          (payload?.meta?.availableScopes || []).forEach((entry) => {
+            if (entry?.key) {
+              availableScopeLookup.set(entry.key, entry);
+            }
+          });
+        });
+        const availableScopes = SET_VALUE_SCOPE_OPTIONS.map((entry) => availableScopeLookup.get(entry.key) || entry);
+        setSetValueHistoryState((previous) => {
+          const shouldMergePrevious = previous?.setId === setId;
+          const mergedHistoriesByScope = shouldMergePrevious
+            ? {
+                ...(previous.historiesByScope || {}),
+                ...historiesByScope,
+              }
+            : historiesByScope;
+          const mergedLoadedScopes = shouldMergePrevious
+            ? Array.from(new Set([...(previous.loadedScopes || []), ...loadedScopes]))
+            : loadedScopes;
+          const mergedHasHistory = Object.values(mergedHistoriesByScope).some((history) => history.length > 0);
+
+          return createSetValueHistoryState({
+            status: mergedHasHistory ? "success" : "empty",
+            setId,
+            historiesByScope: mergedHistoriesByScope,
+            loadedScopes: mergedLoadedScopes,
+            availableScopes,
+            meta: selectedMeta || previous?.meta || null,
+          });
+        });
+        debugSetPagePerf("set_value.direct_fetch_ready", {
+          setId,
+          scopes: loadedScopes,
+          elapsedMs: Math.round(performance.now() - clickStartedAt),
+          standardPoints: historiesByScope[CANONICAL_SET_VALUE_SCOPE]?.length || 0,
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setSetValueHistoryState(
+          createSetValueHistoryState({
+            status: "error",
+            setId,
+            error: error?.message || "Unable to load set value history for this set.",
+          })
+        );
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [setDetailMode, resolvedSetResourceId, setValueTrendScope]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -7830,6 +8294,7 @@ export default function RipStatisticsPageClient({
                               valueKey="setValue"
                               trendDirection={setValueSparklineTone}
                               className="h-14 w-full"
+                              showTooltip={false}
                             />
                             <div className="grid min-w-0 grid-cols-2 gap-2">
                               <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setValueDeltaAmount)}>
@@ -8366,12 +8831,14 @@ export default function RipStatisticsPageClient({
                   explanation={recommendationSummary}
                   pillars={ripPillarTiles}
                   titleInfoText={ripBreakdownInfo}
+                  ripDesirabilityComparison={ripDesirabilityComparison}
                 />
 
                 <DesirabilityProofCards validation={desirabilityValidationPayload} />
                 <DesirabilityValidationCard targets={targets} />
                 <CardDesirabilityMarketValidationCard
                   cards={checklistState.cards}
+                  cardAppealMarketPriceCorrelation={checklistState.cardAppealMarketPriceCorrelation}
                   diagnosticsContext={{
                     setId: resolvedSetResourceId,
                     setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,

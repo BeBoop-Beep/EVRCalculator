@@ -108,7 +108,7 @@ def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypat
         lambda set_id: {"movements": [], "meta": {}},
     )
 
-    def _enrich_with_validation(payload):
+    def _enrich_with_validation(payload, **_kwargs):
         cards = [
             {
                 **payload["cards"][0],
@@ -144,6 +144,122 @@ def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypat
     assert validation_rows[0]["pokemonDesirabilityScore"] == 92.0
     assert validation_rows[0]["adjustedCardAppealScore"] == 93.0
     assert row["payload_json"]["cards"][0]["adjustedCardAppealScore"] == 93.0
+
+
+def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_correlation(monkeypatch):
+    canonical_cards = [
+        {
+            "id": f"card-{index}",
+            "name": f"Pokemon {index}",
+            "number": str(index),
+            "printed_number": str(index),
+            "rarity": "Common",
+            "pokemon_tcg_api_card_id": f"api-{index}",
+        }
+        for index in range(1, 259)
+    ]
+    legacy_cards = [
+        {
+            "id": f"legacy-{index}",
+            "set_id": "set-1",
+            "name": f"Pokemon {index}",
+            "card_number": str(index),
+            "pokemon_tcg_api_id": f"api-{index}",
+        }
+        for index in range(1, 259)
+    ]
+    variant_rows = [
+        {
+            "id": f"variant-{index}",
+            "card_id": f"legacy-{index}",
+            "pokemon_tcg_api_id": f"api-{index}",
+        }
+        for index in range(1, 259)
+    ]
+    latest_price_rows = [
+        {
+            "variant_id": f"variant-{index}",
+            "condition_id": "condition-nm",
+            "market_price": 1.0 + index,
+        }
+        for index in range(1, 259)
+    ]
+    links = [
+        {
+            "pokemon_canonical_card_id": f"card-{index}",
+            "pokemon_reference_id": index,
+            "pokedex_number": index,
+            "contribution_weight": 1.0,
+            "match_confidence": "exact",
+            "is_hit_eligible": index <= 40,
+        }
+        for index in range(1, 210)
+    ]
+    scores = [
+        {
+            "pokemon_reference_id": index,
+            "pokedex_number": index,
+            "pokemon_name": f"Pokemon {index}",
+            "desirability_score": 40.0 + (index % 60),
+        }
+        for index in range(1, 210)
+    ]
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_cards_payload",
+        lambda set_id: {"set": {"id": set_id}, "cards": canonical_cards, "meta": {}},
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        lambda set_id: {"movements": [], "meta": {}},
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_client",
+        lambda: _Client(
+            {
+                "cards": lambda _query: legacy_cards,
+                "card_variants": lambda _query: variant_rows,
+                "conditions": lambda _query: [{"id": "condition-nm", "name": "Near Mint"}],
+                "card_market_usd_latest_by_condition": lambda _query: latest_price_rows,
+            }
+        ),
+    )
+
+    from backend.db.services import pokemon_public_snapshot_service
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client(
+            {
+                "pokemon_card_desirability_links": lambda _query: links,
+                "pokemon_desirability_composite_scores": lambda _query: scores,
+            }
+        ),
+    )
+
+    row = pokemon_snapshot_builders.build_cards_snapshot_row({"id": "set-1"})
+    correlation = row["payload_json"]["cardAppealMarketPriceCorrelation"]
+
+    assert correlation["canonical_count"] == 258
+    assert correlation["priced_count"] == 258
+    assert correlation["linked_count"] == 209
+    assert correlation["included_count"] == 209
+    assert correlation["excluded_unpriced_count"] == 0
+    assert correlation["excluded_unlinked_count"] == 49
+    assert correlation["n"] == 209
+    assert correlation["n"] != 40
+    assert correlation["sample_source"] == "canonical_checklist_cards"
+    assert len(correlation["rows"]) == 209
+    assert len(correlation["plotRows"]) == 258
+    assert sum(1 for row in correlation["rows"] if row["isHitEligible"]) == 40
+    assert sum(1 for row in correlation["plotRows"] if row["cardAppealScore"] is not None) == 209
+    assert sum(1 for row in correlation["plotRows"] if row["treatmentScore"] is not None) == 258
+    assert correlation["metricDiagnostics"]["cardAppeal"]["includedCount"] == 209
+    assert correlation["metricDiagnostics"]["treatmentScore"]["includedCount"] == 258
 
 
 def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(monkeypatch):
@@ -417,6 +533,7 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
             "targets": [
                 {
                     "id": "set-1",
+                    "target_id": "set-1",
                     "name": "Alpha",
                     "summary": {
                         "desirability_score": 90,
@@ -427,10 +544,20 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
                         "mean_value": 5,
                         "p95_value_to_cost_ratio": 2,
                     },
+                    "rip_score_without_desirability": 74.25,
+                    "rip_score_with_desirability": 80.0,
+                    "rip_score_delta": 5.75,
+                    "rip_rank_without_desirability": 3,
+                    "rip_rank_with_desirability": 1,
+                    "rip_rank_delta": 2,
+                    "desirability_component_score": 90.0,
+                    "rip_desirability_impact_label": "Rank lift",
+                    "rip_desirability_comparison_version": "rip_desirability_comparison_v1",
                     "top_hits": [{"marketPrice": 100}],
                 },
                 {
                     "id": "set-2",
+                    "target_id": "set-2",
                     "name": "Beta",
                     "summary": {
                         "desirability_score": 50,
@@ -448,6 +575,21 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
     )
 
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"})
+
+    comparison_fields = {
+        "rip_score_without_desirability": 74.25,
+        "rip_score_with_desirability": 80.0,
+        "rip_score_delta": 5.75,
+        "rip_rank_without_desirability": 3,
+        "rip_rank_with_desirability": 1,
+        "rip_rank_delta": 2,
+        "desirability_component_score": 90.0,
+        "rip_desirability_impact_label": "Rank lift",
+    }
+    for key, expected in comparison_fields.items():
+        assert row["payload_json"]["summary"][key] == expected
+        assert row["payload_json"]["set"][key] == expected
+        assert row["rip_summary_json"][key] == expected
 
     validation = row["payload_json"]["desirabilityValidation"]
     assert validation["formula_version"] == "desirability_validation_v1"

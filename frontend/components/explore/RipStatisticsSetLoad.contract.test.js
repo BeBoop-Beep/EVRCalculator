@@ -17,6 +17,7 @@ const snapshotServicePath = path.resolve(
   __dirname,
   "../../../backend/db/services/pokemon_public_snapshot_service.py"
 );
+const snapshotBuilderPath = path.resolve(__dirname, "../../../backend/scripts/pokemon_snapshot_builders.py");
 const backendApiPath = path.resolve(__dirname, "../../../backend/api/main.py");
 
 test("set detail dependent fetches use one stable resolved set resource id", () => {
@@ -60,10 +61,31 @@ test("set value trend uses the active market dashboard id through dropdown set s
   assert.ok(activeHistorySource.includes("resolvedSetResourceId"));
   assert.ok(activeHistorySource.includes("activeMarketDashboardDerivedState.setValue"));
   assert.ok(activeHistorySource.includes("activeMarketDashboardDerivedState.topCards"));
+  assert.ok(activeHistorySource.includes("activeDirectSetValueState"));
+  assert.ok(activeHistorySource.includes("activeSetValueHistoriesByScope"));
   assert.ok(!activeHistorySource.includes("selectedTarget"));
-  assert.ok(!activeHistorySource.includes("setValueHistoryState"));
   assert.ok(source.includes('debugSetPagePerf("set_value_trend.render_state"'));
   assert.ok(source.includes("standardHistoryLength"));
+});
+
+test("set value history fetches directly on every set detail tab", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const directFetchStart = source.indexOf('debugSetPagePerf("set_value.direct_fetch_start"');
+  const directFetchEnd = source.indexOf('debugSetPagePerf("set_value.direct_fetch_ready"', directFetchStart);
+  const directFetchSource = source.slice(directFetchStart, directFetchEnd);
+  const directEffectStart = source.lastIndexOf("useEffect(() => {", directFetchStart);
+  const directEffectEnd = source.indexOf("}, [setDetailMode, resolvedSetResourceId, setValueTrendScope]);", directFetchStart);
+  const directEffectSource = source.slice(directEffectStart, directEffectEnd);
+
+  assert.ok(source.includes("getPokemonSetValueHistory"));
+  assert.ok(source.includes("const [setValueHistoryState, setSetValueHistoryState] = useState"));
+  assert.ok(directFetchStart >= 0);
+  assert.ok(directFetchEnd > directFetchStart);
+  assert.ok(directFetchSource.includes("requestedScopes.map"));
+  assert.ok(directFetchSource.includes("CANONICAL_SET_VALUE_SCOPE"));
+  assert.ok(directEffectSource.includes("resolvedSetResourceId"));
+  assert.ok(!directEffectSource.includes('setDetailTab === "overview"'));
+  assert.ok(!directEffectSource.includes("shouldRenderMarketData"));
 });
 
 test("one market dashboard payload produces value trend and top chase card data", async () => {
@@ -97,7 +119,6 @@ test("overview shares a single canonical market dashboard request for value tren
   assert.ok(source.includes("dispatchMarketDashboard({ type: \"success\", setId, payload, sourceWindow: dashboardSourceWindow })"));
   assert.ok(source.includes("buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload)"));
   assert.ok(!source.includes("setTopMarketCardsState"));
-  assert.ok(!source.includes("setSetValueHistoryState"));
   assert.ok(!source.includes("applyMarketDashboardPayload"));
 });
 
@@ -163,6 +184,60 @@ test("30D top chase UI selection does not require a 30d dashboard snapshot", () 
   assert.ok(!source.includes("prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW })"));
 });
 
+test("RIP desirability comparison renders only from available payload fields", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("function normalizeRipDesirabilityComparison"));
+  assert.ok(source.includes("rip_score_without_desirability"));
+  assert.ok(source.includes("rip_score_with_desirability"));
+  assert.ok(source.includes("rip_rank_delta"));
+  assert.ok(source.includes("function RipDesirabilityComparisonStrip"));
+  assert.ok(source.includes("Without Desirability"));
+  assert.ok(source.includes("With Desirability"));
+  assert.ok(source.includes("Score Delta"));
+  assert.ok(source.includes("Rank Delta"));
+  assert.ok(source.includes("ripDesirabilityComparison={ripDesirabilityComparison}"));
+});
+
+test("set page insights receive RIP desirability comparison through snapshot summary payload", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const snapshotBuilderSource = fs.readFileSync(snapshotBuilderPath, "utf8");
+  const requiredFields = [
+    "rip_score_without_desirability",
+    "rip_score_with_desirability",
+    "rip_score_delta",
+    "rip_rank_without_desirability",
+    "rip_rank_with_desirability",
+    "rip_rank_delta",
+    "desirability_component_score",
+    "rip_desirability_impact_label",
+  ];
+
+  assert.ok(snapshotBuilderSource.includes("RIP_DESIRABILITY_COMPARISON_FIELDS"));
+  assert.ok(snapshotBuilderSource.includes("_merge_rip_desirability_comparison_into_set_payload"));
+  assert.ok(snapshotBuilderSource.includes('next_payload["summary"] = summary'));
+  assert.ok(source.includes("const summary = explorePayload?.summary || {};"));
+
+  for (const field of requiredFields) {
+    assert.ok(snapshotBuilderSource.includes(field), `snapshot builder propagates ${field}`);
+    assert.ok(source.includes(field), `frontend normalizer accepts ${field}`);
+  }
+
+  const summaryStart = source.indexOf("const summary = explorePayload?.summary || {};");
+  const comparisonStart = source.indexOf("const ripDesirabilityComparison = useMemo(", summaryStart);
+  const comparisonEnd = source.indexOf("const desirabilitySummary", comparisonStart);
+  const comparisonSource = source.slice(comparisonStart, comparisonEnd);
+  const insightsStart = source.indexOf('{setDetailMode ? (', comparisonEnd);
+  const insightsEnd = source.indexOf("<DesirabilityProofCards", insightsStart);
+  const insightsSource = source.slice(insightsStart, insightsEnd);
+
+  assert.ok(summaryStart >= 0);
+  assert.ok(comparisonStart > summaryStart);
+  assert.ok(comparisonSource.includes("normalizeRipDesirabilityComparison(summary, selectedTarget)"));
+  assert.ok(insightsSource.includes("<RipScoreBreakdownModule"));
+  assert.ok(insightsSource.includes("ripDesirabilityComparison={ripDesirabilityComparison}"));
+});
+
 test("market dashboard normalizer attaches top chase histories to cards", async () => {
   const { normalizeMarketDashboardPayload } = await import(pathToFileURL(marketClientPath).href);
   const payload = {
@@ -210,6 +285,39 @@ test("top chase trend fix stays out of set value and canonical market dashboard 
   assert.ok(!marketStateSource.includes("priceHistory"));
   assert.ok(!marketStateSource.includes("topChaseCardHistories"));
   assert.ok(ripSource.includes('debugSetPagePerf("top_chase_cards.trend_state"'));
+});
+
+test("compact sparkline tooltip is local to the sparkline wrapper", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const compactStart = source.indexOf("function CompactSparkline");
+  const compactEnd = source.indexOf("function normalizeSetValueHistoryPoints", compactStart);
+  const compactSource = source.slice(compactStart, compactEnd);
+
+  assert.ok(compactStart >= 0);
+  assert.ok(compactEnd > compactStart);
+  assert.ok(compactSource.includes("data-compact-sparkline"));
+  assert.ok(compactSource.includes("data-compact-sparkline-tooltip"));
+  assert.ok(compactSource.includes("className={[\"group relative"));
+  assert.ok(compactSource.includes("event.clientX - bounds.left"));
+  assert.ok(compactSource.includes("style={{ left: tooltipX }}"));
+  assert.ok(compactSource.includes("absolute bottom-[calc(100%+0.55rem)]"));
+  assert.ok(!compactSource.includes("pointer-events-none fixed"));
+  assert.ok(!compactSource.includes("window.innerWidth"));
+  assert.ok(!compactSource.includes("event.clientY"));
+});
+
+test("header set value compact sparkline disables floating tooltip overlay", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const labelIndex = source.indexOf("{setValueMetricLabel}");
+  const sparklineStart = source.indexOf("<CompactSparkline", labelIndex);
+  const sparklineEnd = source.indexOf("/>", sparklineStart);
+  const setValueSparklineSource = source.slice(sparklineStart, sparklineEnd);
+
+  assert.ok(labelIndex >= 0);
+  assert.ok(sparklineStart > labelIndex);
+  assert.ok(setValueSparklineSource.includes("points={setValueSparklinePoints}"));
+  assert.ok(setValueSparklineSource.includes('valueKey="setValue"'));
+  assert.ok(setValueSparklineSource.includes("showTooltip={false}"));
 });
 
 test("dropdown set switch can hydrate from a cached 365d market dashboard payload", async () => {
@@ -295,6 +403,11 @@ test("card snapshot client preserves precomputed card validation fields", () => 
   assert.ok(source.includes("validation?.isHitEligible"));
   assert.ok(source.includes("validation?.setValueShare"));
   assert.ok(source.includes("validation?.pokemonName"));
+  assert.ok(source.includes("normalizeCardAppealMarketPriceCorrelation"));
+  assert.ok(source.includes("cardAppealMarketPriceCorrelation"));
+  assert.ok(source.includes("payload?.cardAppealMarketPriceCorrelation"));
+  assert.ok(source.includes("plotRows"));
+  assert.ok(source.includes("subjectDesirabilityScore"));
 });
 
 test("card appeal market chart defaults to hits with honest labels", () => {
@@ -302,10 +415,17 @@ test("card appeal market chart defaults to hits with honest labels", () => {
 
   assert.ok(source.includes('useState("cardAppeal")'));
   assert.ok(source.includes('useState("hits")'));
+  assert.ok(source.includes("getCardAppealSampleDiagnostics"));
   assert.ok(source.includes('label: "Priced Cards"'));
   assert.ok(source.includes('label: "Hits Only"'));
   assert.ok(source.includes('label: "Card Appeal"'));
-  assert.ok(source.includes("Card Appeal blends subject demand with card treatment."));
+  assert.ok(source.includes("Card Appeal is currently calculated for Pokémon cards only."));
+  assert.ok(source.includes("This chart only includes priced cards with a Card Appeal score."));
+  assert.ok(source.includes("Card Appeal currently uses Pokémon demand + card treatment"));
+  assert.ok(source.includes("non-Pokémon cards are excluded even if they have prices."));
+  assert.ok(source.includes("priced non-Pokémon"));
+  assert.ok(source.includes("excluded from Card Appeal."));
+  assert.ok(source.includes("priced cards`"));
   assert.ok(source.includes('label: "Pure Pokemon Demand"'));
   assert.ok(source.includes('label: "Treatment Score"'));
   assert.ok(source.includes('label: "Scarcity-Adjusted Appeal"'));
@@ -342,6 +462,26 @@ test("card appeal market chart accepts current price and logs sample diagnostics
   }
 });
 
+test("card appeal market chart prefers canonical correlation sample when available", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("cardAppealMarketPriceCorrelation"));
+  assert.ok(source.includes("getCanonicalCardAppealCorrelationForSelection"));
+  assert.ok(source.includes("getCanonicalCardAppealRows"));
+  assert.ok(source.includes("getCardValidationRowsForMetric"));
+  assert.ok(source.includes('["pure", "cardAppeal", "treatment"].includes(selectedMetric?.key)'));
+  assert.ok(source.includes('selectedMetric?.key !== "pure"'));
+  assert.ok(source.includes('selectedScope?.key !== "priced"'));
+  assert.ok(source.includes("const sourceRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, selectedMetric)"));
+  assert.ok(source.includes("const canonicalRowsAvailable = getCanonicalCardAppealRows(cardAppealMarketPriceCorrelation, selectedMetric).length > 0"));
+  assert.ok(source.includes("const pointPearson = calculatePearsonCorrelation(points)"));
+  assert.ok(source.includes("const pointSpearman = calculateSpearmanCorrelation(points)"));
+  assert.ok(source.includes("const sampleCount = canonicalCorrelation && !canonicalRowsAvailable ? canonicalCorrelation.n : points.length"));
+  assert.ok(source.includes('"canonical cards"'));
+  assert.ok(source.includes('"hits only"'));
+  assert.ok(source.includes("points.length} plotted"));
+});
+
 test("desirability proof cards render from set payload validation data", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
@@ -367,4 +507,25 @@ test("desirability validation selector uses metric-specific market checks", () =
   assert.ok(source.includes("Highly desirable sets often become more expensive to open."));
   assert.ok(!source.includes('key: "p99"'));
   assert.ok(!source.includes("P99 Chase Upside"));
+});
+
+test("desirability validation set value prefers canonical checklist target fields", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const resolverStart = source.indexOf("function getValidationSetValueMetric");
+  const resolverEnd = source.indexOf("function getValueRelatedKeys", resolverStart);
+  const resolverSource = source.slice(resolverStart, resolverEnd);
+  const validationFieldIndex = resolverSource.indexOf("set_value_for_validation");
+  const checklistFieldIndex = resolverSource.indexOf("current_checklist_set_value");
+  const simulatedFieldIndex = resolverSource.indexOf("simulated_set_value");
+
+  assert.ok(resolverStart >= 0);
+  assert.ok(resolverEnd > resolverStart);
+  assert.ok(validationFieldIndex >= 0);
+  assert.ok(resolverSource.includes("setValueForValidation"));
+  assert.ok(resolverSource.includes("currentChecklistSetValue"));
+  assert.ok(resolverSource.includes("checklistSetValue"));
+  assert.ok(validationFieldIndex < checklistFieldIndex);
+  assert.ok(checklistFieldIndex < simulatedFieldIndex);
+  assert.ok(source.includes("function getDesirabilityValidationDiagnostics"));
+  assert.ok(source.includes("[desirability-validation] sample diagnostics"));
 });

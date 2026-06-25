@@ -98,6 +98,8 @@ function normalizeDailyPriceHistory(history) {
       provider: toOptionalString(point?.provider ?? point?.source),
       conditionId: toOptionalString(point?.conditionId ?? point?.condition_id),
       condition_id: toOptionalString(point?.condition_id ?? point?.conditionId),
+      isObserved: Boolean(point?.isObserved ?? point?.is_observed),
+      is_observed: Boolean(point?.is_observed ?? point?.isObserved),
       isCarriedForward: Boolean(point?.isCarriedForward ?? point?.is_carried_forward),
       is_carried_forward: Boolean(point?.is_carried_forward ?? point?.isCarriedForward),
       sourceDate: toOptionalString(point?.sourceDate ?? point?.source_date),

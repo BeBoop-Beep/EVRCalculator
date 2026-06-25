@@ -73,6 +73,7 @@ def _build_handlers():
                 "stability_score": 59.0,
                 "stability_rank": 14,
                 "stability_tier": "B",
+                "desirability_score": 42.0,
                 "pack_score_is_placeholder": False,
                 "pack_cost": 4.99,
                 "mean_value": 6.11,
@@ -99,6 +100,7 @@ def _build_handlers():
                 "stability_score": 74.0,
                 "stability_rank": 6,
                 "stability_tier": "A",
+                "desirability_score": 96.0,
                 "pack_score_is_placeholder": False,
                 "pack_cost": 5.49,
                 "mean_value": 7.18,
@@ -131,6 +133,32 @@ def _build_handlers():
             },
         ],
         "eras": lambda q: [{"id": "era-1", "name": "Wizards of the Coast"}],
+        "pokemon_set_value_daily_history": lambda q: [
+            {
+                "set_id": "set-2",
+                "snapshot_date": "2026-01-04",
+                "set_value": 222.22,
+                "priced_card_count": 58,
+                "total_card_count": 64,
+                "source": "snapshot",
+            },
+            {
+                "set_id": "set-1",
+                "snapshot_date": "2026-01-04",
+                "set_value": 111.11,
+                "priced_card_count": 92,
+                "total_card_count": 102,
+                "source": "snapshot",
+            },
+            {
+                "set_id": "set-1",
+                "snapshot_date": "2026-01-03",
+                "set_value": 100.0,
+                "priced_card_count": 90,
+                "total_card_count": 102,
+                "source": "snapshot",
+            },
+        ],
     }
 
 
@@ -171,9 +199,50 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     assert targets_by_id["set-2"]["p99_value_to_cost_rank"] == 1
     assert targets_by_id["set-2"]["p99_value_to_cost_tier"] == "S"
     assert targets_by_id["set-1"]["p99_value_to_cost_ratio"] == 4.8
+    assert targets_by_id["set-2"]["rip_score_with_desirability"] == 83.0
+    assert targets_by_id["set-2"]["rip_score_without_desirability"] == 79.75
+    assert targets_by_id["set-2"]["rip_score_delta"] == 3.25
+    assert targets_by_id["set-2"]["rip_rank_with_desirability"] == 1
+    assert targets_by_id["set-2"]["rip_rank_without_desirability"] == 1
+    assert targets_by_id["set-2"]["desirability_component_score"] == 96.0
+    assert targets_by_id["set-2"]["pack_score"] == 89.0
+    assert targets_by_id["set-2"]["set_value_for_validation"] == 222.22
+    assert targets_by_id["set-2"]["current_checklist_set_value"] == 222.22
+    assert targets_by_id["set-2"]["checklist_set_value"] == 222.22
+    assert targets_by_id["set-2"]["setValueForValidation"] == 222.22
+    assert targets_by_id["set-2"]["currentChecklistSetValue"] == 222.22
+    assert targets_by_id["set-2"]["checklistSetValue"] == 222.22
+    assert targets_by_id["set-2"]["current_checklist_set_value_date"] == "2026-01-04"
+    assert targets_by_id["set-2"]["checklist_set_value_priced_card_count"] == 58
+    assert payload["meta"]["ripDesirabilityComparison"]["valid_comparison_count"] == 2
     assert payload["meta"]["sources"]["explore_rip_statistics_latest"] == "OK"
     assert payload["meta"]["sources"]["simulation_latest_by_target"] == "SKIPPED_RIP_SUMMARY"
+    assert payload["meta"]["sources"]["pokemon_set_value_daily_history"] == "OK"
     assert payload["meta"]["request"]["limit"] == 150
+
+
+def test_targets_endpoint_includes_canonical_checklist_set_value_for_validation(monkeypatch):
+    handlers = _build_handlers()
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(
+        service,
+        "build_rip_interpretation",
+        lambda _summary_row: {"meta": {"packScore": {"label": "Good value", "severity": "neutral"}}},
+    )
+
+    payload = service.get_rip_statistics_targets_payload()
+    targets_by_id = {target["target_id"]: target for target in payload["targets"]}
+    history_query = next(call for call in client.calls if call.table_name == "pokemon_set_value_daily_history")
+
+    assert ("value_scope", "standard") in history_query.eq_filters
+    assert history_query.in_filters == [("set_id", ["set-1", "set-2"])]
+    assert ("snapshot_date", True) in history_query.order_fields
+    assert targets_by_id["set-1"]["set_value_for_validation"] == 111.11
+    assert targets_by_id["set-1"]["current_checklist_set_value"] == 111.11
+    assert targets_by_id["set-1"]["checklist_set_value"] == 111.11
+    assert targets_by_id["set-2"]["set_value_for_validation"] == 222.22
+    assert targets_by_id["set-2"]["current_checklist_set_value_date"] == "2026-01-04"
 
 
 def test_targets_endpoint_without_rows_raises_404(monkeypatch):

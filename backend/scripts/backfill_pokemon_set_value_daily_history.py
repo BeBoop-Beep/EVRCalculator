@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+from uuid import UUID
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -35,6 +36,11 @@ def parse_args() -> argparse.Namespace:
         "--set",
         dest="set_key",
         help="Optional set id, canonical key, or Pokemon API set id. Defaults to all sets.",
+    )
+    parser.add_argument(
+        "--set-id",
+        dest="set_key",
+        help="Alias for --set. Accepts a set id, canonical key, or Pokemon API set id.",
     )
     parser.add_argument(
         "--batch-size",
@@ -99,7 +105,14 @@ def resolve_set(client: Any, set_key: str) -> SetTarget:
     if not cleaned:
         raise SystemExit("--set cannot be blank")
 
-    for field in ("id", "canonical_key", "pokemon_api_set_id"):
+    lookup_fields = ["canonical_key", "pokemon_api_set_id"]
+    try:
+        UUID(cleaned)
+        lookup_fields.insert(0, "id")
+    except ValueError:
+        pass
+
+    for field in lookup_fields:
         result = (
             client.table("sets")
             .select("id,name,canonical_key,pokemon_api_set_id")

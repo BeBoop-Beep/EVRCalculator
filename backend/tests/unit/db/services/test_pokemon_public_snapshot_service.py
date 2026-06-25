@@ -1,4 +1,4 @@
-from backend.db.services import pokemon_public_snapshot_service
+from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service
 
 
 class _Result:
@@ -139,6 +139,77 @@ def test_enrich_cards_payload_with_desirability_adds_card_validation_fields(monk
     assert enriched["meta"]["cardDesirability"]["linkedPokemonCards"] == 1
     assert enriched["meta"]["cardDesirability"]["excludedNonPokemonCards"] == 1
     assert enriched["cardDesirabilityValidation"]["cards"][0]["pokemonName"] == "Charizard"
+
+
+def test_enrich_cards_payload_with_desirability_exposes_canonical_card_appeal_correlation(monkeypatch):
+    cards = [
+        {
+            "id": f"card-{index}",
+            "name": f"Pokemon {index}",
+            "rarity": "Common",
+        }
+        for index in range(1, 259)
+    ]
+    links = [
+        {
+            "pokemon_canonical_card_id": f"card-{index}",
+            "pokemon_reference_id": index,
+            "pokedex_number": index,
+            "contribution_weight": 1.0,
+            "match_confidence": "exact",
+            "is_hit_eligible": index <= 40,
+        }
+        for index in range(1, 210)
+    ]
+    scores = [
+        {
+            "pokemon_reference_id": index,
+            "pokedex_number": index,
+            "pokemon_name": f"Pokemon {index}",
+            "desirability_score": 40.0 + (index % 60),
+        }
+        for index in range(1, 210)
+    ]
+    client = _Client(
+        {
+            "pokemon_card_desirability_links": lambda _query: links,
+            "pokemon_desirability_composite_scores": lambda _query: scores,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    prices_by_card = {
+        f"card-{index}": {"market_price": 1.0 + index, "variant_id": f"variant-{index}"}
+        for index in range(1, 259)
+    }
+    enriched = pokemon_public_snapshot_service.enrich_cards_payload_with_desirability(
+        {"cards": cards, "meta": {}},
+        prices_by_card=prices_by_card,
+    )
+    correlation = enriched["cardAppealMarketPriceCorrelation"]
+
+    assert len(enriched["cardDesirabilityValidation"]["cards"][:40]) == 40
+    assert correlation["canonical_count"] == 258
+    assert correlation["priced_count"] == 258
+    assert correlation["linked_count"] == 209
+    assert correlation["scored_linked_count"] == 209
+    assert correlation["included_count"] == 209
+    assert correlation["excluded_unpriced_count"] == 0
+    assert correlation["excluded_unlinked_count"] == 49
+    assert correlation["excluded_missing_score_count"] == 0
+    assert correlation["n"] == 209
+    assert correlation["n"] != 40
+    assert correlation["sample_source"] == "canonical_checklist_cards"
+    assert len(correlation["rows"]) == 209
+    assert len(correlation["plotRows"]) == 258
+    assert sum(1 for row in correlation["rows"] if row["is_hit_eligible"]) == 40
+    assert sum(1 for row in correlation["plotRows"] if row["treatmentScore"] is not None) == 258
+    assert sum(1 for row in correlation["plotRows"] if row["cardAppealScore"] is not None) == 209
+    assert correlation["metricDiagnostics"]["cardAppeal"]["includedCount"] == 209
+    assert correlation["metricDiagnostics"]["treatmentScore"]["includedCount"] == 258
+    assert correlation["rows"][0]["marketPrice"] == 2.0
+    assert correlation["rows"][0]["pokemonDesirabilityScore"] == 41.0
+    assert enriched["meta"]["cardAppealMarketPriceCorrelation"]["n"] == 209
 
 
 def test_market_dashboard_missing_snapshot_relation_uses_live_fallback(monkeypatch):
@@ -382,6 +453,178 @@ def test_market_dashboard_snapshot_hydrates_empty_top_chase_histories_from_raw_o
     assert payload["meta"]["topChaseHistoryHydratedFromDailyTable"] is False
 
 
+def test_market_dashboard_snapshot_hydrates_top_chase_history_from_canonical_variant_observations(monkeypatch):
+    observation_queries = []
+
+    def read_dashboard(_query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-25",
+                "updated_at": "2026-06-25T00:00:00+00:00",
+                "top_chase_card_histories_json": {},
+                "payload_json": {
+                    "set": {"id": "set-1", "name": "Known Set"},
+                    "window": "365d",
+                    "window_key": "365d",
+                    "topChaseCards": [
+                        {
+                            "cardId": "legacy-card-1",
+                            "cardVariantId": "stale-variant",
+                            "name": "Reshiram ex",
+                            "marketPrice": 12.0,
+                        }
+                    ],
+                    "topChaseCardHistories": {},
+                    "meta": {},
+                },
+            }
+        ]
+
+    def read_observations(query):
+        observation_queries.append(query)
+        if ("card_variant_id", ["stale-variant"]) in query.in_filters:
+            return []
+        return [
+            {
+                "captured_at": "2026-06-25T09:00:00+00:00",
+                "card_variant_id": "canonical-variant",
+                "condition_id": pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+                "market_price": 22.0,
+            },
+            {
+                "captured_at": "2026-06-24T09:00:00+00:00",
+                "card_variant_id": "canonical-variant",
+                "condition_id": pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+                "market_price": 21.0,
+            },
+            {
+                "captured_at": "2026-06-23T09:00:00+00:00",
+                "card_variant_id": "canonical-variant",
+                "condition_id": pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+                "market_price": 20.0,
+            },
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Known Set", "canonical_key": "knownSet"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+            "pokemon_canonical_cards": lambda _query: [
+                {
+                    "id": "canonical-card-1",
+                    "set_id": "set-1",
+                    "pokemon_tcg_api_card_id": "bw-001",
+                    "name": "Reshiram ex",
+                    "number": "1",
+                    "printed_number": "1/99",
+                }
+            ],
+            "cards": lambda _query: [
+                {
+                    "id": "legacy-card-1",
+                    "set_id": "set-1",
+                    "name": "Reshiram ex",
+                    "card_number": "1",
+                    "pokemon_tcg_api_id": "bw-001",
+                }
+            ],
+            "card_variants": lambda _query: [
+                {"id": "stale-variant", "card_id": "legacy-card-1", "pokemon_tcg_api_id": "bw-001"},
+                {"id": "canonical-variant", "card_id": "legacy-card-1", "pokemon_tcg_api_id": "bw-001"},
+            ],
+            "card_variant_price_observations": read_observations,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
+    history = payload["topChaseCards"][0]["priceHistory"]
+
+    assert [point["date"] for point in history] == ["2026-06-23", "2026-06-24", "2026-06-25"]
+    assert [point["marketPrice"] for point in history] == [20.0, 21.0, 22.0]
+    assert all(point["isObserved"] is True for point in history)
+    assert all(point["isCarriedForward"] is False for point in history)
+    assert all(point["sourceVariantId"] == "canonical-variant" for point in history)
+    assert payload["topChaseCardHistories"]["stale-variant"] == history
+    assert ("card_variant_id", ["canonical-variant", "stale-variant"]) in observation_queries[-1].in_filters
+
+
+def test_canonical_top_chase_history_forward_fills_only_missing_days_and_later_actual_wins(monkeypatch):
+    def read_observations(_query):
+        return [
+            {
+                "captured_at": "2026-06-23T09:00:00+00:00",
+                "card_variant_id": "canonical-variant",
+                "condition_id": pokemon_set_market_service.TOP_CHASE_NEAR_MINT_CONDITION_ID
+                if hasattr(pokemon_set_market_service, "TOP_CHASE_NEAR_MINT_CONDITION_ID")
+                else pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+                "market_price": 20.0,
+                "source": "tcgplayer",
+            },
+            {
+                "captured_at": "2026-06-25T09:00:00+00:00",
+                "card_variant_id": "canonical-variant",
+                "condition_id": pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+                "market_price": 22.0,
+                "source": "tcgplayer",
+            },
+            {
+                "captured_at": "2026-06-25T18:00:00+00:00",
+                "card_variant_id": "canonical-variant",
+                "condition_id": pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+                "market_price": 23.0,
+                "source": "tcgplayer",
+            },
+        ]
+
+    client = _Client({"card_variant_price_observations": read_observations})
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    history_by_variant, diagnostics, meta = pokemon_set_market_service._load_canonical_top_chase_price_history(
+        [
+            {
+                "card_id": "legacy-card-1",
+                "card_variant_id": "stale-variant",
+                "condition_id": pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+                "card_name": "Reshiram ex",
+                "price_used": 23.0,
+                "captured_at": "2026-06-25T20:00:00+00:00",
+            }
+        ],
+        3,
+        {
+            "set": {"id": "set-1"},
+            "condition_id": pokemon_public_snapshot_service.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+            "legacy_card_to_canonical_id": {"legacy-card-1": "canonical-card-1"},
+            "variant_to_canonical_id": {
+                "stale-variant": "canonical-card-1",
+                "canonical-variant": "canonical-card-1",
+            },
+        },
+        {},
+        [],
+    )
+
+    history = history_by_variant["stale-variant"]
+
+    assert meta["windowStart"] == "2026-06-23"
+    assert [point["date"] for point in history] == ["2026-06-23", "2026-06-24", "2026-06-25"]
+    assert [point["marketPrice"] for point in history] == [20.0, 20.0, 23.0]
+    assert history[0]["isObserved"] is True
+    assert history[1]["isObserved"] is False
+    assert history[1]["isCarriedForward"] is True
+    assert history[1]["sourceDate"] == "2026-06-23"
+    assert history[2]["isObserved"] is True
+    assert history[2]["isCarriedForward"] is False
+    assert history[2]["sourceDate"] == "2026-06-25"
+    assert diagnostics["stale-variant"]["canonicalCardId"] == "canonical-card-1"
+    assert diagnostics["stale-variant"]["variantCount"] == 2
+    assert diagnostics["stale-variant"]["matchingConditionObservationCount"] == 3
+    assert diagnostics["stale-variant"]["latestHistoryPrice"] == 23.0
+
+
 def test_market_dashboard_snapshot_uses_75_raw_points_instead_of_365_synthetic_top_chase_rows(monkeypatch):
     observation_queries = []
     daily_queries = []
@@ -584,6 +827,46 @@ def test_market_dashboard_live_fallback_keeps_set_value_when_top_cards_fail(monk
     assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 123.45
     assert payload["topChaseCards"] == []
     assert payload["meta"]["snapshot"]["source"] == "live_fallback_missing_pokemon_set_market_dashboard_snapshot_latest"
+
+
+def test_set_value_history_snapshot_payload_reads_daily_history_directly(monkeypatch):
+    calls = []
+
+    def _daily_history_payload(set_id, days, value_scope):
+        calls.append({"set_id": set_id, "days": days, "value_scope": value_scope})
+        return {
+            "set": {"id": set_id, "name": "Known Set"},
+            "history": [
+                {"date": "2026-06-23", "setValue": 100.0},
+                {"date": "2026-06-24", "setValue": 101.0},
+            ],
+            "meta": {
+                "days": 6,
+                "valueScope": "standard",
+                "priceBasis": "Near Mint card_variant_price_observations rolled up into pokemon_set_value_daily_history",
+            },
+        }
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_value_history_payload",
+        _daily_history_payload,
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_market_dashboard_snapshot_payload",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("dashboard snapshot should not be read")),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_value_history_snapshot_payload(
+        "set-1",
+        days="6",
+        value_scope="standard",
+    )
+
+    assert calls == [{"set_id": "set-1", "days": "6", "value_scope": "standard"}]
+    assert [point["date"] for point in payload["history"]] == ["2026-06-23", "2026-06-24"]
+    assert payload["meta"]["priceBasis"].startswith("Near Mint")
 
 
 def test_market_dashboard_live_fallback_keeps_top_cards_when_set_value_fails(monkeypatch):

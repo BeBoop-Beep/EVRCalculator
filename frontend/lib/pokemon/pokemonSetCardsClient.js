@@ -70,6 +70,77 @@ function toOptionalBoolean(value) {
   return Boolean(value);
 }
 
+function normalizeCardAppealMarketPriceCorrelation(payload) {
+  const validationMeta = payload?.cardDesirabilityValidation?.meta || payload?.card_desirability_validation?.meta || {};
+  const raw =
+    payload?.cardAppealMarketPriceCorrelation ||
+    payload?.card_appeal_market_price_correlation ||
+    payload?.meta?.cardAppealMarketPriceCorrelation ||
+    payload?.meta?.card_appeal_market_price_correlation ||
+    validationMeta?.cardAppealMarketPriceCorrelation ||
+    validationMeta?.card_appeal_market_price_correlation;
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const n = toOptionalNumber(raw.n ?? raw.included_count ?? raw.includedCount);
+  const rawRows = Array.isArray(raw.plotRows)
+    ? raw.plotRows
+    : Array.isArray(raw.plot_rows)
+    ? raw.plot_rows
+    : Array.isArray(raw.rows)
+    ? raw.rows
+    : [];
+  const rows = rawRows
+    .map((row) => {
+      const marketPrice = toOptionalNumber(row?.marketPrice ?? row?.market_price);
+      const subjectDemandScore = toOptionalNumber(
+        row?.subjectDesirabilityScore ??
+          row?.subject_desirability_score ??
+          row?.pokemonDesirabilityScore ??
+          row?.pokemon_desirability_score
+      );
+      if (marketPrice === null || subjectDemandScore === null) {
+        return null;
+      }
+      return {
+        id: toOptionalString(row?.pokemonCanonicalCardId ?? row?.pokemon_canonical_card_id ?? row?.cardId ?? row?.card_id ?? row?.id),
+        name: toOptionalString(row?.cardName ?? row?.card_name ?? row?.name) || "Unknown card",
+        printedNumber: toOptionalString(row?.printedNumber ?? row?.printed_number),
+        rarity: toOptionalString(row?.rarity),
+        marketPrice,
+        currentPrice: marketPrice,
+        subjectDemandScore,
+        pokemonDesirabilityScore: subjectDemandScore,
+        cardDesirabilityScore: subjectDemandScore,
+        treatmentScore: toOptionalNumber(row?.treatmentScore ?? row?.treatment_score),
+        cardAppealScore: toOptionalNumber(row?.cardAppealScore ?? row?.card_appeal_score),
+        adjustedCardAppealScore: toOptionalNumber(row?.adjustedCardAppealScore ?? row?.adjusted_card_appeal_score),
+        isHitEligible: toOptionalBoolean(row?.isHitEligible ?? row?.is_hit_eligible),
+        sampleSource: toOptionalString(row?.sampleSource ?? row?.sample_source),
+      };
+    })
+    .filter(Boolean);
+  return {
+    canonicalCount: toOptionalNumber(raw.canonical_count ?? raw.canonicalCount),
+    pricedCount: toOptionalNumber(raw.priced_count ?? raw.pricedCount),
+    linkedCount: toOptionalNumber(raw.linked_count ?? raw.linkedCount),
+    scoredLinkedCount: toOptionalNumber(raw.scored_linked_count ?? raw.scoredLinkedCount),
+    includedCount: toOptionalNumber(raw.included_count ?? raw.includedCount),
+    excludedUnpricedCount: toOptionalNumber(raw.excluded_unpriced_count ?? raw.excludedUnpricedCount),
+    excludedUnlinkedCount: toOptionalNumber(raw.excluded_unlinked_count ?? raw.excludedUnlinkedCount),
+    excludedMissingScoreCount: toOptionalNumber(raw.excluded_missing_score_count ?? raw.excludedMissingScoreCount),
+    n,
+    pearson: toOptionalNumber(raw.pearson),
+    spearman: toOptionalNumber(raw.spearman),
+    interpretation: toOptionalString(raw.interpretation),
+    sampleSource: toOptionalString(raw.sample_source ?? raw.sampleSource),
+    includedPolicy: toOptionalString(raw.included_policy ?? raw.includedPolicy),
+    plottedCount: toOptionalNumber(raw.plotted_count ?? raw.plottedCount) ?? rows.length,
+    rows,
+    plotRows: rows,
+  };
+}
+
 function normalizePayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const validationRows = Array.isArray(payload?.cardDesirabilityValidation?.cards)
@@ -90,6 +161,7 @@ function normalizePayload(payload) {
     });
   });
 
+  const cardAppealMarketPriceCorrelation = normalizeCardAppealMarketPriceCorrelation(payload);
   return {
     set: {
       id: toOptionalString(payload?.set?.id),
@@ -181,6 +253,7 @@ function normalizePayload(payload) {
         tcgplayerProductId: toOptionalString(card?.tcgplayer_product_id),
       };
     }),
+    cardAppealMarketPriceCorrelation,
     meta: payload?.meta || { dedupe: {}, sources: {}, timings: {} },
   };
 }

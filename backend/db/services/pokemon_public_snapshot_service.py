@@ -14,6 +14,7 @@ from backend.desirability.card_appeal import (
     get_treatment_score,
     normalize_pull_probability,
 )
+from backend.desirability.set_components import build_card_appeal_correlation_dataset
 from backend.desirability.set_validation import build_desirability_validation_payload, build_opening_set_audit, is_opening_set_row
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
 from backend.db.services.explore_rip_statistics_service import (
@@ -266,6 +267,353 @@ def _latest_composite_scores_for_references(reference_ids: List[int]) -> Dict[in
     return scores_by_reference
 
 
+def _correlation(xs: List[float], ys: List[float]) -> Optional[float]:
+    if len(xs) != len(ys) or len(xs) < 3:
+        return None
+    mean_x = sum(xs) / len(xs)
+    mean_y = sum(ys) / len(ys)
+    numerator = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    denom_x = math.sqrt(sum((x - mean_x) ** 2 for x in xs))
+    denom_y = math.sqrt(sum((y - mean_y) ** 2 for y in ys))
+    denominator = denom_x * denom_y
+    if denominator <= 0:
+        return None
+    return numerator / denominator
+
+
+def _rank_values(values: List[float]) -> List[float]:
+    indexed = sorted(enumerate(values), key=lambda item: item[1])
+    ranks = [0.0] * len(values)
+    index = 0
+    while index < len(indexed):
+        end = index
+        while end + 1 < len(indexed) and indexed[end + 1][1] == indexed[index][1]:
+            end += 1
+        avg_rank = (index + 1 + end + 1) / 2.0
+        for ranked_index in range(index, end + 1):
+            ranks[indexed[ranked_index][0]] = avg_rank
+        index = end + 1
+    return ranks
+
+
+def _pearson_pairs(pairs: List[tuple[float, float]]) -> Optional[float]:
+    if len(pairs) < 3:
+        return None
+    corr = _correlation([pair[0] for pair in pairs], [pair[1] for pair in pairs])
+    return round(corr, 6) if corr is not None else None
+
+
+def _spearman_pairs(pairs: List[tuple[float, float]]) -> Optional[float]:
+    if len(pairs) < 3:
+        return None
+    ranked_x = _rank_values([pair[0] for pair in pairs])
+    ranked_y = _rank_values([pair[1] for pair in pairs])
+    corr = _correlation(ranked_x, ranked_y)
+    return round(corr, 6) if corr is not None else None
+
+
+def _correlation_interpretation(value: Optional[float]) -> str:
+    if value is None:
+        return "insufficient_data"
+    if value < 0.50:
+        return "healthy_separation"
+    if value <= 0.70:
+        return "watch_carefully"
+    return "likely_overlap"
+
+
+def _correlation_card_price(card: Dict[str, Any], prices_by_card: Optional[Dict[str, Any]]) -> Optional[float]:
+    price_info = (prices_by_card or {}).get(str(card.get("id"))) if card.get("id") is not None else None
+    if isinstance(price_info, dict):
+        price = _to_optional_float(
+            price_info.get("market_price")
+            if price_info.get("market_price") is not None
+            else price_info.get("marketPrice")
+        )
+        if price is not None and price > 0:
+            return price
+    price = _to_optional_float(
+        card.get("marketPrice")
+        if card.get("marketPrice") is not None
+        else card.get("market_price")
+        if card.get("market_price") is not None
+        else card.get("currentPrice")
+        if card.get("currentPrice") is not None
+        else card.get("current_price")
+    )
+    return price if price is not None and price > 0 else None
+
+
+def _build_card_appeal_market_price_correlation(
+    *,
+    cards: List[Dict[str, Any]],
+    links: List[Dict[str, Any]],
+    scores_by_reference: Dict[int, Dict[str, Any]],
+    prices_by_card: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    dataset = build_card_appeal_correlation_dataset(
+        cards=cards,
+        links=links,
+        scores_by_reference=scores_by_reference,
+        prices_by_card=prices_by_card,
+    )
+    pairs = [
+        (
+            _to_optional_float(row.get("subject_desirability_score")) or 0.0,
+            _to_optional_float(row.get("market_price")) or 0.0,
+        )
+        for row in dataset.get("rows") or []
+        if _to_optional_float(row.get("subject_desirability_score")) is not None
+        and _to_optional_float(row.get("market_price")) is not None
+    ]
+    pure_rows_by_card = {
+        str(row.get("pokemon_canonical_card_id")): row
+        for row in dataset.get("rows") or []
+        if row.get("pokemon_canonical_card_id") is not None
+    }
+    rows = []
+    for row in dataset.get("rows") or []:
+        market_price = _to_optional_float(row.get("market_price"))
+        subject_score = _to_optional_float(row.get("subject_desirability_score"))
+        if market_price is None or subject_score is None:
+            continue
+        rows.append(
+            {
+                "pokemon_canonical_card_id": row.get("pokemon_canonical_card_id"),
+                "pokemonCanonicalCardId": row.get("pokemon_canonical_card_id"),
+                "card_name": row.get("card_name"),
+                "cardName": row.get("card_name"),
+                "name": row.get("card_name"),
+                "printed_number": row.get("printed_number"),
+                "printedNumber": row.get("printed_number"),
+                "rarity": row.get("rarity"),
+                "market_price": market_price,
+                "marketPrice": market_price,
+                "subject_desirability_score": subject_score,
+                "subjectDesirabilityScore": subject_score,
+                "pokemonDesirabilityScore": subject_score,
+                "treatment_score": _to_optional_float(get_treatment_score(row.get("rarity"))),
+                "treatmentScore": _to_optional_float(get_treatment_score(row.get("rarity"))),
+                "card_appeal_score": calculate_adjusted_card_appeal(
+                    subject_score,
+                    get_treatment_score(row.get("rarity")),
+                    None,
+                ),
+                "cardAppealScore": calculate_adjusted_card_appeal(
+                    subject_score,
+                    get_treatment_score(row.get("rarity")),
+                    None,
+                ),
+                "is_hit_eligible": bool(row.get("is_hit_eligible")),
+                "isHitEligible": bool(row.get("is_hit_eligible")),
+            }
+        )
+    plot_rows = []
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        card_id = _to_optional_str(card.get("id"))
+        if not card_id:
+            continue
+        market_price = _correlation_card_price(card, prices_by_card)
+        if market_price is None:
+            continue
+        pure_row = pure_rows_by_card.get(card_id)
+        subject_score = _to_optional_float((pure_row or {}).get("subject_desirability_score"))
+        treatment_score = _to_optional_float(get_treatment_score(card.get("rarity")))
+        card_appeal_score = calculate_adjusted_card_appeal(subject_score, treatment_score, None)
+        if subject_score is None and treatment_score is None and card_appeal_score is None:
+            continue
+        is_hit_eligible = bool((pure_row or {}).get("is_hit_eligible"))
+        plot_rows.append(
+            {
+                "pokemon_canonical_card_id": card_id,
+                "pokemonCanonicalCardId": card_id,
+                "card_name": card.get("name"),
+                "cardName": card.get("name"),
+                "name": card.get("name"),
+                "printed_number": card.get("printed_number") or card.get("number"),
+                "printedNumber": card.get("printed_number") or card.get("number"),
+                "rarity": card.get("rarity"),
+                "market_price": market_price,
+                "marketPrice": market_price,
+                "subject_desirability_score": subject_score,
+                "subjectDesirabilityScore": subject_score,
+                "pokemonDesirabilityScore": subject_score,
+                "treatment_score": treatment_score,
+                "treatmentScore": treatment_score,
+                "card_appeal_score": card_appeal_score,
+                "cardAppealScore": card_appeal_score,
+                "adjusted_card_appeal_score": card_appeal_score,
+                "adjustedCardAppealScore": card_appeal_score,
+                "has_pure_demand_score": subject_score is not None,
+                "hasPureDemandScore": subject_score is not None,
+                "has_treatment_score": treatment_score is not None,
+                "hasTreatmentScore": treatment_score is not None,
+                "has_card_appeal_score": card_appeal_score is not None,
+                "hasCardAppealScore": card_appeal_score is not None,
+                "is_hit_eligible": is_hit_eligible,
+                "isHitEligible": is_hit_eligible,
+            }
+        )
+    pure_available_count = sum(1 for row in plot_rows if row.get("subject_desirability_score") is not None)
+    treatment_available_count = sum(1 for row in plot_rows if row.get("treatment_score") is not None)
+    card_appeal_available_count = sum(1 for row in plot_rows if row.get("card_appeal_score") is not None)
+    pearson = _pearson_pairs(pairs)
+    spearman = _spearman_pairs(pairs)
+    max_abs = max(abs(pearson or 0.0), abs(spearman or 0.0)) if pairs else None
+    return {
+        **(dataset.get("diagnostics") or {}),
+        "n": len(pairs),
+        "pearson": pearson,
+        "spearman": spearman,
+        "interpretation": _correlation_interpretation(max_abs),
+        "sample_source": "canonical_checklist_cards",
+        "rows": rows,
+        "plot_rows": plot_rows,
+        "plotRows": plot_rows,
+        "plotted_count": len(plot_rows),
+        "plottedCount": len(plot_rows),
+        "metric_diagnostics": {
+            "purePokemonDemand": {
+                **(dataset.get("diagnostics") or {}),
+                "sample_source": "canonical_checklist_cards",
+                "included_policy": "canonical priced cards with a desirability link and linked Pokemon desirability score",
+            },
+            "cardAppeal": {
+                "canonical_count": (dataset.get("diagnostics") or {}).get("canonical_count"),
+                "priced_count": (dataset.get("diagnostics") or {}).get("priced_count"),
+                "pure_demand_available_count": pure_available_count,
+                "treatment_available_count": treatment_available_count,
+                "card_appeal_available_count": card_appeal_available_count,
+                "included_count": card_appeal_available_count,
+                "excluded_missing_card_appeal_count": max(0, ((dataset.get("diagnostics") or {}).get("priced_count") or 0) - card_appeal_available_count),
+                "sample_source": "canonical_priced_cards_with_card_appeal_score",
+                "included_policy": "canonical priced cards with pure Pokemon demand and treatment score",
+            },
+            "treatmentScore": {
+                "canonical_count": (dataset.get("diagnostics") or {}).get("canonical_count"),
+                "priced_count": (dataset.get("diagnostics") or {}).get("priced_count"),
+                "treatment_available_count": treatment_available_count,
+                "included_count": treatment_available_count,
+                "excluded_missing_treatment_count": max(0, ((dataset.get("diagnostics") or {}).get("priced_count") or 0) - treatment_available_count),
+                "sample_source": "canonical_priced_cards_with_treatment_score",
+                "included_policy": "canonical priced cards with treatment score",
+            },
+        },
+        "metricDiagnostics": {
+            "purePokemonDemand": {
+                **(dataset.get("diagnostics") or {}),
+                "sampleSource": "canonical_checklist_cards",
+                "includedPolicy": "canonical priced cards with a desirability link and linked Pokemon desirability score",
+            },
+            "cardAppeal": {
+                "canonicalCount": (dataset.get("diagnostics") or {}).get("canonical_count"),
+                "pricedCount": (dataset.get("diagnostics") or {}).get("priced_count"),
+                "pureDemandAvailableCount": pure_available_count,
+                "treatmentAvailableCount": treatment_available_count,
+                "cardAppealAvailableCount": card_appeal_available_count,
+                "includedCount": card_appeal_available_count,
+                "excludedMissingCardAppealCount": max(0, ((dataset.get("diagnostics") or {}).get("priced_count") or 0) - card_appeal_available_count),
+                "sampleSource": "canonical_priced_cards_with_card_appeal_score",
+                "includedPolicy": "canonical priced cards with pure Pokemon demand and treatment score",
+            },
+            "treatmentScore": {
+                "canonicalCount": (dataset.get("diagnostics") or {}).get("canonical_count"),
+                "pricedCount": (dataset.get("diagnostics") or {}).get("priced_count"),
+                "treatmentAvailableCount": treatment_available_count,
+                "includedCount": treatment_available_count,
+                "excludedMissingTreatmentCount": max(0, ((dataset.get("diagnostics") or {}).get("priced_count") or 0) - treatment_available_count),
+                "sampleSource": "canonical_priced_cards_with_treatment_score",
+                "includedPolicy": "canonical priced cards with treatment score",
+            },
+        },
+    }
+
+
+def _legacy_card_appeal_market_price_correlation(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    validation = payload.get("cardDesirabilityValidation") or payload.get("card_desirability_validation") or {}
+    cards = validation.get("cards") if isinstance(validation, dict) else payload.get("cards")
+    if not isinstance(cards, list):
+        return None
+    pairs = []
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        x = _to_optional_float(
+            card.get("pokemonDesirabilityScore")
+            if card.get("pokemonDesirabilityScore") is not None
+            else card.get("pokemon_desirability_score")
+        )
+        y = _to_optional_float(
+            card.get("marketPrice")
+            if card.get("marketPrice") is not None
+            else card.get("market_price")
+            if card.get("market_price") is not None
+            else card.get("currentPrice")
+        )
+        if x is not None and y is not None and y > 0:
+            pairs.append((x, y))
+    pearson = _pearson_pairs(pairs)
+    spearman = _spearman_pairs(pairs)
+    max_abs = max(abs(pearson or 0.0), abs(spearman or 0.0)) if pairs else None
+    return {
+        "canonical_count": None,
+        "priced_count": None,
+        "linked_count": None,
+        "scored_linked_count": None,
+        "included_count": len(pairs),
+        "excluded_unpriced_count": None,
+        "excluded_unlinked_count": None,
+        "excluded_missing_score_count": None,
+        "included_policy": "legacy display sample with market price and Pokemon desirability score",
+        "n": len(pairs),
+        "pearson": pearson,
+        "spearman": spearman,
+        "interpretation": _correlation_interpretation(max_abs),
+        "sample_source": "legacy_display_sample",
+    }
+
+
+def _apply_card_appeal_plot_hit_flags(
+    correlation: Dict[str, Any],
+    validation_cards: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if not isinstance(correlation, dict):
+        return correlation
+    priced_hit_ids = {
+        str(card.get("cardId") or card.get("card_id"))
+        for card in validation_cards
+        if (card.get("cardId") or card.get("card_id")) is not None
+        and bool(card.get("isHitEligible") or card.get("is_hit_eligible"))
+        and (_to_optional_float(card.get("marketPrice") or card.get("market_price")) is not None)
+    }
+    if not priced_hit_ids:
+        return correlation
+
+    def update_rows(rows: Any) -> List[Dict[str, Any]]:
+        updated = []
+        for row in rows or []:
+            if not isinstance(row, dict):
+                continue
+            card_id = row.get("pokemon_canonical_card_id") or row.get("pokemonCanonicalCardId")
+            is_hit = str(card_id) in priced_hit_ids if card_id is not None else False
+            updated.append({**row, "is_hit_eligible": is_hit, "isHitEligible": is_hit})
+        return updated
+
+    updated_rows = update_rows(correlation.get("rows"))
+    updated_plot_rows = update_rows(correlation.get("plotRows") or correlation.get("plot_rows") or correlation.get("rows"))
+
+    return {
+        **correlation,
+        "rows": updated_rows,
+        "plot_rows": updated_plot_rows,
+        "plotRows": updated_plot_rows,
+        "hit_plot_count": len(priced_hit_ids),
+        "hitPlotCount": len(priced_hit_ids),
+    }
+
+
 def _resolve_pull_probability(card: Dict[str, Any]) -> tuple[Optional[float], Optional[str]]:
     for key in ("pullRate", "pull_rate", "pullProbability", "pull_probability"):
         probability = normalize_pull_probability(card.get(key))
@@ -327,13 +675,18 @@ def _apply_card_validation_fields(card: Dict[str, Any], *, total_market_value: f
     return card_payload
 
 
-def enrich_cards_payload_with_desirability(payload: Dict[str, Any]) -> Dict[str, Any]:
+def enrich_cards_payload_with_desirability(
+    payload: Dict[str, Any],
+    *,
+    prices_by_card: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     cards = list(payload.get("cards") or [])
     card_ids = [_card_id_key(card) for card in cards if isinstance(card, dict)]
     clean_card_ids = sorted({card_id for card_id in card_ids if card_id})
 
     links_by_card: Dict[str, List[Dict[str, Any]]] = {}
     reference_ids: List[int] = []
+    card_link_rows: List[Dict[str, Any]] = []
     if clean_card_ids:
         try:
             links_result = (
@@ -349,6 +702,7 @@ def enrich_cards_payload_with_desirability(payload: Dict[str, Any]) -> Dict[str,
                 card_id = _to_optional_str(link.get("pokemon_canonical_card_id"))
                 if not card_id:
                     continue
+                card_link_rows.append(link)
                 try:
                     reference_id = int(link.get("pokemon_reference_id"))
                 except (TypeError, ValueError):
@@ -360,6 +714,12 @@ def enrich_cards_payload_with_desirability(payload: Dict[str, Any]) -> Dict[str,
             logger.warning("[pokemon-snapshot] card desirability link lookup failed", exc_info=True)
 
     scores_by_reference = _latest_composite_scores_for_references(reference_ids)
+    card_appeal_correlation = _build_card_appeal_market_price_correlation(
+        cards=cards,
+        links=card_link_rows,
+        scores_by_reference=scores_by_reference,
+        prices_by_card=prices_by_card,
+    )
     market_prices = [
         _to_optional_float(card.get("marketPrice") if card.get("marketPrice") is not None else card.get("market_price"))
         for card in cards
@@ -463,6 +823,7 @@ def enrich_cards_payload_with_desirability(payload: Dict[str, Any]) -> Dict[str,
         }
         for card in enriched_cards
     ]
+    card_appeal_correlation = _apply_card_appeal_plot_hit_flags(card_appeal_correlation, validation_cards)
 
     meta = dict(payload.get("meta") or {})
     desirability_meta = {
@@ -485,16 +846,28 @@ def enrich_cards_payload_with_desirability(payload: Dict[str, Any]) -> Dict[str,
     }
     meta["cardDesirability"] = desirability_meta
     meta["card_desirability"] = desirability_meta
+    meta["cardAppealMarketPriceCorrelation"] = card_appeal_correlation
+    meta["card_appeal_market_price_correlation"] = card_appeal_correlation
     return {
         **payload,
         "cards": enriched_cards,
+        "cardAppealMarketPriceCorrelation": card_appeal_correlation,
+        "card_appeal_market_price_correlation": card_appeal_correlation,
         "cardDesirabilityValidation": {
             "cards": validation_cards,
-            "meta": {**desirability_meta, "generatedAt": datetime.now(timezone.utc).isoformat()},
+            "meta": {
+                **desirability_meta,
+                "cardAppealMarketPriceCorrelation": card_appeal_correlation,
+                "generatedAt": datetime.now(timezone.utc).isoformat(),
+            },
         },
         "card_desirability_validation": {
             "cards": validation_cards,
-            "meta": {**desirability_meta, "generated_at": datetime.now(timezone.utc).isoformat()},
+            "meta": {
+                **desirability_meta,
+                "card_appeal_market_price_correlation": card_appeal_correlation,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            },
         },
         "meta": meta,
     }
@@ -830,6 +1203,14 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
             meta = dict(payload.get("meta") or {})
             card_validation = payload.get("cardDesirabilityValidation") or payload.get("card_desirability_validation") or {}
             card_validation_cards = card_validation.get("cards") if isinstance(card_validation, dict) else []
+            correlation = (
+                payload.get("cardAppealMarketPriceCorrelation")
+                or payload.get("card_appeal_market_price_correlation")
+                or meta.get("cardAppealMarketPriceCorrelation")
+                or meta.get("card_appeal_market_price_correlation")
+            )
+            if not isinstance(correlation, dict):
+                correlation = _legacy_card_appeal_market_price_correlation(payload)
             meta["cardDesirabilityValidation"] = {
                 "precomputed": True,
                 "rowCount": len(card_validation_cards) if isinstance(card_validation_cards, list) else 0,
@@ -850,7 +1231,15 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
                 }
             )
             meta["snapshot"] = snapshot
-            return {**payload, "meta": meta}
+            if correlation:
+                meta["cardAppealMarketPriceCorrelation"] = correlation
+                meta["card_appeal_market_price_correlation"] = correlation
+            return {
+                **payload,
+                "cardAppealMarketPriceCorrelation": correlation,
+                "card_appeal_market_price_correlation": correlation,
+                "meta": meta,
+            }
     except Exception:
         logger.exception("[pokemon-snapshot] cards snapshot read failed set_id=%s", resolved_set_id)
         raise PokemonSetCardsError(500, "Failed to read Pokemon set cards snapshot", "POKEMON_SET_CARDS_SNAPSHOT_FAILED")
@@ -999,9 +1388,177 @@ def _top_chase_histories_cover_source_window(
     return True
 
 
+def _normalize_match_text(value: Any) -> str:
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def _normalize_card_number(value: Any) -> str:
+    compact = str(value or "").strip().replace(" ", "").lower()
+    if "/" in compact:
+        compact = compact.split("/", 1)[0]
+    stripped = compact.lstrip("0")
+    return stripped or compact
+
+
+def _top_chase_card_match_keys(name: Any, number: Any) -> List[str]:
+    normalized_name = _normalize_match_text(name)
+    normalized_number = _normalize_card_number(number)
+    if not normalized_name or not normalized_number:
+        return []
+    return [
+        f"name+number:{normalized_name}:{normalized_number}",
+        f"name+raw_number:{normalized_name}:{str(number or '').strip().replace(' ', '').lower()}",
+    ]
+
+
+def _query_snapshot_rows(table_name: str, configure_query) -> List[Dict[str, Any]]:
+    result = configure_query(public_read_client.table(table_name)).execute()
+    return list(result.data or [])
+
+
+def _build_top_chase_canonical_history_context(
+    *,
+    set_id: str,
+    cards: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    canonical_cards = _query_snapshot_rows(
+        "pokemon_canonical_cards",
+        lambda query: query.select("id,set_id,pokemon_tcg_api_card_id,name,number,printed_number").eq("set_id", set_id),
+    )
+    legacy_cards = _query_snapshot_rows(
+        "cards",
+        lambda query: query.select("id,set_id,name,card_number,pokemon_tcg_api_id").eq("set_id", set_id),
+    )
+    legacy_card_ids = [str(card["id"]) for card in legacy_cards if card.get("id") is not None]
+    variant_rows = (
+        _query_snapshot_rows(
+            "card_variants",
+            lambda query: query.select("id,card_id,pokemon_tcg_api_id").in_("card_id", legacy_card_ids),
+        )
+        if legacy_card_ids
+        else []
+    )
+
+    canonical_by_id = {
+        str(card["id"]): card
+        for card in canonical_cards
+        if card.get("id") is not None
+    }
+    canonical_by_api_id = {
+        str(card["pokemon_tcg_api_card_id"]): card
+        for card in canonical_cards
+        if card.get("pokemon_tcg_api_card_id") is not None
+    }
+    canonical_by_match_key: Dict[str, Dict[str, Any]] = {}
+    for card in canonical_cards:
+        for key in _top_chase_card_match_keys(card.get("name"), card.get("number")) + _top_chase_card_match_keys(
+            card.get("name"), card.get("printed_number")
+        ):
+            canonical_by_match_key.setdefault(key, card)
+
+    legacy_card_to_canonical_id: Dict[str, str] = {}
+    for legacy_card in legacy_cards:
+        canonical = None
+        api_id = _to_optional_str(legacy_card.get("pokemon_tcg_api_id"))
+        if api_id:
+            canonical = canonical_by_api_id.get(api_id)
+        if canonical is None:
+            for key in _top_chase_card_match_keys(legacy_card.get("name"), legacy_card.get("card_number")):
+                canonical = canonical_by_match_key.get(key)
+                if canonical is not None:
+                    break
+        if canonical and legacy_card.get("id") is not None:
+            legacy_card_to_canonical_id[str(legacy_card["id"])] = str(canonical["id"])
+
+    variant_to_canonical_id: Dict[str, str] = {}
+    for variant in variant_rows:
+        variant_id = _to_optional_str(variant.get("id"))
+        if not variant_id:
+            continue
+        canonical_id = legacy_card_to_canonical_id.get(str(variant.get("card_id")))
+        variant_api_id = _to_optional_str(variant.get("pokemon_tcg_api_id"))
+        if variant_api_id and variant_api_id in canonical_by_api_id:
+            canonical_id = str(canonical_by_api_id[variant_api_id]["id"])
+        if canonical_id in canonical_by_id:
+            variant_to_canonical_id[variant_id] = canonical_id
+
+    display_key_to_canonical_id: Dict[str, str] = {}
+    for card in cards:
+        display_key = _to_optional_str(card.get("cardVariantId")) or _to_optional_str(card.get("card_variant_id")) or _to_optional_str(card.get("cardId")) or _to_optional_str(card.get("card_id")) or _to_optional_str(card.get("id"))
+        variant_id = _to_optional_str(card.get("cardVariantId")) or _to_optional_str(card.get("card_variant_id"))
+        card_id = _to_optional_str(card.get("cardId")) or _to_optional_str(card.get("card_id")) or _to_optional_str(card.get("id"))
+        canonical_id = (
+            variant_to_canonical_id.get(variant_id or "")
+            or legacy_card_to_canonical_id.get(card_id or "")
+            or (card_id if card_id in canonical_by_id else None)
+        )
+        if display_key and canonical_id:
+            display_key_to_canonical_id[display_key] = canonical_id
+
+    target_canonical_ids = set(display_key_to_canonical_id.values())
+    return {
+        "canonical_by_id": canonical_by_id,
+        "variant_to_canonical_id": variant_to_canonical_id,
+        "display_key_to_canonical_id": display_key_to_canonical_id,
+        "variant_ids": sorted(
+            variant_id
+            for variant_id, canonical_id in variant_to_canonical_id.items()
+            if canonical_id in target_canonical_ids
+        ),
+    }
+
+
+def _compact_top_chase_canonical_observation_rows(
+    rows: List[Dict[str, Any]],
+    *,
+    variant_to_canonical_id: Dict[str, str],
+    display_key_to_canonical_id: Dict[str, str],
+) -> Dict[str, List[Dict[str, Any]]]:
+    point_by_canonical_date: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    captured_at_by_canonical_date: Dict[str, Dict[str, str]] = {}
+    daily_counts_by_canonical_date: Dict[str, Dict[str, int]] = {}
+    for row in rows:
+        variant_id = _to_optional_str(row.get("card_variant_id"))
+        canonical_id = _to_optional_str(variant_to_canonical_id.get(variant_id or ""))
+        captured_at = _to_optional_str(row.get("captured_at") or row.get("capturedAt"))
+        captured_date = _parse_date_key(captured_at)
+        price = _to_optional_float(row.get("market_price") if "market_price" in row else row.get("marketPrice"))
+        if not canonical_id or not captured_date or price is None or price <= 0:
+            continue
+        daily_counts = daily_counts_by_canonical_date.setdefault(canonical_id, {})
+        daily_counts[captured_date] = daily_counts.get(captured_date, 0) + 1
+        existing_captured_at = captured_at_by_canonical_date.setdefault(canonical_id, {}).get(captured_date)
+        if existing_captured_at and captured_at and captured_at <= existing_captured_at:
+            continue
+        captured_at_by_canonical_date[canonical_id][captured_date] = captured_at or captured_date
+        point_by_canonical_date.setdefault(canonical_id, {})[captured_date] = {
+            "date": captured_date,
+            "marketPrice": round(price, 2),
+            "market_price": round(price, 2),
+            "sourceDate": captured_date,
+            "source_date": captured_date,
+            "sourceVariantId": variant_id,
+            "source_variant_id": variant_id,
+            "dailyObservationCount": daily_counts[captured_date],
+            "daily_observation_count": daily_counts[captured_date],
+            "isObserved": True,
+            "is_observed": True,
+            "isCarriedForward": False,
+            "is_carried_forward": False,
+        }
+
+    histories: Dict[str, List[Dict[str, Any]]] = {}
+    for display_key, canonical_id in display_key_to_canonical_id.items():
+        points = point_by_canonical_date.get(canonical_id, {})
+        if points:
+            histories[display_key] = [points[date_key] for date_key in sorted(points.keys())]
+    return histories
+
+
 def _load_top_chase_observation_histories(
     *,
     set_id: str,
+    cards: Optional[List[Dict[str, Any]]] = None,
     variant_ids: List[str],
     latest_date_key: Optional[str],
     window_days: int,
@@ -1039,6 +1596,68 @@ def _load_top_chase_observation_histories(
 
     start_date = latest_date - timedelta(days=max(window_days - 1, 0))
     end_date = latest_date + timedelta(days=1)
+    canonical_context: Dict[str, Any] = {}
+    try:
+        canonical_context = _build_top_chase_canonical_history_context(
+            set_id=set_id,
+            cards=list(cards or []),
+        )
+    except Exception as exc:
+        logger.warning(
+            "[pokemon-snapshot] canonical top chase history context failed set_id=%s error=%s",
+            set_id,
+            exc,
+            exc_info=True,
+        )
+        canonical_context = {}
+
+    canonical_variant_ids = list(canonical_context.get("variant_ids") or [])
+    if canonical_variant_ids:
+        try:
+            latest_result = (
+                public_read_client.table("card_variant_price_observations")
+                .select("captured_at")
+                .in_("card_variant_id", canonical_variant_ids)
+                .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
+                .gt("market_price", 0)
+                .order("captured_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            canonical_latest_date_key = _parse_date_key((_first_row(latest_result) or {}).get("captured_at"))
+            if canonical_latest_date_key:
+                canonical_latest_date = date.fromisoformat(canonical_latest_date_key)
+                if canonical_latest_date > latest_date:
+                    latest_date = canonical_latest_date
+                    start_date = latest_date - timedelta(days=max(window_days - 1, 0))
+                    end_date = latest_date + timedelta(days=1)
+            history_result = (
+                public_read_client.table("card_variant_price_observations")
+                .select("card_variant_id,captured_at,market_price")
+                .in_("card_variant_id", canonical_variant_ids)
+                .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
+                .gt("market_price", 0)
+                .gte("captured_at", start_date.isoformat())
+                .lt("captured_at", end_date.isoformat())
+                .order("captured_at", desc=False)
+                .execute()
+            )
+            histories = _compact_top_chase_canonical_observation_rows(
+                list(history_result.data or []),
+                variant_to_canonical_id=dict(canonical_context.get("variant_to_canonical_id") or {}),
+                display_key_to_canonical_id=dict(canonical_context.get("display_key_to_canonical_id") or {}),
+            )
+            if histories:
+                return histories
+        except Exception as exc:
+            logger.warning(
+                "[pokemon-snapshot] canonical top chase observation history hydration failed set_id=%s variants=%s error=%s",
+                set_id,
+                len(canonical_variant_ids),
+                exc,
+                exc_info=True,
+            )
+
     try:
         history_result = (
             public_read_client.table("card_variant_price_observations")
@@ -1093,6 +1712,38 @@ def _attach_top_chase_histories(
         if history:
             next_card["priceHistory"] = history
             next_card["price_history"] = history
+            latest_price_point = next(
+                (
+                    point
+                    for point in reversed(history)
+                    if _to_optional_float(point.get("marketPrice") if "marketPrice" in point else point.get("market_price")) is not None
+                    and not bool(point.get("isCarriedForward") or point.get("is_carried_forward"))
+                ),
+                None,
+            )
+            if latest_price_point:
+                latest_price = round(
+                    _to_optional_float(
+                        latest_price_point.get("marketPrice")
+                        if "marketPrice" in latest_price_point
+                        else latest_price_point.get("market_price")
+                    )
+                    or 0,
+                    2,
+                )
+                next_card["marketPrice"] = latest_price
+                next_card["estimatedMarketPrice"] = latest_price
+                next_card["estimated_market_price"] = latest_price
+                next_card["priceUsed"] = latest_price
+                next_card["price_used"] = latest_price
+                latest_date = _parse_date_key(
+                    latest_price_point.get("date")
+                    or latest_price_point.get("sourceDate")
+                    or latest_price_point.get("source_date")
+                )
+                if latest_date:
+                    next_card["priceUpdatedAt"] = latest_date
+                    next_card["price_updated_at"] = latest_date
         cards.append(next_card)
 
     next_payload = dict(payload)
@@ -1131,6 +1782,7 @@ def _hydrate_market_dashboard_top_chase_histories(
     if variant_ids:
         histories = _load_top_chase_observation_histories(
             set_id=set_id,
+            cards=cards,
             variant_ids=variant_ids,
             latest_date_key=_parse_date_key(
                 row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date")
@@ -1401,30 +2053,4 @@ def get_pokemon_set_value_history_snapshot_payload(
     days: Any = None,
     value_scope: Any = None,
 ) -> Dict[str, Any]:
-    set_row = _resolve_set_row(set_id)
-    resolved_set_id = str(set_row["id"])
-    days_value = _sanitize_days(days)
-    scope = _sanitize_scope(value_scope)
-    dashboard = get_pokemon_set_market_dashboard_snapshot_payload(resolved_set_id)
-    histories_by_scope = dashboard.get("setValueHistoriesByScope") or dashboard.get("set_value_histories_by_scope") or {}
-    history = list(histories_by_scope.get(scope) or [])
-    if days_value and len(history) > days_value:
-        history = history[-days_value:]
-    available_scopes = dashboard.get("availableScopes") or dashboard.get("available_scopes") or []
-    return {
-        "set": dashboard.get("set"),
-        "history": history,
-        "meta": {
-            **(dashboard.get("meta") or {}),
-            "days": days_value,
-            "valueScope": scope,
-            "value_scope": scope,
-            "availableScopes": available_scopes,
-            "available_scopes": available_scopes,
-            "asOfDate": history[-1].get("date") if history else dashboard.get("latestMarketDate"),
-            "windowStart": history[0].get("date") if history else None,
-            "windowEnd": history[-1].get("date") if history else None,
-            "windowDays": len(history),
-            "priceBasis": "pokemon_set_market_dashboard_snapshot_latest.set_value_histories_json",
-        },
-    }
+    return get_pokemon_set_value_history_payload(set_id=set_id, days=days, value_scope=value_scope)

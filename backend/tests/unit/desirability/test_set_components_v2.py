@@ -4,6 +4,7 @@ from backend.desirability.rarity_buckets import ACCESSIBLE_HIT, PREMIUM_CHASE, c
 from backend.desirability.set_components import (
     compute_component_scores,
     build_card_facts,
+    build_card_appeal_correlation_dataset,
     build_set_coverage_audit,
     collapse_subject_rollups,
     compute_hit_link_category_counts,
@@ -176,6 +177,53 @@ def test_v2_pokedex_fallback_links_legacy_hit_when_link_table_skipped_it():
     assert warnings == []
     assert facts[0]["subject_name"] == "Charizard"
     assert facts[0]["subject_key"] == "ref:6"
+
+
+def test_card_appeal_coverage_counts_all_canonical_cards_and_exclusions():
+    cards = [
+        _card("common-priced", "set", "Bulbasaur", "001/100", "Common", pokedex_numbers=[1]),
+        _card("rare-unpriced", "set", "Charmander", "002/100", "Rare Holo", pokedex_numbers=[4]),
+        _card("linked-missing-score", "set", "Squirtle", "003/100", "Uncommon", pokedex_numbers=[7]),
+        _card("priced-unlinked", "set", "Professor's Research", "004/100", "Uncommon", supertype="Trainer"),
+    ]
+    dataset = build_card_appeal_correlation_dataset(
+        cards=cards,
+        links=[
+            _link("common-priced", 1),
+            _link("rare-unpriced", 4),
+            _link("linked-missing-score", 7),
+        ],
+        scores_by_reference={
+            1: _score(1, "Bulbasaur", 65, 60, 55),
+            4: _score(4, "Charmander", 80, 82, 70),
+        },
+        prices_by_card={
+            "common-priced": {"market_price": 1.25},
+            "linked-missing-score": {"market_price": 2.0},
+            "priced-unlinked": {"market_price": 0.5},
+        },
+    )
+
+    diagnostics = dataset["diagnostics"]
+    assert diagnostics["canonical_count"] == 4
+    assert diagnostics["priced_count"] == 3
+    assert diagnostics["linked_count"] == 3
+    assert diagnostics["scored_linked_count"] == 2
+    assert diagnostics["included_count"] == 1
+    assert diagnostics["excluded_unpriced_count"] == 1
+    assert diagnostics["excluded_unlinked_count"] == 1
+    assert diagnostics["excluded_missing_score_count"] == 1
+    assert dataset["rows"] == [
+        {
+            "pokemon_canonical_card_id": "common-priced",
+            "card_name": "Bulbasaur",
+            "printed_number": "001/100",
+            "rarity": "Common",
+            "market_price": 1.25,
+            "subject_desirability_score": 65.0,
+            "is_hit_eligible": False,
+        }
+    ]
 
 
 def test_component_outputs_are_bounded_and_weighted_formula_matches():

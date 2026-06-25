@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 import math
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.db.services.rip_desirability_comparison import build_rip_desirability_comparison_payload
 from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,9 @@ _BIGGEST_UPSIDE_P95_CAP = 5.0
 _BIGGEST_UPSIDE_P99_CAP = 10.0
 _BIGGEST_UPSIDE_P95_WEIGHT = 0.70
 _BIGGEST_UPSIDE_P99_WEIGHT = 0.30
+_SET_VALUE_HISTORY_SCOPE = "standard"
+_SET_VALUE_HISTORY_CHUNK_SIZE = 50
+_SET_VALUE_HISTORY_DAYS_PER_SET_LIMIT = 45
 
 
 class ExploreRipStatisticsTargetsError(Exception):
@@ -57,6 +61,62 @@ def _to_optional_str(value: Any) -> Optional[str]:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _chunks(values: List[str], size: int) -> Iterable[List[str]]:
+    for index in range(0, len(values), size):
+        yield values[index:index + size]
+
+
+def _load_current_checklist_set_value_lookup(
+    set_ids: List[str],
+    *,
+    sources: Dict[str, str],
+    warnings: List[str],
+) -> Dict[str, Dict[str, Any]]:
+    """Load latest canonical checklist set value rows for Explore validation targets."""
+
+    unique_set_ids = sorted({_to_optional_str(set_id) for set_id in set_ids if _to_optional_str(set_id)})
+    if not unique_set_ids:
+        sources["pokemon_set_value_daily_history"] = "SKIPPED"
+        return {}
+
+    started = time.perf_counter()
+    latest_by_set_id: Dict[str, Dict[str, Any]] = {}
+    try:
+        for chunk in _chunks(unique_set_ids, _SET_VALUE_HISTORY_CHUNK_SIZE):
+            result = (
+                public_read_client.table("pokemon_set_value_daily_history")
+                .select("set_id,snapshot_date,set_value,priced_card_count,total_card_count,source")
+                .in_("set_id", chunk)
+                .eq("value_scope", _SET_VALUE_HISTORY_SCOPE)
+                .order("snapshot_date", desc=True)
+                .limit(max(len(chunk) * _SET_VALUE_HISTORY_DAYS_PER_SET_LIMIT, len(chunk)))
+                .execute()
+            )
+            for row in result.data or []:
+                set_id = _to_optional_str(row.get("set_id"))
+                if not set_id or set_id in latest_by_set_id:
+                    continue
+                value = _to_optional_float(row.get("set_value"))
+                if value is None or value <= 0:
+                    continue
+                latest_by_set_id[set_id] = row
+
+        sources["pokemon_set_value_daily_history"] = "OK"
+        logger.info(
+            "[rip-statistics-targets] loaded checklist set values matched=%s/%s in %.1fms",
+            len(latest_by_set_id),
+            len(unique_set_ids),
+            (time.perf_counter() - started) * 1000,
+        )
+    except Exception as exc:
+        logger.warning("[rip-statistics-targets] checklist set value enrichment failed: %s", exc)
+        warnings.append("Failed to load checklist set value data for one or more RIP targets")
+        sources["pokemon_set_value_daily_history"] = "FAILED"
+        return {}
+
+    return latest_by_set_id
 
 
 def _resolve_mean_value_to_cost_ratio(row: Dict[str, Any]) -> Optional[float]:
@@ -318,6 +378,27 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         set_ms = 0.0
         sources["sets"] = "SKIPPED"
 
+    set_value_started = time.perf_counter()
+    set_value_lookup_ids = sorted(
+        {
+            resolved_id
+            for resolved_id in [
+                *set_ids,
+                *[
+                    _to_optional_str(set_row.get("id"))
+                    for set_row in set_lookup_by_target_id.values()
+                ],
+            ]
+            if resolved_id
+        }
+    )
+    current_checklist_set_value_lookup = _load_current_checklist_set_value_lookup(
+        set_value_lookup_ids,
+        sources=sources,
+        warnings=warnings,
+    )
+    set_value_ms = (time.perf_counter() - set_value_started) * 1000
+
     era_ids = sorted(
         {
             str(row.get("era_id"))
@@ -405,13 +486,20 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         )
         pack_rank = row.get("pack_rank")
         pack_tier = _to_optional_str(row.get("pack_tier"))
+        resolved_set_id = _to_optional_str(set_row.get("id")) or target_id
+        checklist_set_value_row = (
+            current_checklist_set_value_lookup.get(resolved_set_id)
+            or current_checklist_set_value_lookup.get(target_id)
+            or {}
+        )
+        checklist_set_value = _to_optional_float(checklist_set_value_row.get("set_value"))
         
         targets.append(
             {
                 "target_type": "set",
                 "target_id": target_id,
-                "id": set_row.get("id") or target_id,
-                "set_id": set_row.get("id") or target_id,
+                "id": resolved_set_id,
+                "set_id": resolved_set_id,
                 "canonical_key": set_row.get("canonical_key"),
                 "slug": set_row.get("canonical_key"),
                 "pokemon_api_set_id": set_row.get("pokemon_api_set_id"),
@@ -469,6 +557,20 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "median_value": row.get("median_value"),
                 "simulated_set_value": row.get("simulated_set_value"),
                 "simulated_set_value_card_count": row.get("simulated_set_value_card_count"),
+                "set_value_for_validation": checklist_set_value,
+                "setValueForValidation": checklist_set_value,
+                "current_checklist_set_value": checklist_set_value,
+                "currentChecklistSetValue": checklist_set_value,
+                "checklist_set_value": checklist_set_value,
+                "checklistSetValue": checklist_set_value,
+                "current_checklist_set_value_date": checklist_set_value_row.get("snapshot_date"),
+                "currentChecklistSetValueDate": checklist_set_value_row.get("snapshot_date"),
+                "checklist_set_value_source": checklist_set_value_row.get("source"),
+                "checklistSetValueSource": checklist_set_value_row.get("source"),
+                "checklist_set_value_priced_card_count": checklist_set_value_row.get("priced_card_count"),
+                "checklistSetValuePricedCardCount": checklist_set_value_row.get("priced_card_count"),
+                "checklist_set_value_total_card_count": checklist_set_value_row.get("total_card_count"),
+                "checklistSetValueTotalCardCount": checklist_set_value_row.get("total_card_count"),
                 "roi_percent": row.get("roi_percent"),
                 "prob_profit": row.get("prob_profit"),
                 "prob_big_hit": row.get("prob_big_hit"),
@@ -574,6 +676,20 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         target["p99_value_to_cost_rank"] = p99_rank_payload.get("rank")
         target["p99_value_to_cost_tier"] = p99_rank_payload.get("tier")
 
+    comparison_payload = build_rip_desirability_comparison_payload(targets)
+    targets = comparison_payload["rows"]
+    comparison_diagnostics = comparison_payload["diagnostics"]
+    logger.info(
+        "[rip-statistics-targets] RIP desirability comparison valid=%s/%s missing_desirability=%s "
+        "raises_rank=%s lowers_rank=%s minimal=%s",
+        comparison_diagnostics["valid_comparison_count"],
+        comparison_diagnostics["total_sets"],
+        comparison_diagnostics["missing_desirability_count"],
+        comparison_diagnostics["raises_rank_count"],
+        comparison_diagnostics["lowers_rank_count"],
+        comparison_diagnostics["minimal_impact_count"],
+    )
+
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
         targets[0],
@@ -589,9 +705,12 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         "meta": {
             "sources": sources,
             "warnings": warnings,
+            "ripDesirabilityComparison": comparison_diagnostics,
+            "rip_desirability_comparison": comparison_diagnostics,
             "timings": {
                 "targets_query_ms": round(query_ms, 2),
                 "set_enrichment_ms": round(set_ms, 2),
+                "set_value_enrichment_ms": round(set_value_ms, 2),
                 "era_enrichment_ms": round(era_ms, 2),
                 "total_backend_ms": round(total_ms, 2),
             },

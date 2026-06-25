@@ -23,6 +23,7 @@ from backend.db.services.pokemon_set_market_service import (
     get_pokemon_set_top_market_cards_payload,
     get_pokemon_set_value_history_payload,
 )
+from backend.desirability.set_components import build_canonical_card_price_index
 from backend.desirability.set_validation import build_desirability_validation_payload, build_opening_set_audit, is_opening_set_row
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,17 @@ TOP_CHASE_HISTORY_SOURCE = "card_variant_price_observations"
 DEFAULT_RANKINGS_LIMIT = 200
 DEFAULT_UPSERT_BATCH_SIZE = 500
 TOP_CHASE_HISTORY_FIELDS = {"priceHistory", "price_history"}
+RIP_DESIRABILITY_COMPARISON_FIELDS = (
+    "rip_score_without_desirability",
+    "rip_score_with_desirability",
+    "rip_score_delta",
+    "rip_rank_without_desirability",
+    "rip_rank_with_desirability",
+    "rip_rank_delta",
+    "desirability_component_score",
+    "rip_desirability_impact_label",
+    "rip_desirability_comparison_version",
+)
 
 
 def load_backend_env() -> None:
@@ -168,16 +180,99 @@ def _summary_subset(summary: Dict[str, Any], keys: Iterable[str]) -> Dict[str, A
     return {key: summary.get(key) for key in keys if key in summary}
 
 
+def _set_identity_tokens(*rows: Dict[str, Any]) -> set[str]:
+    tokens: set[str] = set()
+    identity_keys = (
+        "id",
+        "set_id",
+        "target_id",
+        "slug",
+        "canonical_key",
+        "pokemon_api_set_id",
+    )
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key in identity_keys:
+            token = first_non_empty(row.get(key))
+            if token:
+                tokens.add(token.lower())
+    return tokens
+
+
+def _find_matching_rankings_target(
+    *,
+    set_id: str,
+    set_row: Dict[str, Any],
+    payload: Dict[str, Any],
+    target_rows: Iterable[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    payload_set = payload.get("set") if isinstance(payload.get("set"), dict) else {}
+    expected_tokens = _set_identity_tokens(
+        {"id": set_id, "set_id": set_id, "target_id": set_id},
+        set_row,
+        payload_set,
+    )
+    for target in target_rows:
+        if not isinstance(target, dict):
+            continue
+        target_tokens = _set_identity_tokens(target)
+        if expected_tokens.intersection(target_tokens):
+            return target
+    return None
+
+
+def _comparison_fields_from_target(target: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(target, dict):
+        return {}
+    return {key: target.get(key) for key in RIP_DESIRABILITY_COMPARISON_FIELDS if key in target}
+
+
+def _merge_rip_desirability_comparison_into_set_payload(
+    *,
+    payload: Dict[str, Any],
+    set_id: str,
+    set_row: Dict[str, Any],
+    target_rows: Iterable[Dict[str, Any]],
+) -> Dict[str, Any]:
+    matching_target = _find_matching_rankings_target(
+        set_id=set_id,
+        set_row=set_row,
+        payload=payload,
+        target_rows=target_rows,
+    )
+    comparison_fields = _comparison_fields_from_target(matching_target)
+    if not comparison_fields:
+        return payload
+
+    next_payload = dict(payload)
+    summary = dict(next_payload.get("summary") or {})
+    summary.update(comparison_fields)
+    next_payload["summary"] = summary
+
+    set_payload = dict(next_payload.get("set") or {})
+    set_payload.update(comparison_fields)
+    next_payload["set"] = set_payload
+    return next_payload
+
+
 def build_set_page_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
     payload = get_explore_page_payload("set", set_id)
     try:
         rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
+        target_rows = rankings_payload.get("targets") or []
+        payload = _merge_rip_desirability_comparison_into_set_payload(
+            payload=payload,
+            set_id=set_id,
+            set_row=set_row,
+            target_rows=target_rows,
+        )
         desirability_validation = build_desirability_validation_payload(
             set_id=set_id,
             set_payload=payload,
-            target_rows=rankings_payload.get("targets") or [],
+            target_rows=target_rows,
         )
         payload["desirabilityValidation"] = desirability_validation
         payload["desirability_validation"] = desirability_validation
@@ -232,6 +327,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
             "desirability_score",
             "experience_score",
             "chase_potential_score",
+            *RIP_DESIRABILITY_COMPARISON_FIELDS,
         ),
     )
     market_summary = _summary_subset(
@@ -328,10 +424,181 @@ def _top_chase_histories_cover_source_window(
     return True
 
 
+def _normalize_match_text(value: Any) -> str:
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def _normalize_card_number(value: Any) -> str:
+    compact = str(value or "").strip().replace(" ", "").lower()
+    if "/" in compact:
+        compact = compact.split("/", 1)[0]
+    stripped = compact.lstrip("0")
+    return stripped or compact
+
+
+def _card_match_keys(name: Any, number: Any) -> List[str]:
+    normalized_name = _normalize_match_text(name)
+    normalized_number = _normalize_card_number(number)
+    if not normalized_name or not normalized_number:
+        return []
+    return [
+        f"name+number:{normalized_name}:{normalized_number}",
+        f"name+raw_number:{normalized_name}:{str(number or '').strip().replace(' ', '').lower()}",
+    ]
+
+
+def _query_table_rows(client: Any, table_name: str, configure_query) -> List[Dict[str, Any]]:
+    result = configure_query(client.table(table_name)).execute()
+    return list(result.data or [])
+
+
+def _build_top_chase_canonical_history_context(
+    client: Any,
+    *,
+    set_id: str,
+    cards: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    canonical_cards = _query_table_rows(
+        client,
+        "pokemon_canonical_cards",
+        lambda query: query.select("id,set_id,pokemon_tcg_api_card_id,name,number,printed_number").eq("set_id", set_id),
+    )
+    legacy_cards = _query_table_rows(
+        client,
+        "cards",
+        lambda query: query.select("id,set_id,name,card_number,pokemon_tcg_api_id").eq("set_id", set_id),
+    )
+    legacy_card_ids = [str(card["id"]) for card in legacy_cards if card.get("id") is not None]
+    variant_rows = (
+        _query_table_rows(
+            client,
+            "card_variants",
+            lambda query: query.select("id,card_id,pokemon_tcg_api_id").in_("card_id", legacy_card_ids),
+        )
+        if legacy_card_ids
+        else []
+    )
+
+    canonical_by_id = {
+        str(card["id"]): card
+        for card in canonical_cards
+        if card.get("id") is not None
+    }
+    canonical_by_api_id = {
+        str(card["pokemon_tcg_api_card_id"]): card
+        for card in canonical_cards
+        if card.get("pokemon_tcg_api_card_id") is not None
+    }
+    canonical_by_match_key: Dict[str, Dict[str, Any]] = {}
+    for card in canonical_cards:
+        for key in _card_match_keys(card.get("name"), card.get("number")) + _card_match_keys(
+            card.get("name"), card.get("printed_number")
+        ):
+            canonical_by_match_key.setdefault(key, card)
+
+    legacy_card_to_canonical_id: Dict[str, str] = {}
+    for legacy_card in legacy_cards:
+        canonical = None
+        api_id = first_non_empty(legacy_card.get("pokemon_tcg_api_id"))
+        if api_id:
+            canonical = canonical_by_api_id.get(api_id)
+        if canonical is None:
+            for key in _card_match_keys(legacy_card.get("name"), legacy_card.get("card_number")):
+                canonical = canonical_by_match_key.get(key)
+                if canonical is not None:
+                    break
+        if canonical and legacy_card.get("id") is not None:
+            legacy_card_to_canonical_id[str(legacy_card["id"])] = str(canonical["id"])
+
+    variant_to_canonical_id: Dict[str, str] = {}
+    for variant in variant_rows:
+        variant_id = first_non_empty(variant.get("id"))
+        if not variant_id:
+            continue
+        canonical_id = legacy_card_to_canonical_id.get(str(variant.get("card_id")))
+        variant_api_id = first_non_empty(variant.get("pokemon_tcg_api_id"))
+        if variant_api_id and variant_api_id in canonical_by_api_id:
+            canonical_id = str(canonical_by_api_id[variant_api_id]["id"])
+        if canonical_id in canonical_by_id:
+            variant_to_canonical_id[variant_id] = canonical_id
+
+    display_key_to_canonical_id: Dict[str, str] = {}
+    for card in cards:
+        display_key = first_non_empty(card.get("cardVariantId"), card.get("card_variant_id"), card.get("cardId"), card.get("card_id"), card.get("id"))
+        variant_id = first_non_empty(card.get("cardVariantId"), card.get("card_variant_id"))
+        card_id = first_non_empty(card.get("cardId"), card.get("card_id"), card.get("id"))
+        canonical_id = (
+            variant_to_canonical_id.get(variant_id or "")
+            or legacy_card_to_canonical_id.get(card_id or "")
+            or (card_id if card_id in canonical_by_id else None)
+        )
+        if display_key and canonical_id:
+            display_key_to_canonical_id[str(display_key)] = canonical_id
+
+    return {
+        "canonical_by_id": canonical_by_id,
+        "variant_to_canonical_id": variant_to_canonical_id,
+        "display_key_to_canonical_id": display_key_to_canonical_id,
+        "variant_ids": sorted(
+            variant_id
+            for variant_id, canonical_id in variant_to_canonical_id.items()
+            if canonical_id in set(display_key_to_canonical_id.values())
+        ),
+    }
+
+
+def _compact_top_chase_canonical_observation_rows(
+    rows: List[Dict[str, Any]],
+    *,
+    variant_to_canonical_id: Dict[str, str],
+    display_key_to_canonical_id: Dict[str, str],
+) -> Dict[str, List[Dict[str, Any]]]:
+    points_by_canonical_date: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    captured_at_by_canonical_date: Dict[str, Dict[str, str]] = {}
+    daily_counts_by_canonical_date: Dict[str, Dict[str, int]] = {}
+    for row in rows:
+        variant_id = first_non_empty(row.get("card_variant_id"))
+        canonical_id = variant_to_canonical_id.get(variant_id or "")
+        captured_at = first_non_empty(row.get("captured_at"), row.get("capturedAt"))
+        date_key = parse_date_key(captured_at)
+        price = to_optional_float(row.get("market_price") if "market_price" in row else row.get("marketPrice"))
+        if not canonical_id or not date_key or price is None or price <= 0:
+            continue
+        daily_counts = daily_counts_by_canonical_date.setdefault(canonical_id, {})
+        daily_counts[date_key] = daily_counts.get(date_key, 0) + 1
+        existing_captured_at = captured_at_by_canonical_date.setdefault(canonical_id, {}).get(date_key)
+        if existing_captured_at and captured_at and captured_at <= existing_captured_at:
+            continue
+        captured_at_by_canonical_date[canonical_id][date_key] = captured_at or date_key
+        points_by_canonical_date.setdefault(canonical_id, {})[date_key] = {
+            "date": date_key,
+            "marketPrice": round(price, 2),
+            "market_price": round(price, 2),
+            "sourceDate": date_key,
+            "source_date": date_key,
+            "sourceVariantId": variant_id,
+            "source_variant_id": variant_id,
+            "dailyObservationCount": daily_counts[date_key],
+            "daily_observation_count": daily_counts[date_key],
+            "isObserved": True,
+            "is_observed": True,
+            "isCarriedForward": False,
+            "is_carried_forward": False,
+        }
+
+    histories_by_display_key: Dict[str, List[Dict[str, Any]]] = {}
+    for display_key, canonical_id in display_key_to_canonical_id.items():
+        points = points_by_canonical_date.get(canonical_id, {})
+        if points:
+            histories_by_display_key[display_key] = [points[date_key] for date_key in sorted(points.keys())]
+    return histories_by_display_key
+
+
 def _load_top_chase_histories_from_observations(
     client: Any,
     *,
     set_id: str,
+    cards: Optional[List[Dict[str, Any]]] = None,
     variant_ids: List[str],
     latest_date_key: Optional[str],
     days: int,
@@ -365,6 +632,64 @@ def _load_top_chase_histories_from_observations(
 
     start_date = latest_date - timedelta(days=max(days - 1, 0))
     end_date = latest_date + timedelta(days=1)
+    canonical_context: Dict[str, Any] = {}
+    try:
+        canonical_context = _build_top_chase_canonical_history_context(
+            client,
+            set_id=set_id,
+            cards=list(cards or []),
+        )
+    except Exception:
+        logger.warning("[pokemon-snapshot] canonical top chase history context failed set_id=%s", set_id, exc_info=True)
+        canonical_context = {}
+
+    canonical_variant_ids = list(canonical_context.get("variant_ids") or [])
+    if canonical_variant_ids:
+        try:
+            latest_result = (
+                client.table("card_variant_price_observations")
+                .select("captured_at")
+                .in_("card_variant_id", canonical_variant_ids)
+                .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
+                .gt("market_price", 0)
+                .order("captured_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            canonical_latest_date_key = parse_date_key((list(latest_result.data or [])[:1] or [{}])[0].get("captured_at"))
+            if canonical_latest_date_key:
+                canonical_latest_date = date.fromisoformat(canonical_latest_date_key)
+                if canonical_latest_date > latest_date:
+                    latest_date = canonical_latest_date
+                    start_date = latest_date - timedelta(days=max(days - 1, 0))
+                    end_date = latest_date + timedelta(days=1)
+            result = (
+                client.table("card_variant_price_observations")
+                .select("card_variant_id,captured_at,market_price")
+                .in_("card_variant_id", canonical_variant_ids)
+                .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
+                .gt("market_price", 0)
+                .gte("captured_at", start_date.isoformat())
+                .lt("captured_at", end_date.isoformat())
+                .order("captured_at", desc=False)
+                .execute()
+            )
+            histories = _compact_top_chase_canonical_observation_rows(
+                list(result.data or []),
+                variant_to_canonical_id=dict(canonical_context.get("variant_to_canonical_id") or {}),
+                display_key_to_canonical_id=dict(canonical_context.get("display_key_to_canonical_id") or {}),
+            )
+            if histories:
+                logger.info(
+                    "[pokemon-snapshot] canonical top chase histories set_id=%s cards=%s variants=%s",
+                    set_id,
+                    len(histories),
+                    len(canonical_variant_ids),
+                )
+                return histories
+        except Exception:
+            logger.warning("canonical top chase observation history load failed set_id=%s", set_id, exc_info=True)
+
     try:
         result = (
             client.table("card_variant_price_observations")
@@ -447,6 +772,34 @@ def _compact_top_chase_cards(cards: List[Dict[str, Any]], history_by_card: Dict[
         if compact_history:
             compact_card["priceHistory"] = compact_history
             compact_card["price_history"] = compact_history
+            latest_price_point = next(
+                (
+                    point
+                    for point in reversed(compact_history)
+                    if to_optional_float(point.get("marketPrice") if "marketPrice" in point else point.get("market_price")) is not None
+                    and not bool(point.get("isCarriedForward") or point.get("is_carried_forward"))
+                ),
+                None,
+            )
+            if latest_price_point:
+                latest_price = round(
+                    to_optional_float(
+                        latest_price_point.get("marketPrice")
+                        if "marketPrice" in latest_price_point
+                        else latest_price_point.get("market_price")
+                    )
+                    or 0,
+                    2,
+                )
+                compact_card["marketPrice"] = latest_price
+                compact_card["estimatedMarketPrice"] = latest_price
+                compact_card["estimated_market_price"] = latest_price
+                compact_card["priceUsed"] = latest_price
+                compact_card["price_used"] = latest_price
+                latest_date = first_non_empty(latest_price_point.get("date"), latest_price_point.get("sourceDate"), latest_price_point.get("source_date"))
+                if latest_date:
+                    compact_card["priceUpdatedAt"] = latest_date[:10]
+                    compact_card["price_updated_at"] = latest_date[:10]
         compact_cards.append(compact_card)
     return compact_cards
 
@@ -492,6 +845,7 @@ def build_market_dashboard_snapshot_rows(
             loaded_histories = _load_top_chase_histories_from_observations(
                 client or get_client(),
                 set_id=set_id,
+                cards=top_cards,
                 variant_ids=variant_ids,
                 latest_date_key=_latest_history_date(histories_by_scope),
                 days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
@@ -622,12 +976,74 @@ def build_market_dashboard_snapshot_rows(
     )
 
 
+def _query_rows(client, table_name: str, configure_query) -> List[Dict[str, Any]]:
+    query = configure_query(client.table(table_name))
+    result = query.execute()
+    return list(result.data or [])
+
+
+def _build_card_appeal_price_index_for_set(
+    *,
+    set_id: str,
+    canonical_cards: List[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    try:
+        client = get_client()
+        legacy_cards = _query_rows(
+            client,
+            "cards",
+            lambda query: query.select("id,set_id,name,rarity,card_number,pokemon_tcg_api_id").eq("set_id", set_id),
+        )
+        legacy_card_ids = [str(card["id"]) for card in legacy_cards if card.get("id") is not None]
+        if not legacy_card_ids:
+            return {}
+
+        variant_rows = _query_rows(
+            client,
+            "card_variants",
+            lambda query: query.select("id,card_id,pokemon_tcg_api_id").in_("card_id", legacy_card_ids),
+        )
+        variant_ids = [str(row["id"]) for row in variant_rows if row.get("id") is not None]
+        if not variant_ids:
+            return {}
+
+        condition_rows = _query_rows(
+            client,
+            "conditions",
+            lambda query: query.select("id,name").eq("name", "Near Mint").limit(1),
+        )
+        near_mint_condition_id = str(condition_rows[0]["id"]) if condition_rows and condition_rows[0].get("id") is not None else None
+        if not near_mint_condition_id:
+            return {}
+
+        latest_price_rows = _query_rows(
+            client,
+            "card_market_usd_latest_by_condition",
+            lambda query: query.select("variant_id,condition_id,market_price,source,captured_at")
+            .in_("variant_id", variant_ids)
+            .eq("condition_id", near_mint_condition_id),
+        )
+        return build_canonical_card_price_index(
+            canonical_cards=canonical_cards,
+            legacy_cards=legacy_cards,
+            variant_rows=variant_rows,
+            latest_price_rows=latest_price_rows,
+        )
+    except Exception:
+        logger.warning("[pokemon-snapshot] card appeal price index lookup failed", exc_info=True)
+        return {}
+
+
 def build_cards_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
     set_id = str(set_row["id"])
     payload = get_pokemon_set_cards_payload(set_id)
     movement_payload = build_pokemon_set_card_movement_payload(set_id=set_id)
     payload = enrich_cards_payload_with_movements(payload, movement_payload)
-    payload = enrich_cards_payload_with_desirability(payload)
+    prices_by_card = _build_card_appeal_price_index_for_set(
+        set_id=set_id,
+        canonical_cards=list(payload.get("cards") or []),
+    )
+    payload = enrich_cards_payload_with_desirability(payload, prices_by_card=prices_by_card)
     cards = list(payload.get("cards") or [])
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_cards", built_at=utc_now_iso())
     return {
@@ -653,6 +1069,13 @@ def build_explore_rankings_snapshot_row(*, limit: int = DEFAULT_RANKINGS_LIMIT) 
     meta["openingSetAudit"] = opening_set_audit
     meta["opening_set_audit"] = opening_set_audit
     payload = {**payload, "targets": opening_targets, "meta": meta}
+    comparison_diagnostics = meta.get("ripDesirabilityComparison") or meta.get("rip_desirability_comparison") or {}
+    logger.info(
+        "[pokemon-snapshot] RIP desirability comparison valid=%s/%s opening_targets=%s",
+        comparison_diagnostics.get("valid_comparison_count"),
+        comparison_diagnostics.get("total_sets"),
+        len(opening_targets),
+    )
     return {
         "tcg": "pokemon",
         "scope": "rip-statistics",

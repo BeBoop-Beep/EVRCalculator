@@ -17,7 +17,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 from backend.desirability.composite import COMPOSITE_SCORING_VERSION  # noqa: E402
 from backend.desirability.rarity_buckets import HIT_POLICY_VERSION  # noqa: E402
-from backend.desirability.set_components import SCORING_VERSION  # noqa: E402
+from backend.desirability.set_components import (  # noqa: E402
+    SCORING_VERSION,
+    build_canonical_card_price_index,
+    build_card_appeal_correlation_dataset,
+)
 
 
 DEFAULT_FOCUS_SET_KEYS = [
@@ -80,6 +84,10 @@ VARIANT_FIELDS = [
     "rip_desirability_70_30",
     "rip_desirability_60_40",
 ]
+
+SET_KEY_COMPAT_ALIASES = {
+    "scarletandviolet": "scarletAndVioletBase",
+}
 
 
 class DesirabilityChaseAuditRepository:
@@ -167,6 +175,60 @@ class DesirabilityChaseAuditRepository:
                         "number,printed_number,national_pokedex_numbers"
                     )
                     .in_("set_id", chunk)
+                )
+            )
+        return rows
+
+    def list_legacy_cards(self, set_ids: Sequence[str]) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        if not set_ids:
+            return rows
+        for chunk in _chunked([str(set_id) for set_id in set_ids if set_id], 200):
+            rows.extend(
+                _paged_select(
+                    self.client.table("cards")
+                    .select("id,set_id,name,rarity,card_number,pokemon_tcg_api_id")
+                    .in_("set_id", chunk)
+                )
+            )
+        return rows
+
+    def list_card_variants(self, legacy_card_ids: Sequence[str]) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        if not legacy_card_ids:
+            return rows
+        for chunk in _chunked([str(card_id) for card_id in legacy_card_ids if card_id], 200):
+            rows.extend(
+                _paged_select(
+                    self.client.table("card_variants")
+                    .select("id,card_id,pokemon_tcg_api_id")
+                    .in_("card_id", chunk)
+                )
+            )
+        return rows
+
+    def get_near_mint_condition_id(self) -> Optional[str]:
+        response = (
+            self.client.table("conditions")
+            .select("id,name")
+            .eq("name", "Near Mint")
+            .limit(1)
+            .execute()
+        )
+        row = (response.data or [None])[0]
+        return str(row.get("id")) if isinstance(row, dict) and row.get("id") is not None else None
+
+    def list_latest_price_rows(self, variant_ids: Sequence[str], condition_id: Optional[str]) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        if not variant_ids or not condition_id:
+            return rows
+        for chunk in _chunked([str(variant_id) for variant_id in variant_ids if variant_id], 200):
+            rows.extend(
+                _paged_select(
+                    self.client.table("card_market_usd_latest_by_condition")
+                    .select("variant_id,condition_id,market_price,source,captured_at")
+                    .in_("variant_id", chunk)
+                    .eq("condition_id", condition_id)
                 )
             )
         return rows
@@ -268,14 +330,37 @@ def build_audit_report(
         )
     )
     rip_rows = _latest_by_set_id(repository.list_latest_rip_rows())
-    set_ids = sorted(set(v2_rows) | set(rip_rows))
-    run_ids = [str(row.get("calculation_run_id")) for row in rip_rows.values() if row.get("calculation_run_id")]
+    set_ids = _focused_set_ids(
+        sorted(set(v2_rows) | set(rip_rows)),
+        v2_rows=v2_rows,
+        rip_rows=rip_rows,
+        focus_set_keys=focus_set_keys,
+    )
+    run_ids = [
+        str((rip_rows.get(set_id) or {}).get("calculation_run_id"))
+        for set_id in set_ids
+        if (rip_rows.get(set_id) or {}).get("calculation_run_id")
+    ]
     card_rows = repository.list_simulation_cards_for_runs(run_ids)
     canonical_cards = repository.list_canonical_cards(set_ids)
     links = repository.list_card_links([str(row.get("id")) for row in canonical_cards if row.get("id")])
     composite_scores = repository.list_composite_scores(scoring_version=composite_scoring_version)
+    legacy_cards = repository.list_legacy_cards(set_ids)
+    variant_rows = repository.list_card_variants([str(row.get("id")) for row in legacy_cards if row.get("id")])
+    near_mint_condition_id = repository.get_near_mint_condition_id()
+    latest_price_rows = repository.list_latest_price_rows(
+        [str(row.get("id")) for row in variant_rows if row.get("id")],
+        near_mint_condition_id,
+    )
+    prices_by_card = build_canonical_card_price_index(
+        canonical_cards=canonical_cards,
+        legacy_cards=legacy_cards,
+        variant_rows=variant_rows,
+        latest_price_rows=latest_price_rows,
+    )
 
     canonical_indexes = _build_canonical_indexes(canonical_cards)
+    canonical_by_set = _group_by(canonical_cards, "set_id")
     links_by_card = _group_by(links, "pokemon_canonical_card_id")
     scores_by_reference = {
         str(row.get("pokemon_reference_id")): row
@@ -300,7 +385,23 @@ def build_audit_report(
             max_meaningful_cumulative_share=max_meaningful_cumulative_share,
             v2_row=v2 or {},
         )
-        set_reports.append(_build_set_report(set_id=set_id, v2=v2 or {}, rip=rip or {}, market_cards=market_cards))
+        set_cards = canonical_by_set.get(set_id, [])
+        set_card_ids = {str(card.get("id")) for card in set_cards if card.get("id") is not None}
+        card_appeal_dataset = build_card_appeal_correlation_dataset(
+            cards=set_cards,
+            links=[link for card_id in set_card_ids for link in links_by_card.get(card_id, [])],
+            scores_by_reference=scores_by_reference,
+            prices_by_card={card_id: prices_by_card[card_id] for card_id in set_card_ids if card_id in prices_by_card},
+        )
+        set_reports.append(
+            _build_set_report(
+                set_id=set_id,
+                v2=v2 or {},
+                rip=rip or {},
+                market_cards=market_cards,
+                card_appeal_dataset=card_appeal_dataset,
+            )
+        )
 
     _add_variant_ranks(set_reports)
     correlations = _build_correlations(set_reports)
@@ -317,6 +418,10 @@ def build_audit_report(
             "pokemon_canonical_cards",
             "pokemon_card_desirability_links",
             "pokemon_desirability_composite_scores",
+            "cards",
+            "card_variants",
+            "conditions",
+            "card_market_usd_latest_by_condition",
         ],
         "parameters": {
             "scoring_version": scoring_version,
@@ -335,17 +440,58 @@ def build_audit_report(
     }
 
 
+def _focused_set_ids(
+    set_ids: Sequence[str],
+    *,
+    v2_rows: Dict[str, Dict[str, Any]],
+    rip_rows: Dict[str, Dict[str, Any]],
+    focus_set_keys: Sequence[str],
+) -> List[str]:
+    focused_keys = {
+        candidate.lower()
+        for key in focus_set_keys
+        for candidate in _focus_key_candidates(key)
+        if candidate
+    }
+    if not focused_keys:
+        return list(set_ids)
+    focused_ids = [
+        set_id
+        for set_id in set_ids
+        if str((v2_rows.get(set_id) or {}).get("set_canonical_key") or "").lower() in focused_keys
+        or str((rip_rows.get(set_id) or {}).get("canonical_key") or "").lower() in focused_keys
+    ]
+    return focused_ids or list(set_ids)
+
+
 def _build_set_report(
     *,
     set_id: str,
     v2: Dict[str, Any],
     rip: Dict[str, Any],
     market_cards: List[Dict[str, Any]],
+    card_appeal_dataset: Dict[str, Any],
 ) -> Dict[str, Any]:
     baseline = _as_float(v2.get("set_desirability_score"))
     alignment = _market_salient_subject_alignment(market_cards)
     adjustment_input = max(0.0, (alignment or 0.0) - (baseline or 0.0))
     monetary = _monetary_chase_appeal_score(rip, market_cards)
+    card_appeal_pairs = [
+        (
+            _as_float(row.get("subject_desirability_score")) or 0.0,
+            _as_float(row.get("market_price")) or 0.0,
+        )
+        for row in card_appeal_dataset.get("rows") or []
+        if _as_float(row.get("subject_desirability_score")) is not None
+        and _as_float(row.get("market_price")) is not None
+    ]
+    card_appeal_pearson = _pearson(card_appeal_pairs)
+    card_appeal_spearman = _spearman(card_appeal_pairs)
+    card_appeal_max_abs = (
+        max(abs(card_appeal_pearson or 0.0), abs(card_appeal_spearman or 0.0))
+        if card_appeal_pairs
+        else None
+    )
 
     variants = {
         "pure_desirability_score_baseline": baseline,
@@ -378,6 +524,15 @@ def _build_set_report(
         },
         "financial_metrics": {field: _as_float(rip.get(field)) for field in FINANCIAL_METRIC_FIELDS},
         "market_salient_cards": market_cards,
+        "card_appeal_market_price_correlation": {
+            **(card_appeal_dataset.get("diagnostics") or {}),
+            "n": len(card_appeal_pairs),
+            "pearson": card_appeal_pearson,
+            "spearman": card_appeal_spearman,
+            "interpretation": _correlation_interpretation(card_appeal_max_abs),
+            "sample_source": "canonical_checklist_cards",
+        },
+        "card_appeal_correlation_sample_cards": (card_appeal_dataset.get("rows") or [])[:20],
         "variants": variants,
     }
 
@@ -705,7 +860,7 @@ def _build_focused_rows(
     }
     rows: List[Dict[str, Any]] = []
     for key in focus_set_keys:
-        report = by_key.get(str(key).lower())
+        report = _focused_report_by_key(by_key, key)
         if not report:
             rows.append({"set_canonical_key": key, "status": "missing_from_v2_or_latest_rip_data"})
             continue
@@ -713,6 +868,7 @@ def _build_focused_rows(
         ranks = report.get("variant_ranks", {})
         current = report.get("current_v2", {})
         financial = report.get("financial_metrics", {})
+        card_appeal = report.get("card_appeal_market_price_correlation") or {}
         baseline = _as_float(variants.get("pure_desirability_score_baseline"))
         alignment = _as_float(variants.get("market_salient_subject_alignment_score"))
         monetary = _as_float(variants.get("monetary_chase_appeal_score"))
@@ -739,6 +895,19 @@ def _build_focused_rows(
                 "rip_70_30_rank": ranks.get("rip_desirability_70_30"),
                 "rip_60_40_score": variants.get("rip_desirability_60_40"),
                 "rip_60_40_rank": ranks.get("rip_desirability_60_40"),
+                "card_appeal_canonical_count": card_appeal.get("canonical_count"),
+                "card_appeal_priced_count": card_appeal.get("priced_count"),
+                "card_appeal_linked_count": card_appeal.get("linked_count"),
+                "card_appeal_scored_linked_count": card_appeal.get("scored_linked_count"),
+                "card_appeal_included_count": card_appeal.get("included_count"),
+                "card_appeal_excluded_unpriced_count": card_appeal.get("excluded_unpriced_count"),
+                "card_appeal_excluded_unlinked_count": card_appeal.get("excluded_unlinked_count"),
+                "card_appeal_excluded_missing_score_count": card_appeal.get("excluded_missing_score_count"),
+                "card_appeal_included_policy": card_appeal.get("included_policy"),
+                "card_appeal_vs_market_price_n": card_appeal.get("n"),
+                "card_appeal_vs_market_price_pearson": card_appeal.get("pearson"),
+                "card_appeal_vs_market_price_spearman": card_appeal.get("spearman"),
+                "card_appeal_sample_source": card_appeal.get("sample_source"),
                 "score_delta_variant_b": _delta(alignment, baseline),
                 "score_delta_variant_c_10": _delta(_as_float(variants.get("pure_desirability_capped_adjustment_10")), baseline),
                 "score_delta_rip_70_30": _delta(_as_float(variants.get("rip_desirability_70_30")), baseline),
@@ -754,6 +923,25 @@ def _build_focused_rows(
             }
         )
     return rows
+
+
+def _focused_report_by_key(by_key: Dict[str, Dict[str, Any]], key: Any) -> Optional[Dict[str, Any]]:
+    for candidate in _focus_key_candidates(key):
+        report = by_key.get(str(candidate).lower())
+        if report:
+            return report
+    return None
+
+
+def _focus_key_candidates(key: Any) -> List[str]:
+    text = str(key or "").strip()
+    if not text:
+        return []
+    candidates = [text]
+    alias = SET_KEY_COMPAT_ALIASES.get(text.lower())
+    if alias and alias not in candidates:
+        candidates.append(alias)
+    return candidates
 
 
 def _focused_change_judgment(report: Dict[str, Any]) -> str:
@@ -928,6 +1116,18 @@ def write_outputs(report: Dict[str, Any], *, output_dir: Path) -> Dict[str, Path
         "market_salient_card_count",
         "market_salient_captured_count",
         "market_salient_promotion_count",
+        "card_appeal_canonical_count",
+        "card_appeal_priced_count",
+        "card_appeal_linked_count",
+        "card_appeal_scored_linked_count",
+        "card_appeal_included_count",
+        "card_appeal_excluded_unpriced_count",
+        "card_appeal_excluded_unlinked_count",
+        "card_appeal_excluded_missing_score_count",
+        "card_appeal_vs_market_price_n",
+        "card_appeal_vs_market_price_pearson",
+        "card_appeal_vs_market_price_spearman",
+        "card_appeal_included_policy",
         "top_market_cards_json",
     ]
     with audit_csv.open("w", newline="", encoding="utf-8") as handle:
@@ -946,6 +1146,23 @@ def write_outputs(report: Dict[str, Any], *, output_dir: Path) -> Dict[str, Path
             row["market_salient_card_count"] = len(cards)
             row["market_salient_captured_count"] = sum(1 for card in cards if card.get("captured_by_current_rarity_bucket_logic"))
             row["market_salient_promotion_count"] = sum(1 for card in cards if card.get("would_require_promotion_for_desirability_analysis"))
+            card_appeal = report_row.get("card_appeal_market_price_correlation") or {}
+            row.update(
+                {
+                    "card_appeal_canonical_count": card_appeal.get("canonical_count"),
+                    "card_appeal_priced_count": card_appeal.get("priced_count"),
+                    "card_appeal_linked_count": card_appeal.get("linked_count"),
+                    "card_appeal_scored_linked_count": card_appeal.get("scored_linked_count"),
+                    "card_appeal_included_count": card_appeal.get("included_count"),
+                    "card_appeal_excluded_unpriced_count": card_appeal.get("excluded_unpriced_count"),
+                    "card_appeal_excluded_unlinked_count": card_appeal.get("excluded_unlinked_count"),
+                    "card_appeal_excluded_missing_score_count": card_appeal.get("excluded_missing_score_count"),
+                    "card_appeal_vs_market_price_n": card_appeal.get("n"),
+                    "card_appeal_vs_market_price_pearson": card_appeal.get("pearson"),
+                    "card_appeal_vs_market_price_spearman": card_appeal.get("spearman"),
+                    "card_appeal_included_policy": card_appeal.get("included_policy"),
+                }
+            )
             row["top_market_cards_json"] = json.dumps(cards[:10], ensure_ascii=False)
             writer.writerow({field: _csv_value(row.get(field)) for field in audit_fields})
 
