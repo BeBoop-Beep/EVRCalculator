@@ -141,7 +141,12 @@ export function extractDeltaWindows(source = {}) {
 
 export function computeDeltaWindowsFromHistory(
   points,
-  { dateKey = "date", valueKey = "value", supportedKeys = STANDARD_DELTA_WINDOW_KEYS } = {}
+  {
+    dateKey = "date",
+    valueKey = "value",
+    supportedKeys = STANDARD_DELTA_WINDOW_KEYS,
+    preferActualPointsForOneDay = false,
+  } = {}
 ) {
   const supportedKeySet = normalizeSupportedKeys(supportedKeys);
   const rows = (Array.isArray(points) ? points : [])
@@ -159,15 +164,24 @@ export function computeDeltaWindowsFromHistory(
   }
 
   const latest = rows[rows.length - 1];
+  const actualRows = preferActualPointsForOneDay
+    ? rows.filter((point) => !point.isCarriedForward)
+    : rows;
   return getStandardDeltaWindowDefinitions([...supportedKeySet]).map((definition) => {
     let baseline = null;
+    let windowLatest = latest;
     let targetDate = null;
     let isSinceFirstAvailable = false;
-    if (definition.days === null) {
+    if (definition.key === "1D") {
+      const oneDayRows = actualRows.length >= 2 ? actualRows : rows;
+      windowLatest = oneDayRows[oneDayRows.length - 1];
+      baseline = [...oneDayRows].reverse().find((point) => point.date < windowLatest.date) || null;
+      targetDate = baseline?.date || null;
+    } else if (definition.days === null) {
       baseline = rows[0];
       isSinceFirstAvailable = true;
     } else {
-      const spanOffset = definition.days === 1 ? 1 : definition.days - 1;
+      const spanOffset = definition.days - 1;
       targetDate = addDaysToDateKey(latest.date, -spanOffset);
       if (!targetDate) {
         baseline = rows[0];
@@ -180,21 +194,21 @@ export function computeDeltaWindowsFromHistory(
       }
     }
 
-    if (!baseline || baseline.date === latest.date || baseline.value === 0) {
+    if (!baseline || !windowLatest || baseline === windowLatest || baseline.date === windowLatest.date || baseline.value === 0) {
       return null;
     }
 
-    const amount = latest.value - baseline.value;
+    const amount = windowLatest.value - baseline.value;
     return {
       key: definition.key,
       label: definition.label,
       amount,
       percent: (amount / baseline.value) * 100,
       startDate: baseline.date,
-      endDate: latest.date,
+      endDate: windowLatest.date,
       targetStartDate: targetDate,
       isSinceFirstAvailable,
-      isCarriedForward: latest.isCarriedForward,
+      isCarriedForward: windowLatest.isCarriedForward,
       source: "history",
     };
   }).filter(Boolean);
@@ -208,9 +222,15 @@ export function getSelectedDeltaWindowFromHistory(
     dateKey = "date",
     valueKey = "value",
     supportedKeys = STANDARD_DELTA_WINDOW_KEYS,
+    preferActualPointsForOneDay = false,
   } = {}
 ) {
-  const windows = computeDeltaWindowsFromHistory(points, { dateKey, valueKey, supportedKeys });
+  const windows = computeDeltaWindowsFromHistory(points, {
+    dateKey,
+    valueKey,
+    supportedKeys,
+    preferActualPointsForOneDay,
+  });
   const controlWindows = getStandardDeltaWindowDefinitions(supportedKeys);
   const normalizedSelectedKey = normalizeWindowKey(selectedKey);
   const preferredControlKey = getPreferredDeltaWindowKey(controlWindows, preferredKey);
@@ -275,11 +295,12 @@ export function getVisibleHistoryWindowMetrics(
 export function filterHistoryPointsForDeltaWindow(points, window, { dateKey = "date" } = {}) {
   const rows = Array.isArray(points) ? points : [];
   const startDate = window?.startDate || null;
+  const endDate = window?.endDate || null;
   if (!startDate) {
     return rows;
   }
   return rows.filter((point) => {
     const date = String(point?.[dateKey] || "").slice(0, 10);
-    return !date || date >= startDate;
+    return !date || (date >= startDate && (!endDate || date <= endDate));
   });
 }

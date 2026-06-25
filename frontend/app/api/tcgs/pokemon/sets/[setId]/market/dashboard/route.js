@@ -3,6 +3,12 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
+const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
+
+function normalizeMarketDashboardWindow(window = DEFAULT_MARKET_DASHBOARD_WINDOW) {
+  const text = String(window || DEFAULT_MARKET_DASHBOARD_WINDOW).trim();
+  return (text || DEFAULT_MARKET_DASHBOARD_WINDOW).toLowerCase();
+}
 
 function shouldBypassCache(request) {
   if (process.env.NODE_ENV === "production") {
@@ -28,7 +34,7 @@ export async function GET(request, { params }) {
   );
   const window = request?.nextUrl?.searchParams?.get("window");
   if (window) {
-    backendUrl.searchParams.set("window", window);
+    backendUrl.searchParams.set("window", normalizeMarketDashboardWindow(window));
   }
   const days = request?.nextUrl?.searchParams?.get("days");
   if (days) {

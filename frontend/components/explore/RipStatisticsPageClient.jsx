@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ResponsiveContainer,
+  Scatter,
   Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
@@ -39,8 +41,15 @@ import {
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketDashboard,
+  normalizeMarketDashboardWindow,
   prefetchPokemonSetMarketDashboard,
 } from "@/lib/pokemon/pokemonSetMarketClient";
+import {
+  buildMarketDashboardStateFromPayload,
+  createMarketDashboardState,
+  hydrateMarketDashboardStateFromCachedPayload,
+  marketDashboardReducer,
+} from "./marketDashboardState.mjs";
 import {
   announceNavigationStart,
   debugLoadingTiming,
@@ -102,6 +111,7 @@ const CARD_MOVEMENT_FILTER_OPTIONS = [
   { value: "heating", label: "Heating Up" },
   { value: "cooling", label: "Cooling Off" },
 ];
+const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
 const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
 const SET_PREFETCH_ADJACENT_LIMIT = 2;
 const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
@@ -113,6 +123,9 @@ const SET_DETAIL_SECTION_TARGETS = {
   "set-intelligence": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "set-signals": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "rip-score": { tab: "insights", targetId: "set-detail-rip-score", graphMode: "outcome-distribution" },
+  "desirability-proof": { tab: "insights", targetId: "set-detail-desirability-proof" },
+  "desirability-validation": { tab: "insights", targetId: "set-detail-desirability-validation" },
+  "card-desirability-price": { tab: "insights", targetId: "set-detail-card-desirability-price" },
   "opening-outcomes": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" },
   "simulation-cards": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-drivers" },
   value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" },
@@ -138,6 +151,32 @@ function toStableIdentifier(value) {
   return text;
 }
 
+function normalizeSetIdentityToken(value) {
+  const text = toStableIdentifier(value);
+  return text ? text.toLowerCase().replace(/[^a-z0-9]+/g, "") : null;
+}
+
+function getSetIdentityTokens(identity) {
+  if (!identity || typeof identity !== "object") {
+    return [];
+  }
+  return [
+    identity.id,
+    identity.set_id,
+    identity.target_id,
+    identity.slug,
+    identity.canonical_key,
+    identity.pokemon_api_set_id,
+  ]
+    .map(normalizeSetIdentityToken)
+    .filter(Boolean);
+}
+
+function setIdentityMatchesTarget(identity, targetId) {
+  const targetToken = normalizeSetIdentityToken(targetId);
+  return Boolean(targetToken && getSetIdentityTokens(identity).includes(targetToken));
+}
+
 function getSetSnapshotIdentity(explorePayload) {
   const meta = explorePayload?.meta || {};
   return (
@@ -152,13 +191,48 @@ function getSetSnapshotIdentity(explorePayload) {
 }
 
 function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload }) {
-  const snapshotIdentity = getSetSnapshotIdentity(explorePayload);
-  return (
-    toStableIdentifier(snapshotIdentity?.id ?? snapshotIdentity?.set_id) ||
+  const requestedResourceId = toStableIdentifier(requestedTargetId);
+  const selectedResourceId =
     toStableIdentifier(selectedTarget?.id ?? selectedTarget?.set_id) ||
-    toStableIdentifier(selectedTarget?.target_id) ||
-    toStableIdentifier(requestedTargetId)
-  );
+    toStableIdentifier(selectedTarget?.target_id);
+  const snapshotIdentity = getSetSnapshotIdentity(explorePayload);
+  const snapshotResourceId = toStableIdentifier(snapshotIdentity?.id ?? snapshotIdentity?.set_id);
+
+  if (selectedResourceId && (!requestedResourceId || setIdentityMatchesTarget(selectedTarget, requestedResourceId))) {
+    return selectedResourceId;
+  }
+  if (requestedResourceId) {
+    return requestedResourceId;
+  }
+  if (snapshotResourceId && setIdentityMatchesTarget(snapshotIdentity, requestedResourceId)) {
+    return snapshotResourceId;
+  }
+  return snapshotResourceId || null;
+}
+
+function isSetStateForActiveSet(stateSetId, { requestedTargetId, selectedTarget, resolvedSetResourceId }) {
+  const stateToken = normalizeSetIdentityToken(stateSetId);
+  if (!stateToken) {
+    return false;
+  }
+  const selectedTargetMatchesRequest = !requestedTargetId || setIdentityMatchesTarget(selectedTarget, requestedTargetId);
+  const activeTokens = [
+    resolvedSetResourceId,
+    requestedTargetId,
+    ...(selectedTargetMatchesRequest
+      ? [
+          selectedTarget?.id,
+          selectedTarget?.set_id,
+          selectedTarget?.target_id,
+          selectedTarget?.slug,
+          selectedTarget?.canonical_key,
+          selectedTarget?.pokemon_api_set_id,
+        ]
+      : []),
+  ]
+    .map(normalizeSetIdentityToken)
+    .filter(Boolean);
+  return activeTokens.includes(stateToken);
 }
 
 function getSetValueScopeLabel(scope) {
@@ -170,42 +244,8 @@ function getSetValueMetricLabel(scope) {
   return `${getSetValueScopeLabel(scope)} Set Value`;
 }
 
-function getTopMarketCardsCacheKey(setId, windowKey = DEFAULT_TOP_MARKET_CARDS_WINDOW) {
-  return `${String(setId || "").trim()}:${windowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW}`;
-}
-
-function buildMarketDashboardStateFromPayload(payload) {
-  const rawHistoriesByScope = payload?.setValueHistoriesByScope || {};
-  const historiesByScope = Object.fromEntries(
-    SET_VALUE_SCOPE_OPTIONS.map((scopeOption) => [
-      scopeOption.key,
-      Array.isArray(rawHistoriesByScope?.[scopeOption.key]) ? rawHistoriesByScope[scopeOption.key] : [],
-    ])
-  );
-  const availableScopeKeys = new Set(
-    (payload?.availableScopes || []).map((entry) => entry?.key).filter(Boolean)
-  );
-  Object.entries(historiesByScope).forEach(([scope, history]) => {
-    if (history.length > 0) {
-      availableScopeKeys.add(scope);
-    }
-  });
-
-  const availableScopes = SET_VALUE_SCOPE_OPTIONS.filter((entry) =>
-    availableScopeKeys.size === 0 ? true : availableScopeKeys.has(entry.key)
-  );
-  const history = historiesByScope.standard || [];
-  const hasAnyHistory = Object.values(historiesByScope).some((scopeHistory) => scopeHistory.length > 0);
-  const cards = Array.isArray(payload?.topChaseCards) ? payload.topChaseCards : [];
-  const marketMovers = payload?.marketMovers && typeof payload.marketMovers === "object"
-    ? payload.marketMovers
-    : { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW, windowDays: 30 };
-  const meta = payload?.meta || null;
-
-  return {
-    topCards: { cards, meta, marketMovers },
-    setValue: { history, historiesByScope, availableScopes, meta, hasAnyHistory },
-  };
+function getTopMarketCardsCacheKey(setId, sourceWindowKey = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW) {
+  return `${String(setId || "").trim()}:${normalizeMarketDashboardWindow(sourceWindowKey || DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW)}`;
 }
 
 const RIP_COPY = {
@@ -431,6 +471,49 @@ const HISTORY_METRIC_ALIASES = {
   maxValue: ["max_value", "maxValue", "best_pull", "bestPull"],
 };
 
+const DESIRABILITY_VALIDATION_METRICS = [
+  {
+    key: "setValue",
+    label: "Set Value",
+    summaryLabel: "Checklist Set Value",
+    sampleLabel: "opening sets with value data",
+    description: "This is the cleanest market confirmation check. Higher desirability should generally align with stronger total checklist value.",
+    resolver: getValidationSetValueMetric,
+    formatter: formatCurrency,
+    tickFormatter: formatCompactCurrency,
+  },
+  {
+    key: "packCost",
+    label: "Pack Cost",
+    summaryLabel: "Pack Market Price",
+    sampleLabel: "opening sets with pack cost",
+    description: "Highly desirable sets often become more expensive to open. This helps explain why cost-adjusted upside can fall even when chase cards are strong.",
+    valueKeys: ["pack_cost", "packCost", "current_pack_cost", "currentPackCost", "pack_market_price", "packMarketPrice"],
+    formatter: formatCurrency,
+    tickFormatter: formatCompactCurrency,
+  },
+  {
+    key: "expectedValue",
+    label: "Expected Value",
+    summaryLabel: "Expected Value",
+    sampleLabel: "simulated opening sets",
+    description: "EV can align with desirability, but it is also affected by pack price, pull rates, and value distribution.",
+    valueKeys: ["mean_value", "meanValue", "expected_value", "expectedValue", "average_pack_value", "averagePackValue"],
+    formatter: formatCurrency,
+    tickFormatter: formatCompactCurrency,
+  },
+  {
+    key: "p95",
+    label: "P95",
+    summaryLabel: "Cost-Adjusted P95 Upside",
+    sampleLabel: "simulated opening sets",
+    description: "P95 is cost-adjusted upper-tail upside. A negative relationship can happen when highly desirable sets become expensive to open.",
+    valueKeys: ["p95_value_to_cost_ratio", "p95ValueToCostRatio", "big_hit_upside", "bigHitUpside"],
+    formatter: formatMultiplier,
+    tickFormatter: formatCompactMultiplier,
+  },
+];
+
 function toNumber(value) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -451,6 +534,125 @@ function getFirstNumericMetric(source, keys = []) {
     }
   }
   return { key: null, value: null };
+}
+
+function getFirstNumericFromValues(entries = []) {
+  for (const entry of entries) {
+    const value = toNumber(entry?.value);
+    if (value !== null && value > 0) {
+      return { key: entry?.key || null, value };
+    }
+  }
+  return { key: null, value: null };
+}
+
+function getLatestSetValueFromHistory(history, sourceKey) {
+  if (!Array.isArray(history) || history.length === 0) {
+    return { key: null, value: null };
+  }
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const point = history[index];
+    const value = toNumber(point?.setValue ?? point?.set_value ?? point?.value);
+    if (value !== null && value > 0) {
+      return { key: sourceKey, value };
+    }
+  }
+  return { key: null, value: null };
+}
+
+function getValidationSetValueMetric(setRow) {
+  if (!setRow) {
+    return { key: null, value: null };
+  }
+
+  const historiesByScope =
+    setRow.setValueHistoriesByScope ||
+    setRow.set_value_histories_by_scope ||
+    setRow.market?.setValueHistoriesByScope ||
+    setRow.market?.set_value_histories_by_scope ||
+    setRow.marketDashboard?.setValueHistoriesByScope ||
+    setRow.marketDashboard?.set_value_histories_by_scope ||
+    setRow.snapshot?.setValueHistoriesByScope ||
+    setRow.snapshot?.set_value_histories_by_scope ||
+    null;
+  const standardHistory = historiesByScope?.standard || historiesByScope?.checklist || null;
+  const historyMetric = getLatestSetValueFromHistory(standardHistory, "setValueHistoriesByScope.standard");
+  if (historyMetric.value !== null) {
+    return historyMetric;
+  }
+  const directHistoryMetric = getLatestSetValueFromHistory(setRow.setValueHistory || setRow.set_value_history, "setValueHistory");
+  if (directHistoryMetric.value !== null) {
+    return directHistoryMetric;
+  }
+
+  const directMetric = getFirstNumericFromValues([
+    { key: "checklistSetValue", value: setRow.checklistSetValue },
+    { key: "checklist_set_value", value: setRow.checklist_set_value },
+    { key: "currentChecklistSetValue", value: setRow.currentChecklistSetValue },
+    { key: "current_checklist_set_value", value: setRow.current_checklist_set_value },
+    { key: "latestChecklistSetValue", value: setRow.latestChecklistSetValue },
+    { key: "latest_checklist_set_value", value: setRow.latest_checklist_set_value },
+    { key: "currentSetValue", value: setRow.currentSetValue },
+    { key: "current_set_value", value: setRow.current_set_value },
+    { key: "marketSetValue", value: setRow.marketSetValue },
+    { key: "market_set_value", value: setRow.market_set_value },
+    { key: "setValue", value: setRow.setValue },
+    { key: "set_value", value: setRow.set_value },
+    { key: "totalSetValue", value: setRow.totalSetValue },
+    { key: "total_set_value", value: setRow.total_set_value },
+    { key: "summary.checklistSetValue", value: setRow.summary?.checklistSetValue },
+    { key: "summary.checklist_set_value", value: setRow.summary?.checklist_set_value },
+    { key: "summary.setValue", value: setRow.summary?.setValue },
+    { key: "summary.set_value", value: setRow.summary?.set_value },
+    { key: "market.checklistSetValue", value: setRow.market?.checklistSetValue },
+    { key: "market.checklist_set_value", value: setRow.market?.checklist_set_value },
+    { key: "market.setValue", value: setRow.market?.setValue },
+    { key: "market.set_value", value: setRow.market?.set_value },
+    { key: "metrics.checklistSetValue", value: setRow.metrics?.checklistSetValue },
+    { key: "metrics.checklist_set_value", value: setRow.metrics?.checklist_set_value },
+  ]);
+  if (directMetric.value !== null) {
+    return directMetric;
+  }
+
+  return getFirstNumericFromValues([
+    { key: "simulated_set_value", value: setRow.simulated_set_value },
+    { key: "simulatedSetValue", value: setRow.simulatedSetValue },
+    { key: "summary.simulated_set_value", value: setRow.summary?.simulated_set_value },
+    { key: "summary.simulatedSetValue", value: setRow.summary?.simulatedSetValue },
+  ]);
+}
+
+function getValueRelatedKeys(source, prefix = "") {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return [];
+  }
+  return Object.keys(source)
+    .filter((key) => /value|set|market|checklist/i.test(key))
+    .map((key) => (prefix ? `${prefix}.${key}` : key));
+}
+
+function getDesirabilityValidationMissingSetValueSample(rows) {
+  return rows
+    .filter((row) => {
+      const desirability = getFirstNumericValue(row, ["desirability_score", "desirabilityScore", "relative_desirability_score", "relativeDesirabilityScore"]);
+      return desirability !== null && getValidationSetValueMetric(row).value === null;
+    })
+    .slice(0, 6)
+    .map((row) => ({
+      name: row.name || row.set_name || row.target_id || null,
+      slug: row.slug || row.canonical_key || row.target_id || null,
+      desirabilityScore: getFirstNumericValue(row, ["desirability_score", "desirabilityScore", "relative_desirability_score", "relativeDesirabilityScore"]),
+      rowKeys: row && typeof row === "object" ? Object.keys(row).sort() : [],
+      valueRelatedKeys: [
+        ...getValueRelatedKeys(row),
+        ...getValueRelatedKeys(row.summary, "summary"),
+        ...getValueRelatedKeys(row.market, "market"),
+        ...getValueRelatedKeys(row.marketDashboard, "marketDashboard"),
+        ...getValueRelatedKeys(row.metrics, "metrics"),
+        ...getValueRelatedKeys(row.snapshot, "snapshot"),
+      ],
+    }));
 }
 
 function normalizeProbability(value) {
@@ -535,6 +737,161 @@ function formatMultiplier(value, decimals = 1) {
     return "—";
   }
   return `${parsed.toFixed(decimals)}x`;
+}
+
+function formatCompactCurrency(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return "";
+  }
+  if (Math.abs(parsed) >= 1000000) {
+    return `$${(parsed / 1000000).toFixed(1)}M`;
+  }
+  if (Math.abs(parsed) >= 1000) {
+    return `$${(parsed / 1000).toFixed(0)}K`;
+  }
+  return `$${parsed.toFixed(0)}`;
+}
+
+function formatCompactMultiplier(value) {
+  const parsed = toNumber(value);
+  return parsed === null ? "" : `${parsed.toFixed(1)}x`;
+}
+
+function formatCorrelationValue(value) {
+  const parsed = toNumber(value);
+  return parsed === null ? "n/a" : parsed.toFixed(2);
+}
+
+function getAverageRanks(values) {
+  const sorted = values
+    .map((value, index) => ({ value, index }))
+    .sort((a, b) => a.value - b.value);
+  const ranks = new Array(values.length);
+  let cursor = 0;
+
+  while (cursor < sorted.length) {
+    let end = cursor;
+    while (end + 1 < sorted.length && sorted[end + 1].value === sorted[cursor].value) {
+      end += 1;
+    }
+    const averageRank = (cursor + 1 + end + 1) / 2;
+    for (let index = cursor; index <= end; index += 1) {
+      ranks[sorted[index].index] = averageRank;
+    }
+    cursor = end + 1;
+  }
+
+  return ranks;
+}
+
+function calculatePearsonCorrelation(points) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return null;
+  }
+  const n = points.length;
+  const meanX = points.reduce((sum, point) => sum + point.x, 0) / n;
+  const meanY = points.reduce((sum, point) => sum + point.y, 0) / n;
+  let numerator = 0;
+  let xVariance = 0;
+  let yVariance = 0;
+
+  points.forEach((point) => {
+    const xDelta = point.x - meanX;
+    const yDelta = point.y - meanY;
+    numerator += xDelta * yDelta;
+    xVariance += xDelta * xDelta;
+    yVariance += yDelta * yDelta;
+  });
+
+  const denominator = Math.sqrt(xVariance * yVariance);
+  return denominator === 0 ? null : numerator / denominator;
+}
+
+function calculateSpearmanCorrelation(points) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return null;
+  }
+  const xRanks = getAverageRanks(points.map((point) => point.x));
+  const yRanks = getAverageRanks(points.map((point) => point.y));
+  return calculatePearsonCorrelation(points.map((point, index) => ({ x: xRanks[index], y: yRanks[index] })));
+}
+
+function calculateRegressionLine(points) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return [];
+  }
+  const n = points.length;
+  const meanX = points.reduce((sum, point) => sum + point.x, 0) / n;
+  const meanY = points.reduce((sum, point) => sum + point.y, 0) / n;
+  let numerator = 0;
+  let denominator = 0;
+
+  points.forEach((point) => {
+    const xDelta = point.x - meanX;
+    numerator += xDelta * (point.y - meanY);
+    denominator += xDelta * xDelta;
+  });
+
+  if (denominator === 0) {
+    return [];
+  }
+
+  const slope = numerator / denominator;
+  const intercept = meanY - slope * meanX;
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  if (!Number.isFinite(slope) || !Number.isFinite(intercept) || minX === maxX) {
+    return [];
+  }
+
+  return [
+    { x: minX, y: slope * minX + intercept, kind: "pearsonTrend" },
+    { x: maxX, y: slope * maxX + intercept, kind: "pearsonTrend" },
+  ];
+}
+
+function getRelationshipLabel(correlation) {
+  const parsed = toNumber(correlation);
+  if (parsed === null) {
+    return "Not enough data";
+  }
+  const magnitude = Math.abs(parsed);
+  if (magnitude < 0.2) {
+    return "Little/no relationship";
+  }
+  if (parsed < 0) {
+    return "Negative relationship";
+  }
+  if (magnitude >= 0.7) {
+    return "Strong positive";
+  }
+  if (magnitude >= 0.4) {
+    return "Moderate positive";
+  }
+  return "Weak positive";
+}
+
+function getPaddedNumberDomain(values, { floorAtZero = false, fallback = [0, 100] } = {}) {
+  const numeric = (Array.isArray(values) ? values : []).map(toNumber).filter((value) => value !== null);
+  if (numeric.length === 0) {
+    return fallback;
+  }
+  let min = Math.min(...numeric);
+  let max = Math.max(...numeric);
+  if (min === max) {
+    const pad = Math.max(Math.abs(min) * 0.08, 1);
+    min -= pad;
+    max += pad;
+  } else {
+    const pad = (max - min) * 0.08;
+    min -= pad;
+    max += pad;
+  }
+  if (floorAtZero) {
+    min = Math.max(0, min);
+  }
+  return [Number(min.toFixed(2)), Number(max.toFixed(2))];
 }
 
 function getMarketReadSummary({ packCost, averagePackValue, returnRatio, setValue, topShare, chaseDepth }) {
@@ -748,6 +1105,8 @@ function getCardMarketPrice(card) {
   const price = (
     toNumber(card?.marketPrice) ??
     toNumber(card?.market_price) ??
+    toNumber(card?.currentPrice) ??
+    toNumber(card?.current_price) ??
     toNumber(card?.price) ??
     toNumber(card?.estimatedMarketPrice) ??
     toNumber(card?.estimated_market_price) ??
@@ -1205,7 +1564,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
 
   return (
     <div
-      className={["group relative rounded-lg", className].filter(Boolean).join(" ")}
+      className={["group relative z-[60] rounded-lg", className].filter(Boolean).join(" ")}
       onMouseMove={handlePointerMove}
       onMouseLeave={() => setActiveIndex(null)}
       onFocus={() => setActiveIndex(numericPoints.length - 1)}
@@ -1228,7 +1587,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
         ) : null}
       </svg>
       {activePoint ? (
-        <div className="pointer-events-none absolute left-1/2 top-0 z-20 min-w-[9rem] -translate-x-1/2 -translate-y-[calc(100%+0.45rem)] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]">
+        <div className="pointer-events-none absolute left-1/2 top-0 z-[999] min-w-[9rem] -translate-x-1/2 -translate-y-[calc(100%+0.45rem)] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(activePoint.date)}</p>
           <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] tabular-nums">
             <span>{formatCurrency(activePoint.y)}</span>
@@ -1852,7 +2211,11 @@ function getTopCardDeltaEntries(card) {
 }
 
 function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
-  const historyWindows = computeDeltaWindowsFromHistory(historyPoints, { dateKey: "date", valueKey: "value" });
+  const historyWindows = computeDeltaWindowsFromHistory(historyPoints, {
+    dateKey: "date",
+    valueKey: "value",
+    preferActualPointsForOneDay: true,
+  });
   const selectedHistoryWindow = historyWindows.find((entry) => entry.key === selectedWindowKey);
   if (selectedHistoryWindow) {
     return selectedHistoryWindow;
@@ -1862,6 +2225,28 @@ function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
   const selectedFieldWindow = fieldWindows.find((entry) => entry.key === selectedWindowKey);
   if (selectedFieldWindow) {
     return selectedFieldWindow;
+  }
+  if (selectedWindowKey === "30D") {
+    const valuedHistoryPoints = (Array.isArray(historyPoints) ? historyPoints : [])
+      .filter((point) => toNumber(point?.value) !== null)
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+    const firstPoint = valuedHistoryPoints[0] || null;
+    const latestPoint = valuedHistoryPoints[valuedHistoryPoints.length - 1] || null;
+    const firstValue = toNumber(firstPoint?.value);
+    const latestValue = toNumber(latestPoint?.value);
+    if (valuedHistoryPoints.length >= 2 && firstValue !== null && latestValue !== null && firstValue !== 0) {
+      const amount = latestValue - firstValue;
+      return {
+        key: "30D",
+        label: "30D",
+        amount,
+        percent: (amount / firstValue) * 100,
+        startDate: firstPoint.date,
+        endDate: latestPoint.date,
+        isSinceFirstAvailable: true,
+        source: "partial-history",
+      };
+    }
   }
   if (selectedWindowKey) {
     return null;
@@ -4083,6 +4468,794 @@ function SectionCard({ title, subtitle, titleInfoText, children, className = "",
   );
 }
 
+function formatProofRank(value) {
+  const parsed = toNumber(value);
+  return parsed === null ? "N/A" : `#${Math.round(parsed)}`;
+}
+
+function formatProofDelta(value, suffix = "") {
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return "N/A";
+  }
+  const sign = parsed > 0 ? "+" : "";
+  return `${sign}${Number.isInteger(parsed) ? parsed : parsed.toFixed(1)}${suffix}`;
+}
+
+function formatProofBand(value) {
+  const text = String(value || "").trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "Unavailable";
+}
+
+function getDesirabilityValidationPayload(explorePayload) {
+  const payload = explorePayload?.desirabilityValidation || explorePayload?.desirability_validation;
+  return payload && typeof payload === "object" ? payload : null;
+}
+
+function ProofMetric({ label, value }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{value}</p>
+    </div>
+  );
+}
+
+function DesirabilityProofCards({ validation }) {
+  if (!validation) {
+    return null;
+  }
+
+  const impactBand = formatProofBand(validation.desirability_impact_band || validation.desirabilityImpactBand);
+  const alignmentBand = formatProofBand(validation.desirability_alignment_band || validation.desirabilityAlignmentBand);
+  const cardAppealScore = toNumber(validation.card_appeal_score ?? validation.cardAppealScore);
+  const cardAppealSummary = validation.card_appeal_summary || validation.cardAppealSummary || "Card appeal validation is not available for this set yet.";
+  const rankDelta = toNumber(validation.desirability_rank_delta ?? validation.desirabilityRankDelta);
+  const coreRank = validation.rip_core_rank_without_desirability ?? validation.ripCoreRankWithoutDesirability;
+  const finalRank = validation.final_rip_rank_with_desirability ?? validation.finalRipRankWithDesirability;
+  const movementCopy =
+    toNumber(coreRank) !== null && toNumber(finalRank) !== null && rankDelta !== null
+      ? `Desirability moved this set from ${formatProofRank(coreRank)} to ${formatProofRank(finalRank)} (${formatProofDelta(rankDelta, " ranks")}).`
+      : validation.desirability_impact_summary || validation.desirabilityImpactSummary;
+
+  return (
+    <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28">
+      <SectionCard
+        title="Desirability Proof"
+        subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
+        titleInfoText="Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals."
+        bodyClassName="grid gap-4 lg:grid-cols-2"
+      >
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Impact</h3>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">{movementCopy}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">{impactBand}</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} />
+            <ProofMetric label="Final RIP Rank" value={formatProofRank(finalRank)} />
+            <ProofMetric label="Score Delta" value={formatProofDelta(validation.desirability_score_delta ?? validation.desirabilityScoreDelta)} />
+            <ProofMetric label="Rank Delta" value={formatProofDelta(rankDelta, " ranks")} />
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">{validation.desirability_impact_summary || validation.desirabilityImpactSummary}</p>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Signal Check</h3>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">{validation.desirability_alignment_summary || validation.desirabilityAlignmentSummary}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">{alignmentBand}</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <ProofMetric label="Desirability" value={formatProofRank(validation.desirability_rank ?? validation.desirabilityRank)} />
+            <ProofMetric label="Set Value" value={formatProofRank(validation.set_value_rank ?? validation.setValueRank)} />
+            <ProofMetric label="Top Chase" value={formatProofRank(validation.top_chase_value_rank ?? validation.topChaseValueRank)} />
+            <ProofMetric label="Top 10 Cards" value={formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank)} />
+            <ProofMetric label="P95" value={formatProofRank(validation.p95_rank ?? validation.p95Rank)} />
+            <ProofMetric label="EV" value={formatProofRank(validation.expected_value_rank ?? validation.expectedValueRank)} />
+          </div>
+          <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
+            <p><span className="font-semibold text-[var(--text-primary)]">Strongest:</span> {validation.strongest_supporting_signal || validation.strongestSupportingSignal || "N/A"}</p>
+            <p><span className="font-semibold text-[var(--text-primary)]">Conflict:</span> {validation.biggest_conflicting_signal || validation.biggestConflictingSignal || "N/A"}</p>
+          </div>
+          <div className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3 text-xs text-[var(--text-secondary)]">
+            {cardAppealScore !== null ? (
+              <div className="mb-2 grid gap-2 sm:grid-cols-3">
+                <ProofMetric label="Card Appeal" value={formatProofRank(validation.card_appeal_rank ?? validation.cardAppealRank)} />
+                <ProofMetric label="Appeal Check" value={formatProofBand(validation.card_appeal_alignment_band ?? validation.cardAppealAlignmentBand)} />
+                <ProofMetric label="Price Relation" value={formatCorrelationValue(validation.card_appeal_vs_market_price_correlation ?? validation.cardAppealVsMarketPriceCorrelation)} />
+              </div>
+            ) : null}
+            <p>{cardAppealSummary}</p>
+            <a href="#set-detail-card-desirability-price" className="mt-2 inline-flex text-xs font-semibold text-[var(--accent)] hover:text-[var(--text-primary)]">View Card Appeal chart</a>
+          </div>
+        </div>
+      </SectionCard>
+    </section>
+  );
+}
+
+function DesirabilityValidationTooltip({ active, payload, metric }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+  const point = payload.find((entry) => entry?.payload?.kind === "set")?.payload;
+  if (!point) {
+    return null;
+  }
+
+  return (
+    <div className="max-w-[16rem] rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.94)] p-3 text-left shadow-xl">
+      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{point.name || "Unknown Set"}</p>
+      {point.era ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{point.era}</p> : null}
+      <div className="mt-2 space-y-1 text-xs">
+        <div className="flex justify-between gap-4">
+          <span className="text-[var(--text-secondary)]">Pure Desirability</span>
+          <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.x, 1)}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-[var(--text-secondary)]">{metric.summaryLabel}</span>
+          <span className="font-medium text-[var(--text-primary)]">{metric.formatter(point.y)}</span>
+        </div>
+        {point.ripScore !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">RIP Score</span>
+            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.ripScore, 1)}</span>
+          </div>
+        ) : null}
+        {point.rank !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">Rank</span>
+            <span className="font-medium text-[var(--text-primary)]">#{point.rank}</span>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function buildDesirabilityValidationPoint(row, metric) {
+  if (!row || !metric) {
+    return null;
+  }
+  // Prefer the raw desirability score for "pure" appeal; fall back to the relative score for older snapshot rows.
+  const x =
+    getFirstNumericValue(row, ["desirability_score", "desirabilityScore", "pure_desirability_score", "pureDesirabilityScore"]) ??
+    getFirstNumericValue(row, ["relative_desirability_score", "relativeDesirabilityScore"]);
+  const yMetric = metric.resolver ? metric.resolver(row) : getFirstNumericMetric(row, metric.valueKeys);
+  const y = yMetric.value;
+  if (x === null || y === null) {
+    return null;
+  }
+
+  return {
+    kind: "set",
+    x,
+    y,
+    ySourceKey: yMetric.key,
+    name: row.name || row.set_name || row.setName || row.target_id || "Unknown Set",
+    slug: row.slug || row.canonical_key || row.target_id || null,
+    era: row.era || row.era_name || row.eraName || null,
+    ripScore: getFirstNumericValue(row, ["relative_pack_score", "relativePackScore", "pack_score", "packScore"]),
+    rank: getFirstNumericValue(row, ["pack_rank", "packRank", "rank"]),
+  };
+}
+
+function DesirabilityValidationCard({ targets }) {
+  const [selectedMetricKey, setSelectedMetricKey] = useState("setValue");
+  const rows = useMemo(() => (Array.isArray(targets) ? targets : []), [targets]);
+  const metricOptions = DESIRABILITY_VALIDATION_METRICS.filter((metric) => {
+    if (metric.key === "setValue") {
+      return true;
+    }
+    return rows.some((row) => {
+      const yMetric = metric.resolver ? metric.resolver(row) : getFirstNumericMetric(row, metric.valueKeys);
+      return yMetric.value !== null;
+    });
+  });
+  const selectedMetric =
+    metricOptions.find((metric) => metric.key === selectedMetricKey) ||
+    metricOptions[0] ||
+    DESIRABILITY_VALIDATION_METRICS[0];
+  const points = useMemo(
+    () =>
+      rows
+        .map((row) => buildDesirabilityValidationPoint(row, selectedMetric))
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x),
+    [rows, selectedMetric]
+  );
+  const pearson = calculatePearsonCorrelation(points);
+  const spearman = calculateSpearmanCorrelation(points);
+  const regressionLinePoints = useMemo(() => calculateRegressionLine(points), [points]);
+  const relationshipLabel = getRelationshipLabel(pearson);
+  const hasEnoughPoints = points.length >= 3;
+  const xDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.x), { floorAtZero: true, fallback: [0, 100] }), [points]);
+  const yDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.y), { floorAtZero: true }), [points]);
+  const sampleLabel = `n=${points.length} ${selectedMetric.sampleLabel || "opening sets"}`;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || selectedMetric.key !== "setValue" || points.length > 0) {
+      return;
+    }
+    const sample = getDesirabilityValidationMissingSetValueSample(rows);
+    if (sample.length > 0) {
+      console.debug("[desirability-validation] missing Set Value sample", sample);
+    }
+  }, [points.length, rows, selectedMetric.key]);
+
+  return (
+    <section id="set-detail-desirability-validation" className="scroll-mt-24 md:scroll-mt-28">
+      <SectionCard
+        title="Desirability Validation"
+        subtitle="Compare set desirability against market and simulation outcomes."
+        bodyClassName="space-y-4"
+      >
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="grid min-w-0 grid-cols-3 gap-2 sm:max-w-md">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pearson r</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(pearson)}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Spearman rho</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(spearman)}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Sample</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{sampleLabel}</p>
+            </div>
+          </div>
+
+          <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
+            <span className="inline-flex max-w-full items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+              <span className="truncate">{relationshipLabel}</span>
+            </span>
+            <SegmentedControl
+              options={metricOptions.map((metric) => ({ value: metric.key, label: metric.label }))}
+              value={selectedMetric.key}
+              onChange={setSelectedMetricKey}
+              ariaLabel="Desirability validation metric"
+            />
+          </div>
+        </div>
+        {selectedMetric.description ? (
+          <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{selectedMetric.description}</p>
+        ) : null}
+
+        {hasEnoughPoints ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[rgba(45,212,191,0.84)]" />Dots = Sets</span>
+              {regressionLinePoints.length === 2 ? (
+                <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
+              ) : null}
+              {/* TODO: Add rank-trend visual line after validation dataset stabilizes. */}
+            </div>
+            <div className="h-[22rem] min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                <XAxis
+                  type="number"
+                  dataKey="x"
+                  name="Pure Desirability Score"
+                  domain={xDomain}
+                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+                  tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                  label={{ value: "Pure Desirability Score", position: "insideBottom", offset: -18, fill: "var(--text-secondary)", fontSize: 11 }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="y"
+                  name={selectedMetric.summaryLabel}
+                  domain={yDomain}
+                  tickFormatter={selectedMetric.tickFormatter}
+                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+                  tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                  width={58}
+                />
+                <RechartsTooltip
+                  content={<DesirabilityValidationTooltip metric={selectedMetric} />}
+                  cursor={{ stroke: "rgba(45,212,191,0.24)", strokeWidth: 1 }}
+                />
+                {regressionLinePoints.length === 2 ? (
+                  <Line
+                    data={regressionLinePoints}
+                    type="linear"
+                    dataKey="y"
+                    name="Pearson trend"
+                    stroke="rgba(248,250,252,0.72)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
+                  />
+                ) : null}
+                <Scatter data={points} dataKey="y" fill="rgba(45,212,191,0.84)" fillOpacity={0.82} isAnimationActive={false} />
+              </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ) : (
+          <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
+            <p className="text-sm text-[var(--text-secondary)]">Not enough set data to compare yet.</p>
+          </div>
+        )}
+      </SectionCard>
+    </section>
+  );
+}
+
+function getCardDesirabilityScore(card) {
+  return (
+    toNumber(card?.subjectDemandScore) ??
+    toNumber(card?.subject_demand_score) ??
+    toNumber(card?.pokemonDesirabilityScore) ??
+    toNumber(card?.pokemon_desirability_score) ??
+    toNumber(card?.cardDesirabilityScore) ??
+    toNumber(card?.card_desirability_score) ??
+    toNumber(card?.desirabilityScore) ??
+    toNumber(card?.desirability_score)
+  );
+}
+
+function getLinkedPokemonLabel(card) {
+  const linked = Array.isArray(card?.linkedPokemon)
+    ? card.linkedPokemon
+    : Array.isArray(card?.linked_pokemon)
+    ? card.linked_pokemon
+    : [];
+  const names = linked
+    .map((entry) => entry?.pokemonName || entry?.pokemon_name || entry?.name)
+    .filter(Boolean);
+  return Array.from(new Set(names)).join(", ") || null;
+}
+
+function isCardHitEligible(card) {
+  return card?.isHitEligible === true || card?.is_hit_eligible === true || String(card?.isHitEligible ?? card?.is_hit_eligible).toLowerCase() === "true";
+}
+
+function getCardTreatmentScore(card) {
+  return toNumber(card?.treatmentScore) ?? toNumber(card?.treatment_score);
+}
+
+function getCardScarcityScore(card) {
+  return toNumber(card?.scarcityScore) ?? toNumber(card?.scarcity_score);
+}
+
+function getCardAdjustedAppealScore(card) {
+  return toNumber(card?.adjustedCardAppealScore) ?? toNumber(card?.adjusted_card_appeal_score);
+}
+
+function getCardAppealScore(card) {
+  return (
+    toNumber(card?.cardAppealScore) ??
+    toNumber(card?.card_appeal_score) ??
+    getCardAdjustedAppealScore(card)
+  );
+}
+
+function getCardScarcityAdjustedAppealScore(card) {
+  return toNumber(card?.scarcityAdjustedCardAppealScore) ?? toNumber(card?.scarcity_adjusted_card_appeal_score);
+}
+
+function getCardPullRate(card) {
+  return toNumber(card?.pullRate) ?? toNumber(card?.pull_rate);
+}
+
+const CARD_VALIDATION_X_METRICS = [
+  {
+    key: "cardAppeal",
+    label: "Card Appeal",
+    axisLabel: "Card Appeal",
+    tooltipLabel: "Card Appeal",
+    description: "Card Appeal blends subject demand with card treatment. Scarcity is not included yet when scarcity data is unavailable.",
+    resolver: getCardAppealScore,
+  },
+  {
+    key: "pure",
+    label: "Pure Pokemon Demand",
+    axisLabel: "Pure Pokemon Demand",
+    tooltipLabel: "Pokemon Demand",
+    resolver: getCardDesirabilityScore,
+  },
+  {
+    key: "treatment",
+    label: "Treatment Score",
+    axisLabel: "Treatment Score",
+    tooltipLabel: "Treatment",
+    description: "Treatment measures how premium the card version is, such as SIR, IR, Alt Art, Rainbow Rare, Full Art, Gold, or other era-specific chase treatments.",
+    resolver: getCardTreatmentScore,
+  },
+  {
+    key: "scarcity",
+    label: "Scarcity Score",
+    axisLabel: "Scarcity Score",
+    tooltipLabel: "Scarcity",
+    resolver: getCardScarcityScore,
+  },
+  {
+    key: "scarcityAdjusted",
+    label: "Scarcity-Adjusted Appeal",
+    axisLabel: "Scarcity-Adjusted Appeal",
+    tooltipLabel: "Scarcity-Adjusted Appeal",
+    resolver: getCardScarcityAdjustedAppealScore,
+  },
+];
+
+const CARD_VALIDATION_SCOPES = [
+  { key: "priced", label: "Priced Cards", filter: () => true },
+  { key: "hits", label: "Hits Only", filter: (point) => point.isHitEligible },
+  { key: "chase", label: "Chase / High Value", filter: (point) => point.isHitEligible || point.y >= 10 || (point.setValueShare !== null && point.setValueShare >= 0.0025) },
+  { key: "scarcity", label: "Scarcity-Qualified", filter: (point) => point.scarcityScore !== null || point.scarcityAdjustedCardAppealScore !== null },
+];
+
+function getCardValidationMetricValue(card, metric) {
+  return toNumber(metric?.resolver?.(card));
+}
+
+function hasEnoughCardValidationMetricRows(rows, metric) {
+  return rows.filter((card) => getCardValidationMetricValue(card, metric) !== null && getCardMarketPrice(card) !== null).length >= 3;
+}
+
+function getCardValidationDiagnostics({ rows, rawPoints, points, selectedMetric, selectedScope, context }) {
+  return {
+    selectedSetId: context?.setId || null,
+    selectedSetSlug: context?.setSlug || null,
+    selectedTab: context?.selectedTab || null,
+    checklistCardsLength: rows.length,
+    cardsWithMarketPriceOrCurrentPrice: rows.filter((card) => getCardMarketPrice(card) !== null).length,
+    cardsWithPokemonDesirabilityScore: rows.filter((card) => getCardDesirabilityScore(card) !== null).length,
+    cardsWithCardDesirabilityScore: rows.filter((card) => toNumber(card?.cardDesirabilityScore ?? card?.card_desirability_score) !== null).length,
+    cardsWithTreatmentScore: rows.filter((card) => getCardTreatmentScore(card) !== null).length,
+    cardsWithAdjustedCardAppealScore: rows.filter((card) => getCardAdjustedAppealScore(card) !== null).length,
+    cardsWithScarcityScore: rows.filter((card) => getCardScarcityScore(card) !== null).length,
+    finalChartPointCount: points.length,
+    rawChartPointCount: rawPoints.length,
+    activeMetricKey: selectedMetric?.key || null,
+    activeMetricLabel: selectedMetric?.label || null,
+    currentCardScope: selectedScope?.label || null,
+  };
+}
+
+function buildCardDesirabilityMarketPoint(card, totalVisibleMarketValue, selectedMetric) {
+  const xValue = getCardValidationMetricValue(card, selectedMetric);
+  const marketPrice = getCardMarketPrice(card);
+  if (xValue === null || marketPrice === null) {
+    return null;
+  }
+
+  return {
+    kind: "card",
+    x: xValue,
+    y: marketPrice,
+    name: card?.name || "Unknown card",
+    rarity: card?.rarity || null,
+    linkedPokemon: card?.linkedPokemonName || card?.linked_pokemon_name || getLinkedPokemonLabel(card),
+    setValueShare: toNumber(card?.setValueShare ?? card?.set_value_share) ?? (totalVisibleMarketValue > 0 ? marketPrice / totalVisibleMarketValue : null),
+    isHitEligible: isCardHitEligible(card),
+    selectedMetricLabel: selectedMetric?.tooltipLabel || selectedMetric?.label || "Selected Score",
+    pokemonDesirabilityScore: getCardDesirabilityScore(card),
+    treatmentScore: getCardTreatmentScore(card),
+    scarcityScore: getCardScarcityScore(card),
+    adjustedCardAppealScore: getCardAdjustedAppealScore(card),
+    cardAppealScore: getCardAppealScore(card),
+    scarcityAdjustedCardAppealScore: getCardScarcityAdjustedAppealScore(card),
+    pullRate: getCardPullRate(card),
+    pullRateSource: card?.pullRateSource || card?.pull_rate_source || null,
+  };
+}
+
+function CardDesirabilityMarketTooltip({ active, payload, selectedMetric }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+  const point = payload.find((entry) => entry?.payload?.kind === "card")?.payload;
+  if (!point) {
+    return null;
+  }
+
+  return (
+    <div className="max-w-[17rem] rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.94)] p-3 text-left shadow-xl">
+      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{point.name}</p>
+      {point.rarity ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{point.rarity}</p> : null}
+      {point.linkedPokemon ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{point.linkedPokemon}</p> : null}
+      <div className="mt-2 space-y-1 text-xs">
+        <div className="flex justify-between gap-4">
+          <span className="text-[var(--text-secondary)]">Market Price</span>
+          <span className="font-medium text-[var(--text-primary)]">{formatCurrency(point.y)}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-[var(--text-secondary)]">{selectedMetric?.tooltipLabel || point.selectedMetricLabel}</span>
+          <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.x, 1)}</span>
+        </div>
+        {point.pokemonDesirabilityScore !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">Pure Pokemon Demand</span>
+            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.pokemonDesirabilityScore, 1)}</span>
+          </div>
+        ) : null}
+        {point.treatmentScore !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">Treatment</span>
+            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.treatmentScore, 1)}</span>
+          </div>
+        ) : null}
+        {point.scarcityScore !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">Scarcity</span>
+            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.scarcityScore, 1)}</span>
+          </div>
+        ) : null}
+        {point.cardAppealScore !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">Card Appeal</span>
+            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.cardAppealScore, 1)}</span>
+          </div>
+        ) : null}
+        {point.pullRate !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">Pull Rate</span>
+            <span className="font-medium text-[var(--text-primary)]">{formatPercent(point.pullRate, { probability: true })}</span>
+          </div>
+        ) : null}
+        {point.setValueShare !== null ? (
+          <div className="flex justify-between gap-4">
+            <span className="text-[var(--text-secondary)]">Visible Value Share</span>
+            <span className="font-medium text-[var(--text-primary)]">{formatPercent(point.setValueShare, { probability: true })}</span>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function getCardValidationBuckets(points) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return null;
+  }
+  const desirabilityValues = points.map((point) => point.x).sort((a, b) => a - b);
+  const priceValues = points.map((point) => point.y).sort((a, b) => a - b);
+  const desirabilityCutoff = desirabilityValues[Math.floor(desirabilityValues.length * 0.67)] ?? desirabilityValues[desirabilityValues.length - 1];
+  const lowDesirabilityCutoff = desirabilityValues[Math.floor(desirabilityValues.length * 0.33)] ?? desirabilityValues[0];
+  const priceCutoff = priceValues[Math.floor(priceValues.length * 0.67)] ?? priceValues[priceValues.length - 1];
+  const lowPriceCutoff = priceValues[Math.floor(priceValues.length * 0.33)] ?? priceValues[0];
+  const compact = (rows) => rows.slice(0, 3).map((point) => ({
+    name: point.name,
+    detail: `${formatCurrency(point.y)} · ${formatNumber(point.x, 1)}`,
+  }));
+
+  return [
+    {
+      title: "Aligned Demand",
+      rows: compact(points.filter((point) => point.x >= desirabilityCutoff && point.y >= priceCutoff).sort((a, b) => b.y - a.y)),
+    },
+    {
+      title: "Market Premium",
+      rows: compact(points.filter((point) => point.x <= lowDesirabilityCutoff && point.y >= priceCutoff).sort((a, b) => b.y - a.y)),
+    },
+    {
+      title: "Appeal Above Price",
+      rows: compact(points.filter((point) => point.x >= desirabilityCutoff && point.y <= lowPriceCutoff).sort((a, b) => b.x - a.x)),
+    },
+  ];
+}
+
+function CardDesirabilityMarketValidationCard({ cards, diagnosticsContext = {} }) {
+  const [selectedMetricKey, setSelectedMetricKey] = useState("cardAppeal");
+  const [selectedScopeKey, setSelectedScopeKey] = useState("hits");
+  const rows = useMemo(() => (Array.isArray(cards) ? cards : []), [cards]);
+  const metricOptions = useMemo(
+    () =>
+      CARD_VALIDATION_X_METRICS.filter((metric) => {
+        if (metric.key === "scarcity" || metric.key === "scarcityAdjusted") {
+          return hasEnoughCardValidationMetricRows(rows, metric);
+        }
+        return metric.key === "pure" || hasEnoughCardValidationMetricRows(rows, metric);
+      }),
+    [rows]
+  );
+  const defaultMetricKey = useMemo(() => {
+    const appealMetric = CARD_VALIDATION_X_METRICS.find((metric) => metric.key === "cardAppeal");
+    return appealMetric && hasEnoughCardValidationMetricRows(rows, appealMetric) ? "cardAppeal" : "pure";
+  }, [rows]);
+  const selectedMetric =
+    metricOptions.find((metric) => metric.key === selectedMetricKey) ||
+    metricOptions.find((metric) => metric.key === defaultMetricKey) ||
+    CARD_VALIDATION_X_METRICS.find((metric) => metric.key === "pure");
+
+  useEffect(() => {
+    if (selectedMetric?.key && selectedMetric.key !== selectedMetricKey) {
+      setSelectedMetricKey(selectedMetric.key);
+    }
+  }, [selectedMetric?.key, selectedMetricKey]);
+
+  const rawPoints = useMemo(() => {
+    const pricedCards = rows.filter((card) => getCardValidationMetricValue(card, selectedMetric) !== null && getCardMarketPrice(card) !== null);
+    const totalVisibleMarketValue = pricedCards.reduce((sum, card) => sum + (getCardMarketPrice(card) || 0), 0);
+    return pricedCards
+      .map((card) => buildCardDesirabilityMarketPoint(card, totalVisibleMarketValue, selectedMetric))
+      .filter(Boolean)
+      .sort((a, b) => a.x - b.x);
+  }, [rows, selectedMetric]);
+  const scopeOptions = useMemo(() => {
+    const countsByScope = Object.fromEntries(CARD_VALIDATION_SCOPES.map((scope) => [scope.key, rawPoints.filter(scope.filter).length]));
+    return CARD_VALIDATION_SCOPES.filter((scope) => {
+      if (scope.key === "priced") {
+        return true;
+      }
+      if ((countsByScope[scope.key] || 0) < 3) {
+        return false;
+      }
+      if (scope.key === "chase" && countsByScope.chase === countsByScope.hits) {
+        return false;
+      }
+      return true;
+    });
+  }, [rawPoints]);
+  const selectedScope = scopeOptions.find((scope) => scope.key === selectedScopeKey) || CARD_VALIDATION_SCOPES[0];
+  const points = useMemo(() => rawPoints.filter(selectedScope.filter), [rawPoints, selectedScope]);
+  const pearson = calculatePearsonCorrelation(points);
+  const spearman = calculateSpearmanCorrelation(points);
+  const regressionLinePoints = useMemo(() => calculateRegressionLine(points), [points]);
+  const buckets = getCardValidationBuckets(points);
+  const hasEnoughPoints = points.length >= 3;
+  const relationshipLabel = getRelationshipLabel(pearson);
+  const xDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.x), { floorAtZero: true, fallback: [0, 100] }), [points]);
+  const yDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.y), { floorAtZero: true }), [points]);
+
+  useEffect(() => {
+    if (selectedScope.key !== selectedScopeKey) {
+      setSelectedScopeKey(selectedScope.key);
+    }
+  }, [selectedScope.key, selectedScopeKey]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[card-appeal-market-validation] chart data", getCardValidationDiagnostics({ rows, rawPoints, points, selectedMetric, selectedScope, context: diagnosticsContext }));
+    }
+  }, [diagnosticsContext, points, rawPoints, rows, selectedMetric, selectedScope]);
+
+  return (
+    <section id="set-detail-card-desirability-price" className="scroll-mt-24 md:scroll-mt-28">
+      <SectionCard
+        title={`${selectedMetric.label} vs Market Price`}
+        subtitle={selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set."}
+        bodyClassName="space-y-4"
+      >
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="grid min-w-0 grid-cols-3 gap-2 sm:max-w-md">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pearson r</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(pearson)}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Spearman rho</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(spearman)}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Sample</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">n={points.length}</p>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
+            <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
+              <span className="inline-flex max-w-full items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                <span className="truncate">{relationshipLabel}</span>
+              </span>
+              <span className="inline-flex max-w-full items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                <span className="truncate">{selectedScope.label}</span>
+              </span>
+            </div>
+            <SegmentedControl
+              options={metricOptions.map((metric) => ({ value: metric.key, label: metric.label, title: metric.description }))}
+              value={selectedMetric.key}
+              onChange={setSelectedMetricKey}
+              ariaLabel="Card validation score metric"
+            />
+            <SegmentedControl
+              options={scopeOptions.map((scope) => ({ value: scope.key, label: scope.label }))}
+              value={selectedScope.key}
+              onChange={setSelectedScopeKey}
+              ariaLabel="Card validation card scope"
+            />
+          </div>
+        </div>
+
+        {hasEnoughPoints ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[rgba(125,211,252,0.84)]" />Dots = Cards</span>
+              {regressionLinePoints.length === 2 ? (
+                <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
+              ) : null}
+            </div>
+            <div className="h-[22rem] min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    name={selectedMetric.axisLabel}
+                    domain={xDomain}
+                    tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+                    tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                    axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                    label={{ value: selectedMetric.axisLabel, position: "insideBottom", offset: -18, fill: "var(--text-secondary)", fontSize: 11 }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="y"
+                    name="Current Market Price"
+                    domain={yDomain}
+                    tickFormatter={formatCompactCurrency}
+                    tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+                    tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                    axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
+                    width={58}
+                  />
+                  <RechartsTooltip
+                    content={<CardDesirabilityMarketTooltip selectedMetric={selectedMetric} />}
+                    cursor={{ stroke: "rgba(125,211,252,0.24)", strokeWidth: 1 }}
+                  />
+                  {regressionLinePoints.length === 2 ? (
+                    <Line
+                      data={regressionLinePoints}
+                      type="linear"
+                      dataKey="y"
+                      name="Pearson trend"
+                      stroke="rgba(248,250,252,0.72)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={false}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
+                  <Scatter data={points} dataKey="y" fill="rgba(125,211,252,0.84)" fillOpacity={0.82} isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            {buckets ? (
+              <div className="grid gap-3 md:grid-cols-3">
+                {buckets.map((bucket) => (
+                  <div key={bucket.title} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{bucket.title}</p>
+                    {bucket.rows.length > 0 ? (
+                      <div className="mt-2 space-y-1.5">
+                        {bucket.rows.map((row) => (
+                          <div key={`${bucket.title}:${row.name}`} className="min-w-0">
+                            <p className="truncate text-xs font-semibold text-[var(--text-primary)]">{row.name}</p>
+                            <p className="text-[11px] text-[var(--text-secondary)]">{row.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-[var(--text-secondary)]">No clear examples yet.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
+            <p className="text-sm text-[var(--text-secondary)]">Not enough card appeal and market price data yet.</p>
+          </div>
+        )}
+      </SectionCard>
+    </section>
+  );
+}
+
 const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 
 function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, condensed = false }) {
@@ -4535,6 +5708,9 @@ function SetPageNavigationRail({
         ]
       : [
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
+          { id: "desirability-proof", label: "Desirability Proof", tab: "insights", section: "desirability-proof", targetId: "set-detail-desirability-proof", active: false },
+          { id: "desirability-validation", label: "Desirability Validation", tab: "insights", section: "desirability-validation", targetId: "set-detail-desirability-validation", active: false },
+          { id: "card-desirability-price", label: "Card Validation", tab: "insights", section: "card-desirability-price", targetId: "set-detail-card-desirability-price", active: false },
           { id: "opening-outcomes", label: "Opening Outcomes", tab: "insights", section: "opening-outcomes", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
           { id: "value", label: "Value Structure", tab: "insights", section: "value", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
@@ -4859,6 +6035,10 @@ export default function RipStatisticsPageClient({
       ),
     [explorePayload?.openingDesirability, explorePayload?.opening_desirability]
   );
+  const desirabilityValidationPayload = useMemo(
+    () => getDesirabilityValidationPayload(explorePayload),
+    [explorePayload]
+  );
   const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
@@ -4927,29 +6107,15 @@ export default function RipStatisticsPageClient({
     cards: [],
     error: null,
   });
-  const [topMarketCardsState, setTopMarketCardsState] = useState({
-    status: "idle",
-    setId: null,
-    cards: [],
-    marketMovers: null,
-    error: null,
-    meta: null,
-  });
   const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState(DEFAULT_TOP_MARKET_CARDS_WINDOW);
-  const [setValueHistoryState, setSetValueHistoryState] = useState({
-    status: "idle",
-    setId: null,
-    history: [],
-    historiesByScope: {},
-    availableScopes: SET_VALUE_SCOPE_OPTIONS,
-    error: null,
-    meta: null,
-  });
+  const [marketDashboardState, dispatchMarketDashboard] = useReducer(
+    marketDashboardReducer,
+    {},
+    createMarketDashboardState
+  );
   const [setValueTrendScope, setSetValueTrendScope] = useState(CANONICAL_SET_VALUE_SCOPE);
   const heroSetPickerRef = useRef(null);
   const checklistCacheRef = useRef(new Map());
-  const topMarketCardsCacheRef = useRef(new Map());
-  const setValueHistoryCacheRef = useRef(new Map());
   const setPrefetchStartedRef = useRef(new Set());
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
@@ -4977,21 +6143,13 @@ export default function RipStatisticsPageClient({
       ? interpretation?.rarityContribution
       : interpretation?.outcomeDistribution;
 
-  const applyMarketDashboardPayload = useCallback((setId, payload, windowKey = topMarketCardsWindowKey) => {
-    const marketState = buildMarketDashboardStateFromPayload(payload);
-    const topCardsCacheKey = getTopMarketCardsCacheKey(setId, windowKey);
-    topMarketCardsCacheRef.current.set(topCardsCacheKey, marketState.topCards);
-    setValueHistoryCacheRef.current.set(setId, marketState.setValue);
-    return marketState;
-  }, [topMarketCardsWindowKey]);
-
   const warmSetDetailResources = useCallback((setId, { includeAdjacent = false, reason = "prefetch" } = {}) => {
     const startPrefetch = (targetSetId, prefetchReason) => {
       const resolvedSetId = String(targetSetId || "").trim();
       if (!resolvedSetId) {
         return;
       }
-      const prefetchKey = `${resolvedSetId}:${DEFAULT_TOP_MARKET_CARDS_WINDOW}`;
+      const prefetchKey = getTopMarketCardsCacheKey(resolvedSetId, DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW);
       if (!setPrefetchStartedRef.current.has(prefetchKey)) {
         setPrefetchStartedRef.current.add(prefetchKey);
         debugSetPagePerf("set.prefetch_start", { setId: resolvedSetId, reason: prefetchReason });
@@ -5002,20 +6160,8 @@ export default function RipStatisticsPageClient({
           }
           debugSetPagePerf("cards.prefetch_ready", { setId: resolvedSetId, count: cards.length, reason: prefetchReason });
         });
-        prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW }).then((payload) => {
+        prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW }).then((payload) => {
           if (payload) {
-            const marketState = applyMarketDashboardPayload(resolvedSetId, payload, DEFAULT_TOP_MARKET_CARDS_WINDOW);
-            if (prefetchReason !== "adjacent") {
-              setSetValueHistoryState(() => ({
-                status: marketState.setValue.hasAnyHistory ? "success" : "empty",
-                setId: resolvedSetId,
-                history: marketState.setValue.history,
-                historiesByScope: marketState.setValue.historiesByScope,
-                availableScopes: marketState.setValue.availableScopes,
-                error: null,
-                meta: marketState.setValue.meta,
-              }));
-            }
             debugSetPagePerf("market.prefetch_ready", { setId: resolvedSetId, reason: prefetchReason });
           }
         });
@@ -5043,7 +6189,7 @@ export default function RipStatisticsPageClient({
     adjacentTargets.forEach((adjacentSetId) => {
       startPrefetch(adjacentSetId, "adjacent");
     });
-  }, [applyMarketDashboardPayload, targets]);
+  }, [targets]);
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
@@ -5500,18 +6646,41 @@ export default function RipStatisticsPageClient({
     "collection_value",
     "total_value",
   ]);
-  const isSetValueHistoryForActiveSet = !setDetailMode || setValueHistoryState.setId === resolvedSetResourceId;
-  const activeSetValueHistory = isSetValueHistoryForActiveSet
-    ? setValueHistoryState
-    : {
-        status: "idle",
-        setId: resolvedSetResourceId,
-        history: [],
-        historiesByScope: {},
-        availableScopes: SET_VALUE_SCOPE_OPTIONS,
-        error: null,
-        meta: null,
-      };
+  const activeMarketDashboardState =
+    marketDashboardState.setId === resolvedSetResourceId
+      ? marketDashboardState
+      : createMarketDashboardState({ setId: resolvedSetResourceId });
+  const activeMarketDashboardDerivedState = useMemo(
+    () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload),
+    [activeMarketDashboardState.payload]
+  );
+  const activeSetValueHistory = {
+    status:
+      activeMarketDashboardState.status === "success"
+        ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
+          ? "success"
+          : "empty"
+        : activeMarketDashboardState.status,
+    setId: activeMarketDashboardState.setId || resolvedSetResourceId,
+    history: activeMarketDashboardDerivedState.setValue.history,
+    historiesByScope: activeMarketDashboardDerivedState.setValue.historiesByScope,
+    availableScopes: activeMarketDashboardDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS,
+    error: activeMarketDashboardState.error,
+    meta: activeMarketDashboardDerivedState.setValue.meta,
+  };
+  const activeTopMarketCardsState = {
+    status:
+      activeMarketDashboardState.status === "success"
+        ? activeMarketDashboardDerivedState.topCards.cards.length > 0
+          ? "success"
+          : "empty"
+        : activeMarketDashboardState.status,
+    setId: activeMarketDashboardState.setId || resolvedSetResourceId,
+    cards: activeMarketDashboardDerivedState.topCards.cards,
+    marketMovers: activeMarketDashboardDerivedState.topCards.marketMovers || null,
+    error: activeMarketDashboardState.error,
+    meta: activeMarketDashboardDerivedState.topCards.meta,
+  };
   const fallbackSetValueAsOf =
     explorePayload?.meta?.asOfDate ||
     explorePayload?.meta?.as_of_date ||
@@ -5601,6 +6770,39 @@ export default function RipStatisticsPageClient({
     resolvedSetResourceId,
     setDetailMode,
     setValueTrendScope,
+  ]);
+
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "overview") {
+      return;
+    }
+    const standardHistory =
+      activeSetValueHistory.historiesByScope?.[CANONICAL_SET_VALUE_SCOPE] ||
+      activeSetValueHistory.historiesByScope?.standard ||
+      [];
+    debugSetPagePerf("set_value_trend.render_state", {
+      requestedTargetId,
+      selectedTargetId: selectedTarget?.target_id,
+      resolvedSetResourceId,
+      stateSetId: marketDashboardState.setId,
+      activeSetId: activeSetValueHistory.setId,
+      status: activeSetValueHistory.status,
+      historyLength: Array.isArray(activeSetValueHistory.history) ? activeSetValueHistory.history.length : 0,
+      standardHistoryLength: Array.isArray(standardHistory) ? standardHistory.length : 0,
+      dashboardSourceWindow: activeMarketDashboardState.sourceWindow,
+    });
+  }, [
+    activeMarketDashboardState.sourceWindow,
+    activeSetValueHistory.historiesByScope,
+    activeSetValueHistory.history,
+    activeSetValueHistory.setId,
+    activeSetValueHistory.status,
+    marketDashboardState.setId,
+    requestedTargetId,
+    resolvedSetResourceId,
+    selectedTarget?.target_id,
+    setDetailMode,
+    setDetailTab,
   ]);
   const normalizedTopShareForMarket =
     toNumber(summary.top1_ev_share) === null
@@ -5824,26 +7026,50 @@ export default function RipStatisticsPageClient({
     },
   ].filter((metric) => metric.rawValue !== null);
   const topPricedCardsResult = getTopPricedCards({
-    topMarketCards: topMarketCardsState.cards,
+    topMarketCards: activeTopMarketCardsState.cards,
     checklistCards: checklistState.cards,
   });
   const topPricedCards = topPricedCardsResult.cards;
   const hasTopPricedCards = topPricedCards.length > 0;
   const shouldShowTopMarketCards =
-    topMarketCardsState.status === "loading" || topMarketCardsState.status === "error" || hasTopPricedCards;
+    activeTopMarketCardsState.status === "loading" || activeTopMarketCardsState.status === "error" || hasTopPricedCards;
   const topPricedCardsStatus =
-    topMarketCardsState.status === "error" && !hasTopPricedCards
+    activeTopMarketCardsState.status === "error" && !hasTopPricedCards
       ? "error"
       : hasTopPricedCards
       ? "success"
-      : topMarketCardsState.status === "loading" || topMarketCardsState.status === "idle"
+      : activeTopMarketCardsState.status === "loading" || activeTopMarketCardsState.status === "idle"
       ? "loading"
       : "success";
   const topPricedCardsInfo =
     topPricedCardsResult.source === "topMarketCards"
       ? "Highest priced chase-card variants from the current set calculation, sorted by estimated card market price descending."
       : "Highest checklist card market prices in this set, sorted by estimated card market price descending.";
-  const marketMovers = topMarketCardsState.marketMovers || { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW };
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "overview") {
+      return;
+    }
+    const topChaseCards = activeTopMarketCardsState.cards || [];
+    debugSetPagePerf("top_chase_cards.trend_state", {
+      setId: resolvedSetResourceId,
+      cardCount: topChaseCards.length,
+      cardsWithPriceHistory: topChaseCards.filter((card) => getTopCardPriceHistory(card).length >= 2).length,
+      cardsWith30DDelta: topChaseCards.filter((card) =>
+        extractDeltaWindows({ deltas: card?.deltas }).some((entry) => entry.key === "30D")
+      ).length,
+      cardsWithLifetimeDelta: topChaseCards.filter((card) =>
+        extractDeltaWindows({ deltas: card?.deltas }).some((entry) => entry.key === "lifetime")
+      ).length,
+      selectedWindowKey: topMarketCardsWindowKey,
+    });
+  }, [
+    activeTopMarketCardsState.cards,
+    resolvedSetResourceId,
+    setDetailMode,
+    setDetailTab,
+    topMarketCardsWindowKey,
+  ]);
+  const marketMovers = activeTopMarketCardsState.marketMovers || { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW };
   const hasMarketMovers =
     (Array.isArray(marketMovers.heatingUp) && marketMovers.heatingUp.length > 0) ||
     (Array.isArray(marketMovers.coolingOff) && marketMovers.coolingOff.length > 0);
@@ -6004,6 +7230,7 @@ export default function RipStatisticsPageClient({
       : targetHrefById?.[nextTargetId] || null;
 
     setPendingTargetId(nextTargetId);
+    warmSetDetailResources(nextTargetId, { reason: "selection" });
     announceNavigationStart({
       href: nextHref,
       source: setDetailMode ? "set-to-set" : "target-select",
@@ -6103,7 +7330,7 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderChecklist = setDetailTab === "cards" && cardsSubTab === "checklist";
+    const shouldRenderChecklist = (setDetailTab === "cards" && cardsSubTab === "checklist") || setDetailTab === "insights";
     const cached = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId)?.cards || null;
     if (cached) {
       setChecklistState({ status: "success", setId, cards: cached, error: null });
@@ -6182,117 +7409,56 @@ export default function RipStatisticsPageClient({
     }
 
     const setId = resolvedSetResourceId;
+    const dashboardSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW;
     if (!setId) {
-      setTopMarketCardsState({ status: "empty", setId: null, cards: [], marketMovers: null, error: null, meta: null });
-      setSetValueHistoryState({
-        status: "empty",
-        setId: null,
-        history: [],
-        historiesByScope: {},
-        availableScopes: SET_VALUE_SCOPE_OPTIONS,
-        error: null,
-        meta: null,
-      });
+      dispatchMarketDashboard({ type: "reset", status: "empty", sourceWindow: dashboardSourceWindow });
       return undefined;
     }
 
     const shouldRenderMarketData = setDetailTab === "overview";
-    const topCardsCacheKey = getTopMarketCardsCacheKey(setId, topMarketCardsWindowKey);
-    const cachedTopCards = topMarketCardsCacheRef.current.get(topCardsCacheKey);
-    const cachedValueHistory = setValueHistoryCacheRef.current.get(setId);
-    const cachedDashboard = getCachedPokemonSetMarketDashboard(setId, { window: topMarketCardsWindowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW });
-    let seededMarketState = null;
-    if ((!cachedTopCards || !cachedValueHistory) && cachedDashboard) {
-      seededMarketState = applyMarketDashboardPayload(setId, cachedDashboard);
-    }
-    const effectiveCachedTopCards = cachedTopCards || seededMarketState?.topCards || null;
-    const effectiveCachedValueHistory = cachedValueHistory || seededMarketState?.setValue || null;
+    const cachedDashboard = getCachedPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow });
+    const cachedMarketDashboardState = hydrateMarketDashboardStateFromCachedPayload({
+      setId,
+      cachedPayload: cachedDashboard,
+      sourceWindow: dashboardSourceWindow,
+    });
 
-    if (effectiveCachedTopCards) {
-      setTopMarketCardsState({
-        status: effectiveCachedTopCards.cards.length > 0 ? "success" : "empty",
+    if (cachedMarketDashboardState) {
+      dispatchMarketDashboard({
+        type: "success",
         setId,
-        cards: effectiveCachedTopCards.cards,
-        marketMovers: effectiveCachedTopCards.marketMovers || null,
-        error: null,
-        meta: effectiveCachedTopCards.meta,
-      });
-    }
-    if (effectiveCachedValueHistory) {
-      setSetValueHistoryState({
-        status: effectiveCachedValueHistory.history.length > 0 ? "success" : "empty",
-        setId,
-        history: effectiveCachedValueHistory.history,
-        historiesByScope: effectiveCachedValueHistory.historiesByScope || {},
-        availableScopes: effectiveCachedValueHistory.availableScopes || SET_VALUE_SCOPE_OPTIONS,
-        error: null,
-        meta: effectiveCachedValueHistory.meta,
+        payload: cachedMarketDashboardState.payload,
+        sourceWindow: dashboardSourceWindow,
       });
     }
     if (!shouldRenderMarketData) {
-      warmSetDetailResources(setId, { reason: "market-background" });
+      if (!cachedMarketDashboardState) {
+        prefetchPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow });
+      }
       return undefined;
     }
-    if (effectiveCachedTopCards && effectiveCachedValueHistory) {
+    if (cachedMarketDashboardState) {
       return undefined;
     }
 
     let isCancelled = false;
     const clickStartedAt = performance.now();
     debugSetPagePerf("market.tab_fetch_start", {
-      routeSetId: requestedTargetId,
-      selectedTargetId: selectedTarget?.target_id,
       resolvedSetId: setId,
-      window: topMarketCardsWindowKey,
+      sourceWindow: dashboardSourceWindow,
     });
-    if (!effectiveCachedTopCards) {
-      setTopMarketCardsState((previous) => ({
-        status: "loading",
-        setId,
-        cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
-        marketMovers: previous.setId === setId ? previous.marketMovers || null : null,
-        error: null,
-        meta: previous.setId === setId ? previous.meta : null,
-      }));
-    }
-    if (!effectiveCachedValueHistory) {
-      setSetValueHistoryState((previous) => ({
-        status: "loading",
-        setId,
-        history: previous.status === "success" && previous.setId === setId ? previous.history : [],
-        historiesByScope: previous.status === "success" && previous.setId === setId ? previous.historiesByScope : {},
-        availableScopes: previous.setId === setId ? previous.availableScopes || SET_VALUE_SCOPE_OPTIONS : SET_VALUE_SCOPE_OPTIONS,
-        error: null,
-        meta: previous.setId === setId ? previous.meta : null,
-      }));
-    }
+    dispatchMarketDashboard({ type: "loading", setId, sourceWindow: dashboardSourceWindow });
 
-    getPokemonSetMarketDashboard(setId, { window: topMarketCardsWindowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW })
+    getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })
       .then((payload) => {
         if (isCancelled) {
           return;
         }
-        const marketState = applyMarketDashboardPayload(setId, payload, topMarketCardsWindowKey || DEFAULT_TOP_MARKET_CARDS_WINDOW);
-        setTopMarketCardsState({
-          status: marketState.topCards.cards.length > 0 ? "success" : "empty",
-          setId,
-          cards: marketState.topCards.cards,
-          marketMovers: marketState.topCards.marketMovers || null,
-          error: null,
-          meta: marketState.topCards.meta,
-        });
-        setSetValueHistoryState({
-          status: marketState.setValue.hasAnyHistory ? "success" : "empty",
-          setId,
-          history: marketState.setValue.history,
-          historiesByScope: marketState.setValue.historiesByScope,
-          availableScopes: marketState.setValue.availableScopes,
-          error: null,
-          meta: marketState.setValue.meta,
-        });
+        const marketState = buildMarketDashboardStateFromPayload(payload);
+        dispatchMarketDashboard({ type: "success", setId, payload, sourceWindow: dashboardSourceWindow });
         debugSetPagePerf("market.tab_ready", {
           setId,
-          window: topMarketCardsWindowKey,
+          sourceWindow: dashboardSourceWindow,
           elapsedMs: Math.round(performance.now() - clickStartedAt),
           topCards: marketState.topCards.cards.length,
           standardPoints: marketState.setValue.history.length,
@@ -6300,7 +7466,7 @@ export default function RipStatisticsPageClient({
         debugLoadingTiming("critical_data_ready", {
           label: "market-overview",
           setId,
-          window: topMarketCardsWindowKey,
+          sourceWindow: dashboardSourceWindow,
           elapsedMs: Math.round(performance.now() - clickStartedAt),
           topCards: marketState.topCards.cards.length,
           standardPoints: marketState.setValue.history.length,
@@ -6310,22 +7476,11 @@ export default function RipStatisticsPageClient({
         if (isCancelled) {
           return;
         }
-        setTopMarketCardsState({
-          status: "error",
+        dispatchMarketDashboard({
+          type: "error",
           setId,
-          cards: [],
-          marketMovers: null,
-          error: error?.message || "Unable to load market cards for this set.",
-          meta: null,
-        });
-        setSetValueHistoryState({
-          status: "error",
-          setId,
-          history: [],
-          historiesByScope: {},
-          availableScopes: SET_VALUE_SCOPE_OPTIONS,
-          error: error?.message || "Unable to load set value history for this set.",
-          meta: null,
+          error: error?.message || "Unable to load market dashboard for this set.",
+          sourceWindow: dashboardSourceWindow,
         });
       });
 
@@ -6335,12 +7490,7 @@ export default function RipStatisticsPageClient({
   }, [
     setDetailMode,
     setDetailTab,
-    requestedTargetId,
-    selectedTarget?.target_id,
     resolvedSetResourceId,
-    topMarketCardsWindowKey,
-    applyMarketDashboardPayload,
-    warmSetDetailResources,
   ]);
 
   const setDetailSidebarContent = (
@@ -6775,7 +7925,7 @@ export default function RipStatisticsPageClient({
                           <TopChaseCardsModule
                             cards={topPricedCards}
                             status={topPricedCardsStatus}
-                            error={topMarketCardsState.error}
+                            error={activeTopMarketCardsState.error}
                             infoText={topPricedCardsInfo}
                             selectedWindowKey={topMarketCardsWindowKey}
                             onWindowChange={setTopMarketCardsWindowKey}
@@ -7216,6 +8366,17 @@ export default function RipStatisticsPageClient({
                   explanation={recommendationSummary}
                   pillars={ripPillarTiles}
                   titleInfoText={ripBreakdownInfo}
+                />
+
+                <DesirabilityProofCards validation={desirabilityValidationPayload} />
+                <DesirabilityValidationCard targets={targets} />
+                <CardDesirabilityMarketValidationCard
+                  cards={checklistState.cards}
+                  diagnosticsContext={{
+                    setId: resolvedSetResourceId,
+                    setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
+                    selectedTab: setDetailTab,
+                  }}
                 />
 
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">

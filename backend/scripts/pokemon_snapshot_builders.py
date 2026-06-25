@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 from uuid import UUID
@@ -13,18 +13,25 @@ from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.explore_page_service import get_explore_page_payload
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
-from backend.db.services.pokemon_public_snapshot_service import enrich_cards_payload_with_movements
+from backend.db.services.pokemon_public_snapshot_service import (
+    enrich_cards_payload_with_desirability,
+    enrich_cards_payload_with_movements,
+)
 from backend.db.services.pokemon_set_market_service import (
     SET_VALUE_SCOPES,
     build_pokemon_set_card_movement_payload,
     get_pokemon_set_top_market_cards_payload,
     get_pokemon_set_value_history_payload,
 )
+from backend.desirability.set_validation import build_desirability_validation_payload, build_opening_set_audit, is_opening_set_row
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_DASHBOARD_WINDOW = "365d"
 DEFAULT_DASHBOARD_DAYS = 365
+TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS = DEFAULT_DASHBOARD_DAYS
+TOP_CHASE_NEAR_MINT_CONDITION_ID = "4f8d1181-670e-4aea-937c-4d98d2e531a6"
+TOP_CHASE_HISTORY_SOURCE = "card_variant_price_observations"
 DEFAULT_RANKINGS_LIMIT = 200
 DEFAULT_UPSERT_BATCH_SIZE = 500
 TOP_CHASE_HISTORY_FIELDS = {"priceHistory", "price_history"}
@@ -50,6 +57,28 @@ def first_non_empty(*values: Any) -> Optional[str]:
         if text:
             return text
     return None
+
+
+def parse_date_key(value: Any) -> Optional[str]:
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value.isoformat()
+    text = first_non_empty(value)
+    if not text:
+        return None
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return text[:10]
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        return None
+
+
+def to_optional_float(value: Any) -> Optional[float]:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed
 
 
 def is_uuid_like(value: Any) -> bool:
@@ -143,6 +172,22 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
     payload = get_explore_page_payload("set", set_id)
+    try:
+        rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
+        desirability_validation = build_desirability_validation_payload(
+            set_id=set_id,
+            set_payload=payload,
+            target_rows=rankings_payload.get("targets") or [],
+        )
+        payload["desirabilityValidation"] = desirability_validation
+        payload["desirability_validation"] = desirability_validation
+    except Exception:
+        logger.warning("desirability validation build failed set_id=%s", set_id, exc_info=True)
+        meta = dict(payload.get("meta") or {})
+        warnings = list(meta.get("warnings") or [])
+        warnings.append("Desirability validation could not be generated for this snapshot.")
+        meta["warnings"] = warnings
+        payload["meta"] = meta
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_page", built_at=built_at)
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 
@@ -249,6 +294,123 @@ def _latest_history_date(histories_by_scope: Dict[str, List[Dict[str, Any]]]) ->
     return latest
 
 
+def _top_chase_variant_ids(cards: List[Dict[str, Any]]) -> List[str]:
+    variant_ids: List[str] = []
+    seen: set[str] = set()
+    for card in cards:
+        variant_id = first_non_empty(card.get("cardVariantId"), card.get("card_variant_id"))
+        if variant_id and variant_id not in seen:
+            seen.add(variant_id)
+            variant_ids.append(variant_id)
+    return variant_ids
+
+
+def _has_top_chase_history_points(history_by_card: Dict[str, List[Dict[str, Any]]]) -> bool:
+    return any(isinstance(history, list) and len(history) > 0 for history in history_by_card.values())
+
+
+def _top_chase_history_counts(history_by_card: Dict[str, List[Dict[str, Any]]]) -> List[int]:
+    return [len(history) for history in history_by_card.values() if isinstance(history, list)]
+
+
+def _top_chase_histories_cover_source_window(
+    history_by_card: Dict[str, List[Dict[str, Any]]],
+    *,
+    variant_ids: List[str],
+    source_window_days: int,
+) -> bool:
+    if not variant_ids:
+        return _has_top_chase_history_points(history_by_card)
+    for variant_id in variant_ids:
+        history = history_by_card.get(variant_id)
+        if not isinstance(history, list) or len(history) < source_window_days:
+            return False
+    return True
+
+
+def _load_top_chase_histories_from_observations(
+    client: Any,
+    *,
+    set_id: str,
+    variant_ids: List[str],
+    latest_date_key: Optional[str],
+    days: int,
+) -> Dict[str, List[Dict[str, Any]]]:
+    if not variant_ids:
+        return {}
+
+    resolved_latest_date_key = first_non_empty(latest_date_key)
+    if not resolved_latest_date_key:
+        try:
+            latest_result = (
+                client.table("card_variant_price_observations")
+                .select("captured_at")
+                .in_("card_variant_id", variant_ids)
+                .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
+                .gt("market_price", 0)
+                .order("captured_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            latest_rows = list(latest_result.data or [])
+            resolved_latest_date_key = parse_date_key((latest_rows[0] if latest_rows else {}).get("captured_at"))
+        except Exception:
+            logger.warning("top chase observation history latest lookup failed set_id=%s", set_id, exc_info=True)
+            return {}
+
+    try:
+        latest_date = date.fromisoformat(str(resolved_latest_date_key)[:10])
+    except (TypeError, ValueError):
+        return {}
+
+    start_date = latest_date - timedelta(days=max(days - 1, 0))
+    end_date = latest_date + timedelta(days=1)
+    try:
+        result = (
+            client.table("card_variant_price_observations")
+            .select("card_variant_id,captured_at,market_price")
+            .in_("card_variant_id", variant_ids)
+            .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
+            .gt("market_price", 0)
+            .gte("captured_at", start_date.isoformat())
+            .lt("captured_at", end_date.isoformat())
+            .order("captured_at", desc=False)
+            .execute()
+        )
+    except Exception:
+        logger.warning("top chase observation history load failed set_id=%s", set_id, exc_info=True)
+        return {}
+
+    points_by_variant_date: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    captured_at_by_variant_date: Dict[str, Dict[str, str]] = {}
+    for row in result.data or []:
+        variant_id = first_non_empty(row.get("card_variant_id"))
+        captured_at = first_non_empty(row.get("captured_at"), row.get("capturedAt"))
+        date_key = parse_date_key(captured_at)
+        price = to_optional_float(row.get("market_price") if "market_price" in row else row.get("marketPrice"))
+        if not variant_id or not date_key or price is None or price <= 0:
+            continue
+        existing_captured_at = captured_at_by_variant_date.setdefault(variant_id, {}).get(date_key)
+        if existing_captured_at and captured_at and captured_at <= existing_captured_at:
+            continue
+        captured_at_by_variant_date[variant_id][date_key] = captured_at or date_key
+        points_by_variant_date.setdefault(variant_id, {})[date_key] = {
+            "date": date_key,
+            "marketPrice": round(price, 2),
+            "market_price": round(price, 2),
+            "sourceDate": date_key,
+            "source_date": date_key,
+            "isObserved": True,
+            "is_observed": True,
+        }
+
+    return {
+        variant_id: [points[date_key] for date_key in sorted(points.keys())]
+        for variant_id, points in points_by_variant_date.items()
+        if points
+    }
+
+
 def _history_by_card(cards: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     history_by_card: Dict[str, List[Dict[str, Any]]] = {}
     for card in cards:
@@ -256,14 +418,36 @@ def _history_by_card(cards: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, An
         if not key:
             continue
         history = card.get("priceHistory") if isinstance(card.get("priceHistory"), list) else card.get("price_history")
-        history_by_card[key] = list(history or [])
+        compact_history: List[Dict[str, Any]] = []
+        for point in list(history or []):
+            date_key = first_non_empty(point.get("date"), point.get("capturedAt"), point.get("captured_at"))
+            if not date_key:
+                continue
+            compact_point = {
+                "date": str(date_key)[:10],
+                "marketPrice": point.get("marketPrice", point.get("market_price", point.get("price"))),
+                "market_price": point.get("market_price", point.get("marketPrice", point.get("price"))),
+            }
+            source_date = first_non_empty(point.get("sourceDate"), point.get("source_date"))
+            if source_date:
+                compact_point["sourceDate"] = str(source_date)[:10]
+                compact_point["source_date"] = str(source_date)[:10]
+            compact_history.append(compact_point)
+        if compact_history:
+            history_by_card[str(key)] = compact_history
     return history_by_card
 
 
-def _compact_top_chase_cards(cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _compact_top_chase_cards(cards: List[Dict[str, Any]], history_by_card: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
     compact_cards: List[Dict[str, Any]] = []
     for card in cards:
-        compact_cards.append({key: value for key, value in card.items() if key not in TOP_CHASE_HISTORY_FIELDS})
+        compact_card = {key: value for key, value in card.items() if key not in TOP_CHASE_HISTORY_FIELDS}
+        history_key = first_non_empty(card.get("cardVariantId"), card.get("card_variant_id"), card.get("cardId"), card.get("card_id"))
+        compact_history = history_by_card.get(str(history_key)) if history_key else None
+        if compact_history:
+            compact_card["priceHistory"] = compact_history
+            compact_card["price_history"] = compact_history
+        compact_cards.append(compact_card)
     return compact_cards
 
 
@@ -272,6 +456,7 @@ def build_market_dashboard_snapshot_rows(
     *,
     days: int = DEFAULT_DASHBOARD_DAYS,
     window: str = DEFAULT_DASHBOARD_WINDOW,
+    client: Any = None,
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
@@ -290,9 +475,38 @@ def build_market_dashboard_snapshot_rows(
             if key:
                 available_scope_lookup[key] = entry
 
-    top_payload = get_pokemon_set_top_market_cards_payload(set_id=set_id, limit=10, days=days)
+    top_payload = get_pokemon_set_top_market_cards_payload(
+        set_id=set_id,
+        limit=10,
+        days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+    )
     top_cards = list(top_payload.get("cards") or [])
-    compact_top_cards = _compact_top_chase_cards(top_cards)
+    top_chase_card_histories = _history_by_card(top_cards)
+    variant_ids = _top_chase_variant_ids(top_cards)
+    if not _top_chase_histories_cover_source_window(
+        top_chase_card_histories,
+        variant_ids=variant_ids,
+        source_window_days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+    ):
+        if variant_ids:
+            loaded_histories = _load_top_chase_histories_from_observations(
+                client or get_client(),
+                set_id=set_id,
+                variant_ids=variant_ids,
+                latest_date_key=_latest_history_date(histories_by_scope),
+                days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+            )
+            if loaded_histories:
+                top_chase_card_histories = {**top_chase_card_histories, **loaded_histories}
+    compact_top_cards = _compact_top_chase_cards(top_cards, top_chase_card_histories)
+    top_chase_history_counts = _top_chase_history_counts(top_chase_card_histories)
+    top_chase_observed_dates = [
+        str(point.get("date"))[:10]
+        for history in top_chase_card_histories.values()
+        if isinstance(history, list)
+        for point in history
+        if parse_date_key(point.get("date"))
+    ]
     movement_payload = build_pokemon_set_card_movement_payload(set_id=set_id)
     market_movers = movement_payload.get("marketMovers") or {}
     market_movers_snake = movement_payload.get("market_movers") or {}
@@ -314,8 +528,8 @@ def build_market_dashboard_snapshot_rows(
         "performance_vs_cost_history": histories_by_scope.get("standard", []),
         "topChaseCards": compact_top_cards,
         "top_chase_cards": compact_top_cards,
-        "topChaseCardHistories": {},
-        "top_chase_card_histories": {},
+        "topChaseCardHistories": top_chase_card_histories,
+        "top_chase_card_histories": top_chase_card_histories,
         "marketMovers": market_movers,
         "market_movers": market_movers_snake,
         "availableScopes": list(available_scope_lookup.values()),
@@ -333,6 +547,13 @@ def build_market_dashboard_snapshot_rows(
                 "market_movers": "card_variant_price_observations/card_market_usd_latest_by_condition",
             },
             "warnings": list(standard_meta.get("warnings") or []) + list((top_payload.get("meta") or {}).get("warnings") or []),
+            "topChaseHistorySource": TOP_CHASE_HISTORY_SOURCE,
+            "topChaseHistorySourceWindowDays": TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+            "topChaseHistoryMinPoints": min(top_chase_history_counts) if top_chase_history_counts else 0,
+            "topChaseHistoryMaxPoints": max(top_chase_history_counts) if top_chase_history_counts else 0,
+            "topChaseHistoryFirstObservedDate": min(top_chase_observed_dates) if top_chase_observed_dates else None,
+            "topChaseHistoryLatestObservedDate": max(top_chase_observed_dates) if top_chase_observed_dates else None,
+            "topChaseHistoryHydratedFromDailyTable": False,
             "snapshot": {
                 "type": "pokemon_set_market_dashboard",
                 "builtAt": built_at,
@@ -343,7 +564,15 @@ def build_market_dashboard_snapshot_rows(
 
     history_rows: List[Dict[str, Any]] = []
     for rank, card in enumerate(top_cards, start=1):
-        card_history = card.get("priceHistory") if isinstance(card.get("priceHistory"), list) else card.get("price_history")
+        history_key = first_non_empty(
+            card.get("cardVariantId"),
+            card.get("card_variant_id"),
+            card.get("cardId"),
+            card.get("card_id"),
+        )
+        card_history = top_chase_card_histories.get(str(history_key)) if history_key else None
+        if not card_history:
+            card_history = card.get("priceHistory") if isinstance(card.get("priceHistory"), list) else card.get("price_history")
         latest_point_date = first_non_empty(card.get("priceUpdatedAt"), card.get("price_updated_at"))
         points = list(card_history or [])
         if not points and latest_point_date:
@@ -385,7 +614,7 @@ def build_market_dashboard_snapshot_rows(
             "set_value_histories_json": histories_by_scope,
             "performance_vs_cost_history_json": histories_by_scope.get("standard", []),
             "top_chase_cards_json": compact_top_cards,
-            "top_chase_card_histories_json": {},
+            "top_chase_card_histories_json": top_chase_card_histories,
             "available_scopes_json": list(available_scope_lookup.values()),
             "latest_market_date": latest_market_date,
         },
@@ -398,6 +627,7 @@ def build_cards_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
     payload = get_pokemon_set_cards_payload(set_id)
     movement_payload = build_pokemon_set_card_movement_payload(set_id=set_id)
     payload = enrich_cards_payload_with_movements(payload, movement_payload)
+    payload = enrich_cards_payload_with_desirability(payload)
     cards = list(payload.get("cards") or [])
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_cards", built_at=utc_now_iso())
     return {
@@ -411,13 +641,18 @@ def build_cards_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
 def build_explore_rankings_snapshot_row(*, limit: int = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
     built_at = utc_now_iso()
     payload = get_rip_statistics_targets_payload(limit=limit)
+    targets = list(payload.get("targets") or [])
+    opening_targets = [target for target in targets if is_opening_set_row(target)]
     meta = dict(payload.get("meta") or {})
+    opening_set_audit = build_opening_set_audit(targets)
     meta["snapshot"] = {
         "type": "pokemon_explore_rankings",
         "builtAt": built_at,
         "source": "pokemon_snapshot_builders",
     }
-    payload = {**payload, "meta": meta}
+    meta["openingSetAudit"] = opening_set_audit
+    meta["opening_set_audit"] = opening_set_audit
+    payload = {**payload, "targets": opening_targets, "meta": meta}
     return {
         "tcg": "pokemon",
         "scope": "rip-statistics",

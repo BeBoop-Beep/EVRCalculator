@@ -58,8 +58,37 @@ function toOptionalNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function toOptionalBoolean(value) {
+  if (value === true || value === false) {
+    return value;
+  }
+  const text = String(value ?? "").trim().toLowerCase();
+  if (text === "true") return true;
+  if (text === "false") return false;
+  if (text === "1") return true;
+  if (text === "0") return false;
+  return Boolean(value);
+}
+
 function normalizePayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+  const validationRows = Array.isArray(payload?.cardDesirabilityValidation?.cards)
+    ? payload.cardDesirabilityValidation.cards
+    : Array.isArray(payload?.card_desirability_validation?.cards)
+    ? payload.card_desirability_validation.cards
+    : [];
+  const validationByKey = new Map();
+  validationRows.forEach((row) => {
+    [
+      toOptionalString(row?.cardId ?? row?.card_id),
+      toOptionalString(row?.id),
+      toOptionalString(row?.name),
+    ].filter(Boolean).forEach((key) => {
+      if (!validationByKey.has(key)) {
+        validationByKey.set(key, row);
+      }
+    });
+  });
 
   return {
     set: {
@@ -68,12 +97,30 @@ function normalizePayload(payload) {
       slug: toOptionalString(payload?.set?.slug),
     },
     cards: cards.map((card) => {
-      const currentPrice = toOptionalNumber(card?.currentPrice ?? card?.current_price ?? card?.marketPrice ?? card?.market_price ?? card?.estimated_market_price);
+      const validation =
+        validationByKey.get(toOptionalString(card?.id)) ||
+        validationByKey.get(toOptionalString(card?.cardId ?? card?.card_id)) ||
+        validationByKey.get(toOptionalString(card?.name)) ||
+        {};
+      const currentPrice = toOptionalNumber(
+        card?.currentPrice ??
+          card?.current_price ??
+          card?.marketPrice ??
+          card?.market_price ??
+          card?.estimated_market_price ??
+          validation?.marketPrice ??
+          validation?.market_price
+      );
       const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount ?? card?.movement30d?.changeAmount ?? card?.movement30d?.change_amount);
       const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent ?? card?.movement30d?.changePercent ?? card?.movement30d?.change_percent);
       const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score ?? card?.movement30d?.movementScore ?? card?.movement30d?.score);
       const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label ?? card?.movement30d?.movementLabel ?? card?.movement30d?.label);
       const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? card?.movement30d?.enoughHistory ?? card?.movement30d?.enough_history);
+      const subjectDemandScore = toOptionalNumber(card?.subjectDemandScore ?? card?.subject_demand_score ?? card?.pokemonDesirabilityScore ?? card?.pokemon_desirability_score ?? card?.cardDesirabilityScore ?? card?.card_desirability_score ?? validation?.pokemonDesirabilityScore ?? validation?.pokemon_desirability_score ?? validation?.cardDesirabilityScore ?? validation?.card_desirability_score);
+      const treatmentScore = toOptionalNumber(card?.treatmentScore ?? card?.treatment_score ?? validation?.treatmentScore ?? validation?.treatment_score);
+      const scarcityScore = toOptionalNumber(card?.scarcityScore ?? card?.scarcity_score ?? validation?.scarcityScore ?? validation?.scarcity_score);
+      const adjustedCardAppealScore = toOptionalNumber(card?.adjustedCardAppealScore ?? card?.adjusted_card_appeal_score ?? validation?.adjustedCardAppealScore ?? validation?.adjusted_card_appeal_score);
+      const cardAppealScore = toOptionalNumber(card?.cardAppealScore ?? card?.card_appeal_score ?? validation?.cardAppealScore ?? validation?.card_appeal_score) ?? adjustedCardAppealScore;
 
       return {
         id: toOptionalString(card?.id),
@@ -93,6 +140,29 @@ function normalizePayload(payload) {
         imageLargeUrl: toOptionalString(card?.image_large_url ?? card?.large_image_url),
         marketPrice: currentPrice ?? toOptionalNumber(card?.market_price ?? card?.estimated_market_price),
         currentPrice,
+        cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id ?? validation?.cardVariantId ?? validation?.card_variant_id),
+        subjectDemandScore,
+        cardDesirabilityScore: subjectDemandScore,
+        pokemonDesirabilityScore: subjectDemandScore,
+        treatmentScore,
+        scarcityScore,
+        adjustedCardAppealScore,
+        cardAppealScore,
+        scarcityAdjustedCardAppealScore: toOptionalNumber(card?.scarcityAdjustedCardAppealScore ?? card?.scarcity_adjusted_card_appeal_score ?? validation?.scarcityAdjustedCardAppealScore ?? validation?.scarcity_adjusted_card_appeal_score),
+        pullRate: toOptionalNumber(card?.pullRate ?? card?.pull_rate ?? validation?.pullRate ?? validation?.pull_rate),
+        pullRateSource: toOptionalString(card?.pullRateSource ?? card?.pull_rate_source ?? validation?.pullRateSource ?? validation?.pull_rate_source),
+        setValueShare: toOptionalNumber(card?.setValueShare ?? card?.set_value_share ?? validation?.setValueShare ?? validation?.set_value_share),
+        linkedPokemonName: toOptionalString(card?.linkedPokemonName ?? card?.linked_pokemon_name ?? validation?.pokemonName ?? validation?.pokemon_name),
+        linkedPokemon: Array.isArray(card?.linkedPokemon ?? card?.linked_pokemon)
+          ? (card?.linkedPokemon ?? card?.linked_pokemon).map((entry) => ({
+              pokemonName: toOptionalString(entry?.pokemonName ?? entry?.pokemon_name ?? entry?.name),
+              pokemonReferenceId: toOptionalString(entry?.pokemonReferenceId ?? entry?.pokemon_reference_id),
+              pokedexNumber: toOptionalNumber(entry?.pokedexNumber ?? entry?.pokedex_number),
+              desirabilityScore: toOptionalNumber(entry?.desirabilityScore ?? entry?.desirability_score),
+              contributionWeight: toOptionalNumber(entry?.contributionWeight ?? entry?.contribution_weight),
+            })).filter((entry) => entry.pokemonName || entry.pokemonReferenceId)
+          : [],
+        isHitEligible: toOptionalBoolean(card?.isHitEligible ?? card?.is_hit_eligible ?? validation?.isHitEligible ?? validation?.is_hit_eligible),
         change30dAmount,
         change30dPercent,
         movementScore,

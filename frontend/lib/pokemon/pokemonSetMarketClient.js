@@ -8,6 +8,7 @@ const marketDashboardCache = new Map();
 const marketDashboardInflight = new Map();
 const isDev = process.env.NODE_ENV !== "production";
 const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
+const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 
 function nowMs() {
   return Date.now();
@@ -20,8 +21,13 @@ function debugTiming(label, details = {}) {
   console.debug(`[pokemon-set-perf] ${label}`, details);
 }
 
-function getMarketDashboardCacheKey(setId, { window = "30D", days = null } = {}) {
-  return `pokemon-market-dashboard:${String(setId || "").trim()}:window=${String(window || "30D")}:days=${days || ""}`;
+export function normalizeMarketDashboardWindow(window = DEFAULT_MARKET_DASHBOARD_WINDOW) {
+  const text = String(window || DEFAULT_MARKET_DASHBOARD_WINDOW).trim();
+  return (text || DEFAULT_MARKET_DASHBOARD_WINDOW).toLowerCase();
+}
+
+function getMarketDashboardCacheKey(setId, { window = DEFAULT_MARKET_DASHBOARD_WINDOW, days = null } = {}) {
+  return `pokemon-market-dashboard:${String(setId || "").trim()}:window=${normalizeMarketDashboardWindow(window)}:days=${days || ""}`;
 }
 
 function readMarketDashboardCache(cacheKey) {
@@ -100,6 +106,77 @@ function normalizeDailyPriceHistory(history) {
   });
 
   return Array.from(dailyPoints.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function getPriceHistoryStats(history) {
+  const validPoints = (Array.isArray(history) ? history : []).filter((point) => {
+    const date = String(point?.date || "").slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && toOptionalNumber(point?.marketPrice ?? point?.market_price ?? point?.price) !== null;
+  });
+
+  return {
+    pointCount: validPoints.length,
+    startDate: validPoints[0]?.date || null,
+    endDate: validPoints[validPoints.length - 1]?.date || null,
+  };
+}
+
+function chooseTopChaseHistory(embeddedHistory, mappedHistory) {
+  const embeddedStats = getPriceHistoryStats(embeddedHistory);
+  const mappedStats = getPriceHistoryStats(mappedHistory);
+
+  if (embeddedStats.pointCount === 0 && mappedStats.pointCount === 0) {
+    return {
+      history: [],
+      source: "embedded_card_history",
+      embeddedStats,
+      mappedStats,
+      selectedStats: embeddedStats,
+    };
+  }
+
+  let selectedSource = "embedded_card_history";
+  if (embeddedStats.pointCount === 0) {
+    selectedSource = "top_chase_card_histories";
+  } else if (mappedStats.pointCount === 0) {
+    selectedSource = "embedded_card_history";
+  } else if (embeddedStats.pointCount < 30 && mappedStats.pointCount >= 30) {
+    selectedSource = "top_chase_card_histories";
+  } else if (mappedStats.pointCount < 30 && embeddedStats.pointCount >= 30) {
+    selectedSource = "embedded_card_history";
+  } else if (
+    mappedStats.endDate &&
+    mappedStats.endDate === embeddedStats.endDate &&
+    mappedStats.startDate &&
+    (!embeddedStats.startDate || mappedStats.startDate < embeddedStats.startDate)
+  ) {
+    selectedSource = "top_chase_card_histories";
+  } else if (
+    embeddedStats.endDate &&
+    embeddedStats.endDate === mappedStats.endDate &&
+    embeddedStats.startDate &&
+    (!mappedStats.startDate || embeddedStats.startDate < mappedStats.startDate)
+  ) {
+    selectedSource = "embedded_card_history";
+  } else if (mappedStats.pointCount > embeddedStats.pointCount) {
+    selectedSource = "top_chase_card_histories";
+  } else if (
+    mappedStats.endDate &&
+    embeddedStats.endDate &&
+    mappedStats.endDate > embeddedStats.endDate
+  ) {
+    selectedSource = "top_chase_card_histories";
+  }
+
+  const history = selectedSource === "top_chase_card_histories" ? mappedHistory : embeddedHistory;
+  const selectedStats = selectedSource === "top_chase_card_histories" ? mappedStats : embeddedStats;
+  return {
+    history,
+    source: selectedSource,
+    embeddedStats,
+    mappedStats,
+    selectedStats,
+  };
 }
 
 function normalizeTopChaseCardHistories(payload) {
@@ -201,9 +278,10 @@ function normalizeTopMarketCardsPayload(payload) {
     cards: cards.map((card, index) => {
       const explicitHistory =
         Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [];
-      const priceHistory = explicitHistory.length > 0
-        ? normalizeDailyPriceHistory(explicitHistory)
-        : getTopChaseHistoryForCard(card, topChaseCardHistories, index);
+      const embeddedHistory = normalizeDailyPriceHistory(explicitHistory);
+      const mappedHistory = getTopChaseHistoryForCard(card, topChaseCardHistories, index);
+      const selectedHistory = chooseTopChaseHistory(embeddedHistory, mappedHistory);
+      const priceHistory = selectedHistory.history;
 
       return {
         id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
@@ -226,6 +304,12 @@ function normalizeTopMarketCardsPayload(payload) {
         deltas: card?.deltas && typeof card.deltas === "object" ? card.deltas : null,
         priceHistory,
         price_history: priceHistory,
+        embeddedHistoryPointCount: selectedHistory.embeddedStats.pointCount,
+        mappedHistoryPointCount: selectedHistory.mappedStats.pointCount,
+        selectedHistoryPointCount: selectedHistory.selectedStats.pointCount,
+        selectedHistorySource: selectedHistory.source,
+        selectedHistoryStartDate: selectedHistory.selectedStats.startDate,
+        selectedHistoryEndDate: selectedHistory.selectedStats.endDate,
         historyPointCount: toOptionalNumber(card?.historyPointCount ?? card?.history_point_count),
         historyStartDate: toOptionalString(card?.historyStartDate ?? card?.history_start_date),
         historyEndDate: toOptionalString(card?.historyEndDate ?? card?.history_end_date),
@@ -336,7 +420,7 @@ function normalizeSetValueHistoryPayload(payload) {
   };
 }
 
-function normalizeMarketDashboardPayload(payload) {
+export function normalizeMarketDashboardPayload(payload) {
   const historiesByScope =
     payload?.setValueHistoriesByScope && typeof payload.setValueHistoriesByScope === "object"
       ? payload.setValueHistoriesByScope
@@ -414,34 +498,35 @@ async function readJsonResponse(response, fallbackMessage) {
   return payload;
 }
 
-export async function getPokemonSetMarketDashboard(setId, { window = "30D", days = null } = {}) {
+export async function getPokemonSetMarketDashboard(setId, { window = DEFAULT_MARKET_DASHBOARD_WINDOW, days = null } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
 
-  const cacheOptions = { window, days };
+  const normalizedWindow = normalizeMarketDashboardWindow(window);
+  const cacheOptions = { window: normalizedWindow, days };
   const cacheKey = getMarketDashboardCacheKey(resolvedSetId, cacheOptions);
   const cached = readMarketDashboardCache(cacheKey);
   if (cached) {
-    debugTiming("market_dashboard.cache_hit", { setId: resolvedSetId, window, days });
+    debugTiming("market_dashboard.cache_hit", { setId: resolvedSetId, window: normalizedWindow, days });
     return cached;
   }
   if (marketDashboardInflight.has(cacheKey)) {
-    debugTiming("market_dashboard.inflight_join", { setId: resolvedSetId, window, days });
+    debugTiming("market_dashboard.inflight_join", { setId: resolvedSetId, window: normalizedWindow, days });
     return marketDashboardInflight.get(cacheKey);
   }
 
   const params = new URLSearchParams();
-  if (window) {
-    params.set("window", String(window));
+  if (normalizedWindow) {
+    params.set("window", normalizedWindow);
   }
   if (days) {
     params.set("days", String(days));
   }
 
   const startedAt = performance.now();
-  debugTiming("market_dashboard.fetch_start", { setId: resolvedSetId, window, days });
+  debugTiming("market_dashboard.fetch_start", { setId: resolvedSetId, window: normalizedWindow, days });
 
   const request = (async () => {
     const url = `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/dashboard${
@@ -463,7 +548,7 @@ export async function getPokemonSetMarketDashboard(setId, { window = "30D", days
         }
         debugTiming("market_dashboard.fetch_retry", {
           setId: resolvedSetId,
-          window,
+          window: normalizedWindow,
           days,
           status: error?.status,
           error: error?.message || String(error),
@@ -474,7 +559,7 @@ export async function getPokemonSetMarketDashboard(setId, { window = "30D", days
     writeMarketDashboardCache(cacheKey, normalized);
     debugTiming("market_dashboard.fetch_success", {
       setId: resolvedSetId,
-      window,
+      window: normalizedWindow,
       days,
       elapsedMs: Math.round(performance.now() - startedAt),
       topCards: normalized.topChaseCards.length,
@@ -502,7 +587,7 @@ export function prefetchPokemonSetMarketDashboard(setId, options = {}) {
   return getPokemonSetMarketDashboard(resolvedSetId, options).catch((error) => {
     debugTiming("market_dashboard.prefetch_error", {
       setId: resolvedSetId,
-      window: options.window || "30D",
+      window: normalizeMarketDashboardWindow(options.window || DEFAULT_MARKET_DASHBOARD_WINDOW),
       error: error?.message || String(error),
     });
     return null;

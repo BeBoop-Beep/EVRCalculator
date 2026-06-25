@@ -650,7 +650,7 @@ def get_pokemon_set_market_dashboard(
 ):
     """Return page-ready market dashboard snapshot for a Pokemon set."""
     try:
-        return get_pokemon_set_market_dashboard_snapshot_payload(set_id=set_id, window=window or "30D", days=days)
+        return get_pokemon_set_market_dashboard_snapshot_payload(set_id=set_id, window=window or "365d", days=days)
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
