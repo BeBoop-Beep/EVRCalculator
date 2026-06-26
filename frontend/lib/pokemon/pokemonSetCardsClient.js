@@ -149,7 +149,7 @@ function normalizeCardAppealMarketPriceCorrelation(payload) {
   };
 }
 
-function normalizePayload(payload) {
+export function normalizePokemonSetCardsPayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const validationRows = Array.isArray(payload?.cardDesirabilityValidation?.cards)
     ? payload.cardDesirabilityValidation.cards
@@ -331,7 +331,7 @@ export async function getPokemonSetCards(setId) {
         await wait(175);
       }
     }
-    const normalized = normalizePayload(payload);
+    const normalized = normalizePokemonSetCardsPayload(payload);
     writeCardCache(cacheKey, normalized);
     debugTiming("cards.fetch_success", {
       setId: resolvedSetId,

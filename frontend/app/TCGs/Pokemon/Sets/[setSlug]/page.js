@@ -1,6 +1,7 @@
 import PokemonSetPageClient from "@/components/pokemon/set-page/PokemonSetPageClient";
 import { getExplorePagePayload } from "@/lib/explore/explorePageServer";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
+import { getPokemonSetInitialSnapshots } from "@/lib/pokemon/pokemonSetInitialSnapshotsServer";
 import {
   buildTargetHrefById,
   buildTcgSetHrefFromTarget,
@@ -39,17 +40,46 @@ export default async function TcgSetRipStatisticsPage({ params }) {
 
   let explorePayload = null;
   let pageError = null;
+  let initialModuleSnapshots = {
+    cardsPayload: null,
+    marketDashboardPayload: null,
+    errors: {},
+    timings: {},
+  };
 
   if (requestedTargetId) {
-    try {
-      explorePayload = await getExplorePagePayload(requestedTargetType, requestedTargetId, {
-        fallbackTarget,
-      });
-      if (!explorePayload) {
-        pageError = "No persisted RIP Statistics payload is available for this set.";
-      }
-    } catch (error) {
-      pageError = error?.message || "Failed to load RIP Statistics.";
+    const [exploreResult, moduleSnapshotsResult] = await Promise.all([
+      (async () => {
+        try {
+          return {
+            payload: await getExplorePagePayload(requestedTargetType, requestedTargetId, {
+              fallbackTarget,
+            }),
+            error: null,
+          };
+        } catch (error) {
+          return { payload: null, error };
+        }
+      })(),
+      requestedTargetType === "set"
+        ? getPokemonSetInitialSnapshots(requestedTargetId).catch((error) => ({
+            ...initialModuleSnapshots,
+            errors: {
+              moduleSnapshots: {
+                message: error?.message || "Failed to load initial module snapshots.",
+              },
+            },
+          }))
+        : Promise.resolve(initialModuleSnapshots),
+    ]);
+
+    explorePayload = exploreResult.payload;
+    initialModuleSnapshots = moduleSnapshotsResult || initialModuleSnapshots;
+
+    if (exploreResult.error) {
+      pageError = exploreResult.error?.message || "Failed to load RIP Statistics.";
+    } else if (!explorePayload) {
+      pageError = "No persisted RIP Statistics payload is available for this set.";
     }
   } else {
     pageError = "Set not found for this URL.";
@@ -62,6 +92,7 @@ export default async function TcgSetRipStatisticsPage({ params }) {
       requestedTargetType={requestedTargetType}
       requestedTargetId={requestedTargetId}
       explorePayload={explorePayload}
+      initialModuleSnapshots={initialModuleSnapshots}
       pageError={pageError}
       profileBaseHref="/TCGs/Pokemon/Sets"
       targetHrefById={targetHrefById}

@@ -144,7 +144,11 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
 
     let res;
     try {
-      res = await fetchWithTimeout(url.toString(), { next: { revalidate: 300 } }, timeoutMs);
+      res = await fetchWithTimeout(
+        url.toString(),
+        isPokemonSetPage ? { cache: "no-store" } : { next: { revalidate: 300 } },
+        timeoutMs
+      );
     } catch (networkErr) {
       const elapsedMs = Date.now() - startedAt;
       const isTimeout = networkErr?.name === "TimeoutError";

@@ -409,10 +409,16 @@ function extractSnapshotCardsFromExplorePayload(payload) {
   return [];
 }
 
-function buildInitialSetPageDataSeed(payload) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const cards = extractSnapshotCardsFromExplorePayload(source);
+function buildInitialSetPageDataSeed({ explorePayload = null, cardsPayload = null, marketDashboardPayload = null } = {}) {
+  const source = explorePayload && typeof explorePayload === "object" ? explorePayload : {};
+  const cardsSource = cardsPayload && typeof cardsPayload === "object" ? cardsPayload : null;
+  const marketDashboardSource =
+    marketDashboardPayload && typeof marketDashboardPayload === "object" ? marketDashboardPayload : null;
+  const cards = Array.isArray(cardsSource?.cards) && cardsSource.cards.length > 0
+    ? cardsSource.cards
+    : extractSnapshotCardsFromExplorePayload(source);
   const cardPayload =
+    cardsSource ||
     source.cardPayload ||
     source.card_payload ||
     source.cardsPayload ||
@@ -424,10 +430,22 @@ function buildInitialSetPageDataSeed(payload) {
     explorePayload: source,
     cardsPayload: cardPayload,
   });
-  const setValue = adaptSetValueHistoriesFromSources({ explorePayload: source });
-  const market = adaptMarketDashboardFromSources({ explorePayload: source });
+  const setValue = marketDashboardSource
+    ? adaptSetValueHistoriesFromSources({ marketSnapshotPayload: marketDashboardSource })
+    : adaptSetValueHistoriesFromSources({ explorePayload: source });
+  const market = marketDashboardSource
+    ? adaptMarketDashboardFromSources({ marketSnapshotPayload: marketDashboardSource })
+    : adaptMarketDashboardFromSources({ explorePayload: source });
   const topMarketCards =
-    market?.cards?.length > 0
+    Array.isArray(marketDashboardSource?.topChaseCards)
+      ? marketDashboardSource.topChaseCards
+      : Array.isArray(marketDashboardSource?.top_chase_cards)
+      ? marketDashboardSource.top_chase_cards
+      : Array.isArray(marketDashboardSource?.topMarketCards)
+      ? marketDashboardSource.topMarketCards
+      : Array.isArray(marketDashboardSource?.top_market_cards)
+      ? marketDashboardSource.top_market_cards
+      : market?.cards?.length > 0
       ? market.cards
       : Array.isArray(source.topMarketCards)
       ? source.topMarketCards
@@ -441,8 +459,9 @@ function buildInitialSetPageDataSeed(payload) {
       ? source.top_hits
       : [];
   const setValueHistoriesByScope = setValue?.historiesByScope || {};
-  const marketDashboardPayload =
-    topMarketCards.length > 0 || hasAnySetValueHistory(setValueHistoriesByScope)
+  const seededMarketDashboardPayload =
+    marketDashboardSource ||
+    (topMarketCards.length > 0 || hasAnySetValueHistory(setValueHistoriesByScope)
       ? {
           topChaseCards: topMarketCards,
           top_chase_cards: topMarketCards,
@@ -450,16 +469,18 @@ function buildInitialSetPageDataSeed(payload) {
           market_movers: market?.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
           setValueHistoriesByScope,
           set_value_histories_by_scope: setValueHistoriesByScope,
+          performanceVsCostHistory: market?.performanceVsCostHistory || [],
+          performance_vs_cost_history: market?.performanceVsCostHistory || [],
           availableScopes: setValue?.availableScopes || SET_VALUE_SCOPE_OPTIONS,
           meta: source.meta || {},
         }
-      : null;
+      : null);
 
   return {
     cards,
     cardAppealMarketPriceCorrelation,
     setValueHistoriesByScope,
-    marketDashboard: marketDashboardPayload,
+    marketDashboard: seededMarketDashboardPayload,
     topMarketCards,
     simulationDrivers: selectSimulationDrivers(source).rows,
   };
@@ -6632,6 +6653,7 @@ export default function RipStatisticsPageClient({
   requestedTargetType,
   requestedTargetId,
   explorePayload: initialExplorePayload,
+  initialModuleSnapshots = null,
   pageError,
   profileBaseHref = "/Explore/rip-statistics",
   targetHrefById = null,
@@ -6697,7 +6719,17 @@ export default function RipStatisticsPageClient({
     () => getDesirabilityValidationPayload(explorePayload),
     [explorePayload]
   );
-  const initialSetPageDataSeed = useMemo(() => buildInitialSetPageDataSeed(explorePayload), [explorePayload]);
+  const initialCardsPayload = initialModuleSnapshots?.cardsPayload || null;
+  const initialMarketDashboardPayload = initialModuleSnapshots?.marketDashboardPayload || null;
+  const initialSetPageDataSeed = useMemo(
+    () =>
+      buildInitialSetPageDataSeed({
+        explorePayload,
+        cardsPayload: initialCardsPayload,
+        marketDashboardPayload: initialMarketDashboardPayload,
+      }),
+    [explorePayload, initialCardsPayload, initialMarketDashboardPayload]
+  );
   const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation;
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
@@ -6744,20 +6776,20 @@ export default function RipStatisticsPageClient({
       summary?.profit_rank !== null &&
       summary?.profit_rank !== undefined
   );
-  const warnings = [
+  const rawWarnings = [
     ...(targetsPayload?.meta?.warnings || []),
     ...(explorePayload?.meta?.warnings || []),
     ...(simulationDrivers.diagnostics?.warning ? [simulationDrivers.diagnostics.warning] : []),
     ...(setPageSnapshotRefreshState.status === "error"
       ? [`Set page snapshot retry failed: ${setPageSnapshotRefreshState.error}`]
       : []),
-  ].filter(
-    (warning) =>
-      !shouldSuppressSetPageWarning(warning, {
-        hasTopHits: topHits.length > 0,
-        hasDecisionRanks: decisionRanksPresent,
-      })
-  );
+  ];
+  const warningSuppressionContext = {
+    hasTopHits: topHits.length > 0,
+    hasDecisionRanks: decisionRanksPresent,
+  };
+  const warnings = rawWarnings.filter((warning) => !shouldSuppressSetPageWarning(warning, warningSuppressionContext));
+  const suppressedWarnings = rawWarnings.filter((warning) => shouldSuppressSetPageWarning(warning, warningSuppressionContext));
 
   const selectedName = selectedTarget?.name || requestedTargetId || "Selected Set";
   const percentileP5 = getPercentileValue(percentiles, 5);
@@ -6788,6 +6820,11 @@ export default function RipStatisticsPageClient({
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
   const initialSnapshotCards = initialSetPageDataSeed.cards;
+  const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
+    (scope) =>
+      Array.isArray(initialSetPageDataSeed.setValueHistoriesByScope?.[scope]) &&
+      initialSetPageDataSeed.setValueHistoriesByScope[scope].length > 0
+  );
   const [checklistState, setChecklistState] = useState(() => ({
     status: initialSnapshotCards.length > 0 ? "success" : "idle",
     setId: resolvedSetResourceId,
@@ -6798,10 +6835,24 @@ export default function RipStatisticsPageClient({
   const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState(DEFAULT_TOP_MARKET_CARDS_WINDOW);
   const [marketDashboardState, dispatchMarketDashboard] = useReducer(
     marketDashboardReducer,
-    {},
+    {
+      status: initialSetPageDataSeed.marketDashboard ? "success" : "idle",
+      setId: resolvedSetResourceId,
+      payload: initialSetPageDataSeed.marketDashboard,
+      sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+    },
     createMarketDashboardState
   );
-  const [setValueHistoryState, setSetValueHistoryState] = useState(() => createSetValueHistoryState());
+  const [setValueHistoryState, setSetValueHistoryState] = useState(() =>
+    createSetValueHistoryState({
+      status: initialSetValueLoadedScopes.length > 0 ? "success" : "idle",
+      setId: resolvedSetResourceId,
+      historiesByScope: initialSetPageDataSeed.setValueHistoriesByScope,
+      loadedScopes: initialSetValueLoadedScopes,
+      availableScopes: SET_VALUE_SCOPE_OPTIONS,
+      meta: initialSetPageDataSeed.marketDashboard?.meta || null,
+    })
+  );
   const [setValueTrendScope, setSetValueTrendScope] = useState(CANONICAL_SET_VALUE_SCOPE);
   const heroSetPickerRef = useRef(null);
   const checklistCacheRef = useRef(new Map());
@@ -6839,12 +6890,17 @@ export default function RipStatisticsPageClient({
     setExplorePayload(initialExplorePayload || null);
     setSetPageSnapshotRefreshState({ status: "idle", setId: null, error: null });
     timeoutSnapshotRefreshKeyRef.current = null;
-    const routeSeed = buildInitialSetPageDataSeed(initialExplorePayload || {});
+    const routeSeed = buildInitialSetPageDataSeed({
+      explorePayload: initialExplorePayload || {},
+      cardsPayload: initialCardsPayload,
+      marketDashboardPayload: initialMarketDashboardPayload,
+    });
     const seededCards = routeSeed.cards;
     setChecklistState((previous) => {
       const seededCorrelation = resolvePreferredCardAppealCorrelation({
         explorePayload: initialExplorePayload || {},
         cardsPayload:
+          initialCardsPayload ||
           initialExplorePayload?.cardPayload ||
           initialExplorePayload?.card_payload ||
           initialExplorePayload?.cardsPayload ||
@@ -6871,7 +6927,13 @@ export default function RipStatisticsPageClient({
         error: null,
       };
     });
-  }, [initialExplorePayload, requestedTargetId, resolvedSetResourceId]);
+  }, [
+    initialExplorePayload,
+    initialCardsPayload,
+    initialMarketDashboardPayload,
+    requestedTargetId,
+    resolvedSetResourceId,
+  ]);
 
   useEffect(() => {
     if (!setDetailMode || !isSetPageTransportFallback(explorePayload)) {
@@ -7076,6 +7138,9 @@ export default function RipStatisticsPageClient({
   const showDebugTimings =
     process.env.NODE_ENV === "development" &&
     process.env.NEXT_PUBLIC_SHOW_BACKEND_TIMINGS === "true";
+  const showSetPageDiagnostics =
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_SHOW_SET_PAGE_DIAGNOSTICS !== "false";
 
   const sectionNavItems = useMemo(
     () => [
@@ -8175,6 +8240,49 @@ export default function RipStatisticsPageClient({
     },
   ];
   const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
+  const initialModuleSetValueHistories =
+    initialMarketDashboardPayload?.setValueHistoriesByScope ||
+    initialMarketDashboardPayload?.set_value_histories_by_scope ||
+    {};
+  const initialTopChaseCards = Array.isArray(initialMarketDashboardPayload?.topChaseCards)
+    ? initialMarketDashboardPayload.topChaseCards
+    : Array.isArray(initialMarketDashboardPayload?.top_chase_cards)
+    ? initialMarketDashboardPayload.top_chase_cards
+    : [];
+  const initialCorrelationForDiagnostics = resolvePreferredCardAppealCorrelation({
+    explorePayload,
+    cardsPayload: initialCardsPayload,
+    checklistState,
+  });
+  const initialCorrelationRowsForDiagnostics = Array.isArray(initialCorrelationForDiagnostics?.plotRows)
+    ? initialCorrelationForDiagnostics.plotRows
+    : Array.isArray(initialCorrelationForDiagnostics?.plot_rows)
+    ? initialCorrelationForDiagnostics.plot_rows
+    : Array.isArray(initialCorrelationForDiagnostics?.rows)
+    ? initialCorrelationForDiagnostics.rows
+    : [];
+  const debugWarnings = [
+    ...Object.entries(initialModuleSnapshots?.errors || {}).map(
+      ([key, value]) => `${key}: ${value?.message || "module snapshot unavailable"}`
+    ),
+  ];
+  const initialModuleDiagnosticRows = [
+    ["initial cards payload", initialCardsPayload ? "present" : "missing"],
+    ["initial cards count", Array.isArray(initialCardsPayload?.cards) ? initialCardsPayload.cards.length : 0],
+    ["initial market dashboard", initialMarketDashboardPayload ? "present" : "missing"],
+    [
+      "initial set value scopes",
+      SET_VALUE_SCOPE_OPTIONS.map((scope) => `${scope.key}:${initialModuleSetValueHistories?.[scope.key]?.length || 0}`).join(", "),
+    ],
+    ["initial top chase count", initialTopChaseCards.length],
+    [
+      "initial correlation",
+      `n=${toNumber(initialCorrelationForDiagnostics?.n) ?? 0}, plotted=${initialCorrelationRowsForDiagnostics.length}`,
+    ],
+    ["explore warnings", (explorePayload?.meta?.warnings || []).length],
+    ["suppressed warnings", suppressedWarnings.length],
+    ["debug warnings", debugWarnings.length],
+  ];
   const setPageDiagnosticRows = [
     ["shell payload ready", setShellContract?.contractVersion ? "yes" : "no"],
     ["cards fetch state", checklistState.status],
@@ -8314,9 +8422,10 @@ export default function RipStatisticsPageClient({
       }));
       return undefined;
     }
-    const snapshotCards = extractSnapshotCardsFromExplorePayload(explorePayload);
+    const snapshotCards = initialSetPageDataSeed.cards;
     const seededCorrelation = resolvePreferredCardAppealCorrelation({
       explorePayload,
+      cardsPayload: initialCardsPayload,
       previous: initialCardAppealMarketPriceCorrelation,
     });
     if (shouldPauseSetDetailDependentFetches) {
@@ -8334,6 +8443,7 @@ export default function RipStatisticsPageClient({
             : snapshotCards,
         cardAppealMarketPriceCorrelation: resolvePreferredCardAppealCorrelation({
           explorePayload,
+          cardsPayload: initialCardsPayload,
           previous: previous?.cardAppealMarketPriceCorrelation,
         }),
         error: null,
@@ -8461,6 +8571,7 @@ export default function RipStatisticsPageClient({
           cards: previous.setId === setId && previous.cards.length > 0 ? previous.cards : seededCards,
           cardAppealMarketPriceCorrelation: resolvePreferredCardAppealCorrelation({
             explorePayload,
+            cardsPayload: initialCardsPayload,
             previous: previous?.cardAppealMarketPriceCorrelation,
           }),
           error: error?.message || "Unable to load cards for this set.",
@@ -8481,6 +8592,8 @@ export default function RipStatisticsPageClient({
     isTimeoutFallbackPayload,
     shouldPauseSetDetailDependentFetches,
     explorePayload,
+    initialCardsPayload,
+    initialSetPageDataSeed,
     initialCardAppealMarketPriceCorrelation,
   ]);
 
@@ -9694,6 +9807,7 @@ export default function RipStatisticsPageClient({
                   cards={checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows}
                   cardAppealMarketPriceCorrelation={resolvePreferredCardAppealCorrelation({
                     explorePayload,
+                    cardsPayload: initialCardsPayload,
                     checklistState,
                     previous: initialCardAppealMarketPriceCorrelation,
                   })}
@@ -10128,34 +10242,47 @@ export default function RipStatisticsPageClient({
               </section>
             ) : null}
 
-            {showDebugTimings ? (
+            {showDebugTimings || showSetPageDiagnostics ? (
               <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Backend Timings</span>
-                  {timingRows.length > 0 ? (
-                    timingRows.map(([key, value]) => (
+                {showDebugTimings ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Backend Timings</span>
+                    {timingRows.length > 0 ? (
+                      timingRows.map(([key, value]) => (
+                        <span
+                          key={key}
+                          className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-xs text-[var(--text-secondary)]"
+                        >
+                          {key.replace(/_/g, " ")}: {toNumber(value)?.toFixed(2)}ms
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-[var(--text-secondary)]">No backend timings are available.</span>
+                    )}
+                  </div>
+                ) : null}
+                {showSetPageDiagnostics ? (
+                  <div className={["flex flex-wrap items-center gap-2", showDebugTimings ? "mt-3" : ""].join(" ").trim()}>
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Set Page Diagnostics</span>
+                    {[...setPageDiagnosticRows, ...initialModuleDiagnosticRows].map(([key, value]) => (
                       <span
                         key={key}
                         className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-xs text-[var(--text-secondary)]"
                       >
-                        {key.replace(/_/g, " ")}: {toNumber(value)?.toFixed(2)}ms
+                        {key}: {value}
                       </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-[var(--text-secondary)]">No backend timings are available.</span>
-                  )}
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Set Page Diagnostics</span>
-                  {setPageDiagnosticRows.map(([key, value]) => (
-                    <span
-                      key={key}
-                      className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-xs text-[var(--text-secondary)]"
-                    >
-                      {key}: {value}
-                    </span>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : null}
+                {showSetPageDiagnostics && (suppressedWarnings.length > 0 || debugWarnings.length > 0) ? (
+                  <div className="mt-3 space-y-1">
+                    {[...suppressedWarnings, ...debugWarnings].map((warning, index) => (
+                      <p key={`${warning}:${index}`} className="text-xs text-[var(--text-secondary)]">
+                        {warning}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
               </section>
             ) : null}
               </>

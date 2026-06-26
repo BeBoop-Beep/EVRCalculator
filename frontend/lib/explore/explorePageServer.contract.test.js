@@ -68,3 +68,18 @@ test("set page route can request set payload from slug when targets are unavaila
   assert.ok(source.includes("if (requestedTargetId)"));
   assert.ok(source.includes("fallbackTarget,"));
 });
+
+test("set page route passes initial module snapshots into the client", () => {
+  const source = fs.readFileSync(setRoutePath, "utf8");
+
+  assert.ok(source.includes("getPokemonSetInitialSnapshots"));
+  assert.ok(source.includes("initialModuleSnapshots"));
+  assert.ok(source.includes("getPokemonSetInitialSnapshots(requestedTargetId)"));
+  assert.ok(source.includes("initialModuleSnapshots={initialModuleSnapshots}"));
+});
+
+test("set page snapshot fetch opts out of Next data cache for large payloads", () => {
+  const source = fs.readFileSync(serverPath, "utf8");
+
+  assert.ok(source.includes('isPokemonSetPage ? { cache: "no-store" } : { next: { revalidate: 300 } }'));
+});

@@ -8,6 +8,7 @@ const ripPageClientPath = path.resolve(__dirname, "RipStatisticsPageClient.jsx")
 const marketDashboardStatePath = path.resolve(__dirname, "marketDashboardState.mjs");
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const cardsClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCardsClient.js");
+const initialSnapshotsServerPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetInitialSnapshotsServer.js");
 const setPageAdaptersPath = path.resolve(__dirname, "../../lib/pokemon/set-page/setPageAdapters.mjs");
 const setValueTrendSelectorPath = path.resolve(__dirname, "setValueTrendSelector.mjs");
 const setValueContractPath = path.resolve(__dirname, "setValueContract.mjs");
@@ -1055,14 +1056,76 @@ test("desirability validation set value prefers canonical checklist target field
   assert.ok(source.includes("[desirability-validation] sample diagnostics"));
 });
 
-test("card appeal market validation can hydrate from initial set page snapshot correlation", () => {
+test("card appeal market validation can hydrate from initial module snapshot correlation", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const diagnosticsSource = fs.readFileSync(path.resolve(__dirname, "cardAppealSampleDiagnostics.mjs"), "utf8");
 
   assert.ok(source.includes("initialCardAppealMarketPriceCorrelation"));
-  assert.ok(source.includes("const initialSetPageDataSeed = useMemo(() => buildInitialSetPageDataSeed(explorePayload), [explorePayload])"));
+  assert.ok(source.includes("initialModuleSnapshots = null"));
+  assert.ok(source.includes("cardsPayload: initialCardsPayload"));
+  assert.ok(source.includes("marketDashboardPayload: initialMarketDashboardPayload"));
   assert.ok(source.includes("const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation"));
   assert.ok(source.includes("initialCardAppealRows"));
   assert.ok(source.includes("checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows"));
   assert.ok(source.includes("resolvePreferredCardAppealCorrelation({"));
+  assert.ok(source.includes("cardsPayload: initialCardsPayload"));
   assert.ok(source.includes("previous: initialCardAppealMarketPriceCorrelation"));
+  assert.ok(diagnosticsSource.indexOf("asObject(cardsPayload?.cardAppealMarketPriceCorrelation)") < diagnosticsSource.indexOf("asObject(checklistState?.cardAppealMarketPriceCorrelation)"));
+});
+
+test("initial cards payload seeds checklist state before cards fetch", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const stateStart = source.indexOf("const [checklistState, setChecklistState] = useState(() => ({");
+  const effectStart = source.indexOf("getPokemonSetCards(setId)", stateStart);
+  const effectSource = source.slice(stateStart, effectStart);
+  const thenStart = source.indexOf("getPokemonSetCards(setId)");
+  const thenEnd = source.indexOf(".catch((error) => {", thenStart);
+  const thenSource = source.slice(thenStart, thenEnd);
+
+  assert.ok(source.includes("const initialSnapshotCards = initialSetPageDataSeed.cards"));
+  assert.ok(effectSource.includes('status: initialSnapshotCards.length > 0 ? "success" : "idle"'));
+  assert.ok(effectSource.includes("cards: initialSnapshotCards"));
+  assert.ok(source.includes("const snapshotCards = initialSetPageDataSeed.cards"));
+  assert.ok(thenSource.includes("const preserveCards = previousCards.length > 0 ? previousCards : seededCards"));
+  assert.ok(thenSource.includes('"success_stale"'));
+});
+
+test("initial market dashboard payload seeds set value and dashboard state", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes('status: initialSetPageDataSeed.marketDashboard ? "success" : "idle"'));
+  assert.ok(source.includes("payload: initialSetPageDataSeed.marketDashboard"));
+  assert.ok(source.includes("const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map"));
+  assert.ok(source.includes('status: initialSetValueLoadedScopes.length > 0 ? "success" : "idle"'));
+  assert.ok(source.includes("historiesByScope: initialSetPageDataSeed.setValueHistoriesByScope"));
+  assert.ok(source.includes("if (hasCompleteSetValueScopes(seededHistoriesByScope))"));
+  assert.ok(source.includes('reason: "snapshot_has_all_scopes"'));
+});
+
+test("dev diagnostics report initial module snapshot counts", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("showSetPageDiagnostics"));
+  assert.ok(source.includes("initialModuleDiagnosticRows"));
+  assert.ok(source.includes('["initial cards payload", initialCardsPayload ? "present" : "missing"]'));
+  assert.ok(source.includes('["initial cards count", Array.isArray(initialCardsPayload?.cards) ? initialCardsPayload.cards.length : 0]'));
+  assert.ok(source.includes('["initial market dashboard", initialMarketDashboardPayload ? "present" : "missing"]'));
+  assert.ok(source.includes('"initial set value scopes"'));
+  assert.ok(source.includes('["initial top chase count", initialTopChaseCards.length]'));
+  assert.ok(source.includes('"initial correlation"'));
+  assert.ok(source.includes('["suppressed warnings", suppressedWarnings.length]'));
+  assert.ok(source.includes('["debug warnings", debugWarnings.length]'));
+});
+
+test("server initial snapshot loader fetches backend modules directly without throwing page render", () => {
+  const source = fs.readFileSync(initialSnapshotsServerPath, "utf8");
+
+  assert.ok(source.includes("BACKEND_API_BASE_URL"));
+  assert.ok(source.includes('/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards'));
+  assert.ok(source.includes('/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/dashboard'));
+  assert.ok(source.includes('cache: "no-store"'));
+  assert.ok(source.includes("getTimeoutMs()"));
+  assert.ok(source.includes("payload: null"));
+  assert.ok(source.includes("errors.cards"));
+  assert.ok(source.includes("errors.marketDashboard"));
 });

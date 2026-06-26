@@ -67,9 +67,9 @@ export function resolvePreferredCardAppealCorrelation({
     asObject(explorePayload?.cards_payload?.card_appeal_market_price_correlation),
     asObject(explorePayload?.setCards?.cardAppealMarketPriceCorrelation),
     asObject(explorePayload?.set_cards?.card_appeal_market_price_correlation),
-    asObject(checklistState?.cardAppealMarketPriceCorrelation),
     asObject(cardsPayload?.cardAppealMarketPriceCorrelation),
     asObject(cardsPayload?.card_appeal_market_price_correlation),
+    asObject(checklistState?.cardAppealMarketPriceCorrelation),
     asObject(previous),
   ];
 
