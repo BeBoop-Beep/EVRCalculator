@@ -1288,32 +1288,6 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             .execute()
         )
         row = _first_row(result)
-        if row and isinstance(row.get("ranking_payload_json"), dict):
-            payload = _enrich_rankings_payload_with_checklist_set_values(row["ranking_payload_json"])
-            raw_targets = list(payload.get("targets") or [])
-            targets = [target for target in raw_targets if is_opening_set_row(target)][:clamped_limit]
-            meta = dict(payload.get("meta") or {})
-            opening_set_audit = build_opening_set_audit(raw_targets)
-            request = dict(meta.get("request") or {})
-            request["limit"] = clamped_limit
-            snapshot = dict(meta.get("snapshot") or {})
-            snapshot.update(
-                {
-                    "source": "pokemon_explore_rankings_snapshot_latest",
-                    "updatedAt": _to_optional_str(row.get("updated_at")),
-                    "isStaleFallback": True,
-                }
-            )
-            meta["request"] = request
-            meta["snapshot"] = snapshot
-            meta["openingSetAudit"] = opening_set_audit
-            meta["opening_set_audit"] = opening_set_audit
-            return {
-                **payload,
-                "targets": targets,
-                "default_target": payload.get("default_target") or row.get("default_target_json") or None,
-                "meta": meta,
-            }
     except Exception:
         logger.exception("[pokemon-snapshot] explore rankings snapshot read failed")
         raise ExploreRipStatisticsTargetsError(
@@ -1321,6 +1295,50 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             message="Failed to read RIP Statistics targets snapshot",
             code="RIP_STATISTICS_TARGETS_SNAPSHOT_FAILED",
         )
+
+    if row and isinstance(row.get("ranking_payload_json"), dict):
+        payload = row["ranking_payload_json"]
+        enrichment_warning = None
+        try:
+            payload = _enrich_rankings_payload_with_checklist_set_values(payload)
+        except Exception:
+            logger.warning(
+                "[pokemon-snapshot] checklist set value enrichment failed; serving persisted rankings snapshot",
+                exc_info=True,
+            )
+            enrichment_warning = (
+                "Checklist set value enrichment failed; served persisted rankings snapshot without enrichment."
+            )
+
+        raw_targets = list(payload.get("targets") or [])
+        targets = [target for target in raw_targets if is_opening_set_row(target)][:clamped_limit]
+        meta = dict(payload.get("meta") or {})
+        if enrichment_warning:
+            warnings = list(meta.get("warnings") or [])
+            if enrichment_warning not in warnings:
+                warnings.append(enrichment_warning)
+            meta["warnings"] = warnings
+        opening_set_audit = build_opening_set_audit(raw_targets)
+        request = dict(meta.get("request") or {})
+        request["limit"] = clamped_limit
+        snapshot = dict(meta.get("snapshot") or {})
+        snapshot.update(
+            {
+                "source": "pokemon_explore_rankings_snapshot_latest",
+                "updatedAt": _to_optional_str(row.get("updated_at")),
+                "isStaleFallback": True,
+            }
+        )
+        meta["request"] = request
+        meta["snapshot"] = snapshot
+        meta["openingSetAudit"] = opening_set_audit
+        meta["opening_set_audit"] = opening_set_audit
+        return {
+            **payload,
+            "targets": targets,
+            "default_target": payload.get("default_target") or row.get("default_target_json") or None,
+            "meta": meta,
+        }
 
     logger.warning("[pokemon-snapshot] missing explore rankings snapshot; falling back to live target assembly")
     payload = _enrich_rankings_payload_with_checklist_set_values(get_rip_statistics_targets_payload(limit=clamped_limit))

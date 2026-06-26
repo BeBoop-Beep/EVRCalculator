@@ -1046,6 +1046,136 @@ def test_set_page_snapshot_read_adds_desirability_validation_when_missing(monkey
     assert payload["meta"]["sources"]["desirability_validation"] == "runtime_from_rankings_snapshot"
 
 
+def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fails(monkeypatch):
+    def fail_enrichment(_payload):
+        raise RuntimeError("dashboard enrichment unavailable")
+
+    client = _Client(
+        {
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [
+                {
+                    "updated_at": "2026-06-01T00:00:00+00:00",
+                    "ranking_payload_json": {
+                        "targets": [
+                            {
+                                "id": "set-1",
+                                "target_id": "set-1",
+                                "target_type": "set",
+                                "name": "Stored Set",
+                                "is_opening_set": True,
+                            }
+                        ],
+                        "meta": {"warnings": ["existing warning"]},
+                    },
+                    "default_target_json": {"target_id": "set-1", "target_type": "set"},
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_enrich_rankings_payload_with_checklist_set_values",
+        fail_enrichment,
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_rip_statistics_targets_payload",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("live fallback should not run")),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert payload["targets"][0]["target_id"] == "set-1"
+    assert payload["default_target"]["target_id"] == "set-1"
+    assert payload["meta"]["warnings"][0] == "existing warning"
+    assert (
+        "Checklist set value enrichment failed; served persisted rankings snapshot without enrichment."
+        in payload["meta"]["warnings"]
+    )
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_explore_rankings_snapshot_latest"
+
+
+def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(monkeypatch):
+    def fail_enrichment(_payload):
+        raise RuntimeError("dashboard enrichment unavailable")
+
+    client = _Client(
+        {
+            "sets": lambda _query: [
+                {
+                    "id": "set-1",
+                    "name": "White Flare",
+                    "canonical_key": "white-flare",
+                    "pokemon_api_set_id": "rsv10pt5",
+                }
+            ],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": "set-1",
+                    "updated_at": "2026-06-01T00:00:00+00:00",
+                    "payload_json": {
+                        "summary": {
+                            "target_id": "set-1",
+                            "set_id": "set-1",
+                            "name": "White Flare",
+                            "desirability_score": 90,
+                            "pack_score": 80,
+                            "profit_score": 70,
+                            "safety_score": 60,
+                            "stability_score": 50,
+                        },
+                        "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+                        "meta": {
+                            "sources": {"simulation_input_cards": "OK"},
+                            "snapshotCompleteness": {"simulation_input_cards": "OK"},
+                            "warnings": [],
+                        },
+                    },
+                }
+            ],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [
+                {
+                    "updated_at": "2026-06-01T00:00:00+00:00",
+                    "ranking_payload_json": {
+                        "targets": [
+                            {
+                                "id": "set-1",
+                                "target_id": "set-1",
+                                "target_type": "set",
+                                "name": "White Flare",
+                                "is_opening_set": True,
+                                "summary": {
+                                    "desirability_score": 90,
+                                    "pack_score": 80,
+                                    "profit_score": 70,
+                                    "safety_score": 60,
+                                    "stability_score": 50,
+                                },
+                            }
+                        ],
+                        "meta": {},
+                    },
+                    "default_target_json": {"target_id": "set-1", "target_type": "set"},
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_enrich_rankings_payload_with_checklist_set_values",
+        fail_enrichment,
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("white-flare")
+
+    assert payload["summary"]["name"] == "White Flare"
+    assert payload["top_hits"][0]["card_name"] == "Chase"
+    assert payload["meta"]["sources"]["simulation_input_cards"] == "OK"
+    assert payload["desirabilityValidation"]["formula_version"] == "desirability_validation_v1"
+
+
 def test_set_page_missing_snapshot_returns_fallback_without_live_assembly(monkeypatch):
     client = _Client(
         {

@@ -201,6 +201,8 @@ function getSetIdentityTokens(identity) {
     identity.id,
     identity.set_id,
     identity.target_id,
+    identity.name,
+    identity.set_name,
     identity.slug,
     identity.canonical_key,
     identity.pokemon_api_set_id,
@@ -217,12 +219,16 @@ function setIdentityMatchesTarget(identity, targetId) {
 function getSetSnapshotIdentity(explorePayload) {
   const meta = explorePayload?.meta || {};
   return (
+    explorePayload?.set ||
+    explorePayload?.setIdentity ||
+    explorePayload?.set_identity ||
     meta.set ||
     meta.setIdentity ||
     meta.set_identity ||
     meta.snapshot?.set ||
     meta.snapshot?.setIdentity ||
     meta.snapshot?.set_identity ||
+    explorePayload?.summary ||
     null
   );
 }
@@ -234,6 +240,23 @@ function isSetPageRequestTimeoutFallback(explorePayload) {
   }
   const errors = Array.isArray(meta.errors) ? meta.errors : [];
   return errors.some((error) => String(error?.code || "").includes("TIMEOUT"));
+}
+
+function isSetPagePrimarySnapshotUnavailable(explorePayload) {
+  const meta = explorePayload?.meta || {};
+  return Boolean(meta.fallback === true || isSetPageRequestTimeoutFallback(explorePayload));
+}
+
+function hasRealSetPageIdentity(explorePayload, resolvedSetResourceId) {
+  if (!explorePayload || isSetPagePrimarySnapshotUnavailable(explorePayload)) {
+    return false;
+  }
+  const identity = getSetSnapshotIdentity(explorePayload);
+  const identityId = toStableIdentifier(identity?.id ?? identity?.set_id ?? identity?.target_id);
+  if (!identityId) {
+    return false;
+  }
+  return !resolvedSetResourceId || setIdentityMatchesTarget(identity, resolvedSetResourceId);
 }
 
 async function fetchPokemonSetPageSnapshot(setId) {
@@ -272,11 +295,11 @@ function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, ex
   if (selectedResourceId && (!requestedResourceId || setIdentityMatchesTarget(selectedTarget, requestedResourceId))) {
     return selectedResourceId;
   }
-  if (requestedResourceId) {
-    return requestedResourceId;
-  }
   if (snapshotResourceId && setIdentityMatchesTarget(snapshotIdentity, requestedResourceId)) {
     return snapshotResourceId;
+  }
+  if (requestedResourceId) {
+    return requestedResourceId;
   }
   return snapshotResourceId || null;
 }
@@ -6488,6 +6511,13 @@ export default function RipStatisticsPageClient({
   );
   const summary = explorePayload?.summary || {};
   const isTimeoutFallbackPayload = setDetailMode && isSetPageRequestTimeoutFallback(explorePayload);
+  const isPrimarySnapshotUnavailable = setDetailMode && isSetPagePrimarySnapshotUnavailable(explorePayload);
+  const hasActiveSetPageIdentity = useMemo(
+    () => (setDetailMode ? hasRealSetPageIdentity(explorePayload, resolvedSetResourceId) : true),
+    [explorePayload, resolvedSetResourceId, setDetailMode]
+  );
+  const shouldPauseSetDetailDependentFetches =
+    setDetailMode && (isPrimarySnapshotUnavailable || !hasActiveSetPageIdentity);
   const timeoutSnapshotRankTitle = "Snapshot loading; retrying.";
   const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
   const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
@@ -6700,11 +6730,11 @@ export default function RipStatisticsPageClient({
       : interpretation?.outcomeDistribution;
 
   const warmSetDetailResources = useCallback((setId, { includeAdjacent = false, reason = "prefetch" } = {}) => {
-    if (isTimeoutFallbackPayload && reason !== "selection") {
+    if (shouldPauseSetDetailDependentFetches) {
       debugSetPagePerf("set.prefetch_deferred", {
         setId,
         reason,
-        deferredReason: "set_page_timeout_retry",
+        deferredReason: isTimeoutFallbackPayload ? "set_page_timeout_retry" : "set_page_snapshot_unavailable",
       });
       return;
     }
@@ -6760,7 +6790,7 @@ export default function RipStatisticsPageClient({
 
     const resolvedSetId = String(setId || "").trim();
     startPrefetch(resolvedSetId, reason);
-    if (!includeAdjacent || isTimeoutFallbackPayload || !Array.isArray(targets) || targets.length === 0) {
+    if (!includeAdjacent || shouldPauseSetDetailDependentFetches || !Array.isArray(targets) || targets.length === 0) {
       return;
     }
     const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);
@@ -6779,7 +6809,7 @@ export default function RipStatisticsPageClient({
     adjacentTargets.forEach((adjacentSetId) => {
       startPrefetch(adjacentSetId, "adjacent");
     });
-  }, [isTimeoutFallbackPayload, targets]);
+  }, [isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches, targets]);
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
@@ -8040,9 +8070,14 @@ export default function RipStatisticsPageClient({
       setChecklistState({ status: "empty", setId: null, cards: [], cardAppealMarketPriceCorrelation: null, error: null });
       return undefined;
     }
-    if (isTimeoutFallbackPayload) {
+    if (shouldPauseSetDetailDependentFetches) {
       setChecklistState((previous) => ({
-        status: previous.status === "success" && previous.setId === setId ? "success" : "loading",
+        status:
+          previous.status === "success" && previous.setId === setId
+            ? "success"
+            : isTimeoutFallbackPayload
+            ? "loading"
+            : "empty",
         setId,
         cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
         cardAppealMarketPriceCorrelation:
@@ -8131,7 +8166,17 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources, isTimeoutFallbackPayload]);
+  }, [
+    setDetailMode,
+    setDetailTab,
+    cardsSubTab,
+    requestedTargetId,
+    selectedTarget?.target_id,
+    resolvedSetResourceId,
+    warmSetDetailResources,
+    isTimeoutFallbackPayload,
+    shouldPauseSetDetailDependentFetches,
+  ]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -8143,11 +8188,11 @@ export default function RipStatisticsPageClient({
       setSetValueHistoryState(createSetValueHistoryState({ status: "empty" }));
       return undefined;
     }
-    if (isTimeoutFallbackPayload) {
+    if (shouldPauseSetDetailDependentFetches) {
       setSetValueHistoryState((previous) =>
         previous?.setId === setId && previous.status === "success"
           ? previous
-          : createSetValueHistoryState({ status: "loading", setId })
+          : createSetValueHistoryState({ status: isTimeoutFallbackPayload ? "loading" : "empty", setId })
       );
       return undefined;
     }
@@ -8273,7 +8318,7 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, resolvedSetResourceId, isTimeoutFallbackPayload]);
+  }, [setDetailMode, resolvedSetResourceId, isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -8286,8 +8331,13 @@ export default function RipStatisticsPageClient({
       dispatchMarketDashboard({ type: "reset", status: "empty", sourceWindow: dashboardSourceWindow });
       return undefined;
     }
-    if (isTimeoutFallbackPayload) {
-      dispatchMarketDashboard({ type: "loading", setId, sourceWindow: dashboardSourceWindow });
+    if (shouldPauseSetDetailDependentFetches) {
+      dispatchMarketDashboard({
+        type: isTimeoutFallbackPayload ? "loading" : "reset",
+        status: isTimeoutFallbackPayload ? undefined : "empty",
+        setId,
+        sourceWindow: dashboardSourceWindow,
+      });
       return undefined;
     }
 
@@ -8368,6 +8418,7 @@ export default function RipStatisticsPageClient({
     setDetailTab,
     resolvedSetResourceId,
     isTimeoutFallbackPayload,
+    shouldPauseSetDetailDependentFetches,
   ]);
 
   const setDetailSidebarContent = (

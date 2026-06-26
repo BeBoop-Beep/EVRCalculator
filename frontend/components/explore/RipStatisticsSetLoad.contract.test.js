@@ -188,10 +188,50 @@ test("timeout fallback defers heavy set detail warmups until snapshot retry reso
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(source.includes('debugSetPagePerf("set.prefetch_deferred"'));
-  assert.ok(source.includes('deferredReason: "set_page_timeout_retry"'));
-  assert.ok(source.includes("if (isTimeoutFallbackPayload && reason !== \"selection\")"));
-  assert.ok(source.includes("if (isTimeoutFallbackPayload) {\n      setChecklistState"));
-  assert.ok(source.includes("if (isTimeoutFallbackPayload) {\n      dispatchMarketDashboard"));
+  assert.ok(source.includes('isTimeoutFallbackPayload ? "set_page_timeout_retry" : "set_page_snapshot_unavailable"'));
+  assert.ok(source.includes("if (shouldPauseSetDetailDependentFetches)"));
+  assert.ok(source.includes('? "loading"\n            : "empty"'));
+  assert.ok(source.includes('status: isTimeoutFallbackPayload ? "loading" : "empty"'));
+  assert.ok(source.includes('type: isTimeoutFallbackPayload ? "loading" : "reset"'));
+});
+
+test("primary snapshot fallback suppresses secondary cards, market, and value fanout", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
+  const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
+  const warmupSource = source.slice(warmupStart, warmupEnd);
+  const cardsEffectStart = source.indexOf("getPokemonSetCards(setId)");
+  const cardsGuardStart = source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", cardsEffectStart);
+  const valueHistoryStart = source.indexOf("getPokemonSetValueHistory(setId, { days: 365, scope })");
+  const valueGuardStart = source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", valueHistoryStart);
+  const marketStart = source.indexOf("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })");
+  const marketGuardStart = source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", marketStart);
+
+  assert.ok(source.includes("function isSetPagePrimarySnapshotUnavailable"));
+  assert.ok(source.includes("function hasRealSetPageIdentity"));
+  assert.ok(source.includes("const shouldPauseSetDetailDependentFetches ="));
+  assert.ok(warmupSource.includes("if (shouldPauseSetDetailDependentFetches)"));
+  assert.ok(warmupSource.includes('deferredReason: isTimeoutFallbackPayload ? "set_page_timeout_retry" : "set_page_snapshot_unavailable"'));
+  assert.ok(warmupSource.includes("if (!includeAdjacent || shouldPauseSetDetailDependentFetches"));
+  assert.ok(cardsGuardStart >= 0 && cardsGuardStart < cardsEffectStart);
+  assert.ok(valueGuardStart >= 0 && valueGuardStart < valueHistoryStart);
+  assert.ok(marketGuardStart >= 0 && marketGuardStart < marketStart);
+});
+
+test("slug fallback can adopt canonical set identity from successful set page snapshot", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const identityTokensStart = source.indexOf("function getSetIdentityTokens");
+  const identityTokensEnd = source.indexOf("function setIdentityMatchesTarget", identityTokensStart);
+  const identitySource = source.slice(identityTokensStart, identityTokensEnd);
+  const resolverStart = source.indexOf("function getResolvedPokemonSetResourceId");
+  const resolverEnd = source.indexOf("function isSetStateForActiveSet", resolverStart);
+  const resolverSource = source.slice(resolverStart, resolverEnd);
+
+  assert.ok(identitySource.includes("identity.name"));
+  assert.ok(identitySource.includes("identity.set_name"));
+  assert.ok(source.includes("explorePayload?.set ||"));
+  assert.ok(source.includes("explorePayload?.summary ||"));
+  assert.ok(resolverSource.indexOf("if (snapshotResourceId") < resolverSource.indexOf("if (requestedResourceId)"));
 });
 
 test("Simulation Drivers selector reads top_hits from current payload shape", async () => {
@@ -452,13 +492,15 @@ test("set detail resolver follows route or selected target instead of stale snap
   const selectedReturnIndex = resolverSource.indexOf("return selectedResourceId");
   const requestedReturnIndex = resolverSource.indexOf("return requestedResourceId");
   const snapshotReturnIndex = resolverSource.indexOf("return snapshotResourceId");
+  const snapshotGuardIndex = resolverSource.indexOf("if (snapshotResourceId && setIdentityMatchesTarget(snapshotIdentity, requestedResourceId))");
 
   assert.ok(resolverStart >= 0);
   assert.ok(resolverEnd > resolverStart);
   assert.ok(resolverSource.includes("setIdentityMatchesTarget(selectedTarget, requestedResourceId)"));
   assert.ok(selectedReturnIndex >= 0);
-  assert.ok(requestedReturnIndex > selectedReturnIndex);
-  assert.ok(snapshotReturnIndex > requestedReturnIndex);
+  assert.ok(snapshotGuardIndex > selectedReturnIndex);
+  assert.ok(snapshotReturnIndex > snapshotGuardIndex);
+  assert.ok(requestedReturnIndex > snapshotReturnIndex);
 });
 
 test("set value trend uses the active market dashboard id through dropdown set switches", () => {
