@@ -10,7 +10,10 @@ from uuid import UUID
 from dotenv import load_dotenv
 
 from backend.db.clients.supabase_client import create_service_role_client
-from backend.db.services.explore_page_service import get_explore_page_payload
+from backend.db.services.explore_page_service import (
+    DEFAULT_TOP_HITS_LIMIT,
+    get_explore_page_payload,
+)
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_public_snapshot_service import (
@@ -46,6 +49,12 @@ RIP_DESIRABILITY_COMPARISON_FIELDS = (
     "desirability_component_score",
     "rip_desirability_impact_label",
     "rip_desirability_comparison_version",
+)
+
+TOP_HITS_WARNING_PATTERNS = (
+    "top hits",
+    "simulation drivers unavailable",
+    "simulation drivers are unavailable",
 )
 
 
@@ -256,10 +265,191 @@ def _merge_rip_desirability_comparison_into_set_payload(
     return next_payload
 
 
-def build_set_page_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
+def _snapshot_payload_run_id(payload: Dict[str, Any]) -> Optional[str]:
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    request = meta.get("request") if isinstance(meta.get("request"), dict) else {}
+    return first_non_empty(
+        summary.get("calculation_run_id"),
+        summary.get("run_id"),
+        request.get("calculation_run_id"),
+        payload.get("calculation_run_id"),
+    )
+
+
+def _clean_top_hits_warnings(warnings: Iterable[Any]) -> List[Any]:
+    cleaned: List[Any] = []
+    for warning in warnings or []:
+        warning_text = str(warning).lower()
+        if any(pattern in warning_text for pattern in TOP_HITS_WARNING_PATTERNS):
+            continue
+        cleaned.append(warning)
+    return cleaned
+
+
+def _load_top_hits_from_view(client: Any, *, run_id: str, limit: int) -> List[Dict[str, Any]]:
+    result = (
+        client.table("simulation_input_cards_with_near_mint_price")
+        .select("card_id,card_variant_id,card_name,rarity_bucket,ev_contribution,current_near_mint_price")
+        .eq("calculation_run_id", run_id)
+        .order("ev_contribution", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return list(result.data or [])
+
+
+def _load_top_hits_from_input_cards(client: Any, *, run_id: str, limit: int) -> List[Dict[str, Any]]:
+    result = (
+        client.table("simulation_input_cards")
+        .select("card_id,card_variant_id,card_name,rarity_bucket,ev_contribution,price_used,condition_id")
+        .eq("calculation_run_id", run_id)
+        .order("ev_contribution", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return list(result.data or [])
+
+
+def _top_hit_image_fields(
+    variant_row: Optional[Dict[str, Any]],
+    card_row: Optional[Dict[str, Any]],
+) -> Dict[str, Optional[str]]:
+    variant_small = first_non_empty((variant_row or {}).get("image_small_url"))
+    card_small = first_non_empty((card_row or {}).get("image_small_url"))
+    variant_large = first_non_empty((variant_row or {}).get("image_large_url"))
+    card_large = first_non_empty((card_row or {}).get("image_large_url"))
+    return {
+        "image_url": variant_small or card_small or variant_large or card_large,
+        "image_small_url": variant_small or card_small,
+        "image_large_url": variant_large or card_large,
+    }
+
+
+def _enrich_snapshot_top_hits_with_images(client: Any, top_hits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    variant_ids = sorted(
+        {
+            str(hit.get("card_variant_id"))
+            for hit in top_hits
+            if hit.get("card_variant_id") is not None
+        }
+    )
+    card_ids = sorted(
+        {
+            str(hit.get("card_id"))
+            for hit in top_hits
+            if hit.get("card_id") is not None
+        }
+    )
+
+    try:
+        variant_rows = (
+            client.table("card_variants")
+            .select("id,card_id,image_small_url,image_large_url")
+            .in_("id", variant_ids)
+            .execute()
+            .data
+            if variant_ids
+            else []
+        )
+        variant_lookup = {
+            str(row.get("id")): row
+            for row in (variant_rows or [])
+            if row.get("id") is not None
+        }
+        derived_card_ids = {
+            str(row.get("card_id"))
+            for row in variant_lookup.values()
+            if row.get("card_id") is not None
+        }
+        all_card_ids = sorted(set(card_ids) | derived_card_ids)
+        card_rows = (
+            client.table("cards")
+            .select("id,image_small_url,image_large_url")
+            .in_("id", all_card_ids)
+            .execute()
+            .data
+            if all_card_ids
+            else []
+        )
+    except Exception:
+        logger.warning("top hits snapshot completion image enrichment failed", exc_info=True)
+        return top_hits
+
+    card_lookup = {
+        str(row.get("id")): row
+        for row in (card_rows or [])
+        if row.get("id") is not None
+    }
+
+    enriched_hits: List[Dict[str, Any]] = []
+    for hit in top_hits:
+        variant_id = first_non_empty(hit.get("card_variant_id"))
+        card_id = first_non_empty(hit.get("card_id"))
+        variant_row = variant_lookup.get(variant_id or "")
+        card_row = card_lookup.get(card_id or "")
+        if card_row is None and variant_row and variant_row.get("card_id") is not None:
+            card_row = card_lookup.get(str(variant_row.get("card_id")))
+        enriched_hits.append({**hit, **_top_hit_image_fields(variant_row, card_row)})
+    return enriched_hits
+
+
+def _complete_snapshot_top_hits(
+    payload: Dict[str, Any],
+    *,
+    set_id: str,
+    client: Optional[Any] = None,
+    limit: int = DEFAULT_TOP_HITS_LIMIT,
+) -> Dict[str, Any]:
+    if not isinstance(payload, dict) or payload.get("top_hits"):
+        return payload
+
+    meta = dict(payload.get("meta") or {})
+    sources = dict(meta.get("sources") or {})
+    if sources.get("simulation_input_cards") not in {"FAILED", "NO_ROWS", None, "MISSING"}:
+        return payload
+
+    run_id = _snapshot_payload_run_id(payload)
+    if not run_id:
+        return payload
+
+    resolved_client = client or get_client()
+    source = "simulation_input_cards_with_near_mint_price"
+    try:
+        top_hits = _load_top_hits_from_view(resolved_client, run_id=run_id, limit=limit)
+    except Exception:
+        logger.warning("top hits snapshot completion view query failed set_id=%s run_id=%s", set_id, run_id, exc_info=True)
+        top_hits = []
+
+    if not top_hits:
+        source = "simulation_input_cards"
+        try:
+            top_hits = _load_top_hits_from_input_cards(resolved_client, run_id=run_id, limit=limit)
+        except Exception:
+            logger.warning("top hits snapshot completion input query failed set_id=%s run_id=%s", set_id, run_id, exc_info=True)
+            top_hits = []
+
+    if not top_hits:
+        return payload
+
+    enriched_hits = _enrich_snapshot_top_hits_with_images(resolved_client, top_hits)
+    sources["simulation_input_cards"] = "OK"
+    sources["simulation_input_cards_snapshot_completion"] = source
+    meta["sources"] = sources
+    meta["warnings"] = _clean_top_hits_warnings(meta.get("warnings") or [])
+    meta.pop("simulationDriversRepairSkipped", None)
+    return {
+        **payload,
+        "top_hits": enriched_hits,
+        "meta": meta,
+    }
+
+
+def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
     payload = get_explore_page_payload("set", set_id)
+    payload = _complete_snapshot_top_hits(payload, set_id=set_id, client=client)
     try:
         rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
         target_rows = rankings_payload.get("targets") or []

@@ -595,3 +595,83 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
     assert validation["formula_version"] == "desirability_validation_v1"
     assert validation["desirability_impact_band"] in {"lift", "drag", "neutral"}
     assert row["payload_json"]["desirability_validation"] == validation
+
+
+def test_build_set_page_snapshot_row_repairs_missing_top_hits_from_simulation_inputs(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "set": {"id": set_id, "name": "Alpha"},
+            "summary": {
+                "calculation_run_id": "run-1",
+                "desirability_score": 90,
+                "pack_score": 80,
+                "profit_score": 70,
+                "safety_score": 60,
+                "stability_score": 50,
+                "mean_value": 5,
+                "p95_value_to_cost_ratio": 2,
+            },
+            "top_hits": [],
+            "meta": {
+                "sources": {"simulation_input_cards": "FAILED"},
+                "warnings": ["Failed to load top hits"],
+            },
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit: {"targets": []},
+    )
+
+    client = _Client(
+        {
+            "simulation_input_cards_with_near_mint_price": lambda _query: [
+                {
+                    "card_id": "card-1",
+                    "card_variant_id": "variant-1",
+                    "card_name": "Chase",
+                    "rarity_bucket": "hits",
+                    "ev_contribution": 1.25,
+                    "current_near_mint_price": 100.0,
+                }
+            ],
+            "card_variants": lambda _query: [
+                {
+                    "id": "variant-1",
+                    "card_id": "card-1",
+                    "image_small_url": "https://img.example/small.png",
+                    "image_large_url": "https://img.example/large.png",
+                }
+            ],
+            "cards": lambda _query: [],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        {"id": "set-1", "name": "Alpha"},
+        client=client,
+    )
+
+    payload = row["payload_json"]
+    assert payload["top_hits"] == [
+        {
+            "card_id": "card-1",
+            "card_variant_id": "variant-1",
+            "card_name": "Chase",
+            "rarity_bucket": "hits",
+            "ev_contribution": 1.25,
+            "current_near_mint_price": 100.0,
+            "image_url": "https://img.example/small.png",
+            "image_small_url": "https://img.example/small.png",
+            "image_large_url": "https://img.example/large.png",
+        }
+    ]
+    assert payload["meta"]["sources"]["simulation_input_cards"] == "OK"
+    assert (
+        payload["meta"]["sources"]["simulation_input_cards_snapshot_completion"]
+        == "simulation_input_cards_with_near_mint_price"
+    )
+    assert payload["meta"]["warnings"] == []
