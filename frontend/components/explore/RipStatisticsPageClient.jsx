@@ -25,6 +25,7 @@ import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { getCardAppealSampleDiagnostics } from "./cardAppealSampleDiagnostics.mjs";
+import { selectDesirabilityValidation as selectSetDesirabilityValidation } from "@/components/pokemon/set-page/Insights/desirabilityValidationSelector.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import {
@@ -609,12 +610,12 @@ function getValidationSetValueMetric(setRow) {
   }
 
   const directMetric = getFirstNumericFromValues([
+    { key: "currentChecklistSetValue", value: setRow.currentChecklistSetValue },
+    { key: "current_checklist_set_value", value: setRow.current_checklist_set_value },
     { key: "set_value_for_validation", value: setRow.set_value_for_validation },
     { key: "setValueForValidation", value: setRow.setValueForValidation },
     { key: "checklistSetValue", value: setRow.checklistSetValue },
     { key: "checklist_set_value", value: setRow.checklist_set_value },
-    { key: "currentChecklistSetValue", value: setRow.currentChecklistSetValue },
-    { key: "current_checklist_set_value", value: setRow.current_checklist_set_value },
     { key: "latestChecklistSetValue", value: setRow.latestChecklistSetValue },
     { key: "latest_checklist_set_value", value: setRow.latest_checklist_set_value },
     { key: "currentSetValue", value: setRow.currentSetValue },
@@ -4887,15 +4888,15 @@ function DesirabilityValidationCard({ targets }) {
     metricOptions[0] ||
     DESIRABILITY_VALIDATION_METRICS[0];
   const points = useMemo(
-    () =>
-      rows
-        .map((row) => buildDesirabilityValidationPoint(row, selectedMetric))
-        .filter(Boolean)
-        .sort((a, b) => a.x - b.x),
+    () => selectSetDesirabilityValidation(rows, { metricKey: selectedMetric.key }).points,
     [rows, selectedMetric]
   );
-  const pearson = calculatePearsonCorrelation(points);
-  const spearman = calculateSpearmanCorrelation(points);
+  const validationContract = useMemo(
+    () => selectSetDesirabilityValidation(rows, { metricKey: selectedMetric.key }),
+    [rows, selectedMetric]
+  );
+  const pearson = validationContract.pearson;
+  const spearman = validationContract.spearman;
   const regressionLinePoints = useMemo(() => calculateRegressionLine(points), [points]);
   const relationshipLabel = getRelationshipLabel(pearson);
   const hasEnoughPoints = points.length >= 3;
@@ -4907,7 +4908,10 @@ function DesirabilityValidationCard({ targets }) {
     if (process.env.NODE_ENV === "production") {
       return;
     }
-    const diagnostics = getDesirabilityValidationDiagnostics(rows, selectedMetric, points);
+    const diagnostics = {
+      ...getDesirabilityValidationDiagnostics(rows, selectedMetric, points),
+      contract: validationContract.diagnostics,
+    };
     console.debug("[desirability-validation] sample diagnostics", diagnostics);
     if (selectedMetric.key !== "setValue" || points.length > 0) {
       return;
@@ -4916,7 +4920,7 @@ function DesirabilityValidationCard({ targets }) {
     if (sample.length > 0) {
       console.debug("[desirability-validation] missing Set Value sample", sample);
     }
-  }, [points, rows, selectedMetric]);
+  }, [points, rows, selectedMetric, validationContract.diagnostics]);
 
   return (
     <section id="set-detail-desirability-validation" className="scroll-mt-24 md:scroll-mt-28">
@@ -7746,13 +7750,14 @@ export default function RipStatisticsPageClient({
         if (isCancelled) {
           return;
         }
-        setChecklistState({
-          status: "error",
+        setChecklistState((previous) => ({
+          status: previous.status === "success" && previous.setId === setId ? "success" : "error",
           setId,
-          cards: [],
-          cardAppealMarketPriceCorrelation: null,
+          cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
+          cardAppealMarketPriceCorrelation:
+            previous.status === "success" && previous.setId === setId ? previous.cardAppealMarketPriceCorrelation : null,
           error: error?.message || "Unable to load cards for this set.",
-        });
+        }));
       });
 
     return () => {
@@ -7853,7 +7858,14 @@ export default function RipStatisticsPageClient({
         if (isCancelled) {
           return;
         }
-        setSetValueHistoryState(
+        setSetValueHistoryState((previous) =>
+          previous?.setId === setId && Object.values(previous.historiesByScope || {}).some((history) => history.length > 0)
+            ? createSetValueHistoryState({
+                ...previous,
+                status: "success",
+                error: error?.message || "Unable to load set value history for this set.",
+              })
+            :
           createSetValueHistoryState({
             status: "error",
             setId,

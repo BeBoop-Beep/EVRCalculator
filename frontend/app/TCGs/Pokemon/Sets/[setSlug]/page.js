@@ -1,4 +1,4 @@
-import RipStatisticsPageClient from "@/components/explore/RipStatisticsPageClient";
+import PokemonSetPageClient from "@/components/pokemon/set-page/PokemonSetPageClient";
 import { getExplorePagePayload } from "@/lib/explore/explorePageServer";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import {
@@ -42,7 +42,7 @@ export default async function TcgSetRipStatisticsPage({ params }) {
   }
 
   return (
-    <RipStatisticsPageClient
+    <PokemonSetPageClient
       targetsPayload={targetsPayload}
       selectedTarget={selectedTarget}
       requestedTargetType={requestedTargetType}
@@ -51,7 +51,6 @@ export default async function TcgSetRipStatisticsPage({ params }) {
       pageError={pageError}
       profileBaseHref="/TCGs/Pokemon/Sets"
       targetHrefById={targetHrefById}
-      setDetailMode
     />
   );
 }

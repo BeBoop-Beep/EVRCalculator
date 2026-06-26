@@ -24,12 +24,12 @@ function getCardCacheKey(setId) {
   return `pokemon-set-cards:${String(setId || "").trim()}`;
 }
 
-function readCardCache(cacheKey) {
+function readCardCache(cacheKey, { allowStale = false } = {}) {
   const cached = cardSnapshotCache.get(cacheKey);
-  if (!cached || cached.expiresAt <= nowMs()) {
-    if (cached) {
-      cardSnapshotCache.delete(cacheKey);
-    }
+  if (!cached) {
+    return null;
+  }
+  if (!allowStale && cached.expiresAt <= nowMs()) {
     return null;
   }
   return cached.payload;
@@ -50,7 +50,15 @@ function wait(ms) {
 }
 
 function isRetryableSnapshotError(error) {
-  return RETRYABLE_SNAPSHOT_STATUSES.has(Number(error?.status));
+  if (error?.retryable === true) {
+    return true;
+  }
+  if (RETRYABLE_SNAPSHOT_STATUSES.has(Number(error?.status))) {
+    return true;
+  }
+  const name = String(error?.name || "").toLowerCase();
+  const message = String(error?.message || "").toLowerCase();
+  return name === "typeerror" || message.includes("fetch failed") || message.includes("network");
 }
 
 function toOptionalNumber(value) {
@@ -280,6 +288,7 @@ export async function getPokemonSetCards(setId) {
 
   const request = (async () => {
     const url = `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards`;
+    const staleCached = readCardCache(cacheKey, { allowStale: true });
     let payload = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
@@ -297,11 +306,21 @@ export async function getPokemonSetCards(setId) {
           const message = payload?.message || payload?.error || "Unable to load set cards";
           const requestError = new Error(message);
           requestError.status = response.status;
+          requestError.retryable = payload?.retryable === true;
+          requestError.code = payload?.code;
           throw requestError;
         }
         break;
       } catch (error) {
         if (attempt > 0 || !isRetryableSnapshotError(error)) {
+          if (staleCached) {
+            debugTiming("cards.fetch_stale_cache_fallback", {
+              setId: resolvedSetId,
+              status: error?.status,
+              error: error?.message || String(error),
+            });
+            return staleCached;
+          }
           throw error;
         }
         debugTiming("cards.fetch_retry", {

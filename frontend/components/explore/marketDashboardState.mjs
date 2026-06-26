@@ -65,6 +65,7 @@ export function marketDashboardReducer(state, action) {
       return createMarketDashboardState({
         status: "error",
         setId,
+        payload: state?.setId === setId ? state?.payload : null,
         error: action.error || "Unable to load market dashboard for this set.",
         sourceWindow,
       });

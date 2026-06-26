@@ -410,6 +410,17 @@ test("card snapshot client preserves precomputed card validation fields", () => 
   assert.ok(source.includes("subjectDesirabilityScore"));
 });
 
+test("cards proxy route returns controlled timeout errors", () => {
+  const cardsRoute = fs.readFileSync(cardsRoutePath, "utf8");
+
+  assert.ok(cardsRoute.includes("AbortController"));
+  assert.ok(cardsRoute.includes("BACKEND_FETCH_TIMEOUT_MS"));
+  assert.ok(cardsRoute.includes("POKEMON_SET_CARDS_TIMEOUT"));
+  assert.ok(cardsRoute.includes('"Timed out loading Pokemon set cards"'));
+  assert.ok(cardsRoute.includes("backendPath"));
+  assert.ok(cardsRoute.includes("backendPathForDiagnostics(backendUrl)"));
+});
+
 test("card appeal market chart defaults to hits with honest labels", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
@@ -524,8 +535,9 @@ test("desirability validation set value prefers canonical checklist target field
   assert.ok(resolverSource.includes("setValueForValidation"));
   assert.ok(resolverSource.includes("currentChecklistSetValue"));
   assert.ok(resolverSource.includes("checklistSetValue"));
-  assert.ok(validationFieldIndex < checklistFieldIndex);
-  assert.ok(checklistFieldIndex < simulatedFieldIndex);
+  assert.ok(checklistFieldIndex < validationFieldIndex);
+  assert.ok(validationFieldIndex < simulatedFieldIndex);
   assert.ok(source.includes("function getDesirabilityValidationDiagnostics"));
+  assert.ok(source.includes("selectSetDesirabilityValidation"));
   assert.ok(source.includes("[desirability-validation] sample diagnostics"));
 });
