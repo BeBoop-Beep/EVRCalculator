@@ -100,7 +100,14 @@ export function hydrateMarketDashboardStateFromCachedPayload({
 }
 
 export function buildMarketDashboardStateFromPayload(payload) {
-  const rawHistoriesByScope = payload?.setValueHistoriesByScope || {};
+  const rawHistoriesByScope =
+    payload?.setValueHistoriesByScope ||
+    payload?.set_value_histories_by_scope ||
+    payload?.marketDashboard?.setValueHistoriesByScope ||
+    payload?.marketDashboard?.set_value_histories_by_scope ||
+    payload?.market_dashboard?.setValueHistoriesByScope ||
+    payload?.market_dashboard?.set_value_histories_by_scope ||
+    {};
   const historiesByScope = Object.fromEntries(
     SET_VALUE_SCOPE_OPTIONS.map((scopeOption) => [
       scopeOption.key,
@@ -121,10 +128,33 @@ export function buildMarketDashboardStateFromPayload(payload) {
   );
   const history = historiesByScope.standard || [];
   const hasAnyHistory = Object.values(historiesByScope).some((scopeHistory) => scopeHistory.length > 0);
-  const cards = Array.isArray(payload?.topChaseCards) ? payload.topChaseCards : [];
-  const marketMovers = payload?.marketMovers && typeof payload.marketMovers === "object"
-    ? payload.marketMovers
-    : { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW, windowDays: 30 };
+  const cards = Array.isArray(payload?.topChaseCards)
+    ? payload.topChaseCards
+    : Array.isArray(payload?.top_chase_cards)
+    ? payload.top_chase_cards
+    : Array.isArray(payload?.topMarketCards)
+    ? payload.topMarketCards
+    : Array.isArray(payload?.top_market_cards)
+    ? payload.top_market_cards
+    : Array.isArray(payload?.marketDashboard?.topChaseCards)
+    ? payload.marketDashboard.topChaseCards
+    : Array.isArray(payload?.marketDashboard?.topMarketCards)
+    ? payload.marketDashboard.topMarketCards
+    : Array.isArray(payload?.market_dashboard?.top_chase_cards)
+    ? payload.market_dashboard.top_chase_cards
+    : Array.isArray(payload?.market_dashboard?.top_market_cards)
+    ? payload.market_dashboard.top_market_cards
+    : [];
+  const marketMovers =
+    payload?.marketMovers && typeof payload.marketMovers === "object"
+      ? payload.marketMovers
+      : payload?.market_movers && typeof payload.market_movers === "object"
+      ? payload.market_movers
+      : payload?.marketDashboard?.marketMovers && typeof payload.marketDashboard.marketMovers === "object"
+      ? payload.marketDashboard.marketMovers
+      : payload?.market_dashboard?.market_movers && typeof payload.market_dashboard.market_movers === "object"
+      ? payload.market_dashboard.market_movers
+      : { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW, windowDays: 30 };
   const meta = payload?.meta || null;
 
   return {

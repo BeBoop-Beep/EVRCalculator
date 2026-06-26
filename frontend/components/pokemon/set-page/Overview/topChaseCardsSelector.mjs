@@ -24,10 +24,22 @@ export function selectTopChaseCards(payload = {}) {
     ? payload.topChaseCards
     : Array.isArray(payload?.top_chase_cards)
     ? payload.top_chase_cards
+    : Array.isArray(payload?.topMarketCards)
+    ? payload.topMarketCards
+    : Array.isArray(payload?.top_market_cards)
+    ? payload.top_market_cards
     : Array.isArray(payload?.marketDashboard?.topChaseCards)
     ? payload.marketDashboard.topChaseCards
     : Array.isArray(payload?.marketDashboard?.top_chase_cards)
     ? payload.marketDashboard.top_chase_cards
+    : Array.isArray(payload?.marketDashboard?.topMarketCards)
+    ? payload.marketDashboard.topMarketCards
+    : Array.isArray(payload?.marketDashboard?.top_market_cards)
+    ? payload.marketDashboard.top_market_cards
+    : Array.isArray(payload?.market_dashboard?.topMarketCards)
+    ? payload.market_dashboard.topMarketCards
+    : Array.isArray(payload?.market_dashboard?.top_market_cards)
+    ? payload.market_dashboard.top_market_cards
     : Array.isArray(payload?.cards)
     ? payload.cards
     : [];
@@ -53,6 +65,8 @@ export function selectTopChaseCards(payload = {}) {
       payload?.market_movers ||
       payload?.marketDashboard?.marketMovers ||
       payload?.marketDashboard?.market_movers ||
+      payload?.market_dashboard?.marketMovers ||
+      payload?.market_dashboard?.market_movers ||
       { heatingUp: [], coolingOff: [], all: [] },
     diagnostics,
   };

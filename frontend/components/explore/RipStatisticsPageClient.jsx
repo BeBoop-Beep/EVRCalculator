@@ -382,6 +382,24 @@ function extractSnapshotCardsFromExplorePayload(payload) {
   if (Array.isArray(payload.cards)) {
     return payload.cards;
   }
+  if (Array.isArray(payload?.cardPayload?.cards)) {
+    return payload.cardPayload.cards;
+  }
+  if (Array.isArray(payload?.card_payload?.cards)) {
+    return payload.card_payload.cards;
+  }
+  if (Array.isArray(payload?.cardsPayload?.cards)) {
+    return payload.cardsPayload.cards;
+  }
+  if (Array.isArray(payload?.cards_payload?.cards)) {
+    return payload.cards_payload.cards;
+  }
+  if (Array.isArray(payload?.setCards?.cards)) {
+    return payload.setCards.cards;
+  }
+  if (Array.isArray(payload?.set_cards?.cards)) {
+    return payload.set_cards.cards;
+  }
   if (Array.isArray(payload?.cardsSnapshot?.cards)) {
     return payload.cardsSnapshot.cards;
   }
@@ -389,6 +407,62 @@ function extractSnapshotCardsFromExplorePayload(payload) {
     return payload.cards_snapshot.cards;
   }
   return [];
+}
+
+function buildInitialSetPageDataSeed(payload) {
+  const source = payload && typeof payload === "object" ? payload : {};
+  const cards = extractSnapshotCardsFromExplorePayload(source);
+  const cardPayload =
+    source.cardPayload ||
+    source.card_payload ||
+    source.cardsPayload ||
+    source.cards_payload ||
+    source.setCards ||
+    source.set_cards ||
+    null;
+  const cardAppealMarketPriceCorrelation = resolvePreferredCardAppealCorrelation({
+    explorePayload: source,
+    cardsPayload: cardPayload,
+  });
+  const setValue = adaptSetValueHistoriesFromSources({ explorePayload: source });
+  const market = adaptMarketDashboardFromSources({ explorePayload: source });
+  const topMarketCards =
+    market?.cards?.length > 0
+      ? market.cards
+      : Array.isArray(source.topMarketCards)
+      ? source.topMarketCards
+      : Array.isArray(source.top_market_cards)
+      ? source.top_market_cards
+      : Array.isArray(source.marketDashboard?.topMarketCards)
+      ? source.marketDashboard.topMarketCards
+      : Array.isArray(source.market_dashboard?.top_market_cards)
+      ? source.market_dashboard.top_market_cards
+      : Array.isArray(source.top_hits)
+      ? source.top_hits
+      : [];
+  const setValueHistoriesByScope = setValue?.historiesByScope || {};
+  const marketDashboardPayload =
+    topMarketCards.length > 0 || hasAnySetValueHistory(setValueHistoriesByScope)
+      ? {
+          topChaseCards: topMarketCards,
+          top_chase_cards: topMarketCards,
+          marketMovers: market?.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
+          market_movers: market?.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
+          setValueHistoriesByScope,
+          set_value_histories_by_scope: setValueHistoriesByScope,
+          availableScopes: setValue?.availableScopes || SET_VALUE_SCOPE_OPTIONS,
+          meta: source.meta || {},
+        }
+      : null;
+
+  return {
+    cards,
+    cardAppealMarketPriceCorrelation,
+    setValueHistoriesByScope,
+    marketDashboard: marketDashboardPayload,
+    topMarketCards,
+    simulationDrivers: selectSimulationDrivers(source).rows,
+  };
 }
 
 function hasCompleteSetValueScopes(historiesByScope = {}) {
@@ -6623,13 +6697,8 @@ export default function RipStatisticsPageClient({
     () => getDesirabilityValidationPayload(explorePayload),
     [explorePayload]
   );
-  const initialCardAppealMarketPriceCorrelation = useMemo(
-    () =>
-      resolvePreferredCardAppealCorrelation({
-        explorePayload,
-      }),
-    [explorePayload]
-  );
+  const initialSetPageDataSeed = useMemo(() => buildInitialSetPageDataSeed(explorePayload), [explorePayload]);
+  const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation;
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
       ? initialCardAppealMarketPriceCorrelation.plotRows
@@ -6718,7 +6787,7 @@ export default function RipStatisticsPageClient({
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
-  const initialSnapshotCards = useMemo(() => extractSnapshotCardsFromExplorePayload(explorePayload), [explorePayload]);
+  const initialSnapshotCards = initialSetPageDataSeed.cards;
   const [checklistState, setChecklistState] = useState(() => ({
     status: initialSnapshotCards.length > 0 ? "success" : "idle",
     setId: resolvedSetResourceId,
@@ -6744,17 +6813,47 @@ export default function RipStatisticsPageClient({
     setDetailMode && setDetailTab === "insights" && graphMode === "historical-trend"
       ? "outcome-distribution"
       : graphMode;
+  const cardsNeededForActiveTab =
+    setDetailMode && (setDetailTab === "cards" || setDetailTab === "insights");
+  const cardsSeededForActiveSet =
+    !cardsNeededForActiveTab ||
+    ((checklistState.setId === resolvedSetResourceId || !checklistState.setId) &&
+      (checklistState.cards.length > 0 || initialSetPageDataSeed.cards.length > 0));
+  const seededSetValueReady = hasAnySetValueHistory(initialSetPageDataSeed.setValueHistoriesByScope);
+  const stateSetValueReady =
+    setValueHistoryState.setId === resolvedSetResourceId &&
+    hasAnySetValueHistory(setValueHistoryState.historiesByScope);
+  const marketDashboardReady =
+    marketDashboardState.setId === resolvedSetResourceId &&
+    (marketDashboardState.status === "success" || marketDashboardState.status === "success_stale") &&
+    Boolean(marketDashboardState.payload);
+  const marketOrSetValueSeededForActiveTab =
+    setDetailTab !== "overview" || seededSetValueReady || stateSetValueReady || marketDashboardReady;
+  const activeSetModulesStable =
+    isPrimarySnapshotReady &&
+    !isSetPageTransportFallback(explorePayload) &&
+    cardsSeededForActiveSet &&
+    marketOrSetValueSeededForActiveTab;
 
   useEffect(() => {
     setExplorePayload(initialExplorePayload || null);
     setSetPageSnapshotRefreshState({ status: "idle", setId: null, error: null });
     timeoutSnapshotRefreshKeyRef.current = null;
-    const seededCards = extractSnapshotCardsFromExplorePayload(initialExplorePayload || {});
+    const routeSeed = buildInitialSetPageDataSeed(initialExplorePayload || {});
+    const seededCards = routeSeed.cards;
     setChecklistState((previous) => {
       const seededCorrelation = resolvePreferredCardAppealCorrelation({
         explorePayload: initialExplorePayload || {},
+        cardsPayload:
+          initialExplorePayload?.cardPayload ||
+          initialExplorePayload?.card_payload ||
+          initialExplorePayload?.cardsPayload ||
+          initialExplorePayload?.cards_payload ||
+          initialExplorePayload?.setCards ||
+          initialExplorePayload?.set_cards ||
+          null,
         previous: previous?.cardAppealMarketPriceCorrelation,
-      });
+      }) || routeSeed.cardAppealMarketPriceCorrelation;
       if (seededCards.length === 0) {
         return {
           status: "idle",
@@ -6911,7 +7010,7 @@ export default function RipStatisticsPageClient({
 
     const resolvedSetId = String(setId || "").trim();
     startPrefetch(resolvedSetId, reason);
-    if (!includeAdjacent || shouldPauseSetDetailDependentFetches || !Array.isArray(targets) || targets.length === 0) {
+    if (!includeAdjacent || !activeSetModulesStable || shouldPauseSetDetailDependentFetches || !Array.isArray(targets) || targets.length === 0) {
       return;
     }
     const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);
@@ -6930,7 +7029,7 @@ export default function RipStatisticsPageClient({
     adjacentTargets.forEach((adjacentSetId) => {
       startPrefetch(adjacentSetId, "adjacent");
     });
-  }, [isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches, targets]);
+  }, [activeSetModulesStable, isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches, targets]);
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
@@ -7402,26 +7501,24 @@ export default function RipStatisticsPageClient({
     "collection_value",
     "total_value",
   ]);
-  const activeMarketDashboardState =
-    marketDashboardState.setId === resolvedSetResourceId
-      ? marketDashboardState
-      : createMarketDashboardState({ setId: resolvedSetResourceId });
   const seededMarketDashboardPayload = useMemo(() => {
-    const seeded = adaptMarketDashboardFromSources({ explorePayload });
-    if (!seeded?.cards?.length && !hasAnySetValueHistory(seeded?.setValue?.historiesByScope)) {
-      return null;
+    if (initialSetPageDataSeed.marketDashboard) {
+      return initialSetPageDataSeed.marketDashboard;
     }
-    return {
-      topChaseCards: seeded.cards || [],
-      top_chase_cards: seeded.cards || [],
-      marketMovers: seeded.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
-      market_movers: seeded.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
-      setValueHistoriesByScope: seeded.setValue?.historiesByScope || {},
-      set_value_histories_by_scope: seeded.setValue?.historiesByScope || {},
-      availableScopes: seeded.setValue?.availableScopes || [],
-      meta: explorePayload?.meta || {},
-    };
-  }, [explorePayload]);
+    return null;
+  }, [initialSetPageDataSeed]);
+  const activeMarketDashboardState =
+    marketDashboardState.setId === resolvedSetResourceId &&
+    (marketDashboardState.payload || !seededMarketDashboardPayload)
+      ? marketDashboardState
+      : seededMarketDashboardPayload
+      ? createMarketDashboardState({
+          status: "success",
+          setId: resolvedSetResourceId,
+          payload: seededMarketDashboardPayload,
+          sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+        })
+      : createMarketDashboardState({ setId: resolvedSetResourceId });
   const activeMarketDashboardDerivedState = useMemo(
     () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload),
     [activeMarketDashboardState.payload, seededMarketDashboardPayload]
@@ -8197,7 +8294,7 @@ export default function RipStatisticsPageClient({
       resolvedSetId: setId,
     });
     return schedulePostShellWarmup(() => {
-      warmSetDetailResources(setId, { includeAdjacent: true, reason: "bootstrap" });
+      warmSetDetailResources(setId, { includeAdjacent: false, reason: "bootstrap" });
     });
   }, [setDetailMode, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources]);
 
@@ -8409,10 +8506,16 @@ export default function RipStatisticsPageClient({
     const cachedDashboardPayload = getCachedPokemonSetMarketDashboard(setId, {
       window: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
     });
-    const seededSetValue = adaptSetValueHistoriesFromSources({
-      explorePayload,
-      marketSnapshotPayload: cachedDashboardPayload,
-    });
+    const seededSetValueFromSnapshot = {
+      historiesByScope: initialSetPageDataSeed.setValueHistoriesByScope,
+      availableScopes: SET_VALUE_SCOPE_OPTIONS,
+    };
+    const seededSetValue = hasAnySetValueHistory(seededSetValueFromSnapshot.historiesByScope)
+      ? seededSetValueFromSnapshot
+      : adaptSetValueHistoriesFromSources({
+          explorePayload,
+          marketSnapshotPayload: cachedDashboardPayload,
+        });
     const seededHistoriesByScope = seededSetValue?.historiesByScope || {};
     const seededLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
       (scope) => Array.isArray(seededHistoriesByScope?.[scope]) && seededHistoriesByScope[scope].length > 0
@@ -8573,7 +8676,14 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, resolvedSetResourceId, isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches, explorePayload]);
+  }, [
+    setDetailMode,
+    resolvedSetResourceId,
+    isTimeoutFallbackPayload,
+    shouldPauseSetDetailDependentFetches,
+    explorePayload,
+    initialSetPageDataSeed,
+  ]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -8597,20 +8707,7 @@ export default function RipStatisticsPageClient({
     }
 
     const shouldRenderMarketData = setDetailTab === "overview";
-    const seededMarketPayload = adaptMarketDashboardFromSources({ explorePayload });
-    const seededDashboardPayload =
-      seededMarketPayload?.cards?.length > 0 || hasAnySetValueHistory(seededMarketPayload?.setValue?.historiesByScope)
-        ? {
-            topChaseCards: seededMarketPayload.cards,
-            top_chase_cards: seededMarketPayload.cards,
-            marketMovers: seededMarketPayload.marketMovers,
-            market_movers: seededMarketPayload.marketMovers,
-            setValueHistoriesByScope: seededMarketPayload.setValue?.historiesByScope || {},
-            set_value_histories_by_scope: seededMarketPayload.setValue?.historiesByScope || {},
-            availableScopes: seededMarketPayload.setValue?.availableScopes || [],
-            meta: explorePayload?.meta || {},
-          }
-        : null;
+    const seededDashboardPayload = initialSetPageDataSeed.marketDashboard;
     const cachedDashboard = getCachedPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow });
     const mergedCachedDashboard = cachedDashboard || seededDashboardPayload;
     const cachedMarketDashboardState = hydrateMarketDashboardStateFromCachedPayload({
@@ -8703,6 +8800,7 @@ export default function RipStatisticsPageClient({
     isTimeoutFallbackPayload,
     shouldPauseSetDetailDependentFetches,
     explorePayload,
+    initialSetPageDataSeed,
   ]);
 
   const setDetailSidebarContent = (

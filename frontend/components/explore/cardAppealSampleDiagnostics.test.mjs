@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getCardAppealSampleDiagnostics } from "./cardAppealSampleDiagnostics.mjs";
+import {
+  getCardAppealSampleDiagnostics,
+  resolvePreferredCardAppealCorrelation,
+} from "./cardAppealSampleDiagnostics.mjs";
 
 test("card appeal sample diagnostics separate priced cards from appeal-scored cards", () => {
   const diagnostics = getCardAppealSampleDiagnostics([
@@ -53,4 +56,26 @@ test("card appeal sample diagnostics handle missing or non-array inputs", () => 
     excludedPricedNoAppeal: 0,
     excludedNonPokemonPriced: 0,
   });
+});
+
+test("card appeal correlation resolver prefers page-level correlation over checklist state", () => {
+  const pageCorrelation = { n: 12, plotRows: [{ name: "Page Row", marketPrice: 10, cardAppealScore: 80 }] };
+  const checklistCorrelation = { n: 1, plotRows: [{ name: "Checklist Row", marketPrice: 2, cardAppealScore: 20 }] };
+
+  const selected = resolvePreferredCardAppealCorrelation({
+    explorePayload: { cardAppealMarketPriceCorrelation: pageCorrelation },
+    checklistState: { cardAppealMarketPriceCorrelation: checklistCorrelation },
+  });
+
+  assert.equal(selected, pageCorrelation);
+});
+
+test("card appeal correlation resolver reads nested cards payload correlation", () => {
+  const nestedCorrelation = { plotted_count: 9, rows: [{ name: "Nested Row", marketPrice: 4, cardAppealScore: 55 }] };
+
+  const selected = resolvePreferredCardAppealCorrelation({
+    explorePayload: { set_cards: { card_appeal_market_price_correlation: nestedCorrelation } },
+  });
+
+  assert.equal(selected, nestedCorrelation);
 });

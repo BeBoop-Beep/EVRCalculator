@@ -61,6 +61,12 @@ export function resolvePreferredCardAppealCorrelation({
   const candidates = [
     asObject(explorePayload?.cardAppealMarketPriceCorrelation),
     asObject(explorePayload?.card_appeal_market_price_correlation),
+    asObject(explorePayload?.cardPayload?.cardAppealMarketPriceCorrelation),
+    asObject(explorePayload?.card_payload?.card_appeal_market_price_correlation),
+    asObject(explorePayload?.cardsPayload?.cardAppealMarketPriceCorrelation),
+    asObject(explorePayload?.cards_payload?.card_appeal_market_price_correlation),
+    asObject(explorePayload?.setCards?.cardAppealMarketPriceCorrelation),
+    asObject(explorePayload?.set_cards?.card_appeal_market_price_correlation),
     asObject(checklistState?.cardAppealMarketPriceCorrelation),
     asObject(cardsPayload?.cardAppealMarketPriceCorrelation),
     asObject(cardsPayload?.card_appeal_market_price_correlation),

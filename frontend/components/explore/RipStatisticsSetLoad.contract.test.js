@@ -168,7 +168,8 @@ test("cards warmup caches normalized payload and does not clear stale cards on f
   const catchSource = source.slice(catchStart, catchEnd);
 
   assert.ok(warmupSource.includes("checklistCacheRef.current.set(resolvedSetId, payload)"));
-  assert.ok(catchSource.includes('previous.status === "success" && previous.setId === setId ? "success" : "error"'));
+  assert.ok(catchSource.includes("previous.setId === setId && previous.cards.length > 0"));
+  assert.ok(catchSource.includes('"success_stale"'));
   assert.ok(catchSource.includes("previous.cards"));
 });
 
@@ -213,10 +214,21 @@ test("primary snapshot fallback suppresses secondary cards, market, and value fa
   assert.ok(source.includes("const shouldPauseSetDetailDependentFetches ="));
   assert.ok(warmupSource.includes("if (shouldPauseSetDetailDependentFetches)"));
   assert.ok(warmupSource.includes('deferredReason: isTimeoutFallbackPayload ? "transport_fallback_retry" : "set_page_snapshot_unavailable"'));
-  assert.ok(warmupSource.includes("if (!includeAdjacent || shouldPauseSetDetailDependentFetches"));
+  assert.ok(warmupSource.includes("if (!includeAdjacent || !activeSetModulesStable || shouldPauseSetDetailDependentFetches"));
   assert.ok(cardsGuardStart >= 0 && cardsGuardStart < cardsEffectStart);
   assert.ok(valueGuardStart >= 0 && valueGuardStart < valueHistoryStart);
   assert.ok(marketGuardStart >= 0 && marketGuardStart < marketStart);
+});
+
+test("initial bootstrap does not request adjacent set fanout", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const bootstrapStart = source.indexOf('debugSetPagePerf("set.bootstrap_ready"');
+  const bootstrapEnd = source.indexOf("}, [setDetailMode", bootstrapStart);
+  const bootstrapSource = source.slice(bootstrapStart, bootstrapEnd);
+
+  assert.ok(source.includes("const activeSetModulesStable ="));
+  assert.ok(bootstrapSource.includes('warmSetDetailResources(setId, { includeAdjacent: false, reason: "bootstrap" })'));
+  assert.ok(!bootstrapSource.includes("includeAdjacent: true"));
 });
 
 test("slug fallback can adopt canonical set identity from successful set page snapshot", () => {
@@ -538,7 +550,8 @@ test("set value history fetches directly on every set detail tab", () => {
   assert.ok(source.includes("const [setValueHistoryState, setSetValueHistoryState] = useState"));
   assert.ok(directFetchStart >= 0);
   assert.ok(directFetchEnd > directFetchStart);
-  assert.ok(directEffectSource.includes("const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key);"));
+  assert.ok(directEffectSource.includes("const seededSetValueFromSnapshot ="));
+  assert.ok(directEffectSource.includes("const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter("));
   assert.ok(directFetchSource.includes("requestedScopes.map"));
   assert.ok(directFetchSource.includes("CANONICAL_SET_VALUE_SCOPE"));
   assert.ok(directEffectSource.includes("resolvedSetResourceId"));
@@ -588,7 +601,7 @@ test("overview shares a single canonical market dashboard request for value tren
   assert.equal(dashboardCallCount, 1);
   assert.ok(source.includes("const [marketDashboardState, dispatchMarketDashboard] = useReducer("));
   assert.ok(source.includes("dispatchMarketDashboard({ type: \"success\", setId, payload, sourceWindow: dashboardSourceWindow })"));
-  assert.ok(source.includes("buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload)"));
+  assert.ok(source.includes("buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload)"));
   assert.ok(!source.includes("setTopMarketCardsState"));
   assert.ok(!source.includes("applyMarketDashboardPayload"));
 });
@@ -1046,8 +1059,10 @@ test("card appeal market validation can hydrate from initial set page snapshot c
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(source.includes("initialCardAppealMarketPriceCorrelation"));
-  assert.ok(source.includes("explorePayload?.cardAppealMarketPriceCorrelation || explorePayload?.card_appeal_market_price_correlation"));
+  assert.ok(source.includes("const initialSetPageDataSeed = useMemo(() => buildInitialSetPageDataSeed(explorePayload), [explorePayload])"));
+  assert.ok(source.includes("const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation"));
   assert.ok(source.includes("initialCardAppealRows"));
   assert.ok(source.includes("checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows"));
-  assert.ok(source.includes("checklistState.cardAppealMarketPriceCorrelation || initialCardAppealMarketPriceCorrelation"));
+  assert.ok(source.includes("resolvePreferredCardAppealCorrelation({"));
+  assert.ok(source.includes("previous: initialCardAppealMarketPriceCorrelation"));
 });

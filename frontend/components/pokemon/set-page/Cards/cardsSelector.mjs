@@ -22,6 +22,18 @@ function normalizeCard(card) {
 export function selectCards(payload = {}) {
   const rawCards = Array.isArray(payload?.cards)
     ? payload.cards
+    : Array.isArray(payload?.cardPayload?.cards)
+    ? payload.cardPayload.cards
+    : Array.isArray(payload?.card_payload?.cards)
+    ? payload.card_payload.cards
+    : Array.isArray(payload?.cardsPayload?.cards)
+    ? payload.cardsPayload.cards
+    : Array.isArray(payload?.cards_payload?.cards)
+    ? payload.cards_payload.cards
+    : Array.isArray(payload?.setCards?.cards)
+    ? payload.setCards.cards
+    : Array.isArray(payload?.set_cards?.cards)
+    ? payload.set_cards.cards
     : Array.isArray(payload?.payload_json?.cards)
     ? payload.payload_json.cards
     : Array.isArray(payload)
@@ -31,6 +43,12 @@ export function selectCards(payload = {}) {
   const correlation =
     payload?.cardAppealMarketPriceCorrelation ||
     payload?.card_appeal_market_price_correlation ||
+    payload?.cardPayload?.cardAppealMarketPriceCorrelation ||
+    payload?.card_payload?.card_appeal_market_price_correlation ||
+    payload?.cardsPayload?.cardAppealMarketPriceCorrelation ||
+    payload?.cards_payload?.card_appeal_market_price_correlation ||
+    payload?.setCards?.cardAppealMarketPriceCorrelation ||
+    payload?.set_cards?.card_appeal_market_price_correlation ||
     payload?.meta?.cardAppealMarketPriceCorrelation ||
     payload?.meta?.card_appeal_market_price_correlation ||
     null;
