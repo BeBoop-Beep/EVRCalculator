@@ -5,6 +5,7 @@ import {
   buildFallbackSetPagePayload,
   fetchWithTimeout,
   getRecoverableExplorePayload,
+  isSetPageRequestTimeoutPayload,
   sanitizeBackendPath,
   withStaleSetPageDiagnostics,
 } from "./explorePageServerCore.mjs";
@@ -35,6 +36,36 @@ test("set page fallback payload includes selected target identity and diagnostic
   assert.equal(payload.meta.errors[0].code, "SET_PAGE_PAYLOAD_UNAVAILABLE");
   assert.equal(payload.meta.errors[0].status, 500);
   assert.equal(payload.meta.errors[0].backendPath, "/tcgs/pokemon/sets/set-1/page");
+});
+
+test("set page timeout fallback is marked retryable and not backend missing", () => {
+  const payload = buildFallbackSetPagePayload({
+    targetId: "set-1",
+    elapsedMs: 3001,
+    backendPath: "/tcgs/pokemon/sets/set-1/page",
+    code: "SET_PAGE_PAYLOAD_TIMEOUT",
+    message: "Explore page fetch timed out after 3000ms",
+    requestTimeout: true,
+  });
+
+  assert.equal(payload.meta.requestTimeout, true);
+  assert.equal(payload.meta.fallbackReason, "request_timeout");
+  assert.equal(payload.meta.sources.setPage, "timeout_fallback");
+  assert.match(payload.meta.warnings[0], /request timed out; retrying/);
+  assert.equal(isSetPageRequestTimeoutPayload(payload), true);
+});
+
+test("explicit missing snapshot fallback is not marked as timeout", () => {
+  const payload = buildFallbackSetPagePayload({
+    targetId: "set-1",
+    status: 404,
+    backendPath: "/tcgs/pokemon/sets/set-1/page",
+    code: "SET_PAGE_PAYLOAD_NOT_FOUND",
+  });
+
+  assert.equal(payload.meta.requestTimeout, false);
+  assert.equal(payload.meta.fallbackReason, "snapshot_missing");
+  assert.equal(isSetPageRequestTimeoutPayload(payload), false);
 });
 
 test("recoverable set page payload returns stale success on later backend error", () => {

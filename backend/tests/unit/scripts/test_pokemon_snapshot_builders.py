@@ -758,6 +758,213 @@ def test_build_set_page_snapshot_row_preserves_top_hit_warning_when_rows_unavail
     assert row["payload_json"]["top_hits"] == []
     assert "Failed to load top hits" in row["payload_json"]["meta"]["warnings"]
     assert row["payload_json"]["meta"]["sources"]["simulation_input_cards"] == "FAILED"
+    assert row["payload_json"]["meta"]["sectionFreshness"]["simulationDrivers"]["status"] == "missing"
+
+
+def test_build_set_page_snapshot_row_preserves_previous_top_hits_when_current_build_failed(monkeypatch):
+    monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-2", "pack_score": 80, "mean_value": 5},
+            "top_hits": [],
+            "meta": {
+                "sources": {"simulation_input_cards": "FAILED"},
+                "warnings": ["Simulation Drivers unavailable: simulation_input_cards FAILED"],
+            },
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    previous_top_hits = [{"card_name": "Previous Chase", "ev_contribution": 1.2}]
+    client = _Client(
+        {
+            "simulation_input_cards_with_near_mint_price": lambda _query: [],
+            "simulation_input_cards": lambda _query: [],
+            "pokemon_set_cards_snapshot_latest": lambda _query: [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [],
+            "explore_rip_statistics_latest": lambda _query: [],
+            "simulation_latest_by_target": lambda _query: [],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "payload_json": {
+                        "summary": {"calculation_run_id": "run-1", "run_at": "2026-06-24T11:00:00+00:00"},
+                        "top_hits": previous_top_hits,
+                        "meta": {
+                            "snapshot": {"builtAt": "2026-06-24T12:00:00+00:00"},
+                            "sectionFreshness": {
+                                "simulationDrivers": {
+                                    "status": "fresh",
+                                    "dataAsOf": "2026-06-24T11:00:00+00:00",
+                                    "lastSuccessfulAt": "2026-06-24T12:00:00+00:00",
+                                    "attemptedAt": "2026-06-24T12:00:00+00:00",
+                                    "source": "simulation_input_cards_with_near_mint_price/run-1",
+                                }
+                            },
+                        },
+                    },
+                    "updated_at": "2026-06-24T12:05:00+00:00",
+                }
+            ],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+    payload = row["payload_json"]
+    freshness = payload["meta"]["sectionFreshness"]["simulationDrivers"]
+
+    assert payload["top_hits"] == previous_top_hits
+    assert freshness["status"] == "stale"
+    assert freshness["dataAsOf"] == "2026-06-24T11:00:00+00:00"
+    assert freshness["lastSuccessfulAt"] == "2026-06-24T12:00:00+00:00"
+    assert freshness["attemptedAt"] == "2026-06-25T12:00:00+00:00"
+    assert payload["meta"]["sectionFreshness"]["simulationDrivers"]["status"] != "missing"
+
+
+def test_build_set_page_snapshot_row_preserves_previous_rank_fields_when_current_build_lacks_ranks(monkeypatch):
+    monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-2", "pack_score": 80, "mean_value": 5},
+            "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+            "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _Client(
+        {
+            "pokemon_set_cards_snapshot_latest": lambda _query: [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [],
+            "explore_rip_statistics_latest": lambda _query: [],
+            "simulation_latest_by_target": lambda _query: [],
+            "simulation_input_cards": lambda _query: [{"id": "sic-1"}],
+            "simulation_input_cards_with_near_mint_price": lambda _query: [{"id": "sic-nm-1"}],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "payload_json": {
+                        "summary": {
+                            "calculation_run_id": "run-1",
+                            "run_at": "2026-06-24T11:00:00+00:00",
+                            "pack_rank": 7,
+                            "pack_tier": "A",
+                            "profit_rank": 12,
+                            "profit_tier": "B",
+                        },
+                        "set": {"pack_rank": 7, "pack_tier": "A", "profit_rank": 12, "profit_tier": "B"},
+                        "meta": {"snapshot": {"builtAt": "2026-06-24T12:00:00+00:00"}},
+                    },
+                    "updated_at": "2026-06-24T12:05:00+00:00",
+                }
+            ],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+    payload = row["payload_json"]
+
+    assert payload["summary"]["pack_rank"] == 7
+    assert payload["summary"]["pack_tier"] == "A"
+    assert payload["summary"]["profit_rank"] == 12
+    assert payload["summary"]["profit_tier"] == "B"
+    assert payload["set"]["pack_rank"] == 7
+    assert payload["meta"]["sectionFreshness"]["decisionSignalRanks"]["status"] == "stale"
+
+
+def test_build_set_page_snapshot_row_preserves_previous_card_appeal_correlation_when_current_build_lacks_it(monkeypatch):
+    monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-2", "pack_score": 80, "mean_value": 5},
+            "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+            "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    correlation = {"n": 12, "plotRows": [{"name": "Chase", "cardAppealScore": 91, "marketPrice": 25}]}
+    client = _Client(
+        {
+            "pokemon_set_cards_snapshot_latest": lambda _query: [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [],
+            "explore_rip_statistics_latest": lambda _query: [],
+            "simulation_latest_by_target": lambda _query: [],
+            "simulation_input_cards": lambda _query: [{"id": "sic-1"}],
+            "simulation_input_cards_with_near_mint_price": lambda _query: [{"id": "sic-nm-1"}],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "payload_json": {
+                        "summary": {"calculation_run_id": "run-1", "run_at": "2026-06-24T11:00:00+00:00"},
+                        "cardAppealMarketPriceCorrelation": correlation,
+                        "card_appeal_market_price_correlation": correlation,
+                        "meta": {"snapshot": {"builtAt": "2026-06-24T12:00:00+00:00"}},
+                    },
+                    "updated_at": "2026-06-24T12:05:00+00:00",
+                }
+            ],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+    payload = row["payload_json"]
+
+    assert payload["cardAppealMarketPriceCorrelation"] == correlation
+    assert payload["card_appeal_market_price_correlation"] == correlation
+    assert payload["meta"]["sectionFreshness"]["cardAppealValidation"]["status"] == "stale"
+
+
+def test_build_set_page_snapshot_row_preserves_previous_desirability_validation_when_current_build_lacks_it(monkeypatch):
+    monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-2", "pack_score": 80, "mean_value": 5},
+            "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+            "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    def _raise_validation_error(**_kwargs):
+        raise RuntimeError("validation unavailable")
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "build_desirability_validation_payload", _raise_validation_error)
+
+    validation = {"formula_version": "desirability_validation_v1", "summary": {"sampleCount": 12}}
+    client = _Client(
+        {
+            "pokemon_set_cards_snapshot_latest": lambda _query: [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [],
+            "explore_rip_statistics_latest": lambda _query: [],
+            "simulation_latest_by_target": lambda _query: [],
+            "simulation_input_cards": lambda _query: [{"id": "sic-1"}],
+            "simulation_input_cards_with_near_mint_price": lambda _query: [{"id": "sic-nm-1"}],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "payload_json": {
+                        "summary": {"calculation_run_id": "run-1", "run_at": "2026-06-24T11:00:00+00:00"},
+                        "desirabilityValidation": validation,
+                        "desirability_validation": validation,
+                        "meta": {"snapshot": {"builtAt": "2026-06-24T12:00:00+00:00"}},
+                    },
+                    "updated_at": "2026-06-24T12:05:00+00:00",
+                }
+            ],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+    payload = row["payload_json"]
+
+    assert payload["desirabilityValidation"] == validation
+    assert payload["desirability_validation"] == validation
+    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "stale"
 
 
 def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapshot(monkeypatch):

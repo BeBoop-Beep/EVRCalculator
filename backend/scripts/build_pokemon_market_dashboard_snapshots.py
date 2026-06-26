@@ -70,18 +70,18 @@ def main() -> None:
                 days=args.days,
                 window=args.window,
             )
-            upsert_row(
-                client,
-                "pokemon_set_market_dashboard_snapshot_latest",
-                dashboard_row,
-                on_conflict="set_id,window_key",
-                commit=commit,
-            )
             upsert_rows(
                 client,
                 "pokemon_set_top_chase_card_daily_history",
                 top_chase_history_rows,
                 on_conflict="set_id,snapshot_date,rank",
+                commit=commit,
+            )
+            upsert_row(
+                client,
+                "pokemon_set_market_dashboard_snapshot_latest",
+                dashboard_row,
+                on_conflict="set_id,window_key",
                 commit=commit,
             )
             built_count += 1

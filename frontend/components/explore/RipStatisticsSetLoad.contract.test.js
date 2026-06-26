@@ -172,6 +172,28 @@ test("cards warmup caches normalized payload and does not clear stale cards on f
   assert.ok(catchSource.includes("previous.cards"));
 });
 
+test("timeout fallback set page payload hydrates with a no-store client retry", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("function isSetPageRequestTimeoutFallback"));
+  assert.ok(source.includes("function fetchPokemonSetPageSnapshot"));
+  assert.ok(source.includes('/page?retry=1'));
+  assert.ok(source.includes('cache: "no-store"'));
+  assert.ok(source.includes("setExplorePayload(payload || null)"));
+  assert.ok(source.includes('debugSetPagePerf("set_page.timeout_retry_start"'));
+  assert.ok(source.includes('debugSetPagePerf("set_page.timeout_retry_ready"'));
+});
+
+test("timeout fallback defers heavy set detail warmups until snapshot retry resolves", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes('debugSetPagePerf("set.prefetch_deferred"'));
+  assert.ok(source.includes('deferredReason: "set_page_timeout_retry"'));
+  assert.ok(source.includes("if (isTimeoutFallbackPayload && reason !== \"selection\")"));
+  assert.ok(source.includes("if (isTimeoutFallbackPayload) {\n      setChecklistState"));
+  assert.ok(source.includes("if (isTimeoutFallbackPayload) {\n      dispatchMarketDashboard"));
+});
+
 test("Simulation Drivers selector reads top_hits from current payload shape", async () => {
   const { selectSimulationDrivers } = await import(pathToFileURL(simulationDriversSelectorPath).href);
   const selected = selectSimulationDrivers({
@@ -202,6 +224,78 @@ test("Simulation Drivers fallback without top_hits exposes backend diagnostic wa
   assert.equal(selected.diagnostics.fallbackUsed, true);
   assert.equal(selected.diagnostics.missingBackendSource, "simulation_input_cards");
   assert.match(selected.diagnostics.warning, /simulation_input_cards/);
+});
+
+test("Simulation Drivers timeout fallback reports loading instead of unavailable top_hits", async () => {
+  const { selectSimulationDrivers } = await import(pathToFileURL(simulationDriversSelectorPath).href);
+  const selected = selectSimulationDrivers({
+    top_hits: [],
+    meta: {
+      requestTimeout: true,
+      fallback: true,
+      fallbackReason: "request_timeout",
+      sources: { setPage: "timeout_fallback" },
+      warnings: ["Set page snapshot request timed out; retrying."],
+      errors: [{ code: "SET_PAGE_PAYLOAD_TIMEOUT" }],
+    },
+  });
+
+  assert.equal(selected.rows.length, 0);
+  assert.equal(selected.diagnostics.status, "loading");
+  assert.equal(selected.diagnostics.requestTimeout, true);
+  assert.deepEqual(selected.diagnostics.missingFields, []);
+  assert.equal(selected.diagnostics.missingBackendSource, null);
+  assert.doesNotMatch(selected.diagnostics.warning, /unavailable: no top_hits/);
+  assert.match(selected.diagnostics.warning, /loading: set page snapshot request timed out; retrying/);
+});
+
+test("Simulation Drivers explicit missing snapshot still reports unavailable top_hits", async () => {
+  const { selectSimulationDrivers } = await import(pathToFileURL(simulationDriversSelectorPath).href);
+  const selected = selectSimulationDrivers({
+    top_hits: [],
+    meta: {
+      requestTimeout: false,
+      fallback: true,
+      fallbackReason: "snapshot_missing",
+      sources: { setPage: "fallback" },
+      warnings: [],
+      errors: [{ code: "SET_PAGE_PAYLOAD_NOT_FOUND", status: 404 }],
+    },
+  });
+
+  assert.equal(selected.rows.length, 0);
+  assert.equal(selected.diagnostics.status, "unavailable");
+  assert.deepEqual(selected.diagnostics.missingFields, ["top_hits"]);
+  assert.match(selected.diagnostics.warning, /no top_hits rows/);
+});
+
+test("Simulation Drivers selector renders stale preserved top_hits and exposes freshness metadata", async () => {
+  const { selectSimulationDrivers } = await import(pathToFileURL(simulationDriversSelectorPath).href);
+  const selected = selectSimulationDrivers({
+    top_hits: [{ card_name: "Preserved Chase", ev_contribution: 1.23, current_near_mint_price: 45 }],
+    meta: {
+      sources: { simulation_input_cards: "FAILED" },
+      warnings: ["Simulation Drivers unavailable: simulation_input_cards FAILED"],
+      sectionFreshness: {
+        simulationDrivers: {
+          status: "stale",
+          dataAsOf: "2026-06-24T11:00:00+00:00",
+          lastSuccessfulAt: "2026-06-24T12:00:00+00:00",
+          attemptedAt: "2026-06-25T12:00:00+00:00",
+          source: "simulation_input_cards_with_near_mint_price/run-1",
+          reason: "current snapshot build did not include valid top_hits",
+        },
+      },
+    },
+  });
+
+  assert.equal(selected.rows.length, 1);
+  assert.equal(selected.rows[0].card_name, "Preserved Chase");
+  assert.equal(selected.diagnostics.warning, null);
+  assert.equal(selected.diagnostics.missingBackendSource, null);
+  assert.equal(selected.diagnostics.freshnessStatus, "stale");
+  assert.equal(selected.diagnostics.dataAsOf, "2026-06-24T11:00:00+00:00");
+  assert.equal(selected.diagnostics.lastSuccessfulAt, "2026-06-24T12:00:00+00:00");
 });
 
 test("Decision Signals selector returns stable rows from summary pillars while market is loading", async () => {
@@ -392,7 +486,7 @@ test("set value history fetches directly on every set detail tab", () => {
   const directFetchEnd = source.indexOf('debugSetPagePerf("set_value.direct_fetch_ready"', directFetchStart);
   const directFetchSource = source.slice(directFetchStart, directFetchEnd);
   const directEffectStart = source.lastIndexOf("useEffect(() => {", directFetchStart);
-  const directEffectEnd = source.indexOf("}, [setDetailMode, resolvedSetResourceId]);", directFetchStart);
+  const directEffectEnd = source.indexOf("\n\n  useEffect(() => {", directFetchEnd);
   const directEffectSource = source.slice(directEffectStart, directEffectEnd);
 
   assert.ok(source.includes("getPokemonSetValueHistory"));

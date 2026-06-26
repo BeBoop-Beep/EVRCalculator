@@ -15,9 +15,10 @@ const PILLARS = [
   { key: "stability", title: "Stability" },
 ];
 
-export function selectRipScoreBreakdown(summary = {}, trends = {}) {
+export function selectRipScoreBreakdown(summary = {}, trends = {}, options = {}) {
   const safeSummary = toObject(summary);
   const safeTrends = toObject(trends);
+  const requestTimeout = options?.requestTimeout === true || options?.payload?.meta?.requestTimeout === true;
   const missingFields = [];
   const rows = PILLARS.map((pillar) => {
     const score = toOptionalNumber(safeSummary[`relative_${pillar.key}_score`] ?? safeSummary[`${pillar.key}_score`]);
@@ -31,7 +32,11 @@ export function selectRipScoreBreakdown(summary = {}, trends = {}) {
       scoreTrend: safeTrends[`${pillar.key}Score`] || null,
       rankValue: rank,
       rankTier: tier,
-      rankDiagnostic: rank === null ? "Rank unavailable: source payload lacks rank field." : null,
+      rankDiagnostic: rank === null
+        ? requestTimeout
+          ? "Rank loading: set page snapshot request timed out; retrying."
+          : "Rank unavailable: source payload lacks rank field."
+        : null,
     };
   });
 
@@ -41,8 +46,10 @@ export function selectRipScoreBreakdown(summary = {}, trends = {}) {
     fallbackUsed: false,
     diagnostics: {
       source: "summary",
-      missingFields,
-      fallbackUsed: false,
+      status: requestTimeout ? "loading" : "ready",
+      requestTimeout,
+      missingFields: requestTimeout ? [] : missingFields,
+      fallbackUsed: requestTimeout,
     },
   };
 }

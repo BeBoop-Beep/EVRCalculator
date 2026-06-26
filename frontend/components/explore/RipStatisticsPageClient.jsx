@@ -227,6 +227,40 @@ function getSetSnapshotIdentity(explorePayload) {
   );
 }
 
+function isSetPageRequestTimeoutFallback(explorePayload) {
+  const meta = explorePayload?.meta || {};
+  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout") {
+    return true;
+  }
+  const errors = Array.isArray(meta.errors) ? meta.errors : [];
+  return errors.some((error) => String(error?.code || "").includes("TIMEOUT"));
+}
+
+async function fetchPokemonSetPageSnapshot(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+  const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/page?retry=1`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    const message = payload?.message || payload?.error || `Set page snapshot request failed (${response.status})`;
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}
+
 function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload }) {
   const requestedResourceId = toStableIdentifier(requestedTargetId);
   const selectedResourceId =
@@ -1516,6 +1550,23 @@ function formatLongDate(value) {
     return "Date unavailable";
   }
   return formatHistoryDate(value, { year: "numeric", month: "short", day: "numeric" }) || String(value);
+}
+
+function formatSectionFreshnessInfo(freshness) {
+  if (!freshness || typeof freshness !== "object") {
+    return "";
+  }
+  const details = [];
+  if (freshness.dataAsOf) {
+    details.push(`Data as of ${formatLongDate(freshness.dataAsOf)}`);
+  }
+  if (freshness.lastSuccessfulAt) {
+    details.push(`Last refreshed ${formatLongDate(freshness.lastSuccessfulAt)}`);
+  }
+  if (freshness.status === "stale") {
+    details.push("Showing the last valid snapshot while the latest build is incomplete.");
+  }
+  return details.length > 0 ? ` ${details.join(". ")}.` : "";
 }
 
 function getPriceDeltaPercent(currentValue, previousValue) {
@@ -4427,7 +4478,7 @@ function DecisionSignalRow({ signal, expanded }) {
   );
 }
 
-function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] }) {
+function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [], requestTimeout = false }) {
   const [displayMode, setDisplayMode] = useState("compact");
   const expanded = displayMode === "expanded";
   const backendLensByKey = useMemo(
@@ -4436,13 +4487,16 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] 
   );
 
   const signals = useMemo(() => {
+    if (requestTimeout) {
+      return [];
+    }
     const compactSummaries = {
       "Opening Experience": "Swingy pack feel",
       "Chase Potential": "Rare top-heavy chase",
       "Biggest Upside": "Huge but rare spikes",
       "Expected Value": "Strong Expected Value",
     };
-    const pillarRows = selectDecisionSignals({ pillarSignals, summary }).rows;
+    const pillarRows = requestTimeout ? [] : selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
 
     const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
       const backendLens = backendLensByKey.get(lens.key) || null;
@@ -4479,10 +4533,19 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] 
     }).filter(Boolean);
 
     return [...pillarRows, ...openingRows].filter(Boolean);
-  }, [backendLensByKey, pillarSignals, summary]);
+  }, [backendLensByKey, pillarSignals, requestTimeout, summary]);
 
   if (signals.length === 0) {
-    return null;
+    return requestTimeout ? (
+      <SectionCard
+        title="Decision Signals"
+        titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
+      >
+        <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-4 text-sm text-[var(--text-secondary)]">
+          Decision Signals loading: set page snapshot request timed out; retrying.
+        </div>
+      </SectionCard>
+    ) : null;
   }
 
   return (
@@ -4893,7 +4956,7 @@ function buildDesirabilityValidationPoint(row, metric) {
   };
 }
 
-function DesirabilityValidationCard({ targets }) {
+function DesirabilityValidationCard({ targets, freshness = null }) {
   const [selectedMetricKey, setSelectedMetricKey] = useState("setValue");
   const rows = useMemo(() => (Array.isArray(targets) ? targets : []), [targets]);
   const metricOptions = DESIRABILITY_VALIDATION_METRICS.filter((metric) => {
@@ -4949,6 +5012,7 @@ function DesirabilityValidationCard({ targets }) {
       <SectionCard
         title="Desirability Validation"
         subtitle="Compare set desirability against market and simulation outcomes."
+        titleInfoText={formatSectionFreshnessInfo(freshness).trim() || null}
         bodyClassName="space-y-4"
       >
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -5380,7 +5444,13 @@ function getValidationBucketRowKey(bucket, row, index) {
     .join(":");
 }
 
-function CardDesirabilityMarketValidationCard({ cards, cardAppealMarketPriceCorrelation = null, diagnosticsContext = {} }) {
+function CardDesirabilityMarketValidationCard({
+  cards,
+  cardAppealMarketPriceCorrelation = null,
+  diagnosticsContext = {},
+  freshness = null,
+  snapshotLoading = false,
+}) {
   const [selectedMetricKey, setSelectedMetricKey] = useState("cardAppeal");
   const [selectedScopeKey, setSelectedScopeKey] = useState("hits");
   const rows = useMemo(() => (Array.isArray(cards) ? cards : []), [cards]);
@@ -5461,7 +5531,7 @@ function CardDesirabilityMarketValidationCard({ cards, cardAppealMarketPriceCorr
       : null;
   const cardAppealInfoText = `${CARD_APPEAL_MARKET_PRICE_INFO_TEXT}${
     excludedNonPokemonLabel ? ` ${excludedNonPokemonLabel}` : ""
-  }`;
+  }${formatSectionFreshnessInfo(freshness)}`;
   const sampleSourceLabel =
     canonicalRowsAvailable && selectedScope?.key === "priced"
       ? "canonical cards"
@@ -5620,7 +5690,11 @@ function CardDesirabilityMarketValidationCard({ cards, cardAppealMarketPriceCorr
           </div>
         ) : (
           <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">Not enough card appeal and market price data yet.</p>
+            <p className="text-sm text-[var(--text-secondary)]">
+              {snapshotLoading
+                ? "Card appeal validation loading: set page snapshot request timed out; retrying."
+                : "Not enough card appeal and market price data yet."}
+            </p>
           </div>
         )}
       </SectionCard>
@@ -5765,6 +5839,7 @@ function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostic
   const hasPackTotalEV = totalEV !== null;
   const totalLabel = hasPackTotalEV ? "Simulated Expected Value" : "Top 10 Simulated Value";
   const totalValue = hasPackTotalEV ? totalEV : visibleTopEV;
+  const freshnessInfo = formatSectionFreshnessInfo(diagnostics?.freshness);
 
   if (hits.length === 0) {
     return (
@@ -5786,7 +5861,7 @@ function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostic
       <div className={`${condensed ? "mb-2" : "mb-3"} flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{totalLabel}</span>
-          {totalEV !== null ? <InfoPopover text={SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT} /> : null}
+          {totalEV !== null ? <InfoPopover text={`${SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT}${freshnessInfo}`} /> : null}
         </div>
         <span className="text-lg font-semibold text-[var(--text-primary)]">{formatCurrency(totalValue)}</span>
       </div>
@@ -6387,7 +6462,7 @@ export default function RipStatisticsPageClient({
   selectedTarget,
   requestedTargetType,
   requestedTargetId,
-  explorePayload,
+  explorePayload: initialExplorePayload,
   pageError,
   profileBaseHref = "/Explore/rip-statistics",
   targetHrefById = null,
@@ -6397,6 +6472,13 @@ export default function RipStatisticsPageClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [explorePayload, setExplorePayload] = useState(initialExplorePayload || null);
+  const [setPageSnapshotRefreshState, setSetPageSnapshotRefreshState] = useState({
+    status: "idle",
+    setId: null,
+    error: null,
+  });
+  const timeoutSnapshotRefreshKeyRef = useRef(null);
 
   const rawTargets = targetsPayload?.targets;
   const targets = useMemo(() => (Array.isArray(rawTargets) ? rawTargets : []), [rawTargets]);
@@ -6405,6 +6487,10 @@ export default function RipStatisticsPageClient({
     [requestedTargetId, selectedTarget, explorePayload]
   );
   const summary = explorePayload?.summary || {};
+  const isTimeoutFallbackPayload = setDetailMode && isSetPageRequestTimeoutFallback(explorePayload);
+  const timeoutSnapshotRankTitle = "Snapshot loading; retrying.";
+  const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
+  const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
   const setShellContract = useMemo(
     () => (setDetailMode ? adaptSetShell(explorePayload || {}) : null),
     [explorePayload, setDetailMode]
@@ -6472,6 +6558,9 @@ export default function RipStatisticsPageClient({
     ...(targetsPayload?.meta?.warnings || []),
     ...(explorePayload?.meta?.warnings || []),
     ...(simulationDrivers.diagnostics?.warning ? [simulationDrivers.diagnostics.warning] : []),
+    ...(setPageSnapshotRefreshState.status === "error"
+      ? [`Set page snapshot retry failed: ${setPageSnapshotRefreshState.error}`]
+      : []),
   ];
 
   const selectedName = selectedTarget?.name || requestedTargetId || "Selected Set";
@@ -6528,6 +6617,70 @@ export default function RipStatisticsPageClient({
       ? "outcome-distribution"
       : graphMode;
 
+  useEffect(() => {
+    setExplorePayload(initialExplorePayload || null);
+    setSetPageSnapshotRefreshState({ status: "idle", setId: null, error: null });
+    timeoutSnapshotRefreshKeyRef.current = null;
+  }, [initialExplorePayload, requestedTargetId]);
+
+  useEffect(() => {
+    if (!setDetailMode || !isSetPageRequestTimeoutFallback(explorePayload)) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId || requestedTargetId;
+    if (!setId) {
+      return undefined;
+    }
+
+    const refreshKey = `${requestedTargetId || ""}:${setId}`;
+    if (timeoutSnapshotRefreshKeyRef.current === refreshKey) {
+      return undefined;
+    }
+    timeoutSnapshotRefreshKeyRef.current = refreshKey;
+
+    let isCancelled = false;
+    setSetPageSnapshotRefreshState({ status: "loading", setId, error: null });
+    debugSetPagePerf("set_page.timeout_retry_start", {
+      routeSetId: requestedTargetId,
+      resolvedSetId: setId,
+    });
+
+    fetchPokemonSetPageSnapshot(setId)
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        setExplorePayload(payload || null);
+        setSetPageSnapshotRefreshState({ status: "success", setId, error: null });
+        debugSetPagePerf("set_page.timeout_retry_ready", {
+          routeSetId: requestedTargetId,
+          resolvedSetId: setId,
+          topHits: Array.isArray(payload?.top_hits) ? payload.top_hits.length : 0,
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setSetPageSnapshotRefreshState({
+          status: "error",
+          setId,
+          error: error?.message || "Unable to retry set page snapshot.",
+        });
+        debugSetPagePerf("set_page.timeout_retry_error", {
+          routeSetId: requestedTargetId,
+          resolvedSetId: setId,
+          status: error?.status,
+          error: error?.message || String(error),
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [explorePayload, requestedTargetId, resolvedSetResourceId, setDetailMode]);
+
   const graphSectionMeta =
     activeInsightsGraphMode === "historical-trend"
       ? historicalTrendMeta
@@ -6547,6 +6700,15 @@ export default function RipStatisticsPageClient({
       : interpretation?.outcomeDistribution;
 
   const warmSetDetailResources = useCallback((setId, { includeAdjacent = false, reason = "prefetch" } = {}) => {
+    if (isTimeoutFallbackPayload && reason !== "selection") {
+      debugSetPagePerf("set.prefetch_deferred", {
+        setId,
+        reason,
+        deferredReason: "set_page_timeout_retry",
+      });
+      return;
+    }
+
     const startPrefetch = (targetSetId, prefetchReason) => {
       const resolvedSetId = String(targetSetId || "").trim();
       if (!resolvedSetId) {
@@ -6598,7 +6760,7 @@ export default function RipStatisticsPageClient({
 
     const resolvedSetId = String(setId || "").trim();
     startPrefetch(resolvedSetId, reason);
-    if (!includeAdjacent || !Array.isArray(targets) || targets.length === 0) {
+    if (!includeAdjacent || isTimeoutFallbackPayload || !Array.isArray(targets) || targets.length === 0) {
       return;
     }
     const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);
@@ -6617,7 +6779,7 @@ export default function RipStatisticsPageClient({
     adjacentTargets.forEach((adjacentSetId) => {
       startPrefetch(adjacentSetId, "adjacent");
     });
-  }, [targets]);
+  }, [isTimeoutFallbackPayload, targets]);
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
@@ -7694,8 +7856,8 @@ export default function RipStatisticsPageClient({
   const ripBreakdownInfo =
     "RIP Score combines profit, safety, desirability, and stability into a collector-facing opening score.";
   const ripScoreBreakdown = useMemo(
-    () => selectRipScoreBreakdown(summary, trendByMetricKey),
-    [summary, trendByMetricKey]
+    () => selectRipScoreBreakdown(summary, trendByMetricKey, { requestTimeout: isTimeoutFallbackPayload }),
+    [summary, trendByMetricKey, isTimeoutFallbackPayload]
   );
   const ripBreakdownRowByTitle = new Map(ripScoreBreakdown.rows.map((row) => [row.title, row]));
   const ripPillarTiles = [
@@ -7878,6 +8040,17 @@ export default function RipStatisticsPageClient({
       setChecklistState({ status: "empty", setId: null, cards: [], cardAppealMarketPriceCorrelation: null, error: null });
       return undefined;
     }
+    if (isTimeoutFallbackPayload) {
+      setChecklistState((previous) => ({
+        status: previous.status === "success" && previous.setId === setId ? "success" : "loading",
+        setId,
+        cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
+        cardAppealMarketPriceCorrelation:
+          previous.status === "success" && previous.setId === setId ? previous.cardAppealMarketPriceCorrelation : null,
+        error: null,
+      }));
+      return undefined;
+    }
 
     const shouldRenderChecklist = (setDetailTab === "cards" && cardsSubTab === "checklist") || setDetailTab === "insights";
     const cachedPayload = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId) || null;
@@ -7958,7 +8131,7 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources]);
+  }, [setDetailMode, setDetailTab, cardsSubTab, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources, isTimeoutFallbackPayload]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -7968,6 +8141,14 @@ export default function RipStatisticsPageClient({
     const setId = resolvedSetResourceId;
     if (!setId) {
       setSetValueHistoryState(createSetValueHistoryState({ status: "empty" }));
+      return undefined;
+    }
+    if (isTimeoutFallbackPayload) {
+      setSetValueHistoryState((previous) =>
+        previous?.setId === setId && previous.status === "success"
+          ? previous
+          : createSetValueHistoryState({ status: "loading", setId })
+      );
       return undefined;
     }
 
@@ -8092,7 +8273,7 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, resolvedSetResourceId]);
+  }, [setDetailMode, resolvedSetResourceId, isTimeoutFallbackPayload]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -8103,6 +8284,10 @@ export default function RipStatisticsPageClient({
     const dashboardSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW;
     if (!setId) {
       dispatchMarketDashboard({ type: "reset", status: "empty", sourceWindow: dashboardSourceWindow });
+      return undefined;
+    }
+    if (isTimeoutFallbackPayload) {
+      dispatchMarketDashboard({ type: "loading", setId, sourceWindow: dashboardSourceWindow });
       return undefined;
     }
 
@@ -8182,6 +8367,7 @@ export default function RipStatisticsPageClient({
     setDetailMode,
     setDetailTab,
     resolvedSetResourceId,
+    isTimeoutFallbackPayload,
   ]);
 
   const setDetailSidebarContent = (
@@ -8476,7 +8662,9 @@ export default function RipStatisticsPageClient({
                                 size="supporting"
                                 title={
                                   summary.pack_rank === null || summary.pack_rank === undefined
-                                    ? "Rank unavailable"
+                                    ? isTimeoutFallbackPayload
+                                      ? timeoutSnapshotRankTitle
+                                      : "Rank unavailable"
                                     : `Rank #${summary.pack_rank}`
                                 }
                               />
@@ -8633,6 +8821,7 @@ export default function RipStatisticsPageClient({
                           pillarSignals={overviewPillarSignals}
                           summary={summary}
                           setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                          requestTimeout={isTimeoutFallbackPayload}
                         />
                       </div>
                     </div>
@@ -8845,7 +9034,9 @@ export default function RipStatisticsPageClient({
                           size="hero"
                           title={
                             summary.pack_rank === null || summary.pack_rank === undefined
-                              ? "Rank unavailable"
+                              ? isTimeoutFallbackPayload
+                                ? timeoutSnapshotRankTitle
+                                : "Rank unavailable"
                               : `Rank #${summary.pack_rank}`
                           }
                         />
@@ -8912,7 +9103,7 @@ export default function RipStatisticsPageClient({
                             <SimplePillarSummaryCard
                               title="Profit"
                               rankTier={summary.profit_tier}
-                              infoText={SIMPLE_PILLAR_INFO_COPY.Profit}
+                              infoText={`${SIMPLE_PILLAR_INFO_COPY.Profit}${decisionSignalFreshnessInfo}`}
                               sectionMeta={profitMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]}
                               fallbackSummary={interpretation?.profit}
@@ -8920,7 +9111,7 @@ export default function RipStatisticsPageClient({
                             <SimplePillarSummaryCard
                               title="Safety"
                               rankTier={summary.safety_tier}
-                              infoText={SIMPLE_PILLAR_INFO_COPY.Safety}
+                              infoText={`${SIMPLE_PILLAR_INFO_COPY.Safety}${decisionSignalFreshnessInfo}`}
                               sectionMeta={safetyMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]}
                               fallbackSummary={interpretation?.safety}
@@ -8928,7 +9119,7 @@ export default function RipStatisticsPageClient({
                             <SimplePillarSummaryCard
                               title="Desirability"
                               rankTier={summary.desirability_tier}
-                              infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
+                              infoText={`${SIMPLE_PILLAR_INFO_COPY.Desirability}${decisionSignalFreshnessInfo}`}
                               sectionMeta={desirabilityMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]}
                               fallbackSummary={desirabilitySummary}
@@ -8936,7 +9127,7 @@ export default function RipStatisticsPageClient({
                             <SimplePillarSummaryCard
                               title="Stability"
                               rankTier={summary.stability_tier}
-                              infoText={SIMPLE_PILLAR_INFO_COPY.Stability}
+                              infoText={`${SIMPLE_PILLAR_INFO_COPY.Stability}${decisionSignalFreshnessInfo}`}
                               sectionMeta={stabilityMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]}
                               fallbackSummary={interpretation?.stability}
@@ -9060,12 +9251,12 @@ export default function RipStatisticsPageClient({
                   verdict={recommendationBadge}
                   explanation={recommendationSummary}
                   pillars={ripPillarTiles}
-                  titleInfoText={ripBreakdownInfo}
+                  titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
                   ripDesirabilityComparison={ripDesirabilityComparison}
                 />
 
                 <DesirabilityProofCards validation={desirabilityValidationPayload} />
-                <DesirabilityValidationCard targets={targets} />
+                <DesirabilityValidationCard targets={targets} freshness={sectionFreshness.desirabilityValidation} />
                 <CardDesirabilityMarketValidationCard
                   cards={checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows}
                   cardAppealMarketPriceCorrelation={
@@ -9076,6 +9267,8 @@ export default function RipStatisticsPageClient({
                     setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
                     selectedTab: setDetailTab,
                   }}
+                  freshness={sectionFreshness.cardAppealValidation}
+                  snapshotLoading={isTimeoutFallbackPayload}
                 />
 
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">

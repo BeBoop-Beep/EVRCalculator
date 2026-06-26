@@ -18,7 +18,10 @@ function readPositiveIntegerEnv(name, fallback) {
 const SUCCESS_TTL_MS = 120_000; // 120s
 const NOT_FOUND_TTL_MS = 10_000; // 10s
 const STALE_TTL_MS = readPositiveIntegerEnv("EXPLORE_PAGE_STALE_TTL_MS", 3_600_000);
-const SET_PAGE_FETCH_TIMEOUT_MS = readPositiveIntegerEnv("EXPLORE_PAGE_SET_FETCH_TIMEOUT_MS", 3_000);
+const SET_PAGE_FETCH_TIMEOUT_MS = readPositiveIntegerEnv(
+  "POKEMON_SET_PAGE_FETCH_TIMEOUT_MS",
+  readPositiveIntegerEnv("EXPLORE_PAGE_SET_FETCH_TIMEOUT_MS", 8_000)
+);
 const EXPLORE_PAGE_FETCH_TIMEOUT_MS = readPositiveIntegerEnv("EXPLORE_PAGE_FETCH_TIMEOUT_MS", 10_000);
 const DEFAULT_DISTRIBUTION_BINS = 50;
 const MAX_DISTRIBUTION_BINS = 200;

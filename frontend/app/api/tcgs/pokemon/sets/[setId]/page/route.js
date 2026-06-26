@@ -3,9 +3,11 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   const resolvedParams = (await params) || {};
   const setId = String(resolvedParams?.setId || "").trim();
+  const url = new URL(request.url);
+  const isRetry = url.searchParams.get("retry") === "1";
 
   if (!setId) {
     return NextResponse.json(
@@ -21,7 +23,7 @@ export async function GET(_request, { params }) {
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",
     headers: { Accept: "application/json" },
-    next: { revalidate: 300 },
+    ...(isRetry ? { cache: "no-store" } : { next: { revalidate: 300 } }),
   });
 
   const payload = await proxyResponse.text();
@@ -31,8 +33,7 @@ export async function GET(_request, { params }) {
     status: proxyResponse.status,
     headers: {
       "content-type": contentType,
-      "Cache-Control": PUBLIC_ANALYTICS_CACHE_CONTROL,
+      "Cache-Control": isRetry ? "no-store" : PUBLIC_ANALYTICS_CACHE_CONTROL,
     },
   });
 }
-

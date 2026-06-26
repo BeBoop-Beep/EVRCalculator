@@ -18,6 +18,7 @@ const PILLAR_ROWS = [
 
 export function selectDecisionSignals(input = {}) {
   const safeInput = input && typeof input === "object" ? input : {};
+  const requestTimeout = safeInput.requestTimeout === true || safeInput.payload?.meta?.requestTimeout === true;
   const pillarSignals = Array.isArray(safeInput.pillarSignals) ? safeInput.pillarSignals : [];
   const signalByTitle = new Map(
     pillarSignals.filter(Boolean).map((signal) => [signal.title, signal])
@@ -43,11 +44,17 @@ export function selectDecisionSignals(input = {}) {
   return {
     rows,
     sourceUsed: "summary+pillarSignals",
-    fallbackUsed: false,
+    fallbackUsed: requestTimeout,
     diagnostics: {
       source: "summary+pillarSignals",
-      missingFields,
-      fallbackUsed: false,
+      status: requestTimeout && rows.length === 0 ? "loading" : rows.length > 0 ? "ready" : "unavailable",
+      requestTimeout,
+      missingFields: requestTimeout ? [] : missingFields,
+      fallbackUsed: requestTimeout,
+      warning:
+        requestTimeout && rows.length === 0
+          ? "Decision Signals loading: set page snapshot request timed out; retrying."
+          : null,
     },
   };
 }

@@ -563,6 +563,294 @@ def _load_cards_snapshot_payload(client: Any, set_id: str) -> Optional[Dict[str,
     return payload if isinstance(payload, dict) else None
 
 
+def _load_existing_set_page_snapshot_row(client: Any, set_id: str) -> Optional[Dict[str, Any]]:
+    return _first_row(
+        client,
+        "pokemon_set_page_snapshot_latest",
+        lambda query: query.select("set_id,payload_json,updated_at,source_updated_at,as_of").eq("set_id", set_id),
+    )
+
+
+def _valid_list_section(payload: Dict[str, Any], *keys: str) -> bool:
+    return any(isinstance(payload.get(key), list) and len(payload.get(key) or []) > 0 for key in keys)
+
+
+def _valid_dict_section(payload: Dict[str, Any], *keys: str) -> bool:
+    return any(isinstance(payload.get(key), dict) and len(payload.get(key) or {}) > 0 for key in keys)
+
+
+def _rank_context_from_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    set_payload = payload.get("set") if isinstance(payload.get("set"), dict) else {}
+    rank_context: Dict[str, Any] = {}
+    for key in RANK_CONTEXT_FIELDS:
+        value = summary.get(key)
+        if value is None:
+            value = set_payload.get(key)
+        if value is not None:
+            rank_context[key] = value
+    return rank_context
+
+
+def _snapshot_built_at(payload: Dict[str, Any]) -> Optional[str]:
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    snapshot = meta.get("snapshot") if isinstance(meta.get("snapshot"), dict) else {}
+    return first_non_empty(snapshot.get("builtAt"), snapshot.get("built_at"))
+
+
+def _section_data_as_of(payload: Dict[str, Any], row: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    return first_non_empty(
+        summary.get("run_at"),
+        summary.get("as_of"),
+        meta.get("asOfDate"),
+        meta.get("as_of_date"),
+        (row or {}).get("source_updated_at"),
+        (row or {}).get("as_of"),
+        _snapshot_built_at(payload),
+        (row or {}).get("updated_at"),
+    )
+
+
+def _existing_section_freshness(payload: Dict[str, Any], section_key: str) -> Dict[str, Any]:
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    freshness = meta.get("sectionFreshness") if isinstance(meta.get("sectionFreshness"), dict) else {}
+    section = freshness.get(section_key)
+    return dict(section) if isinstance(section, dict) else {}
+
+
+def _section_source(payload: Dict[str, Any], *, fallback: str, source_keys: Iterable[str] = ()) -> str:
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    sources = meta.get("sources") if isinstance(meta.get("sources"), dict) else {}
+    run_id = _snapshot_payload_run_id(payload)
+    source = first_non_empty(
+        *[
+            candidate
+            for candidate in tuple(sources.get(key) for key in source_keys) + (fallback,)
+            if str(candidate or "").upper() not in {"OK", "FAILED", "NO_ROWS", "MISSING", "UNAVAILABLE_FALLBACK"}
+        ]
+    )
+    return f"{source}/{run_id}" if run_id and source else (source or fallback)
+
+
+def _fresh_section_status(
+    payload: Dict[str, Any],
+    *,
+    section_key: str,
+    built_at: str,
+    source: str,
+    row: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    return {
+        "status": "fresh",
+        "dataAsOf": _section_data_as_of(payload, row) or built_at,
+        "lastSuccessfulAt": built_at,
+        "attemptedAt": built_at,
+        "source": source,
+    }
+
+
+def _stale_section_status(
+    old_payload: Dict[str, Any],
+    *,
+    section_key: str,
+    attempted_at: str,
+    source: str,
+    reason: str,
+    old_row: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    previous = _existing_section_freshness(old_payload, section_key)
+    data_as_of = first_non_empty(previous.get("dataAsOf"), _section_data_as_of(old_payload, old_row))
+    last_successful_at = first_non_empty(previous.get("lastSuccessfulAt"), _snapshot_built_at(old_payload), (old_row or {}).get("updated_at"))
+    previous_source = first_non_empty(previous.get("source"), source)
+    return {
+        "status": "stale",
+        "dataAsOf": data_as_of,
+        "lastSuccessfulAt": last_successful_at,
+        "attemptedAt": attempted_at,
+        "source": previous_source or source,
+        "reason": reason,
+    }
+
+
+def _missing_section_status(*, built_at: str, source: str, reason: str) -> Dict[str, Any]:
+    return {
+        "status": "missing",
+        "dataAsOf": None,
+        "lastSuccessfulAt": None,
+        "attemptedAt": built_at,
+        "source": source,
+        "reason": reason,
+    }
+
+
+def _merge_last_known_good_snapshot_sections(
+    payload: Dict[str, Any],
+    *,
+    existing_row: Optional[Dict[str, Any]],
+    built_at: str,
+) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return payload
+
+    old_payload = (existing_row or {}).get("payload_json")
+    if not isinstance(old_payload, dict):
+        old_payload = {}
+
+    next_payload = dict(payload)
+    meta = dict(next_payload.get("meta") or {})
+    section_freshness = dict(meta.get("sectionFreshness") or {})
+
+    new_top_hits_valid = _valid_list_section(next_payload, "top_hits", "topHits")
+    old_top_hits_valid = _valid_list_section(old_payload, "top_hits", "topHits")
+    simulation_source = _section_source(
+        next_payload,
+        fallback="simulation_input_cards",
+        source_keys=("simulation_input_cards_snapshot_completion",),
+    )
+    if new_top_hits_valid:
+        section_freshness["simulationDrivers"] = _fresh_section_status(
+            next_payload,
+            section_key="simulationDrivers",
+            built_at=built_at,
+            source=simulation_source,
+        )
+    elif old_top_hits_valid:
+        old_hits = old_payload.get("top_hits") if isinstance(old_payload.get("top_hits"), list) else old_payload.get("topHits")
+        next_payload["top_hits"] = list(old_hits or [])
+        section_freshness["simulationDrivers"] = _stale_section_status(
+            old_payload,
+            section_key="simulationDrivers",
+            attempted_at=built_at,
+            source=_section_source(
+                old_payload,
+                fallback="simulation_input_cards",
+                source_keys=("simulation_input_cards_snapshot_completion",),
+            ),
+            reason="current snapshot build did not include valid top_hits",
+            old_row=existing_row,
+        )
+    else:
+        section_freshness["simulationDrivers"] = _missing_section_status(
+            built_at=built_at,
+            source=simulation_source,
+            reason="no valid top_hits have been captured yet",
+        )
+
+    new_rank_context = _rank_context_from_payload(next_payload)
+    old_rank_context = _rank_context_from_payload(old_payload)
+    current_summary = next_payload.get("summary") if isinstance(next_payload.get("summary"), dict) else {}
+    current_set_payload = next_payload.get("set") if isinstance(next_payload.get("set"), dict) else {}
+    missing_rank_keys = [key for key in RANK_CONTEXT_FIELDS if current_summary.get(key) is None and current_set_payload.get(key) is None]
+    copied_rank_context = {key: old_rank_context[key] for key in missing_rank_keys if key in old_rank_context}
+    if copied_rank_context:
+        summary = dict(next_payload.get("summary") or {})
+        set_payload = dict(next_payload.get("set") or {})
+        for key, value in copied_rank_context.items():
+            if summary.get(key) is None:
+                summary[key] = value
+            if set_payload.get(key) is None:
+                set_payload[key] = value
+        next_payload["summary"] = summary
+        next_payload["set"] = set_payload
+        section_freshness["decisionSignalRanks"] = _stale_section_status(
+            old_payload,
+            section_key="decisionSignalRanks",
+            attempted_at=built_at,
+            source=_section_source(old_payload, fallback="pokemon_explore_rankings_snapshot_latest"),
+            reason="current snapshot build did not include complete rank fields",
+            old_row=existing_row,
+        )
+    elif new_rank_context:
+        section_freshness["decisionSignalRanks"] = _fresh_section_status(
+            next_payload,
+            section_key="decisionSignalRanks",
+            built_at=built_at,
+            source=_section_source(next_payload, fallback="pokemon_explore_rankings_snapshot_latest"),
+        )
+    else:
+        section_freshness["decisionSignalRanks"] = _missing_section_status(
+            built_at=built_at,
+            source=_section_source(next_payload, fallback="pokemon_explore_rankings_snapshot_latest"),
+            reason="no valid rank fields have been captured yet",
+        )
+
+    new_card_appeal_valid = _valid_dict_section(next_payload, "cardAppealMarketPriceCorrelation", "card_appeal_market_price_correlation")
+    old_card_appeal_valid = _valid_dict_section(old_payload, "cardAppealMarketPriceCorrelation", "card_appeal_market_price_correlation")
+    card_appeal_source = _section_source(
+        next_payload,
+        fallback="pokemon_set_cards_snapshot_latest",
+        source_keys=("card_appeal_validation_snapshot",),
+    )
+    if new_card_appeal_valid:
+        section_freshness["cardAppealValidation"] = _fresh_section_status(
+            next_payload,
+            section_key="cardAppealValidation",
+            built_at=built_at,
+            source=card_appeal_source,
+        )
+    elif old_card_appeal_valid:
+        correlation = old_payload.get("cardAppealMarketPriceCorrelation") or old_payload.get("card_appeal_market_price_correlation")
+        next_payload["cardAppealMarketPriceCorrelation"] = correlation
+        next_payload["card_appeal_market_price_correlation"] = correlation
+        old_card_validation = old_payload.get("cardDesirabilityValidation") or old_payload.get("card_desirability_validation")
+        if isinstance(old_card_validation, dict):
+            next_payload["cardDesirabilityValidation"] = old_card_validation
+            next_payload["card_desirability_validation"] = old_card_validation
+        section_freshness["cardAppealValidation"] = _stale_section_status(
+            old_payload,
+            section_key="cardAppealValidation",
+            attempted_at=built_at,
+            source=_section_source(
+                old_payload,
+                fallback="pokemon_set_cards_snapshot_latest",
+                source_keys=("card_appeal_validation_snapshot",),
+            ),
+            reason="current snapshot build did not include card appeal market-price validation",
+            old_row=existing_row,
+        )
+    else:
+        section_freshness["cardAppealValidation"] = _missing_section_status(
+            built_at=built_at,
+            source=card_appeal_source,
+            reason="no valid card appeal market-price validation has been captured yet",
+        )
+
+    new_desirability_valid = _valid_dict_section(next_payload, "desirabilityValidation", "desirability_validation")
+    old_desirability_valid = _valid_dict_section(old_payload, "desirabilityValidation", "desirability_validation")
+    desirability_source = _section_source(next_payload, fallback="pokemon_explore_rankings_snapshot_latest")
+    if new_desirability_valid:
+        section_freshness["desirabilityValidation"] = _fresh_section_status(
+            next_payload,
+            section_key="desirabilityValidation",
+            built_at=built_at,
+            source=desirability_source,
+        )
+    elif old_desirability_valid:
+        validation = old_payload.get("desirabilityValidation") or old_payload.get("desirability_validation")
+        next_payload["desirabilityValidation"] = validation
+        next_payload["desirability_validation"] = validation
+        section_freshness["desirabilityValidation"] = _stale_section_status(
+            old_payload,
+            section_key="desirabilityValidation",
+            attempted_at=built_at,
+            source=_section_source(old_payload, fallback="pokemon_explore_rankings_snapshot_latest"),
+            reason="current snapshot build did not include desirability validation",
+            old_row=existing_row,
+        )
+    else:
+        section_freshness["desirabilityValidation"] = _missing_section_status(
+            built_at=built_at,
+            source=desirability_source,
+            reason="no valid desirability validation has been captured yet",
+        )
+
+    meta["sectionFreshness"] = section_freshness
+    next_payload["meta"] = meta
+    return next_payload
+
+
 def _merge_card_appeal_snapshot_payload(
     payload: Dict[str, Any],
     *,
@@ -725,6 +1013,8 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_page", built_at=built_at)
+    existing_row = _load_existing_set_page_snapshot_row(client, set_id) if client is not None else None
+    payload = _merge_last_known_good_snapshot_sections(payload, existing_row=existing_row, built_at=built_at)
     payload = _finalize_snapshot_completeness(payload, set_id=set_id, client=client, built_at=built_at)
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 

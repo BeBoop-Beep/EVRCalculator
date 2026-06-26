@@ -1,4 +1,5 @@
 const DEFAULT_SET_PAGE_WARNING = "Set page backend payload unavailable; rendered fallback shell.";
+const TIMEOUT_SET_PAGE_WARNING = "Set page snapshot request timed out; retrying.";
 const STALE_SET_PAGE_WARNING = "Using stale set page payload because backend refresh failed.";
 const BODY_PREVIEW_LIMIT = 500;
 
@@ -56,6 +57,15 @@ export function normalisePayload(payload) {
   };
 }
 
+export function isSetPageRequestTimeoutPayload(payload) {
+  const meta = payload?.meta || {};
+  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout") {
+    return true;
+  }
+  const errors = Array.isArray(meta.errors) ? meta.errors : [];
+  return errors.some((error) => String(error?.code || "").includes("TIMEOUT"));
+}
+
 function getFallbackSummary({ targetId, fallbackTarget }) {
   const target = fallbackTarget && typeof fallbackTarget === "object" ? fallbackTarget : {};
   const targetSummary = target.summary && typeof target.summary === "object" ? target.summary : {};
@@ -104,7 +114,15 @@ export function buildFallbackSetPagePayload({
   bodyPreview = null,
   code = "SET_PAGE_PAYLOAD_UNAVAILABLE",
   message = null,
+  requestTimeout = false,
 } = {}) {
+  const fallbackReason = requestTimeout
+    ? "request_timeout"
+    : status === 404 || code === "SET_PAGE_PAYLOAD_NOT_FOUND"
+    ? "snapshot_missing"
+    : code === "SET_PAGE_PAYLOAD_BACKEND_ERROR"
+    ? "backend_error"
+    : "local_fallback_shell";
   return normalisePayload({
     summary: getFallbackSummary({ targetId, fallbackTarget }),
     rankings: [],
@@ -118,7 +136,7 @@ export function buildFallbackSetPagePayload({
     pull_rate_assumptions: null,
     interpretation: {},
     meta: {
-      warnings: [DEFAULT_SET_PAGE_WARNING],
+      warnings: [requestTimeout ? TIMEOUT_SET_PAGE_WARNING : DEFAULT_SET_PAGE_WARNING],
       errors: [
         getRecoverableError({
           code,
@@ -130,9 +148,11 @@ export function buildFallbackSetPagePayload({
         }),
       ],
       fallback: true,
+      fallbackReason,
+      requestTimeout: Boolean(requestTimeout),
       stale: false,
       sources: {
-        setPage: "fallback",
+        setPage: requestTimeout ? "timeout_fallback" : "fallback",
       },
     },
   });
@@ -145,11 +165,12 @@ export function withStaleSetPageDiagnostics(
   const normalised = normalisePayload(payload);
   const meta = normalised.meta && typeof normalised.meta === "object" ? { ...normalised.meta } : {};
   const sources = meta.sources && typeof meta.sources === "object" ? { ...meta.sources } : {};
+  const requestTimeout = code === "SET_PAGE_PAYLOAD_TIMEOUT" || isSetPageRequestTimeoutPayload({ meta });
   return {
     ...normalised,
     meta: {
       ...meta,
-      warnings: appendUnique(meta.warnings, STALE_SET_PAGE_WARNING),
+      warnings: appendUnique(meta.warnings, requestTimeout ? TIMEOUT_SET_PAGE_WARNING : STALE_SET_PAGE_WARNING),
       errors: [
         ...(Array.isArray(meta.errors) ? meta.errors : []),
         getRecoverableError({
@@ -162,6 +183,8 @@ export function withStaleSetPageDiagnostics(
         }),
       ],
       stale: true,
+      requestTimeout: requestTimeout || meta.requestTimeout === true,
+      fallbackReason: requestTimeout ? "request_timeout" : meta.fallbackReason,
       sources: {
         ...sources,
         setPage: "stale_cache",
@@ -205,6 +228,7 @@ export function getRecoverableExplorePayload({
     bodyPreview,
     code: code || "SET_PAGE_PAYLOAD_UNAVAILABLE",
     message,
+    requestTimeout: code === "SET_PAGE_PAYLOAD_TIMEOUT",
   });
 }
 

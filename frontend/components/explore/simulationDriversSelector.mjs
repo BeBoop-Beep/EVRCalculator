@@ -18,6 +18,20 @@ function firstArray(payload, paths) {
   return { rows: [], source: null };
 }
 
+function freshnessFor(payload, sectionKey) {
+  const freshness = payload?.meta?.sectionFreshness?.[sectionKey];
+  return freshness && typeof freshness === "object" ? freshness : null;
+}
+
+function isRequestTimeoutFallback(payload) {
+  const meta = payload?.meta || {};
+  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout") {
+    return true;
+  }
+  const errors = Array.isArray(meta.errors) ? meta.errors : [];
+  return errors.some((error) => String(error?.code || "").includes("TIMEOUT"));
+}
+
 export function selectSimulationDrivers(payload = {}) {
   const { rows: rawRows, source } = firstArray(payload, [
     ["top_hits"],
@@ -48,16 +62,19 @@ export function selectSimulationDrivers(payload = {}) {
 
   const sources = payload?.meta?.sources || {};
   const warnings = asArray(payload?.meta?.warnings);
+  const freshness = freshnessFor(payload, "simulationDrivers");
+  const requestTimeout = isRequestTimeoutFallback(payload);
   const fallbackUsed =
     sources.explore_rip_statistics_latest &&
     sources.explore_rip_statistics_latest !== "OK" &&
     sources.simulation_latest_by_target === "OK";
-  const missingBackendSource =
+  const backendSourceFailure =
     sources.simulation_input_cards === "FAILED"
       ? "simulation_input_cards"
       : sources.simulation_input_cards === "NO_ROWS"
       ? "simulation_input_cards"
       : null;
+  const missingBackendSource = rows.length === 0 && !requestTimeout ? backendSourceFailure : null;
 
   return {
     rows,
@@ -66,12 +83,21 @@ export function selectSimulationDrivers(payload = {}) {
     diagnostics: {
       source,
       rowCount: rows.length,
-      missingFields: rows.length === 0 ? ["top_hits"] : [],
+      freshness,
+      freshnessStatus: freshness?.status || null,
+      status: requestTimeout && rows.length === 0 ? "loading" : rows.length > 0 ? "ready" : "unavailable",
+      requestTimeout,
+      dataAsOf: freshness?.dataAsOf || null,
+      lastSuccessfulAt: freshness?.lastSuccessfulAt || null,
+      attemptedAt: freshness?.attemptedAt || null,
+      missingFields: rows.length === 0 && !requestTimeout ? ["top_hits"] : [],
       sources,
       fallbackUsed: Boolean(fallbackUsed),
       missingBackendSource,
       warning:
-        rows.length === 0
+        requestTimeout && rows.length === 0
+          ? "Simulation Drivers loading: set page snapshot request timed out; retrying."
+          : rows.length === 0
           ? missingBackendSource
             ? `Simulation Drivers unavailable: backend source ${missingBackendSource} is ${sources[missingBackendSource]}.`
             : warnings.find((warning) => String(warning).toLowerCase().includes("top hits")) ||

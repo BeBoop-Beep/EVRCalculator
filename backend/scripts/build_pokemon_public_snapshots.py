@@ -31,16 +31,8 @@ def main() -> None:
     mode_flag = "--commit" if args.commit else "--dry-run"
 
     _run_step(
-        "explore rankings",
-        ["backend/scripts/build_pokemon_explore_rankings_snapshot.py", "--all", mode_flag],
-    )
-    _run_step(
         "set cards",
         ["backend/scripts/build_pokemon_set_cards_snapshots.py", "--all", mode_flag],
-    )
-    _run_step(
-        "set pages",
-        ["backend/scripts/build_pokemon_set_page_snapshots.py", "--all", mode_flag],
     )
     _run_step(
         "market dashboards",
@@ -53,6 +45,14 @@ def main() -> None:
             "--window",
             args.window,
         ],
+    )
+    _run_step(
+        "explore rankings",
+        ["backend/scripts/build_pokemon_explore_rankings_snapshot.py", "--all", mode_flag],
+    )
+    _run_step(
+        "set pages",
+        ["backend/scripts/build_pokemon_set_page_snapshots.py", "--all", mode_flag],
     )
     _run_step(
         "desirability validation",
