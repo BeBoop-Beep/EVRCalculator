@@ -1016,3 +1016,55 @@ def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapsh
     assert completeness["simulation_input_cards_row_count"] == 1
     assert completeness["simulation_input_cards_with_near_mint_price_row_count"] == 1
     assert completeness["top_hits_included_count"] == 1
+
+
+def test_build_set_page_snapshot_row_suppresses_user_rankings_stale_warning_when_ranks_present(monkeypatch):
+    monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {
+                "calculation_run_id": "run-1",
+                "pack_score": 80,
+                "mean_value": 5,
+                "pack_rank": 7,
+                "profit_rank": 12,
+                "safety_rank": 9,
+                "desirability_rank": 4,
+                "stability_rank": 15,
+            },
+            "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+            "meta": {
+                "sources": {"simulation_input_cards": "OK"},
+                "warnings": [],
+                "sectionFreshness": {
+                    "decisionSignalRanks": {"status": "fresh"},
+                },
+            },
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _Client(
+        {
+            "pokemon_set_cards_snapshot_latest": lambda _query: [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [
+                {"updated_at": "2026-06-22T12:00:00+00:00"}
+            ],
+            "explore_rip_statistics_latest": lambda _query: [
+                {"set_id": "set-1", "calculation_run_id": "run-1", "run_at": "2026-06-25T11:00:00+00:00"}
+            ],
+            "simulation_latest_by_target": lambda _query: [
+                {"calculation_run_id": "run-1", "run_at": "2026-06-25T10:00:00+00:00"}
+            ],
+            "simulation_input_cards": lambda _query: [{"id": "sic-1"}],
+            "simulation_input_cards_with_near_mint_price": lambda _query: [{"id": "sic-nm-1"}],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+    payload = row["payload_json"]
+
+    assert "rankings snapshot is stale relative to set page snapshot" not in payload["meta"]["warnings"]
+    assert "rankings snapshot is stale relative to set page snapshot" in payload["meta"]["debugWarnings"]

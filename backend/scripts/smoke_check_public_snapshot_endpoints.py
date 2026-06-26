@@ -47,6 +47,24 @@ def _payload_key_counts(payload: Optional[Dict[str, Any]]) -> Dict[str, int]:
     }
 
 
+def _get_correlation(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    return (
+        payload.get("cardAppealMarketPriceCorrelation")
+        or payload.get("card_appeal_market_price_correlation")
+        or {}
+    )
+
+
+def _history_count(payload: Optional[Dict[str, Any]], scope: str = "standard") -> int:
+    if not isinstance(payload, dict):
+        return 0
+    by_scope = payload.get("setValueHistoriesByScope") or payload.get("set_value_histories_by_scope") or {}
+    history = by_scope.get(scope)
+    return len(history or []) if isinstance(history, list) else 0
+
+
 def _print_result(label: str, status: int, elapsed_ms: float, payload: Optional[Dict[str, Any]]) -> None:
     counts = _payload_key_counts(payload)
     print(
@@ -104,6 +122,14 @@ def main() -> None:
         failures.append("set_page missing summary")
     if db_has_top_hits and not (isinstance(payload, dict) and (payload.get("top_hits") or [])):
         failures.append("set_page missing top_hits while DB snapshot has top_hits")
+    if isinstance(payload, dict) and len(payload.get("top_hits") or []) <= 0:
+        failures.append("set_page top_hits count is zero")
+    correlation = _get_correlation(payload)
+    correlation_n = correlation.get("n")
+    if not isinstance(correlation_n, (int, float)) or correlation_n <= 0:
+        failures.append("set_page cardAppealMarketPriceCorrelation.n is missing or zero")
+    if _history_count(payload, "standard") <= 0:
+        failures.append("set_page standard set value history is missing")
 
     status, elapsed_ms, payload, body = _get_json(targets_url)
     _print_result("targets", status, elapsed_ms, payload)
@@ -114,6 +140,8 @@ def main() -> None:
     _print_result("cards", status, elapsed_ms, payload)
     if status in (500, 504):
         failures.append(f"cards status={status}")
+    if not isinstance(payload, dict) or len(payload.get("cards") or []) <= 0:
+        failures.append("cards endpoint returned zero cards")
 
     status, elapsed_ms, payload, body = _get_json(dashboard_url)
     _print_result("market_dashboard", status, elapsed_ms, payload)
@@ -121,6 +149,18 @@ def main() -> None:
         failures.append(f"market_dashboard status={status}")
     if elapsed_ms > 5000:
         failures.append(f"market_dashboard slow elapsedMs={round(elapsed_ms, 2)}")
+    if _history_count(payload, "standard") <= 0:
+        failures.append("market_dashboard standard history count is zero")
+
+    if isinstance(payload, dict):
+        top_cards = payload.get("topChaseCards") or payload.get("top_chase_cards") or []
+        if not isinstance(top_cards, list):
+            failures.append("market_dashboard top chase cards payload malformed")
+
+    if isinstance(payload, dict) and isinstance(correlation, dict):
+        plotted_count = correlation.get("plottedCount") or correlation.get("plotted_count")
+        if isinstance(plotted_count, (int, float)) and plotted_count <= 0:
+            failures.append("set_page cardAppealMarketPriceCorrelation plotted count is zero")
 
     if failures:
         print("smoke_check_public_snapshot_endpoints: FAILED")

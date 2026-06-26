@@ -1238,7 +1238,7 @@ def test_set_page_snapshot_missing_top_hits_skips_live_repair(monkeypatch):
 
     assert payload["top_hits"] == []
     assert payload["meta"]["simulationDriversRepairSkipped"]["policy"] == "no_live_assembly_during_route_render"
-    assert "skipped live repair during route render" in payload["meta"]["warnings"][0]
+    assert any("skipped live repair during route render" in warning for warning in payload["meta"]["debugWarnings"])
 
 
 def test_set_page_snapshot_read_warns_when_rankings_snapshot_is_stale(monkeypatch):

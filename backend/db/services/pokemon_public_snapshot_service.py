@@ -1117,13 +1117,16 @@ def _mark_missing_simulation_drivers_without_live_repair(payload: Dict[str, Any]
         for warning in list(meta.get("warnings") or [])
         if "top hits" not in str(warning).lower() and "simulation drivers unavailable" not in str(warning).lower()
     ]
-    merged_warnings.append(
+    debug_warnings = list(meta.get("debugWarnings") or meta.get("debug_warnings") or [])
+    debug_warnings.append(
         "Simulation Drivers are unavailable in this set page snapshot; skipped live repair during route render."
     )
     merged_sources = dict(sources)
     merged_sources["simulation_input_cards"] = sources.get("simulation_input_cards") or "MISSING"
     merged_meta["sources"] = merged_sources
     merged_meta["warnings"] = merged_warnings
+    merged_meta["debugWarnings"] = debug_warnings
+    merged_meta["debug_warnings"] = debug_warnings
     merged_meta["simulationDriversRepairSkipped"] = {
         "source": "pokemon_set_page_snapshot_latest",
         "reason": f"snapshot simulation_input_cards={sources.get('simulation_input_cards')}",

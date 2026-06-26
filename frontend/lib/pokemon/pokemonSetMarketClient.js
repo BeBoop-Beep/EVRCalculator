@@ -30,9 +30,12 @@ function getMarketDashboardCacheKey(setId, { window = DEFAULT_MARKET_DASHBOARD_W
   return `pokemon-market-dashboard:${String(setId || "").trim()}:window=${normalizeMarketDashboardWindow(window)}:days=${days || ""}`;
 }
 
-function readMarketDashboardCache(cacheKey) {
+function readMarketDashboardCache(cacheKey, { allowStale = false } = {}) {
   const cached = marketDashboardCache.get(cacheKey);
-  if (!cached || cached.expiresAt <= nowMs()) {
+  if (!cached) {
+    return null;
+  }
+  if (!allowStale && cached.expiresAt <= nowMs()) {
     if (cached) {
       marketDashboardCache.delete(cacheKey);
     }
@@ -534,6 +537,7 @@ export async function getPokemonSetMarketDashboard(setId, { window = DEFAULT_MAR
     const url = `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/dashboard${
       params.toString() ? `?${params}` : ""
     }`;
+    const staleCached = readMarketDashboardCache(cacheKey, { allowStale: true });
     let normalized = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
@@ -546,6 +550,16 @@ export async function getPokemonSetMarketDashboard(setId, { window = DEFAULT_MAR
         break;
       } catch (error) {
         if (attempt > 0 || !isRetryableSnapshotError(error)) {
+          if (staleCached) {
+            debugTiming("market_dashboard.fetch_stale_cache_fallback", {
+              setId: resolvedSetId,
+              window: normalizedWindow,
+              days,
+              status: error?.status,
+              error: error?.message || String(error),
+            });
+            return staleCached;
+          }
           throw error;
         }
         debugTiming("market_dashboard.fetch_retry", {

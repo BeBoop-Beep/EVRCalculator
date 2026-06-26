@@ -24,7 +24,11 @@ import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
-import { getCardAppealSampleDiagnostics } from "./cardAppealSampleDiagnostics.mjs";
+import {
+  getCardAppealSampleDiagnostics,
+  hasUsableCardAppealCorrelation,
+  resolvePreferredCardAppealCorrelation,
+} from "./cardAppealSampleDiagnostics.mjs";
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
@@ -75,7 +79,11 @@ import {
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
 import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
-import { adaptSetShell } from "@/lib/pokemon/set-page/setPageAdapters.mjs";
+import {
+  adaptSetShell,
+  adaptMarketDashboardFromSources,
+  adaptSetValueHistoriesFromSources,
+} from "@/lib/pokemon/set-page/setPageAdapters.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -365,6 +373,63 @@ function createSetValueHistoryState({
     meta: meta || null,
     error: error || null,
   };
+}
+
+function extractSnapshotCardsFromExplorePayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+  if (Array.isArray(payload.cards)) {
+    return payload.cards;
+  }
+  if (Array.isArray(payload?.cardsSnapshot?.cards)) {
+    return payload.cardsSnapshot.cards;
+  }
+  if (Array.isArray(payload?.cards_snapshot?.cards)) {
+    return payload.cards_snapshot.cards;
+  }
+  return [];
+}
+
+function hasCompleteSetValueScopes(historiesByScope = {}) {
+  return SET_VALUE_SCOPE_OPTIONS.every((scope) => Array.isArray(historiesByScope?.[scope.key]) && historiesByScope[scope.key].length > 0);
+}
+
+function hasAnySetValueHistory(historiesByScope = {}) {
+  return Object.values(historiesByScope || {}).some((history) => Array.isArray(history) && history.length > 0);
+}
+
+function isExplicitNoCardsPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+  const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+  if (cards.length > 0) {
+    return false;
+  }
+  const snapshotCardCount = toNumber(payload?.meta?.snapshot?.cardCount ?? payload?.meta?.snapshot?.card_count);
+  if (snapshotCardCount === 0) {
+    return true;
+  }
+  const source = String(payload?.meta?.sources?.cards || "").toLowerCase();
+  return source === "pokemon_canonical_cards";
+}
+
+function shouldSuppressSetPageWarning(warning, { hasTopHits, hasDecisionRanks }) {
+  const text = String(warning || "").toLowerCase();
+  if (!text) {
+    return true;
+  }
+  if (hasTopHits && (text.includes("top hits") || text.includes("simulation drivers unavailable") || text.includes("simulation_input_cards_with_near_mint_price"))) {
+    return true;
+  }
+  if (hasDecisionRanks && text.includes("rankings snapshot is stale relative to set page snapshot")) {
+    return true;
+  }
+  if (text.includes("skipped live repair during route render")) {
+    return true;
+  }
+  return false;
 }
 
 const RIP_COPY = {
@@ -5302,6 +5367,8 @@ function getCanonicalCardAppealRows(correlation, selectedMetric) {
   }
   const rows = Array.isArray(correlation?.plotRows)
     ? correlation.plotRows
+    : Array.isArray(correlation?.plot_rows)
+    ? correlation.plot_rows
     : Array.isArray(correlation?.rows)
     ? correlation.rows
     : [];
@@ -6556,8 +6623,13 @@ export default function RipStatisticsPageClient({
     () => getDesirabilityValidationPayload(explorePayload),
     [explorePayload]
   );
-  const initialCardAppealMarketPriceCorrelation =
-    explorePayload?.cardAppealMarketPriceCorrelation || explorePayload?.card_appeal_market_price_correlation || null;
+  const initialCardAppealMarketPriceCorrelation = useMemo(
+    () =>
+      resolvePreferredCardAppealCorrelation({
+        explorePayload,
+      }),
+    [explorePayload]
+  );
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
       ? initialCardAppealMarketPriceCorrelation.plotRows
@@ -6597,6 +6669,12 @@ export default function RipStatisticsPageClient({
     [interpretationMeta?.rarityContribution]
   );
 
+  const decisionRanksPresent = Boolean(
+    summary?.pack_rank !== null &&
+      summary?.pack_rank !== undefined &&
+      summary?.profit_rank !== null &&
+      summary?.profit_rank !== undefined
+  );
   const warnings = [
     ...(targetsPayload?.meta?.warnings || []),
     ...(explorePayload?.meta?.warnings || []),
@@ -6604,7 +6682,13 @@ export default function RipStatisticsPageClient({
     ...(setPageSnapshotRefreshState.status === "error"
       ? [`Set page snapshot retry failed: ${setPageSnapshotRefreshState.error}`]
       : []),
-  ];
+  ].filter(
+    (warning) =>
+      !shouldSuppressSetPageWarning(warning, {
+        hasTopHits: topHits.length > 0,
+        hasDecisionRanks: decisionRanksPresent,
+      })
+  );
 
   const selectedName = selectedTarget?.name || requestedTargetId || "Selected Set";
   const percentileP5 = getPercentileValue(percentiles, 5);
@@ -6634,13 +6718,14 @@ export default function RipStatisticsPageClient({
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
-  const [checklistState, setChecklistState] = useState({
-    status: "idle",
-    setId: null,
-    cards: [],
-    cardAppealMarketPriceCorrelation: null,
+  const initialSnapshotCards = useMemo(() => extractSnapshotCardsFromExplorePayload(explorePayload), [explorePayload]);
+  const [checklistState, setChecklistState] = useState(() => ({
+    status: initialSnapshotCards.length > 0 ? "success" : "idle",
+    setId: resolvedSetResourceId,
+    cards: initialSnapshotCards,
+    cardAppealMarketPriceCorrelation: initialCardAppealMarketPriceCorrelation,
     error: null,
-  });
+  }));
   const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState(DEFAULT_TOP_MARKET_CARDS_WINDOW);
   const [marketDashboardState, dispatchMarketDashboard] = useReducer(
     marketDashboardReducer,
@@ -6664,7 +6749,30 @@ export default function RipStatisticsPageClient({
     setExplorePayload(initialExplorePayload || null);
     setSetPageSnapshotRefreshState({ status: "idle", setId: null, error: null });
     timeoutSnapshotRefreshKeyRef.current = null;
-  }, [initialExplorePayload, requestedTargetId]);
+    const seededCards = extractSnapshotCardsFromExplorePayload(initialExplorePayload || {});
+    setChecklistState((previous) => {
+      const seededCorrelation = resolvePreferredCardAppealCorrelation({
+        explorePayload: initialExplorePayload || {},
+        previous: previous?.cardAppealMarketPriceCorrelation,
+      });
+      if (seededCards.length === 0) {
+        return {
+          status: "idle",
+          setId: null,
+          cards: [],
+          cardAppealMarketPriceCorrelation: seededCorrelation,
+          error: null,
+        };
+      }
+      return {
+        status: "success",
+        setId: resolvedSetResourceId,
+        cards: seededCards,
+        cardAppealMarketPriceCorrelation: seededCorrelation,
+        error: null,
+      };
+    });
+  }, [initialExplorePayload, requestedTargetId, resolvedSetResourceId]);
 
   useEffect(() => {
     if (!setDetailMode || !isSetPageTransportFallback(explorePayload)) {
@@ -7298,9 +7406,25 @@ export default function RipStatisticsPageClient({
     marketDashboardState.setId === resolvedSetResourceId
       ? marketDashboardState
       : createMarketDashboardState({ setId: resolvedSetResourceId });
+  const seededMarketDashboardPayload = useMemo(() => {
+    const seeded = adaptMarketDashboardFromSources({ explorePayload });
+    if (!seeded?.cards?.length && !hasAnySetValueHistory(seeded?.setValue?.historiesByScope)) {
+      return null;
+    }
+    return {
+      topChaseCards: seeded.cards || [],
+      top_chase_cards: seeded.cards || [],
+      marketMovers: seeded.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
+      market_movers: seeded.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
+      setValueHistoriesByScope: seeded.setValue?.historiesByScope || {},
+      set_value_histories_by_scope: seeded.setValue?.historiesByScope || {},
+      availableScopes: seeded.setValue?.availableScopes || [],
+      meta: explorePayload?.meta || {},
+    };
+  }, [explorePayload]);
   const activeMarketDashboardDerivedState = useMemo(
-    () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload),
-    [activeMarketDashboardState.payload]
+    () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload),
+    [activeMarketDashboardState.payload, seededMarketDashboardPayload]
   );
   const activeDirectSetValueState =
     setValueHistoryState.setId === resolvedSetResourceId
@@ -7324,23 +7448,25 @@ export default function RipStatisticsPageClient({
       : activeMarketDashboardDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS;
   const activeSetValueHasAnyHistory = Object.values(activeSetValueHistoriesByScope).some((scopeHistory) => scopeHistory.length > 0);
   const activeSetValueStatus =
-    activeDirectSetValueState.status === "success"
+    activeDirectSetValueState.status === "success" || activeDirectSetValueState.status === "success_stale"
       ? activeSetValueHasAnyHistory
-        ? "success"
+        ? activeDirectSetValueState.status
         : "empty"
       : activeDirectSetValueState.status === "error"
-      ? activeMarketDashboardState.status === "success"
+      ? activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
         ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
-          ? "success"
+          ? "success_stale"
           : "empty"
         : "error"
       : activeDirectSetValueState.status === "loading"
       ? activeSetValueHasAnyHistory
-        ? "success"
+        ? "success_stale"
         : "loading"
-      : activeMarketDashboardState.status === "success"
+      : activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
       ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
-        ? "success"
+        ? activeMarketDashboardState.status === "success_stale"
+          ? "success_stale"
+          : "success"
         : "empty"
       : activeMarketDashboardState.status;
   const activeSetValueHistory = {
@@ -7354,9 +7480,11 @@ export default function RipStatisticsPageClient({
   };
   const activeTopMarketCardsState = {
     status:
-      activeMarketDashboardState.status === "success"
+      activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
         ? activeMarketDashboardDerivedState.topCards.cards.length > 0
-          ? "success"
+          ? activeMarketDashboardState.status === "success_stale"
+            ? "success_stale"
+            : "success"
           : "empty"
         : activeMarketDashboardState.status,
     setId: activeMarketDashboardState.setId || resolvedSetResourceId,
@@ -8080,21 +8208,37 @@ export default function RipStatisticsPageClient({
 
     const setId = resolvedSetResourceId;
     if (!setId) {
-      setChecklistState({ status: "empty", setId: null, cards: [], cardAppealMarketPriceCorrelation: null, error: null });
+      setChecklistState((previous) => ({
+        status: "empty",
+        setId: null,
+        cards: previous?.cards || [],
+        cardAppealMarketPriceCorrelation: previous?.cardAppealMarketPriceCorrelation || null,
+        error: null,
+      }));
       return undefined;
     }
+    const snapshotCards = extractSnapshotCardsFromExplorePayload(explorePayload);
+    const seededCorrelation = resolvePreferredCardAppealCorrelation({
+      explorePayload,
+      previous: initialCardAppealMarketPriceCorrelation,
+    });
     if (shouldPauseSetDetailDependentFetches) {
       setChecklistState((previous) => ({
         status:
-          previous.status === "success" && previous.setId === setId
-            ? "success"
+          (previous.status === "success" || previous.status === "success_stale") && previous.setId === setId
+            ? previous.status
             : isTimeoutFallbackPayload
             ? "loading"
             : "empty",
         setId,
-        cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
-        cardAppealMarketPriceCorrelation:
-          previous.status === "success" && previous.setId === setId ? previous.cardAppealMarketPriceCorrelation : null,
+        cards:
+          (previous.status === "success" || previous.status === "success_stale") && previous.setId === setId
+            ? previous.cards
+            : snapshotCards,
+        cardAppealMarketPriceCorrelation: resolvePreferredCardAppealCorrelation({
+          explorePayload,
+          previous: previous?.cardAppealMarketPriceCorrelation,
+        }),
         error: null,
       }));
       return undefined;
@@ -8102,18 +8246,27 @@ export default function RipStatisticsPageClient({
 
     const shouldRenderChecklist = (setDetailTab === "cards" && cardsSubTab === "checklist") || setDetailTab === "insights";
     const cachedPayload = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId) || null;
-    const cachedCards = Array.isArray(cachedPayload) ? cachedPayload : Array.isArray(cachedPayload?.cards) ? cachedPayload.cards : null;
-    const cachedCorrelation = Array.isArray(cachedPayload)
-      ? null
-      : cachedPayload?.cardAppealMarketPriceCorrelation || cachedPayload?.card_appeal_market_price_correlation || null;
-    if (cachedCards) {
-      setChecklistState({ status: "success", setId, cards: cachedCards, cardAppealMarketPriceCorrelation: cachedCorrelation, error: null });
+    const cachedCards = Array.isArray(cachedPayload) ? cachedPayload : Array.isArray(cachedPayload?.cards) ? cachedPayload.cards : [];
+    const cachedCorrelation = resolvePreferredCardAppealCorrelation({
+      explorePayload,
+      cardsPayload: Array.isArray(cachedPayload) ? null : cachedPayload,
+      previous: checklistState.cardAppealMarketPriceCorrelation,
+    });
+    const seededCards = cachedCards.length > 0 ? cachedCards : snapshotCards;
+    if (seededCards.length > 0) {
+      setChecklistState((previous) => ({
+        status: previous?.setId === setId && previous?.status === "success_stale" ? "success_stale" : "success",
+        setId,
+        cards: seededCards,
+        cardAppealMarketPriceCorrelation: cachedCorrelation,
+        error: previous?.setId === setId && previous?.status === "success_stale" ? previous.error : null,
+      }));
       if (!shouldRenderChecklist) {
         return undefined;
       }
     }
 
-    if (!shouldRenderChecklist && cachedCards) {
+    if (!shouldRenderChecklist && seededCards.length > 0) {
       return undefined;
     }
     if (!shouldRenderChecklist) {
@@ -8129,10 +8282,17 @@ export default function RipStatisticsPageClient({
       resolvedSetId: setId,
     });
     setChecklistState((previous) => ({
-      status: "loading",
+      status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "loading",
       setId,
-      cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
-      cardAppealMarketPriceCorrelation: previous.status === "success" && previous.setId === setId ? previous.cardAppealMarketPriceCorrelation : null,
+      cards:
+        previous.setId === setId && previous.cards.length > 0
+          ? previous.cards
+          : seededCards,
+      cardAppealMarketPriceCorrelation: resolvePreferredCardAppealCorrelation({
+        explorePayload,
+        cardsPayload: Array.isArray(cachedPayload) ? null : cachedPayload,
+        previous: previous?.cardAppealMarketPriceCorrelation || seededCorrelation,
+      }),
       error: null,
     }));
 
@@ -8143,12 +8303,41 @@ export default function RipStatisticsPageClient({
         }
         const cards = Array.isArray(payload?.cards) ? payload.cards : [];
         checklistCacheRef.current.set(setId, payload);
-        setChecklistState({
-          status: cards.length > 0 ? "success" : "empty",
-          setId,
-          cards,
-          cardAppealMarketPriceCorrelation: payload?.cardAppealMarketPriceCorrelation || payload?.card_appeal_market_price_correlation || null,
-          error: null,
+        setChecklistState((previous) => {
+          const correlation = resolvePreferredCardAppealCorrelation({
+            explorePayload,
+            cardsPayload: payload,
+            previous: previous?.cardAppealMarketPriceCorrelation,
+          });
+          if (cards.length > 0) {
+            return {
+              status: "success",
+              setId,
+              cards,
+              cardAppealMarketPriceCorrelation: correlation,
+              error: null,
+            };
+          }
+          const previousCards = previous?.setId === setId ? previous.cards : [];
+          const preserveCards = previousCards.length > 0 ? previousCards : seededCards;
+          if (preserveCards.length > 0) {
+            return {
+              status: "success_stale",
+              setId,
+              cards: preserveCards,
+              cardAppealMarketPriceCorrelation: correlation,
+              error: "Cards refresh returned empty; showing snapshot-backed cards.",
+            };
+          }
+          return {
+            status: isExplicitNoCardsPayload(payload) ? "empty" : "success_stale",
+            setId,
+            cards: [],
+            cardAppealMarketPriceCorrelation: correlation,
+            error: isExplicitNoCardsPayload(payload)
+              ? null
+              : "Cards refresh returned no rows; retrying with snapshot-first state.",
+          };
         });
         debugSetPagePerf("cards.tab_ready", {
           setId,
@@ -8167,11 +8356,16 @@ export default function RipStatisticsPageClient({
           return;
         }
         setChecklistState((previous) => ({
-          status: previous.status === "success" && previous.setId === setId ? "success" : "error",
+          status:
+            previous.setId === setId && previous.cards.length > 0
+              ? "success_stale"
+              : "error",
           setId,
-          cards: previous.status === "success" && previous.setId === setId ? previous.cards : [],
-          cardAppealMarketPriceCorrelation:
-            previous.status === "success" && previous.setId === setId ? previous.cardAppealMarketPriceCorrelation : null,
+          cards: previous.setId === setId && previous.cards.length > 0 ? previous.cards : seededCards,
+          cardAppealMarketPriceCorrelation: resolvePreferredCardAppealCorrelation({
+            explorePayload,
+            previous: previous?.cardAppealMarketPriceCorrelation,
+          }),
           error: error?.message || "Unable to load cards for this set.",
         }));
       });
@@ -8189,6 +8383,8 @@ export default function RipStatisticsPageClient({
     warmSetDetailResources,
     isTimeoutFallbackPayload,
     shouldPauseSetDetailDependentFetches,
+    explorePayload,
+    initialCardAppealMarketPriceCorrelation,
   ]);
 
   useEffect(() => {
@@ -8210,7 +8406,50 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key);
+    const cachedDashboardPayload = getCachedPokemonSetMarketDashboard(setId, {
+      window: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+    });
+    const seededSetValue = adaptSetValueHistoriesFromSources({
+      explorePayload,
+      marketSnapshotPayload: cachedDashboardPayload,
+    });
+    const seededHistoriesByScope = seededSetValue?.historiesByScope || {};
+    const seededLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
+      (scope) => Array.isArray(seededHistoriesByScope?.[scope]) && seededHistoriesByScope[scope].length > 0
+    );
+
+    if (seededLoadedScopes.length > 0) {
+      setSetValueHistoryState((previous) => {
+        const mergedHistoriesByScope = {
+          ...(previous?.setId === setId ? previous.historiesByScope || {} : {}),
+          ...seededHistoriesByScope,
+        };
+        const mergedLoadedScopes = Array.from(new Set([...(previous?.loadedScopes || []), ...seededLoadedScopes]));
+        return createSetValueHistoryState({
+          status: hasAnySetValueHistory(mergedHistoriesByScope) ? "success" : "idle",
+          setId,
+          historiesByScope: mergedHistoriesByScope,
+          loadedScopes: mergedLoadedScopes,
+          availableScopes: seededSetValue?.availableScopes || SET_VALUE_SCOPE_OPTIONS,
+          meta: previous?.meta || null,
+        });
+      });
+    }
+
+    if (hasCompleteSetValueScopes(seededHistoriesByScope)) {
+      debugSetPagePerf("set_value.direct_fetch_skipped", {
+        setId,
+        reason: "snapshot_has_all_scopes",
+      });
+      return undefined;
+    }
+
+    const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
+      (scope) => !seededLoadedScopes.includes(scope)
+    );
+    if (requestedScopes.length === 0) {
+      return undefined;
+    }
     let isCancelled = false;
     const clickStartedAt = performance.now();
 
@@ -8218,7 +8457,10 @@ export default function RipStatisticsPageClient({
       previous.setId === setId
         ? createSetValueHistoryState({
             ...previous,
-            status: previous.status === "success" || previous.status === "empty" ? previous.status : "loading",
+            status:
+              previous.status === "success" || previous.status === "success_stale" || previous.status === "empty"
+                ? previous.status
+                : "loading",
             error: null,
           })
         : createSetValueHistoryState({ status: "loading", setId })
@@ -8316,7 +8558,7 @@ export default function RipStatisticsPageClient({
           previous?.setId === setId && Object.values(previous.historiesByScope || {}).some((history) => history.length > 0)
             ? createSetValueHistoryState({
                 ...previous,
-                status: "success",
+                status: "success_stale",
                 error: error?.message || "Unable to load set value history for this set.",
               })
             :
@@ -8331,7 +8573,7 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, resolvedSetResourceId, isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches]);
+  }, [setDetailMode, resolvedSetResourceId, isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches, explorePayload]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -8355,10 +8597,25 @@ export default function RipStatisticsPageClient({
     }
 
     const shouldRenderMarketData = setDetailTab === "overview";
+    const seededMarketPayload = adaptMarketDashboardFromSources({ explorePayload });
+    const seededDashboardPayload =
+      seededMarketPayload?.cards?.length > 0 || hasAnySetValueHistory(seededMarketPayload?.setValue?.historiesByScope)
+        ? {
+            topChaseCards: seededMarketPayload.cards,
+            top_chase_cards: seededMarketPayload.cards,
+            marketMovers: seededMarketPayload.marketMovers,
+            market_movers: seededMarketPayload.marketMovers,
+            setValueHistoriesByScope: seededMarketPayload.setValue?.historiesByScope || {},
+            set_value_histories_by_scope: seededMarketPayload.setValue?.historiesByScope || {},
+            availableScopes: seededMarketPayload.setValue?.availableScopes || [],
+            meta: explorePayload?.meta || {},
+          }
+        : null;
     const cachedDashboard = getCachedPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow });
+    const mergedCachedDashboard = cachedDashboard || seededDashboardPayload;
     const cachedMarketDashboardState = hydrateMarketDashboardStateFromCachedPayload({
       setId,
-      cachedPayload: cachedDashboard,
+      cachedPayload: mergedCachedDashboard,
       sourceWindow: dashboardSourceWindow,
     });
 
@@ -8377,6 +8634,19 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
     if (cachedMarketDashboardState) {
+      const stateFromCache = buildMarketDashboardStateFromPayload(cachedMarketDashboardState.payload);
+      const hasSeededRows =
+        stateFromCache.topCards.cards.length > 0 ||
+        hasAnySetValueHistory(stateFromCache.setValue.historiesByScope);
+      if (hasSeededRows) {
+        debugSetPagePerf("market.tab_fetch_skipped", {
+          setId,
+          sourceWindow: dashboardSourceWindow,
+          reason: "snapshot_seed_available",
+          topCards: stateFromCache.topCards.cards.length,
+        });
+        return undefined;
+      }
       return undefined;
     }
 
@@ -8432,6 +8702,7 @@ export default function RipStatisticsPageClient({
     resolvedSetResourceId,
     isTimeoutFallbackPayload,
     shouldPauseSetDetailDependentFetches,
+    explorePayload,
   ]);
 
   const setDetailSidebarContent = (
@@ -9323,9 +9594,11 @@ export default function RipStatisticsPageClient({
                 <DesirabilityValidationCard targets={targets} freshness={sectionFreshness.desirabilityValidation} />
                 <CardDesirabilityMarketValidationCard
                   cards={checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows}
-                  cardAppealMarketPriceCorrelation={
-                    checklistState.cardAppealMarketPriceCorrelation || initialCardAppealMarketPriceCorrelation
-                  }
+                  cardAppealMarketPriceCorrelation={resolvePreferredCardAppealCorrelation({
+                    explorePayload,
+                    checklistState,
+                    previous: initialCardAppealMarketPriceCorrelation,
+                  })}
                   diagnosticsContext={{
                     setId: resolvedSetResourceId,
                     setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,

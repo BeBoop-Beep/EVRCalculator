@@ -125,7 +125,10 @@ export function buildSetValueContract(input = {}) {
     scopes,
     historiesByScope: normalizedHistoriesByScope,
     availableScopes: Array.from(availableScopeMap.values()),
-    status: status === "error" && standardScope?.currentValue !== null ? "partial" : contractStatus,
+    status:
+      (status === "error" || status === "success_stale") && standardScope?.currentValue !== null
+        ? "partial"
+        : contractStatus,
     error: error || null,
     diagnostics: {
       source: "set_value_contract",

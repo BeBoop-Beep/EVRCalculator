@@ -4,6 +4,8 @@ import { selectDesirabilityValidation } from "../../../components/pokemon/set-pa
 import { selectTopChaseCards } from "../../../components/pokemon/set-page/Overview/topChaseCardsSelector.mjs";
 import { selectCards } from "../../../components/pokemon/set-page/Cards/cardsSelector.mjs";
 import { selectCompactSetValue } from "../../../components/pokemon/set-page/PokemonSetHero/compactSetValueSelector.mjs";
+import { selectSimulationDrivers } from "../../../components/explore/simulationDriversSelector.mjs";
+import { selectDecisionSignals } from "../../../components/explore/decisionSignalsSelector.mjs";
 
 function toOptionalString(value) {
   const text = String(value || "").trim();
@@ -34,6 +36,74 @@ function normalizeSet(raw) {
     name: toOptionalString(set.name ?? set.set_name ?? raw?.set_name),
     slug: toOptionalString(set.slug ?? set.canonical_key ?? raw?.canonical_key),
     pokemonApiSetId: toOptionalString(set.pokemon_api_set_id ?? set.pokemonApiSetId),
+  };
+}
+
+function asObject(value) {
+  return value && typeof value === "object" ? value : {};
+}
+
+function firstObject(candidates = []) {
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      !Array.isArray(candidate) &&
+      Object.keys(candidate).length > 0
+    ) {
+      return candidate;
+    }
+  }
+  return {};
+}
+
+function firstArray(candidates = []) {
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+  return [];
+}
+
+function normalizeDashboardPayload(payload = {}) {
+  const market = asObject(payload?.marketDashboard || payload?.market_dashboard);
+  const setValueHistoriesByScope =
+    asObject(payload?.setValueHistoriesByScope).standard || asObject(payload?.set_value_histories_by_scope).standard
+      ? firstObject([payload?.setValueHistoriesByScope, payload?.set_value_histories_by_scope])
+      : firstObject([market?.setValueHistoriesByScope, market?.set_value_histories_by_scope]);
+
+  return {
+    ...market,
+    ...payload,
+    topChaseCards: firstArray([payload?.topChaseCards, payload?.top_chase_cards, market?.topChaseCards, market?.top_chase_cards]),
+    top_chase_cards: firstArray([payload?.top_chase_cards, payload?.topChaseCards, market?.top_chase_cards, market?.topChaseCards]),
+    marketMovers: firstObject([payload?.marketMovers, payload?.market_movers, market?.marketMovers, market?.market_movers]),
+    market_movers: firstObject([payload?.market_movers, payload?.marketMovers, market?.market_movers, market?.marketMovers]),
+    setValueHistoriesByScope,
+    set_value_histories_by_scope: setValueHistoriesByScope,
+    availableScopes: firstArray([payload?.availableScopes, payload?.available_scopes, market?.availableScopes, market?.available_scopes]),
+    available_scopes: firstArray([payload?.available_scopes, payload?.availableScopes, market?.available_scopes, market?.availableScopes]),
+    meta: firstObject([payload?.meta, market?.meta]),
+  };
+}
+
+function normalizeCardsPayload(payload = {}) {
+  const cards = firstArray([
+    payload?.cards,
+    payload?.payload_json?.cards,
+    payload?.snapshot?.cards,
+    payload?.pokemon_set_cards_snapshot_latest?.cards,
+  ]);
+  return {
+    ...payload,
+    cards,
+    cardAppealMarketPriceCorrelation: firstObject([
+      payload?.cardAppealMarketPriceCorrelation,
+      payload?.card_appeal_market_price_correlation,
+      payload?.meta?.cardAppealMarketPriceCorrelation,
+      payload?.meta?.card_appeal_market_price_correlation,
+    ]),
   };
 }
 
@@ -126,6 +196,10 @@ export function adaptSetValueTrend(rawPayload = {}) {
   };
 }
 
+export function adaptSetValueHistories(rawPayload = {}) {
+  return adaptSetValueTrend(rawPayload);
+}
+
 export function adaptTopChaseCards(rawPayload = {}) {
   return {
     contractVersion: SET_PAGE_CONTRACT_VERSION,
@@ -134,11 +208,45 @@ export function adaptTopChaseCards(rawPayload = {}) {
   };
 }
 
+export function adaptMarketDashboard(rawPayload = {}) {
+  const normalized = normalizeDashboardPayload(rawPayload);
+  return {
+    contractVersion: SET_PAGE_CONTRACT_VERSION,
+    set: normalizeSet(rawPayload),
+    ...selectTopChaseCards(normalized),
+    setValue: adaptSetValueTrend(normalized),
+    marketMovers: normalized.marketMovers || normalized.market_movers || { heatingUp: [], coolingOff: [], all: [] },
+  };
+}
+
 export function adaptCards(rawPayload = {}) {
   return {
     contractVersion: SET_PAGE_CONTRACT_VERSION,
     set: normalizeSet(rawPayload),
     ...selectCards(rawPayload),
+  };
+}
+
+export function adaptSimulationDrivers(rawPayload = {}) {
+  return {
+    contractVersion: SET_PAGE_CONTRACT_VERSION,
+    ...selectSimulationDrivers(rawPayload),
+  };
+}
+
+export function adaptDecisionSignalRanks(rawPayload = {}, options = {}) {
+  const pillarSignals = Array.isArray(options?.pillarSignals)
+    ? options.pillarSignals
+    : Array.isArray(rawPayload?.pillarSignals)
+    ? rawPayload.pillarSignals
+    : [];
+  return {
+    contractVersion: SET_PAGE_CONTRACT_VERSION,
+    ...selectDecisionSignals({
+      ...rawPayload,
+      pillarSignals,
+      requestTimeout: rawPayload?.meta?.requestTimeout === true,
+    }),
   };
 }
 
@@ -154,4 +262,86 @@ export function adaptCardDemandValidation(rawPayload = {}, options = {}) {
     contractVersion: SET_PAGE_CONTRACT_VERSION,
     ...selectCardDemandValidation(rawPayload?.cards || rawPayload?.rows || rawPayload, options),
   };
+}
+
+export function adaptCardsFromSources({
+  explorePayload = {},
+  cardsSnapshotPayload = {},
+  cardsFetchPayload = {},
+} = {}) {
+  return adaptCards(
+    normalizeCardsPayload(
+      firstObject([
+        asObject(explorePayload),
+        asObject(cardsSnapshotPayload),
+        asObject(cardsFetchPayload),
+      ])
+    )
+  );
+}
+
+export function adaptSetValueHistoriesFromSources({
+  explorePayload = {},
+  marketSnapshotPayload = {},
+  marketFetchPayload = {},
+  valueHistoryFetchPayload = {},
+} = {}) {
+  return adaptSetValueTrend(
+    normalizeDashboardPayload(
+      firstObject([
+        asObject(explorePayload),
+        asObject(marketSnapshotPayload),
+        asObject(marketFetchPayload),
+        asObject(valueHistoryFetchPayload),
+      ])
+    )
+  );
+}
+
+export function adaptMarketDashboardFromSources({
+  explorePayload = {},
+  marketSnapshotPayload = {},
+  marketFetchPayload = {},
+} = {}) {
+  return adaptMarketDashboard(
+    normalizeDashboardPayload(
+      firstObject([
+        asObject(explorePayload),
+        asObject(marketSnapshotPayload),
+        asObject(marketFetchPayload),
+      ])
+    )
+  );
+}
+
+export function adaptCardDemandValidationFromSources({
+  explorePayload = {},
+  checklistState = {},
+  cardsPayload = {},
+  options = {},
+} = {}) {
+  const correlation =
+    explorePayload?.cardAppealMarketPriceCorrelation ||
+    explorePayload?.card_appeal_market_price_correlation ||
+    checklistState?.cardAppealMarketPriceCorrelation ||
+    cardsPayload?.cardAppealMarketPriceCorrelation ||
+    cardsPayload?.card_appeal_market_price_correlation ||
+    null;
+  const rows = firstArray([cardsPayload?.cards, checklistState?.cards, explorePayload?.cards]);
+  return adaptCardDemandValidation({ rows }, { ...options, correlation });
+}
+
+export function adaptSimulationDriversFromSources({
+  explorePayload = {},
+  fallbackPayload = {},
+} = {}) {
+  return adaptSimulationDrivers(firstObject([asObject(explorePayload), asObject(fallbackPayload)]));
+}
+
+export function adaptDecisionSignalRanksFromSources({
+  explorePayload = {},
+  fallbackPayload = {},
+  options = {},
+} = {}) {
+  return adaptDecisionSignalRanks(firstObject([asObject(explorePayload), asObject(fallbackPayload)]), options);
 }

@@ -24,6 +24,10 @@ export function selectTopChaseCards(payload = {}) {
     ? payload.topChaseCards
     : Array.isArray(payload?.top_chase_cards)
     ? payload.top_chase_cards
+    : Array.isArray(payload?.marketDashboard?.topChaseCards)
+    ? payload.marketDashboard.topChaseCards
+    : Array.isArray(payload?.marketDashboard?.top_chase_cards)
+    ? payload.marketDashboard.top_chase_cards
     : Array.isArray(payload?.cards)
     ? payload.cards
     : [];
@@ -44,7 +48,12 @@ export function selectTopChaseCards(payload = {}) {
 
   return {
     cards,
-    marketMovers: payload?.marketMovers || payload?.market_movers || { heatingUp: [], coolingOff: [], all: [] },
+    marketMovers:
+      payload?.marketMovers ||
+      payload?.market_movers ||
+      payload?.marketDashboard?.marketMovers ||
+      payload?.marketDashboard?.market_movers ||
+      { heatingUp: [], coolingOff: [], all: [] },
     diagnostics,
   };
 }

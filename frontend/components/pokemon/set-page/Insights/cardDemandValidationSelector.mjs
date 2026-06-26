@@ -49,6 +49,10 @@ function canonicalRows(correlation, metricKey) {
 export function selectCardDemandValidation(rawCards, { metricKey = "pure", scopeKey = "priced", correlation = null } = {}) {
   const sourceRows = canonicalRows(correlation, metricKey);
   const rows = sourceRows.length > 0 ? sourceRows : Array.isArray(rawCards) ? rawCards : [];
+  const correlationN = toOptionalNumber(correlation?.n);
+  const correlationPlottedCount =
+    toOptionalNumber(correlation?.plottedCount) ??
+    toOptionalNumber(correlation?.plotted_count);
   const diagnostics = {
     source: sourceRows.length > 0 ? "canonical_correlation_rows" : "cards_contract",
     totalRows: rows.length,
@@ -104,6 +108,7 @@ export function selectCardDemandValidation(rawCards, { metricKey = "pure", scope
     pearson: calculatePearsonCorrelation(points),
     spearman: calculateSpearmanCorrelation(points),
     sampleCount: points.length,
+    sourceSampleCount: correlationN ?? correlationPlottedCount ?? points.length,
     diagnostics,
   };
 }

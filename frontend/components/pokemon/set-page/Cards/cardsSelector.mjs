@@ -20,14 +20,25 @@ function normalizeCard(card) {
 }
 
 export function selectCards(payload = {}) {
-  const rawCards = Array.isArray(payload?.cards) ? payload.cards : Array.isArray(payload) ? payload : [];
+  const rawCards = Array.isArray(payload?.cards)
+    ? payload.cards
+    : Array.isArray(payload?.payload_json?.cards)
+    ? payload.payload_json.cards
+    : Array.isArray(payload)
+    ? payload
+    : [];
   const cards = rawCards.map(normalizeCard).filter((card) => card.id || card.name);
+  const correlation =
+    payload?.cardAppealMarketPriceCorrelation ||
+    payload?.card_appeal_market_price_correlation ||
+    payload?.meta?.cardAppealMarketPriceCorrelation ||
+    payload?.meta?.card_appeal_market_price_correlation ||
+    null;
   return {
     cards,
-    cardAppealMarketPriceCorrelation:
-      payload?.cardAppealMarketPriceCorrelation || payload?.card_appeal_market_price_correlation || null,
+    cardAppealMarketPriceCorrelation: correlation,
     diagnostics: {
-      source: "cards_payload",
+      source: Array.isArray(payload?.cards) ? "cards_payload" : "cards_snapshot_payload",
       totalRows: rawCards.length,
       renderedRows: cards.length,
       pricedRows: cards.filter((card) => card.marketPrice !== null).length,

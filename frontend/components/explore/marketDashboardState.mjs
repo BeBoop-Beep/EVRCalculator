@@ -48,7 +48,7 @@ export function marketDashboardReducer(state, action) {
     case "loading": {
       const keepPayload = state?.setId === setId && state?.payload ? state.payload : null;
       return createMarketDashboardState({
-        status: "loading",
+        status: keepPayload ? "success_stale" : "loading",
         setId,
         payload: keepPayload,
         sourceWindow,
@@ -62,6 +62,15 @@ export function marketDashboardReducer(state, action) {
         sourceWindow,
       });
     case "error":
+      if (state?.setId === setId && state?.payload) {
+        return createMarketDashboardState({
+          status: "success_stale",
+          setId,
+          payload: state.payload,
+          error: action.error || "Unable to refresh market dashboard for this set.",
+          sourceWindow,
+        });
+      }
       return createMarketDashboardState({
         status: "error",
         setId,

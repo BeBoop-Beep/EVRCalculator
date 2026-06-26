@@ -367,6 +367,14 @@ def _clean_explore_rip_fallback_warnings(warnings: Iterable[Any]) -> List[Any]:
     ]
 
 
+def _append_debug_warning(meta: Dict[str, Any], warning: str) -> None:
+    debug_warnings = list(meta.get("debugWarnings") or meta.get("debug_warnings") or [])
+    if warning not in debug_warnings:
+        debug_warnings.append(warning)
+    meta["debugWarnings"] = debug_warnings
+    meta["debug_warnings"] = debug_warnings
+
+
 def _load_top_hits_from_view(client: Any, *, run_id: str, limit: int) -> List[Dict[str, Any]]:
     result = (
         client.table("simulation_input_cards_with_near_mint_price")
@@ -481,8 +489,13 @@ def _complete_snapshot_top_hits(
     client: Optional[Any] = None,
     limit: int = DEFAULT_TOP_HITS_LIMIT,
 ) -> Dict[str, Any]:
-    if not isinstance(payload, dict) or payload.get("top_hits"):
+    if not isinstance(payload, dict):
         return payload
+
+    if payload.get("top_hits"):
+        meta = dict(payload.get("meta") or {})
+        meta["warnings"] = _clean_top_hits_warnings(meta.get("warnings") or [])
+        return {**payload, "meta": meta}
 
     meta = dict(payload.get("meta") or {})
     sources = dict(meta.get("sources") or {})
@@ -495,10 +508,12 @@ def _complete_snapshot_top_hits(
 
     resolved_client = client or get_client()
     source = "simulation_input_cards_with_near_mint_price"
+    view_failure_detail: Optional[str] = None
     try:
         top_hits = _load_top_hits_from_view(resolved_client, run_id=run_id, limit=limit)
     except Exception:
         logger.warning("top hits snapshot completion view query failed set_id=%s run_id=%s", set_id, run_id, exc_info=True)
+        view_failure_detail = "simulation_input_cards_with_near_mint_price query failed during snapshot completion"
         top_hits = []
 
     if not top_hits:
@@ -517,6 +532,8 @@ def _complete_snapshot_top_hits(
     sources["simulation_input_cards_snapshot_completion"] = source
     meta["sources"] = sources
     meta["warnings"] = _clean_top_hits_warnings(meta.get("warnings") or [])
+    if view_failure_detail and source == "simulation_input_cards":
+        _append_debug_warning(meta, view_failure_detail)
     meta.pop("simulationDriversRepairSkipped", None)
     return {
         **payload,
@@ -962,16 +979,39 @@ def _finalize_snapshot_completeness(
     )
     meta = dict(payload.get("meta") or {})
     warnings = list(meta.get("warnings") or [])
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    decision_signal_fields = (
+        "pack_rank",
+        "profit_rank",
+        "safety_rank",
+        "desirability_rank",
+        "stability_rank",
+    )
+    has_decision_signal_ranks = any(summary.get(field) is not None for field in decision_signal_fields)
+    section_freshness = meta.get("sectionFreshness") if isinstance(meta.get("sectionFreshness"), dict) else {}
+    decision_signal_freshness = section_freshness.get("decisionSignalRanks") if isinstance(section_freshness.get("decisionSignalRanks"), dict) else {}
+    freshness_status = first_non_empty(decision_signal_freshness.get("status"))
+    debug_warnings = list(diagnostics.get("debugWarnings") or diagnostics.get("debug_warnings") or [])
     if diagnostics["explore_rip_statistics_latest"]["availability"] == "OK":
         warnings = _clean_explore_rip_fallback_warnings(warnings)
-    if _is_rankings_snapshot_stale(
+    rankings_stale = _is_rankings_snapshot_stale(
         built_at=built_at,
         rankings_updated_at=diagnostics.get("explore_rankings_snapshot_updated_at"),
-    ) and RANKINGS_STALE_WARNING not in warnings:
-        warnings.append(RANKINGS_STALE_WARNING)
+    )
+    if rankings_stale:
+        if has_decision_signal_ranks and freshness_status in {"fresh", "stale"}:
+            if RANKINGS_STALE_WARNING not in debug_warnings:
+                debug_warnings.append(RANKINGS_STALE_WARNING)
+        elif RANKINGS_STALE_WARNING not in warnings:
+            warnings.append(RANKINGS_STALE_WARNING)
 
     diagnostics["warnings_after_repair"] = warnings
+    diagnostics["debugWarnings"] = debug_warnings
+    diagnostics["debug_warnings"] = debug_warnings
     meta["warnings"] = warnings
+    if debug_warnings:
+        meta["debugWarnings"] = debug_warnings
+        meta["debug_warnings"] = debug_warnings
     meta["snapshotCompleteness"] = diagnostics
     meta["snapshot_completeness"] = diagnostics
     return {**payload, "meta": meta}
