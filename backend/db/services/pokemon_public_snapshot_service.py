@@ -1136,6 +1136,23 @@ def _mark_missing_simulation_drivers_without_live_repair(payload: Dict[str, Any]
     }
 
 
+def _with_missing_desirability_validation_warning(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return payload
+    if isinstance(payload.get("desirabilityValidation"), dict) or isinstance(payload.get("desirability_validation"), dict):
+        return payload
+    meta = dict(payload.get("meta") or {})
+    warnings = list(meta.get("warnings") or [])
+    warning = "Desirability validation is missing in this snapshot; request path skipped runtime rebuild."
+    if warning not in warnings:
+        warnings.append(warning)
+    meta["warnings"] = warnings
+    return {
+        **payload,
+        "meta": meta,
+    }
+
+
 def _load_rankings_snapshot_updated_at() -> Optional[str]:
     try:
         result = (
@@ -1256,12 +1273,16 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         row = _first_row(result)
         if row and isinstance(row.get("payload_json"), dict):
             payload = _merge_snapshot_meta(row["payload_json"], row, "pokemon_set_page_snapshot_latest")
-            payload = _with_rankings_freshness_warning(payload, row)
             payload = _mark_missing_simulation_drivers_without_live_repair(payload)
-            payload = _with_desirability_validation(payload, resolved_set_id)
+            payload = _with_missing_desirability_validation_warning(payload)
             timings = dict((payload.get("meta") or {}).get("timings") or {})
             timings["snapshot_read_ms"] = round((time.perf_counter() - started) * 1000, 3)
             payload["meta"] = {**(payload.get("meta") or {}), "timings": timings}
+            logger.info(
+                "[pokemon-snapshot] set page snapshot read set_id=%s elapsed_ms=%s",
+                resolved_set_id,
+                timings["snapshot_read_ms"],
+            )
             return payload
     except Exception:
         logger.exception("[pokemon-snapshot] set page snapshot read failed set_id=%s", resolved_set_id)
@@ -1318,6 +1339,9 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             if enrichment_warning not in warnings:
                 warnings.append(enrichment_warning)
             meta["warnings"] = warnings
+            sources = dict(meta.get("sources") or {})
+            sources["checklist_set_value_enrichment"] = "FAILED_OPTIONAL"
+            meta["sources"] = sources
         opening_set_audit = build_opening_set_audit(raw_targets)
         request = dict(meta.get("request") or {})
         request["limit"] = clamped_limit

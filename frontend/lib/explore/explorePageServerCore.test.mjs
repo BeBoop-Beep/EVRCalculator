@@ -49,6 +49,7 @@ test("set page timeout fallback is marked retryable and not backend missing", ()
   });
 
   assert.equal(payload.meta.requestTimeout, true);
+  assert.equal(payload.meta.isTransportFallback, true);
   assert.equal(payload.meta.fallbackReason, "request_timeout");
   assert.equal(payload.meta.sources.setPage, "timeout_fallback");
   assert.match(payload.meta.warnings[0], /request timed out; retrying/);
@@ -64,6 +65,7 @@ test("explicit missing snapshot fallback is not marked as timeout", () => {
   });
 
   assert.equal(payload.meta.requestTimeout, false);
+  assert.equal(payload.meta.isTransportFallback, false);
   assert.equal(payload.meta.fallbackReason, "snapshot_missing");
   assert.equal(isSetPageRequestTimeoutPayload(payload), false);
 });

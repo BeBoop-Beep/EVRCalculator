@@ -235,7 +235,7 @@ function getSetSnapshotIdentity(explorePayload) {
 
 function isSetPageRequestTimeoutFallback(explorePayload) {
   const meta = explorePayload?.meta || {};
-  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout") {
+  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout" || meta.isTransportFallback === true) {
     return true;
   }
   const errors = Array.isArray(meta.errors) ? meta.errors : [];
@@ -244,7 +244,12 @@ function isSetPageRequestTimeoutFallback(explorePayload) {
 
 function isSetPagePrimarySnapshotUnavailable(explorePayload) {
   const meta = explorePayload?.meta || {};
-  return Boolean(meta.fallback === true || isSetPageRequestTimeoutFallback(explorePayload));
+  return Boolean(meta.fallback === true || meta.requestTimeout === true || meta.isTransportFallback === true);
+}
+
+function isSetPageTransportFallback(explorePayload) {
+  const meta = explorePayload?.meta || {};
+  return Boolean(meta.requestTimeout === true || meta.isTransportFallback === true || meta.fallbackReason === "request_timeout");
 }
 
 function hasRealSetPageIdentity(explorePayload, resolvedSetResourceId) {
@@ -6510,14 +6515,22 @@ export default function RipStatisticsPageClient({
     [requestedTargetId, selectedTarget, explorePayload]
   );
   const summary = explorePayload?.summary || {};
-  const isTimeoutFallbackPayload = setDetailMode && isSetPageRequestTimeoutFallback(explorePayload);
+  const isTimeoutFallbackPayload = setDetailMode && isSetPageTransportFallback(explorePayload);
   const isPrimarySnapshotUnavailable = setDetailMode && isSetPagePrimarySnapshotUnavailable(explorePayload);
   const hasActiveSetPageIdentity = useMemo(
     () => (setDetailMode ? hasRealSetPageIdentity(explorePayload, resolvedSetResourceId) : true),
     [explorePayload, resolvedSetResourceId, setDetailMode]
   );
-  const shouldPauseSetDetailDependentFetches =
-    setDetailMode && (isPrimarySnapshotUnavailable || !hasActiveSetPageIdentity);
+  const isPrimarySnapshotReady =
+    setDetailMode
+      ? Boolean(
+          explorePayload &&
+            !isPrimarySnapshotUnavailable &&
+            resolvedSetResourceId &&
+            hasActiveSetPageIdentity
+        )
+      : true;
+  const shouldPauseSetDetailDependentFetches = setDetailMode && !isPrimarySnapshotReady;
   const timeoutSnapshotRankTitle = "Snapshot loading; retrying.";
   const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
   const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
@@ -6654,7 +6667,7 @@ export default function RipStatisticsPageClient({
   }, [initialExplorePayload, requestedTargetId]);
 
   useEffect(() => {
-    if (!setDetailMode || !isSetPageRequestTimeoutFallback(explorePayload)) {
+    if (!setDetailMode || !isSetPageTransportFallback(explorePayload)) {
       return undefined;
     }
 
@@ -6734,7 +6747,7 @@ export default function RipStatisticsPageClient({
       debugSetPagePerf("set.prefetch_deferred", {
         setId,
         reason,
-        deferredReason: isTimeoutFallbackPayload ? "set_page_timeout_retry" : "set_page_snapshot_unavailable",
+        deferredReason: isTimeoutFallbackPayload ? "transport_fallback_retry" : "set_page_snapshot_unavailable",
       });
       return;
     }

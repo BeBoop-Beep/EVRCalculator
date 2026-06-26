@@ -9,7 +9,7 @@ const DEFAULT_TARGETS_LIMIT = 150;
 const MAX_TARGETS_LIMIT = 200;
 const MIN_LIMIT = 1;
 const TARGETS_REQUEST_FAILED_WARNING =
-  "RIP Statistics targets request failed; set pages will continue with direct set snapshot resolution.";
+  "RIP Statistics targets unavailable; continuing with direct set snapshot fallback.";
 const TARGETS_STALE_WARNING =
   "RIP Statistics targets request failed; using stale cached targets.";
 
@@ -65,17 +65,27 @@ function withTargetsRequestFailureMeta(payload, { stale = false, fallback = fals
   };
 }
 
-function getRecoverableTargetsPayload(cacheKey) {
+function toBackendFailureWarning({ status = null, detail = null } = {}) {
+  const statusText = status ? `status ${status}` : "request error";
+  const detailText = String(detail || "").trim();
+  if (!detailText) {
+    return `${TARGETS_REQUEST_FAILED_WARNING} (${statusText})`;
+  }
+  return `${TARGETS_REQUEST_FAILED_WARNING} (${statusText}: ${detailText})`;
+}
+
+function getRecoverableTargetsPayload(cacheKey, warning) {
   const cached = targetsCache.get(cacheKey);
   if (cached?.data) {
     return withTargetsRequestFailureMeta(cached.data, {
       stale: true,
-      warning: TARGETS_STALE_WARNING,
+      fallback: true,
+      warning: warning || TARGETS_STALE_WARNING,
     });
   }
   return withTargetsRequestFailureMeta(null, {
     fallback: true,
-    warning: TARGETS_REQUEST_FAILED_WARNING,
+    warning: warning || TARGETS_REQUEST_FAILED_WARNING,
   });
 }
 
@@ -100,11 +110,12 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
     try {
       res = await fetch(url.toString(), { next: { revalidate: 300 } });
     } catch (error) {
+      const warning = toBackendFailureWarning({ detail: error?.message || String(error) });
       console.warn("[rip-statistics-server] targets_request_failed", {
         limit,
         error: error?.message || String(error),
       });
-      return getRecoverableTargetsPayload(cacheKey);
+      return getRecoverableTargetsPayload(cacheKey, warning);
     }
 
     if (res.status === 404) {
@@ -118,12 +129,14 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      const bodyPreview = body.slice(0, 500);
+      const warning = toBackendFailureWarning({ status: res.status, detail: bodyPreview });
       console.warn("[rip-statistics-server] targets_backend_error", {
         limit,
         status: res.status,
-        bodyPreview: body.slice(0, 500),
+        bodyPreview,
       });
-      return getRecoverableTargetsPayload(cacheKey);
+      return getRecoverableTargetsPayload(cacheKey, warning);
     }
 
     const payload = normalisePayload(await res.json());

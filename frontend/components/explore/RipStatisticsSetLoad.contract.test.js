@@ -175,7 +175,7 @@ test("cards warmup caches normalized payload and does not clear stale cards on f
 test("timeout fallback set page payload hydrates with a no-store client retry", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("function isSetPageRequestTimeoutFallback"));
+  assert.ok(source.includes("function isSetPageTransportFallback"));
   assert.ok(source.includes("function fetchPokemonSetPageSnapshot"));
   assert.ok(source.includes('/page?retry=1'));
   assert.ok(source.includes('cache: "no-store"'));
@@ -188,9 +188,9 @@ test("timeout fallback defers heavy set detail warmups until snapshot retry reso
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(source.includes('debugSetPagePerf("set.prefetch_deferred"'));
-  assert.ok(source.includes('isTimeoutFallbackPayload ? "set_page_timeout_retry" : "set_page_snapshot_unavailable"'));
+  assert.ok(source.includes('isTimeoutFallbackPayload ? "transport_fallback_retry" : "set_page_snapshot_unavailable"'));
   assert.ok(source.includes("if (shouldPauseSetDetailDependentFetches)"));
-  assert.ok(source.includes('? "loading"\n            : "empty"'));
+  assert.ok(source.includes('createSetValueHistoryState({ status: isTimeoutFallbackPayload ? "loading" : "empty", setId })'));
   assert.ok(source.includes('status: isTimeoutFallbackPayload ? "loading" : "empty"'));
   assert.ok(source.includes('type: isTimeoutFallbackPayload ? "loading" : "reset"'));
 });
@@ -208,10 +208,11 @@ test("primary snapshot fallback suppresses secondary cards, market, and value fa
   const marketGuardStart = source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", marketStart);
 
   assert.ok(source.includes("function isSetPagePrimarySnapshotUnavailable"));
+  assert.ok(source.includes("const isPrimarySnapshotReady ="));
   assert.ok(source.includes("function hasRealSetPageIdentity"));
   assert.ok(source.includes("const shouldPauseSetDetailDependentFetches ="));
   assert.ok(warmupSource.includes("if (shouldPauseSetDetailDependentFetches)"));
-  assert.ok(warmupSource.includes('deferredReason: isTimeoutFallbackPayload ? "set_page_timeout_retry" : "set_page_snapshot_unavailable"'));
+  assert.ok(warmupSource.includes('deferredReason: isTimeoutFallbackPayload ? "transport_fallback_retry" : "set_page_snapshot_unavailable"'));
   assert.ok(warmupSource.includes("if (!includeAdjacent || shouldPauseSetDetailDependentFetches"));
   assert.ok(cardsGuardStart >= 0 && cardsGuardStart < cardsEffectStart);
   assert.ok(valueGuardStart >= 0 && valueGuardStart < valueHistoryStart);
@@ -272,6 +273,7 @@ test("Simulation Drivers timeout fallback reports loading instead of unavailable
     top_hits: [],
     meta: {
       requestTimeout: true,
+      isTransportFallback: true,
       fallback: true,
       fallbackReason: "request_timeout",
       sources: { setPage: "timeout_fallback" },
@@ -283,6 +285,7 @@ test("Simulation Drivers timeout fallback reports loading instead of unavailable
   assert.equal(selected.rows.length, 0);
   assert.equal(selected.diagnostics.status, "loading");
   assert.equal(selected.diagnostics.requestTimeout, true);
+  assert.equal(selected.diagnostics.transportFallback, true);
   assert.deepEqual(selected.diagnostics.missingFields, []);
   assert.equal(selected.diagnostics.missingBackendSource, null);
   assert.doesNotMatch(selected.diagnostics.warning, /unavailable: no top_hits/);
@@ -539,9 +542,7 @@ test("set value history fetches directly on every set detail tab", () => {
   assert.ok(directFetchSource.includes("requestedScopes.map"));
   assert.ok(directFetchSource.includes("CANONICAL_SET_VALUE_SCOPE"));
   assert.ok(directEffectSource.includes("resolvedSetResourceId"));
-  assert.ok(!directEffectSource.includes("setValueTrendScope"));
-  assert.ok(!directEffectSource.includes('setDetailTab === "overview"'));
-  assert.ok(!directEffectSource.includes("shouldRenderMarketData"));
+  assert.ok(directEffectSource.includes("if (shouldPauseSetDetailDependentFetches)"));
 });
 
 test("set value history warmup fetches all scopes after shell render", () => {

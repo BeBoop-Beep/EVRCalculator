@@ -59,7 +59,7 @@ export function normalisePayload(payload) {
 
 export function isSetPageRequestTimeoutPayload(payload) {
   const meta = payload?.meta || {};
-  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout") {
+  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout" || meta.isTransportFallback === true) {
     return true;
   }
   const errors = Array.isArray(meta.errors) ? meta.errors : [];
@@ -150,6 +150,7 @@ export function buildFallbackSetPagePayload({
       fallback: true,
       fallbackReason,
       requestTimeout: Boolean(requestTimeout),
+      isTransportFallback: Boolean(requestTimeout),
       stale: false,
       sources: {
         setPage: requestTimeout ? "timeout_fallback" : "fallback",
@@ -184,6 +185,7 @@ export function withStaleSetPageDiagnostics(
       ],
       stale: true,
       requestTimeout: requestTimeout || meta.requestTimeout === true,
+      isTransportFallback: requestTimeout || meta.isTransportFallback === true,
       fallbackReason: requestTimeout ? "request_timeout" : meta.fallbackReason,
       sources: {
         ...sources,

@@ -390,6 +390,45 @@ def _has_known_stale_warning(warnings: Iterable[Any]) -> bool:
     return any(pattern in warning_text for pattern in KNOWN_SET_PAGE_STALE_WARNING_PATTERNS)
 
 
+def _extract_snapshot_completeness(payload: Dict[str, Any]) -> Dict[str, Any]:
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    completeness = meta.get("snapshotCompleteness")
+    if not isinstance(completeness, dict):
+        completeness = meta.get("snapshot_completeness")
+    return completeness if isinstance(completeness, dict) else {}
+
+
+def _extract_section_freshness(payload: Dict[str, Any]) -> Dict[str, Any]:
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    freshness = meta.get("sectionFreshness")
+    if not isinstance(freshness, dict):
+        freshness = meta.get("section_freshness")
+    return freshness if isinstance(freshness, dict) else {}
+
+
+def _extract_embedded_rankings_updated_at(payload: Dict[str, Any]) -> Optional[str]:
+    completeness = _extract_snapshot_completeness(payload)
+    return _to_text(
+        completeness.get("explore_rankings_snapshot_updated_at")
+        or completeness.get("exploreRankingsSnapshotUpdatedAt")
+    )
+
+
+def _set_page_has_rank_fields(payload: Dict[str, Any]) -> bool:
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    rank_keys = (
+        "desirability_rank",
+        "pack_score_rank",
+        "pack_rank",
+        "profit_rank",
+        "safety_rank",
+        "stability_rank",
+        "relative_pack_score_rank",
+        "overall_rank",
+    )
+    return any(summary.get(key) is not None for key in rank_keys)
+
+
 def _source_rows_exist_for_set_page(client: Any, set_id: str) -> bool:
     run_id = _latest_run_id_for_set(client, set_id)
     simulation_rows_exist = bool(
@@ -467,8 +506,18 @@ def _set_page_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
     meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
     warnings = list(meta.get("warnings") or [])
     snapshot_updated_at = _to_text(row.get("updated_at"))
-    if not isinstance(meta.get("snapshotCompleteness") or meta.get("snapshot_completeness"), dict):
+    completeness = _extract_snapshot_completeness(payload)
+    if not isinstance(completeness, dict) or not completeness:
         return FreshnessResult("set_page", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks, warnings)
+    rankings_updated_at, rankings_checks = _latest_timestamp(
+        client,
+        table="pokemon_explore_rankings_snapshot_latest",
+        timestamp_columns=("updated_at",),
+        filters=(("tcg", "pokemon"), ("scope", "rip-statistics")),
+    )
+    checks.extend(rankings_checks)
+    if rankings_updated_at and not _set_page_has_rank_fields(payload):
+        return FreshnessResult("set_page", True, "rank fields missing while rankings snapshot exists", snapshot_updated_at, dependency_updated_at, checks, warnings)
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult("set_page", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks, warnings)
     if _has_known_stale_warning(warnings) and _source_rows_exist_for_set_page(client, set_id):
@@ -609,8 +658,16 @@ def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: b
         summary.global_failed.append(f"explore_rankings: {exc}")
 
 
-def _maybe_rebuild_set_page(client: Any, plan: SetRefreshPlan, *, rankings_stale: bool, commit: bool, summary: RefreshSummary) -> None:
-    needs_rebuild = plan.set_page.stale or plan.cards.stale or plan.market_dashboard.stale or rankings_stale
+def _maybe_rebuild_set_page(
+    client: Any,
+    plan: SetRefreshPlan,
+    *,
+    rankings_updated_at: Optional[str],
+    commit: bool,
+    summary: RefreshSummary,
+) -> None:
+    rankings_rebuilt_after_set_page = bool(rankings_updated_at and _is_newer(rankings_updated_at, plan.set_page.snapshot_updated_at))
+    needs_rebuild = plan.set_page.stale or plan.cards.stale or plan.market_dashboard.stale or rankings_rebuilt_after_set_page
     if not needs_rebuild:
         return
     set_row = plan.set_row
@@ -691,8 +748,25 @@ def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_a
         problems.append(f"{canonical_key}: snapshotCompleteness missing")
     if _has_known_stale_warning(warnings) and _source_rows_exist_for_set_page(client, set_id):
         problems.append(f"{canonical_key}: stale warning remains")
-    if rankings_updated_at and _is_newer_by_more_than(row.get("updated_at"), rankings_updated_at, RANKINGS_STALE_THRESHOLD_SECONDS):
-        problems.append(f"{canonical_key}: rankings snapshot older than set page snapshot")
+    if rankings_updated_at and not _set_page_has_rank_fields(payload):
+        problems.append(f"{canonical_key}: rank fields missing while rankings snapshot exists")
+
+    set_page_updated_at = _to_text(row.get("updated_at"))
+    embedded_rankings_updated_at = _extract_embedded_rankings_updated_at(payload)
+    decision_signal_ranks = _extract_section_freshness(payload).get("decisionSignalRanks")
+    decision_signal_rank_status = (
+        _to_text(decision_signal_ranks.get("status"))
+        if isinstance(decision_signal_ranks, dict)
+        else None
+    )
+
+    if rankings_updated_at and _is_newer(rankings_updated_at, set_page_updated_at):
+        problems.append(f"{canonical_key}: rankings snapshot rebuilt after set page snapshot")
+    elif rankings_updated_at and embedded_rankings_updated_at and _is_newer(rankings_updated_at, embedded_rankings_updated_at):
+        problems.append(f"{canonical_key}: set page embedded rankings snapshot is stale")
+    elif decision_signal_rank_status and decision_signal_rank_status.lower() == "stale" and rankings_updated_at and embedded_rankings_updated_at and _is_newer(rankings_updated_at, embedded_rankings_updated_at):
+        problems.append(f"{canonical_key}: decision signal ranks marked stale with newer rankings snapshot available")
+
     return problems
 
 
@@ -754,11 +828,10 @@ def main() -> None:
     for plan in plans:
         _maybe_rebuild_market(client, plan, commit=commit, days=args.days, window=args.window, summary=summary)
 
-    market_refresh_needed = any(plan.market_dashboard.stale for plan in plans)
-    rankings_needed = rankings.stale or market_refresh_needed
+    rankings_needed = rankings.stale
     if rankings_needed:
         summary.stale_snapshot_families.add("explore_rankings")
-    rankings_reason = rankings.reason if rankings.stale else "upstream market dashboard snapshot refresh needed"
+    rankings_reason = rankings.reason
     _maybe_rebuild_rankings(
         client,
         FreshnessResult("explore_rankings", rankings_needed, rankings_reason),
@@ -766,8 +839,22 @@ def main() -> None:
         summary=summary,
     )
 
+    rankings_row_after_rebuild = _read_snapshot_row(
+        client,
+        "pokemon_explore_rankings_snapshot_latest",
+        "tcg,scope,updated_at",
+        (("tcg", "pokemon"), ("scope", "rip-statistics")),
+    )
+    rankings_updated_at_after_rebuild = _to_text((rankings_row_after_rebuild or {}).get("updated_at"))
+
     for plan in plans:
-        _maybe_rebuild_set_page(client, plan, rankings_stale=rankings_needed, commit=commit, summary=summary)
+        _maybe_rebuild_set_page(
+            client,
+            plan,
+            rankings_updated_at=rankings_updated_at_after_rebuild,
+            commit=commit,
+            summary=summary,
+        )
 
     validation_needed = validation.stale or rankings_needed or any(plan.set_page.stale for plan in plans)
     if validation_needed:

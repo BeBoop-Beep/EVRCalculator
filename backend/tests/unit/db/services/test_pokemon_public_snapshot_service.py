@@ -1041,9 +1041,12 @@ def test_set_page_snapshot_read_adds_desirability_validation_when_missing(monkey
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
 
-    assert payload["desirabilityValidation"]["formula_version"] == "desirability_validation_v1"
-    assert payload["desirability_validation"] == payload["desirabilityValidation"]
-    assert payload["meta"]["sources"]["desirability_validation"] == "runtime_from_rankings_snapshot"
+    assert payload.get("desirabilityValidation") is None
+    assert payload.get("desirability_validation") is None
+    assert (
+        "Desirability validation is missing in this snapshot; request path skipped runtime rebuild."
+        in payload["meta"]["warnings"]
+    )
 
 
 def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fails(monkeypatch):
@@ -1093,6 +1096,7 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
         "Checklist set value enrichment failed; served persisted rankings snapshot without enrichment."
         in payload["meta"]["warnings"]
     )
+    assert payload["meta"]["sources"]["checklist_set_value_enrichment"] == "FAILED_OPTIONAL"
     assert payload["meta"]["snapshot"]["source"] == "pokemon_explore_rankings_snapshot_latest"
 
 
@@ -1173,7 +1177,9 @@ def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(
     assert payload["summary"]["name"] == "White Flare"
     assert payload["top_hits"][0]["card_name"] == "Chase"
     assert payload["meta"]["sources"]["simulation_input_cards"] == "OK"
-    assert payload["desirabilityValidation"]["formula_version"] == "desirability_validation_v1"
+    assert payload.get("desirabilityValidation") is None
+    assert payload.get("desirability_validation") is None
+    assert "Desirability validation is missing in this snapshot; request path skipped runtime rebuild." in payload["meta"]["warnings"]
 
 
 def test_set_page_missing_snapshot_returns_fallback_without_live_assembly(monkeypatch):
@@ -1266,5 +1272,47 @@ def test_set_page_snapshot_read_warns_when_rankings_snapshot_is_stale(monkeypatc
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
 
-    assert "rankings snapshot is stale relative to set page snapshot" in payload["meta"]["warnings"]
-    assert payload["meta"]["snapshot"]["exploreRankingsUpdatedAt"] == "2026-06-22T12:00:00+00:00"
+    assert "rankings snapshot is stale relative to set page snapshot" not in payload["meta"]["warnings"]
+    assert payload["meta"]["snapshot"].get("exploreRankingsUpdatedAt") is None
+
+
+def test_set_page_snapshot_read_does_not_runtime_build_desirability_validation(monkeypatch):
+    client = _Client(
+        {
+            "sets": lambda _query: [
+                {
+                    "id": "set-1",
+                    "name": "Known Set",
+                    "canonical_key": "known-set",
+                    "pokemon_api_set_id": "sv-known",
+                }
+            ],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": "set-1",
+                    "updated_at": "2026-06-25T12:00:00+00:00",
+                    "payload_json": {
+                        "summary": {"target_id": "set-1", "name": "Known Set"},
+                        "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+                        "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
+                    },
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_with_desirability_validation",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("runtime desirability validation should not run")),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_with_rankings_freshness_warning",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("rankings freshness lookup should not run")),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
+
+    assert payload["summary"]["name"] == "Known Set"
+    assert payload["meta"]["timings"]["snapshot_read_ms"] is not None

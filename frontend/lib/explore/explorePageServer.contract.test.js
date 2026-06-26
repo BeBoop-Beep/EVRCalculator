@@ -49,10 +49,13 @@ test("ripStatisticsServer returns recoverable targets fallback instead of throwi
   const nonOkSource = source.slice(nonOkStart, successStart);
 
   assert.ok(source.includes("function getRecoverableTargetsPayload"));
+  assert.ok(source.includes("function toBackendFailureWarning"));
   assert.ok(source.includes("withTargetsRequestFailureMeta"));
   assert.ok(source.includes("requestFailed: true"));
   assert.ok(source.includes("fallback: Boolean(fallback || meta.fallback)"));
-  assert.ok(nonOkSource.includes("return getRecoverableTargetsPayload(cacheKey);"));
+  assert.ok(source.includes("stale: true"));
+  assert.ok(source.includes("fallback: true"));
+  assert.ok(nonOkSource.includes("return getRecoverableTargetsPayload(cacheKey, warning);"));
   assert.ok(!nonOkSource.includes("throw new Error"));
 });
 

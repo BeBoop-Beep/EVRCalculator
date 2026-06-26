@@ -19,7 +19,7 @@ export default async function TcgSetRipStatisticsPage({ params }) {
       fallback: true,
       requestFailed: true,
       warnings: [
-        `RIP Statistics targets request failed; loading set snapshot directly. ${error?.message || ""}`.trim(),
+        `RIP Statistics targets unavailable; continuing with direct set snapshot fallback. ${error?.message || ""}`.trim(),
       ],
     },
   }));
@@ -35,6 +35,7 @@ export default async function TcgSetRipStatisticsPage({ params }) {
   const requestedTargetType = selectedTarget?.target_type || "set";
   const requestedTargetId = selectedTarget?.target_id || requestedSetSlug;
   const fallbackTarget = selectedTarget || (requestedTargetId ? { target_type: "set", target_id: requestedTargetId } : null);
+  const effectiveSelectedTarget = selectedTarget || fallbackTarget;
 
   let explorePayload = null;
   let pageError = null;
@@ -57,7 +58,7 @@ export default async function TcgSetRipStatisticsPage({ params }) {
   return (
     <PokemonSetPageClient
       targetsPayload={targetsPayload}
-      selectedTarget={selectedTarget}
+      selectedTarget={effectiveSelectedTarget}
       requestedTargetType={requestedTargetType}
       requestedTargetId={requestedTargetId}
       explorePayload={explorePayload}

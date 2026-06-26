@@ -25,7 +25,7 @@ function freshnessFor(payload, sectionKey) {
 
 function isRequestTimeoutFallback(payload) {
   const meta = payload?.meta || {};
-  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout") {
+  if (meta.requestTimeout === true || meta.fallbackReason === "request_timeout" || meta.isTransportFallback === true) {
     return true;
   }
   const errors = Array.isArray(meta.errors) ? meta.errors : [];
@@ -64,6 +64,7 @@ export function selectSimulationDrivers(payload = {}) {
   const warnings = asArray(payload?.meta?.warnings);
   const freshness = freshnessFor(payload, "simulationDrivers");
   const requestTimeout = isRequestTimeoutFallback(payload);
+  const transportFallback = requestTimeout || payload?.meta?.isTransportFallback === true;
   const fallbackUsed =
     sources.explore_rip_statistics_latest &&
     sources.explore_rip_statistics_latest !== "OK" &&
@@ -74,7 +75,7 @@ export function selectSimulationDrivers(payload = {}) {
       : sources.simulation_input_cards === "NO_ROWS"
       ? "simulation_input_cards"
       : null;
-  const missingBackendSource = rows.length === 0 && !requestTimeout ? backendSourceFailure : null;
+  const missingBackendSource = rows.length === 0 && !transportFallback ? backendSourceFailure : null;
 
   return {
     rows,
@@ -85,17 +86,18 @@ export function selectSimulationDrivers(payload = {}) {
       rowCount: rows.length,
       freshness,
       freshnessStatus: freshness?.status || null,
-      status: requestTimeout && rows.length === 0 ? "loading" : rows.length > 0 ? "ready" : "unavailable",
+      status: transportFallback && rows.length === 0 ? "loading" : rows.length > 0 ? "ready" : "unavailable",
       requestTimeout,
+      transportFallback,
       dataAsOf: freshness?.dataAsOf || null,
       lastSuccessfulAt: freshness?.lastSuccessfulAt || null,
       attemptedAt: freshness?.attemptedAt || null,
-      missingFields: rows.length === 0 && !requestTimeout ? ["top_hits"] : [],
+      missingFields: rows.length === 0 && !transportFallback ? ["top_hits"] : [],
       sources,
       fallbackUsed: Boolean(fallbackUsed),
       missingBackendSource,
       warning:
-        requestTimeout && rows.length === 0
+        transportFallback && rows.length === 0
           ? "Simulation Drivers loading: set page snapshot request timed out; retrying."
           : rows.length === 0
           ? missingBackendSource
