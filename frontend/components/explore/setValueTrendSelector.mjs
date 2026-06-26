@@ -62,11 +62,9 @@ export function normalizeSetValueTrendPoints(points) {
   );
 }
 
-export function getSetValueTrendHistoryForScope({
-  history,
-  historiesByScope,
-  scope = CANONICAL_SET_VALUE_SCOPE_KEY,
-} = {}) {
+export function getSetValueTrendHistoryForScope(input = {}) {
+  const safeInput = input && typeof input === "object" ? input : {};
+  const { history, historiesByScope, scope = CANONICAL_SET_VALUE_SCOPE_KEY } = safeInput;
   const requestedScope = normalizeScopeKey(scope);
   const scopedHistory = historiesByScope?.[requestedScope];
 
@@ -93,13 +91,15 @@ export function getSetValueTrendHistoryForScope({
   };
 }
 
-export function selectOverviewSetValueTrendByScope({
-  history,
-  historiesByScope,
-  selectedScope = CANONICAL_SET_VALUE_SCOPE_KEY,
-  selectedWindowKey = null,
-  preferredWindowKey = "30D",
-} = {}) {
+export function selectOverviewSetValueTrendByScope(input = {}) {
+  const safeInput = input && typeof input === "object" ? input : {};
+  const {
+    history,
+    historiesByScope,
+    selectedScope = CANONICAL_SET_VALUE_SCOPE_KEY,
+    selectedWindowKey = null,
+    preferredWindowKey = "30D",
+  } = safeInput;
   const scope = normalizeScopeKey(selectedScope);
   const selectedHistory = getSetValueTrendHistoryForScope({ history, historiesByScope, scope });
   const points = normalizeSetValueTrendPoints(selectedHistory.history);

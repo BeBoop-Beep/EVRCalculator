@@ -1044,3 +1044,62 @@ def test_set_page_snapshot_read_adds_desirability_validation_when_missing(monkey
     assert payload["desirabilityValidation"]["formula_version"] == "desirability_validation_v1"
     assert payload["desirability_validation"] == payload["desirabilityValidation"]
     assert payload["meta"]["sources"]["desirability_validation"] == "runtime_from_rankings_snapshot"
+
+
+def test_set_page_missing_snapshot_returns_fallback_without_live_assembly(monkeypatch):
+    client = _Client(
+        {
+            "sets": lambda _query: [
+                {
+                    "id": "set-1",
+                    "name": "Known Set",
+                    "canonical_key": "known-set",
+                    "pokemon_api_set_id": "sv-known",
+                }
+            ],
+            "pokemon_set_page_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
+
+    assert payload["summary"]["target_id"] == "set-1"
+    assert payload["summary"]["name"] == "Known Set"
+    assert payload["top_hits"] == []
+    assert payload["meta"]["fallback"] is True
+    assert payload["meta"]["sources"]["setPage"] == "fallback_missing_pokemon_set_page_snapshot_latest"
+    assert payload["meta"]["errors"][0]["code"] == "POKEMON_SET_PAGE_SNAPSHOT_MISSING"
+
+
+def test_set_page_snapshot_missing_top_hits_skips_live_repair(monkeypatch):
+    client = _Client(
+        {
+            "sets": lambda _query: [
+                {
+                    "id": "set-1",
+                    "name": "Known Set",
+                    "canonical_key": "known-set",
+                    "pokemon_api_set_id": "sv-known",
+                }
+            ],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": "set-1",
+                    "updated_at": "2026-06-01T00:00:00+00:00",
+                    "payload_json": {
+                        "summary": {"target_id": "set-1", "name": "Known Set"},
+                        "top_hits": [],
+                        "meta": {"sources": {"simulation_input_cards": "FAILED"}, "warnings": []},
+                    },
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
+
+    assert payload["top_hits"] == []
+    assert payload["meta"]["simulationDriversRepairSkipped"]["policy"] == "no_live_assembly_during_route_render"
+    assert "skipped live repair during route render" in payload["meta"]["warnings"][0]

@@ -30,7 +30,9 @@ export default async function TcgSetRipStatisticsPage({ params }) {
 
   if (selectedTarget?.target_id) {
     try {
-      explorePayload = await getExplorePagePayload(requestedTargetType, requestedTargetId);
+      explorePayload = await getExplorePagePayload(requestedTargetType, requestedTargetId, {
+        fallbackTarget: selectedTarget,
+      });
       if (!explorePayload) {
         pageError = "No persisted RIP Statistics payload is available for this set.";
       }

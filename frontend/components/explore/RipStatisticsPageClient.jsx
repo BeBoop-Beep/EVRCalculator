@@ -25,6 +25,11 @@ import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { getCardAppealSampleDiagnostics } from "./cardAppealSampleDiagnostics.mjs";
+import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
+import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
+import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
+import { buildSetValueContract, selectSetValueTrendFromContract } from "./setValueContract.mjs";
+import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { selectDesirabilityValidation as selectSetDesirabilityValidation } from "@/components/pokemon/set-page/Insights/desirabilityValidationSelector.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
@@ -70,6 +75,7 @@ import {
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
 import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
+import { adaptSetShell } from "@/lib/pokemon/set-page/setPageAdapters.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -145,6 +151,33 @@ function debugSetPagePerf(label, details = {}) {
     return;
   }
   console.debug(`[pokemon-set-perf] ${label}`, details);
+}
+
+function markSetPagePerformance(name, detail = {}) {
+  if (!isDevPerfLoggingEnabled || typeof performance === "undefined") {
+    return;
+  }
+  try {
+    performance.mark(name, { detail });
+  } catch {
+    try {
+      performance.mark(name);
+    } catch {
+      // Ignore mark failures in older browsers.
+    }
+  }
+}
+
+function schedulePostShellWarmup(callback) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(callback, { timeout: 1200 });
+    return () => window.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(callback, 120);
+  return () => window.clearTimeout(id);
 }
 
 function toStableIdentifier(value) {
@@ -1676,7 +1709,7 @@ function SetValueTooltip({ active, payload, scopeLabel = "Checklist" }) {
   );
 }
 
-function CompactSparkline({ points, valueKey = "value", trendDirection = "neutral", className = "", showTooltip = true }) {
+function CompactSparkline({ points, valueKey = "value", trendDirection = "neutral", className = "", showTooltip = true, emptyLabel = "Awaiting trend" }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipX, setTooltipX] = useState(null);
   const chartPoints = Array.isArray(points)
@@ -1731,7 +1764,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
   if (numericPoints.length < 2) {
     return (
       <div className={["flex h-16 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-xs text-[var(--text-secondary)]", className].filter(Boolean).join(" ")}>
-        Awaiting trend
+        {emptyLabel}
       </div>
     );
   }
@@ -1884,6 +1917,7 @@ function getCanonicalChecklistSetValueMetrics({
   meta,
   fallbackMetric,
   fallbackAsOf,
+  sourcePrefix = "market_dashboard",
 }) {
   const marketMetrics = getSetValueHistoryMetrics(
     getSetValueHistoryForScope({ history, historiesByScope, scope: CANONICAL_SET_VALUE_SCOPE }),
@@ -1895,7 +1929,7 @@ function getCanonicalChecklistSetValueMetrics({
       ...marketMetrics,
       value: marketMetrics.currentValue,
       valueScope: CANONICAL_SET_VALUE_SCOPE,
-      source: `market_dashboard.setValueHistoriesByScope.${CANONICAL_SET_VALUE_SCOPE}`,
+      source: `${sourcePrefix}.setValueHistoriesByScope.${CANONICAL_SET_VALUE_SCOPE}`,
       sourcePayloadKey: `setValueHistoriesByScope.${CANONICAL_SET_VALUE_SCOPE}`,
       asOf:
         marketMetrics.asOf ||
@@ -2017,6 +2051,8 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
 }
 
 function SetValueTrendCard({
+  setId,
+  setValueContract,
   history,
   historiesByScope,
   availableScopes,
@@ -2047,14 +2083,20 @@ function SetValueTrendCard({
   );
   const selectedTrend = useMemo(
     () =>
-      selectOverviewSetValueTrendByScope({
-        history,
-        historiesByScope,
-        selectedScope,
-        selectedWindowKey,
-        preferredWindowKey: "30D",
-      }),
-    [historiesByScope, history, selectedScope, selectedWindowKey]
+      setValueContract
+        ? selectSetValueTrendFromContract({
+            contract: setValueContract,
+            selectedScope,
+            selectedWindowKey,
+          })
+        : selectOverviewSetValueTrendByScope({
+            history,
+            historiesByScope,
+            selectedScope,
+            selectedWindowKey,
+            preferredWindowKey: "30D",
+          }),
+    [historiesByScope, history, selectedScope, selectedWindowKey, setValueContract]
   );
   const selectedScopeLabel = selectedTrend.label;
   const selectedMetricLabel = selectedTrend.metricLabel;
@@ -2070,7 +2112,13 @@ function SetValueTrendCard({
   const deltaWindowLabel = effectiveWindowKey ? getDeltaWindowLabel(effectiveWindowKey) : "Trend";
   const hasTrend = selectedTrend.hasTrend;
   const trendDirection = deltaAmount === null ? "neutral" : deltaAmount < 0 ? "negative" : deltaAmount > 0 ? "positive" : "neutral";
-  const chartKey = `${selectedTrend.scope}:${effectiveWindowKey || "window"}:${firstPoint?.date || "start"}:${lastPoint?.date || "latest"}:${chartPoints.length}`;
+  const seriesStartDate = firstPoint?.date || "start";
+  const seriesEndDate = lastPoint?.date || "latest";
+  const chartKey = `${setId || "set"}-${selectedTrend.scope}-${effectiveWindowKey || "window"}-${seriesStartDate}-${seriesEndDate}-${chartPoints.length}`;
+
+  useEffect(() => {
+    setSelectedWindowKey(null);
+  }, [setId, selectedScope]);
 
   useEffect(() => {
     if (!effectiveWindowKey || selectedWindowKey === effectiveWindowKey) {
@@ -2092,9 +2140,9 @@ function SetValueTrendCard({
       titleInfoText="Daily set value history from Near Mint card market observations. Checklist sums tracked checklist cards, Hits excludes common low-rarity buckets, and Top 10 sums the highest-value tracked cards for each date."
       className="h-full"
     >
-      {(status === "loading" || status === "idle") && points.length === 0 ? (
+      {(status === "loading" || status === "idle") && points.length === 0 && currentValue === null ? (
         <InlinePanelSkeleton rows={4} />
-      ) : status === "error" ? (
+      ) : status === "error" && currentValue === null ? (
         <p className="text-sm text-red-300">{error || "Unable to load set value history for this set."}</p>
       ) : !hasTrend ? (
         <div className="space-y-3">
@@ -2103,7 +2151,9 @@ function SetValueTrendCard({
             <p className="mt-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</p>
           </div>
           <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-3 py-3 text-sm text-[var(--text-secondary)]">
-            Not enough set value history yet.
+            {currentValue !== null
+              ? "Current value is available; historical trend is still loading/unavailable."
+              : "Not enough set value history yet."}
           </p>
           <div className="pt-1">
             <SetValueScopeSelector scopes={scopeOptions} value={selectedTrend.scope} onChange={handleSelectedScopeChange} />
@@ -4387,40 +4437,12 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [] 
 
   const signals = useMemo(() => {
     const compactSummaries = {
-      Profitability: "Strong average upside",
-      Safety: "Manageable downside",
-      Desirability: "High collector demand",
-      Stability: "Fragile value spread",
       "Opening Experience": "Swingy pack feel",
       "Chase Potential": "Rare top-heavy chase",
       "Biggest Upside": "Huge but rare spikes",
       "Expected Value": "Strong Expected Value",
     };
-    const signalByTitle = new Map(
-      (Array.isArray(pillarSignals) ? pillarSignals : [])
-        .filter(Boolean)
-        .map((signal) => [signal.title, signal])
-    );
-    const pillarRows = [
-      ["Profit", "Profitability", "Profit profile", "Compares Expected Value, upside, and pack cost pressure."],
-      ["Safety", "Safety", "Miss protection", "Shows how well the set protects against rough openings and downside outcomes."],
-      ["Desirability", "Desirability", "Collector demand", "Reflects collector appeal and chase-card strength for this set."],
-      ["Stability", "Stability", "Value spread", "Shows whether value is broadly distributed or concentrated in a few cards."],
-    ]
-      .map(([title, label, fallbackSummary, detailSummary]) => {
-        const signal = signalByTitle.get(title);
-        if (!signal) return null;
-        return {
-          label,
-          scoreText: formatScore(signal.score),
-          scoreTrend: signal.scoreTrend,
-          rankTier: signal.rankTier,
-          rankValue: signal.rankValue,
-          summary: compactSummaries[label] || signal.highlight || fallbackSummary,
-          detailSummary: signal.highlight || detailSummary,
-        };
-      })
-      .filter(Boolean);
+    const pillarRows = selectDecisionSignals({ pillarSignals, summary }).rows;
 
     const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
       const backendLens = backendLensByKey.get(lens.key) || null;
@@ -5208,6 +5230,15 @@ function buildCardDesirabilityMarketPoint(card, totalVisibleMarketValue, selecte
 
   return {
     kind: "card",
+    id: card?.id ?? null,
+    cardId: card?.cardId ?? card?.card_id ?? null,
+    card_id: card?.card_id ?? card?.cardId ?? null,
+    pokemonCanonicalCardId: card?.pokemonCanonicalCardId ?? card?.pokemon_canonical_card_id ?? null,
+    pokemon_canonical_card_id: card?.pokemon_canonical_card_id ?? card?.pokemonCanonicalCardId ?? null,
+    printedNumber: card?.printedNumber ?? card?.printed_number ?? null,
+    printed_number: card?.printed_number ?? card?.printedNumber ?? null,
+    setNumber: card?.setNumber ?? card?.set_number ?? card?.cardNumber ?? card?.card_number ?? null,
+    set_number: card?.set_number ?? card?.setNumber ?? card?.card_number ?? card?.cardNumber ?? null,
     x: xValue,
     y: marketPrice,
     name: card?.name || "Unknown card",
@@ -5302,6 +5333,16 @@ function getCardValidationBuckets(points) {
   const priceCutoff = priceValues[Math.floor(priceValues.length * 0.67)] ?? priceValues[priceValues.length - 1];
   const lowPriceCutoff = priceValues[Math.floor(priceValues.length * 0.33)] ?? priceValues[0];
   const compact = (rows) => rows.slice(0, 3).map((point) => ({
+    id: point.id,
+    cardId: point.cardId,
+    card_id: point.card_id,
+    pokemonCanonicalCardId: point.pokemonCanonicalCardId,
+    pokemon_canonical_card_id: point.pokemon_canonical_card_id,
+    printedNumber: point.printedNumber,
+    printed_number: point.printed_number,
+    setNumber: point.setNumber,
+    set_number: point.set_number,
+    rarity: point.rarity,
     name: point.name,
     detail: `${formatCurrency(point.y)} · ${formatNumber(point.x, 1)}`,
   }));
@@ -5320,6 +5361,23 @@ function getCardValidationBuckets(points) {
       rows: compact(points.filter((point) => point.x >= desirabilityCutoff && point.y <= lowPriceCutoff).sort((a, b) => b.x - a.x)),
     },
   ];
+}
+
+function getValidationBucketRowKey(bucket, row, index) {
+  return [
+    bucket?.title,
+    row?.id,
+    row?.cardId ?? row?.card_id,
+    row?.pokemonCanonicalCardId ?? row?.pokemon_canonical_card_id,
+    row?.printedNumber ?? row?.printed_number,
+    row?.setNumber ?? row?.set_number,
+    row?.rarity,
+    row?.name,
+    index,
+  ]
+    .filter((part) => part !== null && part !== undefined && part !== "")
+    .map(String)
+    .join(":");
 }
 
 function CardDesirabilityMarketValidationCard({ cards, cardAppealMarketPriceCorrelation = null, diagnosticsContext = {} }) {
@@ -5545,8 +5603,8 @@ function CardDesirabilityMarketValidationCard({ cards, cardAppealMarketPriceCorr
                     <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{bucket.title}</p>
                     {bucket.rows.length > 0 ? (
                       <div className="mt-2 space-y-1.5">
-                        {bucket.rows.map((row) => (
-                          <div key={`${bucket.title}:${row.name}`} className="min-w-0">
+                        {bucket.rows.map((row, rowIndex) => (
+                          <div key={getValidationBucketRowKey(bucket, row, rowIndex)} className="min-w-0">
                             <p className="truncate text-xs font-semibold text-[var(--text-primary)]">{row.name}</p>
                             <p className="text-[11px] text-[var(--text-secondary)]">{row.detail}</p>
                           </div>
@@ -5700,7 +5758,7 @@ function SimpleTopCardsContent({ topHits }) {
   );
 }
 
-function TopEVDriversContent({ topHits, meanValue, condensed = false }) {
+function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostics = null }) {
   const hits = Array.isArray(topHits) ? topHits : [];
   const totalEV = toNumber(meanValue);
   const visibleTopEV = hits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
@@ -5709,7 +5767,18 @@ function TopEVDriversContent({ topHits, meanValue, condensed = false }) {
   const totalValue = hasPackTotalEV ? totalEV : visibleTopEV;
 
   if (hits.length === 0) {
-    return <p className="text-sm text-[var(--text-secondary)]">No card contribution rows are available.</p>;
+    return (
+      <div className="space-y-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-3">
+        <p className="text-sm text-[var(--text-secondary)]">
+          {diagnostics?.warning || "No card contribution rows are available."}
+        </p>
+        {diagnostics?.source || diagnostics?.missingBackendSource ? (
+          <p className="text-xs text-[var(--text-secondary)] opacity-80">
+            Source: {diagnostics?.source || diagnostics?.missingBackendSource}
+          </p>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -6336,10 +6405,15 @@ export default function RipStatisticsPageClient({
     [requestedTargetId, selectedTarget, explorePayload]
   );
   const summary = explorePayload?.summary || {};
+  const setShellContract = useMemo(
+    () => (setDetailMode ? adaptSetShell(explorePayload || {}) : null),
+    [explorePayload, setDetailMode]
+  );
   const percentiles = explorePayload?.percentiles || [];
   const distributionBins = explorePayload?.distribution_bins || [];
   const thresholdBins = explorePayload?.threshold_bins || [];
-  const topHits = explorePayload?.top_hits || [];
+  const simulationDrivers = useMemo(() => selectSimulationDrivers(explorePayload || {}), [explorePayload]);
+  const topHits = simulationDrivers.rows;
   const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
   const normalizedOpeningDesirability = useMemo(
@@ -6385,6 +6459,7 @@ export default function RipStatisticsPageClient({
   const warnings = [
     ...(targetsPayload?.meta?.warnings || []),
     ...(explorePayload?.meta?.warnings || []),
+    ...(simulationDrivers.diagnostics?.warning ? [simulationDrivers.diagnostics.warning] : []),
   ];
 
   const selectedName = selectedTarget?.name || requestedTargetId || "Selected Set";
@@ -6469,18 +6544,43 @@ export default function RipStatisticsPageClient({
       if (!setPrefetchStartedRef.current.has(prefetchKey)) {
         setPrefetchStartedRef.current.add(prefetchKey);
         debugSetPagePerf("set.prefetch_start", { setId: resolvedSetId, reason: prefetchReason });
+        markSetPagePerformance("cards_warmup_start", { setId: resolvedSetId, reason: prefetchReason });
         prefetchPokemonSetCards(resolvedSetId).then((payload) => {
           const cards = Array.isArray(payload?.cards) ? payload.cards : [];
           if (cards.length > 0) {
-            checklistCacheRef.current.set(resolvedSetId, cards);
+            checklistCacheRef.current.set(resolvedSetId, payload);
           }
+          markSetPagePerformance("cards_warmup_ready", { setId: resolvedSetId, count: cards.length, reason: prefetchReason });
           debugSetPagePerf("cards.prefetch_ready", { setId: resolvedSetId, count: cards.length, reason: prefetchReason });
         });
         prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW }).then((payload) => {
           if (payload) {
+            markSetPagePerformance("market_warmup_ready", { setId: resolvedSetId, reason: prefetchReason });
             debugSetPagePerf("market.prefetch_ready", { setId: resolvedSetId, reason: prefetchReason });
           }
         });
+        Promise.all(
+          SET_VALUE_SCOPE_OPTIONS.map((scope) =>
+            getPokemonSetValueHistory(resolvedSetId, { days: 365, scope: scope.key }).then((payload) => ({
+              scope: scope.key,
+              points: Array.isArray(payload?.history) ? payload.history.length : 0,
+            }))
+          )
+        )
+          .then((results) => {
+            markSetPagePerformance("set_value_ready", {
+              setId: resolvedSetId,
+              reason: prefetchReason,
+              scopes: results,
+            });
+          })
+          .catch((error) => {
+            debugSetPagePerf("set_value.prefetch_error", {
+              setId: resolvedSetId,
+              reason: prefetchReason,
+              error: error?.message || String(error),
+            });
+          });
       }
     };
 
@@ -6724,6 +6824,9 @@ export default function RipStatisticsPageClient({
 
   const handleSetDetailTabChange = (nextTab) => {
     const normalizedTab = normalizeSetDetailTab(nextTab);
+    if (normalizedTab === "cards") {
+      markSetPagePerformance("cards_tab_first_interactive", { setId: resolvedSetResourceId });
+    }
     setSetDetailTab(normalizedTab);
     if (normalizedTab === "insights" && graphMode === "historical-trend") {
       setGraphMode("outcome-distribution");
@@ -6736,6 +6839,9 @@ export default function RipStatisticsPageClient({
     const nextTab = normalizeSetDetailTab(tab || setDetailTab);
 
     if (nextTab) {
+      if (nextTab === "cards") {
+        markSetPagePerformance("cards_tab_first_interactive", { setId: resolvedSetResourceId, source: "nav" });
+      }
       setSetDetailTab(nextTab);
     }
 
@@ -6958,6 +7064,11 @@ export default function RipStatisticsPageClient({
     "average_pack_value_of_hits",
   ]);
   const setValueSummaryMetric = getFirstNumericMetric(summary, [
+    "currentChecklistSetValue",
+    "current_checklist_set_value",
+    "set_value_for_validation",
+    "checklistSetValue",
+    "checklist_set_value",
     "simulated_set_value",
     "set_value",
     "total_set_value",
@@ -7038,38 +7149,80 @@ export default function RipStatisticsPageClient({
     meta: activeMarketDashboardDerivedState.topCards.meta,
   };
   const fallbackSetValueAsOf =
+    setShellContract?.setValueSummary?.asOf ||
     explorePayload?.meta?.asOfDate ||
     explorePayload?.meta?.as_of_date ||
     explorePayload?.meta?.run_at ||
     summary.run_at ||
     null;
-  const setValueSummaryKey = setValueSummaryMetric.key;
-  const setValueSummaryValue = setValueSummaryMetric.value;
+  const shellSetValueSummary = setShellContract?.setValueSummary || null;
+  const setValueSummaryKey = shellSetValueSummary?.sourceKey || setValueSummaryMetric.key;
+  const setValueSummaryValue = shellSetValueSummary?.currentValue ?? setValueSummaryMetric.value;
+  const activeSetValueContract = useMemo(
+    () =>
+      buildSetValueContract({
+        setId: resolvedSetResourceId,
+        current: {
+          value: setValueSummaryValue,
+          asOf: fallbackSetValueAsOf,
+          source: setValueSummaryKey,
+        },
+        history: activeSetValueHistory.history,
+        historiesByScope: activeSetValueHistory.historiesByScope,
+        availableScopes: activeSetValueHistory.availableScopes,
+        status: activeSetValueHistory.status,
+        error: activeSetValueHistory.error,
+      }),
+    [
+      activeSetValueHistory.availableScopes,
+      activeSetValueHistory.error,
+      activeSetValueHistory.historiesByScope,
+      activeSetValueHistory.history,
+      activeSetValueHistory.status,
+      fallbackSetValueAsOf,
+      resolvedSetResourceId,
+      setValueSummaryKey,
+      setValueSummaryValue,
+    ]
+  );
+  const heroSetValueHistory = {
+    history: activeDirectSetValueLoadedScopes.has(CANONICAL_SET_VALUE_SCOPE)
+      ? activeDirectSetValueState.historiesByScope?.[CANONICAL_SET_VALUE_SCOPE] || []
+      : [],
+    historiesByScope: activeDirectSetValueLoadedScopes.has(CANONICAL_SET_VALUE_SCOPE)
+      ? {
+          [CANONICAL_SET_VALUE_SCOPE]: activeDirectSetValueState.historiesByScope?.[CANONICAL_SET_VALUE_SCOPE] || [],
+        }
+      : {},
+    meta: activeDirectSetValueLoadedScopes.has(CANONICAL_SET_VALUE_SCOPE) ? activeDirectSetValueState.meta : null,
+  };
   const canonicalSetValueMetrics = useMemo(
     () =>
       getCanonicalChecklistSetValueMetrics({
-        history: activeSetValueHistory.history,
-        historiesByScope: activeSetValueHistory.historiesByScope,
-        meta: activeSetValueHistory.meta,
+        history: heroSetValueHistory.history,
+        historiesByScope: heroSetValueHistory.historiesByScope,
+        meta: heroSetValueHistory.meta,
         fallbackMetric: { key: setValueSummaryKey, value: setValueSummaryValue },
         fallbackAsOf: fallbackSetValueAsOf,
+        sourcePrefix: "direct_set_value_history",
       }),
     [
-      activeSetValueHistory.history,
-      activeSetValueHistory.historiesByScope,
-      activeSetValueHistory.meta,
+      heroSetValueHistory.history,
+      heroSetValueHistory.historiesByScope,
+      heroSetValueHistory.meta,
       fallbackSetValueAsOf,
       setValueSummaryKey,
       setValueSummaryValue,
     ]
   );
-  const setValue = canonicalSetValueMetrics.value;
+  const standardSetValueScope = activeSetValueContract.scopes.standard;
+  const setValue = activeSetValueContract.current.value ?? canonicalSetValueMetrics.value;
 
   const averageHitValueDisplay = averageHitValue === null ? "Coming soon" : formatCurrency(averageHitValue);
   const setValueDisplay = setValue === null ? "Coming soon" : formatCurrency(setValue);
-  const setValueMetricLabel = getSetValueMetricLabel(canonicalSetValueMetrics.valueScope);
-  const setValueDeltaAmount = canonicalSetValueMetrics.deltaAmount;
-  const setValueDeltaPercent = canonicalSetValueMetrics.deltaPercent;
+  const setValueMetricLabel = `${activeSetValueContract.current.label || getSetValueScopeLabel(CANONICAL_SET_VALUE_SCOPE)} Set Value`;
+  const setValueDeltaAmount = standardSetValueScope?.delta30dAmount ?? canonicalSetValueMetrics.deltaAmount;
+  const setValueDeltaPercent = standardSetValueScope?.delta30dPercent ?? canonicalSetValueMetrics.deltaPercent;
   const setValueSparklineTone =
     setValueDeltaAmount === null
       ? "neutral"
@@ -7078,18 +7231,15 @@ export default function RipStatisticsPageClient({
       : setValueDeltaAmount > 0
       ? "positive"
       : "neutral";
-  const setValueSparklinePoints = canonicalSetValueMetrics.visiblePoints || [];
+  const setValueSparklinePoints = standardSetValueScope?.history?.length > 0 ? standardSetValueScope.history : canonicalSetValueMetrics.visiblePoints || [];
   const activeChartSetValueMetrics = useMemo(
     () =>
-      getSetValueHistoryMetrics(
-        getSetValueHistoryForScope({
-          history: activeSetValueHistory.history,
-          historiesByScope: activeSetValueHistory.historiesByScope,
-          scope: setValueTrendScope,
-        }),
-        { preferredWindowKey: "30D" }
-      ),
-    [activeSetValueHistory.history, activeSetValueHistory.historiesByScope, setValueTrendScope]
+      selectSetValueTrendFromContract({
+        contract: activeSetValueContract,
+        selectedScope: setValueTrendScope,
+        selectedWindowKey: "30D",
+      }),
+    [activeSetValueContract, setValueTrendScope]
   );
   const snapshotIdentityForDebug = getSetSnapshotIdentity(explorePayload);
   const activeSetSlug =
@@ -7347,6 +7497,16 @@ export default function RipStatisticsPageClient({
       previousPoint: previousTrendPoint,
     }),
   };
+  const trendScoresSelection = selectTrendScores({
+    summary,
+    previousPoint: previousTrendPoint,
+    setValueMetrics: canonicalSetValueMetrics,
+  });
+  Object.entries(trendScoresSelection).forEach(([metricKey, selectedTrend]) => {
+    if (trendByMetricKey[metricKey]?.trend === "unknown" && selectedTrend?.trend !== "unknown") {
+      trendByMetricKey[metricKey] = selectedTrend;
+    }
+  });
   trendByMetricKey.setValue = canonicalSetValueMetrics.isFallback
     ? trendByMetricKey.setValue
     : canonicalSetValueMetrics.trend;
@@ -7521,13 +7681,18 @@ export default function RipStatisticsPageClient({
   ];
   const ripBreakdownInfo =
     "RIP Score combines profit, safety, desirability, and stability into a collector-facing opening score.";
+  const ripScoreBreakdown = useMemo(
+    () => selectRipScoreBreakdown(summary, trendByMetricKey),
+    [summary, trendByMetricKey]
+  );
+  const ripBreakdownRowByTitle = new Map(ripScoreBreakdown.rows.map((row) => [row.title, row]));
   const ripPillarTiles = [
     {
       title: "Profit",
-      score: displayedProfitScore,
-      scoreTrend: trendByMetricKey.profitScore,
-      rankValue: summary.profit_rank,
-      rankTier: summary.profit_tier,
+      score: ripBreakdownRowByTitle.get("Profit")?.score ?? displayedProfitScore,
+      scoreTrend: ripBreakdownRowByTitle.get("Profit")?.scoreTrend ?? trendByMetricKey.profitScore,
+      rankValue: ripBreakdownRowByTitle.get("Profit")?.rankValue ?? summary.profit_rank,
+      rankTier: ripBreakdownRowByTitle.get("Profit")?.rankTier ?? summary.profit_tier,
       statusLabel: getPillarStatusLabel({ label: profitMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]?.state, score: displayedProfitScore }),
       highlight: getPillarSignalHighlight("Profit", displayedProfitScore),
       metrics: profitPillarMetrics,
@@ -7535,10 +7700,10 @@ export default function RipStatisticsPageClient({
     },
     {
       title: "Safety",
-      score: displayedSafetyScore,
-      scoreTrend: trendByMetricKey.safetyScore,
-      rankValue: summary.safety_rank,
-      rankTier: summary.safety_tier,
+      score: ripBreakdownRowByTitle.get("Safety")?.score ?? displayedSafetyScore,
+      scoreTrend: ripBreakdownRowByTitle.get("Safety")?.scoreTrend ?? trendByMetricKey.safetyScore,
+      rankValue: ripBreakdownRowByTitle.get("Safety")?.rankValue ?? summary.safety_rank,
+      rankTier: ripBreakdownRowByTitle.get("Safety")?.rankTier ?? summary.safety_tier,
       statusLabel: getPillarStatusLabel({ label: safetyMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]?.state, score: displayedSafetyScore }),
       highlight: getPillarSignalHighlight("Safety", displayedSafetyScore),
       metrics: safetyPillarMetrics,
@@ -7546,10 +7711,10 @@ export default function RipStatisticsPageClient({
     },
     {
       title: "Desirability",
-      score: displayedDesirabilityScore,
-      scoreTrend: trendByMetricKey.desirabilityScore,
-      rankValue: summary.desirability_rank,
-      rankTier: summary.desirability_tier,
+      score: ripBreakdownRowByTitle.get("Desirability")?.score ?? displayedDesirabilityScore,
+      scoreTrend: ripBreakdownRowByTitle.get("Desirability")?.scoreTrend ?? trendByMetricKey.desirabilityScore,
+      rankValue: ripBreakdownRowByTitle.get("Desirability")?.rankValue ?? summary.desirability_rank,
+      rankTier: ripBreakdownRowByTitle.get("Desirability")?.rankTier ?? summary.desirability_tier,
       statusLabel: getPillarStatusLabel({ label: desirabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]?.state, score: displayedDesirabilityScore }),
       highlight: getPillarSignalHighlight("Desirability", displayedDesirabilityScore),
       metrics: desirabilityPillarMetrics,
@@ -7557,10 +7722,10 @@ export default function RipStatisticsPageClient({
     },
     {
       title: "Stability",
-      score: displayedStabilityScore,
-      scoreTrend: trendByMetricKey.stabilityScore,
-      rankValue: summary.stability_rank,
-      rankTier: summary.stability_tier,
+      score: ripBreakdownRowByTitle.get("Stability")?.score ?? displayedStabilityScore,
+      scoreTrend: ripBreakdownRowByTitle.get("Stability")?.scoreTrend ?? trendByMetricKey.stabilityScore,
+      rankValue: ripBreakdownRowByTitle.get("Stability")?.rankValue ?? summary.stability_rank,
+      rankTier: ripBreakdownRowByTitle.get("Stability")?.rankTier ?? summary.stability_tier,
       statusLabel: getPillarStatusLabel({ label: stabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]?.state, score: displayedStabilityScore }),
       highlight: getPillarSignalHighlight("Stability", displayedStabilityScore),
       metrics: stabilityPillarMetrics,
@@ -7568,6 +7733,16 @@ export default function RipStatisticsPageClient({
     },
   ];
   const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
+  const setPageDiagnosticRows = [
+    ["shell payload ready", setShellContract?.contractVersion ? "yes" : "no"],
+    ["cards fetch state", checklistState.status],
+    ["market dashboard state", activeMarketDashboardState.status],
+    ["set value history state", activeDirectSetValueState.status],
+    ["simulation drivers", `${simulationDrivers.rows.length} rows`],
+    ["top hits source", simulationDrivers.diagnostics?.source || "missing"],
+    ["stale cards cache", getCachedPokemonSetCards(resolvedSetResourceId) ? "available" : "none"],
+    ["rip missing fields", (ripScoreBreakdown.diagnostics?.missingFields || []).join(", ") || "none"],
+  ];
 
   const handleTargetIdChange = (nextTargetId, options = {}) => {
     if (!nextTargetId) {
@@ -7671,8 +7846,14 @@ export default function RipStatisticsPageClient({
       selectedTargetId: selectedTarget?.target_id,
       resolvedSetId: setId,
     });
-    warmSetDetailResources(setId, { includeAdjacent: true, reason: "bootstrap" });
-    return undefined;
+    markSetPagePerformance("set_shell_ready", {
+      routeSetId: requestedTargetId,
+      selectedTargetId: selectedTarget?.target_id,
+      resolvedSetId: setId,
+    });
+    return schedulePostShellWarmup(() => {
+      warmSetDetailResources(setId, { includeAdjacent: true, reason: "bootstrap" });
+    });
   }, [setDetailMode, requestedTargetId, selectedTarget?.target_id, resolvedSetResourceId, warmSetDetailResources]);
 
   useEffect(() => {
@@ -7776,7 +7957,7 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const requestedScopes = Array.from(new Set([CANONICAL_SET_VALUE_SCOPE, setValueTrendScope].filter(Boolean)));
+    const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key);
     let isCancelled = false;
     const clickStartedAt = performance.now();
 
@@ -7813,6 +7994,26 @@ export default function RipStatisticsPageClient({
         const availableScopeLookup = new Map();
         let selectedMeta = null;
         results.forEach(({ scope, payload }) => {
+          const payloadSetId = toStableIdentifier(payload?.set?.id ?? payload?.set_id);
+          const payloadScope = String((payload?.meta?.valueScope ?? payload?.meta?.value_scope ?? scope) || "").trim() || scope;
+          if (payloadSetId && payloadSetId !== setId) {
+            debugSetPagePerf("set_value.direct_fetch_ignored", {
+              requestedSetId: setId,
+              payloadSetId,
+              scope,
+              reason: "set_mismatch",
+            });
+            return;
+          }
+          if (payloadScope !== scope) {
+            debugSetPagePerf("set_value.direct_fetch_ignored", {
+              setId,
+              scope,
+              payloadScope,
+              reason: "scope_mismatch",
+            });
+            return;
+          }
           historiesByScope[scope] = Array.isArray(payload?.history) ? payload.history : [];
           loadedScopes.push(scope);
           if (!selectedMeta || scope === CANONICAL_SET_VALUE_SCOPE) {
@@ -7877,7 +8078,7 @@ export default function RipStatisticsPageClient({
     return () => {
       isCancelled = true;
     };
-  }, [setDetailMode, resolvedSetResourceId, setValueTrendScope]);
+  }, [setDetailMode, resolvedSetResourceId]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -8307,6 +8508,7 @@ export default function RipStatisticsPageClient({
                               trendDirection={setValueSparklineTone}
                               className="h-14 w-full"
                               showTooltip={false}
+                              emptyLabel="History pending"
                             />
                             <div className="grid min-w-0 grid-cols-2 gap-2">
                               <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setValueDeltaAmount)}>
@@ -8366,6 +8568,8 @@ export default function RipStatisticsPageClient({
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
                       <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         <SetValueTrendCard
+                          setId={resolvedSetResourceId}
+                          setValueContract={activeSetValueContract}
                           history={activeSetValueHistory.history}
                           historiesByScope={activeSetValueHistory.historiesByScope}
                           availableScopes={activeSetValueHistory.availableScopes}
@@ -8906,7 +9110,7 @@ export default function RipStatisticsPageClient({
                           showEvidence={false}
                           className="mb-3"
                         />
-                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed />
+                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed diagnostics={simulationDrivers.diagnostics} />
                       </div>
                     ) : activeInsightsGraphMode === "value-contribution" ? (
                       <div id="set-detail-value-structure" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
@@ -9045,7 +9249,7 @@ export default function RipStatisticsPageClient({
                       showEvidence={false}
                       className="mb-3"
                     />
-                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} diagnostics={simulationDrivers.diagnostics} />
                   </SectionCard>
                 </div>
               ) : null}
@@ -9239,7 +9443,7 @@ export default function RipStatisticsPageClient({
                       </div>
                     ) : null}
 
-                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} />
+                    <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} diagnostics={simulationDrivers.diagnostics} />
                   </>
                 ) : effectiveValueView === "value" ? (
                   <>
@@ -9296,6 +9500,17 @@ export default function RipStatisticsPageClient({
                   ) : (
                     <span className="text-sm text-[var(--text-secondary)]">No backend timings are available.</span>
                   )}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Set Page Diagnostics</span>
+                  {setPageDiagnosticRows.map(([key, value]) => (
+                    <span
+                      key={key}
+                      className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-xs text-[var(--text-secondary)]"
+                    >
+                      {key}: {value}
+                    </span>
+                  ))}
                 </div>
               </section>
             ) : null}

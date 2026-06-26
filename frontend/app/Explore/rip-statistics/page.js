@@ -39,11 +39,20 @@ export default async function RipStatisticsPage({ searchParams }) {
     }
   }
 
+  const selectedTarget =
+    targets.find(
+      (target) =>
+        String(target?.target_type || "") === requestedTargetType &&
+        String(target?.target_id || "") === requestedTargetId
+    ) || null;
+
   let explorePayload = null;
   let pageError = null;
   if (requestedTargetId) {
     try {
-      explorePayload = await getExplorePagePayload(requestedTargetType, requestedTargetId);
+      explorePayload = await getExplorePagePayload(requestedTargetType, requestedTargetId, {
+        fallbackTarget: selectedTarget,
+      });
       if (!explorePayload) {
         pageError = "No persisted RIP Statistics payload is available for this set.";
       }
@@ -51,13 +60,6 @@ export default async function RipStatisticsPage({ searchParams }) {
       pageError = error?.message || "Failed to load RIP Statistics.";
     }
   }
-
-  const selectedTarget =
-    targets.find(
-      (target) =>
-        String(target?.target_type || "") === requestedTargetType &&
-        String(target?.target_id || "") === requestedTargetId
-    ) || null;
 
   return (
     <RipStatisticsPageClient

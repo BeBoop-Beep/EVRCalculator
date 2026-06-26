@@ -8,11 +8,19 @@ const ripPageClientPath = path.resolve(__dirname, "RipStatisticsPageClient.jsx")
 const marketDashboardStatePath = path.resolve(__dirname, "marketDashboardState.mjs");
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const cardsClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCardsClient.js");
+const setPageAdaptersPath = path.resolve(__dirname, "../../lib/pokemon/set-page/setPageAdapters.mjs");
+const setValueTrendSelectorPath = path.resolve(__dirname, "setValueTrendSelector.mjs");
+const setValueContractPath = path.resolve(__dirname, "setValueContract.mjs");
+const trendScoresSelectorPath = path.resolve(__dirname, "trendScoresSelector.mjs");
+const simulationDriversSelectorPath = path.resolve(__dirname, "simulationDriversSelector.mjs");
+const decisionSignalsSelectorPath = path.resolve(__dirname, "decisionSignalsSelector.mjs");
+const ripScoreBreakdownSelectorPath = path.resolve(__dirname, "ripScoreBreakdownSelector.mjs");
 const dashboardRoutePath = path.resolve(
   __dirname,
   "../../app/api/tcgs/pokemon/sets/[setId]/market/dashboard/route.js"
 );
 const cardsRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/cards/route.js");
+const explorePageServicePath = path.resolve(__dirname, "../../../backend/db/services/explore_page_service.py");
 const snapshotServicePath = path.resolve(
   __dirname,
   "../../../backend/db/services/pokemon_public_snapshot_service.py"
@@ -30,6 +38,316 @@ test("set detail dependent fetches use one stable resolved set resource id", () 
   assert.ok(source.includes("const setId = resolvedSetResourceId;"));
   assert.ok(source.includes('routeSetId: requestedTargetId'));
   assert.ok(source.includes('resolvedSetId: setId'));
+});
+
+test("SetShellContract includes normalized setValueSummary from initial payload", async () => {
+  const { adaptSetShell } = await import(pathToFileURL(setPageAdaptersPath).href);
+  const shell = adaptSetShell({
+    summary: { currentChecklistSetValue: 123.45 },
+    setValueHistoriesByScope: {
+      standard: [
+        { date: "2026-06-01", setValue: 100 },
+        { date: "2026-06-30", setValue: 123.45 },
+      ],
+    },
+    meta: { asOfDate: "2026-06-30" },
+  });
+
+  assert.equal(shell.setValueSummary.currentValue, 123.45);
+  assert.equal(shell.setValueSummary.valueScope, "standard");
+  assert.equal(shell.setValueSummary.asOf, "2026-06-30");
+  assert.equal(shell.setValueSummary.source, "set_value_history");
+  assert.ok("delta30dAmount" in shell.setValueSummary);
+  assert.ok("confidence" in shell.setValueSummary);
+});
+
+test("hero set value is seeded from shell contract instead of overview-only state", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const shellIndex = source.indexOf("const setShellContract = useMemo(");
+  const summaryIndex = source.indexOf("const shellSetValueSummary = setShellContract?.setValueSummary");
+  const heroHistoryIndex = source.indexOf("const heroSetValueHistory = {");
+  const canonicalIndex = source.indexOf("sourcePrefix: \"direct_set_value_history\"");
+  const overviewRenderIndex = source.indexOf("<SetValueTrendCard", canonicalIndex);
+
+  assert.ok(shellIndex >= 0);
+  assert.ok(summaryIndex > shellIndex);
+  assert.ok(heroHistoryIndex > summaryIndex);
+  assert.ok(canonicalIndex > heroHistoryIndex);
+  assert.ok(overviewRenderIndex > canonicalIndex);
+  assert.ok(source.includes("shellSetValueSummary?.currentValue"));
+  assert.ok(!source.slice(heroHistoryIndex, canonicalIndex).includes("activeMarketDashboardDerivedState"));
+});
+
+test("Set Value Trend chart key changes with set id, scope, window, dates, and length", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const componentStart = source.indexOf("function SetValueTrendCard");
+  const componentEnd = source.indexOf("function OverviewMetricTile", componentStart);
+  const componentSource = source.slice(componentStart, componentEnd);
+
+  assert.ok(componentSource.includes("setId,"));
+  assert.ok(componentSource.includes("const seriesStartDate = firstPoint?.date || \"start\""));
+  assert.ok(componentSource.includes("const seriesEndDate = lastPoint?.date || \"latest\""));
+  assert.ok(componentSource.includes("`${setId || \"set\"}-${selectedTrend.scope}-${effectiveWindowKey || \"window\"}-${seriesStartDate}-${seriesEndDate}-${chartPoints.length}`"));
+  assert.ok(source.includes("isAnimationActive={false}"));
+  assert.ok(componentSource.includes("setSelectedWindowKey(null)"));
+});
+
+test("Set Value Trend selector returns one coherent selected object per window and scope", async () => {
+  const { selectOverviewSetValueTrendByScope } = await import(pathToFileURL(setValueTrendSelectorPath).href);
+  const selected = selectOverviewSetValueTrendByScope({
+    historiesByScope: {
+      standard: [
+        { date: "2026-06-01", setValue: 100 },
+        { date: "2026-06-02", setValue: 105 },
+      ],
+      hits: [
+        { date: "2026-06-01", setValue: 80 },
+        { date: "2026-06-02", setValue: 88 },
+      ],
+    },
+    selectedScope: "hits",
+    selectedWindowKey: "30D",
+  });
+
+  assert.equal(selected.scope, "hits");
+  assert.equal(selected.metricLabel, "Hits Set Value");
+  assert.equal(selected.currentValue, 88);
+  assert.equal(selected.series.at(-1).setValue, 88);
+  assert.equal(selected.diagnostics.source, "setValueHistoriesByScope.hits");
+});
+
+test("Set Value Contract keeps current value available while history is empty", async () => {
+  const { buildSetValueContract, selectSetValueTrendFromContract } = await import(
+    pathToFileURL(setValueContractPath).href
+  );
+
+  const contract = buildSetValueContract({
+    setId: "black-bolt",
+    current: {
+      value: 5329.67,
+      asOf: "2026-06-25",
+      source: "summary.currentChecklistSetValue",
+    },
+    historiesByScope: { standard: [] },
+    status: "empty",
+  });
+  const selected = selectSetValueTrendFromContract({ contract, selectedScope: "standard" });
+
+  assert.equal(contract.current.value, 5329.67);
+  assert.equal(contract.current.asOf, "2026-06-25");
+  assert.equal(contract.scopes.standard.status, "partial");
+  assert.equal(contract.scopes.standard.history.length, 0);
+  assert.equal(selected.currentValue, 5329.67);
+  assert.equal(selected.status, "partial");
+  assert.equal(selected.hasTrend, false);
+});
+
+test("header and overview set value read from the same Set Value Contract", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const contractStart = source.indexOf("const activeSetValueContract = useMemo(");
+  const headerStart = source.indexOf("const standardSetValueScope = activeSetValueContract.scopes.standard", contractStart);
+  const overviewRenderStart = source.indexOf("<SetValueTrendCard", headerStart);
+  const overviewRenderEnd = source.indexOf("/>", overviewRenderStart);
+  const overviewRenderSource = source.slice(overviewRenderStart, overviewRenderEnd);
+
+  assert.ok(contractStart >= 0);
+  assert.ok(headerStart > contractStart);
+  assert.ok(source.includes("const setValue = activeSetValueContract.current.value ?? canonicalSetValueMetrics.value"));
+  assert.ok(source.includes("setValueContract={activeSetValueContract}"));
+  assert.ok(overviewRenderSource.includes("setValueContract={activeSetValueContract}"));
+  assert.ok(source.includes("Current value is available; historical trend is still loading/unavailable."));
+});
+
+test("cards warmup caches normalized payload and does not clear stale cards on failure", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const warmupStart = source.indexOf("prefetchPokemonSetCards(resolvedSetId).then");
+  const warmupEnd = source.indexOf("prefetchPokemonSetMarketDashboard", warmupStart);
+  const warmupSource = source.slice(warmupStart, warmupEnd);
+  const catchStart = source.indexOf(".catch((error) => {", source.indexOf("getPokemonSetCards(setId)"));
+  const catchEnd = source.indexOf("});", catchStart);
+  const catchSource = source.slice(catchStart, catchEnd);
+
+  assert.ok(warmupSource.includes("checklistCacheRef.current.set(resolvedSetId, payload)"));
+  assert.ok(catchSource.includes('previous.status === "success" && previous.setId === setId ? "success" : "error"'));
+  assert.ok(catchSource.includes("previous.cards"));
+});
+
+test("Simulation Drivers selector reads top_hits from current payload shape", async () => {
+  const { selectSimulationDrivers } = await import(pathToFileURL(simulationDriversSelectorPath).href);
+  const selected = selectSimulationDrivers({
+    top_hits: [{ card_name: "Chase Card", ev_contribution: 1.23, current_near_mint_price: 45 }],
+    meta: { sources: { simulation_input_cards: "OK" }, warnings: [] },
+  });
+
+  assert.equal(selected.rows.length, 1);
+  assert.equal(selected.rows[0].card_name, "Chase Card");
+  assert.equal(selected.sourceUsed, "top_hits");
+  assert.equal(selected.diagnostics.warning, null);
+});
+
+test("Simulation Drivers fallback without top_hits exposes backend diagnostic warning", async () => {
+  const { selectSimulationDrivers } = await import(pathToFileURL(simulationDriversSelectorPath).href);
+  const selected = selectSimulationDrivers({
+    meta: {
+      sources: {
+        explore_rip_statistics_latest: "UNAVAILABLE_FALLBACK",
+        simulation_latest_by_target: "OK",
+        simulation_input_cards: "NO_ROWS",
+      },
+      warnings: [],
+    },
+  });
+
+  assert.equal(selected.rows.length, 0);
+  assert.equal(selected.diagnostics.fallbackUsed, true);
+  assert.equal(selected.diagnostics.missingBackendSource, "simulation_input_cards");
+  assert.match(selected.diagnostics.warning, /simulation_input_cards/);
+});
+
+test("Decision Signals selector returns stable rows from summary pillars while market is loading", async () => {
+  const { selectDecisionSignals } = await import(pathToFileURL(decisionSignalsSelectorPath).href);
+  const selected = selectDecisionSignals({
+    pillarSignals: [
+      { title: "Profit", score: 71, rankTier: "B", rankValue: 12, highlight: "Playable return profile" },
+      { title: "Safety", score: 65, rankTier: "B", rankValue: 20, highlight: "Manageable downside" },
+    ],
+  });
+
+  assert.equal(selected.rows.length, 2);
+  assert.equal(selected.rows[0].label, "Profitability");
+  assert.equal(selected.sourceUsed, "summary+pillarSignals");
+});
+
+test("Trend Scores selector handles missing previous points without crashing", async () => {
+  const { selectTrendScores } = await import(pathToFileURL(trendScoresSelectorPath).href);
+  const summary = {
+    relative_pack_score: 72,
+    relative_profit_score: 66,
+    safety_score: 58,
+    current_checklist_set_value: 5329.67,
+    prob_profit: 0.42,
+  };
+
+  for (const previousPoint of [null, undefined, {}]) {
+    const selected = selectTrendScores({ summary, previousPoint, setValueMetrics: null });
+
+    assert.equal(selected.ripScore.trend, "unknown");
+    assert.equal(selected.ripScore.isImprovement, null);
+    assert.equal(selected.profitScore.trend, "unknown");
+    assert.equal(selected.setValue.trend, "unknown");
+    assert.equal(selected.probProfit.trend, "unknown");
+  }
+});
+
+test("Trend Scores selector preserves valid comparisons and partial set value metrics", async () => {
+  const { selectTrendScores } = await import(pathToFileURL(trendScoresSelectorPath).href);
+  const selected = selectTrendScores({
+    summary: {
+      relative_pack_score: 72,
+      relative_profit_score: 66,
+      current_checklist_set_value: 120,
+      prob_profit: 0.42,
+    },
+    previousPoint: {
+      relativePackScore: 70,
+      relativeProfitScore: 70,
+      setValue: 100,
+      probProfit: 0.2,
+    },
+    setValueMetrics: { value: 125 },
+  });
+
+  assert.equal(selected.ripScore.trend, "up");
+  assert.equal(selected.ripScore.isImprovement, true);
+  assert.equal(selected.profitScore.trend, "down");
+  assert.equal(selected.profitScore.isImprovement, false);
+  assert.equal(selected.setValue.trend, "up");
+  assert.equal(selected.setValue.isImprovement, true);
+  assert.equal(selected.probProfit.trend, "up");
+});
+
+test("Trend Scores selector tolerates null summary and partial set value metrics", async () => {
+  const { selectTrendScores } = await import(pathToFileURL(trendScoresSelectorPath).href);
+
+  const nullSummarySelection = selectTrendScores({
+    summary: null,
+    previousPoint: null,
+    setValueMetrics: { value: 80 },
+  });
+  const partialSetValueSelection = selectTrendScores({
+    summary: { current_checklist_set_value: 80 },
+    previousPoint: { setValue: 75 },
+    setValueMetrics: {},
+  });
+
+  assert.equal(nullSummarySelection.ripScore.trend, "unknown");
+  assert.equal(nullSummarySelection.setValue.trend, "unknown");
+  assert.equal(partialSetValueSelection.setValue.trend, "up");
+  assert.equal(partialSetValueSelection.setValue.isImprovement, true);
+});
+
+test("RIP Score Breakdown selector exposes missing rank diagnostics", async () => {
+  const { selectRipScoreBreakdown } = await import(pathToFileURL(ripScoreBreakdownSelectorPath).href);
+  const selected = selectRipScoreBreakdown({
+    relative_profit_score: 70,
+    profit_tier: "B",
+  });
+
+  const profit = selected.rows.find((row) => row.title === "Profit");
+  assert.equal(profit.score, 70);
+  assert.equal(profit.rankValue, null);
+  assert.match(profit.rankDiagnostic, /Rank unavailable/);
+  assert.ok(selected.diagnostics.missingFields.includes("profit_rank"));
+});
+
+test("RIP Score Breakdown selector keeps current metrics when trends are missing", async () => {
+  const { selectRipScoreBreakdown } = await import(pathToFileURL(ripScoreBreakdownSelectorPath).href);
+  const selected = selectRipScoreBreakdown(
+    {
+      relative_profit_score: 70,
+      profit_rank: 4,
+      profit_tier: "A",
+      relative_safety_score: 61,
+      safety_rank: 12,
+      safety_tier: "B",
+    },
+    null
+  );
+
+  const profit = selected.rows.find((row) => row.title === "Profit");
+  const safety = selected.rows.find((row) => row.title === "Safety");
+
+  assert.equal(profit.score, 70);
+  assert.equal(profit.rankValue, 4);
+  assert.equal(profit.rankTier, "A");
+  assert.equal(profit.scoreTrend, null);
+  assert.equal(safety.score, 61);
+  assert.equal(safety.rankValue, 12);
+});
+
+test("backend top hits warning includes diagnostic source context", () => {
+  const source = fs.readFileSync(explorePageServicePath, "utf8");
+  const activeDefinitionStart = source.lastIndexOf("def get_explore_page_payload(");
+  const activeSource = source.slice(activeDefinitionStart);
+
+  assert.ok(activeSource.includes('sources["simulation_input_cards"] = "OK" if top_hits else "NO_ROWS"'));
+  assert.ok(activeSource.includes("Simulation Drivers unavailable: simulation_input_cards_with_near_mint_price "));
+  assert.ok(activeSource.includes("returned no rows for calculation_run_id={run_id}"));
+  assert.ok(activeSource.includes("Failed to load top hits from simulation_input_cards_with_near_mint_price"));
+  assert.ok(activeSource.includes("calculation_run_id={run_id}"));
+});
+
+test("set page snapshot service skips live Simulation Drivers repair during route render", () => {
+  const source = fs.readFileSync(snapshotServicePath, "utf8");
+
+  assert.ok(source.includes("def _mark_missing_simulation_drivers_without_live_repair"));
+  assert.ok(source.includes('sources.get("simulation_input_cards") not in {"FAILED", "NO_ROWS"}'));
+  assert.ok(source.includes('"Simulation Drivers are unavailable in this set page snapshot; skipped live repair during route render."'));
+  assert.ok(source.includes('"simulationDriversRepairSkipped"'));
+  assert.ok(source.includes('"no_live_assembly_during_route_render"'));
+  assert.ok(source.includes("payload = _mark_missing_simulation_drivers_without_live_repair(payload)"));
+  assert.ok(!source.includes('get_explore_page_payload("set", resolved_set_id)'));
+  assert.ok(!source.includes('"live_get_explore_page_payload"'));
 });
 
 test("set detail resolver follows route or selected target instead of stale snapshot metadata", () => {
@@ -74,18 +392,34 @@ test("set value history fetches directly on every set detail tab", () => {
   const directFetchEnd = source.indexOf('debugSetPagePerf("set_value.direct_fetch_ready"', directFetchStart);
   const directFetchSource = source.slice(directFetchStart, directFetchEnd);
   const directEffectStart = source.lastIndexOf("useEffect(() => {", directFetchStart);
-  const directEffectEnd = source.indexOf("}, [setDetailMode, resolvedSetResourceId, setValueTrendScope]);", directFetchStart);
+  const directEffectEnd = source.indexOf("}, [setDetailMode, resolvedSetResourceId]);", directFetchStart);
   const directEffectSource = source.slice(directEffectStart, directEffectEnd);
 
   assert.ok(source.includes("getPokemonSetValueHistory"));
   assert.ok(source.includes("const [setValueHistoryState, setSetValueHistoryState] = useState"));
   assert.ok(directFetchStart >= 0);
   assert.ok(directFetchEnd > directFetchStart);
+  assert.ok(directEffectSource.includes("const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key);"));
   assert.ok(directFetchSource.includes("requestedScopes.map"));
   assert.ok(directFetchSource.includes("CANONICAL_SET_VALUE_SCOPE"));
   assert.ok(directEffectSource.includes("resolvedSetResourceId"));
+  assert.ok(!directEffectSource.includes("setValueTrendScope"));
   assert.ok(!directEffectSource.includes('setDetailTab === "overview"'));
   assert.ok(!directEffectSource.includes("shouldRenderMarketData"));
+});
+
+test("set value history warmup fetches all scopes after shell render", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
+  const warmupEnd = source.indexOf("const resolvedSetId = String(setId || \"\").trim();", warmupStart);
+  const warmupSource = source.slice(warmupStart, warmupEnd);
+
+  assert.ok(warmupStart >= 0);
+  assert.ok(warmupEnd > warmupStart);
+  assert.ok(warmupSource.includes("SET_VALUE_SCOPE_OPTIONS.map((scope) =>"));
+  assert.ok(warmupSource.includes("getPokemonSetValueHistory(resolvedSetId, { days: 365, scope: scope.key })"));
+  assert.ok(warmupSource.includes("markSetPagePerformance(\"set_value_ready\""));
+  assert.ok(warmupSource.includes("scopes: results"));
 });
 
 test("one market dashboard payload produces value trend and top chase card data", async () => {
@@ -491,6 +825,35 @@ test("card appeal market chart prefers canonical correlation sample when availab
   assert.ok(source.includes('"canonical cards"'));
   assert.ok(source.includes('"hits only"'));
   assert.ok(source.includes("points.length} plotted"));
+});
+
+test("card validation bucket row keys include stable identity beyond card name", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const helperStart = source.indexOf("function getValidationBucketRowKey");
+  const helperEnd = source.indexOf("function CardDesirabilityMarketValidationCard", helperStart);
+  const helperSource = source.slice(helperStart, helperEnd);
+  const renderStart = source.indexOf("{bucket.rows.map((row, rowIndex) => (", helperEnd);
+  const renderEnd = source.indexOf("</div>", renderStart);
+  const renderSource = source.slice(renderStart, renderEnd);
+
+  assert.ok(helperStart >= 0);
+  assert.ok(helperEnd > helperStart);
+  for (const expected of [
+    "row?.id",
+    "row?.cardId ?? row?.card_id",
+    "row?.pokemonCanonicalCardId ?? row?.pokemon_canonical_card_id",
+    "row?.printedNumber ?? row?.printed_number",
+    "row?.setNumber ?? row?.set_number",
+    "row?.rarity",
+    "row?.name",
+    "index",
+  ]) {
+    assert.ok(helperSource.includes(expected), `missing key field: ${expected}`);
+  }
+  assert.ok(helperSource.includes(".filter((part) => part !== null && part !== undefined && part !== \"\")"));
+  assert.ok(helperSource.includes(".map(String)"));
+  assert.ok(renderSource.includes("getValidationBucketRowKey(bucket, row, rowIndex)"));
+  assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
 });
 
 test("desirability proof cards render from set payload validation data", () => {

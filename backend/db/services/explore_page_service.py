@@ -2208,10 +2208,18 @@ def get_explore_page_payload(
         )
         raw_hits = top_hits_result.data if top_hits_result.data else []
         top_hits = _enrich_top_hits_with_images(raw_hits)
-        sources["simulation_input_cards"] = "OK"
+        sources["simulation_input_cards"] = "OK" if top_hits else "NO_ROWS"
+        if not top_hits:
+            warnings.append(
+                "Simulation Drivers unavailable: simulation_input_cards_with_near_mint_price "
+                f"returned no rows for calculation_run_id={run_id}"
+            )
     except Exception as exc:
         logger.warning("[explore-page] simulation_input_cards failed run_id=%s: %s", run_id, exc)
-        warnings.append("Failed to load top hits")
+        warnings.append(
+            "Failed to load top hits from simulation_input_cards_with_near_mint_price "
+            f"for calculation_run_id={run_id}: {exc}"
+        )
         sources["simulation_input_cards"] = "FAILED"
     top_hits_ms = (time.perf_counter() - top_hits_started) * 1000
 
@@ -3305,10 +3313,18 @@ def get_explore_page_payload(
         )
         raw_hits = top_hits_result.data if top_hits_result.data else []
         top_hits = _enrich_top_hits_with_images(raw_hits)
-        sources["simulation_input_cards"] = "OK"
+        sources["simulation_input_cards"] = "OK" if top_hits else "NO_ROWS"
+        if not top_hits:
+            warnings.append(
+                "Simulation Drivers unavailable: simulation_input_cards_with_near_mint_price "
+                f"returned no rows for calculation_run_id={run_id}"
+            )
     except Exception as exc:
         logger.warning("[explore-page] simulation_input_cards failed run_id=%s: %s", run_id, exc)
-        warnings.append("Failed to load top hits")
+        warnings.append(
+            "Failed to load top hits from simulation_input_cards_with_near_mint_price "
+            f"for calculation_run_id={run_id}: {exc}"
+        )
         sources["simulation_input_cards"] = "FAILED"
     top_hits_ms = (time.perf_counter() - top_hits_started) * 1000
 

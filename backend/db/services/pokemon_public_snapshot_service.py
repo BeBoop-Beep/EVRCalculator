@@ -16,7 +16,7 @@ from backend.desirability.card_appeal import (
 )
 from backend.desirability.set_components import build_card_appeal_correlation_dataset
 from backend.desirability.set_validation import build_desirability_validation_payload, build_opening_set_audit, is_opening_set_row
-from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
+from backend.db.services.explore_page_service import ExplorePageError
 from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
     get_rip_statistics_targets_payload,
@@ -1087,6 +1087,96 @@ def _with_desirability_validation(payload: Dict[str, Any], set_id: str) -> Dict[
     }
 
 
+def _mark_missing_simulation_drivers_without_live_repair(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(payload, dict) or payload.get("top_hits"):
+        return payload
+
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    sources = meta.get("sources") if isinstance(meta.get("sources"), dict) else {}
+    if sources.get("simulation_input_cards") not in {"FAILED", "NO_ROWS"}:
+        return payload
+
+    merged_meta = dict(meta)
+    merged_warnings = [
+        warning
+        for warning in list(meta.get("warnings") or [])
+        if "top hits" not in str(warning).lower() and "simulation drivers unavailable" not in str(warning).lower()
+    ]
+    merged_warnings.append(
+        "Simulation Drivers are unavailable in this set page snapshot; skipped live repair during route render."
+    )
+    merged_sources = dict(sources)
+    merged_sources["simulation_input_cards"] = sources.get("simulation_input_cards") or "MISSING"
+    merged_meta["sources"] = merged_sources
+    merged_meta["warnings"] = merged_warnings
+    merged_meta["simulationDriversRepairSkipped"] = {
+        "source": "pokemon_set_page_snapshot_latest",
+        "reason": f"snapshot simulation_input_cards={sources.get('simulation_input_cards')}",
+        "policy": "no_live_assembly_during_route_render",
+    }
+
+    return {
+        **payload,
+        "meta": merged_meta,
+    }
+
+
+def _build_missing_set_page_snapshot_payload(set_row: Dict[str, Any], elapsed_ms: float) -> Dict[str, Any]:
+    resolved_set_id = _to_optional_str(set_row.get("id"))
+    canonical_key = _to_optional_str(set_row.get("canonical_key"))
+    pokemon_api_set_id = _to_optional_str(set_row.get("pokemon_api_set_id"))
+    name = _to_optional_str(set_row.get("name")) or resolved_set_id or "Pokemon set"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    return {
+        "summary": {
+            "target_id": resolved_set_id,
+            "set_id": resolved_set_id,
+            "name": name,
+            "canonical_key": canonical_key,
+            "pokemon_api_set_id": pokemon_api_set_id,
+            "pack_score": None,
+            "relative_pack_score": None,
+        },
+        "rankings": [],
+        "rip_statistics": {"pack_paths": {}, "normal_pack_states": {}},
+        "percentiles": [],
+        "distribution_bins": [],
+        "threshold_bins": [],
+        "top_hits": [],
+        "history_trend": [],
+        "openingDesirability": None,
+        "pull_rate_assumptions": None,
+        "interpretation": {},
+        "meta": {
+            "warnings": [
+                "Pokemon set page snapshot is missing; rendered fallback shell instead of live assembly.",
+            ],
+            "errors": [
+                {
+                    "code": "POKEMON_SET_PAGE_SNAPSHOT_MISSING",
+                    "status": 200,
+                    "elapsedMs": elapsed_ms,
+                    "setId": resolved_set_id,
+                }
+            ],
+            "fallback": True,
+            "stale": False,
+            "sources": {
+                "setPage": "fallback_missing_pokemon_set_page_snapshot_latest",
+            },
+            "snapshot": {
+                "source": "fallback_missing_pokemon_set_page_snapshot_latest",
+                "updatedAt": now_iso,
+                "isStaleFallback": False,
+            },
+            "timings": {
+                "snapshot_read_ms": elapsed_ms,
+            },
+        },
+    }
+
+
 def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
     started = time.perf_counter()
     set_row = _resolve_set_row(set_id)
@@ -1103,6 +1193,7 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         row = _first_row(result)
         if row and isinstance(row.get("payload_json"), dict):
             payload = _merge_snapshot_meta(row["payload_json"], row, "pokemon_set_page_snapshot_latest")
+            payload = _mark_missing_simulation_drivers_without_live_repair(payload)
             payload = _with_desirability_validation(payload, resolved_set_id)
             timings = dict((payload.get("meta") or {}).get("timings") or {})
             timings["snapshot_read_ms"] = round((time.perf_counter() - started) * 1000, 3)
@@ -1112,18 +1203,13 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         logger.exception("[pokemon-snapshot] set page snapshot read failed set_id=%s", resolved_set_id)
         raise ExplorePageError(500, "Failed to read Pokemon set page snapshot", "POKEMON_SET_PAGE_SNAPSHOT_FAILED")
 
-    logger.warning("[pokemon-snapshot] missing set page snapshot; falling back to live assembly set_id=%s", resolved_set_id)
-    payload = get_explore_page_payload("set", resolved_set_id)
-    meta = dict(payload.get("meta") or {})
-    warnings = list(meta.get("warnings") or [])
-    warnings.append("Pokemon set page snapshot is missing; served live fallback data.")
-    meta["warnings"] = warnings
-    meta["snapshot"] = {
-        "source": "live_fallback_missing_pokemon_set_page_snapshot_latest",
-        "updatedAt": datetime.now(timezone.utc).isoformat(),
-        "isStaleFallback": False,
-    }
-    return _with_desirability_validation({**payload, "meta": meta}, resolved_set_id)
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
+    logger.warning(
+        "[pokemon-snapshot] missing set page snapshot; returning fallback shell set_id=%s elapsed_ms=%s",
+        resolved_set_id,
+        elapsed_ms,
+    )
+    return _build_missing_set_page_snapshot_payload(set_row, elapsed_ms)
 
 
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:

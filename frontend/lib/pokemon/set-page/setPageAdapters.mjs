@@ -54,19 +54,38 @@ export function adaptSetShell(rawPayload = {}) {
     ],
     diagnostics
   );
+  const compactSetValue = selectCompactSetValue({
+    history: rawPayload?.setValueHistory || rawPayload?.set_value_history || [],
+    historiesByScope: rawPayload?.setValueHistoriesByScope || rawPayload?.set_value_histories_by_scope || {},
+    fallbackMetric: setValueSummary,
+  });
+  const currentValue = compactSetValue.value ?? setValueSummary.value;
+  const delta30dAmount = compactSetValue.deltaAmount ?? null;
+  const delta30dPercent = compactSetValue.deltaPercent ?? null;
 
   return {
     contractVersion: SET_PAGE_CONTRACT_VERSION,
     set: normalizeSet(rawPayload),
     summary,
     setValueSummary: {
-      value: setValueSummary.value,
-      sourceKey: setValueSummary.key,
-      compact: selectCompactSetValue({
-        history: rawPayload?.setValueHistory || rawPayload?.set_value_history || [],
-        historiesByScope: rawPayload?.setValueHistoriesByScope || rawPayload?.set_value_histories_by_scope || {},
-        fallbackMetric: setValueSummary,
-      }),
+      currentValue,
+      value: currentValue,
+      valueScope: "standard",
+      asOf:
+        compactSetValue.asOf ||
+        toOptionalString(rawPayload?.meta?.asOfDate ?? rawPayload?.meta?.as_of_date ?? rawPayload?.meta?.run_at ?? summary.run_at),
+      delta30dAmount,
+      delta30dPercent,
+      trend30d: delta30dAmount === null ? null : delta30dAmount > 0 ? "up" : delta30dAmount < 0 ? "down" : "flat",
+      source:
+        compactSetValue.sourceKey === "setValueHistoriesByScope.standard"
+          ? "set_value_history"
+          : setValueSummary.key
+          ? "summary"
+          : null,
+      confidence: toOptionalString(summary.set_value_confidence ?? summary.setValueConfidence) || null,
+      sourceKey: compactSetValue.sourceKey || setValueSummary.key,
+      compact: compactSetValue,
     },
     diagnostics,
   };
