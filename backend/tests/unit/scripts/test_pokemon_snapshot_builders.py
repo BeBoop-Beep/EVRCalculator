@@ -597,6 +597,56 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
     assert row["payload_json"]["desirability_validation"] == validation
 
 
+def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "set": {"id": set_id, "name": "Alpha"},
+            "summary": {
+                "pack_score": 80,
+                "profit_score": 70,
+                "safety_score": 60,
+                "desirability_score": 90,
+                "stability_score": 50,
+                "mean_value": 5,
+                "p95_value_to_cost_ratio": 2,
+            },
+            "top_hits": [{"marketPrice": 100}],
+            "meta": {},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit: {
+            "targets": [
+                {
+                    "id": "set-1",
+                    "target_id": "set-1",
+                    "profit_rank": 4,
+                    "profit_tier": "A",
+                    "safety_rank": 6,
+                    "safety_tier": "B",
+                    "desirability_rank": 2,
+                    "desirability_tier": "A",
+                    "stability_rank": 9,
+                    "stability_tier": "C",
+                }
+            ]
+        },
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"})
+    summary = row["payload_json"]["summary"]
+
+    assert summary["profit_rank"] == 4
+    assert summary["safety_rank"] == 6
+    assert summary["desirability_rank"] == 2
+    assert summary["stability_rank"] == 9
+    assert row["rip_summary_json"]["profit_rank"] == 4
+
+
 def test_build_set_page_snapshot_row_repairs_missing_top_hits_from_simulation_inputs(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -675,3 +725,87 @@ def test_build_set_page_snapshot_row_repairs_missing_top_hits_from_simulation_in
         == "simulation_input_cards_with_near_mint_price"
     )
     assert payload["meta"]["warnings"] == []
+
+
+def test_build_set_page_snapshot_row_preserves_top_hit_warning_when_rows_unavailable(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-1", "pack_score": 80, "mean_value": 5},
+            "top_hits": [],
+            "meta": {
+                "sources": {"simulation_input_cards": "FAILED"},
+                "warnings": ["Failed to load top hits"],
+            },
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _Client(
+        {
+            "simulation_input_cards_with_near_mint_price": lambda _query: [],
+            "simulation_input_cards": lambda _query: [],
+            "pokemon_set_cards_snapshot_latest": lambda _query: [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [],
+            "explore_rip_statistics_latest": lambda _query: [],
+            "simulation_latest_by_target": lambda _query: [],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+
+    assert row["payload_json"]["top_hits"] == []
+    assert "Failed to load top hits" in row["payload_json"]["meta"]["warnings"]
+    assert row["payload_json"]["meta"]["sources"]["simulation_input_cards"] == "FAILED"
+
+
+def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapshot(monkeypatch):
+    monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-1", "pack_score": 80, "mean_value": 5},
+            "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+            "meta": {
+                "sources": {"simulation_input_cards": "OK"},
+                "warnings": ["explore_rip_statistics_latest unavailable; fell back to simulation_latest_by_target"],
+            },
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    correlation = {"n": 12, "plotRows": [{"name": "Chase", "cardAppealScore": 91, "marketPrice": 25}]}
+    client = _Client(
+        {
+            "pokemon_set_cards_snapshot_latest": lambda _query: [
+                {"payload_json": {"cardAppealMarketPriceCorrelation": correlation}}
+            ],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [
+                {"updated_at": "2026-06-22T12:00:00+00:00"}
+            ],
+            "explore_rip_statistics_latest": lambda _query: [
+                {"set_id": "set-1", "calculation_run_id": "run-1", "run_at": "2026-06-25T11:00:00+00:00"}
+            ],
+            "simulation_latest_by_target": lambda _query: [
+                {"calculation_run_id": "run-1", "run_at": "2026-06-25T10:00:00+00:00"}
+            ],
+            "simulation_input_cards": lambda _query: [{"id": "sic-1"}],
+            "simulation_input_cards_with_near_mint_price": lambda _query: [{"id": "sic-nm-1"}],
+        }
+    )
+
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+    payload = row["payload_json"]
+    completeness = payload["meta"]["snapshotCompleteness"]
+
+    assert payload["cardAppealMarketPriceCorrelation"] == correlation
+    assert payload["card_appeal_market_price_correlation"] == correlation
+    assert "explore_rip_statistics_latest unavailable; fell back to simulation_latest_by_target" not in payload["meta"]["warnings"]
+    assert "rankings snapshot is stale relative to set page snapshot" in payload["meta"]["warnings"]
+    assert completeness["explore_rankings_snapshot_updated_at"] == "2026-06-22T12:00:00+00:00"
+    assert completeness["explore_rip_statistics_latest"]["availability"] == "OK"
+    assert completeness["simulation_input_cards_row_count"] == 1
+    assert completeness["simulation_input_cards_with_near_mint_price_row_count"] == 1
+    assert completeness["top_hits_included_count"] == 1

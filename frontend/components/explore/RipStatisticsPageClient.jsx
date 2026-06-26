@@ -6427,6 +6427,18 @@ export default function RipStatisticsPageClient({
     () => getDesirabilityValidationPayload(explorePayload),
     [explorePayload]
   );
+  const initialCardAppealMarketPriceCorrelation =
+    explorePayload?.cardAppealMarketPriceCorrelation || explorePayload?.card_appeal_market_price_correlation || null;
+  const initialCardAppealRows = useMemo(() => {
+    const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
+      ? initialCardAppealMarketPriceCorrelation.plotRows
+      : Array.isArray(initialCardAppealMarketPriceCorrelation?.plot_rows)
+      ? initialCardAppealMarketPriceCorrelation.plot_rows
+      : Array.isArray(initialCardAppealMarketPriceCorrelation?.rows)
+      ? initialCardAppealMarketPriceCorrelation.rows
+      : [];
+    return rows;
+  }, [initialCardAppealMarketPriceCorrelation]);
   const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   const interpretation = explorePayload?.interpretation || {};
@@ -7870,7 +7882,9 @@ export default function RipStatisticsPageClient({
     const shouldRenderChecklist = (setDetailTab === "cards" && cardsSubTab === "checklist") || setDetailTab === "insights";
     const cachedPayload = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId) || null;
     const cachedCards = Array.isArray(cachedPayload) ? cachedPayload : Array.isArray(cachedPayload?.cards) ? cachedPayload.cards : null;
-    const cachedCorrelation = Array.isArray(cachedPayload) ? null : cachedPayload?.cardAppealMarketPriceCorrelation || null;
+    const cachedCorrelation = Array.isArray(cachedPayload)
+      ? null
+      : cachedPayload?.cardAppealMarketPriceCorrelation || cachedPayload?.card_appeal_market_price_correlation || null;
     if (cachedCards) {
       setChecklistState({ status: "success", setId, cards: cachedCards, cardAppealMarketPriceCorrelation: cachedCorrelation, error: null });
       if (!shouldRenderChecklist) {
@@ -7912,7 +7926,7 @@ export default function RipStatisticsPageClient({
           status: cards.length > 0 ? "success" : "empty",
           setId,
           cards,
-          cardAppealMarketPriceCorrelation: payload?.cardAppealMarketPriceCorrelation || null,
+          cardAppealMarketPriceCorrelation: payload?.cardAppealMarketPriceCorrelation || payload?.card_appeal_market_price_correlation || null,
           error: null,
         });
         debugSetPagePerf("cards.tab_ready", {
@@ -9053,8 +9067,10 @@ export default function RipStatisticsPageClient({
                 <DesirabilityProofCards validation={desirabilityValidationPayload} />
                 <DesirabilityValidationCard targets={targets} />
                 <CardDesirabilityMarketValidationCard
-                  cards={checklistState.cards}
-                  cardAppealMarketPriceCorrelation={checklistState.cardAppealMarketPriceCorrelation}
+                  cards={checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows}
+                  cardAppealMarketPriceCorrelation={
+                    checklistState.cardAppealMarketPriceCorrelation || initialCardAppealMarketPriceCorrelation
+                  }
                   diagnosticsContext={{
                     setId: resolvedSetResourceId,
                     setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,

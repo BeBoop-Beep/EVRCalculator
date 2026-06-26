@@ -139,6 +139,48 @@ def _write_audit(rows: List[Dict[str, Any]]) -> tuple[Path, Path]:
     return json_path, csv_path
 
 
+def _build_global_validation_snapshot_payload(
+    *,
+    audit_rows: List[Dict[str, Any]],
+    skipped: List[Dict[str, str]],
+    opening_audit: Dict[str, Any],
+) -> Dict[str, Any]:
+    generated_at = datetime.now(timezone.utc).isoformat()
+    return {
+        "formulaVersion": FORMULA_VERSION,
+        "formula_version": FORMULA_VERSION,
+        "generatedAt": generated_at,
+        "generated_at": generated_at,
+        "rows": audit_rows,
+        "skipped": skipped,
+        "openingSetAudit": opening_audit,
+        "opening_set_audit": opening_audit,
+        "meta": {
+            "source": "build_pokemon_desirability_validation_snapshots",
+            "rowCount": len(audit_rows),
+            "row_count": len(audit_rows),
+            "skippedCount": len(skipped),
+            "skipped_count": len(skipped),
+            "snapshot": {
+                "type": "pokemon_desirability_validation",
+                "builtAt": generated_at,
+                "source": "build_pokemon_desirability_validation_snapshots",
+            },
+        },
+    }
+
+
+def _upsert_global_validation_snapshot(client: Any, payload: Dict[str, Any]) -> None:
+    client.table("pokemon_desirability_validation_snapshot_latest").upsert(
+        {
+            "tcg": "pokemon",
+            "scope": "latest",
+            "payload_json": payload,
+        },
+        on_conflict="tcg,scope",
+    ).execute()
+
+
 def _print_top(label: str, rows: List[Dict[str, Any]], key: str, reverse: bool = True) -> None:
     ranked = sorted(
         [row for row in rows if row.get(key) is not None],
@@ -199,6 +241,13 @@ def main() -> None:
             skipped.append({"set_id": set_id, "reason": str(exc)})
 
     json_path, csv_path = _write_audit(audit_rows)
+    global_payload = _build_global_validation_snapshot_payload(
+        audit_rows=audit_rows,
+        skipped=skipped,
+        opening_audit=opening_audit,
+    )
+    if args.commit:
+        _upsert_global_validation_snapshot(client, global_payload)
     print(f"total sets processed: {len(audit_rows)}")
     print(f"sets skipped: {len(skipped)}")
     print(f"total raw Pokemon set rows: {opening_audit['total_raw_pokemon_set_rows']}")

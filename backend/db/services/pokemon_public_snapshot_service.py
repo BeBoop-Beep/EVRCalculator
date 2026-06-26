@@ -43,6 +43,8 @@ DEFAULT_RANKINGS_SCOPE = "rip-statistics"
 DEFAULT_RANKINGS_LIMIT = 100
 MAX_RANKINGS_LIMIT = 200
 MIN_LIMIT = 1
+RANKINGS_STALE_THRESHOLD_SECONDS = 300
+RANKINGS_STALE_WARNING = "rankings snapshot is stale relative to set page snapshot"
 
 
 def _to_optional_str(value: Any) -> Optional[str]:
@@ -50,6 +52,19 @@ def _to_optional_str(value: Any) -> Optional[str]:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _to_optional_datetime(value: Any) -> Optional[datetime]:
+    text = _to_optional_str(value)
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _normalize_market_dashboard_window_key(value: Any, *, default: str = DEFAULT_DASHBOARD_WINDOW) -> str:
@@ -1121,6 +1136,54 @@ def _mark_missing_simulation_drivers_without_live_repair(payload: Dict[str, Any]
     }
 
 
+def _load_rankings_snapshot_updated_at() -> Optional[str]:
+    try:
+        result = (
+            public_read_client.table("pokemon_explore_rankings_snapshot_latest")
+            .select("updated_at")
+            .eq("tcg", "pokemon")
+            .eq("scope", DEFAULT_RANKINGS_SCOPE)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        logger.warning("[pokemon-snapshot] rankings freshness lookup failed", exc_info=True)
+        return None
+    return _to_optional_str((_first_row(result) or {}).get("updated_at"))
+
+
+def _with_rankings_freshness_warning(payload: Dict[str, Any], row: Dict[str, Any]) -> Dict[str, Any]:
+    meta = dict(payload.get("meta") or {})
+    completeness = (
+        meta.get("snapshotCompleteness")
+        if isinstance(meta.get("snapshotCompleteness"), dict)
+        else meta.get("snapshot_completeness")
+        if isinstance(meta.get("snapshot_completeness"), dict)
+        else {}
+    )
+    rankings_updated_at = _to_optional_str(completeness.get("explore_rankings_snapshot_updated_at"))
+    if not rankings_updated_at:
+        rankings_updated_at = _load_rankings_snapshot_updated_at()
+
+    set_updated_at = _to_optional_str(row.get("updated_at"))
+    set_updated_dt = _to_optional_datetime(set_updated_at)
+    rankings_updated_dt = _to_optional_datetime(rankings_updated_at)
+    if not set_updated_dt or not rankings_updated_dt:
+        return payload
+    if (set_updated_dt - rankings_updated_dt).total_seconds() <= RANKINGS_STALE_THRESHOLD_SECONDS:
+        return payload
+
+    warnings = list(meta.get("warnings") or [])
+    if RANKINGS_STALE_WARNING not in warnings:
+        warnings.append(RANKINGS_STALE_WARNING)
+    snapshot = dict(meta.get("snapshot") or {})
+    snapshot["exploreRankingsUpdatedAt"] = rankings_updated_at
+    snapshot["explore_rankings_updated_at"] = rankings_updated_at
+    meta["warnings"] = warnings
+    meta["snapshot"] = snapshot
+    return {**payload, "meta": meta}
+
+
 def _build_missing_set_page_snapshot_payload(set_row: Dict[str, Any], elapsed_ms: float) -> Dict[str, Any]:
     resolved_set_id = _to_optional_str(set_row.get("id"))
     canonical_key = _to_optional_str(set_row.get("canonical_key"))
@@ -1193,6 +1256,7 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         row = _first_row(result)
         if row and isinstance(row.get("payload_json"), dict):
             payload = _merge_snapshot_meta(row["payload_json"], row, "pokemon_set_page_snapshot_latest")
+            payload = _with_rankings_freshness_warning(payload, row)
             payload = _mark_missing_simulation_drivers_without_live_repair(payload)
             payload = _with_desirability_validation(payload, resolved_set_id)
             timings = dict((payload.get("meta") or {}).get("timings") or {})

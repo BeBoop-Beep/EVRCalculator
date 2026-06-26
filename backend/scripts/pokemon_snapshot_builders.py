@@ -53,9 +53,25 @@ RIP_DESIRABILITY_COMPARISON_FIELDS = (
 
 TOP_HITS_WARNING_PATTERNS = (
     "top hits",
+    "simulation_input_cards is failed",
     "simulation drivers unavailable",
     "simulation drivers are unavailable",
 )
+RANKINGS_STALE_THRESHOLD_SECONDS = 300
+RANK_CONTEXT_FIELDS = (
+    "pack_rank",
+    "pack_tier",
+    "profit_rank",
+    "profit_tier",
+    "safety_rank",
+    "safety_tier",
+    "desirability_rank",
+    "desirability_tier",
+    "stability_rank",
+    "stability_tier",
+)
+EXPLORE_RIP_UNAVAILABLE_WARNING = "explore_rip_statistics_latest unavailable"
+RANKINGS_STALE_WARNING = "rankings snapshot is stale relative to set page snapshot"
 
 
 def load_backend_env() -> None:
@@ -92,6 +108,19 @@ def parse_date_key(value: Any) -> Optional[str]:
         return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
     except ValueError:
         return None
+
+
+def parse_datetime(value: Any) -> Optional[datetime]:
+    text = first_non_empty(value)
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def to_optional_float(value: Any) -> Optional[float]:
@@ -237,6 +266,19 @@ def _comparison_fields_from_target(target: Optional[Dict[str, Any]]) -> Dict[str
     return {key: target.get(key) for key in RIP_DESIRABILITY_COMPARISON_FIELDS if key in target}
 
 
+def _target_rank_context_fields(target: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(target, dict):
+        return {}
+    summary = target.get("summary") if isinstance(target.get("summary"), dict) else {}
+    fields: Dict[str, Any] = {}
+    for key in RANK_CONTEXT_FIELDS:
+        if key in target and target.get(key) is not None:
+            fields[key] = target.get(key)
+        elif key in summary and summary.get(key) is not None:
+            fields[key] = summary.get(key)
+    return fields
+
+
 def _merge_rip_desirability_comparison_into_set_payload(
     *,
     payload: Dict[str, Any],
@@ -265,6 +307,36 @@ def _merge_rip_desirability_comparison_into_set_payload(
     return next_payload
 
 
+def _merge_rank_context_into_set_payload(
+    *,
+    payload: Dict[str, Any],
+    set_id: str,
+    set_row: Dict[str, Any],
+    target_rows: Iterable[Dict[str, Any]],
+) -> Dict[str, Any]:
+    matching_target = _find_matching_rankings_target(
+        set_id=set_id,
+        set_row=set_row,
+        payload=payload,
+        target_rows=target_rows,
+    )
+    rank_fields = _target_rank_context_fields(matching_target)
+    if not rank_fields:
+        return payload
+
+    next_payload = dict(payload)
+    summary = dict(next_payload.get("summary") or {})
+    set_payload = dict(next_payload.get("set") or {})
+    for key, value in rank_fields.items():
+        if summary.get(key) is None:
+            summary[key] = value
+        if set_payload.get(key) is None:
+            set_payload[key] = value
+    next_payload["summary"] = summary
+    next_payload["set"] = set_payload
+    return next_payload
+
+
 def _snapshot_payload_run_id(payload: Dict[str, Any]) -> Optional[str]:
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
     meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
@@ -285,6 +357,14 @@ def _clean_top_hits_warnings(warnings: Iterable[Any]) -> List[Any]:
             continue
         cleaned.append(warning)
     return cleaned
+
+
+def _clean_explore_rip_fallback_warnings(warnings: Iterable[Any]) -> List[Any]:
+    return [
+        warning
+        for warning in warnings or []
+        if EXPLORE_RIP_UNAVAILABLE_WARNING not in str(warning).lower()
+    ]
 
 
 def _load_top_hits_from_view(client: Any, *, run_id: str, limit: int) -> List[Dict[str, Any]]:
@@ -445,6 +525,170 @@ def _complete_snapshot_top_hits(
     }
 
 
+def _first_row(client: Any, table_name: str, configure_query) -> Optional[Dict[str, Any]]:
+    try:
+        result = configure_query(client.table(table_name)).limit(1).execute()
+    except Exception:
+        logger.warning("snapshot diagnostic query failed table=%s", table_name, exc_info=True)
+        return None
+    rows = list(result.data or [])
+    return rows[0] if rows else None
+
+
+def _count_rows(client: Any, table_name: str, *, field: str, value: str) -> Optional[int]:
+    try:
+        result = client.table(table_name).select(field).eq(field, value).execute()
+    except Exception:
+        logger.warning("snapshot diagnostic count failed table=%s field=%s", table_name, field, exc_info=True)
+        return None
+    return len(list(result.data or []))
+
+
+def _load_rankings_snapshot_updated_at(client: Any) -> Optional[str]:
+    row = _first_row(
+        client,
+        "pokemon_explore_rankings_snapshot_latest",
+        lambda query: query.select("updated_at").eq("tcg", "pokemon").eq("scope", "rip-statistics"),
+    )
+    return first_non_empty((row or {}).get("updated_at"))
+
+
+def _load_cards_snapshot_payload(client: Any, set_id: str) -> Optional[Dict[str, Any]]:
+    row = _first_row(
+        client,
+        "pokemon_set_cards_snapshot_latest",
+        lambda query: query.select("set_id,payload_json,updated_at").eq("set_id", set_id),
+    )
+    payload = (row or {}).get("payload_json")
+    return payload if isinstance(payload, dict) else None
+
+
+def _merge_card_appeal_snapshot_payload(
+    payload: Dict[str, Any],
+    *,
+    set_id: str,
+    client: Optional[Any],
+) -> Dict[str, Any]:
+    if client is None:
+        return payload
+    cards_payload = _load_cards_snapshot_payload(client, set_id)
+    if not cards_payload:
+        return payload
+
+    correlation = (
+        cards_payload.get("cardAppealMarketPriceCorrelation")
+        or cards_payload.get("card_appeal_market_price_correlation")
+    )
+    card_validation = cards_payload.get("cardDesirabilityValidation") or cards_payload.get("card_desirability_validation")
+    if not isinstance(correlation, dict) and not isinstance(card_validation, dict):
+        return payload
+
+    next_payload = dict(payload)
+    meta = dict(next_payload.get("meta") or {})
+    sources = dict(meta.get("sources") or {})
+    sources["card_appeal_validation_snapshot"] = "pokemon_set_cards_snapshot_latest"
+    meta["sources"] = sources
+    if isinstance(correlation, dict):
+        next_payload["cardAppealMarketPriceCorrelation"] = correlation
+        next_payload["card_appeal_market_price_correlation"] = correlation
+    if isinstance(card_validation, dict):
+        next_payload["cardDesirabilityValidation"] = card_validation
+        next_payload["card_desirability_validation"] = card_validation
+    next_payload["meta"] = meta
+    return next_payload
+
+
+def _is_rankings_snapshot_stale(*, built_at: str, rankings_updated_at: Optional[str]) -> bool:
+    built_dt = parse_datetime(built_at)
+    rankings_dt = parse_datetime(rankings_updated_at)
+    if built_dt is None or rankings_dt is None:
+        return False
+    return (built_dt - rankings_dt).total_seconds() > RANKINGS_STALE_THRESHOLD_SECONDS
+
+
+def _load_snapshot_completeness_diagnostics(
+    *,
+    client: Any,
+    set_id: str,
+    payload: Dict[str, Any],
+    built_at: str,
+) -> Dict[str, Any]:
+    explore_row = _first_row(
+        client,
+        "explore_rip_statistics_latest",
+        lambda query: query.select("set_id,calculation_run_id,run_at").eq("set_id", set_id),
+    )
+    latest_row = _first_row(
+        client,
+        "simulation_latest_by_target",
+        lambda query: query.select("target_type,target_id,calculation_run_id,run_at").eq("target_type", "set").eq("target_id", set_id),
+    )
+    run_id = (
+        _snapshot_payload_run_id(payload)
+        or first_non_empty((explore_row or {}).get("calculation_run_id"))
+        or first_non_empty((latest_row or {}).get("calculation_run_id"))
+    )
+    rankings_updated_at = _load_rankings_snapshot_updated_at(client)
+    input_count = _count_rows(client, "simulation_input_cards", field="calculation_run_id", value=run_id) if run_id else None
+    near_mint_count = (
+        _count_rows(client, "simulation_input_cards_with_near_mint_price", field="calculation_run_id", value=run_id)
+        if run_id
+        else None
+    )
+    warnings = list((payload.get("meta") or {}).get("warnings") or [])
+    return {
+        "set_page_snapshot_built_at": built_at,
+        "explore_rankings_snapshot_updated_at": rankings_updated_at,
+        "explore_rip_statistics_latest": {
+            "availability": "OK" if explore_row else "NO_ROW",
+            "run_at": first_non_empty((explore_row or {}).get("run_at")),
+            "calculation_run_id": first_non_empty((explore_row or {}).get("calculation_run_id")),
+        },
+        "simulation_latest_by_target": {
+            "availability": "OK" if latest_row else "NO_ROW",
+            "run_at": first_non_empty((latest_row or {}).get("run_at")),
+            "calculation_run_id": first_non_empty((latest_row or {}).get("calculation_run_id")),
+        },
+        "simulation_input_cards_row_count": input_count,
+        "simulation_input_cards_with_near_mint_price_row_count": near_mint_count,
+        "top_hits_included_count": len(payload.get("top_hits") or []),
+        "warnings_after_repair": warnings,
+    }
+
+
+def _finalize_snapshot_completeness(
+    payload: Dict[str, Any],
+    *,
+    set_id: str,
+    client: Optional[Any],
+    built_at: str,
+) -> Dict[str, Any]:
+    if client is None:
+        return payload
+
+    diagnostics = _load_snapshot_completeness_diagnostics(
+        client=client,
+        set_id=set_id,
+        payload=payload,
+        built_at=built_at,
+    )
+    meta = dict(payload.get("meta") or {})
+    warnings = list(meta.get("warnings") or [])
+    if diagnostics["explore_rip_statistics_latest"]["availability"] == "OK":
+        warnings = _clean_explore_rip_fallback_warnings(warnings)
+    if _is_rankings_snapshot_stale(
+        built_at=built_at,
+        rankings_updated_at=diagnostics.get("explore_rankings_snapshot_updated_at"),
+    ) and RANKINGS_STALE_WARNING not in warnings:
+        warnings.append(RANKINGS_STALE_WARNING)
+
+    diagnostics["warnings_after_repair"] = warnings
+    meta["warnings"] = warnings
+    meta["snapshotCompleteness"] = diagnostics
+    meta["snapshot_completeness"] = diagnostics
+    return {**payload, "meta": meta}
+
+
 def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
@@ -454,6 +698,12 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
         target_rows = rankings_payload.get("targets") or []
         payload = _merge_rip_desirability_comparison_into_set_payload(
+            payload=payload,
+            set_id=set_id,
+            set_row=set_row,
+            target_rows=target_rows,
+        )
+        payload = _merge_rank_context_into_set_payload(
             payload=payload,
             set_id=set_id,
             set_row=set_row,
@@ -473,7 +723,9 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         warnings.append("Desirability validation could not be generated for this snapshot.")
         meta["warnings"] = warnings
         payload["meta"] = meta
+    payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_page", built_at=built_at)
+    payload = _finalize_snapshot_completeness(payload, set_id=set_id, client=client, built_at=built_at)
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 
     set_identity = {
@@ -517,6 +769,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             "desirability_score",
             "experience_score",
             "chase_potential_score",
+            *RANK_CONTEXT_FIELDS,
             *RIP_DESIRABILITY_COMPARISON_FIELDS,
         ),
     )

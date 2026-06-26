@@ -904,3 +904,13 @@ test("desirability validation set value prefers canonical checklist target field
   assert.ok(source.includes("selectSetDesirabilityValidation"));
   assert.ok(source.includes("[desirability-validation] sample diagnostics"));
 });
+
+test("card appeal market validation can hydrate from initial set page snapshot correlation", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("initialCardAppealMarketPriceCorrelation"));
+  assert.ok(source.includes("explorePayload?.cardAppealMarketPriceCorrelation || explorePayload?.card_appeal_market_price_correlation"));
+  assert.ok(source.includes("initialCardAppealRows"));
+  assert.ok(source.includes("checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows"));
+  assert.ok(source.includes("checklistState.cardAppealMarketPriceCorrelation || initialCardAppealMarketPriceCorrelation"));
+});

@@ -1103,3 +1103,38 @@ def test_set_page_snapshot_missing_top_hits_skips_live_repair(monkeypatch):
     assert payload["top_hits"] == []
     assert payload["meta"]["simulationDriversRepairSkipped"]["policy"] == "no_live_assembly_during_route_render"
     assert "skipped live repair during route render" in payload["meta"]["warnings"][0]
+
+
+def test_set_page_snapshot_read_warns_when_rankings_snapshot_is_stale(monkeypatch):
+    client = _Client(
+        {
+            "sets": lambda _query: [
+                {
+                    "id": "set-1",
+                    "name": "Known Set",
+                    "canonical_key": "known-set",
+                    "pokemon_api_set_id": "sv-known",
+                }
+            ],
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": "set-1",
+                    "updated_at": "2026-06-25T12:00:00+00:00",
+                    "payload_json": {
+                        "summary": {"target_id": "set-1", "name": "Known Set", "profit_rank": 3},
+                        "top_hits": [{"card_name": "Chase", "ev_contribution": 1.2}],
+                        "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
+                    },
+                }
+            ],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [
+                {"updated_at": "2026-06-22T12:00:00+00:00"}
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
+
+    assert "rankings snapshot is stale relative to set page snapshot" in payload["meta"]["warnings"]
+    assert payload["meta"]["snapshot"]["exploreRankingsUpdatedAt"] == "2026-06-22T12:00:00+00:00"
