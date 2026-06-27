@@ -301,6 +301,50 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
     return _max_datetime_text(*timestamps), checks
 
 
+SET_VALUE_HISTORY_SCOPES = ("standard", "hits", "top10")
+
+
+def _latest_set_value_history_by_scope(client: Any, set_id: str, *, column: str) -> Tuple[Dict[str, Optional[str]], List[str]]:
+    latest_by_scope: Dict[str, Optional[str]] = {}
+    checks: List[str] = []
+    for scope in SET_VALUE_HISTORY_SCOPES:
+        latest, scope_checks = _latest_timestamp(
+            client,
+            table="pokemon_set_value_daily_history",
+            timestamp_columns=(column,),
+            filters=(("set_id", set_id), ("value_scope", scope)),
+        )
+        latest_by_scope[scope] = latest
+        checks.extend(scope_checks)
+    return latest_by_scope, checks
+
+
+def _history_latest_date(history: Any) -> Optional[str]:
+    dates = [
+        _to_text((point or {}).get("date") or (point or {}).get("snapshotDate") or (point or {}).get("snapshot_date"))
+        for point in (history if isinstance(history, list) else [])
+        if isinstance(point, dict)
+    ]
+    return max((date[:10] for date in dates if date), default=None)
+
+
+def _dashboard_set_value_latest_date_by_scope(row: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    meta_dates = meta.get("setValueHistoryLatestDateByScope")
+    if not isinstance(meta_dates, dict):
+        meta_dates = meta.get("set_value_history_latest_date_by_scope")
+    if isinstance(meta_dates, dict):
+        return {scope: _to_text(meta_dates.get(scope)) for scope in SET_VALUE_HISTORY_SCOPES}
+
+    histories_by_scope = row.get("set_value_histories_json")
+    if not isinstance(histories_by_scope, dict):
+        histories_by_scope = payload.get("setValueHistoriesByScope") or payload.get("set_value_histories_by_scope") or {}
+    if not isinstance(histories_by_scope, dict):
+        histories_by_scope = {}
+    return {scope: _history_latest_date(histories_by_scope.get(scope)) for scope in SET_VALUE_HISTORY_SCOPES}
+
+
 def _latest_for_explore_rankings(client: Any) -> Tuple[Optional[str], List[str]]:
     checks: List[str] = []
     timestamps: List[Optional[str]] = []
@@ -352,7 +396,6 @@ def _latest_for_desirability_validation(client: Any) -> Tuple[Optional[str], Lis
     for table, filters in (
         ("pokemon_explore_rankings_snapshot_latest", (("tcg", "pokemon"), ("scope", "rip-statistics"))),
         ("pokemon_set_page_snapshot_latest", ()),
-        ("pokemon_set_market_dashboard_snapshot_latest", ()),
     ):
         latest, table_checks = _latest_timestamp(client, table=table, timestamp_columns=("updated_at",), filters=filters)
         checks.extend(table_checks)
@@ -474,10 +517,17 @@ def _cards_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
 
 def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> FreshnessResult:
     dependency_updated_at, checks = _latest_for_market_dashboard(client, set_id)
+    value_history_updated_by_scope, value_updated_checks = _latest_set_value_history_by_scope(client, set_id, column="updated_at")
+    value_history_date_by_scope, value_date_checks = _latest_set_value_history_by_scope(client, set_id, column="snapshot_date")
+    checks.extend(value_updated_checks)
+    checks.extend(value_date_checks)
+    latest_value_history_updated_at = _max_datetime_text(*value_history_updated_by_scope.values())
+    latest_value_history_date = max((date for date in value_history_date_by_scope.values() if date), default=None)
+    dependency_updated_at = _max_datetime_text(dependency_updated_at, latest_value_history_updated_at)
     row = _read_snapshot_row(
         client,
         "pokemon_set_market_dashboard_snapshot_latest",
-        "set_id,window_key,payload_json,updated_at",
+        "set_id,window_key,payload_json,set_value_histories_json,latest_market_date,updated_at",
         (("set_id", set_id), ("window_key", window)),
     )
     if not row:
@@ -485,8 +535,24 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
     marker_missing = not isinstance((payload.get("meta") or {}).get("snapshot"), dict)
     snapshot_updated_at = _to_text(row.get("updated_at"))
+    latest_market_date = _to_text(row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date"))
+    dashboard_date_by_scope = _dashboard_set_value_latest_date_by_scope(row)
     if marker_missing:
         return FreshnessResult("market_dashboard", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
+    if _is_newer(latest_value_history_updated_at, snapshot_updated_at):
+        return FreshnessResult("market_dashboard", True, "set value daily history updated after market dashboard", snapshot_updated_at, dependency_updated_at, checks)
+    if _is_newer(latest_value_history_date, latest_market_date):
+        return FreshnessResult("market_dashboard", True, "set value daily history date newer than latest_market_date", snapshot_updated_at, dependency_updated_at, checks)
+    for scope, raw_date in value_history_date_by_scope.items():
+        if _is_newer(raw_date, dashboard_date_by_scope.get(scope)):
+            return FreshnessResult(
+                "market_dashboard",
+                True,
+                f"{scope} set value history newer than dashboard history",
+                snapshot_updated_at,
+                dependency_updated_at,
+                checks,
+            )
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult("market_dashboard", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
     return FreshnessResult("market_dashboard", False, "fresh", snapshot_updated_at, dependency_updated_at, checks)
@@ -667,7 +733,7 @@ def _maybe_rebuild_set_page(
     summary: RefreshSummary,
 ) -> None:
     rankings_rebuilt_after_set_page = bool(rankings_updated_at and _is_newer(rankings_updated_at, plan.set_page.snapshot_updated_at))
-    needs_rebuild = plan.set_page.stale or plan.cards.stale or plan.market_dashboard.stale or rankings_rebuilt_after_set_page
+    needs_rebuild = plan.set_page.stale or plan.cards.stale or rankings_rebuilt_after_set_page
     if not needs_rebuild:
         return
     set_row = plan.set_row
@@ -820,7 +886,6 @@ def main() -> None:
         _record_stale(summary, plan.market_dashboard)
         _record_stale(summary, plan.set_page)
     _record_stale(summary, rankings)
-    _record_stale(summary, validation)
 
     # Rebuild order: set cards, market dashboards, explore rankings, set pages, desirability validation.
     for plan in plans:
@@ -855,15 +920,6 @@ def main() -> None:
             commit=commit,
             summary=summary,
         )
-
-    validation_needed = validation.stale or rankings_needed or any(plan.set_page.stale for plan in plans)
-    if validation_needed:
-        summary.stale_snapshot_families.add("desirability_validation")
-    if validation_needed:
-        if commit:
-            _build_validation_snapshot(client, commit=True, summary=summary)
-        else:
-            summary.global_skipped.append("desirability_validation: dry-run dependency/global snapshot stale")
 
     _verify_after_build(client, set_rows, summary)
     _print_summary(summary)

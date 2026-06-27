@@ -113,20 +113,24 @@ export function selectOverviewSetValueTrendByScope(input = {}) {
     preferredKey: preferredWindowKey,
     dateKey: "date",
     valueKey: "setValue",
+    preferObservedPoints: true,
   });
   const visibleWindowMetrics = getVisibleHistoryWindowMetrics(points, selectedWindow, {
     dateKey: "date",
     valueKey: "setValue",
+    preferObservedPoints: true,
   });
   const { selectedWindow: thirtyDayWindow } = getSelectedDeltaWindowFromHistory(valuedPoints, {
     selectedKey: "30D",
     preferredKey: "30D",
     dateKey: "date",
     valueKey: "setValue",
+    preferObservedPoints: true,
   });
   const thirtyDayWindowMetrics = getVisibleHistoryWindowMetrics(points, thirtyDayWindow, {
     dateKey: "date",
     valueKey: "setValue",
+    preferObservedPoints: true,
   });
   const scopePointCounts = Object.fromEntries(
     Object.entries(historiesByScope || {}).map(([scopeKey, scopeHistory]) => [
@@ -152,7 +156,7 @@ export function selectOverviewSetValueTrendByScope(input = {}) {
     selectedWindow,
     availableDeltaWindows,
     effectiveWindowKey,
-    hasTrend: visibleWindowMetrics.valuedPoints.length >= 2,
+    hasTrend: visibleWindowMetrics.deltaAmount !== null,
     diagnostics: {
       requestedScope: scope,
       selectedScope: scope,
@@ -162,6 +166,7 @@ export function selectOverviewSetValueTrendByScope(input = {}) {
       pointCountsByScope: scopePointCounts,
       selectedWindowKey,
       effectiveWindowKey,
+      latestObservedDate: visibleWindowMetrics.latestPoint?.sourceDate || visibleWindowMetrics.latestPoint?.date || null,
     },
   };
 }

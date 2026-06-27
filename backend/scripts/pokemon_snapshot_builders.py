@@ -1637,7 +1637,19 @@ def build_market_dashboard_snapshot_rows(
     movement_payload = build_pokemon_set_card_movement_payload(set_id=set_id)
     market_movers = movement_payload.get("marketMovers") or {}
     market_movers_snake = movement_payload.get("market_movers") or {}
-    latest_market_date = _latest_history_date(histories_by_scope)
+    set_value_history_latest_date_by_scope = {
+        scope: _latest_history_date({scope: history})
+        for scope, history in histories_by_scope.items()
+    }
+    set_value_history_point_count_by_scope = {
+        scope: len(history) if isinstance(history, list) else 0
+        for scope, history in histories_by_scope.items()
+    }
+    latest_set_value_history_date = max(
+        (date for date in set_value_history_latest_date_by_scope.values() if date),
+        default=None,
+    )
+    latest_market_date = latest_set_value_history_date
     dashboard_payload = {
         "set": top_payload.get("set")
         or {
@@ -1668,6 +1680,12 @@ def build_market_dashboard_snapshot_rows(
             "window_key": window,
             "days": days,
             "asOfDate": latest_market_date,
+            "latestSetValueHistoryDate": latest_set_value_history_date,
+            "latest_set_value_history_date": latest_set_value_history_date,
+            "setValueHistoryLatestDateByScope": set_value_history_latest_date_by_scope,
+            "set_value_history_latest_date_by_scope": set_value_history_latest_date_by_scope,
+            "setValueHistoryPointCountByScope": set_value_history_point_count_by_scope,
+            "set_value_history_point_count_by_scope": set_value_history_point_count_by_scope,
             "sources": {
                 "set_value_histories": "pokemon_set_value_daily_history",
                 "top_chase_cards": "pokemon_set_top_chase_card_daily_history/simulation_input_cards",

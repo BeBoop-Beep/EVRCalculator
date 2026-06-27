@@ -97,3 +97,96 @@ def test_verify_set_page_stale_when_rank_fields_missing(monkeypatch):
     problems = refresh._verify_set_page(None, {"id": "set-1", "canonical_key": "whiteFlare"}, rankings_updated_at=rankings_updated)
 
     assert any("rank fields missing" in problem for problem in problems)
+
+
+def _market_row(*, updated_at="2026-06-21T00:00:00+00:00", latest_market_date="2026-06-20"):
+    histories = {
+        "standard": [{"date": "2026-06-20", "setValue": 100}],
+        "hits": [{"date": "2026-06-20", "setValue": 50}],
+        "top10": [{"date": "2026-06-20", "setValue": 25}],
+    }
+    return {
+        "set_id": "set-1",
+        "window_key": "365d",
+        "updated_at": updated_at,
+        "latest_market_date": latest_market_date,
+        "set_value_histories_json": histories,
+        "payload_json": {
+            "latestMarketDate": latest_market_date,
+            "setValueHistoriesByScope": histories,
+            "meta": {
+                "snapshot": {"type": "pokemon_set_market_dashboard"},
+                "setValueHistoryLatestDateByScope": {
+                    "standard": "2026-06-20",
+                    "hits": "2026-06-20",
+                    "top10": "2026-06-20",
+                },
+            },
+        },
+    }
+
+
+def test_market_dashboard_stale_when_raw_set_value_snapshot_date_newer(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+
+    def latest_by_scope(_client, _set_id, *, column):
+        if column == "updated_at":
+            return {"standard": "2026-06-20T00:00:00+00:00", "hits": "2026-06-20T00:00:00+00:00", "top10": "2026-06-20T00:00:00+00:00"}, []
+        return {"standard": "2026-06-24", "hits": "2026-06-24", "top10": "2026-06-23"}, []
+
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", latest_by_scope)
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_args, **_kwargs: _market_row())
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.family == "market_dashboard"
+    assert "latest_market_date" in result.reason
+
+
+def test_market_dashboard_stale_when_raw_set_value_updated_after_dashboard(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+
+    def latest_by_scope(_client, _set_id, *, column):
+        if column == "updated_at":
+            return {"standard": "2026-06-22T00:00:00+00:00", "hits": "2026-06-25T00:00:00+00:00", "top10": "2026-06-22T00:00:00+00:00"}, []
+        return {"standard": "2026-06-20", "hits": "2026-06-20", "top10": "2026-06-20"}, []
+
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", latest_by_scope)
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_args, **_kwargs: _market_row(updated_at="2026-06-24T00:00:00+00:00"))
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "set value daily history updated after market dashboard"
+
+
+def test_market_dashboard_staleness_does_not_plan_set_page_or_desirability_rebuild(monkeypatch):
+    rebuilt = []
+    monkeypatch.setattr(refresh, "build_set_page_snapshot_row", lambda *_args, **_kwargs: rebuilt.append("set_page"))
+    summary = refresh.RefreshSummary()
+    plan = refresh.SetRefreshPlan(
+        set_row={"id": "set-1", "canonical_key": "shroudedFable"},
+        cards=refresh.FreshnessResult("cards", False, "fresh", "2026-06-24T00:00:00+00:00"),
+        market_dashboard=refresh.FreshnessResult("market_dashboard", True, "set value daily history date newer than latest_market_date", "2026-06-24T00:00:00+00:00"),
+        set_page=refresh.FreshnessResult("set_page", False, "fresh", "2026-06-24T00:00:00+00:00"),
+    )
+
+    refresh._maybe_rebuild_set_page(None, plan, rankings_updated_at=None, commit=True, summary=summary)
+
+    assert rebuilt == []
+    assert summary.rebuilt_sets["set_page"] == []
+
+
+def test_desirability_validation_freshness_does_not_depend_on_market_dashboard(monkeypatch):
+    tables = []
+
+    def latest_timestamp(_client, *, table, timestamp_columns, filters=(), in_filters=()):
+        tables.append(table)
+        return None, [f"{table}: ok"]
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
+
+    refresh._latest_for_desirability_validation(None)
+
+    assert "pokemon_set_market_dashboard_snapshot_latest" not in tables

@@ -146,6 +146,7 @@ export function computeDeltaWindowsFromHistory(
     valueKey = "value",
     supportedKeys = STANDARD_DELTA_WINDOW_KEYS,
     preferActualPointsForOneDay = false,
+    preferObservedPoints = false,
   } = {}
 ) {
   const supportedKeySet = normalizeSupportedKeys(supportedKeys);
@@ -163,10 +164,16 @@ export function computeDeltaWindowsFromHistory(
     return [];
   }
 
-  const latest = rows[rows.length - 1];
+  const observedRows = rows.filter((point) => !point.isCarriedForward);
+  const deltaRows = preferObservedPoints ? observedRows : rows;
+  if (deltaRows.length < 2) {
+    return [];
+  }
+
+  const latest = deltaRows[deltaRows.length - 1];
   const actualRows = preferActualPointsForOneDay
-    ? rows.filter((point) => !point.isCarriedForward)
-    : rows;
+    ? observedRows
+    : deltaRows;
   return getStandardDeltaWindowDefinitions([...supportedKeySet]).map((definition) => {
     let baseline = null;
     let windowLatest = latest;
@@ -178,19 +185,19 @@ export function computeDeltaWindowsFromHistory(
       baseline = [...oneDayRows].reverse().find((point) => point.date < windowLatest.date) || null;
       targetDate = baseline?.date || null;
     } else if (definition.days === null) {
-      baseline = rows[0];
+      baseline = deltaRows[0];
       isSinceFirstAvailable = true;
     } else {
       const spanOffset = definition.days - 1;
       targetDate = addDaysToDateKey(latest.date, -spanOffset);
       if (!targetDate) {
-        baseline = rows[0];
+        baseline = deltaRows[0];
         isSinceFirstAvailable = true;
-      } else if (rows[0].date > targetDate) {
-        baseline = rows[0];
+      } else if (deltaRows[0].date > targetDate) {
+        baseline = deltaRows[0];
         isSinceFirstAvailable = true;
       } else {
-        baseline = [...rows].reverse().find((point) => point.date <= targetDate) || rows[0];
+        baseline = [...deltaRows].reverse().find((point) => point.date <= targetDate) || deltaRows[0];
       }
     }
 
@@ -209,6 +216,7 @@ export function computeDeltaWindowsFromHistory(
       targetStartDate: targetDate,
       isSinceFirstAvailable,
       isCarriedForward: windowLatest.isCarriedForward,
+      sourceDate: windowLatest.point?.sourceDate || windowLatest.point?.source_date || windowLatest.date,
       source: "history",
     };
   }).filter(Boolean);
@@ -223,6 +231,7 @@ export function getSelectedDeltaWindowFromHistory(
     valueKey = "value",
     supportedKeys = STANDARD_DELTA_WINDOW_KEYS,
     preferActualPointsForOneDay = false,
+    preferObservedPoints = false,
   } = {}
 ) {
   const windows = computeDeltaWindowsFromHistory(points, {
@@ -230,6 +239,7 @@ export function getSelectedDeltaWindowFromHistory(
     valueKey,
     supportedKeys,
     preferActualPointsForOneDay,
+    preferObservedPoints,
   });
   const controlWindows = getStandardDeltaWindowDefinitions(supportedKeys);
   const normalizedSelectedKey = normalizeWindowKey(selectedKey);
@@ -249,7 +259,13 @@ export function getSelectedDeltaWindowFromHistory(
 export function getVisibleHistoryWindowMetrics(
   points,
   selectedWindow,
-  { dateKey = "date", valueKey = "value", amountKey = "deltaFromPrevious", percentKey = "deltaPercentFromPrevious" } = {}
+  {
+    dateKey = "date",
+    valueKey = "value",
+    amountKey = "deltaFromPrevious",
+    percentKey = "deltaPercentFromPrevious",
+    preferObservedPoints = false,
+  } = {}
 ) {
   const visiblePoints = filterHistoryPointsForDeltaWindow(points, selectedWindow, { dateKey });
   let firstValuedPoint = null;
@@ -274,8 +290,12 @@ export function getVisibleHistoryWindowMetrics(
   });
 
   const valuedPoints = pointsWithChanges.filter((point) => toNumber(point?.[valueKey]) !== null);
-  const firstPoint = valuedPoints[0] || null;
-  const latestPoint = valuedPoints[valuedPoints.length - 1] || null;
+  const observedValuedPoints = valuedPoints.filter(
+    (point) => !Boolean(point?.isCarriedForward ?? point?.is_carried_forward)
+  );
+  const metricPoints = preferObservedPoints && observedValuedPoints.length > 0 ? observedValuedPoints : valuedPoints;
+  const firstPoint = metricPoints[0] || null;
+  const latestPoint = metricPoints[metricPoints.length - 1] || null;
   const firstValue = toNumber(firstPoint?.[valueKey]);
   const currentValue = toNumber(latestPoint?.[valueKey]);
   const hasWindowDelta = firstPoint && latestPoint && firstPoint !== latestPoint && firstValue !== null && currentValue !== null;

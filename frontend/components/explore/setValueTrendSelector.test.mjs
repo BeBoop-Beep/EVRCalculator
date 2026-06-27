@@ -104,3 +104,55 @@ test("missing one scope does not silently fall back to another scope", () => {
   assert.equal(selected.diagnostics.missingRequestedScope, true);
   assert.deepEqual(selected.diagnostics.pointCountsByScope, { standard: 3 });
 });
+
+test("set value trend deltas use latest observed point instead of carried-forward today", () => {
+  const selected1D = selectOverviewSetValueTrendByScope({
+    historiesByScope: {
+      hits: [
+        { date: "2026-06-20", setValue: 729.07, valueScope: "hits" },
+        { date: "2026-06-23", setValue: 732.87, valueScope: "hits" },
+        { date: "2026-06-24", setValue: 734.52, valueScope: "hits" },
+        { date: "2026-06-25", setValue: 734.52, valueScope: "hits", isCarriedForward: true, sourceDate: "2026-06-24" },
+        { date: "2026-06-26", setValue: 734.52, valueScope: "hits", isCarriedForward: true, sourceDate: "2026-06-24" },
+      ],
+    },
+    selectedScope: "hits",
+    selectedWindowKey: "1D",
+  });
+  const selected7D = selectOverviewSetValueTrendByScope({
+    historiesByScope: {
+      hits: selected1D.points,
+    },
+    selectedScope: "hits",
+    selectedWindowKey: "7D",
+  });
+
+  assert.equal(selected1D.currentValue, 734.52);
+  assert.equal(selected1D.lastPoint.date, "2026-06-24");
+  assert.equal(Number(selected1D.deltaAmount.toFixed(2)), 1.65);
+  assert.equal(selected1D.selectedWindow.startDate, "2026-06-23");
+  assert.equal(selected1D.selectedWindow.endDate, "2026-06-24");
+  assert.equal(selected7D.selectedWindow.endDate, "2026-06-24");
+  assert.equal(selected7D.lastPoint.date, "2026-06-24");
+  assert.ok(selected1D.points.some((point) => point.date === "2026-06-26" && point.isCarriedForward));
+});
+
+test("set value trend returns N/A delta when only one observed point exists before carried-forward rows", () => {
+  const selected = selectOverviewSetValueTrendByScope({
+    historiesByScope: {
+      standard: [
+        { date: "2026-06-24", setValue: 734.52 },
+        { date: "2026-06-25", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+        { date: "2026-06-26", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+      ],
+    },
+    selectedScope: "standard",
+    selectedWindowKey: "1D",
+  });
+
+  assert.equal(selected.currentValue, 734.52);
+  assert.equal(selected.lastPoint.date, "2026-06-24");
+  assert.equal(selected.deltaAmount, null);
+  assert.equal(selected.deltaPercent, null);
+  assert.equal(selected.hasTrend, false);
+});

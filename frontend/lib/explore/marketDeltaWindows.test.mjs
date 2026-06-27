@@ -385,6 +385,61 @@ test("top chase 1D can ignore trailing carried-forward duplicate points", () => 
   assert.equal(chartRows.at(-1).date, "2026-06-23");
 });
 
+test("set value windows can anchor to latest observed point instead of carried-forward today", () => {
+  const rows = [
+    { date: "2026-06-20", setValue: 729.07 },
+    { date: "2026-06-23", setValue: 732.87 },
+    { date: "2026-06-24", setValue: 734.52 },
+    { date: "2026-06-25", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+    { date: "2026-06-26", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+  ];
+
+  const selected1D = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  }).selectedWindow;
+  const selected7D = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "7D",
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  }).selectedWindow;
+  const metrics1D = getVisibleHistoryWindowMetrics(rows, selected1D, {
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  });
+
+  assert.equal(selected1D.startDate, "2026-06-23");
+  assert.equal(selected1D.endDate, "2026-06-24");
+  assert.equal(Number(selected1D.amount.toFixed(2)), 1.65);
+  assert.equal(selected7D.endDate, "2026-06-24");
+  assert.equal(metrics1D.latestPoint.date, "2026-06-24");
+  assert.equal(Number(metrics1D.deltaAmount.toFixed(2)), 1.65);
+});
+
+test("observed-point windows do not report zero when only carried-forward duplicates trail one observed point", () => {
+  const rows = [
+    { date: "2026-06-24", setValue: 734.52 },
+    { date: "2026-06-25", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+    { date: "2026-06-26", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+  ];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  }).selectedWindow;
+  const metrics = getVisibleHistoryWindowMetrics(rows, selectedWindow, {
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  });
+
+  assert.equal(selectedWindow, null);
+  assert.equal(metrics.currentValue, 734.52);
+  assert.equal(metrics.latestPoint.date, "2026-06-24");
+  assert.equal(metrics.deltaAmount, null);
+  assert.equal(metrics.deltaPercent, null);
+});
+
 test("selected-window delta uses the selected period rather than a hardcoded default", () => {
   const rows = buildDailyRows(365, { startValue: 10 });
   const selected7D = getSelectedDeltaWindowFromHistory(rows, { selectedKey: "7D" }).selectedWindow;

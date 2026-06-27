@@ -30,10 +30,12 @@ export function selectCompactSetValue({ history, historiesByScope, fallbackMetri
     preferredKey: "30D",
     dateKey: "date",
     valueKey: "setValue",
+    preferObservedPoints: true,
   });
   const metrics = getVisibleHistoryWindowMetrics(points, selectedWindow, {
     dateKey: "date",
     valueKey: "setValue",
+    preferObservedPoints: true,
   });
   const fallbackValue = toOptionalNumber(fallbackMetric?.value);
 
@@ -43,7 +45,7 @@ export function selectCompactSetValue({ history, historiesByScope, fallbackMetri
     visiblePoints: metrics.points,
     deltaAmount: metrics.deltaAmount,
     deltaPercent: metrics.deltaPercent,
-    asOf: metrics.latestPoint?.date || points.at(-1)?.date || null,
+    asOf: metrics.latestPoint?.sourceDate || metrics.latestPoint?.date || points.at(-1)?.sourceDate || points.at(-1)?.date || null,
     diagnostics: {
       sourcePointCount: points.length,
       usedFallback: metrics.currentValue === null && fallbackValue !== null,

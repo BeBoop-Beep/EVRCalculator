@@ -507,6 +507,68 @@ def test_build_market_dashboard_snapshot_row_uses_365d_top_chase_source_when_day
     assert payload["meta"]["topChaseHistorySourceWindowDays"] == 365
 
 
+def test_build_market_dashboard_snapshot_row_writes_set_value_freshness_metadata(monkeypatch):
+    histories = {
+        "standard": [
+            {"date": "2026-06-20", "setValue": 100.0},
+            {"date": "2026-06-24", "setValue": 104.0},
+        ],
+        "hits": [
+            {"date": "2026-06-20", "setValue": 700.0},
+            {"date": "2026-06-24", "setValue": 734.52},
+        ],
+        "top10": [
+            {"date": "2026-06-23", "setValue": 500.0},
+        ],
+    }
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": histories[value_scope],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {
+            "set": {"id": set_id, "name": "Snapshot Set"},
+            "cards": [],
+            "meta": {"warnings": []},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+    )
+
+    dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1", "name": "Snapshot Set"},
+        days=365,
+        window="365d",
+        client=_Client({"card_variant_price_observations": lambda _query: []}),
+    )
+
+    payload = dashboard_row["payload_json"]
+    meta = payload["meta"]
+    assert dashboard_row["latest_market_date"] == "2026-06-24"
+    assert payload["latestMarketDate"] == "2026-06-24"
+    assert meta["latestSetValueHistoryDate"] == "2026-06-24"
+    assert meta["setValueHistoryLatestDateByScope"] == {
+        "standard": "2026-06-24",
+        "hits": "2026-06-24",
+        "top10": "2026-06-23",
+    }
+    assert meta["setValueHistoryPointCountByScope"] == {
+        "standard": 2,
+        "hits": 2,
+        "top10": 1,
+    }
+
+
 def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
