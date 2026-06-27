@@ -144,6 +144,48 @@ def test_market_dashboard_stale_when_raw_set_value_snapshot_date_newer(monkeypat
     assert "latest_market_date" in result.reason
 
 
+def test_market_dashboard_missing_row_is_stale(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(
+        refresh,
+        "_latest_set_value_history_by_scope",
+        lambda _client, _set_id, *, column: ({"standard": "2026-06-25", "hits": None, "top10": None}, []),
+    )
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_args, **_kwargs: None)
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "snapshot row missing"
+
+
+def test_market_dashboard_stale_when_one_scope_history_lags(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+
+    def latest_by_scope(_client, _set_id, *, column):
+        if column == "updated_at":
+            return {"standard": "2026-06-20T00:00:00+00:00", "hits": "2026-06-20T00:00:00+00:00", "top10": "2026-06-20T00:00:00+00:00"}, []
+        return {"standard": "2026-06-25", "hits": "2026-06-25", "top10": "2026-06-25"}, []
+
+    row = _market_row(latest_market_date="2026-06-25")
+    row["set_value_histories_json"]["standard"] = [{"date": "2026-06-25", "setValue": 100}]
+    row["set_value_histories_json"]["hits"] = [{"date": "2026-06-20", "setValue": 50}]
+    row["set_value_histories_json"]["top10"] = [{"date": "2026-06-25", "setValue": 25}]
+    row["payload_json"]["meta"]["setValueHistoryLatestDateByScope"] = {
+        "standard": "2026-06-25",
+        "hits": "2026-06-20",
+        "top10": "2026-06-25",
+    }
+
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", latest_by_scope)
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_args, **_kwargs: row)
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "hits set value history newer than dashboard history"
+
+
 def test_market_dashboard_stale_when_raw_set_value_updated_after_dashboard(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
 
@@ -159,6 +201,31 @@ def test_market_dashboard_stale_when_raw_set_value_updated_after_dashboard(monke
 
     assert result.stale is True
     assert result.reason == "set value daily history updated after market dashboard"
+
+
+def test_build_plan_all_reports_multiple_stale_market_dashboards(monkeypatch):
+    monkeypatch.setattr(refresh, "_cards_snapshot_staleness", lambda _client, set_id: refresh.FreshnessResult("cards", False, "fresh"))
+    monkeypatch.setattr(refresh, "_set_page_snapshot_staleness", lambda _client, set_id: refresh.FreshnessResult("set_page", False, "fresh"))
+    monkeypatch.setattr(
+        refresh,
+        "_market_snapshot_staleness",
+        lambda _client, set_id, window: refresh.FreshnessResult(
+            "market_dashboard",
+            set_id in {"set-1", "set-2"},
+            "stale" if set_id in {"set-1", "set-2"} else "fresh",
+        ),
+    )
+    monkeypatch.setattr(refresh, "_global_snapshot_staleness", lambda _client, *, family: refresh.FreshnessResult(family, False, "fresh"))
+
+    plans, rankings, validation, _source_checks = refresh._build_plan(
+        None,
+        set_rows=[{"id": "set-1"}, {"id": "set-2"}, {"id": "set-3"}],
+        window="365d",
+    )
+
+    assert [plan.set_row["id"] for plan in plans if plan.market_dashboard.stale] == ["set-1", "set-2"]
+    assert rankings.stale is False
+    assert validation.stale is False
 
 
 def test_market_dashboard_staleness_does_not_plan_set_page_or_desirability_rebuild(monkeypatch):

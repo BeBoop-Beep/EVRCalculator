@@ -569,6 +569,49 @@ def test_build_market_dashboard_snapshot_row_writes_set_value_freshness_metadata
     }
 
 
+def test_market_dashboard_snapshot_uses_corrected_local_set_value_history_date(monkeypatch):
+    histories = {
+        "standard": [{"date": "2026-06-26", "setValue": 701.77}],
+        "hits": [{"date": "2026-06-26", "setValue": 512.34}],
+        "top10": [{"date": "2026-06-26", "setValue": 400.12}],
+    }
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": histories[value_scope],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {
+            "set": {"id": set_id, "name": "Chaos Rising"},
+            "cards": [],
+            "meta": {"warnings": []},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+    )
+
+    dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1", "name": "Chaos Rising"},
+        days=365,
+        window="365d",
+        client=_Client({"card_variant_price_observations": lambda _query: []}),
+    )
+
+    assert dashboard_row["latest_market_date"] == "2026-06-26"
+    assert dashboard_row["set_value_histories_json"]["standard"][0]["date"] == "2026-06-26"
+    assert dashboard_row["payload_json"]["latestMarketDate"] == "2026-06-26"
+    assert dashboard_row["payload_json"]["setValueHistoriesByScope"]["hits"][0]["date"] == "2026-06-26"
+
+
 def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
