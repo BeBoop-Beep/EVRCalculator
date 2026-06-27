@@ -60,7 +60,7 @@ def main() -> None:
     for set_row in resolve_target_sets(client, args):
         logging.info("building set page snapshot %s", _set_label(set_row))
         try:
-            row = build_set_page_snapshot_row(set_row)
+            row = build_set_page_snapshot_row(set_row, client=client)
             upsert_row(
                 client,
                 "pokemon_set_page_snapshot_latest",

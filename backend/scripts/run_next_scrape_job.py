@@ -16,11 +16,12 @@ if _SCRAPER_ROOT not in sys.path:
 
 from backend.db.repositories.scrape_jobs_repository import (
     claim_next_scrape_job,
+    enqueue_missing_scrape_jobs_for_ready_sets,
     mark_scrape_job_completed,
     mark_scrape_job_failed,
 )
 from backend.db.repositories.sets_repository import get_set_by_id
-from run_pokemon_set_scrape import (
+from backend.scripts.run_pokemon_set_scrape import (
     _apply_safe_runtime_defaults,
     _load_backend_env,
     run_scraper,
@@ -62,6 +63,16 @@ def dispatch_next_scrape_job() -> int:
 
     _load_backend_env()
     _apply_safe_runtime_defaults()
+
+    inserted_count = enqueue_missing_scrape_jobs_for_ready_sets()
+    if inserted_count:
+        logger.info(
+            "%s enqueued %s missing scrape job(s) for scrape-ready sets",
+            DISPATCHER_TAG,
+            inserted_count,
+        )
+    else:
+        logger.debug("%s no missing scrape jobs found for scrape-ready sets", DISPATCHER_TAG)
 
     job = claim_next_scrape_job()
     if not job:

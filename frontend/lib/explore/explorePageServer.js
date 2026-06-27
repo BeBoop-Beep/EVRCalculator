@@ -1,10 +1,28 @@
 import { cache } from "react";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import {
+  fetchWithTimeout,
+  getRecoverableExplorePayload,
+  normalisePayload,
+  previewResponseBody,
+  sanitizeBackendPath,
+} from "./explorePageServerCore.mjs";
 
 const BACKEND_URL = getBackendApiBaseUrl();
 
+function readPositiveIntegerEnv(name, fallback) {
+  const parsed = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 const SUCCESS_TTL_MS = 120_000; // 120s
 const NOT_FOUND_TTL_MS = 10_000; // 10s
+const STALE_TTL_MS = readPositiveIntegerEnv("EXPLORE_PAGE_STALE_TTL_MS", 3_600_000);
+const SET_PAGE_FETCH_TIMEOUT_MS = readPositiveIntegerEnv(
+  "POKEMON_SET_PAGE_FETCH_TIMEOUT_MS",
+  readPositiveIntegerEnv("EXPLORE_PAGE_SET_FETCH_TIMEOUT_MS", 8_000)
+);
+const EXPLORE_PAGE_FETCH_TIMEOUT_MS = readPositiveIntegerEnv("EXPLORE_PAGE_FETCH_TIMEOUT_MS", 10_000);
 const DEFAULT_DISTRIBUTION_BINS = 50;
 const MAX_DISTRIBUTION_BINS = 200;
 const DEFAULT_TOP_HITS = 10;
@@ -35,35 +53,38 @@ function toCacheKey(targetType, targetId, limitDistributionBins, limitTopHits) {
   return `explore:${targetType}:${targetId}:bins=${limitDistributionBins}:hits=${limitTopHits}`;
 }
 
-function normalisePayload(payload) {
-  return {
-    summary: payload?.summary || {},
-    rankings: Array.isArray(payload?.rankings) ? payload.rankings : [],
-    rip_statistics: payload?.rip_statistics || {
-      pack_paths: {},
-      normal_pack_states: {},
-    },
-    percentiles: Array.isArray(payload?.percentiles) ? payload.percentiles : [],
-    distribution_bins: Array.isArray(payload?.distribution_bins)
-      ? payload.distribution_bins
-      : [],
-    threshold_bins: Array.isArray(payload?.threshold_bins)
-      ? payload.threshold_bins
-      : [],
-    top_hits: Array.isArray(payload?.top_hits) ? payload.top_hits : [],
-    history_trend: Array.isArray(payload?.history_trend) ? payload.history_trend : [],
-    openingDesirability: payload?.openingDesirability || payload?.opening_desirability || null,
-    pull_rate_assumptions: payload?.pull_rate_assumptions || payload?.pullRateAssumptions || null,
-    interpretation: payload?.interpretation || {},
-    meta: payload?.meta || { warnings: [], timings: {}, sources: {} },
-  };
+function getFetchTimeoutMs(targetType) {
+  return targetType === "set" ? SET_PAGE_FETCH_TIMEOUT_MS : EXPLORE_PAGE_FETCH_TIMEOUT_MS;
+}
+
+function logRecoverableSetPagePayload(eventName, {
+  targetType,
+  targetId,
+  backendPath,
+  status = null,
+  elapsedMs = null,
+  source,
+  fallbackUsed = false,
+  bodyPreview = null,
+}) {
+  console.warn(`[explore-page-server] ${eventName}`, {
+    targetType,
+    targetId,
+    backendPath,
+    status,
+    elapsedMs,
+    source,
+    fallbackUsed,
+    bodyPreview,
+  });
 }
 
 const _fetchExplorePayload = cache(async function _fetchExplorePayload(
   targetType,
   targetId,
   limitDistributionBins,
-  limitTopHits
+  limitTopHits,
+  fallbackTarget = null
 ) {
   const cacheKey = toCacheKey(
     targetType,
@@ -79,6 +100,8 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
     console.info("[explore-page-server] cache_hit", {
       targetType,
       targetId,
+      source: "cache",
+      fallbackUsed: false,
       ttlRemainingMs: cached.expiresAt - now,
     });
     return cached.data;
@@ -86,7 +109,12 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
 
   // In-flight deduplication
   if (inflightRequests.has(cacheKey)) {
-    console.info("[explore-page-server] inflight_dedup", { targetType, targetId });
+    console.info("[explore-page-server] inflight_dedup", {
+      targetType,
+      targetId,
+      source: "inflight",
+      fallbackUsed: false,
+    });
     return inflightRequests.get(cacheKey);
   }
 
@@ -101,17 +129,59 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
       url.searchParams.set("limit_distribution_bins", String(limitDistributionBins));
       url.searchParams.set("limit_top_hits", String(limitTopHits));
     }
+    const backendPath = sanitizeBackendPath(url);
+    const timeoutMs = getFetchTimeoutMs(targetType);
 
     const startedAt = Date.now();
-    console.info("[explore-page-server] fetch_start", { targetType, targetId });
+    console.info("[explore-page-server] fetch_start", {
+      targetType,
+      targetId,
+      backendPath,
+      source: "backend",
+      fallbackUsed: false,
+      timeoutMs,
+    });
 
     let res;
     try {
-      res = await fetch(url.toString(), { next: { revalidate: 300 } });
+      res = await fetchWithTimeout(
+        url.toString(),
+        isPokemonSetPage ? { cache: "no-store" } : { next: { revalidate: 300 } },
+        timeoutMs
+      );
     } catch (networkErr) {
+      const elapsedMs = Date.now() - startedAt;
+      const isTimeout = networkErr?.name === "TimeoutError";
+      const recoverablePayload = getRecoverableExplorePayload({
+        targetType,
+        targetId,
+        fallbackTarget,
+        staleEntry: cached,
+        now: Date.now(),
+        elapsedMs,
+        backendPath,
+        code: isTimeout ? "SET_PAGE_PAYLOAD_TIMEOUT" : "SET_PAGE_PAYLOAD_NETWORK_ERROR",
+        message: String(networkErr?.message || networkErr),
+      });
+      if (recoverablePayload) {
+        logRecoverableSetPagePayload(isTimeout ? "fetch_timeout_fallback" : "network_error_fallback", {
+          targetType,
+          targetId,
+          backendPath,
+          elapsedMs,
+          source: recoverablePayload.meta?.stale ? "stale_cache" : "fallback",
+          fallbackUsed: true,
+          bodyPreview: previewResponseBody(networkErr?.message || String(networkErr)),
+        });
+        return recoverablePayload;
+      }
       console.error("[explore-page-server] network_error", {
         targetType,
         targetId,
+        backendPath,
+        elapsedMs,
+        source: "backend",
+        fallbackUsed: false,
         error: String(networkErr),
       });
       throw networkErr;
@@ -120,7 +190,41 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
     const elapsedMs = Date.now() - startedAt;
 
     if (res.status === 404) {
-      console.warn("[explore-page-server] not_found", { targetType, targetId });
+      if (isPokemonSetPage) {
+        const body = await res.text().catch(() => "");
+        const recoverablePayload = getRecoverableExplorePayload({
+          targetType,
+          targetId,
+          fallbackTarget,
+          staleEntry: cached,
+          now: Date.now(),
+          status: res.status,
+          elapsedMs,
+          backendPath,
+          bodyPreview: previewResponseBody(body),
+          code: "SET_PAGE_PAYLOAD_NOT_FOUND",
+        });
+        logRecoverableSetPagePayload("not_found_fallback", {
+          targetType,
+          targetId,
+          backendPath,
+          status: res.status,
+          elapsedMs,
+          source: recoverablePayload.meta?.stale ? "stale_cache" : "fallback",
+          fallbackUsed: true,
+          bodyPreview: previewResponseBody(body),
+        });
+        return recoverablePayload;
+      }
+      console.warn("[explore-page-server] not_found", {
+        targetType,
+        targetId,
+        backendPath,
+        status: res.status,
+        elapsedMs,
+        source: "backend",
+        fallbackUsed: false,
+      });
       const notFoundPayload = null;
       explorePageCache.set(cacheKey, {
         data: notFoundPayload,
@@ -132,23 +236,85 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      const bodyPreview = previewResponseBody(body);
+      const recoverablePayload = getRecoverableExplorePayload({
+        targetType,
+        targetId,
+        fallbackTarget,
+        staleEntry: cached,
+        now: Date.now(),
+        status: res.status,
+        elapsedMs,
+        backendPath,
+        bodyPreview,
+        code: "SET_PAGE_PAYLOAD_BACKEND_ERROR",
+      });
+      if (recoverablePayload) {
+        logRecoverableSetPagePayload("fetch_error_fallback", {
+          targetType,
+          targetId,
+          backendPath,
+          status: res.status,
+          elapsedMs,
+          source: recoverablePayload.meta?.stale ? "stale_cache" : "fallback",
+          fallbackUsed: true,
+          bodyPreview,
+        });
+        return recoverablePayload;
+      }
       console.error("[explore-page-server] fetch_error", {
         targetType,
         targetId,
+        backendPath,
         status: res.status,
-        body,
+        bodyPreview,
         elapsedMs,
+        source: "backend",
+        fallbackUsed: false,
       });
       throw new Error(`Explore page backend error ${res.status}`);
     }
 
-    const payload = await res.json();
+    let payload;
+    try {
+      payload = await res.json();
+    } catch (parseErr) {
+      const recoverablePayload = getRecoverableExplorePayload({
+        targetType,
+        targetId,
+        fallbackTarget,
+        staleEntry: cached,
+        now: Date.now(),
+        status: res.status,
+        elapsedMs,
+        backendPath,
+        code: "SET_PAGE_PAYLOAD_INVALID_JSON",
+        message: String(parseErr?.message || parseErr),
+      });
+      if (recoverablePayload) {
+        logRecoverableSetPagePayload("invalid_json_fallback", {
+          targetType,
+          targetId,
+          backendPath,
+          status: res.status,
+          elapsedMs,
+          source: recoverablePayload.meta?.stale ? "stale_cache" : "fallback",
+          fallbackUsed: true,
+          bodyPreview: previewResponseBody(parseErr?.message || String(parseErr)),
+        });
+        return recoverablePayload;
+      }
+      throw parseErr;
+    }
     const normalised = normalisePayload(payload);
 
     console.info("[explore-page-server] fetch_success", {
       targetType,
       targetId,
+      backendPath,
       elapsedMs,
+      source: "backend",
+      fallbackUsed: false,
       warnings: normalised.meta?.warnings?.length ?? 0,
     });
 
@@ -156,6 +322,7 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
       data: normalised,
       cachedAt: now,
       expiresAt: now + SUCCESS_TTL_MS,
+      staleExpiresAt: now + STALE_TTL_MS,
     });
 
     return normalised;
@@ -173,7 +340,7 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
  *
  * @param {string} targetTypeParam
  * @param {string} targetIdParam
- * @param {{ limitDistributionBins?: number, limitTopHits?: number }} options
+ * @param {{ limitDistributionBins?: number, limitTopHits?: number, fallbackTarget?: object }} options
  */
 export async function getExplorePagePayload(
   targetTypeParam,
@@ -193,5 +360,11 @@ export async function getExplorePagePayload(
     MAX_TOP_HITS
   );
 
-  return _fetchExplorePayload(targetType, targetId, limitDistributionBins, limitTopHits);
+  return _fetchExplorePayload(
+    targetType,
+    targetId,
+    limitDistributionBins,
+    limitTopHits,
+    options.fallbackTarget || null
+  );
 }

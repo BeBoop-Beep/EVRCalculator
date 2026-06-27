@@ -21,6 +21,8 @@ DEFAULT_HISTORY_TREND_LIMIT = 180
 MAX_HISTORY_TREND_LIMIT = 180
 MIN_LIMIT = 1
 
+_UNAVAILABLE_HISTORY_TREND_SELECT_SOURCES: set[str] = set()
+
 _BIGGEST_UPSIDE_P95_CAP = 5.0
 _BIGGEST_UPSIDE_P99_CAP = 10.0
 _BIGGEST_UPSIDE_P95_WEIGHT = 0.70
@@ -309,6 +311,8 @@ def _load_history_trend_rows(
     last_exception: Optional[Exception] = None
 
     for select_columns, source_key in select_attempts:
+        if source_key in _UNAVAILABLE_HISTORY_TREND_SELECT_SOURCES:
+            continue
         try:
             history_result = (
                 public_read_client.table("calculation_history_trend")
@@ -326,6 +330,8 @@ def _load_history_trend_rows(
             return history_rows, source_key
         except Exception as exc:
             last_exception = exc
+            if "42703" in str(exc) or "does not exist" in str(exc).lower():
+                _UNAVAILABLE_HISTORY_TREND_SELECT_SOURCES.add(source_key)
             logger.warning(
                 "[explore-page] calculation_history_trend select fallback failed target_type=%s target_id=%s source=%s: %s",
                 requested_target_type,
@@ -703,41 +709,27 @@ def _build_pull_rate_assumptions(
     reverse_slot_count_default = _to_positive_denominator(slot_defaults.get("reverse"))
     reverse_slot_count = reverse_slot_count_default or regular_reverse_slot_count or 2
 
-    cards_rows: List[Dict[str, Any]] = []
+    cards_rows: List[Dict[str, Any]] = _load_pull_rate_card_count_rows(
+        run_id=run_id,
+        warnings=warnings,
+        sources=sources,
+    )
     rarity_card_ids: Dict[str, set[str]] = {}
-    try:
-        cards_result = (
-            public_read_client.table("simulation_input_cards_with_near_mint_price")
-            .select("card_id,card_variant_id,card_name,rarity_bucket")
-            .eq("calculation_run_id", run_id)
-            .execute()
-        )
-        cards_rows = list(cards_result.data or [])
 
-        for row in cards_rows:
-            rarity_key = _normalize_rarity(row.get("rarity_bucket"))
-            if not rarity_key:
-                continue
+    for row in cards_rows:
+        rarity_key = _normalize_rarity(row.get("rarity_bucket"))
+        if not rarity_key:
+            continue
 
-            identifier = _normalize_key(row.get("card_variant_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_name"))
-            if not identifier:
-                continue
+        identifier = _normalize_key(row.get("card_variant_id"))
+        if not identifier:
+            identifier = _normalize_key(row.get("card_id"))
+        if not identifier:
+            identifier = _normalize_key(row.get("card_name"))
+        if not identifier:
+            continue
 
-            rarity_card_ids.setdefault(rarity_key, set()).add(identifier)
-        sources["pull_rate_assumptions_card_counts"] = "OK"
-    except Exception as exc:
-        logger.warning(
-            "[explore-page] simulation_input_cards_with_near_mint_price pull-rate count query failed run_id=%s: %s",
-            run_id,
-            exc,
-        )
-        warnings.append("Failed to derive eligible card counts for pull-rate assumptions")
-        sources["pull_rate_assumptions_card_counts"] = "FAILED"
-        sources["pull_rate_assumptions_regular_reverse_count"] = "FAILED"
+        rarity_card_ids.setdefault(rarity_key, set()).add(identifier)
 
     def _derive_regular_reverse_card_count() -> Optional[int]:
         if not cards_rows:
@@ -2208,10 +2200,18 @@ def get_explore_page_payload(
         )
         raw_hits = top_hits_result.data if top_hits_result.data else []
         top_hits = _enrich_top_hits_with_images(raw_hits)
-        sources["simulation_input_cards"] = "OK"
+        sources["simulation_input_cards"] = "OK" if top_hits else "NO_ROWS"
+        if not top_hits:
+            warnings.append(
+                "Simulation Drivers unavailable: simulation_input_cards_with_near_mint_price "
+                f"returned no rows for calculation_run_id={run_id}"
+            )
     except Exception as exc:
         logger.warning("[explore-page] simulation_input_cards failed run_id=%s: %s", run_id, exc)
-        warnings.append("Failed to load top hits")
+        warnings.append(
+            "Failed to load top hits from simulation_input_cards_with_near_mint_price "
+            f"for calculation_run_id={run_id}: {exc}"
+        )
         sources["simulation_input_cards"] = "FAILED"
     top_hits_ms = (time.perf_counter() - top_hits_started) * 1000
 
@@ -2312,6 +2312,50 @@ def get_explore_page_payload(
 def _normalize_rarity_label(label):
     return label.lower().strip().replace("_", " ").replace("-", " ").replace("  ", " ")
 
+
+def _load_pull_rate_card_count_rows(
+    *,
+    run_id: str,
+    warnings: List[str],
+    sources: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    try:
+        cards_result = (
+            public_read_client.table("simulation_input_cards_with_near_mint_price")
+            .select("card_id,card_variant_id,card_name,rarity_bucket")
+            .eq("calculation_run_id", run_id)
+            .execute()
+        )
+        sources["pull_rate_assumptions_card_counts"] = "OK"
+        return list(cards_result.data or [])
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] simulation_input_cards_with_near_mint_price pull-rate count query failed run_id=%s: %s",
+            run_id,
+            exc,
+        )
+
+    try:
+        cards_result = (
+            public_read_client.table("simulation_input_cards")
+            .select("card_id,card_variant_id,card_name,rarity_bucket")
+            .eq("calculation_run_id", run_id)
+            .execute()
+        )
+        sources["pull_rate_assumptions_card_counts"] = "OK_BASE_TABLE"
+        return list(cards_result.data or [])
+    except Exception as exc:
+        logger.warning(
+            "[explore-page] simulation_input_cards pull-rate count fallback query failed run_id=%s: %s",
+            run_id,
+            exc,
+        )
+        warnings.append("Failed to derive eligible card counts for pull-rate assumptions")
+        sources["pull_rate_assumptions_card_counts"] = "FAILED"
+        sources["pull_rate_assumptions_regular_reverse_count"] = "FAILED"
+        return []
+
+
 def _build_pull_rate_assumptions(
     *,
     config_class: Any,
@@ -2341,41 +2385,27 @@ def _build_pull_rate_assumptions(
     reverse_slot_count_default = _to_positive_denominator(slot_defaults.get("reverse"))
     reverse_slot_count = reverse_slot_count_default or regular_reverse_slot_count or 2
 
-    cards_rows: List[Dict[str, Any]] = []
+    cards_rows: List[Dict[str, Any]] = _load_pull_rate_card_count_rows(
+        run_id=run_id,
+        warnings=warnings,
+        sources=sources,
+    )
     rarity_card_ids: Dict[str, set[str]] = {}
-    try:
-        cards_result = (
-            public_read_client.table("simulation_input_cards_with_near_mint_price")
-            .select("card_id,card_variant_id,card_name,rarity_bucket")
-            .eq("calculation_run_id", run_id)
-            .execute()
-        )
-        cards_rows = list(cards_result.data or [])
 
-        for row in cards_rows:
-            rarity_key = _normalize_rarity(row.get("rarity_bucket"))
-            if not rarity_key:
-                continue
+    for row in cards_rows:
+        rarity_key = _normalize_rarity(row.get("rarity_bucket"))
+        if not rarity_key:
+            continue
 
-            identifier = _normalize_key(row.get("card_variant_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_id"))
-            if not identifier:
-                identifier = _normalize_key(row.get("card_name"))
-            if not identifier:
-                continue
+        identifier = _normalize_key(row.get("card_variant_id"))
+        if not identifier:
+            identifier = _normalize_key(row.get("card_id"))
+        if not identifier:
+            identifier = _normalize_key(row.get("card_name"))
+        if not identifier:
+            continue
 
-            rarity_card_ids.setdefault(rarity_key, set()).add(identifier)
-        sources["pull_rate_assumptions_card_counts"] = "OK"
-    except Exception as exc:
-        logger.warning(
-            "[explore-page] simulation_input_cards_with_near_mint_price pull-rate count query failed run_id=%s: %s",
-            run_id,
-            exc,
-        )
-        warnings.append("Failed to derive eligible card counts for pull-rate assumptions")
-        sources["pull_rate_assumptions_card_counts"] = "FAILED"
-        sources["pull_rate_assumptions_regular_reverse_count"] = "FAILED"
+        rarity_card_ids.setdefault(rarity_key, set()).add(identifier)
 
     def _derive_regular_reverse_card_count() -> Optional[int]:
         if not cards_rows:
@@ -3305,10 +3335,18 @@ def get_explore_page_payload(
         )
         raw_hits = top_hits_result.data if top_hits_result.data else []
         top_hits = _enrich_top_hits_with_images(raw_hits)
-        sources["simulation_input_cards"] = "OK"
+        sources["simulation_input_cards"] = "OK" if top_hits else "NO_ROWS"
+        if not top_hits:
+            warnings.append(
+                "Simulation Drivers unavailable: simulation_input_cards_with_near_mint_price "
+                f"returned no rows for calculation_run_id={run_id}"
+            )
     except Exception as exc:
         logger.warning("[explore-page] simulation_input_cards failed run_id=%s: %s", run_id, exc)
-        warnings.append("Failed to load top hits")
+        warnings.append(
+            "Failed to load top hits from simulation_input_cards_with_near_mint_price "
+            f"for calculation_run_id={run_id}: {exc}"
+        )
         sources["simulation_input_cards"] = "FAILED"
     top_hits_ms = (time.perf_counter() - top_hits_started) * 1000
 

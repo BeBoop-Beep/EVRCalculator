@@ -328,6 +328,37 @@ def _load_price_observation_rows(
     return rows
 
 
+def _load_price_observation_rows_for_window(
+    *,
+    variant_ids: List[str],
+    condition_id: Optional[str],
+    start_date: date,
+    end_date: date,
+    sources: Dict[str, str],
+    source_key: str,
+) -> List[Dict[str, Any]]:
+    if not variant_ids or not condition_id:
+        sources[source_key] = "NO_VARIANTS_OR_CONDITION"
+        return []
+
+    rows: List[Dict[str, Any]] = []
+    for variant_id_chunk in _chunk(variant_ids):
+        result = (
+            public_read_client.table("card_variant_price_observations")
+            .select("card_variant_id,condition_id,market_price,source,captured_at")
+            .in_("card_variant_id", variant_id_chunk)
+            .eq("condition_id", condition_id)
+            .gt("market_price", 0)
+            .gte("captured_at", start_date.isoformat())
+            .lt("captured_at", end_date.isoformat())
+            .order("captured_at", desc=False)
+            .execute()
+        )
+        rows.extend(result.data or [])
+    sources[source_key] = "OK"
+    return rows
+
+
 def _load_conditioned_latest_price_rows(
     variant_ids: List[str],
     condition_by_variant: Dict[str, str],
@@ -456,6 +487,7 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
             "pokemon_api_set_id": _to_optional_str(set_row.get("pokemon_api_set_id")),
         },
         "canonical_by_id": canonical_by_id,
+        "legacy_card_to_canonical_id": legacy_card_to_canonical_id,
         "variant_to_canonical_id": variant_to_canonical_id,
         "variant_rows_by_id": variant_rows_by_id,
         "variant_ids": sorted(variant_to_canonical_id.keys()),
@@ -1100,6 +1132,273 @@ def _load_variant_price_history(
     return normalized, diagnostics, window_meta
 
 
+def _canonical_id_for_simulation_row(
+    row: Dict[str, Any],
+    market_context: Dict[str, Any],
+) -> Optional[str]:
+    variant_id = _to_optional_str(row.get("card_variant_id"))
+    direct_card_id = _to_optional_str(row.get("card_id"))
+    variant_to_canonical_id = market_context.get("variant_to_canonical_id") or {}
+    legacy_card_to_canonical_id = market_context.get("legacy_card_to_canonical_id") or {}
+    return (
+        _to_optional_str(variant_to_canonical_id.get(variant_id or ""))
+        or _to_optional_str(legacy_card_to_canonical_id.get(direct_card_id or ""))
+    )
+
+
+def _load_canonical_top_chase_price_history(
+    rows: List[Dict[str, Any]],
+    days: int,
+    market_context: Dict[str, Any],
+    sources: Dict[str, str],
+    warnings: Optional[List[str]] = None,
+) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    display_variant_to_canonical_id: Dict[str, str] = {}
+    for row in rows:
+        display_variant_id = _to_optional_str(row.get("card_variant_id"))
+        canonical_id = _canonical_id_for_simulation_row(row, market_context)
+        if display_variant_id and canonical_id:
+            display_variant_to_canonical_id[display_variant_id] = canonical_id
+
+    if not display_variant_to_canonical_id:
+        sources["card_variant_price_observations_for_chase_trends"] = "NO_CANONICAL_CARD_MATCH"
+        if warnings is not None:
+            warnings.append("Top chase card trend history could not be linked to canonical checklist cards.")
+        return {}, {}, {}
+
+    variant_to_canonical_id: Dict[str, str] = dict(market_context.get("variant_to_canonical_id") or {})
+    target_canonical_ids = set(display_variant_to_canonical_id.values())
+    canonical_variant_ids = sorted(
+        variant_id
+        for variant_id, canonical_id in variant_to_canonical_id.items()
+        if canonical_id in target_canonical_ids
+    )
+    condition_id = _to_optional_str(market_context.get("condition_id"))
+    if not canonical_variant_ids or not condition_id:
+        sources["card_variant_price_observations_for_chase_trends"] = "NO_CANONICAL_VARIANTS_OR_CONDITION"
+        if warnings is not None:
+            warnings.append("Top chase card trend history is unavailable because canonical variants or Near Mint condition are missing.")
+        return {}, {}, {}
+
+    latest_date: Optional[date] = None
+    for row in rows:
+        parsed = _parse_date(row.get("captured_at"))
+        if parsed:
+            try:
+                parsed_date = date.fromisoformat(parsed)
+            except ValueError:
+                continue
+            latest_date = parsed_date if latest_date is None or parsed_date > latest_date else latest_date
+    if latest_date is None:
+        latest_date = datetime.now(timezone.utc).date()
+
+    window_start_date = latest_date - timedelta(days=max(days - 1, 0))
+    window_end_exclusive = latest_date + timedelta(days=1)
+    observation_rows = _load_price_observation_rows_for_window(
+        variant_ids=canonical_variant_ids,
+        condition_id=condition_id,
+        start_date=window_start_date,
+        end_date=window_end_exclusive,
+        sources=sources,
+        source_key="card_variant_price_observations_for_chase_trends",
+    )
+
+    points_by_canonical_date: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    captured_at_by_canonical_date: Dict[str, Dict[str, str]] = {}
+    observation_count_by_canonical: Dict[str, int] = {}
+    observation_count_by_canonical_date: Dict[str, Dict[str, int]] = {}
+    observation_dates: List[date] = []
+    for observation in observation_rows:
+        source_variant_id = _to_optional_str(observation.get("card_variant_id"))
+        canonical_id = _to_optional_str(variant_to_canonical_id.get(source_variant_id or ""))
+        captured_at = _to_optional_str(observation.get("captured_at"))
+        date_key = _parse_date(captured_at)
+        price = _to_optional_float(observation.get("market_price"))
+        if not canonical_id or not date_key or price is None:
+            continue
+        try:
+            observation_dates.append(date.fromisoformat(date_key))
+        except ValueError:
+            continue
+        observation_count_by_canonical[canonical_id] = observation_count_by_canonical.get(canonical_id, 0) + 1
+        daily_counts = observation_count_by_canonical_date.setdefault(canonical_id, {})
+        daily_counts[date_key] = daily_counts.get(date_key, 0) + 1
+        existing_captured_at = captured_at_by_canonical_date.setdefault(canonical_id, {}).get(date_key)
+        if existing_captured_at and captured_at and captured_at <= existing_captured_at:
+            continue
+        captured_at_by_canonical_date[canonical_id][date_key] = captured_at or date_key
+        points_by_canonical_date.setdefault(canonical_id, {})[date_key] = {
+            "date": date_key,
+            "price": round(price, 2),
+            "marketPrice": round(price, 2),
+            "market_price": round(price, 2),
+            "conditionId": condition_id,
+            "condition_id": condition_id,
+            "source": _to_optional_str(observation.get("source")),
+            "provider": _to_optional_str(observation.get("source")),
+            "captured_at": captured_at,
+            "sourceVariantId": source_variant_id,
+            "source_variant_id": source_variant_id,
+            "sourceDate": date_key,
+            "source_date": date_key,
+            "isObserved": True,
+            "is_observed": True,
+            "isCarriedForward": False,
+            "is_carried_forward": False,
+            "dailyObservationCount": daily_counts[date_key],
+            "daily_observation_count": daily_counts[date_key],
+        }
+
+    if not observation_dates:
+        if warnings is not None:
+            warnings.append("No canonical Near Mint top chase card price history exists in card_variant_price_observations yet.")
+        return {}, {}, {}
+
+    window_end_date = max(observation_dates)
+    if window_end_date > latest_date:
+        window_end_date = latest_date
+    bucket_start_date = window_end_date - timedelta(days=max(days - 1, 0))
+    bucket_dates = _inclusive_daily_bucket_dates(bucket_start_date, window_end_date)
+    window_meta = {
+        "asOfDate": window_end_date.isoformat(),
+        "windowStart": bucket_start_date.isoformat(),
+        "windowEnd": window_end_date.isoformat(),
+        "windowDays": len(bucket_dates),
+    }
+
+    normalized: Dict[str, List[Dict[str, Any]]] = {}
+    diagnostics: Dict[str, Dict[str, Any]] = {}
+    variants_by_canonical: Dict[str, List[str]] = {}
+    for variant_id, canonical_id in variant_to_canonical_id.items():
+        if canonical_id in target_canonical_ids:
+            variants_by_canonical.setdefault(canonical_id, []).append(variant_id)
+
+    row_name_by_display_variant = {
+        _to_optional_str(row.get("card_variant_id")) or "": _to_optional_str(row.get("card_name"))
+        for row in rows
+    }
+    for display_variant_id, canonical_id in display_variant_to_canonical_id.items():
+        points = points_by_canonical_date.get(canonical_id, {})
+        sorted_dates = sorted(points.keys())
+        buckets: List[Dict[str, Any]] = []
+        carried_point: Optional[Dict[str, Any]] = None
+        for date_key in sorted_dates:
+            parsed_date = date.fromisoformat(date_key)
+            if parsed_date < bucket_start_date:
+                carried_point = points[date_key]
+                continue
+            break
+
+        for bucket_date in bucket_dates:
+            date_key = bucket_date.isoformat()
+            observed_point = points.get(date_key)
+            if observed_point:
+                carried_point = observed_point
+                buckets.append(observed_point)
+            elif carried_point:
+                buckets.append(
+                    {
+                        **carried_point,
+                        "date": date_key,
+                        "sourceDate": carried_point.get("date"),
+                        "source_date": carried_point.get("date"),
+                        "isObserved": False,
+                        "is_observed": False,
+                        "isCarriedForward": True,
+                        "is_carried_forward": True,
+                        "dailyObservationCount": 0,
+                        "daily_observation_count": 0,
+                    }
+                )
+            else:
+                buckets.append(
+                    {
+                        "date": date_key,
+                        "price": None,
+                        "marketPrice": None,
+                        "market_price": None,
+                        "conditionId": condition_id,
+                        "condition_id": condition_id,
+                        "source": None,
+                        "provider": None,
+                        "captured_at": None,
+                        "sourceDate": None,
+                        "source_date": None,
+                        "isObserved": False,
+                        "is_observed": False,
+                        "isCarriedForward": True,
+                        "is_carried_forward": True,
+                        "dailyObservationCount": 0,
+                        "daily_observation_count": 0,
+                    }
+                )
+
+        normalized[display_variant_id] = buckets
+        valid_prices = [
+            _to_optional_float(point.get("price"))
+            for point in buckets
+            if _to_optional_float(point.get("price")) is not None
+        ]
+        actual_dates = [point.get("date") for point in buckets if point.get("isObserved")]
+        first_price = valid_prices[0] if valid_prices else None
+        last_price = valid_prices[-1] if valid_prices else None
+        computed_delta_amount = round(last_price - first_price, 2) if first_price is not None and last_price is not None else None
+        computed_delta_percent = (
+            round(((last_price - first_price) / first_price) * 100, 2)
+            if first_price is not None and last_price is not None and first_price != 0
+            else None
+        )
+        chosen_daily_prices = [
+            {
+                "date": point.get("date"),
+                "marketPrice": point.get("marketPrice"),
+                "sourceVariantId": point.get("sourceVariantId"),
+                "isObserved": bool(point.get("isObserved")),
+            }
+            for point in buckets
+            if point.get("marketPrice") is not None
+        ]
+        diagnostics[display_variant_id] = {
+            "canonicalCardId": canonical_id,
+            "canonical_card_id": canonical_id,
+            "cardName": row_name_by_display_variant.get(display_variant_id),
+            "variantCount": len(variants_by_canonical.get(canonical_id, [])),
+            "variant_count": len(variants_by_canonical.get(canonical_id, [])),
+            "dailyObservationCount": observation_count_by_canonical.get(canonical_id, 0),
+            "daily_observation_count": observation_count_by_canonical.get(canonical_id, 0),
+            "chosenDailyPrices": chosen_daily_prices[-10:],
+            "chosen_daily_prices": chosen_daily_prices[-10:],
+            "actualObservedDateCount": len(actual_dates),
+            "actual_observed_date_count": len(actual_dates),
+            "historyPointCount": len(buckets),
+            "historyStartDate": buckets[0].get("date") if buckets else None,
+            "historyEndDate": buckets[-1].get("date") if buckets else None,
+            "firstHistoryDate": buckets[0].get("date") if buckets else None,
+            "lastHistoryDate": buckets[-1].get("date") if buckets else None,
+            "firstHistoryPrice": first_price,
+            "lastHistoryPrice": last_price,
+            "latestHistoryPrice": last_price,
+            "latestHistoryDate": buckets[-1].get("date") if buckets else None,
+            "conditionIdUsed": condition_id,
+            "sourceUsed": next((_to_optional_str(point.get("source")) for point in reversed(buckets) if _to_optional_str(point.get("source"))), None),
+            "matchingConditionObservationCount": observation_count_by_canonical.get(canonical_id, 0),
+            "computedDeltaAmount": computed_delta_amount,
+            "computedDeltaPercent": computed_delta_percent,
+        }
+
+    logger.info(
+        "[pokemon-set-market] canonical top chase history set_id=%s cards=%s variants=%s observations=%s window=%s..%s",
+        (market_context.get("set") or {}).get("id"),
+        len(display_variant_to_canonical_id),
+        len(canonical_variant_ids),
+        sum(observation_count_by_canonical.values()),
+        window_meta.get("windowStart"),
+        window_meta.get("windowEnd"),
+    )
+
+    return normalized, diagnostics, window_meta
+
+
 def _delta_from_history(history: List[Dict[str, Any]], period_key: str = "lifetime") -> Dict[str, Optional[float]]:
     deltas = _delta_placeholder()
     valid_prices = [
@@ -1143,18 +1442,30 @@ def _public_simulation_card(
     card_number = _to_optional_str((card or {}).get("card_number"))
     latest_history_price = (trend_diagnostics or {}).get("latestHistoryPrice")
     latest_history_date = (trend_diagnostics or {}).get("latestHistoryDate")
+    display_price = round(float(latest_history_price), 2) if latest_history_price is not None else round(price, 2)
+    display_price_updated_at = _to_optional_str(latest_history_date) or _to_optional_str(row.get("captured_at"))
     computed_delta_amount = (trend_diagnostics or {}).get("computedDeltaAmount")
     computed_delta_percent = (trend_diagnostics or {}).get("computedDeltaPercent")
     diagnostics = {
+        "canonicalCardId": (trend_diagnostics or {}).get("canonicalCardId"),
+        "canonical_card_id": (trend_diagnostics or {}).get("canonical_card_id") or (trend_diagnostics or {}).get("canonicalCardId"),
         "cardName": _to_optional_str(row.get("card_name")) or _to_optional_str((card or {}).get("name")),
         "cardVariantId": variant_id,
+        "variantCount": (trend_diagnostics or {}).get("variantCount"),
+        "variant_count": (trend_diagnostics or {}).get("variant_count"),
+        "dailyObservationCount": (trend_diagnostics or {}).get("dailyObservationCount"),
+        "daily_observation_count": (trend_diagnostics or {}).get("daily_observation_count"),
+        "chosenDailyPrices": (trend_diagnostics or {}).get("chosenDailyPrices"),
+        "chosen_daily_prices": (trend_diagnostics or {}).get("chosen_daily_prices"),
+        "actualObservedDateCount": (trend_diagnostics or {}).get("actualObservedDateCount"),
+        "actual_observed_date_count": (trend_diagnostics or {}).get("actual_observed_date_count"),
         "conditionIdUsed": (trend_diagnostics or {}).get("conditionIdUsed"),
         "historyPointCount": (trend_diagnostics or {}).get("historyPointCount", len(price_history)),
         "firstHistoryDate": (trend_diagnostics or {}).get("firstHistoryDate"),
         "lastHistoryDate": (trend_diagnostics or {}).get("lastHistoryDate"),
         "firstHistoryPrice": (trend_diagnostics or {}).get("firstHistoryPrice"),
         "lastHistoryPrice": (trend_diagnostics or {}).get("lastHistoryPrice"),
-        "displayedPrice": round(price, 2),
+        "displayedPrice": display_price,
         "latestHistoryPrice": latest_history_price,
         "latestHistoryDate": latest_history_date,
         "sourceUsed": (trend_diagnostics or {}).get("sourceUsed"),
@@ -1162,7 +1473,7 @@ def _public_simulation_card(
         "computedDeltaPercent": computed_delta_percent,
         "displayedHistoryPriceMismatch": (
             latest_history_price is not None
-            and abs(round(price, 2) - float(latest_history_price)) >= 0.01
+            and abs(display_price - float(latest_history_price)) >= 0.01
         ),
     }
 
@@ -1181,13 +1492,13 @@ def _public_simulation_card(
         "rarity": rarity,
         "setNumber": card_number,
         "set_number": card_number,
-        "estimatedMarketPrice": round(price, 2),
-        "estimated_market_price": round(price, 2),
-        "marketPrice": round(price, 2),
-        "priceUsed": round(price, 2),
-        "price_used": round(price, 2),
-        "priceUpdatedAt": _to_optional_str(row.get("captured_at")),
-        "price_updated_at": _to_optional_str(row.get("captured_at")),
+        "estimatedMarketPrice": display_price,
+        "estimated_market_price": display_price,
+        "marketPrice": display_price,
+        "priceUsed": display_price,
+        "price_used": display_price,
+        "priceUpdatedAt": display_price_updated_at,
+        "price_updated_at": display_price_updated_at,
         "source": _to_optional_str(row.get("price_source")),
         "provider": _to_optional_str(row.get("price_source")),
         "priceHistory": price_history,
@@ -1198,6 +1509,12 @@ def _public_simulation_card(
         "historyEndDate": (trend_diagnostics or {}).get("historyEndDate"),
         "conditionIdUsed": (trend_diagnostics or {}).get("conditionIdUsed"),
         "matchingConditionObservationCount": (trend_diagnostics or {}).get("matchingConditionObservationCount"),
+        "canonicalCardId": (trend_diagnostics or {}).get("canonicalCardId"),
+        "canonical_card_id": (trend_diagnostics or {}).get("canonical_card_id") or (trend_diagnostics or {}).get("canonicalCardId"),
+        "variantCount": (trend_diagnostics or {}).get("variantCount"),
+        "variant_count": (trend_diagnostics or {}).get("variant_count"),
+        "dailyObservationCount": (trend_diagnostics or {}).get("dailyObservationCount"),
+        "daily_observation_count": (trend_diagnostics or {}).get("daily_observation_count"),
         "historyDiagnostics": diagnostics,
         "history_diagnostics": diagnostics,
     }
@@ -1223,12 +1540,21 @@ def _load_simulation_top_market_cards_payload(
         return None
 
     variant_lookup, card_lookup = _load_simulation_card_image_context(rows, sources)
-    history_by_variant, trend_diagnostics_by_variant, trend_window_meta = _load_variant_price_history(
+    market_context = _build_market_context(set_row, warnings, sources)
+    history_by_variant, trend_diagnostics_by_variant, trend_window_meta = _load_canonical_top_chase_price_history(
         rows,
         history_days,
+        market_context,
         sources,
         warnings,
     )
+    if not history_by_variant:
+        history_by_variant, trend_diagnostics_by_variant, trend_window_meta = _load_variant_price_history(
+            rows,
+            history_days,
+            sources,
+            warnings,
+        )
 
     cards: List[Dict[str, Any]] = []
     for row in rows:

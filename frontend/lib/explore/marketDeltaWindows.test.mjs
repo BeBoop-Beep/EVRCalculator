@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import vm from "node:vm";
 
 import {
   DELTA_WINDOW_DEFINITIONS,
@@ -16,6 +17,22 @@ import {
   STANDARD_DELTA_WINDOW_KEYS,
 } from "./marketDeltaWindows.mjs";
 
+function loadPokemonSetMarketClientForTests() {
+  const source = readFileSync(new URL("../pokemon/pokemonSetMarketClient.js", import.meta.url), "utf8")
+    .replace(/export\s+(async\s+function|function)\s+/g, "$1 ");
+  const context = {
+    console,
+    process: { env: { NODE_ENV: "test" } },
+    performance: { now: () => 0 },
+  };
+  vm.runInNewContext(
+    `${source}\nglobalThis.__exports = { normalizeMarketDashboardPayload };`,
+    context,
+    { filename: "pokemonSetMarketClient.js" }
+  );
+  return context.__exports;
+}
+
 function addDays(dateKey, days) {
   const date = new Date(`${dateKey}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -27,6 +44,15 @@ function buildDailyRows(count, { startDate = "2025-06-19", startValue = 100 } = 
     date: addDays(startDate, index),
     value: startValue + index,
   }));
+}
+
+function buildMappedTopChaseRows() {
+  return buildDailyRows(75, { startDate: "2026-04-11", startValue: 200 })
+    .filter((point) => point.date !== "2026-04-12")
+    .map((point) => ({
+      date: point.date,
+      marketPrice: point.value,
+    }));
 }
 
 test("marketDeltaWindows exposes the standard market window definitions", () => {
@@ -103,6 +129,37 @@ test("window controls can be based on full loaded history while the rendered sli
   assert.equal(renderedSlice.length, 30);
 });
 
+test("top chase card price history filters to distinct 7D, 30D, and 3M ranges from 365 loaded points", () => {
+  const priceHistory = buildDailyRows(365, { startDate: "2025-06-25", startValue: 10 }).map((point) => ({
+    date: point.date,
+    marketPrice: point.value,
+  }));
+
+  const selected7D = getSelectedDeltaWindowFromHistory(priceHistory, {
+    selectedKey: "7D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const selected30D = getSelectedDeltaWindowFromHistory(priceHistory, {
+    selectedKey: "30D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const selected3M = getSelectedDeltaWindowFromHistory(priceHistory, {
+    selectedKey: "3M",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+
+  const rows7D = filterHistoryPointsForDeltaWindow(priceHistory, selected7D);
+  const rows30D = filterHistoryPointsForDeltaWindow(priceHistory, selected30D);
+  const rows3M = filterHistoryPointsForDeltaWindow(priceHistory, selected3M);
+
+  assert.equal(rows7D.length, 7);
+  assert.equal(rows30D.length, 30);
+  assert.equal(rows3M.length, 90);
+  assert.equal(rows7D[0].date, "2026-06-18");
+  assert.equal(rows30D[0].date, "2026-05-26");
+  assert.equal(rows3M[0].date, "2026-03-27");
+});
+
 test("30D, 6M, and 1Y windows become available from sufficient loaded history", () => {
   assert.ok(computeDeltaWindowsFromHistory(buildDailyRows(30)).some((window) => window.key === "30D"));
   assert.ok(computeDeltaWindowsFromHistory(buildDailyRows(180)).some((window) => window.key === "6M"));
@@ -123,6 +180,264 @@ test("standard controls remain available when selected window is longer than act
   assert.equal(selectedWindow.isSinceFirstAvailable, true);
   assert.equal(chartRows[0].date, "2026-04-26");
   assert.equal(chartRows.length, 37);
+});
+
+test("top chase raw observation history gives non-flat 30D and partial 3M deltas", () => {
+  const priceHistory = buildDailyRows(75, { startDate: "2026-04-11", startValue: 100 }).map((point) => ({
+    date: point.date,
+    marketPrice: point.value,
+    isObserved: true,
+  }));
+
+  const selected30D = getSelectedDeltaWindowFromHistory(priceHistory, {
+    selectedKey: "30D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const selected3M = getSelectedDeltaWindowFromHistory(priceHistory, {
+    selectedKey: "3M",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const rows30D = filterHistoryPointsForDeltaWindow(priceHistory, selected30D);
+  const rows3M = filterHistoryPointsForDeltaWindow(priceHistory, selected3M);
+  const metrics30D = getVisibleHistoryWindowMetrics(priceHistory, selected30D, { valueKey: "marketPrice" });
+  const metrics3M = getVisibleHistoryWindowMetrics(priceHistory, selected3M, { valueKey: "marketPrice" });
+
+  assert.equal(selected30D.startDate, "2026-05-26");
+  assert.equal(metrics30D.deltaAmount, 29);
+  assert.notEqual(metrics30D.deltaAmount, 0);
+  assert.equal(selected3M.startDate, "2026-04-11");
+  assert.equal(selected3M.isSinceFirstAvailable, true);
+  assert.equal(rows3M[0].date, "2026-04-11");
+  assert.equal(rows3M.length, 75);
+  assert.equal(metrics3M.deltaAmount, 74);
+  assert.notEqual(metrics3M.deltaAmount, 0);
+  assert.equal(rows30D.length, 30);
+});
+
+test("top chase normalization chooses mapped 74-point history over stale embedded 7-point card history", () => {
+  const { normalizeMarketDashboardPayload } = loadPokemonSetMarketClientForTests();
+  const embeddedHistory = buildDailyRows(7, { startDate: "2026-06-18", startValue: 260 }).map((point) => ({
+    date: point.date,
+    marketPrice: point.value,
+  }));
+  const mappedHistory = buildMappedTopChaseRows();
+
+  const normalized = normalizeMarketDashboardPayload({
+    set: { id: "ascended-heroes", name: "Ascended Heroes" },
+    topChaseCards: [
+      {
+        cardId: "mega-gengar-ex",
+        cardVariantId: "variant-mega-gengar-ex",
+        name: "Mega Gengar ex",
+        priceHistory: embeddedHistory,
+      },
+    ],
+    topChaseCardHistories: {
+      "variant-mega-gengar-ex": mappedHistory,
+    },
+  });
+  const card = normalized.topChaseCards[0];
+
+  assert.equal(card.embeddedHistoryPointCount, 7);
+  assert.equal(card.mappedHistoryPointCount, 74);
+  assert.equal(card.selectedHistoryPointCount, 74);
+  assert.equal(card.selectedHistorySource, "top_chase_card_histories");
+  assert.equal(card.selectedHistoryStartDate, "2026-04-11");
+  assert.equal(card.selectedHistoryEndDate, "2026-06-24");
+  assert.equal(card.priceHistory.length, 74);
+  assert.equal(card.price_history, card.priceHistory);
+});
+
+test("top chase normalized mapped history renders 30D and partial 3M slices from full observed range", () => {
+  const { normalizeMarketDashboardPayload } = loadPokemonSetMarketClientForTests();
+  const normalized = normalizeMarketDashboardPayload({
+    topChaseCards: [
+      {
+        cardId: "mega-gengar-ex",
+        cardVariantId: "variant-mega-gengar-ex",
+        name: "Mega Gengar ex",
+        priceHistory: buildDailyRows(7, { startDate: "2026-06-18", startValue: 260 }).map((point) => ({
+          date: point.date,
+          marketPrice: point.value,
+        })),
+      },
+    ],
+    topChaseCardHistories: {
+      "variant-mega-gengar-ex": buildMappedTopChaseRows(),
+    },
+  });
+  const priceHistory = normalized.topChaseCards[0].priceHistory;
+  const selected30D = getSelectedDeltaWindowFromHistory(priceHistory, {
+    selectedKey: "30D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const selected3M = getSelectedDeltaWindowFromHistory(priceHistory, {
+    selectedKey: "3M",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const rows30D = filterHistoryPointsForDeltaWindow(priceHistory, selected30D);
+  const rows3M = filterHistoryPointsForDeltaWindow(priceHistory, selected3M);
+
+  assert.equal(selected30D.startDate, "2026-05-26");
+  assert.equal(rows30D.length, 30);
+  assert.equal(rows30D[0].date, "2026-05-26");
+  assert.equal(rows30D.at(-1).date, "2026-06-24");
+  assert.equal(selected3M.startDate, "2026-04-11");
+  assert.equal(selected3M.isSinceFirstAvailable, true);
+  assert.equal(rows3M.length, 74);
+  assert.equal(rows3M[0].date, "2026-04-11");
+  assert.equal(rows3M.at(-1).date, "2026-06-24");
+});
+
+test("1D window uses previous valid daily point rather than latest point", () => {
+  const rows = [
+    { date: "2026-06-20", marketPrice: 100 },
+    { date: "2026-06-21", marketPrice: 105 },
+    { date: "2026-06-22", marketPrice: 110 },
+    { date: "2026-06-23", marketPrice: 120 },
+    { date: "2026-06-24", marketPrice: 125 },
+  ];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+
+  assert.equal(selectedWindow.key, "1D");
+  assert.equal(selectedWindow.startDate, "2026-06-23");
+  assert.equal(selectedWindow.amount, 5);
+  assert.ok(Math.abs(selectedWindow.percent - (5 / 120) * 100) < 0.0001);
+});
+
+test("1D rendered slice includes previous and latest points", () => {
+  const rows = [
+    { date: "2026-06-20", marketPrice: 100 },
+    { date: "2026-06-21", marketPrice: 105 },
+    { date: "2026-06-22", marketPrice: 110 },
+    { date: "2026-06-23", marketPrice: 120 },
+    { date: "2026-06-24", marketPrice: 125 },
+  ];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const chartRows = filterHistoryPointsForDeltaWindow(rows, selectedWindow);
+
+  assert.equal(chartRows.length, 2);
+  assert.equal(chartRows[0].date, "2026-06-23");
+  assert.equal(chartRows.at(-1).date, "2026-06-24");
+});
+
+test("visible 1D metrics use previous-to-latest delta", () => {
+  const rows = [
+    { date: "2026-06-20", marketPrice: 100 },
+    { date: "2026-06-21", marketPrice: 105 },
+    { date: "2026-06-22", marketPrice: 110 },
+    { date: "2026-06-23", marketPrice: 120 },
+    { date: "2026-06-24", marketPrice: 125 },
+  ];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const metrics = getVisibleHistoryWindowMetrics(rows, selectedWindow, { valueKey: "marketPrice" });
+  const latestPoint = metrics.points.at(-1);
+
+  assert.equal(metrics.currentValue, 125);
+  assert.equal(metrics.deltaAmount, 5);
+  assert.equal(latestPoint.deltaFromPrevious, 5);
+  assert.equal(latestPoint.deltaPercentFromPrevious, metrics.deltaPercent);
+});
+
+test("1D neutral when only one valid point exists", () => {
+  const rows = [{ date: "2026-06-24", marketPrice: 125 }];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "marketPrice",
+  }).selectedWindow;
+  const metrics = getVisibleHistoryWindowMetrics(rows, selectedWindow, { valueKey: "marketPrice" });
+
+  assert.equal(selectedWindow, null);
+  assert.equal(metrics.currentValue, 125);
+  assert.equal(metrics.deltaAmount, null);
+  assert.equal(metrics.deltaPercent, null);
+});
+
+test("top chase 1D can ignore trailing carried-forward duplicate points", () => {
+  const rows = [
+    { date: "2026-06-20", marketPrice: 100 },
+    { date: "2026-06-21", marketPrice: 105 },
+    { date: "2026-06-22", marketPrice: 110 },
+    { date: "2026-06-23", marketPrice: 120 },
+    { date: "2026-06-24", marketPrice: 120, isCarriedForward: true, sourceDate: "2026-06-23" },
+  ];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "marketPrice",
+    preferActualPointsForOneDay: true,
+  }).selectedWindow;
+  const chartRows = filterHistoryPointsForDeltaWindow(rows, selectedWindow);
+
+  assert.equal(selectedWindow.startDate, "2026-06-22");
+  assert.equal(selectedWindow.endDate, "2026-06-23");
+  assert.equal(selectedWindow.amount, 10);
+  assert.equal(chartRows.length, 2);
+  assert.equal(chartRows[0].date, "2026-06-22");
+  assert.equal(chartRows.at(-1).date, "2026-06-23");
+});
+
+test("set value windows can anchor to latest observed point instead of carried-forward today", () => {
+  const rows = [
+    { date: "2026-06-20", setValue: 729.07 },
+    { date: "2026-06-23", setValue: 732.87 },
+    { date: "2026-06-24", setValue: 734.52 },
+    { date: "2026-06-25", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+    { date: "2026-06-26", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+  ];
+
+  const selected1D = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  }).selectedWindow;
+  const selected7D = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "7D",
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  }).selectedWindow;
+  const metrics1D = getVisibleHistoryWindowMetrics(rows, selected1D, {
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  });
+
+  assert.equal(selected1D.startDate, "2026-06-23");
+  assert.equal(selected1D.endDate, "2026-06-24");
+  assert.equal(Number(selected1D.amount.toFixed(2)), 1.65);
+  assert.equal(selected7D.endDate, "2026-06-24");
+  assert.equal(metrics1D.latestPoint.date, "2026-06-24");
+  assert.equal(Number(metrics1D.deltaAmount.toFixed(2)), 1.65);
+});
+
+test("observed-point windows do not report zero when only carried-forward duplicates trail one observed point", () => {
+  const rows = [
+    { date: "2026-06-24", setValue: 734.52 },
+    { date: "2026-06-25", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+    { date: "2026-06-26", setValue: 734.52, isCarriedForward: true, sourceDate: "2026-06-24" },
+  ];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  }).selectedWindow;
+  const metrics = getVisibleHistoryWindowMetrics(rows, selectedWindow, {
+    valueKey: "setValue",
+    preferObservedPoints: true,
+  });
+
+  assert.equal(selectedWindow, null);
+  assert.equal(metrics.currentValue, 734.52);
+  assert.equal(metrics.latestPoint.date, "2026-06-24");
+  assert.equal(metrics.deltaAmount, null);
+  assert.equal(metrics.deltaPercent, null);
 });
 
 test("selected-window delta uses the selected period rather than a hardcoded default", () => {

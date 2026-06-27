@@ -134,6 +134,53 @@ test("forwardFillDailyHistoryThroughToday leaves real current-day data in place"
   assert.equal(points[1].sourceDate, null);
 });
 
+test("forwardFillDailyHistoryThroughToday fills every missing calendar day", () => {
+  const points = forwardFillDailyHistoryThroughToday(
+    [
+      { date: "2026-06-20", value: 701.73 },
+      { date: "2026-06-23", value: 707.56 },
+      { date: "2026-06-24", value: 701.77 },
+    ],
+    { todayDateKey: "2026-06-26" }
+  );
+
+  assert.deepEqual(points.map((point) => point.date), [
+    "2026-06-20",
+    "2026-06-21",
+    "2026-06-22",
+    "2026-06-23",
+    "2026-06-24",
+    "2026-06-25",
+    "2026-06-26",
+  ]);
+  assert.equal(points[1].value, 701.73);
+  assert.equal(points[1].isCarriedForward, true);
+  assert.equal(points[1].sourceDate, "2026-06-20");
+  assert.equal(points[2].sourceDate, "2026-06-20");
+  assert.equal(points[3].isCarriedForward, false);
+  assert.equal(points[5].value, 701.77);
+  assert.equal(points[5].sourceDate, "2026-06-24");
+  assert.equal(points[6].sourceDate, "2026-06-24");
+});
+
+test("forwardFillDailyHistoryThroughToday does not overwrite observed rows", () => {
+  const points = forwardFillDailyHistoryThroughToday(
+    [
+      { date: "2026-06-20", value: 701.73 },
+      { date: "2026-06-21", value: 702.11 },
+      { date: "2026-06-23", value: 707.56 },
+    ],
+    { todayDateKey: "2026-06-23" }
+  );
+
+  assert.deepEqual(points.map((point) => [point.date, point.value, point.isCarriedForward]), [
+    ["2026-06-20", 701.73, false],
+    ["2026-06-21", 702.11, false],
+    ["2026-06-22", 702.11, true],
+    ["2026-06-23", 707.56, false],
+  ]);
+});
+
 test("forwardFillDailyHistoryThroughToday never carries before the first actual value", () => {
   const points = forwardFillDailyHistoryThroughToday(
     [

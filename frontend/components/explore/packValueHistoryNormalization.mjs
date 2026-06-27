@@ -158,6 +158,19 @@ function shouldReplaceDailyPoint(existing, candidate) {
   return true;
 }
 
+function addDaysToDateKey(dateKey, days) {
+  const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  date.setUTCDate(date.getUTCDate() + days);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function forwardFillDailyHistoryThroughToday(
   points,
   {
@@ -195,29 +208,40 @@ export function forwardFillDailyHistoryThroughToday(
   const rows = Array.from(dailyPointMap.values()).sort((a, b) =>
     String(a?.[dateField] || "").localeCompare(String(b?.[dateField] || ""))
   );
-  if (!today || rows.length === 0 || rows.some((point) => point?.[dateField] === today)) {
+  if (!today || rows.length === 0) {
     return rows;
   }
 
-  const latestActualPoint = [...rows]
-    .reverse()
-    .find((point) => !point?.isCarriedForward && hasForwardFillValue(point, valueKeys));
-  const sourceDate = latestActualPoint?.[dateField] || null;
-  if (!latestActualPoint || !sourceDate || sourceDate >= today) {
+  const firstActualPoint = rows.find((point) => !point?.isCarriedForward && hasForwardFillValue(point, valueKeys));
+  const firstDate = firstActualPoint?.[dateField] || null;
+  if (!firstActualPoint || !firstDate || firstDate > today) {
     return rows;
   }
 
-  return [
-    ...rows,
-    {
-      ...latestActualPoint,
-      id: `${latestActualPoint?.id || sourceDate}:carried-forward:${today}`,
-      [dateField]: today,
-      isCarriedForward: true,
-      sourceDate,
-      originalPoint: latestActualPoint?.originalPoint ?? latestActualPoint?.rawPoint ?? latestActualPoint,
-    },
-  ];
+  let carryPoint = null;
+  let carryDate = null;
+  let cursor = firstDate;
+  while (cursor && cursor <= today) {
+    const existing = dailyPointMap.get(cursor);
+    if (existing && !existing.isCarriedForward && hasForwardFillValue(existing, valueKeys)) {
+      carryPoint = existing;
+      carryDate = cursor;
+    } else if (!existing && carryPoint && carryDate) {
+      dailyPointMap.set(cursor, {
+        ...carryPoint,
+        id: `${carryPoint?.id || carryDate}:carried-forward:${cursor}`,
+        [dateField]: cursor,
+        isCarriedForward: true,
+        sourceDate: carryDate,
+        originalPoint: carryPoint?.originalPoint ?? carryPoint?.rawPoint ?? carryPoint,
+      });
+    }
+    cursor = addDaysToDateKey(cursor, 1);
+  }
+
+  return Array.from(dailyPointMap.values()).sort((a, b) =>
+    String(a?.[dateField] || "").localeCompare(String(b?.[dateField] || ""))
+  );
 }
 
 export function normalizeHistoryTrendPoint(raw, index, fallbackPackCost) {

@@ -42,6 +42,11 @@ HIT_LINK_CATEGORY_COUNT_KEYS = {
     UNKNOWN_OR_UNCLASSIFIED_HIT: "unknown_or_unclassified_hit_count",
 }
 
+CARD_APPEAL_INCLUDED_POLICY = (
+    "canonical checklist cards with market price > 0, at least one desirability link, "
+    "and at least one linked Pokemon desirability score"
+)
+
 
 def build_card_facts(
     *,
@@ -287,6 +292,166 @@ def compute_hit_link_category_counts(card_facts: Sequence[Dict[str, Any]]) -> Di
         count_key: len(ids_by_category.get(count_key, set()))
         for count_key in HIT_LINK_CATEGORY_COUNT_KEYS.values()
     }
+
+
+def build_canonical_card_price_index(
+    *,
+    canonical_cards: Sequence[Dict[str, Any]],
+    legacy_cards: Sequence[Dict[str, Any]],
+    variant_rows: Sequence[Dict[str, Any]],
+    latest_price_rows: Sequence[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    canonical_by_id = {
+        str(card["id"]): card
+        for card in canonical_cards
+        if card.get("id") is not None
+    }
+    canonical_by_api_id = {
+        str(card["pokemon_tcg_api_card_id"]): card
+        for card in canonical_cards
+        if card.get("pokemon_tcg_api_card_id") is not None
+    }
+    canonical_by_match_key: Dict[str, Dict[str, Any]] = {}
+    for card in canonical_cards:
+        for key in _card_match_keys(card.get("name"), card.get("number")) + _card_match_keys(
+            card.get("name"), card.get("printed_number")
+        ):
+            canonical_by_match_key.setdefault(key, card)
+
+    legacy_card_to_canonical_id: Dict[str, str] = {}
+    for legacy_card in legacy_cards:
+        canonical = None
+        api_id = _optional_text(legacy_card.get("pokemon_tcg_api_id"))
+        if api_id:
+            canonical = canonical_by_api_id.get(api_id)
+        if canonical is None:
+            for key in _card_match_keys(legacy_card.get("name"), legacy_card.get("card_number")):
+                canonical = canonical_by_match_key.get(key)
+                if canonical is not None:
+                    break
+        if canonical and legacy_card.get("id") is not None:
+            legacy_card_to_canonical_id[str(legacy_card["id"])] = str(canonical["id"])
+
+    variant_to_canonical_id: Dict[str, str] = {}
+    for variant in variant_rows:
+        variant_id = _optional_text(variant.get("id"))
+        if not variant_id:
+            continue
+        canonical_id = legacy_card_to_canonical_id.get(str(variant.get("card_id")))
+        variant_api_id = _optional_text(variant.get("pokemon_tcg_api_id"))
+        if variant_api_id and variant_api_id in canonical_by_api_id:
+            canonical_id = str(canonical_by_api_id[variant_api_id]["id"])
+        if canonical_id in canonical_by_id:
+            variant_to_canonical_id[variant_id] = canonical_id
+
+    best_by_card: Dict[str, Dict[str, Any]] = {}
+    for row in latest_price_rows:
+        variant_id = _optional_text(row.get("variant_id") or row.get("card_variant_id"))
+        canonical_id = variant_to_canonical_id.get(variant_id or "")
+        price = _positive_float(row.get("market_price") or row.get("marketPrice"))
+        if not canonical_id or price is None:
+            continue
+        existing = best_by_card.get(canonical_id)
+        if existing is None or price > existing["market_price"]:
+            best_by_card[canonical_id] = {
+                "market_price": price,
+                "variant_id": variant_id,
+                "captured_at": row.get("captured_at") or row.get("capturedAt"),
+                "source": row.get("source"),
+            }
+    return best_by_card
+
+
+def build_card_appeal_correlation_dataset(
+    *,
+    cards: Sequence[Dict[str, Any]],
+    links: Sequence[Dict[str, Any]],
+    scores_by_reference: Dict[Any, Dict[str, Any]],
+    prices_by_card: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    prices_by_card = prices_by_card or {}
+    links_by_card: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for link in links:
+        card_id = _optional_text(link.get("pokemon_canonical_card_id"))
+        if card_id:
+            links_by_card[card_id].append(link)
+
+    rows: List[Dict[str, Any]] = []
+    canonical_ids = []
+    priced_ids = set()
+    linked_ids = set()
+    scored_linked_ids = set()
+    excluded_unpriced_ids = set()
+    excluded_unlinked_ids = set()
+    excluded_missing_score_ids = set()
+
+    for card in cards:
+        card_id = _optional_text(card.get("id"))
+        if not card_id:
+            continue
+        canonical_ids.append(card_id)
+        price_info = prices_by_card.get(card_id)
+        price = _card_market_price(card, price_info)
+        card_links = links_by_card.get(card_id, [])
+        score = _weighted_card_subject_score(card_links, scores_by_reference)
+        is_hit_eligible = any(bool(link.get("is_hit_eligible")) for link in card_links)
+
+        if price is not None:
+            priced_ids.add(card_id)
+        if card_links:
+            linked_ids.add(card_id)
+        if score is not None and card_links:
+            scored_linked_ids.add(card_id)
+
+        if price is None:
+            excluded_unpriced_ids.add(card_id)
+            continue
+        if not card_links:
+            excluded_unlinked_ids.add(card_id)
+            continue
+        if score is None:
+            excluded_missing_score_ids.add(card_id)
+            continue
+
+        rows.append(
+            {
+                "pokemon_canonical_card_id": card_id,
+                "card_name": card.get("name"),
+                "printed_number": card.get("printed_number") or card.get("number"),
+                "rarity": card.get("rarity"),
+                "market_price": price,
+                "subject_desirability_score": score,
+                "is_hit_eligible": is_hit_eligible,
+            }
+        )
+
+    diagnostics = {
+        "canonical_count": len(set(canonical_ids)),
+        "priced_count": len(priced_ids),
+        "linked_count": len(linked_ids),
+        "scored_linked_count": len(scored_linked_ids),
+        "included_count": len(rows),
+        "excluded_unpriced_count": len(excluded_unpriced_ids),
+        "excluded_unlinked_count": len(excluded_unlinked_ids),
+        "excluded_missing_score_count": len(excluded_missing_score_ids),
+        "included_policy": CARD_APPEAL_INCLUDED_POLICY,
+    }
+    return {"diagnostics": diagnostics, "rows": rows}
+
+
+def build_card_appeal_coverage_diagnostics(
+    *,
+    cards: Sequence[Dict[str, Any]],
+    links: Sequence[Dict[str, Any]],
+    scores_by_reference: Dict[Any, Dict[str, Any]],
+    prices_by_card: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    return build_card_appeal_correlation_dataset(
+        cards=cards,
+        links=links,
+        scores_by_reference=scores_by_reference,
+        prices_by_card=prices_by_card,
+    )["diagnostics"]
 
 
 def build_set_coverage_audit(
@@ -718,6 +883,92 @@ def _pokedex_numbers(card: Dict[str, Any]) -> List[int]:
 
 def _normalized_text(value: Any) -> str:
     return str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _card_market_price(card: Dict[str, Any], price_info: Any) -> Optional[float]:
+    if isinstance(price_info, dict):
+        price = _positive_float(
+            price_info.get("market_price")
+            if price_info.get("market_price") is not None
+            else price_info.get("marketPrice")
+        )
+        if price is not None:
+            return price
+    else:
+        price = _positive_float(price_info)
+        if price is not None:
+            return price
+    for key in (
+        "marketPrice",
+        "market_price",
+        "currentPrice",
+        "current_price",
+        "estimatedMarketPrice",
+        "estimated_market_price",
+        "price_used",
+    ):
+        price = _positive_float(card.get(key))
+        if price is not None:
+            return price
+    return None
+
+
+def _weighted_card_subject_score(
+    links: Sequence[Dict[str, Any]],
+    scores_by_reference: Dict[Any, Dict[str, Any]],
+) -> Optional[float]:
+    weighted: List[Tuple[float, float]] = []
+    for link in links:
+        reference_id = _optional_text(link.get("pokemon_reference_id"))
+        if not reference_id:
+            continue
+        score_row = (
+            scores_by_reference.get(reference_id)
+            or scores_by_reference.get(_as_int(reference_id))
+            or {}
+        )
+        score = _as_float(score_row.get("desirability_score"))
+        if score is None:
+            continue
+        weight = _as_float(link.get("contribution_weight"))
+        if weight is None:
+            weight = 1.0
+        if weight <= 0:
+            continue
+        weighted.append((score, weight))
+    total_weight = sum(weight for _, weight in weighted)
+    if total_weight <= 0:
+        return None
+    return _round_metric(sum(score * weight for score, weight in weighted) / total_weight)
+
+
+def _card_match_keys(name: Any, number: Any) -> List[str]:
+    name_key = _match_key(name)
+    number_text = str(number or "").strip()
+    if not name_key or not number_text:
+        return []
+    number_keys = {number_text}
+    if "/" in number_text:
+        number_keys.add(number_text.split("/", 1)[0])
+    return [f"{name_key}|{_match_key(number_key)}" for number_key in number_keys if _match_key(number_key)]
+
+
+def _match_key(value: Any) -> str:
+    return "".join(char.lower() for char in str(value or "") if char.isalnum())
+
+
+def _optional_text(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _positive_float(value: Any) -> Optional[float]:
+    parsed = _as_float(value)
+    if parsed is None or parsed <= 0:
+        return None
+    return parsed
 
 
 def _hit_link_reason(card: Dict[str, Any], classification: Any, category: Optional[str]) -> Optional[str]:

@@ -1503,6 +1503,41 @@ def test_pull_rate_assumptions_are_exposed_from_set_config_and_run_inputs(monkey
     assert payload["meta"]["sources"]["pull_rate_assumptions_regular_reverse_count"] == "OK"
 
 
+def test_pull_rate_assumptions_fall_back_to_simulation_input_cards_for_counts(monkeypatch):
+    handlers = _build_success_handlers(run_id="run-pull-rate-base")
+
+    def _view_handler(query):
+        if query.select_fields == "card_id,card_variant_id,card_name,rarity_bucket":
+            raise RuntimeError("view unavailable for count select")
+        return []
+
+    handlers["simulation_input_cards_with_near_mint_price"] = _view_handler
+    handlers["simulation_input_cards"] = lambda _q: [
+        {"card_id": "c1", "card_variant_id": "v1", "card_name": "Common A", "rarity_bucket": "common"},
+        {"card_id": "c2", "card_variant_id": "v2", "card_name": "Common B", "rarity_bucket": "common"},
+        {"card_id": "r1", "card_variant_id": "rv1", "card_name": "Reverse A", "rarity_bucket": "regular reverse"},
+    ]
+
+    class _MockSetConfig:
+        PULL_RATE_MAPPING = {
+            "common": 100,
+            "regular reverse": 2,
+        }
+        SLOTS_PER_RARITY = {"common": 4, "reverse": 2}
+
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "_resolve_set_config", lambda _target_id: (_MockSetConfig, "mockSet"))
+
+    payload = service.get_explore_page_payload("set", "base-set")
+    assumptions = payload.get("pull_rate_assumptions")
+    rows_by_rarity = {row["rarity"]: row for row in assumptions["rows"]}
+
+    assert rows_by_rarity["regular reverse"]["card_count"] == 1
+    assert payload["meta"]["sources"]["pull_rate_assumptions_card_counts"] == "OK_BASE_TABLE"
+    assert "Failed to derive eligible card counts for pull-rate assumptions" not in payload["meta"]["warnings"]
+
+
 def test_pull_rate_assumptions_regular_reverse_specific_odds_require_eligible_pool(monkeypatch):
     handlers = _build_success_handlers(run_id="run-pull-rate-no-reverse")
 

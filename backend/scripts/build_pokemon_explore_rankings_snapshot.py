@@ -32,8 +32,6 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args()
-    if not args.all and not args.set_id:
-        raise SystemExit("One of --all or --set-id is required")
     client = get_client()
     row = build_explore_rankings_snapshot_row(limit=args.limit)
     upsert_row(
