@@ -397,6 +397,65 @@ function normalizeMarketMoversPayload(payload) {
   };
 }
 
+function normalizeSimulationPerformanceHistory(history) {
+  const dailyPoints = new Map();
+
+  (Array.isArray(history) ? history : []).forEach((point) => {
+    const date = normalizeDateKey(
+      point?.snapshot_date ?? point?.snapshotDate ?? point?.date
+    );
+    if (!date) {
+      return;
+    }
+    const existing = dailyPoints.get(date);
+    const isCarriedForward = Boolean(point?.isCarriedForward ?? point?.is_carried_forward);
+    if (existing && !existing.isCarriedForward && isCarriedForward) {
+      return;
+    }
+    dailyPoints.set(date, {
+      date,
+      snapshot_date: date,
+      snapshotDate: date,
+      sourceDate: toOptionalString(point?.sourceDate ?? point?.source_date) ?? date,
+      source_date: toOptionalString(point?.source_date ?? point?.sourceDate) ?? date,
+      calculationRunId: toOptionalString(point?.calculationRunId ?? point?.calculation_run_id),
+      calculation_run_id: toOptionalString(point?.calculation_run_id ?? point?.calculationRunId),
+      runCreatedAt: toOptionalString(point?.runCreatedAt ?? point?.run_created_at),
+      run_created_at: toOptionalString(point?.run_created_at ?? point?.runCreatedAt),
+      packCost: toOptionalNumber(point?.packCost ?? point?.pack_cost),
+      pack_cost: toOptionalNumber(point?.pack_cost ?? point?.packCost),
+      meanValue: toOptionalNumber(point?.meanValue ?? point?.mean_value),
+      mean_value: toOptionalNumber(point?.mean_value ?? point?.meanValue),
+      medianValue: toOptionalNumber(point?.medianValue ?? point?.median_value),
+      median_value: toOptionalNumber(point?.median_value ?? point?.medianValue),
+      meanValueToCostRatio: toOptionalNumber(point?.meanValueToCostRatio ?? point?.mean_value_to_cost_ratio),
+      mean_value_to_cost_ratio: toOptionalNumber(point?.mean_value_to_cost_ratio ?? point?.meanValueToCostRatio),
+      simulatedMeanPackValueVsPackCost: toOptionalNumber(
+        point?.simulatedMeanPackValueVsPackCost ?? point?.simulated_mean_pack_value_vs_pack_cost
+      ),
+      simulated_mean_pack_value_vs_pack_cost: toOptionalNumber(
+        point?.simulated_mean_pack_value_vs_pack_cost ?? point?.simulatedMeanPackValueVsPackCost
+      ),
+      medianValueToCostRatio: toOptionalNumber(point?.medianValueToCostRatio ?? point?.median_value_to_cost_ratio),
+      median_value_to_cost_ratio: toOptionalNumber(point?.median_value_to_cost_ratio ?? point?.medianValueToCostRatio),
+      simulatedMedianPackValueVsPackCost: toOptionalNumber(
+        point?.simulatedMedianPackValueVsPackCost ?? point?.simulated_median_pack_value_vs_pack_cost
+      ),
+      simulated_median_pack_value_vs_pack_cost: toOptionalNumber(
+        point?.simulated_median_pack_value_vs_pack_cost ?? point?.simulatedMedianPackValueVsPackCost
+      ),
+      p95ValueToCostRatio: toOptionalNumber(point?.p95ValueToCostRatio ?? point?.p95_value_to_cost_ratio),
+      p95_value_to_cost_ratio: toOptionalNumber(point?.p95_value_to_cost_ratio ?? point?.p95ValueToCostRatio),
+      source: toOptionalString(point?.source ?? point?.provider),
+      provider: toOptionalString(point?.provider ?? point?.source),
+      isCarriedForward,
+      is_carried_forward: isCarriedForward,
+    });
+  });
+
+  return Array.from(dailyPoints.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function normalizeSetValueHistoryPayload(payload) {
   const history = Array.isArray(payload?.history) ? payload.history : [];
   const availableScopes = Array.isArray(payload?.meta?.availableScopes)
@@ -470,7 +529,10 @@ export function normalizeMarketDashboardPayload(payload) {
     market_movers: marketMovers,
     setValueHistoriesByScope: normalizedHistoriesByScope,
     set_value_histories_by_scope: normalizedHistoriesByScope,
-    performanceVsCostHistory: normalizeDailySetValueHistory(
+    performanceVsCostHistory: normalizeSimulationPerformanceHistory(
+      payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
+    ),
+    performance_vs_cost_history: normalizeSimulationPerformanceHistory(
       payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
     ),
     availableScopes: availableScopes

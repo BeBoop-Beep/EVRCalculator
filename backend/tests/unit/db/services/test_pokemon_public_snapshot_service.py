@@ -1316,3 +1316,130 @@ def test_set_page_snapshot_read_does_not_runtime_build_desirability_validation(m
 
     assert payload["summary"]["name"] == "Known Set"
     assert payload["meta"]["timings"]["snapshot_read_ms"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Live fallback: simulation performance history contract tests
+# ---------------------------------------------------------------------------
+
+
+def _set_row_handlers():
+    return {
+        "sets": lambda _query: [
+            {
+                "id": "set-1",
+                "name": "Test Set",
+                "canonical_key": "testSet",
+                "pokemon_api_set_id": "sv-test",
+            }
+        ],
+        "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
+    }
+
+
+def test_live_fallback_performance_history_comes_from_simulation_not_set_value(monkeypatch):
+    """In the live fallback, performanceVsCostHistory must come from calculation_history_trend, not standard set value."""
+    history_rows = [
+        {
+            "snapshot_date": "2026-06-20",
+            "calculation_run_id": "run-live-1",
+            "run_created_at": "2026-06-20T12:00:00+00:00",
+            "simulated_mean_pack_value_vs_pack_cost": 0.75,
+            "simulated_median_pack_value_vs_pack_cost": 0.50,
+            "p95_value_to_cost_ratio": 2.8,
+        }
+    ]
+    summary_rows = [
+        {
+            "calculation_run_id": "run-live-1",
+            "pack_cost": 4.0,
+            "mean_value": 3.0,
+            "median_value": 2.0,
+        }
+    ]
+
+    handlers = {
+        **_set_row_handlers(),
+        "calculation_history_trend": lambda _query: history_rows,
+        "simulation_run_summary": lambda _query: summary_rows,
+        "card_variant_price_observations": lambda _query: [],
+    }
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _Client(handlers))
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": [{"date": "2026-06-20", "setValue": 999.99}],
+            "meta": {"warnings": []},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(
+        "set-1", window="365d"
+    )
+
+    perf = payload["performanceVsCostHistory"]
+    assert len(perf) == 1, "expected one simulation performance point"
+    pt = perf[0]
+
+    # Simulation ratio fields must be present
+    assert pt["simulated_mean_pack_value_vs_pack_cost"] == 0.75
+    assert pt["simulated_median_pack_value_vs_pack_cost"] == 0.50
+    assert pt["p95_value_to_cost_ratio"] == 2.8
+    assert pt["calculation_run_id"] == "run-live-1"
+    assert pt["pack_cost"] == 4.0
+    assert pt["source"] == "calculation_history_trend+simulation_run_summary"
+
+    # Must NOT be set value data
+    assert "setValue" not in pt
+    assert "set_value" not in pt
+
+    # snake_case alias must match
+    assert payload["performance_vs_cost_history"] == perf
+
+    # Set value histories must still be populated under their scope
+    assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 999.99
+
+
+def test_live_fallback_performance_history_empty_when_no_simulation_data(monkeypatch):
+    """When calculation_history_trend returns no rows, performanceVsCostHistory is [] and a warning is added."""
+    handlers = {
+        **_set_row_handlers(),
+        "calculation_history_trend": lambda _query: [],
+        "simulation_run_summary": lambda _query: [],
+        "card_variant_price_observations": lambda _query: [],
+    }
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _Client(handlers))
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": [{"date": "2026-06-21", "setValue": 100.0}],
+            "meta": {"warnings": []},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(
+        "set-1", window="365d"
+    )
+
+    # Empty simulation history → empty performanceVsCostHistory, NOT standard set value
+    assert payload["performanceVsCostHistory"] == []
+    assert payload["performance_vs_cost_history"] == []
+
+    # Standard set value history must still be accessible under its scope
+    assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 100.0
+
+    # Warning must be present
+    warnings = payload["meta"]["warnings"]
+    assert any("simulation performance history" in w.lower() for w in warnings)

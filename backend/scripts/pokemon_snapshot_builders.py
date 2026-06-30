@@ -1153,6 +1153,91 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     }
 
 
+def _load_simulation_performance_history(client: Any, set_id: str) -> List[Dict[str, Any]]:
+    """Load simulation performance history for a set from calculation_history_trend + simulation_run_summary."""
+    resolved_client = client or get_client()
+    try:
+        result = (
+            resolved_client.table("calculation_history_trend")
+            .select(
+                "snapshot_date,calculation_run_id,run_created_at,"
+                "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
+                "p95_value_to_cost_ratio"
+            )
+            .eq("target_type", "set")
+            .eq("target_id", set_id)
+            .order("snapshot_date", desc=False)
+            .execute()
+        )
+        rows = list(result.data or [])
+    except Exception:
+        logger.warning("simulation performance history load failed set_id=%s", set_id, exc_info=True)
+        return []
+
+    run_ids = sorted({str(row["calculation_run_id"]) for row in rows if row.get("calculation_run_id")})
+    summary_lookup: Dict[str, Dict[str, Any]] = {}
+    if run_ids:
+        try:
+            summary_result = (
+                resolved_client.table("simulation_run_summary")
+                .select("calculation_run_id,pack_cost,mean_value,median_value")
+                .in_("calculation_run_id", run_ids)
+                .execute()
+            )
+            for summary_row in list(summary_result.data or []):
+                run_id_key = first_non_empty(summary_row.get("calculation_run_id"))
+                if run_id_key:
+                    summary_lookup[run_id_key] = summary_row
+        except Exception:
+            logger.warning("simulation run summary join failed set_id=%s", set_id, exc_info=True)
+
+    points: List[Dict[str, Any]] = []
+    for row in rows:
+        date_key = parse_date_key(row.get("snapshot_date"))
+        if not date_key:
+            continue
+        run_id = first_non_empty(row.get("calculation_run_id"))
+        run_created_at = first_non_empty(row.get("run_created_at"))
+        mean_ratio = to_optional_float(row.get("simulated_mean_pack_value_vs_pack_cost"))
+        median_ratio = to_optional_float(row.get("simulated_median_pack_value_vs_pack_cost"))
+        p95_ratio = to_optional_float(row.get("p95_value_to_cost_ratio"))
+        summary = summary_lookup.get(run_id or "") or {}
+        pack_cost = to_optional_float(summary.get("pack_cost"))
+        mean_value = to_optional_float(summary.get("mean_value"))
+        median_value = to_optional_float(summary.get("median_value"))
+        points.append({
+            "date": date_key,
+            "snapshot_date": date_key,
+            "sourceDate": date_key,
+            "source_date": date_key,
+            "calculationRunId": run_id,
+            "calculation_run_id": run_id,
+            "runCreatedAt": run_created_at,
+            "run_created_at": run_created_at,
+            "packCost": pack_cost,
+            "pack_cost": pack_cost,
+            "meanValue": mean_value,
+            "mean_value": mean_value,
+            "medianValue": median_value,
+            "median_value": median_value,
+            "meanValueToCostRatio": mean_ratio,
+            "mean_value_to_cost_ratio": mean_ratio,
+            "simulatedMeanPackValueVsPackCost": mean_ratio,
+            "simulated_mean_pack_value_vs_pack_cost": mean_ratio,
+            "medianValueToCostRatio": median_ratio,
+            "median_value_to_cost_ratio": median_ratio,
+            "simulatedMedianPackValueVsPackCost": median_ratio,
+            "simulated_median_pack_value_vs_pack_cost": median_ratio,
+            "p95ValueToCostRatio": p95_ratio,
+            "p95_value_to_cost_ratio": p95_ratio,
+            "source": "calculation_history_trend+simulation_run_summary",
+            "provider": "calculation_history_trend+simulation_run_summary",
+            "isCarriedForward": False,
+            "is_carried_forward": False,
+        })
+    return points
+
+
 def _latest_history_date(histories_by_scope: Dict[str, List[Dict[str, Any]]]) -> Optional[str]:
     latest: Optional[str] = None
     for history in histories_by_scope.values():
@@ -1601,6 +1686,12 @@ def build_market_dashboard_snapshot_rows(
             if key:
                 available_scope_lookup[key] = entry
 
+    perf_history = _load_simulation_performance_history(client, set_id)
+    latest_performance_date = max(
+        (p["date"] for p in perf_history if p.get("date")),
+        default=None,
+    )
+
     top_payload = get_pokemon_set_top_market_cards_payload(
         set_id=set_id,
         limit=10,
@@ -1663,8 +1754,8 @@ def build_market_dashboard_snapshot_rows(
         "days": days,
         "setValueHistoriesByScope": histories_by_scope,
         "set_value_histories_by_scope": histories_by_scope,
-        "performanceVsCostHistory": histories_by_scope.get("standard", []),
-        "performance_vs_cost_history": histories_by_scope.get("standard", []),
+        "performanceVsCostHistory": perf_history,
+        "performance_vs_cost_history": perf_history,
         "topChaseCards": compact_top_cards,
         "top_chase_cards": compact_top_cards,
         "topChaseCardHistories": top_chase_card_histories,
@@ -1688,10 +1779,18 @@ def build_market_dashboard_snapshot_rows(
             "set_value_history_point_count_by_scope": set_value_history_point_count_by_scope,
             "sources": {
                 "set_value_histories": "pokemon_set_value_daily_history",
+                "performance_vs_cost_history": "calculation_history_trend+simulation_run_summary",
+                "performanceVsCostHistory": "calculation_history_trend+simulation_run_summary",
                 "top_chase_cards": "pokemon_set_top_chase_card_daily_history/simulation_input_cards",
                 "market_movers": "card_variant_price_observations/card_market_usd_latest_by_condition",
             },
-            "warnings": list(standard_meta.get("warnings") or []) + list((top_payload.get("meta") or {}).get("warnings") or []),
+            "latestPerformanceDate": latest_performance_date,
+            "latest_performance_date": latest_performance_date,
+            "warnings": (
+                list(standard_meta.get("warnings") or [])
+                + list((top_payload.get("meta") or {}).get("warnings") or [])
+                + ([] if perf_history else ["Simulation performance history is unavailable for this set."])
+            ),
             "topChaseHistorySource": TOP_CHASE_HISTORY_SOURCE,
             "topChaseHistorySourceWindowDays": TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
             "topChaseHistoryMinPoints": min(top_chase_history_counts) if top_chase_history_counts else 0,
@@ -1757,7 +1856,7 @@ def build_market_dashboard_snapshot_rows(
             "window_key": window,
             "payload_json": dashboard_payload,
             "set_value_histories_json": histories_by_scope,
-            "performance_vs_cost_history_json": histories_by_scope.get("standard", []),
+            "performance_vs_cost_history_json": perf_history,
             "top_chase_cards_json": compact_top_cards,
             "top_chase_card_histories_json": top_chase_card_histories,
             "available_scopes_json": list(available_scope_lookup.values()),

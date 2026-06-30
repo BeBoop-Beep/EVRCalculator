@@ -2046,6 +2046,90 @@ def _read_market_dashboard_snapshot(
     return {**payload, "meta": meta}
 
 
+def _load_simulation_performance_history_live(set_id: str) -> List[Dict[str, Any]]:
+    """Load simulation performance history from calculation_history_trend + simulation_run_summary."""
+    try:
+        result = (
+            public_read_client.table("calculation_history_trend")
+            .select(
+                "snapshot_date,calculation_run_id,run_created_at,"
+                "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
+                "p95_value_to_cost_ratio"
+            )
+            .eq("target_type", "set")
+            .eq("target_id", set_id)
+            .order("snapshot_date", desc=False)
+            .execute()
+        )
+        rows = list(result.data or [])
+    except Exception:
+        logger.warning("[pokemon-snapshot] simulation performance history load failed set_id=%s", set_id, exc_info=True)
+        return []
+
+    run_ids = sorted({str(row["calculation_run_id"]) for row in rows if row.get("calculation_run_id")})
+    summary_lookup: Dict[str, Dict[str, Any]] = {}
+    if run_ids:
+        try:
+            summary_result = (
+                public_read_client.table("simulation_run_summary")
+                .select("calculation_run_id,pack_cost,mean_value,median_value")
+                .in_("calculation_run_id", run_ids)
+                .execute()
+            )
+            for summary_row in list(summary_result.data or []):
+                run_id_key = _to_optional_str(summary_row.get("calculation_run_id"))
+                if run_id_key:
+                    summary_lookup[run_id_key] = summary_row
+        except Exception:
+            logger.warning("[pokemon-snapshot] simulation run summary join failed set_id=%s", set_id, exc_info=True)
+
+    points: List[Dict[str, Any]] = []
+    for row in rows:
+        date_key = _parse_date_key(row.get("snapshot_date"))
+        if not date_key:
+            continue
+        run_id = _to_optional_str(row.get("calculation_run_id"))
+        run_created_at = _to_optional_str(row.get("run_created_at"))
+        mean_ratio = _to_optional_float(row.get("simulated_mean_pack_value_vs_pack_cost"))
+        median_ratio = _to_optional_float(row.get("simulated_median_pack_value_vs_pack_cost"))
+        p95_ratio = _to_optional_float(row.get("p95_value_to_cost_ratio"))
+        summary = summary_lookup.get(run_id or "") or {}
+        pack_cost = _to_optional_float(summary.get("pack_cost"))
+        mean_value = _to_optional_float(summary.get("mean_value"))
+        median_value = _to_optional_float(summary.get("median_value"))
+        points.append({
+            "date": date_key,
+            "snapshot_date": date_key,
+            "sourceDate": date_key,
+            "source_date": date_key,
+            "calculationRunId": run_id,
+            "calculation_run_id": run_id,
+            "runCreatedAt": run_created_at,
+            "run_created_at": run_created_at,
+            "packCost": pack_cost,
+            "pack_cost": pack_cost,
+            "meanValue": mean_value,
+            "mean_value": mean_value,
+            "medianValue": median_value,
+            "median_value": median_value,
+            "meanValueToCostRatio": mean_ratio,
+            "mean_value_to_cost_ratio": mean_ratio,
+            "simulatedMeanPackValueVsPackCost": mean_ratio,
+            "simulated_mean_pack_value_vs_pack_cost": mean_ratio,
+            "medianValueToCostRatio": median_ratio,
+            "median_value_to_cost_ratio": median_ratio,
+            "simulatedMedianPackValueVsPackCost": median_ratio,
+            "simulated_median_pack_value_vs_pack_cost": median_ratio,
+            "p95ValueToCostRatio": p95_ratio,
+            "p95_value_to_cost_ratio": p95_ratio,
+            "source": "calculation_history_trend+simulation_run_summary",
+            "provider": "calculation_history_trend+simulation_run_summary",
+            "isCarriedForward": False,
+            "is_carried_forward": False,
+        })
+    return points
+
+
 def _empty_market_dashboard_payload(
     *,
     set_row: Dict[str, Any],
@@ -2169,6 +2253,20 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
             if point_date and (latest_market_date is None or point_date > latest_market_date):
                 latest_market_date = point_date
 
+    perf_history: List[Dict[str, Any]] = []
+    try:
+        perf_history = _load_simulation_performance_history_live(resolved_set_id)
+    except Exception as exc:
+        warnings.append("Simulation performance history is unavailable for this set.")
+        logger.warning(
+            "[pokemon-snapshot] live fallback simulation performance history failed set_id=%s error=%s",
+            resolved_set_id,
+            exc,
+            exc_info=True,
+        )
+    if not perf_history:
+        warnings.append("Simulation performance history is unavailable for this set.")
+
     has_set_value_history = any(len(history) > 0 for history in histories_by_scope.values())
     top_chase_cards = top_payload.get("cards") or []
     if not has_set_value_history and not top_chase_cards:
@@ -2202,8 +2300,8 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
         "window_key": resolved_window,
         "setValueHistoriesByScope": histories_by_scope,
         "set_value_histories_by_scope": histories_by_scope,
-        "performanceVsCostHistory": histories_by_scope.get("standard", []),
-        "performance_vs_cost_history": histories_by_scope.get("standard", []),
+        "performanceVsCostHistory": perf_history,
+        "performance_vs_cost_history": perf_history,
         "topChaseCards": top_chase_cards,
         "top_chase_cards": top_chase_cards,
         "availableScopes": available_scopes,
