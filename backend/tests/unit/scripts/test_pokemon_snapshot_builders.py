@@ -1173,3 +1173,238 @@ def test_build_set_page_snapshot_row_suppresses_user_rankings_stale_warning_when
 
     assert "rankings snapshot is stale relative to set page snapshot" not in payload["meta"]["warnings"]
     assert "rankings snapshot is stale relative to set page snapshot" in payload["meta"]["debugWarnings"]
+
+
+# ---------------------------------------------------------------------------
+# Simulation performance history contract tests
+# ---------------------------------------------------------------------------
+
+
+def _sim_history_client(*, history_rows=None, summary_rows=None):
+    """Build a minimal _Client that handles the tables needed for dashboard + simulation history."""
+    _history_rows = history_rows if history_rows is not None else []
+    _summary_rows = summary_rows if summary_rows is not None else []
+    return _Client(
+        {
+            "card_variant_price_observations": lambda _query: [],
+            "calculation_history_trend": lambda _query: _history_rows,
+            "simulation_run_summary": lambda _query: _summary_rows,
+        }
+    )
+
+
+def _value_history_stub(*, histories_by_scope=None):
+    histories = histories_by_scope or {
+        "standard": [{"date": "2026-06-20", "setValue": 100.0}],
+        "hits": [{"date": "2026-06-20", "setValue": 700.0}],
+        "top10": [{"date": "2026-06-20", "setValue": 500.0}],
+    }
+    return lambda set_id, days, value_scope: {
+        "history": histories.get(value_scope, []),
+        "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+    }
+
+
+def test_build_market_dashboard_performance_history_comes_from_simulation_not_set_value(monkeypatch):
+    """performanceVsCostHistory must come from calculation_history_trend, not pokemon_set_value_daily_history."""
+    history_rows = [
+        {
+            "snapshot_date": "2026-06-20",
+            "calculation_run_id": "run-abc",
+            "run_created_at": "2026-06-20T12:00:00+00:00",
+            "simulated_mean_pack_value_vs_pack_cost": 0.72,
+            "simulated_median_pack_value_vs_pack_cost": 0.45,
+            "p95_value_to_cost_ratio": 3.1,
+        },
+    ]
+    summary_rows = [
+        {
+            "calculation_run_id": "run-abc",
+            "pack_cost": 5.0,
+            "mean_value": 3.6,
+            "median_value": 2.25,
+        }
+    ]
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_pokemon_set_value_history_payload", _value_history_stub())
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+    )
+
+    dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1", "name": "Test Set"},
+        days=365,
+        window="365d",
+        client=_sim_history_client(history_rows=history_rows, summary_rows=summary_rows),
+    )
+
+    payload = dashboard_row["payload_json"]
+    perf = payload["performanceVsCostHistory"]
+    assert len(perf) == 1, "expected one simulation performance point"
+    pt = perf[0]
+
+    # Must carry simulation ratio and value fields
+    assert pt["simulated_mean_pack_value_vs_pack_cost"] == 0.72
+    assert pt["simulated_median_pack_value_vs_pack_cost"] == 0.45
+    assert pt["p95_value_to_cost_ratio"] == 3.1
+    assert pt["mean_value_to_cost_ratio"] == 0.72
+    assert pt["median_value_to_cost_ratio"] == 0.45
+    assert pt["p95ValueToCostRatio"] == 3.1
+    assert pt["calculationRunId"] == "run-abc"
+    assert pt["calculation_run_id"] == "run-abc"
+    assert pt["pack_cost"] == 5.0
+    assert pt["mean_value"] == 3.6
+    assert pt["median_value"] == 2.25
+    assert pt["source"] == "calculation_history_trend+simulation_run_summary"
+    assert pt["isCarriedForward"] is False
+
+    # Must not look like a set-value point
+    assert "setValue" not in pt
+    assert "set_value" not in pt
+    assert "value" not in pt
+
+    # Row-level column must also match
+    assert dashboard_row["performance_vs_cost_history_json"] == perf
+
+
+def test_build_market_dashboard_set_value_history_stays_in_scope_not_performance(monkeypatch):
+    """Set value histories must remain only under setValueHistoriesByScope, not bleed into performanceVsCostHistory."""
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        _value_history_stub(
+            histories_by_scope={
+                "standard": [{"date": "2026-06-21", "setValue": 999.0}],
+                "hits": [{"date": "2026-06-21", "setValue": 888.0}],
+                "top10": [{"date": "2026-06-21", "setValue": 777.0}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+    )
+
+    dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1"},
+        days=365,
+        window="365d",
+        client=_sim_history_client(),  # no simulation rows → empty perf history
+    )
+
+    payload = dashboard_row["payload_json"]
+
+    # Set value histories still populated under their scope key
+    assert len(payload["setValueHistoriesByScope"]["standard"]) == 1
+    assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 999.0
+
+    # performanceVsCostHistory must be empty (no simulation rows), not copied from standard scope
+    assert payload["performanceVsCostHistory"] == []
+    assert payload["performance_vs_cost_history"] == []
+    assert dashboard_row["performance_vs_cost_history_json"] == []
+
+
+def test_build_market_dashboard_sources_meta_identifies_simulation_history_source(monkeypatch):
+    """meta.sources must identify calculation_history_trend+simulation_run_summary as the performance source."""
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_pokemon_set_value_history_payload", _value_history_stub())
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+    )
+
+    dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1"},
+        days=365,
+        window="365d",
+        client=_sim_history_client(),
+    )
+
+    sources = dashboard_row["payload_json"]["meta"]["sources"]
+    assert sources["performance_vs_cost_history"] == "calculation_history_trend+simulation_run_summary"
+    assert sources["performanceVsCostHistory"] == "calculation_history_trend+simulation_run_summary"
+    assert sources["set_value_histories"] == "pokemon_set_value_daily_history"
+
+
+def test_build_market_dashboard_performance_history_updates_when_simulation_changes_not_set_value(monkeypatch):
+    """Regression: changing set value must NOT change performanceVsCostHistory; changing simulation MUST."""
+    sim_rows_v1 = [
+        {
+            "snapshot_date": "2026-06-20",
+            "calculation_run_id": "run-v1",
+            "run_created_at": "2026-06-20T10:00:00+00:00",
+            "simulated_mean_pack_value_vs_pack_cost": 0.60,
+            "simulated_median_pack_value_vs_pack_cost": 0.40,
+            "p95_value_to_cost_ratio": 2.5,
+        }
+    ]
+    sim_rows_v2 = [
+        {
+            "snapshot_date": "2026-06-20",
+            "calculation_run_id": "run-v2",
+            "run_created_at": "2026-06-20T18:00:00+00:00",
+            "simulated_mean_pack_value_vs_pack_cost": 0.80,
+            "simulated_median_pack_value_vs_pack_cost": 0.55,
+            "p95_value_to_cost_ratio": 3.9,
+        }
+    ]
+
+    def make_row(sim_rows, set_value):
+        monkeypatch.setattr(
+            pokemon_snapshot_builders,
+            "get_pokemon_set_value_history_payload",
+            _value_history_stub(
+                histories_by_scope={
+                    "standard": [{"date": "2026-06-20", "setValue": set_value}],
+                    "hits": [],
+                    "top10": [],
+                }
+            ),
+        )
+        monkeypatch.setattr(
+            pokemon_snapshot_builders,
+            "get_pokemon_set_top_market_cards_payload",
+            lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+        )
+        monkeypatch.setattr(
+            pokemon_snapshot_builders,
+            "build_pokemon_set_card_movement_payload",
+            lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        )
+        dashboard_row, _ = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+            {"id": "set-1"},
+            days=365,
+            window="365d",
+            client=_sim_history_client(history_rows=sim_rows),
+        )
+        return dashboard_row["payload_json"]["performanceVsCostHistory"]
+
+    # Baseline: sim_rows_v1, set_value=100
+    perf_v1_sv100 = make_row(sim_rows_v1, 100.0)
+
+    # Set value changes (200 vs 100), simulation stays at v1 → performanceVsCostHistory must NOT change
+    perf_v1_sv200 = make_row(sim_rows_v1, 200.0)
+    assert perf_v1_sv100 == perf_v1_sv200, "set value change must not affect performanceVsCostHistory"
+
+    # Simulation changes (v2), set value stays at 100 → performanceVsCostHistory MUST change
+    perf_v2_sv100 = make_row(sim_rows_v2, 100.0)
+    assert perf_v2_sv100 != perf_v1_sv100, "simulation change must update performanceVsCostHistory"
+    assert perf_v2_sv100[0]["simulated_mean_pack_value_vs_pack_cost"] == 0.80
