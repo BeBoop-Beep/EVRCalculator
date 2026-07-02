@@ -5686,6 +5686,7 @@ function CardDesirabilityMarketValidationCard({
   diagnosticsContext = {},
   freshness = null,
   snapshotLoading = false,
+  dataLoading = false,
 }) {
   const [selectedMetricKey, setSelectedMetricKey] = useState("cardAppeal");
   const [selectedScopeKey, setSelectedScopeKey] = useState("hits");
@@ -5929,6 +5930,8 @@ function CardDesirabilityMarketValidationCard({
             <p className="text-sm text-[var(--text-secondary)]">
               {snapshotLoading
                 ? "Card appeal validation loading: set page snapshot request timed out; retrying."
+                : dataLoading
+                ? "Loading card appeal and market price data…"
                 : "Not enough card appeal and market price data yet."}
             </p>
           </div>
@@ -6924,6 +6927,66 @@ export default function RipStatisticsPageClient({
     cardAppealMarketPriceCorrelation: initialCardAppealMarketPriceCorrelation,
     error: null,
   }));
+  // Card Desirability/Market Validation reads cards + correlation. cards are
+  // now fetched server-side for the insights tab too (see
+  // getPokemonSetInitialSnapshots), so this is normally seeded on first
+  // load — but slow/timed-out snapshot fetches and same-set client
+  // transitions still leave a brief window before it resolves. This
+  // contract distinguishes "still loading" from "genuinely no data" so the
+  // card doesn't render a permanent-looking n=0 empty state during that gap.
+  const activeCardValidationData = useMemo(() => {
+    const cards =
+      checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0
+        ? checklistState.cards
+        : initialCardAppealRows;
+
+    const correlation = resolvePreferredCardAppealCorrelation({
+      explorePayload,
+      cardsPayload: initialCardsPayload,
+      checklistState:
+        checklistState.setId === resolvedSetResourceId ? checklistState : null,
+      previous: initialCardAppealMarketPriceCorrelation,
+    });
+
+    const hasRows = Array.isArray(cards) && cards.length > 0;
+    const hasCorrelation = hasUsableCardAppealCorrelation(correlation);
+
+    const isActiveSetLoading =
+      setDetailMode &&
+      setDetailTab === "insights" &&
+      resolvedSetResourceId &&
+      (checklistState.status === "loading" ||
+        checklistState.status === "idle" ||
+        checklistState.setId !== resolvedSetResourceId) &&
+      !hasRows &&
+      !hasCorrelation;
+
+    return {
+      cards,
+      correlation,
+      status: hasRows || hasCorrelation
+        ? "ready"
+        : isActiveSetLoading
+        ? "loading"
+        : checklistState.status === "error"
+        ? "error"
+        : "empty",
+      source: hasRows
+        ? "checklist_state_or_initial_rows"
+        : hasCorrelation
+        ? "correlation_snapshot"
+        : null,
+    };
+  }, [
+    checklistState,
+    resolvedSetResourceId,
+    initialCardAppealRows,
+    initialCardsPayload,
+    initialCardAppealMarketPriceCorrelation,
+    explorePayload,
+    setDetailMode,
+    setDetailTab,
+  ]);
   const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState(DEFAULT_TOP_MARKET_CARDS_WINDOW);
   const [marketDashboardState, dispatchMarketDashboard] = useReducer(
     marketDashboardReducer,
@@ -10068,13 +10131,8 @@ export default function RipStatisticsPageClient({
                 <DesirabilityProofCards validation={desirabilityValidationPayload} />
                 <DesirabilityValidationCard targets={targets} freshness={sectionFreshness.desirabilityValidation} />
                 <CardDesirabilityMarketValidationCard
-                  cards={checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows}
-                  cardAppealMarketPriceCorrelation={resolvePreferredCardAppealCorrelation({
-                    explorePayload,
-                    cardsPayload: initialCardsPayload,
-                    checklistState,
-                    previous: initialCardAppealMarketPriceCorrelation,
-                  })}
+                  cards={activeCardValidationData.cards}
+                  cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}
                   diagnosticsContext={{
                     setId: resolvedSetResourceId,
                     setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
@@ -10082,6 +10140,7 @@ export default function RipStatisticsPageClient({
                   }}
                   freshness={sectionFreshness.cardAppealValidation}
                   snapshotLoading={isTimeoutFallbackPayload}
+                  dataLoading={activeCardValidationData.status === "loading"}
                 />
 
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">

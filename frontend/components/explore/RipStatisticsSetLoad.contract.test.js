@@ -1226,11 +1226,76 @@ test("card appeal market validation can hydrate from initial module snapshot cor
   assert.ok(source.includes("marketDashboardPayload: initialMarketDashboardPayload"));
   assert.ok(source.includes("const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation"));
   assert.ok(source.includes("initialCardAppealRows"));
-  assert.ok(source.includes("checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows"));
+  assert.ok(
+    source.includes("checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0"),
+    "activeCardValidationData must only trust checklistState.cards when it belongs to the active set"
+  );
+  assert.ok(
+    source.includes("? checklistState.cards\r\n        : initialCardAppealRows") ||
+      source.includes("? checklistState.cards\n        : initialCardAppealRows"),
+    "must fall back to the seeded initial rows when checklistState isn't for the active set yet"
+  );
   assert.ok(source.includes("resolvePreferredCardAppealCorrelation({"));
   assert.ok(source.includes("cardsPayload: initialCardsPayload"));
   assert.ok(source.includes("previous: initialCardAppealMarketPriceCorrelation"));
   assert.ok(diagnosticsSource.indexOf("asObject(cardsPayload?.cardAppealMarketPriceCorrelation)") < diagnosticsSource.indexOf("asObject(checklistState?.cardAppealMarketPriceCorrelation)"));
+});
+
+test("card validation section renders from an explicit readiness contract instead of ad-hoc inline fallbacks", () => {
+  // Regression guard: CardDesirabilityMarketValidationCard previously read
+  // `checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows`
+  // and re-called resolvePreferredCardAppealCorrelation directly in the JSX,
+  // with no notion of "cards/correlation haven't loaded yet" — so on
+  // Insights/Pull-Rates first load (cards aren't seeded server-side there)
+  // it rendered a permanent-looking "Not enough card appeal and market price
+  // data yet." / n=0 empty state instead of a loading state, until switching
+  // tabs happened to trigger the cards fetch. activeCardValidationData now
+  // owns that readiness distinction.
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const memoStart = source.indexOf("const activeCardValidationData = useMemo(");
+  assert.ok(memoStart >= 0, "must define an activeCardValidationData memo");
+  const memoEnd = source.indexOf("const [topMarketCardsWindowKey", memoStart);
+  const memoSource = source.slice(memoStart, memoEnd);
+
+  assert.ok(memoSource.includes("hasUsableCardAppealCorrelation(correlation)"), "must classify readiness using hasUsableCardAppealCorrelation");
+  assert.ok(memoSource.includes('status === "loading"'), "must treat an in-flight checklist fetch as loading");
+  assert.ok(memoSource.includes('status === "idle"'), "must treat the pre-fetch idle state as loading");
+  assert.ok(memoSource.includes("checklistState.setId !== resolvedSetResourceId"), "must treat a stale/mismatched set id as loading");
+  assert.ok(memoSource.includes('setDetailTab === "insights"'), "must scope the loading classification to the insights tab");
+
+  const renderStart = source.indexOf("<CardDesirabilityMarketValidationCard");
+  const renderEnd = source.indexOf("/>", renderStart);
+  const renderSource = source.slice(renderStart, renderEnd);
+
+  assert.ok(renderSource.includes("cards={activeCardValidationData.cards}"), "must render cards from the readiness contract");
+  assert.ok(
+    renderSource.includes("cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}"),
+    "must render correlation from the readiness contract instead of an inline resolvePreferredCardAppealCorrelation call"
+  );
+  assert.ok(
+    renderSource.includes('dataLoading={activeCardValidationData.status === "loading"}'),
+    "must pass the readiness contract's loading status through to the card"
+  );
+  assert.ok(
+    !renderSource.includes("resolvePreferredCardAppealCorrelation({"),
+    "must not re-resolve correlation inline in JSX now that activeCardValidationData owns it"
+  );
+
+  const componentStart = source.indexOf("function CardDesirabilityMarketValidationCard(");
+  const componentEnd = source.indexOf("\n}\n", componentStart);
+  const componentSource = source.slice(componentStart, componentEnd);
+
+  assert.ok(componentSource.includes("dataLoading = false"), "component must accept a dataLoading prop");
+  assert.ok(
+    componentSource.includes('"Loading card appeal and market price data…"'),
+    "component must render a distinct loading message instead of the permanent-looking \"not enough data\" copy while data is loading"
+  );
+  assert.ok(
+    componentSource.indexOf('"Loading card appeal and market price data…"') <
+      componentSource.indexOf('"Not enough card appeal and market price data yet."'),
+    "the loading message must be checked before falling through to the permanent-looking not-enough-data copy"
+  );
 });
 
 test("initial cards payload seeds checklist state before cards fetch", () => {

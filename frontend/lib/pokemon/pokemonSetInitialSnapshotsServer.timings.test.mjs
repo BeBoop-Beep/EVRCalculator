@@ -54,6 +54,31 @@ test("getPokemonSetInitialSnapshots totalMs is placed before the return statemen
   assert.ok(returnIndex > totalMsIndex, "totalMs must be computed before the return");
 });
 
+test("getPokemonSetInitialSnapshots fetches cards for the insights tab, not just the cards tab", () => {
+  // Regression guard: Insights' Pure Pokémon Demand vs Market Price section
+  // (CardDesirabilityMarketValidationCard) is a Cards/checklist consumer
+  // (card rows + card appeal/market price correlation), but cards were only
+  // ever fetched server-side when tab === "cards". Direct/first loads of the
+  // insights tab therefore always started with no cardsPayload, so the
+  // section rendered n=0/"not enough data" until a client-side backfill
+  // fetch (or a tab switch through Overview) happened to populate it later.
+  // Cards must be a first-class server-fetched Insights dependency, same as
+  // the full /page payload already is.
+  const source = fs.readFileSync(snapshotsServerPath, "utf8");
+  const fnStart = source.indexOf("export async function getPokemonSetInitialSnapshots");
+  const fnEnd = source.indexOf("\n}\n", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+
+  assert.ok(
+    fnSource.includes('const wantsCards = tab === "cards" || tab === "insights"'),
+    "wantsCards must include the insights tab alongside the cards tab"
+  );
+  assert.ok(
+    fnSource.includes('const wantsMarketDashboard = tab === "overview"'),
+    "market dashboard fetch gating must be untouched (overview only)"
+  );
+});
+
 // ---------------------------------------------------------------------------
 // page.js route – timing instrumentation
 // ---------------------------------------------------------------------------

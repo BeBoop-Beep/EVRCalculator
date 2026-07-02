@@ -152,13 +152,18 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
  * Load the initial shell + active-tab snapshot for the Pokemon set detail page.
  *
  * Only the shell (lightweight header/title-card data) is always fetched. The
- * cards and market dashboard snapshots are fetched only when they are the
- * active tab's payload — the initial render should never pull both cards and
- * market dashboard data together, since only one tab is visible at a time.
+ * market dashboard snapshot is fetched only for its own tab. Cards are also
+ * fetched for the insights tab: Insights' Pure Pokémon Demand vs Market Price
+ * section is a Cards/checklist consumer (card rows + card appeal/market price
+ * correlation), and Insights already fetches the full /page payload, which
+ * doesn't carry that data — cards must be a first-class Insights dependency,
+ * not a client-side backfill that leaves the section empty on first load.
+ * Cards and market dashboard are still never both fetched together, since
+ * only one tab is visible at a time.
  */
 export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   const startedAt = Date.now();
-  const wantsCards = tab === "cards";
+  const wantsCards = tab === "cards" || tab === "insights";
   const wantsMarketDashboard = tab === "overview";
 
   const [shell, cards, marketDashboard] = await Promise.all([
