@@ -80,6 +80,51 @@ test("hero set value is seeded from shell contract instead of overview-only stat
   assert.ok(!source.slice(heroHistoryIndex, canonicalIndex).includes("activeMarketDashboardDerivedState"));
 });
 
+test("title-card sparkline/30D delta fall back to the shell contract's compact history before any lazy fetch has loaded", () => {
+  // Regression guard: the current-value number reaching the title card from
+  // setShellContract (see the test above) is not enough on its own — the
+  // sparkline and 30D delta/percent read from activeSetValueContract's
+  // "standard" scope, which was built exclusively from the direct set-value
+  // fetch and Overview's market dashboard fetch. Both are lazy client
+  // fetches that haven't run on Insights/Pull-Rates first load, so the
+  // scope stayed empty ("History pending", 30D N/A) even though the shell
+  // payload's checklist history was already sitting in memory.
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const directStateIndex = source.indexOf("const activeDirectSetValueState =");
+  const loadedScopesIndex = source.indexOf("const activeDirectSetValueLoadedScopes = new Set(");
+  const historiesByScopeIndex = source.indexOf("const activeSetValueHistoriesByScope = {");
+  const visiblePointsIndex = source.indexOf("const shellSetValueVisiblePoints = Array.isArray(setShellContract?.setValueSummary?.compact?.visiblePoints)");
+  const standardHistoryIndex = source.indexOf("const activeSetValueStandardHistory =");
+
+  assert.ok(directStateIndex >= 0, "activeDirectSetValueState must exist");
+  assert.ok(loadedScopesIndex > directStateIndex);
+  assert.ok(historiesByScopeIndex > loadedScopesIndex);
+  assert.ok(visiblePointsIndex > historiesByScopeIndex, "shell visible-points fallback must be derived after the direct/market histories are assembled");
+  assert.ok(standardHistoryIndex > visiblePointsIndex, "the standard history must be finalized after the shell fallback is available");
+
+  const fallbackSource = source.slice(historiesByScopeIndex, standardHistoryIndex);
+  assert.ok(
+    fallbackSource.includes("setShellContract.setValueSummary.compact.visiblePoints"),
+    "must source the fallback from setShellContract's compact visible points"
+  );
+  assert.ok(
+    fallbackSource.includes("activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || []).length === 0"),
+    "must only apply the shell fallback when the direct/market scope has no points yet"
+  );
+  assert.ok(
+    fallbackSource.includes("activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] = shellSetValueVisiblePoints;"),
+    "must seed the standard scope from the shell fallback so buildSetValueContract can compute delta30d from it"
+  );
+
+  const standardHistoryEnd = source.indexOf("const activeSetValueAvailableScopes", standardHistoryIndex);
+  const standardHistorySource = source.slice(standardHistoryIndex, standardHistoryEnd);
+  assert.ok(
+    standardHistorySource.includes("activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || []"),
+    "the standard history passed into the contract must also fall back to the shell-seeded scope, not just the market dashboard's raw history"
+  );
+});
+
 test("Set Value Trend chart key changes with set id, scope, window, dates, and length", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const componentStart = source.indexOf("function SetValueTrendCard");
@@ -142,6 +187,57 @@ test("Set Value Contract keeps current value available while history is empty", 
   assert.equal(selected.currentValue, 5329.67);
   assert.equal(selected.status, "partial");
   assert.equal(selected.hasTrend, false);
+});
+
+test("Set Value Contract scope history is windowed to 30D by default, not the full fetched range", async () => {
+  // Regression guard: contract.scopes.standard.history previously returned
+  // the full normalizedHistoriesByScope range (e.g. 3+ months), which is
+  // what the title-card mini sparkline reads (setHeaderSummarySelector's
+  // getSparklinePoints prefers contractStandard.history first). That made
+  // the sparkline show a multi-month range while the same card's 30D
+  // Delta/30D % boxes were correctly 30-day figures. The full range must
+  // still be reachable via contract.historiesByScope for Overview's window
+  // switcher (3M/6M/etc), which reads that field directly instead.
+  const { buildSetValueContract, selectSetValueTrendFromContract } = await import(
+    pathToFileURL(setValueContractPath).href
+  );
+
+  const history = [];
+  const start = new Date(Date.UTC(2026, 3, 11)); // 2026-04-11
+  const end = new Date(Date.UTC(2026, 6, 2)); // 2026-07-02
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    history.push({ date: d.toISOString().slice(0, 10), setValue: 5000 });
+  }
+
+  const contract = buildSetValueContract({
+    setId: "prismatic-evolutions",
+    current: { value: 5000, asOf: "2026-07-02", source: "summary.currentChecklistSetValue" },
+    historiesByScope: { standard: history },
+    status: "success",
+  });
+
+  assert.ok(
+    contract.scopes.standard.history.length < history.length,
+    "scope history must be windowed, not the full multi-month range"
+  );
+  assert.ok(
+    contract.scopes.standard.history.length <= 31,
+    "scope history must be windowed to roughly 30 days"
+  );
+  assert.equal(contract.scopes.standard.history.at(-1)?.date, "2026-07-02", "windowed history must end on the latest point");
+  assert.equal(contract.scopes.standard.history[0]?.date, "2026-06-03", "windowed history must start ~30 days before the latest point");
+  assert.equal(
+    contract.historiesByScope.standard.length,
+    history.length,
+    "the full range must remain available on contract.historiesByScope for Overview's window switcher"
+  );
+
+  const overview3M = selectSetValueTrendFromContract({ contract, selectedScope: "standard", selectedWindowKey: "3M" });
+  assert.equal(
+    overview3M.series.length,
+    history.length,
+    "Overview must still be able to select a wider window (e.g. 3M) from the full range"
+  );
 });
 
 test("header and overview set value read from the same Set Value Contract", () => {
@@ -763,14 +859,14 @@ test("set page insights receive RIP desirability comparison through snapshot sum
   assert.ok(snapshotBuilderSource.includes("RIP_DESIRABILITY_COMPARISON_FIELDS"));
   assert.ok(snapshotBuilderSource.includes("_merge_rip_desirability_comparison_into_set_payload"));
   assert.ok(snapshotBuilderSource.includes('next_payload["summary"] = summary'));
-  assert.ok(source.includes("const summary = explorePayload?.summary || shellPayload?.summary || {};"));
+  assert.ok(source.includes("const summary = { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) };"));
 
   for (const field of requiredFields) {
     assert.ok(snapshotBuilderSource.includes(field), `snapshot builder propagates ${field}`);
     assert.ok(source.includes(field), `frontend normalizer accepts ${field}`);
   }
 
-  const summaryStart = source.indexOf("const summary = explorePayload?.summary || shellPayload?.summary || {};");
+  const summaryStart = source.indexOf("const summary = { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) };");
   const comparisonStart = source.indexOf("const ripDesirabilityComparison = useMemo(", summaryStart);
   const comparisonEnd = source.indexOf("const desirabilitySummary", comparisonStart);
   const comparisonSource = source.slice(comparisonStart, comparisonEnd);

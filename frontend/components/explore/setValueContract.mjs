@@ -98,7 +98,12 @@ export function buildSetValueContract(input = {}) {
           asOf: selected.asOf,
           delta30dAmount: selected.delta30d,
           delta30dPercent: selected.delta30dPct,
-          history: normalizedHistoriesByScope[scope.key],
+          // `selected.series` is windowed to preferredWindowKey ("30D") by
+          // selectSetValueTrendFromContractShape, same as currentValue/asOf
+          // above — not the full normalizedHistoriesByScope range. Consumers
+          // that need the full range (e.g. Overview's window switcher) read
+          // contract.historiesByScope directly instead of this field.
+          history: selected.series,
           status: selected.status,
           diagnostics: selected.diagnostics,
         },

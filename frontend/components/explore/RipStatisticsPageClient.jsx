@@ -6735,7 +6735,13 @@ export default function RipStatisticsPageClient({
   // fetch below) so a stale response can detect a set switch even if abort
   // somehow doesn't win the race.
   activeSetResourceIdRef.current = resolvedSetResourceId;
-  const summary = explorePayload?.summary || shellPayload?.summary || {};
+  // explorePayload and shellPayload carry different field sets for the same
+  // set (e.g. shellPayload's setValueHistoriesByScope is populated by a
+  // shell-only checklist-set-value enrichment that explorePayload never
+  // receives), so this must merge field-by-field rather than picking one
+  // payload's summary exclusively — an OR here silently drops whichever
+  // payload lost, even when it's the only one carrying a given field.
+  const summary = { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) };
   const isTimeoutFallbackPayload = setDetailMode && isSetPageTransportFallback(explorePayload);
   const isPrimarySnapshotUnavailable = setDetailMode && isSetPagePrimarySnapshotUnavailable(explorePayload);
   const hasActiveSetPageIdentity = useMemo(
@@ -6759,8 +6765,23 @@ export default function RipStatisticsPageClient({
   const timeoutSnapshotRankTitle = "Snapshot loading; retrying.";
   const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
   const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
+  // Same precedence hazard as `summary` above: explorePayload is fetched (and
+  // therefore truthy) on the insights/pull-rates tabs, but it never carries
+  // the shell-only checklist setValueHistoriesByScope enrichment — only
+  // shellPayload does. `explorePayload || shellPayload` discarded shellPayload
+  // entirely whenever explorePayload was present, so the title-card Set Value
+  // stayed blank until a tab switch (e.g. Overview) dropped explorePayload
+  // back to null. Merge instead, so explorePayload's fields win on conflict
+  // but shellPayload-only fields (like the set value history) survive.
   const setShellContract = useMemo(
-    () => (setDetailMode ? adaptSetShell(explorePayload || shellPayload || {}) : null),
+    () =>
+      setDetailMode
+        ? adaptSetShell({
+            ...(shellPayload || {}),
+            ...(explorePayload || {}),
+            summary: { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) },
+          })
+        : null,
     [explorePayload, shellPayload, setDetailMode]
   );
   // Cards/Overview intentionally skip the full explorePayload fetch for performance,
@@ -7738,9 +7759,27 @@ export default function RipStatisticsPageClient({
       activeSetValueHistoriesByScope[scope] = Array.isArray(history) ? history : [];
     }
   });
+  // The direct set-value fetch and Overview's market dashboard are both lazy
+  // client fetches, so on Insights/Pull-Rates first load neither has run yet
+  // and the scope above is empty. setShellContract's compact history is
+  // already sitting in memory (it rides the always-fetched shell request),
+  // so use it to seed the standard scope until a fresher fetch lands —
+  // otherwise the title-card sparkline/30D delta show "pending" until the
+  // user happens to visit Overview and trigger the market dashboard fetch.
+  const shellSetValueVisiblePoints = Array.isArray(setShellContract?.setValueSummary?.compact?.visiblePoints)
+    ? setShellContract.setValueSummary.compact.visiblePoints
+    : [];
+  if (
+    (activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || []).length === 0 &&
+    shellSetValueVisiblePoints.length > 0
+  ) {
+    activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] = shellSetValueVisiblePoints;
+  }
   const activeSetValueStandardHistory = activeDirectSetValueLoadedScopes.has(CANONICAL_SET_VALUE_SCOPE)
     ? activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || []
-    : activeMarketDashboardDerivedState.setValue.history;
+    : activeMarketDashboardDerivedState.setValue.history?.length > 0
+    ? activeMarketDashboardDerivedState.setValue.history
+    : activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || [];
   const activeSetValueAvailableScopes =
     activeDirectSetValueState.availableScopes?.length > 0
       ? activeDirectSetValueState.availableScopes
