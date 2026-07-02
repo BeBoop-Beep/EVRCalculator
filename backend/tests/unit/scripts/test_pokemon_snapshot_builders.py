@@ -298,7 +298,7 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     dashboard_row, history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -341,6 +341,75 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     assert history_rows[0]["market_price"] == 10.0
 
 
+def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(monkeypatch):
+    """marketMoversByWindow must hold distinct 1D/7D/30D payloads; marketMovers stays the 30D compat field."""
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": [{"date": "2026-06-02", "setValue": 100.0}],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+
+    movement_calls = []
+
+    def fake_movement_payload(*, set_id, window_days=30, limit=5):
+        movement_calls.append(window_days)
+        return {
+            "marketMovers": {
+                "window": f"{window_days}D",
+                "windowDays": window_days,
+                "heatingUp": [{"cardId": f"card-{window_days}"}],
+                "heating_up": [{"cardId": f"card-{window_days}"}],
+                "coolingOff": [],
+                "cooling_off": [],
+                "all": [{"cardId": f"card-{window_days}"}],
+            },
+            "market_movers": {
+                "window": f"{window_days}D",
+                "window_days": window_days,
+                "heating_up": [{"cardId": f"card-{window_days}"}],
+                "cooling_off": [],
+                "all": [{"cardId": f"card-{window_days}"}],
+            },
+        }
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        fake_movement_payload,
+    )
+
+    dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1", "name": "Snapshot Set"},
+        days=365,
+        window="365d",
+        client=_Client({"card_variant_price_observations": lambda _query: []}),
+    )
+
+    assert sorted(movement_calls) == [1, 7, 30]
+
+    payload = dashboard_row["payload_json"]
+    by_window = payload["marketMoversByWindow"]
+    by_window_snake = payload["market_movers_by_window"]
+    assert set(by_window.keys()) == {"1D", "7D", "30D"}
+    assert set(by_window_snake.keys()) == {"1D", "7D", "30D"}
+    assert by_window["1D"]["heatingUp"][0]["cardId"] == "card-1"
+    assert by_window["7D"]["heatingUp"][0]["cardId"] == "card-7"
+    assert by_window["30D"]["heatingUp"][0]["cardId"] == "card-30"
+    assert by_window_snake["1D"]["heating_up"][0]["cardId"] == "card-1"
+
+    # Backward compatibility: marketMovers/market_movers must still be the 30D entry.
+    assert payload["marketMovers"] == by_window["30D"]
+    assert payload["market_movers"] == by_window_snake["30D"]
+
+
 def test_build_market_dashboard_snapshot_row_hydrates_top_chase_history_from_raw_observations(monkeypatch):
     history_queries = []
 
@@ -374,7 +443,7 @@ def test_build_market_dashboard_snapshot_row_hydrates_top_chase_history_from_raw
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     def read_history(query):
@@ -482,7 +551,7 @@ def test_build_market_dashboard_snapshot_row_uses_365d_top_chase_source_when_day
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     def read_history(query):
@@ -542,7 +611,7 @@ def test_build_market_dashboard_snapshot_row_writes_set_value_freshness_metadata
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -596,7 +665,7 @@ def test_market_dashboard_snapshot_uses_corrected_local_set_value_history_date(m
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -1235,7 +1304,7 @@ def test_build_market_dashboard_performance_history_comes_from_simulation_not_se
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -1295,7 +1364,7 @@ def test_build_market_dashboard_set_value_history_stays_in_scope_not_performance
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -1328,7 +1397,7 @@ def test_build_market_dashboard_sources_meta_identifies_simulation_history_sourc
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"marketMovers": {}, "market_movers": {}},
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -1387,7 +1456,7 @@ def test_build_market_dashboard_performance_history_updates_when_simulation_chan
         monkeypatch.setattr(
             pokemon_snapshot_builders,
             "build_pokemon_set_card_movement_payload",
-            lambda set_id: {"marketMovers": {}, "market_movers": {}},
+            lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
         )
         dashboard_row, _ = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
             {"id": "set-1"},

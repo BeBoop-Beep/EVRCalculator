@@ -132,6 +132,14 @@ const CARD_MOVEMENT_FILTER_OPTIONS = [
 ];
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
 const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
+// 3M/6M/1Y/Lifetime are intentionally not offered yet — the movement guardrails
+// and stored snapshot windows only cover 1D/7D/30D so far.
+const MARKET_MOVERS_WINDOW_OPTIONS = [
+  { key: "1D", label: "1D" },
+  { key: "7D", label: "7D" },
+  { key: "30D", label: "30D" },
+];
+const DEFAULT_MARKET_MOVERS_WINDOW = "30D";
 // Adjacent-set prefetching previously fired cards + dashboard + 3 value-history
 // requests per adjacent set on every navigation, saturating the browser's
 // per-origin connection limit and starving the actual destination fetch.
@@ -485,6 +493,8 @@ function buildInitialSetPageDataSeed({ explorePayload = null, cardsPayload = nul
           top_chase_cards: topMarketCards,
           marketMovers: market?.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
           market_movers: market?.marketMovers || { heatingUp: [], coolingOff: [], all: [] },
+          marketMoversByWindow: market?.marketMoversByWindow || null,
+          market_movers_by_window: market?.marketMoversByWindow || null,
           setValueHistoriesByScope,
           set_value_histories_by_scope: setValueHistoriesByScope,
           performanceVsCostHistory: market?.performanceVsCostHistory || [],
@@ -2861,25 +2871,46 @@ function MarketMoverColumn({ title, cards, emptyLabel }) {
   );
 }
 
-function MarketMoversModule({ movers, onViewAll }) {
-  const heatingUp = Array.isArray(movers?.heatingUp) ? movers.heatingUp : [];
-  const coolingOff = Array.isArray(movers?.coolingOff) ? movers.coolingOff : [];
-  const hasMovers = heatingUp.length > 0 || coolingOff.length > 0;
-  const windowLabel = movers?.window || "30D";
+function hasMarketMoverRows(entry) {
+  return (
+    (Array.isArray(entry?.heatingUp) && entry.heatingUp.length > 0) ||
+    (Array.isArray(entry?.coolingOff) && entry.coolingOff.length > 0)
+  );
+}
 
-  if (!hasMovers) {
+function MarketMoversModule({ movers, moversByWindow, onViewAll }) {
+  const [selectedWindow, setSelectedWindow] = useState(DEFAULT_MARKET_MOVERS_WINDOW);
+  const resolvedMoversByWindow = moversByWindow && typeof moversByWindow === "object" ? moversByWindow : {};
+
+  const hasAnyWindowMovers =
+    hasMarketMoverRows(movers) || Object.values(resolvedMoversByWindow).some(hasMarketMoverRows);
+
+  if (!hasAnyWindowMovers) {
     return null;
   }
+
+  const selectedMovers =
+    resolvedMoversByWindow[selectedWindow] ||
+    (selectedWindow === DEFAULT_MARKET_MOVERS_WINDOW ? movers : null) ||
+    { heatingUp: [], coolingOff: [], all: [] };
+  const heatingUp = Array.isArray(selectedMovers?.heatingUp) ? selectedMovers.heatingUp : [];
+  const coolingOff = Array.isArray(selectedMovers?.coolingOff) ? selectedMovers.coolingOff : [];
 
   return (
     <SectionCard
       title="Market Movers"
-      subtitle={`${windowLabel} card price movement with noise guardrails applied.`}
-      titleInfoText="Ranks card-level 30D movement using current price, absolute dollar move, enough observed history, and outlier filtering."
+      subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
+      titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
     >
+      <MarketWindowSelector
+        windows={MARKET_MOVERS_WINDOW_OPTIONS}
+        value={selectedWindow}
+        onChange={setSelectedWindow}
+        className="mb-3"
+      />
       <div className="grid gap-4 xl:grid-cols-2">
-        <MarketMoverColumn title="Heating Up" cards={heatingUp} emptyLabel="No reliable 30D gainers yet." />
-        <MarketMoverColumn title="Cooling Off" cards={coolingOff} emptyLabel="No reliable 30D decliners yet." />
+        <MarketMoverColumn title="Heating Up" cards={heatingUp} emptyLabel={`No reliable ${selectedWindow} gainers yet.`} />
+        <MarketMoverColumn title="Cooling Off" cards={coolingOff} emptyLabel={`No reliable ${selectedWindow} decliners yet.`} />
       </div>
       <div className="mt-4 flex justify-end">
         <button
@@ -7891,6 +7922,7 @@ export default function RipStatisticsPageClient({
     setId: activeMarketDashboardState.setId || resolvedSetResourceId,
     cards: activeMarketDashboardDerivedState.topCards.cards,
     marketMovers: activeMarketDashboardDerivedState.topCards.marketMovers || null,
+    marketMoversByWindow: activeMarketDashboardDerivedState.topCards.marketMoversByWindow || null,
     error: activeMarketDashboardState.error,
     meta: activeMarketDashboardDerivedState.topCards.meta,
   };
@@ -8365,9 +8397,10 @@ export default function RipStatisticsPageClient({
     topMarketCardsWindowKey,
   ]);
   const marketMovers = activeTopMarketCardsState.marketMovers || { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW };
+  const marketMoversByWindow = activeTopMarketCardsState.marketMoversByWindow || null;
   const hasMarketMovers =
-    (Array.isArray(marketMovers.heatingUp) && marketMovers.heatingUp.length > 0) ||
-    (Array.isArray(marketMovers.coolingOff) && marketMovers.coolingOff.length > 0);
+    hasMarketMoverRows(marketMovers) ||
+    (marketMoversByWindow ? Object.values(marketMoversByWindow).some(hasMarketMoverRows) : false);
   const cardMovementDataCount = getCardMovementDataCount(checklistState.cards);
   const hasCardMovementData = cardMovementDataCount >= 5;
   const effectiveCardSortMode =
@@ -9670,6 +9703,7 @@ export default function RipStatisticsPageClient({
                       <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
                         <MarketMoversModule
                           movers={marketMovers}
+                          moversByWindow={marketMoversByWindow}
                           onViewAll={handleViewAllMarketMovers}
                         />
                       </div>

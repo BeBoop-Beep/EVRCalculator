@@ -98,6 +98,18 @@ function normalizeDashboardPayload(payload = {}) {
     ]),
     marketMovers: firstObject([payload?.marketMovers, payload?.market_movers, market?.marketMovers, market?.market_movers]),
     market_movers: firstObject([payload?.market_movers, payload?.marketMovers, market?.market_movers, market?.marketMovers]),
+    marketMoversByWindow: firstObject([
+      payload?.marketMoversByWindow,
+      payload?.market_movers_by_window,
+      market?.marketMoversByWindow,
+      market?.market_movers_by_window,
+    ]),
+    market_movers_by_window: firstObject([
+      payload?.market_movers_by_window,
+      payload?.marketMoversByWindow,
+      market?.market_movers_by_window,
+      market?.marketMoversByWindow,
+    ]),
     setValueHistoriesByScope,
     set_value_histories_by_scope: setValueHistoriesByScope,
     availableScopes: firstArray([payload?.availableScopes, payload?.available_scopes, market?.availableScopes, market?.available_scopes]),
@@ -246,6 +258,12 @@ export function adaptMarketDashboard(rawPayload = {}) {
     ...selectTopChaseCards(normalized),
     setValue: adaptSetValueTrend(normalized),
     marketMovers: normalized.marketMovers || normalized.market_movers || { heatingUp: [], coolingOff: [], all: [] },
+    marketMoversByWindow:
+      Object.keys(normalized.marketMoversByWindow || {}).length > 0
+        ? normalized.marketMoversByWindow
+        : Object.keys(normalized.market_movers_by_window || {}).length > 0
+        ? normalized.market_movers_by_window
+        : null,
   };
 }
 

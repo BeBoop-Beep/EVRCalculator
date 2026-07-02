@@ -1713,8 +1713,8 @@ def test_uuid_market_dashboard_snapshot_miss_returns_fast_empty(monkeypatch):
     assert "empty_fallback" in payload["meta"]["snapshot"]["source"]
 
 
-def test_market_dashboard_reader_does_not_select_payload_json(monkeypatch):
-    """The market dashboard reader must never pull payload_json off pokemon_set_market_dashboard_snapshot_latest."""
+def test_market_dashboard_reader_selects_payload_json_for_market_movers(monkeypatch):
+    """The market dashboard reader must select payload_json — it's the only source of marketMovers."""
     captured_queries = []
 
     def read_dashboard(query):
@@ -1730,6 +1730,7 @@ def test_market_dashboard_reader_does_not_select_payload_json(monkeypatch):
                 "top_chase_cards_json": [],
                 "top_chase_card_histories_json": {},
                 "available_scopes_json": [],
+                "payload_json": {"marketMovers": {"heatingUp": [], "coolingOff": [], "all": []}},
             }
         ]
 
@@ -1740,13 +1741,176 @@ def test_market_dashboard_reader_does_not_select_payload_json(monkeypatch):
 
     assert len(captured_queries) == 1
     selected_fields = captured_queries[0].select_fields
-    assert "payload_json" not in selected_fields
+    assert "payload_json" in selected_fields
     assert "set_value_histories_json" in selected_fields
     assert "top_chase_cards_json" in selected_fields
 
     assert payload["set"]["id"] == _TEST_UUID
     assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 200.0
     assert payload["meta"]["snapshot"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
+
+
+def test_market_dashboard_snapshot_returns_market_movers_from_payload_json(monkeypatch):
+    """marketMovers/market_movers must be read from the stored payload_json blob, not dropped."""
+    heating_up = [{"cardId": "card-1", "name": "Hot Card", "change30dPercent": 42.0}]
+    cooling_off = [{"cardId": "card-2", "name": "Cold Card", "change30dPercent": -12.0}]
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {
+                    "marketMovers": {"heatingUp": heating_up, "coolingOff": cooling_off, "all": heating_up + cooling_off},
+                    "market_movers": {"heatingUp": heating_up, "coolingOff": cooling_off, "all": heating_up + cooling_off},
+                },
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    for key in ("marketMovers", "market_movers"):
+        assert payload[key]["heatingUp"] == heating_up
+        assert payload[key]["coolingOff"] == cooling_off
+        assert payload[key]["all"] == heating_up + cooling_off
+
+
+def test_market_dashboard_snapshot_defaults_market_movers_when_missing_from_payload_json(monkeypatch):
+    """A stored snapshot without marketMovers in payload_json still returns the empty shape, not a KeyError."""
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {},
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    for key in ("marketMovers", "market_movers"):
+        assert payload[key] == {"heatingUp": [], "coolingOff": [], "all": []}
+
+
+def test_market_dashboard_snapshot_returns_market_movers_by_window_from_payload_json(monkeypatch):
+    """marketMoversByWindow/market_movers_by_window must expose 1D/7D/30D, with marketMovers as the 30D compat field."""
+    by_window = {
+        "1D": {"heatingUp": [{"cardId": "card-1d"}], "coolingOff": [], "all": [{"cardId": "card-1d"}]},
+        "7D": {"heatingUp": [{"cardId": "card-7d"}], "coolingOff": [], "all": [{"cardId": "card-7d"}]},
+        "30D": {"heatingUp": [{"cardId": "card-30d"}], "coolingOff": [], "all": [{"cardId": "card-30d"}]},
+    }
+    by_window_snake = {
+        "1D": {"heating_up": [{"cardId": "card-1d"}], "cooling_off": [], "all": [{"cardId": "card-1d"}]},
+        "7D": {"heating_up": [{"cardId": "card-7d"}], "cooling_off": [], "all": [{"cardId": "card-7d"}]},
+        "30D": {"heating_up": [{"cardId": "card-30d"}], "cooling_off": [], "all": [{"cardId": "card-30d"}]},
+    }
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {
+                    "marketMovers": by_window["30D"],
+                    "market_movers": by_window_snake["30D"],
+                    "marketMoversByWindow": by_window,
+                    "market_movers_by_window": by_window_snake,
+                },
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    # Both the camelCase and snake_case top-level keys resolve to the same picked
+    # dict (camelCase preferred), mirroring the existing marketMovers/market_movers pattern.
+    assert payload["marketMoversByWindow"] == by_window
+    assert payload["market_movers_by_window"] == by_window
+    for key in ("1D", "7D", "30D"):
+        assert payload["marketMoversByWindow"][key]["heatingUp"][0]["cardId"] == f"card-{key.lower()}"
+
+    # Backward compatibility: marketMovers/market_movers must still be the 30D entry.
+    assert payload["marketMovers"] == by_window["30D"]
+    assert payload["market_movers"] == by_window["30D"]
+
+
+def test_market_dashboard_snapshot_defaults_market_movers_by_window_to_30d_when_missing(monkeypatch):
+    """Snapshots written before per-window movers existed must still serve the 30D tab via fallback."""
+    thirty_day_movers = {"heatingUp": [{"cardId": "card-30d"}], "coolingOff": [], "all": [{"cardId": "card-30d"}]}
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {"marketMovers": thirty_day_movers, "market_movers": thirty_day_movers},
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    assert payload["marketMoversByWindow"] == {"30D": thirty_day_movers}
+    assert payload["market_movers_by_window"] == {"30D": thirty_day_movers}
 
 
 def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):

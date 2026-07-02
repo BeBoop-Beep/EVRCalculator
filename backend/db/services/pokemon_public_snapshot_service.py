@@ -2405,8 +2405,10 @@ def _hydrate_market_dashboard_top_chase_histories(
 _MARKET_DASHBOARD_SNAPSHOT_COLUMNS = (
     "set_id,window_key,set_value_histories_json,performance_vs_cost_history_json,"
     "top_chase_cards_json,top_chase_card_histories_json,available_scopes_json,"
-    "latest_market_date,updated_at"
+    "latest_market_date,updated_at,payload_json"
 )
+
+_EMPTY_MARKET_MOVERS: Dict[str, Any] = {"heatingUp": [], "coolingOff": [], "all": []}
 
 
 def _build_market_dashboard_payload_from_row(
@@ -2431,6 +2433,21 @@ def _build_market_dashboard_payload_from_row(
     window_key = _to_optional_str(row.get("window_key"))
     latest_market_date = _parse_date_key(row.get("latest_market_date"))
 
+    stored_payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
+    market_movers = stored_payload.get("marketMovers")
+    if not isinstance(market_movers, dict):
+        market_movers = stored_payload.get("market_movers")
+    if not isinstance(market_movers, dict):
+        market_movers = _EMPTY_MARKET_MOVERS
+
+    market_movers_by_window = stored_payload.get("marketMoversByWindow")
+    if not isinstance(market_movers_by_window, dict):
+        market_movers_by_window = stored_payload.get("market_movers_by_window")
+    if not isinstance(market_movers_by_window, dict):
+        # Older snapshot rows predate per-window movers; fall back to the 30D
+        # compatibility field so the 30D tab still works until the next rebuild.
+        market_movers_by_window = {"30D": market_movers}
+
     return {
         "set": set_identity,
         "window": window_key,
@@ -2441,6 +2458,10 @@ def _build_market_dashboard_payload_from_row(
         "performance_vs_cost_history": performance_vs_cost_history,
         "topChaseCards": top_chase_cards,
         "top_chase_cards": top_chase_cards,
+        "marketMovers": market_movers,
+        "market_movers": market_movers,
+        "marketMoversByWindow": market_movers_by_window,
+        "market_movers_by_window": market_movers_by_window,
         "availableScopes": available_scopes,
         "available_scopes": available_scopes,
         "latestMarketDate": latest_market_date,

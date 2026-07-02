@@ -22,6 +22,29 @@ CARD_MOVERS_MIN_CURRENT_PRICE = 1.00
 CARD_MOVERS_MIN_ABSOLUTE_MOVE = 0.25
 CARD_MOVERS_MIN_HISTORY_SPAN_DAYS = 14
 CARD_MOVERS_MAX_ABS_PERCENT_CHANGE = 300.0
+# Requiring 14 days of observed spread makes 1D/7D windows come back empty almost
+# always, since a card rarely has two price points 14 days apart inside a 7 day
+# window. Shorter windows need a looser (but still noise-filtering) minimum span.
+CARD_MOVERS_MIN_HISTORY_SPAN_DAYS_BY_WINDOW = {
+    1: 1,
+    7: 3,
+}
+# When no observation falls inside the requested window, the baseline falls back to
+# the last observation before the window started. Without a ceiling on how old that
+# fallback can be, a 1D/7D window can silently present a movement computed from a
+# baseline weeks old — technically "enough history" by the minimum-span check, but
+# not a 1D/7D movement at all. Cap how far outside the window a baseline may fall.
+CARD_MOVERS_MAX_HISTORY_SPAN_DAYS_BY_WINDOW = {
+    1: 2,
+    7: 10,
+    30: 45,
+}
+# The observations query is ordered captured_at ascending with a 10k-row cap, so an
+# oversized variant_id chunk on a large set (e.g. Mega Evolution) can silently drop
+# the most recent rows before they're ever returned — exactly the rows movers need.
+# Keep this well under 10k even for variants with several observation sources/day
+# across the CARD_MOVERS_HISTORY_LOOKBACK_DAYS window.
+CARD_MOVERS_OBSERVATION_CHUNK_SIZE = 50
 _IN_CHUNK_SIZE = 500
 _DELTA_KEYS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 SET_VALUE_SCOPES = ("standard", "hits", "top10")
@@ -370,7 +393,9 @@ def _load_conditioned_latest_price_rows(
 
     rows: List[Dict[str, Any]] = []
     condition_ids = sorted(set(condition_by_variant.values()))
-    for variant_id_chunk in _chunk(variant_ids):
+    # Large sets (e.g. Prismatic Evolutions) can time out this query at the default
+    # 500-id chunk size; use the same smaller chunk as the observations query.
+    for variant_id_chunk in _chunk(variant_ids, size=CARD_MOVERS_OBSERVATION_CHUNK_SIZE):
         query = (
             public_read_client.table("card_market_usd_latest_by_condition")
             .select("variant_id,condition_id,market_price,source,captured_at")
@@ -401,11 +426,12 @@ def _load_conditioned_price_observation_rows(
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows: List[Dict[str, Any]] = []
     condition_ids = sorted(set(condition_by_variant.values()))
-    for variant_id_chunk in _chunk(variant_ids):
+    for variant_id_chunk in _chunk(variant_ids, size=CARD_MOVERS_OBSERVATION_CHUNK_SIZE):
         query = (
             public_read_client.table("card_variant_price_observations")
             .select("card_variant_id,condition_id,market_price,source,captured_at")
             .in_("card_variant_id", variant_id_chunk)
+            .gte("captured_at", since)
             .order("captured_at", desc=False)
             .limit(10000)
         )
@@ -495,6 +521,14 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
     }
 
 
+def _card_movers_min_history_span_days(window_days: int) -> int:
+    return CARD_MOVERS_MIN_HISTORY_SPAN_DAYS_BY_WINDOW.get(window_days, CARD_MOVERS_MIN_HISTORY_SPAN_DAYS)
+
+
+def _card_movers_max_history_span_days(window_days: int) -> int:
+    return CARD_MOVERS_MAX_HISTORY_SPAN_DAYS_BY_WINDOW.get(window_days, CARD_MOVERS_HISTORY_LOOKBACK_DAYS)
+
+
 def _movement_label(amount: Optional[float]) -> Optional[str]:
     if amount is None:
         return None
@@ -535,7 +569,10 @@ def _public_card_movement(
 
     amount = round(current_price - first_price, 2)
     percent = round((amount / first_price) * 100, 2) if first_price else None
-    enough_history = observation_count >= 2 and history_span_days >= CARD_MOVERS_MIN_HISTORY_SPAN_DAYS
+    enough_history = (
+        observation_count >= 2
+        and history_span_days >= _card_movers_min_history_span_days(window_days)
+    )
     passes_guardrails = (
         enough_history
         and current_price >= CARD_MOVERS_MIN_CURRENT_PRICE
@@ -692,6 +729,18 @@ def _build_card_movements_from_context(
             window_observations.append(latest_point)
         if baseline_point is None or not window_observations:
             continue
+
+        baseline_dt = _parse_datetime(baseline_point.get("captured_at"))
+        movement_end_dt = _parse_datetime(window_observations[-1].get("captured_at"))
+        if baseline_dt is None or movement_end_dt is None:
+            continue
+        movement_span_days = (movement_end_dt - baseline_dt).days
+        if movement_span_days > _card_movers_max_history_span_days(window_days):
+            # The only available baseline falls further outside the requested window
+            # than the fallback tolerance allows — e.g. a 26-day-old baseline for a 1D
+            # window. Skip rather than silently present a stale movement as current.
+            continue
+
         history_points_for_confidence = [baseline_point, *window_observations]
         movement = _public_card_movement(
             canonical_card=canonical_card,
@@ -771,7 +820,8 @@ def build_pokemon_set_card_movement_payload(
             "guardrails": {
                 "minimumCurrentPrice": CARD_MOVERS_MIN_CURRENT_PRICE,
                 "minimumAbsoluteMove": CARD_MOVERS_MIN_ABSOLUTE_MOVE,
-                "minimumHistorySpanDays": CARD_MOVERS_MIN_HISTORY_SPAN_DAYS,
+                "minimumHistorySpanDays": _card_movers_min_history_span_days(window_days),
+                "maximumHistorySpanDays": _card_movers_max_history_span_days(window_days),
                 "maximumAbsolutePercentChange": CARD_MOVERS_MAX_ABS_PERCENT_CHANGE,
             },
             "priceBasis": "Near Mint card_variant_price_observations and card_market_usd_latest_by_condition mapped to canonical Pokemon cards",

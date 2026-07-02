@@ -755,6 +755,67 @@ test("one market dashboard payload produces value trend and top chase card data"
   assert.equal(marketState.setValue.meta, payload.meta);
 });
 
+test("market dashboard payload exposes distinct 1D/7D/30D market mover rows for the window selector", async () => {
+  const { buildMarketDashboardStateFromPayload } = await import(pathToFileURL(marketDashboardStatePath).href);
+  const payload = {
+    topChaseCards: [],
+    setValueHistoriesByScope: { standard: [{ date: "2026-06-01", setValue: 100 }] },
+    marketMovers: { window: "30D", heatingUp: [{ cardId: "card-30d", name: "30D Gainer" }], coolingOff: [] },
+    marketMoversByWindow: {
+      "1D": { heatingUp: [{ cardId: "card-1d", name: "1D Gainer" }], coolingOff: [] },
+      "7D": { heatingUp: [], coolingOff: [{ cardId: "card-7d", name: "7D Decliner" }] },
+      "30D": { heatingUp: [{ cardId: "card-30d", name: "30D Gainer" }], coolingOff: [] },
+    },
+  };
+
+  const marketState = buildMarketDashboardStateFromPayload(payload);
+  const { marketMoversByWindow } = marketState.topCards;
+
+  assert.ok(marketMoversByWindow, "marketMoversByWindow must be exposed on topCards");
+  assert.equal(marketMoversByWindow["1D"].heatingUp[0].cardId, "card-1d");
+  assert.equal(marketMoversByWindow["1D"].coolingOff.length, 0);
+  assert.equal(marketMoversByWindow["7D"].heatingUp.length, 0);
+  assert.equal(marketMoversByWindow["7D"].coolingOff[0].cardId, "card-7d");
+  assert.equal(marketMoversByWindow["30D"].heatingUp[0].cardId, "card-30d");
+  // Selecting a different window must actually change which rows would render —
+  // the three windows must not collapse to the same data.
+  assert.notDeepEqual(marketMoversByWindow["1D"], marketMoversByWindow["7D"]);
+  assert.notDeepEqual(marketMoversByWindow["7D"], marketMoversByWindow["30D"]);
+});
+
+test("Market Movers module supports a 1D/7D/30D window selector defaulting to 30D", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const componentStart = source.indexOf("function MarketMoversModule(");
+  const componentEnd = source.indexOf("\nfunction normalizePullRateAssumptions");
+  assert.ok(componentStart >= 0, "MarketMoversModule must exist");
+  const componentSource = source.slice(componentStart, componentEnd);
+
+  assert.ok(source.includes('const DEFAULT_MARKET_MOVERS_WINDOW = "30D"'));
+  assert.ok(
+    source.includes("const MARKET_MOVERS_WINDOW_OPTIONS = [") &&
+      source.includes('{ key: "1D", label: "1D" }') &&
+      source.includes('{ key: "7D", label: "7D" }') &&
+      source.includes('{ key: "30D", label: "30D" }'),
+    "window options must offer exactly 1D/7D/30D"
+  );
+  // 3M/6M/1Y/Lifetime are a deliberate follow-up, not part of this change.
+  assert.ok(!source.includes('{ key: "3M", label: "3M" }'));
+  assert.ok(!source.includes('{ key: "1Y", label: "1Y" }'));
+  assert.ok(!source.includes('{ key: "lifetime", label: "Lifetime" }'));
+
+  assert.ok(componentSource.includes("{ movers, moversByWindow, onViewAll }"));
+  assert.ok(componentSource.includes("useState(DEFAULT_MARKET_MOVERS_WINDOW)"));
+  assert.ok(componentSource.includes("resolvedMoversByWindow[selectedWindow]"));
+  assert.ok(componentSource.includes("<MarketWindowSelector"));
+  assert.ok(componentSource.includes("windows={MARKET_MOVERS_WINDOW_OPTIONS}"));
+  assert.ok(componentSource.includes("`${selectedWindow} card price movement with noise guardrails applied.`"));
+  assert.ok(componentSource.includes("Ranks card-level ${selectedWindow} movement"));
+
+  assert.ok(source.includes("moversByWindow={marketMoversByWindow}"));
+  assert.ok(source.includes("onViewAll={handleViewAllMarketMovers}"), "View all movers behavior must be unchanged");
+});
+
 test("overview shares a single canonical market dashboard request for value trend and top chase cards", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const dashboardCallCount = (source.match(/getPokemonSetMarketDashboard\(/g) || []).length;
