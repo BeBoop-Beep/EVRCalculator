@@ -21,6 +21,7 @@ const dashboardRoutePath = path.resolve(
   "../../app/api/tcgs/pokemon/sets/[setId]/market/dashboard/route.js"
 );
 const cardsRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/cards/route.js");
+const setPageRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/page/route.js");
 const explorePageServicePath = path.resolve(__dirname, "../../../backend/db/services/explore_page_service.py");
 const snapshotServicePath = path.resolve(
   __dirname,
@@ -159,16 +160,16 @@ test("header and overview set value read from the same Set Value Contract", () =
   assert.ok(source.includes("Current value is available; historical trend is still loading/unavailable."));
 });
 
-test("cards warmup caches normalized payload and does not clear stale cards on failure", () => {
+test("cards tab fetch caches normalized payload and does not clear stale cards on failure", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const warmupStart = source.indexOf("prefetchPokemonSetCards(resolvedSetId).then");
-  const warmupEnd = source.indexOf("prefetchPokemonSetMarketDashboard", warmupStart);
-  const warmupSource = source.slice(warmupStart, warmupEnd);
-  const catchStart = source.indexOf(".catch((error) => {", source.indexOf("getPokemonSetCards(setId)"));
+  const fetchStart = source.indexOf("getPokemonSetCards(setId)");
+  const thenStart = source.indexOf(".then((payload) => {", fetchStart);
+  const catchStart = source.indexOf(".catch((error) => {", fetchStart);
+  const thenSource = source.slice(thenStart, catchStart);
   const catchEnd = source.indexOf("});", catchStart);
   const catchSource = source.slice(catchStart, catchEnd);
 
-  assert.ok(warmupSource.includes("checklistCacheRef.current.set(resolvedSetId, payload)"));
+  assert.ok(thenSource.includes("checklistCacheRef.current.set(setId, payload)"));
   assert.ok(catchSource.includes("previous.setId === setId && previous.cards.length > 0"));
   assert.ok(catchSource.includes('"success_stale"'));
   assert.ok(catchSource.includes("previous.cards"));
@@ -186,35 +187,42 @@ test("timeout fallback set page payload hydrates with a no-store client retry", 
   assert.ok(source.includes('debugSetPagePerf("set_page.timeout_retry_ready"'));
 });
 
-test("timeout fallback defers heavy set detail warmups until snapshot retry resolves", () => {
+test("timeout fallback payload only defers sections that require the full set page snapshot", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
+  // The client-side retry path is still present for Decision Signals / full-snapshot sections
   assert.ok(source.includes('debugSetPagePerf("set.prefetch_deferred"'));
-  assert.ok(source.includes('isTimeoutFallbackPayload ? "transport_fallback_retry" : "set_page_snapshot_unavailable"'));
-  assert.ok(source.includes("if (shouldPauseSetDetailDependentFetches)"));
-  assert.ok(source.includes('createSetValueHistoryState({ status: isTimeoutFallbackPayload ? "loading" : "empty", setId })'));
-  assert.ok(source.includes('status: isTimeoutFallbackPayload ? "loading" : "empty"'));
-  assert.ok(source.includes('type: isTimeoutFallbackPayload ? "loading" : "reset"'));
+  assert.ok(source.includes("function isSetPageTransportFallback"));
+  assert.ok(source.includes("function fetchPokemonSetPageSnapshot"));
+  // shouldPauseSetDetailDependentFetches still exists for snapshot-dependent sections and adjacent prefetch
+  assert.ok(source.includes("const shouldPauseSetDetailDependentFetches ="));
+  // Module fetches (cards, market, value) use canFetchSetDetailModules — not gated on transport fallback
+  assert.ok(source.includes("const canFetchSetDetailModules ="));
+  // The "loading" state driven by isTimeoutFallbackPayload is gone from the module-level guards
+  assert.ok(!source.includes('createSetValueHistoryState({ status: isTimeoutFallbackPayload ? "loading" : "empty", setId })'));
+  assert.ok(!source.includes('status: isTimeoutFallbackPayload ? "loading" : "empty"'));
+  assert.ok(!source.includes('type: isTimeoutFallbackPayload ? "loading" : "reset"'));
 });
 
-test("primary snapshot fallback suppresses secondary cards, market, and value fanout", () => {
+test("primary snapshot fallback still gates adjacent prefetch and simulation-dependent sections", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
   const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
   const warmupSource = source.slice(warmupStart, warmupEnd);
   const cardsEffectStart = source.indexOf("getPokemonSetCards(setId)");
-  const cardsGuardStart = source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", cardsEffectStart);
+  const cardsGuardStart = source.lastIndexOf("if (!canFetchSetDetailModules)", cardsEffectStart);
   const valueHistoryStart = source.indexOf("getPokemonSetValueHistory(setId, { days: 365, scope })");
-  const valueGuardStart = source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", valueHistoryStart);
+  const valueGuardStart = source.lastIndexOf("if (!canFetchSetDetailModules)", valueHistoryStart);
   const marketStart = source.indexOf("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })");
-  const marketGuardStart = source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", marketStart);
+  const marketGuardStart = source.lastIndexOf("if (!canFetchSetDetailModules)", marketStart);
 
   assert.ok(source.includes("function isSetPagePrimarySnapshotUnavailable"));
   assert.ok(source.includes("const isPrimarySnapshotReady ="));
   assert.ok(source.includes("function hasRealSetPageIdentity"));
   assert.ok(source.includes("const shouldPauseSetDetailDependentFetches ="));
-  assert.ok(warmupSource.includes("if (shouldPauseSetDetailDependentFetches)"));
-  assert.ok(warmupSource.includes('deferredReason: isTimeoutFallbackPayload ? "transport_fallback_retry" : "set_page_snapshot_unavailable"'));
+  assert.ok(source.includes("const canFetchSetDetailModules ="));
+  assert.ok(warmupSource.includes("if (!canFetchSetDetailModules)"));
+  assert.ok(warmupSource.includes('deferredReason: !resolvedSetResourceId ? "set_id_unresolved" : "set_identity_mismatch"'));
   assert.ok(warmupSource.includes("if (!includeAdjacent || !activeSetModulesStable || shouldPauseSetDetailDependentFetches"));
   assert.ok(cardsGuardStart >= 0 && cardsGuardStart < cardsEffectStart);
   assert.ok(valueGuardStart >= 0 && valueGuardStart < valueHistoryStart);
@@ -538,7 +546,7 @@ test("set value trend uses the active market dashboard id through dropdown set s
   assert.ok(source.includes("standardHistoryLength"));
 });
 
-test("set value history fetches directly on every set detail tab", () => {
+test("set value history direct-fetch effect requests only the scopes the active tab needs", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const directFetchStart = source.indexOf('debugSetPagePerf("set_value.direct_fetch_start"');
   const directFetchEnd = source.indexOf('debugSetPagePerf("set_value.direct_fetch_ready"', directFetchStart);
@@ -552,25 +560,81 @@ test("set value history fetches directly on every set detail tab", () => {
   assert.ok(directFetchStart >= 0);
   assert.ok(directFetchEnd > directFetchStart);
   assert.ok(directEffectSource.includes("const seededSetValueFromSnapshot ="));
-  assert.ok(directEffectSource.includes("const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter("));
+  // Only "standard" (header/title) is always desired; hits/top10 are added
+  // only when the overview Set Value Trend card is active — not an
+  // unconditional fanout over every SET_VALUE_SCOPE_OPTIONS entry.
+  assert.ok(directEffectSource.includes("const desiredScopes = Array.from("));
+  assert.ok(directEffectSource.includes('setDetailTab === "overview" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []'));
+  assert.ok(directEffectSource.includes("const requestedScopes = desiredScopes.filter((scope) => !seededLoadedScopes.includes(scope));"));
+  assert.ok(!directEffectSource.includes("const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter("), "must not unconditionally request every scope");
   assert.ok(directFetchSource.includes("requestedScopes.map"));
   assert.ok(directFetchSource.includes("CANONICAL_SET_VALUE_SCOPE"));
   assert.ok(directEffectSource.includes("resolvedSetResourceId"));
-  assert.ok(directEffectSource.includes("if (shouldPauseSetDetailDependentFetches)"));
+  assert.ok(directEffectSource.includes("if (!canFetchSetDetailModules)"));
 });
 
-test("set value history warmup fetches all scopes after shell render", () => {
+test("set value history direct-fetch effect prefers live market dashboard state over a raw cache read", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const directEffectStart = source.indexOf("const cachedDashboardPayload = getCachedPokemonSetMarketDashboard(setId,");
+  const requestedScopesEnd = source.indexOf("const requestedScopes = desiredScopes.filter", directEffectStart);
+  const seedSource = source.slice(directEffectStart, requestedScopesEnd);
+
+  assert.ok(directEffectStart >= 0, "value-history effect's seed-merge block must exist");
+  assert.ok(seedSource.includes("activeMarketDashboardState.setId === setId"), "must check the live market dashboard state belongs to the active set");
+  assert.ok(seedSource.includes("activeMarketDashboardDerivedState.setValue.historiesByScope"), "must read scopes from the live market dashboard derived state first");
+  assert.ok(seedSource.includes("adaptSetValueHistoriesFromSources"), "must still fall back to the raw cache/explorePayload adapter when live state is empty");
+});
+
+test("value-history, market-dashboard, and cards fetch results are ignored if the active set changed before they resolved", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const guardCall = "isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })";
+  assert.ok(source.includes(`if (!${guardCall}) {`), "the shared stale-active-set guard shape must appear before applying fetched state");
+  assert.ok(source.includes('debugSetPagePerf("set_value.direct_fetch_stale"'), "value-history fetch must guard against a stale active set before applying results");
+  assert.ok(source.includes('debugSetPagePerf("market.tab_fetch_stale"'), "market dashboard fetch must guard against a stale active set before applying results");
+  assert.ok(source.includes('debugSetPagePerf("cards.tab_fetch_stale"'), "cards fetch must guard against a stale active set before applying results");
+
+  const occurrences = source.split(`if (!${guardCall}) {`).length - 1;
+  assert.equal(occurrences, 3, "cards, market dashboard, and value-history fetches must each carry this stale-set guard");
+});
+
+test("warmSetDetailResources performs route prefetch only — no cards/market/value-history data fetch", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
-  const warmupEnd = source.indexOf("const resolvedSetId = String(setId || \"\").trim();", warmupStart);
+  const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
   const warmupSource = source.slice(warmupStart, warmupEnd);
 
   assert.ok(warmupStart >= 0);
   assert.ok(warmupEnd > warmupStart);
-  assert.ok(warmupSource.includes("SET_VALUE_SCOPE_OPTIONS.map((scope) =>"));
-  assert.ok(warmupSource.includes("getPokemonSetValueHistory(resolvedSetId, { days: 365, scope: scope.key })"));
-  assert.ok(warmupSource.includes("markSetPagePerformance(\"set_value_ready\""));
-  assert.ok(warmupSource.includes("scopes: results"));
+  // warmSetDetailResources previously fetched cards + market dashboard data
+  // (and, at one point, value-history) for hovered/adjacent/bootstrap sets
+  // the user may never open, fanning out /cards + /market/dashboard (+
+  // downstream /market/value-history) requests across many set ids on every
+  // switch. It must now do route prefetch only; each tab's own effect fetches
+  // its module lazily once that tab actually renders for the active set.
+  assert.ok(!warmupSource.includes("getPokemonSetValueHistory"), "warmup must not call getPokemonSetValueHistory");
+  assert.ok(!warmupSource.includes("SET_VALUE_SCOPE_OPTIONS.map((scope) =>"), "warmup must not fan out over SET_VALUE_SCOPE_OPTIONS");
+  assert.ok(!warmupSource.includes("prefetchPokemonSetCards"), "warmup must not prefetch cards data");
+  assert.ok(!warmupSource.includes("prefetchPokemonSetMarketDashboard"), "warmup must not prefetch market dashboard data");
+  assert.ok(!warmupSource.includes("getPokemonSetCards("), "warmup must not fetch cards data directly either");
+  assert.ok(!warmupSource.includes("getPokemonSetMarketDashboard("), "warmup must not fetch market dashboard data directly either");
+  assert.ok(warmupSource.includes("router.prefetch(targetHref)"), "warmup still route-prefetches the destination page");
+});
+
+test("warmSetDetailResources data prefetch removal is not reintroduced via a background market-dashboard fetch on non-overview tabs", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(!source.includes("prefetchPokemonSetCards"), "prefetchPokemonSetCards must not be imported or called anywhere");
+  assert.ok(!source.includes("prefetchPokemonSetMarketDashboard"), "prefetchPokemonSetMarketDashboard must not be imported or called anywhere");
+
+  const marketEffectStart = source.indexOf("const shouldRenderMarketData = setDetailTab ===");
+  const marketEffectEnd = source.indexOf("let isCancelled = false;", marketEffectStart);
+  const marketEffectSource = source.slice(marketEffectStart, marketEffectEnd);
+  assert.ok(marketEffectStart >= 0, "market dashboard effect must exist");
+  assert.ok(
+    marketEffectSource.includes("if (!shouldRenderMarketData) {"),
+    "must still gate the live fetch on the overview tab being active"
+  );
 });
 
 test("one market dashboard payload produces value trend and top chase card data", async () => {
@@ -639,9 +703,8 @@ test("market dashboard window keys are canonical for fetches and cache keys", ()
   assert.ok(marketSource.includes(".toLowerCase()"));
   assert.ok(marketSource.includes("window=${normalizeMarketDashboardWindow(window)}"));
   assert.ok(marketSource.includes('params.set("window", normalizedWindow)'));
-  assert.ok(ripSource.includes("normalizeMarketDashboardWindow"));
   assert.ok(ripSource.includes('const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d"'));
-  assert.ok(ripSource.includes("getTopMarketCardsCacheKey(resolvedSetId, DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW)"));
+  assert.ok(ripSource.includes("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })"));
   assert.ok(dashboardRoute.includes("normalizeMarketDashboardWindow(window)"));
 });
 
@@ -653,7 +716,6 @@ test("overview initial market dashboard request uses 365d snapshot source", () =
   assert.ok(source.includes('const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d"'));
   assert.ok(source.includes("const dashboardSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW"));
   assert.ok(source.includes("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })"));
-  assert.ok(source.includes("prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW })"));
   assert.ok(marketSource.includes('const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d"'));
   assert.ok(apiSource.includes('window=window or "365d"'));
 });
@@ -701,14 +763,14 @@ test("set page insights receive RIP desirability comparison through snapshot sum
   assert.ok(snapshotBuilderSource.includes("RIP_DESIRABILITY_COMPARISON_FIELDS"));
   assert.ok(snapshotBuilderSource.includes("_merge_rip_desirability_comparison_into_set_payload"));
   assert.ok(snapshotBuilderSource.includes('next_payload["summary"] = summary'));
-  assert.ok(source.includes("const summary = explorePayload?.summary || {};"));
+  assert.ok(source.includes("const summary = explorePayload?.summary || shellPayload?.summary || {};"));
 
   for (const field of requiredFields) {
     assert.ok(snapshotBuilderSource.includes(field), `snapshot builder propagates ${field}`);
     assert.ok(source.includes(field), `frontend normalizer accepts ${field}`);
   }
 
-  const summaryStart = source.indexOf("const summary = explorePayload?.summary || {};");
+  const summaryStart = source.indexOf("const summary = explorePayload?.summary || shellPayload?.summary || {};");
   const comparisonStart = source.indexOf("const ripDesirabilityComparison = useMemo(", summaryStart);
   const comparisonEnd = source.indexOf("const desirabilitySummary", comparisonStart);
   const comparisonSource = source.slice(comparisonStart, comparisonEnd);
@@ -791,7 +853,7 @@ test("compact sparkline tooltip is local to the sparkline wrapper", () => {
   assert.ok(!compactSource.includes("event.clientY"));
 });
 
-test("header set value compact sparkline disables floating tooltip overlay", () => {
+test("header set value compact sparkline shows the simple date/value/delta hover tooltip", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const labelIndex = source.indexOf("{setValueMetricLabel}");
   const sparklineStart = source.indexOf("<CompactSparkline", labelIndex);
@@ -800,9 +862,11 @@ test("header set value compact sparkline disables floating tooltip overlay", () 
 
   assert.ok(labelIndex >= 0);
   assert.ok(sparklineStart > labelIndex);
-  assert.ok(setValueSparklineSource.includes("points={setValueSparklinePoints}"));
+  assert.ok(setValueSparklineSource.includes("points={setHeaderSummary.setValue.sparklinePoints}"));
   assert.ok(setValueSparklineSource.includes('valueKey="setValue"'));
-  assert.ok(setValueSparklineSource.includes("showTooltip={false}"));
+  // CompactSparkline's default tooltip already renders exactly date/value/delta
+  // (see its own showTooltip block) — the title card must not opt back out of it.
+  assert.ok(!setValueSparklineSource.includes("showTooltip={false}"));
 });
 
 test("dropdown set switch can hydrate from a cached 365d market dashboard payload", async () => {
@@ -1128,4 +1192,623 @@ test("server initial snapshot loader fetches backend modules directly without th
   assert.ok(source.includes("payload: null"));
   assert.ok(source.includes("errors.cards"));
   assert.ok(source.includes("errors.marketDashboard"));
+});
+
+test("handleTargetPrefetch calls router.prefetch for the destination href without changing navigation hrefs", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const prefetchStart = source.indexOf("const handleTargetPrefetch");
+  const prefetchEnd = source.indexOf("};", prefetchStart);
+  const prefetchSource = source.slice(prefetchStart, prefetchEnd);
+
+  assert.ok(prefetchStart >= 0, "handleTargetPrefetch must exist");
+  assert.ok(prefetchSource.includes("warmSetDetailResources(targetId, options)"), "still warms data resources");
+  assert.ok(prefetchSource.includes("router.prefetch("), "must call router.prefetch for route");
+  assert.ok(prefetchSource.includes("targetHrefById?.["), "must look up href from targetHrefById map");
+
+  // Navigation must still use router.push – prefetch is separate
+  const navStart = source.indexOf("const handleTargetIdChange");
+  const navEnd = source.indexOf("};", navStart);
+  const navSource = source.slice(navStart, navEnd);
+  assert.ok(navSource.includes("router.push(nextHref"), "navigation still uses router.push");
+  assert.ok(!navSource.includes("router.prefetch"), "navigation handler must not call router.prefetch");
+});
+
+test("warmSetDetailResources startPrefetch also calls router.prefetch for route pre-rendering", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
+  const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
+  const warmupSource = source.slice(warmupStart, warmupEnd);
+
+  const startPrefetchStart = warmupSource.indexOf("const startPrefetch = (targetSetId");
+  const startPrefetchEnd = warmupSource.indexOf("};", startPrefetchStart);
+  const startPrefetchSource = warmupSource.slice(startPrefetchStart, startPrefetchEnd);
+
+  assert.ok(startPrefetchStart >= 0, "startPrefetch inner function must exist");
+  assert.ok(startPrefetchSource.includes("router.prefetch(targetHref)"), "startPrefetch must call router.prefetch with targetHref");
+  assert.ok(startPrefetchSource.includes("targetHrefById?.[resolvedSetId]"), "must look up href using resolvedSetId");
+});
+
+test("adjacent set prefetch is disabled by default via SET_PREFETCH_ADJACENT_LIMIT", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
+  const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
+  const warmupSource = source.slice(warmupStart, warmupEnd);
+
+  // Adjacent prefetch previously multiplied cards + dashboard + value-history
+  // requests across nearby sets on every hover/navigation, saturating the
+  // browser's per-origin connection limit. The mechanism stays in place
+  // (bounded by this constant) but is off by default.
+  assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "SET_PREFETCH_ADJACENT_LIMIT must default to 0 (disabled)");
+  assert.ok(warmupSource.includes("for (let offset = 1; offset <= SET_PREFETCH_ADJACENT_LIMIT; offset += 1)"), "adjacent loop must remain bounded by SET_PREFETCH_ADJACENT_LIMIT");
+  assert.ok(warmupSource.includes("if (!includeAdjacent || !activeSetModulesStable || shouldPauseSetDetailDependentFetches"), "adjacent prefetch must be guarded");
+});
+
+test("adjacent set fanout has no bypass path outside the bounded warmSetDetailResources loop", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  // startPrefetch (called once per resolved set id, deduped) is the only
+  // function that fans out per-adjacent-set work, and it is only ever
+  // invoked from the bounded `for` loop above or the single active-set call.
+  // No other function in the file iterates `targets` to warm multiple sets.
+  const startPrefetchCallCount = (source.match(/startPrefetch\(/g) || []).length;
+  assert.equal(startPrefetchCallCount, 2, "startPrefetch must only be invoked for the active set and from the bounded adjacent loop");
+
+  const otherAdjacentFanoutStart = source.indexOf("targets.findIndex", source.indexOf("adjacentTargets.forEach") + 1);
+  assert.equal(otherAdjacentFanoutStart, -1, "no second adjacent-set fanout loop may exist elsewhere in the file");
+});
+
+test("timeout fallback does not block cards, market dashboard, or set value fetches when set resource id is resolved", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const cardsEffectStart = source.indexOf("getPokemonSetCards(setId)");
+  const marketStart = source.indexOf("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })");
+  const valueHistoryStart = source.indexOf("getPokemonSetValueHistory(setId, { days: 365, scope })");
+
+  // canFetchSetDetailModules must exist and include the transport-fallback bypass
+  assert.ok(source.includes("const canFetchSetDetailModules ="), "canFetchSetDetailModules must be defined");
+  assert.ok(
+    source.includes("isSetPageTransportFallback(explorePayload) || hasActiveSetPageIdentity"),
+    "transport fallback must allow module fetches when set id is resolved"
+  );
+  // Module effects guard on canFetchSetDetailModules, not shouldPauseSetDetailDependentFetches
+  assert.ok(source.lastIndexOf("if (!canFetchSetDetailModules)", cardsEffectStart) >= 0, "cards effect must use canFetchSetDetailModules guard");
+  assert.ok(source.lastIndexOf("if (!canFetchSetDetailModules)", marketStart) >= 0, "market effect must use canFetchSetDetailModules guard");
+  assert.ok(source.lastIndexOf("if (!canFetchSetDetailModules)", valueHistoryStart) >= 0, "value history effect must use canFetchSetDetailModules guard");
+  // shouldPauseSetDetailDependentFetches no longer appears as a standalone guard before these calls
+  assert.ok(source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", cardsEffectStart) < 0, "shouldPauseSetDetailDependentFetches must not block cards");
+  assert.ok(source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", marketStart) < 0, "shouldPauseSetDetailDependentFetches must not block market");
+  assert.ok(source.lastIndexOf("if (shouldPauseSetDetailDependentFetches)", valueHistoryStart) < 0, "shouldPauseSetDetailDependentFetches must not block value history");
+});
+
+test("set page proxy route has bounded timeout and does not cache failed responses", () => {
+  const source = fs.readFileSync(setPageRoutePath, "utf8");
+
+  assert.ok(source.includes("AbortController"), "must use AbortController for bounded timeout");
+  assert.ok(source.includes("BACKEND_FETCH_TIMEOUT_MS"), "must define fetch timeout constant");
+  assert.ok(source.includes("SET_PAGE_SNAPSHOT_PROXY_TIMEOUT"), "must use SET_PAGE_SNAPSHOT_PROXY_TIMEOUT code on timeout");
+  assert.ok(source.includes('"Set page snapshot request timed out"'), "must emit descriptive timeout message");
+  assert.ok(source.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'), "must define no-store constant for failures");
+  assert.ok(source.includes("backendPathForDiagnostics(backendUrl)"), "must include backend path in error diagnostics");
+  assert.ok(!source.includes("next: { revalidate: 300 }"), "proxy fetch must not use Next.js revalidation cache");
+  assert.ok(source.includes('cache: "no-store"'), "backend fetch must bypass Next.js cache with no-store");
+});
+
+// ---------------------------------------------------------------------------
+// Perf fix: full /page payloads must never enter Next's data cache, and
+// client-side retries of that endpoint must be gated, abortable, and unable
+// to overwrite the active set with a stale response.
+// ---------------------------------------------------------------------------
+
+test("set page proxy route never emits a cacheable response for the oversized full page payload", () => {
+  const source = fs.readFileSync(setPageRoutePath, "utf8");
+
+  // The backend fetch itself must not opt into Next's data cache at all
+  // (no `next: { revalidate }` of any kind), since full /page payloads
+  // routinely exceed the 2MB data-cache limit and fail to be stored.
+  assert.ok(!/next:\s*\{\s*revalidate/.test(source), "backend fetch must not pass any next.revalidate option");
+  assert.ok(source.includes('cache: "no-store"'), "backend fetch must use cache: \"no-store\"");
+
+  // The outgoing response must be consistently no-store — no public/CDN
+  // cache-control branch for this route, unlike the smaller module routes.
+  assert.ok(!source.includes("PUBLIC_ANALYTICS_CACHE_CONTROL"), "full /page route must not define a public cache-control path");
+  assert.ok(!source.includes("s-maxage"), "full /page route must not emit a public/CDN cache header");
+  const cacheControlHeaderCount = (source.match(/"Cache-Control":\s*FAILED_ANALYTICS_CACHE_CONTROL/g) || []).length;
+  assert.ok(cacheControlHeaderCount >= 2, "every response branch (error and success) must send the no-store Cache-Control constant");
+});
+
+test("fetchPokemonSetPageSnapshot accepts and forwards an AbortSignal", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const fnStart = source.indexOf("async function fetchPokemonSetPageSnapshot(");
+  const fnEnd = source.indexOf("\n}\n", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+
+  assert.ok(fnStart >= 0, "fetchPokemonSetPageSnapshot must exist");
+  assert.ok(fnSource.includes("{ signal }"), "must destructure a signal option");
+  assert.ok(fnSource.includes("signal,"), "must forward signal to the underlying fetch call");
+  assert.ok(fnSource.includes('cache: "no-store"'), "retry fetch must bypass Next's data cache");
+});
+
+test("set page retry effect is gated to a resolved set, a true transport fallback, and a full-page tab", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const effectStart = source.indexOf("// Only retry when this is a true transport fallback");
+  const effectEnd = source.indexOf("[explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, setDetailMode, setDetailTab]);", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectStart >= 0, "the retry effect must exist");
+  assert.ok(effectSource.includes("SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD.has(setDetailTab)"), "retry must only run on tabs that need the full page payload");
+  assert.ok(effectSource.includes("!resolvedSetResourceId"), "retry must require a stable resolved set resource id");
+  assert.ok(effectSource.includes("isSetPageTransportFallback(explorePayload)"), "retry must require a true transport fallback payload");
+  assert.ok(effectSource.includes("getSetSnapshotIdentity(explorePayload)"), "retry must inspect the fallback payload's identity");
+  assert.ok(
+    effectSource.includes("setIdentityMatchesTarget(fallbackIdentity, resolvedSetResourceId)"),
+    "retry must require the fallback identity to match the active set when an identity exists"
+  );
+  assert.ok(
+    !effectSource.includes("resolvedSetResourceId || requestedTargetId"),
+    "retry must not fall back to requestedTargetId when resolvedSetResourceId is unresolved"
+  );
+});
+
+test("Cards and Overview tabs are excluded from the full page retry/lazy-fetch tabs", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    source.includes('const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set(["pull-rates", "insights"]);'),
+    "only pull-rates and insights may trigger a full /page fetch"
+  );
+  assert.ok(!/SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set\(\[[^\]]*(cards|overview)/i.test(source), "cards/overview must never be included");
+});
+
+test("retry fetch aborts on cleanup and the resulting AbortError is ignored", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const effectStart = source.indexOf("// Only retry when this is a true transport fallback");
+  const effectEnd = source.indexOf("[explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, setDetailMode, setDetailTab]);", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectSource.includes("const controller = new AbortController();"), "retry effect must create an AbortController");
+  assert.ok(
+    effectSource.includes("fetchPokemonSetPageSnapshot(setId, { signal: controller.signal })"),
+    "retry fetch must be wired to the controller's signal"
+  );
+  assert.ok(effectSource.includes("controller.abort();"), "cleanup must abort the in-flight retry fetch on set/tab change");
+  assert.ok(
+    effectSource.includes('error?.name === "AbortError"'),
+    "catch handler must ignore AbortError instead of surfacing it as a retry failure"
+  );
+  // Aborting must not clear/blank existing UI state — the catch handler
+  // returns early on AbortError instead of dispatching an error/empty status.
+  const catchStart = effectSource.indexOf(".catch((error) => {");
+  const catchAbortGuardEnd = effectSource.indexOf("return;", catchStart);
+  const abortGuardSource = effectSource.slice(catchStart, catchAbortGuardEnd);
+  assert.ok(abortGuardSource.includes("isCancelled || error?.name"), "abort/cancel check must be the first thing the catch handler does");
+});
+
+test("lazy full-page fetch for insights/pull-rates is also abortable", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const effectStart = source.indexOf("if (!setDetailMode || explorePayload) {");
+  const effectEnd = source.indexOf("}, [setDetailMode, setDetailTab, explorePayload, resolvedSetResourceId, requestedTargetId]);", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectStart >= 0, "the lazy full-page fetch effect must exist");
+  assert.ok(effectSource.includes("SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD.has(setDetailTab)"), "must reuse the shared full-page tab set instead of duplicating tab literals");
+  assert.ok(effectSource.includes("const controller = new AbortController();"), "must create an AbortController");
+  assert.ok(effectSource.includes("fetchPokemonSetPageSnapshot(setId, { signal: controller.signal })"), "fetch must be wired to the controller's signal");
+  assert.ok(effectSource.includes("controller.abort();"), "cleanup must abort the in-flight fetch on set/tab change");
+});
+
+test("a stale retry response cannot overwrite the active set after switching sets", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("const activeSetResourceIdRef = useRef(null);"), "must track the freshest resolved set id in a ref for async callbacks");
+  assert.ok(source.includes("activeSetResourceIdRef.current = resolvedSetResourceId;"), "ref must be kept in sync with the latest resolved set id on every render");
+
+  const effectStart = source.indexOf("// Only retry when this is a true transport fallback");
+  const effectEnd = source.indexOf("[explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, setDetailMode, setDetailTab]);", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+  const thenStart = effectSource.indexOf(".then((payload) => {");
+  const thenEnd = effectSource.indexOf(".catch((error) => {", thenStart);
+  const thenSource = effectSource.slice(thenStart, thenEnd);
+
+  assert.ok(effectStart >= 0 && thenStart >= 0, "retry .then() handler must exist");
+  assert.ok(
+    thenSource.includes("isSetStateForActiveSet(setId, {") && thenSource.includes("resolvedSetResourceId: activeSetResourceIdRef.current,"),
+    "must verify the fetched setId still matches the freshest active set identity before applying it"
+  );
+  assert.ok(
+    thenSource.indexOf("setExplorePayload(payload || null);") > thenSource.indexOf("isStillActiveSet"),
+    "setExplorePayload must only run after the stale-set check"
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Regression: Cards/Overview blanking after the set page performance split
+// ---------------------------------------------------------------------------
+
+test("getResolvedPokemonSetResourceId accepts shellPayload as an identity source", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const fnStart = source.indexOf("function getResolvedPokemonSetResourceId(");
+  const fnEnd = source.indexOf("\n}\n", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+
+  assert.ok(fnStart >= 0, "getResolvedPokemonSetResourceId must exist");
+  assert.ok(fnSource.includes("shellPayload"), "must accept shellPayload in its params");
+  assert.ok(fnSource.includes("getSetSnapshotIdentity(shellPayload)"), "must derive identity from shellPayload");
+  assert.ok(fnSource.includes("shellResourceId"), "must compute a shell-derived resource id");
+  assert.ok(
+    source.includes(
+      "getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload })"
+    ),
+    "resolvedSetResourceId call site must pass shellPayload through"
+  );
+});
+
+test("hasRealSetPageIdentity does not require explorePayload when a resource id is already resolved", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const fnStart = source.indexOf("function hasRealSetPageIdentity(");
+  const fnEnd = source.indexOf("\n}\n", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+
+  assert.ok(fnStart >= 0, "hasRealSetPageIdentity must exist");
+  // Cards/Overview intentionally render with explorePayload === null; identity
+  // must still be considered known there instead of unconditionally failing.
+  assert.ok(fnSource.includes("if (!explorePayload) {"), "must special-case a null explorePayload");
+  assert.ok(
+    fnSource.includes("return Boolean(resolvedSetResourceId);"),
+    "must fall back to resolvedSetResourceId when explorePayload is absent"
+  );
+});
+
+test("cards module fetch is allowed once identity resolves from shell even though explorePayload is null", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  // canFetchSetDetailModules short-circuits on a null explorePayload (the
+  // Cards/Overview case) as long as resolvedSetResourceId is present.
+  const canFetchStart = source.indexOf("const canFetchSetDetailModules =");
+  const canFetchEnd = source.indexOf(";", source.indexOf(": true", canFetchStart));
+  const canFetchSource = source.slice(canFetchStart, canFetchEnd);
+
+  assert.ok(canFetchSource.includes("Boolean(resolvedSetResourceId)"), "must gate on a resolved set resource id");
+  assert.ok(canFetchSource.includes("!explorePayload"), "must allow module fetches when explorePayload is intentionally null");
+});
+
+test("market dashboard reducer reset preserves an existing successful payload for the same set", async () => {
+  const { createMarketDashboardState, marketDashboardReducer } = await import(pathToFileURL(marketDashboardStatePath).href);
+
+  const initialState = createMarketDashboardState({
+    status: "success",
+    setId: "ascended-heroes",
+    payload: { topChaseCards: [{ id: "card-1" }] },
+    sourceWindow: "365d",
+  });
+
+  // A reset for the SAME set (e.g. a transient canFetchSetDetailModules dip)
+  // must not blank out data that is already loaded.
+  const sameSetReset = marketDashboardReducer(initialState, {
+    type: "reset",
+    status: "empty",
+    setId: "ascended-heroes",
+    sourceWindow: "365d",
+  });
+  assert.equal(sameSetReset.status, "success_stale");
+  assert.deepEqual(sameSetReset.payload, initialState.payload);
+
+  // A reset for a DIFFERENT set must still discard the stale payload.
+  const differentSetReset = marketDashboardReducer(initialState, {
+    type: "reset",
+    status: "empty",
+    setId: "obsidian-flames",
+    sourceWindow: "365d",
+  });
+  assert.equal(differentSetReset.status, "empty");
+  assert.equal(differentSetReset.payload, null);
+});
+
+test("overview value-history skip-when-complete check lives only in the lazy direct-fetch effect, not in prefetch", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
+  const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
+  const warmupSource = source.slice(warmupStart, warmupEnd);
+
+  const startPrefetchStart = warmupSource.indexOf("const startPrefetch = (targetSetId");
+  const startPrefetchEnd = warmupSource.indexOf("};", startPrefetchStart);
+  const startPrefetchSource = warmupSource.slice(startPrefetchStart, startPrefetchEnd);
+
+  // startPrefetch no longer fetches value-history at all (fanout removed),
+  // so it has no completeness check of its own to gate. The one remaining
+  // completeness check ("set value history fetches directly on every set
+  // detail tab" test) lives in the lazy per-scope effect instead.
+  assert.ok(
+    !startPrefetchSource.includes("hasCompleteSetValueScopes"),
+    "startPrefetch must not duplicate the value-history completeness check"
+  );
+  assert.ok(
+    !startPrefetchSource.includes("Promise.all("),
+    "startPrefetch must not run any multi-request fanout"
+  );
+  assert.ok(source.includes("if (hasCompleteSetValueScopes(seededHistoriesByScope))"), "the direct-fetch effect still skips fetching when scopes are already complete");
+});
+
+test("overview market dashboard error handling keeps stale/seeded data instead of blanking the tab", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const marketEffectStart = source.indexOf("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })");
+  const marketEffectEnd = source.indexOf("return () => {", marketEffectStart);
+  const marketEffectSource = source.slice(marketEffectStart, marketEffectEnd);
+
+  assert.ok(marketEffectSource.includes('type: "error"'), "must dispatch an error action on fetch failure");
+  // The reducer's own "error" case (not the effect) is what preserves stale
+  // payload for the same set — assert that behavior directly.
+  const marketStateSource = fs.readFileSync(marketDashboardStatePath, "utf8");
+  const errorCaseStart = marketStateSource.indexOf('case "error":');
+  const errorCaseEnd = marketStateSource.indexOf("case \"error\":", errorCaseStart + 1) >= 0
+    ? marketStateSource.indexOf("case \"error\":", errorCaseStart + 1)
+    : marketStateSource.indexOf("default:", errorCaseStart);
+  const errorCaseSource = marketStateSource.slice(errorCaseStart, errorCaseEnd);
+  assert.ok(errorCaseSource.includes('"success_stale"'), "error case must fall back to success_stale when a payload already exists for the set");
+});
+
+test("set detail body renders from shell payload without requiring full explore payload", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  // The regression: Cards/Overview intentionally never receive explorePayload
+  // (see page.js's needsExplorePagePayload), so gating the entire body on
+  // explorePayload alone left those tabs permanently blank.
+  assert.ok(
+    !source.includes("{!pageError && explorePayload ? ("),
+    "set detail render must not be gated only on explorePayload"
+  );
+
+  const shellBooleanStart = source.indexOf("const hasSetDetailShellPayload =");
+  assert.ok(shellBooleanStart >= 0, "must define a shell-aware render boolean");
+  const shellBooleanEnd = source.indexOf(";", source.indexOf(": Boolean(explorePayload);", shellBooleanStart));
+  const shellBooleanSource = source.slice(shellBooleanStart, shellBooleanEnd);
+
+  assert.ok(shellBooleanSource.includes("setDetailMode"), "shell-aware boolean must branch on setDetailMode");
+  assert.ok(shellBooleanSource.includes("shellPayload"), "must allow rendering from shellPayload alone");
+  assert.ok(shellBooleanSource.includes("resolvedSetResourceId"), "must allow rendering once identity resolves");
+
+  const canRenderStart = source.indexOf("const canRenderPrimaryContent =");
+  assert.ok(canRenderStart >= 0, "must define a top-level primary-content render gate");
+  const canRenderEnd = source.indexOf(";", canRenderStart);
+  const canRenderSource = source.slice(canRenderStart, canRenderEnd);
+  assert.ok(canRenderSource.includes("pageError"), "primary content gate must still respect pageError");
+  assert.ok(canRenderSource.includes("hasSetDetailShellPayload"), "primary content gate must use the shell-aware boolean");
+
+  assert.ok(source.includes("{canRenderPrimaryContent ? ("), "top-level body must render off canRenderPrimaryContent");
+});
+
+test("Explore/profile navigation is not routed through set-detail tab navigation", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  // pushSetDetailRouteState backs handleSetDetailTabChange/handleSetDetailNavSelect;
+  // it must no-op outside setDetailMode so it can never touch Explore/profile routes.
+  const pushStart = source.indexOf("const pushSetDetailRouteState = ({ tab, section } = {}) => {");
+  const pushEnd = source.indexOf("};", pushStart);
+  const pushSource = source.slice(pushStart, pushEnd);
+  assert.ok(pushStart >= 0, "pushSetDetailRouteState must exist");
+  assert.ok(pushSource.includes("if (!setDetailMode) {"), "must no-op outside set-detail mode");
+
+  // handleSetDetailNavSelect must be wired only to the set-detail navigation
+  // rail — never to the shared PublicProfileLocalScaffold shell that owns
+  // Explore/profile section navigation via profileBaseHref + <Link>.
+  const wiringCount = (source.match(/onNavigate=\{handleSetDetailNavSelect\}/g) || []).length;
+  assert.equal(wiringCount, 1, "handleSetDetailNavSelect must be wired to exactly one nav surface (the set-detail rail)");
+
+  const scaffoldStart = source.indexOf("<PublicProfileLocalScaffold");
+  const scaffoldOpenEnd = source.indexOf(">", scaffoldStart);
+  const scaffoldOpeningProps = source.slice(scaffoldStart, scaffoldOpenEnd);
+
+  assert.ok(scaffoldStart >= 0, "PublicProfileLocalScaffold must be rendered");
+  assert.ok(scaffoldOpeningProps.includes("profileBaseHref={profileBaseHref}"), "Explore/profile shell must receive profileBaseHref");
+  assert.ok(!scaffoldOpeningProps.includes("onNavigate"), "profile shell must own its Explore/profile navigation, not receive the set-detail nav handler");
+  assert.ok(!scaffoldOpeningProps.includes("handleSetDetailNavSelect"), "profile shell must not be wired to handleSetDetailNavSelect");
+  assert.ok(!scaffoldOpeningProps.includes("handleTargetIdChange"), "profile shell must not be wired to set-switch navigation");
+});
+
+test("same-set tab/section navigation uses router.push, not a shallow history-only update", () => {
+  // Regression guard: pushSetDetailRouteState previously called a
+  // window.history.pushState-only helper for same-set tab/section changes.
+  // That meant page.js never re-ran on tab clicks, so the newly-active tab's
+  // module snapshot (cards/marketDashboard/full explore payload, all of
+  // which are tab-scoped SSR fetches) never loaded — causing first-navigation
+  // hydration gaps (missing Set Value Trend, "No cards found" flashes, stale
+  // header data) that only cleared on a hard refresh. router.push must be
+  // used so every same-set tab change is a real navigation through page.js.
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const pushStart = source.indexOf("const pushSetDetailRouteState = ({ tab, section } = {}) => {");
+  const pushEnd = source.indexOf("};", pushStart);
+  const pushSource = source.slice(pushStart, pushEnd);
+
+  assert.ok(pushStart >= 0, "pushSetDetailRouteState must exist");
+  assert.ok(
+    pushSource.includes("router.push(nextHref, { scroll: false })"),
+    "pushSetDetailRouteState must navigate via router.push"
+  );
+  assert.ok(
+    !pushSource.includes("pushShallowSetDetailHistoryState"),
+    "pushSetDetailRouteState must not delegate to a shallow history-only helper"
+  );
+  assert.ok(
+    !pushSource.includes("window.history.pushState"),
+    "pushSetDetailRouteState must not write history state directly instead of navigating"
+  );
+});
+
+test("shallow-only same-set tab navigation helper does not exist", () => {
+  // Regression guard: keeps the pushState-only shortcut from being
+  // reintroduced anywhere in this file until every tab has a proven
+  // client-side query/hydration path (with its own tests) to back it.
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    !source.includes("pushShallowSetDetailHistoryState"),
+    "pushShallowSetDetailHistoryState (or any same-named helper) must not exist in this file"
+  );
+  assert.ok(
+    !source.includes("window.history.pushState"),
+    "no shallow window.history.pushState-only navigation helper may exist in this file"
+  );
+});
+
+test("title/header card renders from the Set Header Summary Contract, not activeSetDetailTab", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    source.includes('import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";'),
+    "must import buildSetHeaderSummary"
+  );
+
+  const memoStart = source.indexOf("const setHeaderSummary = useMemo(");
+  assert.ok(memoStart >= 0, "must define a setHeaderSummary memo");
+  const memoEnd = source.indexOf("const activeChartSetValueMetrics = useMemo(", memoStart);
+  const memoSource = source.slice(memoStart, memoEnd);
+
+  assert.ok(memoSource.includes("buildSetHeaderSummary({"), "memo must call buildSetHeaderSummary");
+  assert.ok(memoSource.includes("explorePayload,"), "must pass explorePayload");
+  assert.ok(memoSource.includes("shellPayload,"), "must pass shellPayload");
+  assert.ok(memoSource.includes("marketDashboardPayload: initialMarketDashboardPayload,"), "must pass the seeded market dashboard payload");
+  assert.ok(memoSource.includes("marketDashboardState: activeMarketDashboardDerivedState,"), "must pass the derived market dashboard state");
+  assert.ok(memoSource.includes("setValueContract: activeSetValueContract,"), "must pass the blended set value contract");
+  assert.ok(memoSource.includes("selectedTarget,"), "must pass selectedTarget");
+  assert.ok(memoSource.includes("resolvedSetResourceId,"), "must pass resolvedSetResourceId");
+  assert.ok(
+    memoSource.includes("explorePayloadIsFresh: isPrimarySnapshotReady,"),
+    "must gate explorePayload freshness on the existing identity-matched readiness flag"
+  );
+  assert.ok(
+    memoSource.includes("previousSameSetSummary: setHeaderSummaryCacheRef.current,"),
+    "must thread the sticky same-set cache in as the fourth-priority fallback"
+  );
+
+  const cacheWriteIndex = source.indexOf("setHeaderSummaryCacheRef.current = setHeaderSummary;", memoStart);
+  assert.ok(
+    cacheWriteIndex > memoStart && cacheWriteIndex <= memoEnd,
+    "must persist the freshest header summary into the sticky cache right after computing it"
+  );
+
+  // The header hero card (title/score/recommendation/set-value block) must
+  // read from setHeaderSummary — never directly off setDetailTab, and never
+  // bare `summary.pack_tier`/`recommendationBadge` inside that block, since
+  // those are only as fresh as whatever tab happened to load.
+  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const heroEnd = source.indexOf("set-detail-content", heroStart);
+  const heroSource = source.slice(heroStart, heroEnd);
+
+  assert.ok(!heroSource.includes("setDetailTab"), "header hero must not depend on the active setDetailTab");
+  assert.ok(heroSource.includes("setHeaderSummary.score"), "header score must come from setHeaderSummary");
+  assert.ok(heroSource.includes("setHeaderSummary.tier"), "header tier must come from setHeaderSummary");
+  assert.ok(heroSource.includes("setHeaderSummary.rank"), "header rank must come from setHeaderSummary");
+  assert.ok(heroSource.includes("setHeaderSummary.recommendationBadge"), "header badge must come from setHeaderSummary");
+  assert.ok(heroSource.includes("setHeaderSummary.recommendationSummary"), "header recommendation text must come from setHeaderSummary");
+  assert.ok(heroSource.includes("setHeaderSummary.setValue.current"), "header set value must come from setHeaderSummary");
+  assert.ok(heroSource.includes("setHeaderSummary.setValue.delta30dAmount"), "header set value delta must come from setHeaderSummary");
+  assert.ok(heroSource.includes("setHeaderSummary.setValue.sparklinePoints"), "header sparkline must come from setHeaderSummary");
+  assert.ok(heroSource.includes("headerDecisionMetrics.map("), "header metric tiles must come from headerDecisionMetrics, not the shared decisionMetrics array");
+});
+
+test("title-card checklist set value sparkline has a hover tooltip like the Overview Set Value Trend chart", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
+  const sparklineEnd = source.indexOf("/>", sparklineStart);
+  const sparklineSource = source.slice(sparklineStart, sparklineEnd);
+
+  assert.ok(sparklineStart >= 0, "header CompactSparkline must exist");
+  assert.ok(
+    !sparklineSource.includes("showTooltip={false}"),
+    "header sparkline must not explicitly disable the built-in date/value/delta tooltip"
+  );
+});
+
+test("compact header sparkline tooltip floats above the RIP score/title card instead of being clipped", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
+  assert.ok(sparklineStart > heroStart, "header CompactSparkline must exist after the RIP score label");
+
+  const cardWrapperStart = source.lastIndexOf('<div className="relative flex min-h-[8.25rem]', sparklineStart);
+  const cardWrapperEnd = source.indexOf(">", cardWrapperStart);
+  const cardWrapperClassName = source.slice(cardWrapperStart, cardWrapperEnd);
+
+  assert.ok(cardWrapperStart >= 0, "checklist set value card wrapping the header sparkline must exist");
+  assert.ok(
+    cardWrapperClassName.includes("has-[[data-compact-sparkline-tooltip]]:z-30"),
+    "checklist set value card must raise its stacking context above the RIP score/title card (z-20) while its tooltip is showing"
+  );
+  assert.ok(
+    !cardWrapperClassName.includes("overflow-hidden"),
+    "checklist set value card must not clip the sparkline tooltip"
+  );
+
+  const compactStart = source.indexOf("function CompactSparkline");
+  const compactEnd = source.indexOf("function normalizeSetValueHistoryPoints", compactStart);
+  const compactSource = source.slice(compactStart, compactEnd);
+
+  assert.ok(
+    compactSource.includes("overflow-visible"),
+    "sparkline container must allow its tooltip to escape the tiny chart box instead of clipping it"
+  );
+  assert.ok(
+    compactSource.includes("pointer-events-none absolute"),
+    "sparkline tooltip must not intercept pointer events"
+  );
+  assert.ok(
+    compactSource.includes("z-[9999]"),
+    "sparkline tooltip must use a high z-index so it floats above surrounding cards"
+  );
+
+  // The Overview Set Value Trend chart must reuse the same compact tooltip shape.
+  const overviewTooltipStart = source.indexOf("<RechartsTooltip content={<SetValueTooltip");
+  const overviewTooltipLineEnd = source.indexOf("\n", overviewTooltipStart);
+  const overviewTooltipSource = source.slice(overviewTooltipStart, overviewTooltipLineEnd);
+  assert.ok(overviewTooltipStart >= 0, "Overview chart RechartsTooltip must exist");
+  assert.ok(
+    overviewTooltipSource.includes('content={<SetValueTooltip />}'),
+    "Overview chart tooltip content must use the compact set value tooltip"
+  );
+  assert.ok(
+    !overviewTooltipSource.includes("wrapperStyle"),
+    "Overview chart tooltip must not be modified by the compact header tooltip fix"
+  );
+});
+
+test("interpretation (recommendation badge/summary, pillar metas, set intelligence) falls back to shellPayload", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    source.includes(
+      "const interpretation = explorePayload?.interpretation || shellPayload?.interpretation || {};"
+    ),
+    "interpretation must fall back to shellPayload so Decision Signals / recommendation text survive tab switches"
+  );
+});
+
+test("shell payload contract exposes interpretation and set value history for the header/Decision Signals", () => {
+  const source = fs.readFileSync(setPageAdaptersPath, "utf8");
+  const backendServiceSource = fs.readFileSync(snapshotServicePath, "utf8");
+  const backendBuilderSource = fs.readFileSync(snapshotBuilderPath, "utf8");
+
+  assert.ok(
+    backendServiceSource.includes("set_intelligence_json"),
+    "shell snapshot query must select set_intelligence_json so the header/Decision Signals can read the recommendation"
+  );
+  assert.ok(
+    backendServiceSource.includes('"interpretation": interpretation,') ||
+      backendServiceSource.includes('"interpretation":') ,
+    "shell payload builder must expose interpretation"
+  );
+  assert.ok(
+    backendServiceSource.includes("_load_shell_checklist_set_value_history"),
+    "shell endpoint must enrich the payload with a lightweight checklist set value history"
+  );
+  assert.ok(
+    backendBuilderSource.includes('"average_hit_value"'),
+    "snapshot builder must project average_hit_value into a shell-visible subset"
+  );
+  assert.ok(
+    backendBuilderSource.includes('"biggest_upside_score"') && backendBuilderSource.includes('"biggest_upside_rank"'),
+    "snapshot builder must project biggest_upside score/rank/tier into rip_summary_json"
+  );
+  assert.ok(source.length > 0, "setPageAdapters module must still be readable");
 });

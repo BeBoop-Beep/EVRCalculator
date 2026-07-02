@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
+// Full set /page payloads can exceed Next's 2MB data-cache limit, so this
+// route always bypasses Next's fetch cache and never emits a cacheable
+// response — unlike the smaller module routes (cards, market, value-history),
+// which stay on the public/CDN cache path.
+const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
+const BACKEND_FETCH_TIMEOUT_MS = 9000;
+
+function backendPathForDiagnostics(url) {
+  return `${url.pathname}${url.search || ""}`;
+}
+
+function isAbortError(error) {
+  return error?.name === "AbortError" || String(error?.message || "").toLowerCase().includes("abort");
+}
 
 export async function GET(request, { params }) {
   const resolvedParams = (await params) || {};
   const setId = String(resolvedParams?.setId || "").trim();
-  const url = new URL(request.url);
-  const isRetry = url.searchParams.get("retry") === "1";
 
   if (!setId) {
     return NextResponse.json(
@@ -20,11 +31,36 @@ export async function GET(request, { params }) {
     `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/page`
   );
 
-  const proxyResponse = await fetch(backendUrl.toString(), {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    ...(isRetry ? { cache: "no-store" } : { next: { revalidate: 300 } }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), BACKEND_FETCH_TIMEOUT_MS);
+  let proxyResponse;
+  try {
+    proxyResponse = await fetch(backendUrl.toString(), {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    const timedOut = isAbortError(error);
+    const status = timedOut ? 504 : 502;
+    const code = timedOut ? "SET_PAGE_SNAPSHOT_PROXY_TIMEOUT" : "SET_PAGE_SNAPSHOT_PROXY_ERROR";
+    return NextResponse.json(
+      {
+        message: timedOut ? "Set page snapshot request timed out" : "Unable to load set page snapshot",
+        code,
+        retryable: true,
+        setId,
+        backendPath: backendPathForDiagnostics(backendUrl),
+      },
+      {
+        status,
+        headers: { "Cache-Control": FAILED_ANALYTICS_CACHE_CONTROL },
+      }
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
@@ -33,7 +69,7 @@ export async function GET(request, { params }) {
     status: proxyResponse.status,
     headers: {
       "content-type": contentType,
-      "Cache-Control": isRetry ? "no-store" : PUBLIC_ANALYTICS_CACHE_CONTROL,
+      "Cache-Control": FAILED_ANALYTICS_CACHE_CONTROL,
     },
   });
 }

@@ -183,6 +183,15 @@ function formatLongDate(value) {
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
+// Rows with a mapped color here are the chart's plotted lines and get top billing
+// (colored dot + larger value) so they're readable at a glance; everything else
+// (break-even, pack cost) is reference context and reads as a smaller footer line.
+const TOOLTIP_ROW_COLORS = {
+  p95: HISTORICAL_TREND_COLORS.p95ToCost,
+  average: HISTORICAL_TREND_COLORS.meanToCost,
+  typical: HISTORICAL_TREND_COLORS.medianToCost,
+};
+
 function TrendTooltip({ active, payload, packCost }) {
   if (!active || !payload?.length) {
     return null;
@@ -194,18 +203,32 @@ function TrendTooltip({ active, payload, packCost }) {
   }
 
   const tooltipRows = buildPerformanceTooltipRows(row, packCost);
+  const primaryRows = tooltipRows.filter((entry) => TOOLTIP_ROW_COLORS[entry.key]);
+  const referenceRows = tooltipRows.filter((entry) => !TOOLTIP_ROW_COLORS[entry.key]);
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Date</p>
-      <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.snapshotDate)}</p>
-      <div className="mt-2 space-y-0.5">
-        {tooltipRows.map((entry) => (
-          <p key={entry.key} className="text-xs text-[var(--text-secondary)]">
-            {entry.label} <span className="font-semibold text-[var(--text-primary)]">{entry.value}</span>
-          </p>
+    <div className="min-w-[11rem] max-w-[16rem] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(row.snapshotDate)}</p>
+      <div className="mt-1.5 space-y-1">
+        {primaryRows.map((entry) => (
+          <div key={entry.key} className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
+              <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ backgroundColor: TOOLTIP_ROW_COLORS[entry.key] }} />
+              {entry.label}
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-[var(--text-primary)]">{entry.value}</span>
+          </div>
         ))}
       </div>
+      {referenceRows.length > 0 ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-[var(--border-subtle)] pt-1.5">
+          {referenceRows.map((entry) => (
+            <span key={entry.key} className="text-[10px] text-[var(--text-secondary)]">
+              {entry.label} <span className="font-semibold text-[var(--text-primary)]">{entry.value}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

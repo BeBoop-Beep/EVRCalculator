@@ -33,6 +33,7 @@ import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { buildSetValueContract, selectSetValueTrendFromContract } from "./setValueContract.mjs";
+import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { selectDesirabilityValidation as selectSetDesirabilityValidation } from "@/components/pokemon/set-page/Insights/desirabilityValidationSelector.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
@@ -47,14 +48,11 @@ import {
 import {
   getCachedPokemonSetCards,
   getPokemonSetCards,
-  prefetchPokemonSetCards,
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketDashboard,
   getPokemonSetValueHistory,
-  normalizeMarketDashboardWindow,
-  prefetchPokemonSetMarketDashboard,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import {
   buildMarketDashboardStateFromPayload,
@@ -111,6 +109,9 @@ const SECTION_SCROLL_ORDER = [
 ];
 const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
+// Only these tabs render content sourced from the full set /page snapshot.
+// Cards/Overview must never trigger that fetch (see canFetchSetDetailModules).
+const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set(["pull-rates", "insights"]);
 const CANONICAL_SET_VALUE_SCOPE = "standard";
 const SET_VALUE_SCOPE_OPTIONS = [
   { key: "standard", label: "Checklist" },
@@ -131,7 +132,12 @@ const CARD_MOVEMENT_FILTER_OPTIONS = [
 ];
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
 const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
-const SET_PREFETCH_ADJACENT_LIMIT = 2;
+// Adjacent-set prefetching previously fired cards + dashboard + 3 value-history
+// requests per adjacent set on every navigation, saturating the browser's
+// per-origin connection limit and starving the actual destination fetch.
+// Keep the mechanism but disable it by default — the active destination set
+// is enough; bump this only behind a deliberate, measured decision.
+const SET_PREFETCH_ADJACENT_LIMIT = 0;
 const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
 const SET_DETAIL_TAB_ALIASES = {
   analytics: "insights",
@@ -261,7 +267,13 @@ function isSetPageTransportFallback(explorePayload) {
 }
 
 function hasRealSetPageIdentity(explorePayload, resolvedSetResourceId) {
-  if (!explorePayload || isSetPagePrimarySnapshotUnavailable(explorePayload)) {
+  if (!explorePayload) {
+    // Cards/Overview intentionally render without the full explore payload —
+    // the shell (or selected target) is a valid identity source for those
+    // tabs, so the absence of explorePayload alone must not read as "unknown".
+    return Boolean(resolvedSetResourceId);
+  }
+  if (isSetPagePrimarySnapshotUnavailable(explorePayload)) {
     return false;
   }
   const identity = getSetSnapshotIdentity(explorePayload);
@@ -272,7 +284,7 @@ function hasRealSetPageIdentity(explorePayload, resolvedSetResourceId) {
   return !resolvedSetResourceId || setIdentityMatchesTarget(identity, resolvedSetResourceId);
 }
 
-async function fetchPokemonSetPageSnapshot(setId) {
+async function fetchPokemonSetPageSnapshot(setId, { signal } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
@@ -281,6 +293,7 @@ async function fetchPokemonSetPageSnapshot(setId) {
     method: "GET",
     headers: { Accept: "application/json" },
     cache: "no-store",
+    signal,
   });
   let payload = null;
   try {
@@ -297,13 +310,19 @@ async function fetchPokemonSetPageSnapshot(setId) {
   return payload;
 }
 
-function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload }) {
+function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }) {
   const requestedResourceId = toStableIdentifier(requestedTargetId);
   const selectedResourceId =
     toStableIdentifier(selectedTarget?.id ?? selectedTarget?.set_id) ||
     toStableIdentifier(selectedTarget?.target_id);
   const snapshotIdentity = getSetSnapshotIdentity(explorePayload);
   const snapshotResourceId = toStableIdentifier(snapshotIdentity?.id ?? snapshotIdentity?.set_id);
+  // The shell snapshot is a valid identity source too — Cards/Overview only
+  // ever load the shell (not the full explore payload), so without this the
+  // set id can fail to resolve for those tabs even though the shell already
+  // knows which set it is.
+  const shellIdentity = getSetSnapshotIdentity(shellPayload);
+  const shellResourceId = toStableIdentifier(shellIdentity?.id ?? shellIdentity?.set_id);
 
   if (selectedResourceId && (!requestedResourceId || setIdentityMatchesTarget(selectedTarget, requestedResourceId))) {
     return selectedResourceId;
@@ -311,10 +330,13 @@ function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, ex
   if (snapshotResourceId && setIdentityMatchesTarget(snapshotIdentity, requestedResourceId)) {
     return snapshotResourceId;
   }
+  if (shellResourceId && (!requestedResourceId || setIdentityMatchesTarget(shellIdentity, requestedResourceId))) {
+    return shellResourceId;
+  }
   if (requestedResourceId) {
     return requestedResourceId;
   }
-  return snapshotResourceId || null;
+  return snapshotResourceId || shellResourceId || null;
 }
 
 function isSetStateForActiveSet(stateSetId, { requestedTargetId, selectedTarget, resolvedSetResourceId }) {
@@ -349,10 +371,6 @@ function getSetValueScopeLabel(scope) {
 
 function getSetValueMetricLabel(scope) {
   return `${getSetValueScopeLabel(scope)} Set Value`;
-}
-
-function getTopMarketCardsCacheKey(setId, sourceWindowKey = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW) {
-  return `${String(setId || "").trim()}:${normalizeMarketDashboardWindow(sourceWindowKey || DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW)}`;
 }
 
 function createSetValueHistoryState({
@@ -1913,7 +1931,48 @@ function buildCurrencyTicks(points) {
   );
 }
 
-function SetValueTooltip({ active, payload, scopeLabel = "Checklist" }) {
+function SetValueCompactTooltipCard({
+  date,
+  value,
+  deltaAmount,
+  deltaPercent,
+  isCarriedForward = false,
+  sourceDate = null,
+  className = "",
+  style,
+  ...props
+}) {
+  const normalizedDeltaAmount = toNumber(deltaAmount);
+  const normalizedDeltaPercent = toNumber(deltaPercent);
+
+  return (
+    <div
+      {...props}
+      className={[
+        "min-w-[9rem] max-w-[14rem] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]",
+        className,
+      ].filter(Boolean).join(" ")}
+      style={style}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(date)}</p>
+      <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] tabular-nums">
+        <span>{formatCurrency(value)}</span>
+        <DeltaTrendIcon value={normalizedDeltaAmount} size="md" />
+      </p>
+      {normalizedDeltaAmount !== null ? (
+        <p className="mt-0.5 text-[11px] font-semibold tabular-nums" style={getDeltaTextStyle(normalizedDeltaAmount)}>
+          {formatSignedCurrency(normalizedDeltaAmount)}
+          {normalizedDeltaPercent !== null ? <span> ({normalizedDeltaPercent > 0 ? "+" : ""}{normalizedDeltaPercent.toFixed(1)}%)</span> : null}
+        </p>
+      ) : null}
+      {isCarriedForward && sourceDate ? (
+        <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(sourceDate)}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SetValueTooltip({ active, payload }) {
   if (!active || !payload?.length) {
     return null;
   }
@@ -1923,28 +1982,15 @@ function SetValueTooltip({ active, payload, scopeLabel = "Checklist" }) {
     return null;
   }
 
-  const deltaAmount = toNumber(row.deltaFromPrevious);
-  const deltaPercent = toNumber(row.deltaPercentFromPrevious);
-
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Date</p>
-      <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{formatLongDate(row.date)}</p>
-      <p className="mt-2 text-xs text-[var(--text-secondary)]">
-        {scopeLabel} Set Value <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(row.setValue)}</span>
-      </p>
-      {row.isCarriedForward ? (
-        <p className="text-xs text-[var(--text-secondary)]">
-          Carried forward{row.sourceDate ? <span> from {formatLongDate(row.sourceDate)}</span> : null}
-        </p>
-      ) : null}
-      {deltaAmount !== null ? (
-        <p className="text-xs text-[var(--text-secondary)]">
-          Change <span className="font-semibold" style={getDeltaTextStyle(deltaAmount)}>{formatSignedCurrency(deltaAmount)}</span>
-          {deltaPercent !== null ? <span style={getDeltaTextStyle(deltaAmount)}> ({deltaPercent > 0 ? "+" : ""}{deltaPercent.toFixed(1)}%)</span> : null}
-        </p>
-      ) : null}
-    </div>
+    <SetValueCompactTooltipCard
+      date={row.date}
+      value={row.setValue}
+      deltaAmount={toNumber(row.deltaFromPrevious)}
+      deltaPercent={toNumber(row.deltaPercentFromPrevious)}
+      isCarriedForward={row.isCarriedForward}
+      sourceDate={row.sourceDate}
+    />
   );
 }
 
@@ -2058,26 +2104,17 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
         ) : null}
       </svg>
       {showTooltip && activePoint && tooltipX !== null ? (
-        <div
+        <SetValueCompactTooltipCard
           data-compact-sparkline-tooltip
-          className="pointer-events-none absolute bottom-[calc(100%+0.55rem)] z-[9999] min-w-[9rem] max-w-[min(14rem,calc(100vw-1.5rem))] -translate-x-1/2 rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]"
+          date={activePoint.date}
+          value={activePoint.y}
+          deltaAmount={activeDeltaAmount}
+          deltaPercent={activeDeltaPercent}
+          isCarriedForward={activePoint.isCarriedForward}
+          sourceDate={activePoint.sourceDate}
+          className="pointer-events-none absolute bottom-[calc(100%+0.55rem)] z-[9999] max-w-[min(14rem,calc(100vw-1.5rem))] -translate-x-1/2"
           style={{ left: tooltipX }}
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(activePoint.date)}</p>
-          <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] tabular-nums">
-            <span>{formatCurrency(activePoint.y)}</span>
-            <DeltaTrendIcon value={activeDeltaAmount} size="md" />
-          </p>
-          {activeDeltaAmount !== null ? (
-            <p className="mt-0.5 text-[11px] font-semibold tabular-nums" style={getDeltaTextStyle(activeDeltaAmount)}>
-              {formatSignedCurrency(activeDeltaAmount)}
-              {activeDeltaPercent !== null ? <span> ({activeDeltaPercent > 0 ? "+" : ""}{activeDeltaPercent.toFixed(1)}%)</span> : null}
-            </p>
-          ) : null}
-          {activePoint.isCarriedForward && activePoint.sourceDate ? (
-            <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(activePoint.sourceDate)}</p>
-          ) : null}
-        </div>
+        />
       ) : null}
     </div>
   );
@@ -2271,7 +2308,7 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
               tickFormatter={formatAxisCurrency}
               width={58}
             />
-            <RechartsTooltip content={<SetValueTooltip scopeLabel={scopeLabel} />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
+            <RechartsTooltip content={<SetValueTooltip />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
             <Line
               type="linear"
               dataKey="setValue"
@@ -3062,6 +3099,11 @@ function TrendIndicator({ trend, className = "" }) {
   }
 
   const isFlat = trend.trend === "flat";
+  // A metric can have a direction (up/down) without an "is this good?"
+  // judgment (e.g. pack cost, or top-share concentration) — isImprovement is
+  // null for those, but the arrow must still reflect real movement instead
+  // of collapsing to flat, which would hide that the value changed at all.
+  const hasDirectionalMovement = trend.trend === "up" || trend.trend === "down";
   const iconClassName = isFlat ? "h-4 w-4" : "h-6 w-6";
   const wrapperClassName = isFlat ? "h-5 w-5" : "h-7 w-7";
   const displayTrend =
@@ -3069,6 +3111,8 @@ function TrendIndicator({ trend, className = "" }) {
       ? "up"
       : trend.isImprovement === false
       ? "down"
+      : hasDirectionalMovement
+      ? trend.trend
       : "flat";
   const color =
     trend.isImprovement === true
@@ -3083,6 +3127,8 @@ function TrendIndicator({ trend, className = "" }) {
       ? "Worsened from previous snapshot"
       : isFlat
       ? "Unchanged from previous snapshot"
+      : hasDirectionalMovement
+      ? `Moved ${trend.trend} from previous snapshot`
       : "Neutral trend from previous snapshot";
 
   return (
@@ -6653,6 +6699,7 @@ export default function RipStatisticsPageClient({
   requestedTargetType,
   requestedTargetId,
   explorePayload: initialExplorePayload,
+  shellPayload = null,
   initialModuleSnapshots = null,
   pageError,
   profileBaseHref = "/Explore/rip-statistics",
@@ -6670,14 +6717,25 @@ export default function RipStatisticsPageClient({
     error: null,
   });
   const timeoutSnapshotRefreshKeyRef = useRef(null);
+  const explorePagePayloadFetchKeyRef = useRef(null);
+  const activeSetResourceIdRef = useRef(null);
+  // "Already-loaded same-set client state" fallback for the title/header card
+  // (setHeaderSummary below) — a sticky last-known-good snapshot per set id so
+  // the header does not blank out when explorePayload is intentionally reset
+  // to null on tab navigation (Cards/Overview never fetch the full payload).
+  const setHeaderSummaryCacheRef = useRef(null);
 
   const rawTargets = targetsPayload?.targets;
   const targets = useMemo(() => (Array.isArray(rawTargets) ? rawTargets : []), [rawTargets]);
   const resolvedSetResourceId = useMemo(
-    () => getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload }),
-    [requestedTargetId, selectedTarget, explorePayload]
+    () => getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }),
+    [requestedTargetId, selectedTarget, explorePayload, shellPayload]
   );
-  const summary = explorePayload?.summary || {};
+  // Tracks the freshest resolved set id for async callbacks (e.g. the retry
+  // fetch below) so a stale response can detect a set switch even if abort
+  // somehow doesn't win the race.
+  activeSetResourceIdRef.current = resolvedSetResourceId;
+  const summary = explorePayload?.summary || shellPayload?.summary || {};
   const isTimeoutFallbackPayload = setDetailMode && isSetPageTransportFallback(explorePayload);
   const isPrimarySnapshotUnavailable = setDetailMode && isSetPagePrimarySnapshotUnavailable(explorePayload);
   const hasActiveSetPageIdentity = useMemo(
@@ -6694,19 +6752,28 @@ export default function RipStatisticsPageClient({
         )
       : true;
   const shouldPauseSetDetailDependentFetches = setDetailMode && !isPrimarySnapshotReady;
+  const canFetchSetDetailModules = setDetailMode
+    ? Boolean(resolvedSetResourceId) &&
+      (!explorePayload || isSetPageTransportFallback(explorePayload) || hasActiveSetPageIdentity)
+    : true;
   const timeoutSnapshotRankTitle = "Snapshot loading; retrying.";
   const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
   const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
   const setShellContract = useMemo(
-    () => (setDetailMode ? adaptSetShell(explorePayload || {}) : null),
-    [explorePayload, setDetailMode]
+    () => (setDetailMode ? adaptSetShell(explorePayload || shellPayload || {}) : null),
+    [explorePayload, shellPayload, setDetailMode]
   );
+  // Cards/Overview intentionally skip the full explorePayload fetch for performance,
+  // so set-detail pages must be able to render from shellPayload alone.
+  const hasSetDetailShellPayload = setDetailMode
+    ? Boolean(explorePayload || shellPayload || resolvedSetResourceId)
+    : Boolean(explorePayload);
+  const canRenderPrimaryContent = !pageError && hasSetDetailShellPayload;
   const percentiles = explorePayload?.percentiles || [];
   const distributionBins = explorePayload?.distribution_bins || [];
   const thresholdBins = explorePayload?.threshold_bins || [];
   const simulationDrivers = useMemo(() => selectSimulationDrivers(explorePayload || {}), [explorePayload]);
   const topHits = simulationDrivers.rows;
-  const historyTrend = explorePayload?.history_trend || [];
   const rankings = explorePayload?.rankings || [];
   const normalizedOpeningDesirability = useMemo(
     () =>
@@ -6743,7 +6810,11 @@ export default function RipStatisticsPageClient({
   }, [initialCardAppealMarketPriceCorrelation]);
   const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
-  const interpretation = explorePayload?.interpretation || {};
+  // Cards/Overview never load the full explorePayload, so interpretation
+  // (recommendation badge/summary, pillar metas, set intelligence lenses)
+  // must fall back to the shell — otherwise it silently disappears whenever
+  // explorePayload isn't the active tab's payload.
+  const interpretation = explorePayload?.interpretation || shellPayload?.interpretation || {};
   const interpretationMeta = interpretation?.meta || {};
   const pillarMetaByKey = useMemo(() => {
     const entries = Array.isArray(interpretationMeta?.pillars)
@@ -6911,6 +6982,21 @@ export default function RipStatisticsPageClient({
         previous: previous?.cardAppealMarketPriceCorrelation,
       }) || routeSeed.cardAppealMarketPriceCorrelation;
       if (seededCards.length === 0) {
+        // A prop update that carries no cards (e.g. the active tab's route
+        // seed no longer includes cardsPayload) must not blank out cards
+        // that are already loaded for the same set — only reset when the
+        // previously-held cards belong to a different/stale set.
+        const previousCardsSameSet =
+          previous?.cards?.length > 0 &&
+          isSetStateForActiveSet(previous.setId, { requestedTargetId, selectedTarget, resolvedSetResourceId })
+            ? previous.cards
+            : [];
+        if (previousCardsSameSet.length > 0) {
+          return {
+            ...previous,
+            cardAppealMarketPriceCorrelation: seededCorrelation,
+          };
+        }
         return {
           status: "idle",
           setId: null,
@@ -6932,25 +7018,37 @@ export default function RipStatisticsPageClient({
     initialCardsPayload,
     initialMarketDashboardPayload,
     requestedTargetId,
+    selectedTarget,
     resolvedSetResourceId,
   ]);
 
   useEffect(() => {
-    if (!setDetailMode || !isSetPageTransportFallback(explorePayload)) {
+    // Only retry when this is a true transport fallback/timeout for a stable,
+    // resolved active set on a tab that actually needs the full /page
+    // payload — never just because the tab or set changed, or because
+    // explorePayload is intentionally null on Cards/Overview.
+    const activeTabNeedsFullPagePayload = SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD.has(setDetailTab);
+    if (
+      !setDetailMode ||
+      !resolvedSetResourceId ||
+      !activeTabNeedsFullPagePayload ||
+      !isSetPageTransportFallback(explorePayload)
+    ) {
+      return undefined;
+    }
+    const fallbackIdentity = getSetSnapshotIdentity(explorePayload);
+    if (fallbackIdentity && !setIdentityMatchesTarget(fallbackIdentity, resolvedSetResourceId)) {
       return undefined;
     }
 
-    const setId = resolvedSetResourceId || requestedTargetId;
-    if (!setId) {
-      return undefined;
-    }
-
+    const setId = resolvedSetResourceId;
     const refreshKey = `${requestedTargetId || ""}:${setId}`;
     if (timeoutSnapshotRefreshKeyRef.current === refreshKey) {
       return undefined;
     }
     timeoutSnapshotRefreshKeyRef.current = refreshKey;
 
+    const controller = new AbortController();
     let isCancelled = false;
     setSetPageSnapshotRefreshState({ status: "loading", setId, error: null });
     debugSetPagePerf("set_page.timeout_retry_start", {
@@ -6958,9 +7056,22 @@ export default function RipStatisticsPageClient({
       resolvedSetId: setId,
     });
 
-    fetchPokemonSetPageSnapshot(setId)
+    fetchPokemonSetPageSnapshot(setId, { signal: controller.signal })
       .then((payload) => {
         if (isCancelled) {
+          return;
+        }
+        const isStillActiveSet = isSetStateForActiveSet(setId, {
+          requestedTargetId,
+          selectedTarget,
+          resolvedSetResourceId: activeSetResourceIdRef.current,
+        });
+        if (!isStillActiveSet) {
+          debugSetPagePerf("set_page.timeout_retry_stale", {
+            routeSetId: requestedTargetId,
+            resolvedSetId: setId,
+            activeSetResourceId: activeSetResourceIdRef.current,
+          });
           return;
         }
         setExplorePayload(payload || null);
@@ -6972,7 +7083,7 @@ export default function RipStatisticsPageClient({
         });
       })
       .catch((error) => {
-        if (isCancelled) {
+        if (isCancelled || error?.name === "AbortError") {
           return;
         }
         setSetPageSnapshotRefreshState({
@@ -6990,8 +7101,53 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      controller.abort();
     };
-  }, [explorePayload, requestedTargetId, resolvedSetResourceId, setDetailMode]);
+  }, [explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, setDetailMode, setDetailTab]);
+
+  // Insights and Pull Rates tab content (rankings, percentiles, RIP statistics,
+  // pull rate assumptions) is only available on the full set page snapshot.
+  // The initial server render intentionally skips fetching it when those tabs
+  // are not active (see pokemonSetInitialSnapshotsServer/page.js) — this effect
+  // lazily fetches it client-side the moment the user is on a tab that needs it.
+  useEffect(() => {
+    if (!setDetailMode || explorePayload) {
+      return undefined;
+    }
+    if (!SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD.has(setDetailTab)) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId || requestedTargetId;
+    if (!setId) {
+      return undefined;
+    }
+
+    const fetchKey = `${requestedTargetId || ""}:${setId}`;
+    if (explorePagePayloadFetchKeyRef.current === fetchKey) {
+      return undefined;
+    }
+    explorePagePayloadFetchKeyRef.current = fetchKey;
+
+    const controller = new AbortController();
+    let isCancelled = false;
+    fetchPokemonSetPageSnapshot(setId, { signal: controller.signal })
+      .then((payload) => {
+        if (!isCancelled) {
+          setExplorePayload(payload || null);
+        }
+      })
+      .catch((error) => {
+        if (isCancelled || error?.name === "AbortError") {
+          return;
+        }
+        explorePagePayloadFetchKeyRef.current = null;
+      });
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [setDetailMode, setDetailTab, explorePayload, resolvedSetResourceId, requestedTargetId]);
 
   const graphSectionMeta =
     activeInsightsGraphMode === "historical-trend"
@@ -7012,61 +7168,31 @@ export default function RipStatisticsPageClient({
       : interpretation?.outcomeDistribution;
 
   const warmSetDetailResources = useCallback((setId, { includeAdjacent = false, reason = "prefetch" } = {}) => {
-    if (shouldPauseSetDetailDependentFetches) {
+    if (!canFetchSetDetailModules) {
       debugSetPagePerf("set.prefetch_deferred", {
         setId,
         reason,
-        deferredReason: isTimeoutFallbackPayload ? "transport_fallback_retry" : "set_page_snapshot_unavailable",
+        deferredReason: !resolvedSetResourceId ? "set_id_unresolved" : "set_identity_mismatch",
       });
       return;
     }
 
+    // Route prefetch only — no cards/market data fetches here. Eagerly
+    // fetching module data for a set the user is merely hovering/adjacent to
+    // (or has just clicked toward, before navigation even completes) fanned
+    // out /cards + /market/dashboard (+ downstream value-history) requests
+    // across many set ids on every switch. Each tab's own effect below fetches
+    // only the active tab's required module once that tab actually renders.
     const startPrefetch = (targetSetId, prefetchReason) => {
       const resolvedSetId = String(targetSetId || "").trim();
-      if (!resolvedSetId) {
+      if (!resolvedSetId || setPrefetchStartedRef.current.has(resolvedSetId)) {
         return;
       }
-      const prefetchKey = getTopMarketCardsCacheKey(resolvedSetId, DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW);
-      if (!setPrefetchStartedRef.current.has(prefetchKey)) {
-        setPrefetchStartedRef.current.add(prefetchKey);
-        debugSetPagePerf("set.prefetch_start", { setId: resolvedSetId, reason: prefetchReason });
-        markSetPagePerformance("cards_warmup_start", { setId: resolvedSetId, reason: prefetchReason });
-        prefetchPokemonSetCards(resolvedSetId).then((payload) => {
-          const cards = Array.isArray(payload?.cards) ? payload.cards : [];
-          if (cards.length > 0) {
-            checklistCacheRef.current.set(resolvedSetId, payload);
-          }
-          markSetPagePerformance("cards_warmup_ready", { setId: resolvedSetId, count: cards.length, reason: prefetchReason });
-          debugSetPagePerf("cards.prefetch_ready", { setId: resolvedSetId, count: cards.length, reason: prefetchReason });
-        });
-        prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW }).then((payload) => {
-          if (payload) {
-            markSetPagePerformance("market_warmup_ready", { setId: resolvedSetId, reason: prefetchReason });
-            debugSetPagePerf("market.prefetch_ready", { setId: resolvedSetId, reason: prefetchReason });
-          }
-        });
-        Promise.all(
-          SET_VALUE_SCOPE_OPTIONS.map((scope) =>
-            getPokemonSetValueHistory(resolvedSetId, { days: 365, scope: scope.key }).then((payload) => ({
-              scope: scope.key,
-              points: Array.isArray(payload?.history) ? payload.history.length : 0,
-            }))
-          )
-        )
-          .then((results) => {
-            markSetPagePerformance("set_value_ready", {
-              setId: resolvedSetId,
-              reason: prefetchReason,
-              scopes: results,
-            });
-          })
-          .catch((error) => {
-            debugSetPagePerf("set_value.prefetch_error", {
-              setId: resolvedSetId,
-              reason: prefetchReason,
-              error: error?.message || String(error),
-            });
-          });
+      setPrefetchStartedRef.current.add(resolvedSetId);
+      const targetHref = targetHrefById?.[resolvedSetId] || null;
+      if (targetHref) {
+        router.prefetch(targetHref);
+        debugSetPagePerf("set.route_prefetch", { setId: resolvedSetId, reason: prefetchReason });
       }
     };
 
@@ -7091,7 +7217,7 @@ export default function RipStatisticsPageClient({
     adjacentTargets.forEach((adjacentSetId) => {
       startPrefetch(adjacentSetId, "adjacent");
     });
-  }, [activeSetModulesStable, isTimeoutFallbackPayload, shouldPauseSetDetailDependentFetches, targets]);
+  }, [activeSetModulesStable, canFetchSetDetailModules, shouldPauseSetDetailDependentFetches, targets, router, targetHrefById]);
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
@@ -7588,6 +7714,17 @@ export default function RipStatisticsPageClient({
     () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload),
     [activeMarketDashboardState.payload, seededMarketDashboardPayload]
   );
+  // Cards/Overview never load the full explore payload, so its history_trend
+  // (used for title-card / metric trend arrows) is unavailable there. The
+  // overview market dashboard snapshot carries an equivalent point-in-time
+  // series (performanceVsCostHistory, with packCost/meanValue per date) —
+  // fall back to it so trend arrows still reflect real movement instead of
+  // silently going neutral just because the full payload wasn't fetched.
+  const overviewPerformanceVsCostHistory =
+    activeMarketDashboardState.payload?.performanceVsCostHistory ||
+    activeMarketDashboardState.payload?.performance_vs_cost_history ||
+    [];
+  const historyTrend = explorePayload?.history_trend || overviewPerformanceVsCostHistory;
   const activeDirectSetValueState =
     setValueHistoryState.setId === resolvedSetResourceId
       ? setValueHistoryState
@@ -7739,6 +7876,39 @@ export default function RipStatisticsPageClient({
       ? "positive"
       : "neutral";
   const setValueSparklinePoints = standardSetValueScope?.history?.length > 0 ? standardSetValueScope.history : canonicalSetValueMetrics.visiblePoints || [];
+
+  // Set Header Summary Contract: the title/header card sources every headline
+  // field from here so it renders the same way regardless of setDetailTab.
+  // See buildSetHeaderSummary for the explorePayload > shellPayload >
+  // marketDashboardPayload > already-loaded client state > fallback order.
+  const setHeaderSummary = useMemo(
+    () =>
+      buildSetHeaderSummary({
+        explorePayload,
+        shellPayload,
+        marketDashboardPayload: initialMarketDashboardPayload,
+        marketDashboardState: activeMarketDashboardDerivedState,
+        setValueContract: activeSetValueContract,
+        selectedTarget,
+        resolvedSetResourceId,
+        explorePayloadIsFresh: isPrimarySnapshotReady,
+        previousSameSetSummary: setHeaderSummaryCacheRef.current,
+      }),
+    [
+      explorePayload,
+      shellPayload,
+      initialMarketDashboardPayload,
+      activeMarketDashboardDerivedState,
+      activeSetValueContract,
+      selectedTarget,
+      resolvedSetResourceId,
+      isPrimarySnapshotReady,
+    ]
+  );
+  if (setDetailMode && setHeaderSummary.setId) {
+    setHeaderSummaryCacheRef.current = setHeaderSummary;
+  }
+
   const activeChartSetValueMetrics = useMemo(
     () =>
       selectSetValueTrendFromContract({
@@ -8127,6 +8297,17 @@ export default function RipStatisticsPageClient({
     { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
   ];
+  // Header/title-card variant of decisionMetrics — sourced from
+  // setHeaderSummary (the stable header contract) instead of `summary`
+  // directly, so these tiles stay populated regardless of setDetailTab.
+  const headerDecisionMetrics = [
+    { label: RIP_COPY.simpleMetrics.currentPackCost, value: setHeaderSummary.packCost === null ? "Coming soon" : formatCurrency(setHeaderSummary.packCost), trend: trendByMetricKey.packCost },
+    { label: RIP_COPY.simpleMetrics.averagePackValue, value: setHeaderSummary.expectedValue === null ? "Coming soon" : formatCurrency(setHeaderSummary.expectedValue), trend: trendByMetricKey.averagePackValue },
+    { label: RIP_COPY.simpleMetrics.averageHitValue, value: setHeaderSummary.averageHitValue === null ? "Coming soon" : formatCurrency(setHeaderSummary.averageHitValue), trend: trendByMetricKey.averageHitValue },
+    { label: RIP_COPY.simpleMetrics.averageLoss, value: setHeaderSummary.averageLoss === null ? "Coming soon" : formatSignedCurrency(setHeaderSummary.averageLoss), trend: trendByMetricKey.averageLoss },
+    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(setHeaderSummary.chanceToBeatPackCost, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
+    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(setHeaderSummary.chanceAtBigPull, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
+  ];
   const primaryDecisionMetricOrder = [
     RIP_COPY.simpleMetrics.currentPackCost,
     RIP_COPY.simpleMetrics.averagePackValue,
@@ -8341,6 +8522,10 @@ export default function RipStatisticsPageClient({
 
   const handleTargetPrefetch = (targetId, options = {}) => {
     warmSetDetailResources(targetId, options);
+    const prefetchHref = targetHrefById?.[String(targetId || "")] || null;
+    if (prefetchHref) {
+      router.prefetch(prefetchHref);
+    }
   };
 
   useEffect(() => {
@@ -8428,13 +8613,11 @@ export default function RipStatisticsPageClient({
       cardsPayload: initialCardsPayload,
       previous: initialCardAppealMarketPriceCorrelation,
     });
-    if (shouldPauseSetDetailDependentFetches) {
+    if (!canFetchSetDetailModules) {
       setChecklistState((previous) => ({
         status:
           (previous.status === "success" || previous.status === "success_stale") && previous.setId === setId
             ? previous.status
-            : isTimeoutFallbackPayload
-            ? "loading"
             : "empty",
         setId,
         cards:
@@ -8506,6 +8689,10 @@ export default function RipStatisticsPageClient({
     getPokemonSetCards(setId)
       .then((payload) => {
         if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("cards.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
           return;
         }
         const cards = Array.isArray(payload?.cards) ? payload.cards : [];
@@ -8586,11 +8773,10 @@ export default function RipStatisticsPageClient({
     setDetailTab,
     cardsSubTab,
     requestedTargetId,
-    selectedTarget?.target_id,
+    selectedTarget,
     resolvedSetResourceId,
     warmSetDetailResources,
-    isTimeoutFallbackPayload,
-    shouldPauseSetDetailDependentFetches,
+    canFetchSetDetailModules,
     explorePayload,
     initialCardsPayload,
     initialSetPageDataSeed,
@@ -8607,28 +8793,38 @@ export default function RipStatisticsPageClient({
       setSetValueHistoryState(createSetValueHistoryState({ status: "empty" }));
       return undefined;
     }
-    if (shouldPauseSetDetailDependentFetches) {
+    if (!canFetchSetDetailModules) {
       setSetValueHistoryState((previous) =>
         previous?.setId === setId && previous.status === "success"
           ? previous
-          : createSetValueHistoryState({ status: isTimeoutFallbackPayload ? "loading" : "empty", setId })
+          : createSetValueHistoryState({ status: "empty", setId })
       );
       return undefined;
     }
 
+    // Prefer the already-loaded market dashboard state for this set (live
+    // reducer state, then a raw cache read) over issuing a brand-new
+    // /market/value-history request for scopes that live data already has.
     const cachedDashboardPayload = getCachedPokemonSetMarketDashboard(setId, {
       window: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
     });
+    const liveMarketDashboardHistoriesByScope =
+      activeMarketDashboardState.setId === setId
+        ? activeMarketDashboardDerivedState.setValue.historiesByScope
+        : {};
+    const marketDashboardSetValue = hasAnySetValueHistory(liveMarketDashboardHistoriesByScope)
+      ? { historiesByScope: liveMarketDashboardHistoriesByScope, availableScopes: activeMarketDashboardDerivedState.setValue.availableScopes }
+      : adaptSetValueHistoriesFromSources({
+          explorePayload,
+          marketSnapshotPayload: cachedDashboardPayload,
+        });
     const seededSetValueFromSnapshot = {
       historiesByScope: initialSetPageDataSeed.setValueHistoriesByScope,
       availableScopes: SET_VALUE_SCOPE_OPTIONS,
     };
     const seededSetValue = hasAnySetValueHistory(seededSetValueFromSnapshot.historiesByScope)
       ? seededSetValueFromSnapshot
-      : adaptSetValueHistoriesFromSources({
-          explorePayload,
-          marketSnapshotPayload: cachedDashboardPayload,
-        });
+      : marketDashboardSetValue;
     const seededHistoriesByScope = seededSetValue?.historiesByScope || {};
     const seededLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
       (scope) => Array.isArray(seededHistoriesByScope?.[scope]) && seededHistoriesByScope[scope].length > 0
@@ -8660,9 +8856,17 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
-      (scope) => !seededLoadedScopes.includes(scope)
+    // The header/title set value always needs the canonical "standard" scope.
+    // "hits"/"top10" are only needed once the overview Set Value Trend card is
+    // actually visible (or the user has picked that scope there) — not on
+    // every set switch regardless of which tab is active.
+    const desiredScopes = Array.from(
+      new Set([
+        CANONICAL_SET_VALUE_SCOPE,
+        ...(setDetailTab === "overview" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
+      ])
     );
+    const requestedScopes = desiredScopes.filter((scope) => !seededLoadedScopes.includes(scope));
     if (requestedScopes.length === 0) {
       return undefined;
     }
@@ -8697,6 +8901,10 @@ export default function RipStatisticsPageClient({
     )
       .then((results) => {
         if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("set_value.direct_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
           return;
         }
 
@@ -8791,11 +8999,16 @@ export default function RipStatisticsPageClient({
     };
   }, [
     setDetailMode,
+    setDetailTab,
+    setValueTrendScope,
+    requestedTargetId,
+    selectedTarget,
     resolvedSetResourceId,
-    isTimeoutFallbackPayload,
-    shouldPauseSetDetailDependentFetches,
+    canFetchSetDetailModules,
     explorePayload,
     initialSetPageDataSeed,
+    activeMarketDashboardState.setId,
+    activeMarketDashboardDerivedState,
   ]);
 
   useEffect(() => {
@@ -8809,10 +9022,10 @@ export default function RipStatisticsPageClient({
       dispatchMarketDashboard({ type: "reset", status: "empty", sourceWindow: dashboardSourceWindow });
       return undefined;
     }
-    if (shouldPauseSetDetailDependentFetches) {
+    if (!canFetchSetDetailModules) {
       dispatchMarketDashboard({
-        type: isTimeoutFallbackPayload ? "loading" : "reset",
-        status: isTimeoutFallbackPayload ? undefined : "empty",
+        type: "reset",
+        status: "empty",
         setId,
         sourceWindow: dashboardSourceWindow,
       });
@@ -8838,9 +9051,9 @@ export default function RipStatisticsPageClient({
       });
     }
     if (!shouldRenderMarketData) {
-      if (!cachedMarketDashboardState) {
-        prefetchPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow });
-      }
+      // No background fetch for a tab the user isn't on — overview's own
+      // render (or a future switch back to it) triggers this effect again
+      // and fetches live data then.
       return undefined;
     }
     if (cachedMarketDashboardState) {
@@ -8871,6 +9084,10 @@ export default function RipStatisticsPageClient({
     getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })
       .then((payload) => {
         if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("market.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
           return;
         }
         const marketState = buildMarketDashboardStateFromPayload(payload);
@@ -8909,9 +9126,10 @@ export default function RipStatisticsPageClient({
   }, [
     setDetailMode,
     setDetailTab,
+    requestedTargetId,
+    selectedTarget,
     resolvedSetResourceId,
-    isTimeoutFallbackPayload,
-    shouldPauseSetDetailDependentFetches,
+    canFetchSetDetailModules,
     explorePayload,
     initialSetPageDataSeed,
   ]);
@@ -9104,7 +9322,7 @@ export default function RipStatisticsPageClient({
           </section>
         ) : null}
 
-        {!pageError && explorePayload ? (
+        {canRenderPrimaryContent ? (
           <>
             {setDetailMode ? (
               <>
@@ -9195,26 +9413,26 @@ export default function RipStatisticsPageClient({
                             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{RIP_COPY.scoreLabel}</p>
                             <div className="flex items-end gap-2">
                               <span className="inline-flex items-end gap-1.5 text-5xl font-semibold leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-6xl">
-                                <span>{displayedTopScore}</span>
+                                <span>{formatRawScore(setHeaderSummary.score)}</span>
                                 <span className="pb-1 text-xs font-medium tracking-normal text-[var(--text-secondary)]">/100</span>
                                 <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-1 md:mb-1.5" />
                               </span>
                             </div>
-                            <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
+                            <ScoreMeter score={setHeaderSummary.score} rankTier={setHeaderSummary.tier} />
                             <div className="flex flex-wrap items-center gap-2">
                               <RankBadge
-                                rank={summary.pack_tier}
+                                rank={setHeaderSummary.tier}
                                 label="Rank"
                                 size="supporting"
                                 title={
-                                  summary.pack_rank === null || summary.pack_rank === undefined
+                                  setHeaderSummary.rank === null || setHeaderSummary.rank === undefined
                                     ? isTimeoutFallbackPayload
                                       ? timeoutSnapshotRankTitle
                                       : "Rank unavailable"
-                                    : `Rank #${summary.pack_rank}`
+                                    : `Rank #${setHeaderSummary.rank}`
                                 }
                               />
-                              <RecommendationBadge label={recommendationBadge} rankTier={summary.pack_tier} />
+                              <RecommendationBadge label={setHeaderSummary.recommendationBadge} rankTier={setHeaderSummary.tier} />
                             </div>
                             <button
                               type="button"
@@ -9227,7 +9445,7 @@ export default function RipStatisticsPageClient({
                         </div>
                       </div>
 
-                      <div className="flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
+                      <div className="relative flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px] has-[[data-compact-sparkline-tooltip]]:z-30">
                         <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[minmax(0,0.95fr)_minmax(9rem,1fr)] sm:items-stretch">
                           <div className="flex min-w-0 flex-col justify-between gap-3">
                             <div className="min-w-0">
@@ -9236,8 +9454,8 @@ export default function RipStatisticsPageClient({
                                 <InfoPopover text="Checklist set value from daily Near Mint card market observations. Falls back to the set page snapshot only while market history is unavailable." />
                               </div>
                               <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
-                                <span className="min-w-0 truncate">{setValueDisplay}</span>
-                                <DeltaTrendIcon value={setValueDeltaAmount} size="md" className="translate-y-px" title="30D checklist set value movement" />
+                                <span className="min-w-0 truncate">{setHeaderSummary.setValue.current === null ? "Coming soon" : formatCurrency(setHeaderSummary.setValue.current)}</span>
+                                <DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount} size="md" className="translate-y-px" title="30D checklist set value movement" />
                               </p>
                             </div>
                             <button
@@ -9251,24 +9469,31 @@ export default function RipStatisticsPageClient({
 
                           <div className="flex min-w-0 flex-col justify-between gap-2">
                             <CompactSparkline
-                              points={setValueSparklinePoints}
+                              points={setHeaderSummary.setValue.sparklinePoints}
                               valueKey="setValue"
-                              trendDirection={setValueSparklineTone}
+                              trendDirection={
+                                setHeaderSummary.setValue.delta30dAmount === null
+                                  ? "neutral"
+                                  : setHeaderSummary.setValue.delta30dAmount < 0
+                                  ? "negative"
+                                  : setHeaderSummary.setValue.delta30dAmount > 0
+                                  ? "positive"
+                                  : "neutral"
+                              }
                               className="h-14 w-full"
-                              showTooltip={false}
                               emptyLabel="History pending"
                             />
                             <div className="grid min-w-0 grid-cols-2 gap-2">
-                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setValueDeltaAmount)}>
+                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setHeaderSummary.setValue.delta30dAmount)}>
                                 <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D Delta</p>
                                 <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                                  {setValueDeltaAmount === null ? "N/A" : formatSignedCurrency(setValueDeltaAmount)}
+                                  {setHeaderSummary.setValue.delta30dAmount === null ? "N/A" : formatSignedCurrency(setHeaderSummary.setValue.delta30dAmount)}
                                 </p>
                               </div>
-                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setValueDeltaPercent)}>
+                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setHeaderSummary.setValue.delta30dPercent)}>
                                 <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D %</p>
                                 <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                                  {setValueDeltaPercent === null ? "N/A" : `${setValueDeltaPercent > 0 ? "+" : ""}${setValueDeltaPercent.toFixed(1)}%`}
+                                  {setHeaderSummary.setValue.delta30dPercent === null ? "N/A" : `${setHeaderSummary.setValue.delta30dPercent > 0 ? "+" : ""}${setHeaderSummary.setValue.delta30dPercent.toFixed(1)}%`}
                                 </p>
                               </div>
                             </div>
@@ -9280,14 +9505,14 @@ export default function RipStatisticsPageClient({
                       <div className="flex h-full flex-col justify-between gap-2.5">
                         <div
                           className="rounded-xl border-l-2 border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-4 py-3"
-                          style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: summary.pack_tier })}
+                          style={getCalloutAccentStyle({ label: setHeaderSummary.recommendationBadge, rankTier: setHeaderSummary.tier })}
                         >
                           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
-                          <p className="mt-1.5 text-sm text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
+                          <p className="mt-1.5 text-sm text-[var(--text-primary)]">{setHeaderSummary.recommendationSummary || "No interpretation summary is available for this set yet."}</p>
                         </div>
 
                         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                          {decisionMetrics.map((metric) => (
+                          {headerDecisionMetrics.map((metric) => (
                             <HeroMetricTile key={`set-compact-${metric.label}`} label={metric.label} value={metric.value} trend={metric.trend} />
                           ))}
                         </div>

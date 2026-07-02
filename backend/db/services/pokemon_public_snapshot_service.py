@@ -83,6 +83,16 @@ def _normalise_set_lookup_key(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
 
 
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_uuid(value: str) -> bool:
+    return bool(_UUID_RE.match(value))
+
+
 def _first_row(result: Any) -> Optional[Dict[str, Any]]:
     if result and result.data:
         return result.data[0]
@@ -959,6 +969,52 @@ def _load_latest_checklist_set_values(set_ids: List[str]) -> Dict[str, Dict[str,
     return values
 
 
+def _load_shell_checklist_set_value_history(set_id: str) -> Dict[str, Any]:
+    """Fetch the standard-scope checklist set value point series for the shell header.
+
+    Reuses the same pokemon_set_market_dashboard_snapshot_latest table that backs the
+    Overview market dashboard, but selects only the small set_value_histories_json
+    column so the shell payload stays lightweight (no top-chase-card/market-mover
+    data). This is what lets the title-card set value + sparkline render immediately
+    on every tab instead of only once the Overview dashboard has been fetched.
+    """
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        return {}
+
+    try:
+        result = (
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            .select("window_key,set_value_histories_json")
+            .eq("set_id", resolved)
+            .in_("window_key", [DEFAULT_TOP_CHASE_DASHBOARD_WINDOW, DEFAULT_DASHBOARD_WINDOW])
+            .execute()
+        )
+    except Exception as exc:
+        if _is_missing_snapshot_relation_error(exc):
+            logger.warning(
+                "[pokemon-snapshot] shell checklist set value snapshot relation missing; continuing without enrichment"
+            )
+        else:
+            logger.warning(
+                "[pokemon-snapshot] shell checklist set value history load failed set_id=%s", resolved, exc_info=True
+            )
+        return {}
+
+    rows = result.data or []
+    if not rows:
+        return {}
+
+    window_priority = {DEFAULT_TOP_CHASE_DASHBOARD_WINDOW: 0, DEFAULT_DASHBOARD_WINDOW: 1}
+    best_row = min(rows, key=lambda row: window_priority.get(_to_optional_str(row.get("window_key")), 99))
+    histories = best_row.get("set_value_histories_json")
+    standard_history = histories.get("standard") if isinstance(histories, dict) else None
+    if not isinstance(standard_history, list) or not standard_history:
+        return {}
+
+    return {"standard": standard_history}
+
+
 def _enrich_rankings_payload_with_checklist_set_values(payload: Dict[str, Any]) -> Dict[str, Any]:
     targets = list(payload.get("targets") or [])
     if not targets:
@@ -1009,9 +1065,38 @@ def _enrich_rankings_payload_with_checklist_set_values(payload: Dict[str, Any]) 
 
 
 def _resolve_set_row(set_id: str) -> Dict[str, Any]:
+    t0 = time.perf_counter()
     resolved = _to_optional_str(set_id)
     if not resolved:
         raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_ID_REQUIRED")
+
+    if _looks_like_uuid(resolved):
+        # UUID input: single indexed lookup only — no sequential fallback queries.
+        try:
+            result = (
+                public_read_client.table("sets")
+                .select("id,name,canonical_key,pokemon_api_set_id")
+                .eq("id", resolved)
+                .limit(1)
+                .execute()
+            )
+            row = _first_row(result)
+        except Exception as exc:
+            logger.exception(
+                "[pokemon-snapshot] set id lookup failed set_id=%s elapsed_ms=%.1f exc_type=%s",
+                resolved,
+                (time.perf_counter() - t0) * 1000,
+                type(exc).__name__,
+            )
+            raise PokemonSetMarketError(500, "Set lookup failed", "POKEMON_SET_LOOKUP_FAILED") from exc
+        if row:
+            logger.debug(
+                "[pokemon-snapshot] set id resolved set_id=%s elapsed_ms=%.1f",
+                resolved,
+                (time.perf_counter() - t0) * 1000,
+            )
+            return row
+        raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
 
     for field in ("id", "canonical_key", "pokemon_api_set_id"):
         try:
@@ -1262,10 +1347,32 @@ def _build_missing_set_page_snapshot_payload(set_row: Dict[str, Any], elapsed_ms
 
 def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
     started = time.perf_counter()
-    set_row = _resolve_set_row(set_id)
-    resolved_set_id = str(set_row["id"])
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise ExplorePageError(400, "set_id is required", "POKEMON_SET_PAGE_ID_REQUIRED")
+    is_uuid = _looks_like_uuid(resolved)
+    logger.info("[pokemon-snapshot] page snapshot start set_id=%s uuid_fast_path=%s", resolved, is_uuid)
+
+    set_row: Optional[Dict[str, Any]] = None
+    set_resolve_ms: Optional[float] = None
+
+    if is_uuid:
+        resolved_set_id = resolved
+    else:
+        t_resolve = time.perf_counter()
+        set_row = _resolve_set_row(resolved)
+        resolved_set_id = str(set_row["id"])
+        set_resolve_ms = round((time.perf_counter() - t_resolve) * 1000, 3)
+        logger.info(
+            "[pokemon-snapshot] page snapshot set resolved set_id=%s resolved_set_id=%s resolve_ms=%s",
+            resolved,
+            resolved_set_id,
+            set_resolve_ms,
+        )
 
     try:
+        t_query = time.perf_counter()
+        logger.info("[pokemon-snapshot] page snapshot query start set_id=%s", resolved_set_id)
         result = (
             public_read_client.table("pokemon_set_page_snapshot_latest")
             .select("set_id,payload_json,as_of,source_updated_at,updated_at")
@@ -1273,12 +1380,24 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
             .limit(1)
             .execute()
         )
+        query_ms = round((time.perf_counter() - t_query) * 1000, 3)
         row = _first_row(result)
+        payload_type = type((row or {}).get("payload_json")).__name__
+        logger.info(
+            "[pokemon-snapshot] page snapshot query done set_id=%s query_ms=%s row_present=%s payload_type=%s",
+            resolved_set_id,
+            query_ms,
+            bool(row),
+            payload_type,
+        )
         if row and isinstance(row.get("payload_json"), dict):
             payload = _merge_snapshot_meta(row["payload_json"], row, "pokemon_set_page_snapshot_latest")
             payload = _mark_missing_simulation_drivers_without_live_repair(payload)
             payload = _with_missing_desirability_validation_warning(payload)
             timings = dict((payload.get("meta") or {}).get("timings") or {})
+            if set_resolve_ms is not None:
+                timings["set_resolve_ms"] = set_resolve_ms
+            timings["snapshot_query_ms"] = query_ms
             timings["snapshot_read_ms"] = round((time.perf_counter() - started) * 1000, 3)
             payload["meta"] = {**(payload.get("meta") or {}), "timings": timings}
             logger.info(
@@ -1287,8 +1406,15 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
                 timings["snapshot_read_ms"],
             )
             return payload
-    except Exception:
-        logger.exception("[pokemon-snapshot] set page snapshot read failed set_id=%s", resolved_set_id)
+    except Exception as exc:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
+        logger.exception(
+            "[pokemon-snapshot] set page snapshot read failed set_id=%s elapsed_ms=%s exc_type=%s exc=%s",
+            resolved_set_id,
+            elapsed_ms,
+            type(exc).__name__,
+            exc,
+        )
         raise ExplorePageError(500, "Failed to read Pokemon set page snapshot", "POKEMON_SET_PAGE_SNAPSHOT_FAILED")
 
     elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -1297,7 +1423,220 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         resolved_set_id,
         elapsed_ms,
     )
+    if set_row is None:
+        try:
+            t_lazy = time.perf_counter()
+            set_row = _resolve_set_row(resolved_set_id)
+            logger.debug(
+                "[pokemon-snapshot] lazy set resolve for missing page snapshot set_id=%s elapsed_ms=%.1f",
+                resolved_set_id,
+                (time.perf_counter() - t_lazy) * 1000,
+            )
+        except Exception:
+            set_row = {"id": resolved_set_id}
     return _build_missing_set_page_snapshot_payload(set_row, elapsed_ms)
+
+
+_SHELL_SNAPSHOT_COLUMNS = (
+    "set_id,set_identity_json,title_card_json,rip_summary_json,"
+    "market_summary_json,risk_summary_json,concentration_json,"
+    "desirability_summary_json,set_intelligence_json,as_of,source_updated_at,updated_at"
+)
+
+
+def _normalize_set_identity(set_identity_json: Dict[str, Any]) -> Dict[str, Any]:
+    identity = set_identity_json if isinstance(set_identity_json, dict) else {}
+    return {
+        "id": _to_optional_str(identity.get("id")),
+        "name": _to_optional_str(identity.get("name")),
+        "slug": _to_optional_str(identity.get("slug")),
+        "pokemon_api_set_id": _to_optional_str(identity.get("pokemon_api_set_id")),
+        "release_date": _to_optional_str(identity.get("release_date")),
+        "logo_image_url": _to_optional_str(identity.get("logo_image_url")),
+        "symbol_image_url": _to_optional_str(identity.get("symbol_image_url")),
+        "hero_image_url": _to_optional_str(identity.get("hero_image_url")),
+    }
+
+
+def _build_shell_payload_from_row(
+    row: Dict[str, Any], *, set_value_histories_by_scope: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    set_identity = row.get("set_identity_json") if isinstance(row.get("set_identity_json"), dict) else {}
+    title_card = row.get("title_card_json") if isinstance(row.get("title_card_json"), dict) else {}
+    rip_summary = row.get("rip_summary_json") if isinstance(row.get("rip_summary_json"), dict) else {}
+    market_summary = row.get("market_summary_json") if isinstance(row.get("market_summary_json"), dict) else {}
+    risk_summary = row.get("risk_summary_json") if isinstance(row.get("risk_summary_json"), dict) else {}
+    concentration = row.get("concentration_json") if isinstance(row.get("concentration_json"), dict) else {}
+    desirability_summary = (
+        row.get("desirability_summary_json") if isinstance(row.get("desirability_summary_json"), dict) else {}
+    )
+    # set_intelligence_json holds the full RIP interpretation payload (recommendation
+    # badge/summary + opening-experience/chase/upside lenses) so the shell can render
+    # the same recommendation the full /page payload shows, without pulling payload_json.
+    interpretation = (
+        row.get("set_intelligence_json") if isinstance(row.get("set_intelligence_json"), dict) else {}
+    )
+    summary = {
+        **concentration,
+        **risk_summary,
+        **market_summary,
+        **rip_summary,
+        **title_card,
+    }
+    histories_by_scope = set_value_histories_by_scope if isinstance(set_value_histories_by_scope, dict) else {}
+
+    return {
+        "set": _normalize_set_identity(set_identity),
+        "summary": summary,
+        "interpretation": interpretation,
+        "setValueHistoriesByScope": histories_by_scope,
+        "set_value_histories_by_scope": histories_by_scope,
+        "titleCard": title_card,
+        "title_card": title_card,
+        "ripSummary": rip_summary,
+        "rip_summary": rip_summary,
+        "marketSummary": market_summary,
+        "market_summary": market_summary,
+        "riskSummary": risk_summary,
+        "risk_summary": risk_summary,
+        "concentration": concentration,
+        "desirabilitySummary": desirability_summary,
+        "desirability_summary": desirability_summary,
+        "meta": {},
+    }
+
+
+def _build_missing_shell_snapshot_payload(set_row: Dict[str, Any], elapsed_ms: float) -> Dict[str, Any]:
+    resolved_set_id = _to_optional_str(set_row.get("id"))
+    name = _to_optional_str(set_row.get("name")) or resolved_set_id or "Pokemon set"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    return {
+        "set": {
+            "id": resolved_set_id,
+            "name": name,
+            "slug": _to_optional_str(set_row.get("canonical_key")),
+            "pokemon_api_set_id": _to_optional_str(set_row.get("pokemon_api_set_id")),
+        },
+        "summary": {},
+        "interpretation": {},
+        "setValueHistoriesByScope": {},
+        "set_value_histories_by_scope": {},
+        "titleCard": {},
+        "title_card": {},
+        "ripSummary": {},
+        "rip_summary": {},
+        "marketSummary": {},
+        "market_summary": {},
+        "riskSummary": {},
+        "risk_summary": {},
+        "concentration": {},
+        "desirabilitySummary": {},
+        "desirability_summary": {},
+        "meta": {
+            "warnings": [
+                "Pokemon set shell snapshot is missing; rendered fallback shell.",
+            ],
+            "fallback": True,
+            "sources": {"shell": "fallback_missing_pokemon_set_page_snapshot_latest"},
+            "snapshot": {
+                "source": "fallback_missing_pokemon_set_page_snapshot_latest",
+                "updatedAt": now_iso,
+                "isStaleFallback": False,
+            },
+            "timings": {"snapshot_read_ms": elapsed_ms},
+        },
+    }
+
+
+def get_pokemon_set_shell_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    """Return the lightweight header/title-card snapshot for a Pokemon set.
+
+    Selects only the small split columns on pokemon_set_page_snapshot_latest —
+    never payload_json — so the initial set page render can fetch a shell
+    without pulling the full (often multi-megabyte) RIP payload.
+    """
+    started = time.perf_counter()
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise ExplorePageError(400, "set_id is required", "POKEMON_SET_SHELL_ID_REQUIRED")
+    is_uuid = _looks_like_uuid(resolved)
+    logger.info("[pokemon-snapshot] shell snapshot start set_id=%s uuid_fast_path=%s", resolved, is_uuid)
+
+    set_row: Optional[Dict[str, Any]] = None
+    set_resolve_ms: Optional[float] = None
+
+    if is_uuid:
+        resolved_set_id = resolved
+    else:
+        t_resolve = time.perf_counter()
+        set_row = _resolve_set_row(resolved)
+        resolved_set_id = str(set_row["id"])
+        set_resolve_ms = round((time.perf_counter() - t_resolve) * 1000, 3)
+        logger.info(
+            "[pokemon-snapshot] shell snapshot set resolved set_id=%s resolved_set_id=%s resolve_ms=%s",
+            resolved,
+            resolved_set_id,
+            set_resolve_ms,
+        )
+
+    try:
+        t_query = time.perf_counter()
+        result = (
+            public_read_client.table("pokemon_set_page_snapshot_latest")
+            .select(_SHELL_SNAPSHOT_COLUMNS)
+            .eq("set_id", resolved_set_id)
+            .limit(1)
+            .execute()
+        )
+        query_ms = round((time.perf_counter() - t_query) * 1000, 3)
+        row = _first_row(result)
+    except Exception as exc:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
+        logger.exception(
+            "[pokemon-snapshot] shell snapshot read failed set_id=%s elapsed_ms=%s exc_type=%s exc=%s",
+            resolved_set_id,
+            elapsed_ms,
+            type(exc).__name__,
+            exc,
+        )
+        raise ExplorePageError(500, "Failed to read Pokemon set shell snapshot", "POKEMON_SET_SHELL_SNAPSHOT_FAILED")
+
+    if row:
+        t_set_value = time.perf_counter()
+        set_value_histories_by_scope = _load_shell_checklist_set_value_history(resolved_set_id)
+        set_value_ms = round((time.perf_counter() - t_set_value) * 1000, 3)
+        payload = _build_shell_payload_from_row(row, set_value_histories_by_scope=set_value_histories_by_scope)
+        meta = dict(payload.get("meta") or {})
+        snapshot_meta = _snapshot_meta(row, "pokemon_set_page_snapshot_latest")
+        meta["snapshot"] = {"source": snapshot_meta["source"], **snapshot_meta["snapshot"]}
+        payload["meta"] = meta
+        timings = dict((payload.get("meta") or {}).get("timings") or {})
+        if set_resolve_ms is not None:
+            timings["set_resolve_ms"] = set_resolve_ms
+        timings["snapshot_query_ms"] = query_ms
+        timings["set_value_history_query_ms"] = set_value_ms
+        timings["snapshot_read_ms"] = round((time.perf_counter() - started) * 1000, 3)
+        payload["meta"] = {**(payload.get("meta") or {}), "timings": timings}
+        logger.info(
+            "[pokemon-snapshot] shell snapshot read set_id=%s elapsed_ms=%s",
+            resolved_set_id,
+            timings["snapshot_read_ms"],
+        )
+        return payload
+
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
+    logger.warning(
+        "[pokemon-snapshot] missing shell snapshot; returning fallback shell set_id=%s elapsed_ms=%s",
+        resolved_set_id,
+        elapsed_ms,
+    )
+    if set_row is None:
+        try:
+            set_row = _resolve_set_row(resolved_set_id)
+        except Exception:
+            set_row = {"id": resolved_set_id}
+    return _build_missing_shell_snapshot_payload(set_row, elapsed_ms)
 
 
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
@@ -1382,9 +1721,32 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
 
 
 def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
-    set_row = _resolve_set_row(set_id)
-    resolved_set_id = str(set_row["id"])
+    started = time.perf_counter()
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetCardsError(400, "set_id is required", "POKEMON_SET_CARDS_ID_REQUIRED")
+    is_uuid = _looks_like_uuid(resolved)
+    logger.info("[pokemon-snapshot] cards snapshot start set_id=%s uuid_fast_path=%s", resolved, is_uuid)
+
+    set_resolve_ms: Optional[float] = None
+
+    if is_uuid:
+        resolved_set_id = resolved
+    else:
+        t_resolve = time.perf_counter()
+        set_row = _resolve_set_row(resolved)
+        resolved_set_id = str(set_row["id"])
+        set_resolve_ms = round((time.perf_counter() - t_resolve) * 1000, 3)
+        logger.info(
+            "[pokemon-snapshot] cards snapshot set resolved set_id=%s resolved_set_id=%s resolve_ms=%s",
+            resolved,
+            resolved_set_id,
+            set_resolve_ms,
+        )
+
     try:
+        t_query = time.perf_counter()
+        logger.info("[pokemon-snapshot] cards snapshot query start set_id=%s", resolved_set_id)
         result = (
             public_read_client.table("pokemon_set_cards_snapshot_latest")
             .select("set_id,payload_json,card_count,updated_at")
@@ -1392,7 +1754,16 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
             .limit(1)
             .execute()
         )
+        query_ms = round((time.perf_counter() - t_query) * 1000, 3)
         row = _first_row(result)
+        payload_type = type((row or {}).get("payload_json")).__name__
+        logger.info(
+            "[pokemon-snapshot] cards snapshot query done set_id=%s query_ms=%s row_present=%s payload_type=%s",
+            resolved_set_id,
+            query_ms,
+            bool(row),
+            payload_type,
+        )
         if row and isinstance(row.get("payload_json"), dict):
             payload = row["payload_json"]
             meta = dict(payload.get("meta") or {})
@@ -1429,17 +1800,40 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
             if correlation:
                 meta["cardAppealMarketPriceCorrelation"] = correlation
                 meta["card_appeal_market_price_correlation"] = correlation
+            timings = dict(meta.get("timings") or {})
+            if set_resolve_ms is not None:
+                timings["set_resolve_ms"] = set_resolve_ms
+            timings["snapshot_query_ms"] = query_ms
+            timings["snapshot_read_ms"] = round((time.perf_counter() - started) * 1000, 3)
+            meta["timings"] = timings
+            logger.info(
+                "[pokemon-snapshot] cards snapshot read set_id=%s elapsed_ms=%s",
+                resolved_set_id,
+                timings["snapshot_read_ms"],
+            )
             return {
                 **payload,
                 "cardAppealMarketPriceCorrelation": correlation,
                 "card_appeal_market_price_correlation": correlation,
                 "meta": meta,
             }
-    except Exception:
-        logger.exception("[pokemon-snapshot] cards snapshot read failed set_id=%s", resolved_set_id)
+    except Exception as exc:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
+        logger.exception(
+            "[pokemon-snapshot] cards snapshot read failed set_id=%s elapsed_ms=%s exc_type=%s exc=%s",
+            resolved_set_id,
+            elapsed_ms,
+            type(exc).__name__,
+            exc,
+        )
         raise PokemonSetCardsError(500, "Failed to read Pokemon set cards snapshot", "POKEMON_SET_CARDS_SNAPSHOT_FAILED")
 
-    logger.warning("[pokemon-snapshot] missing cards snapshot; falling back to canonical cards set_id=%s", resolved_set_id)
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
+    logger.warning(
+        "[pokemon-snapshot] missing cards snapshot; falling back to canonical cards set_id=%s elapsed_ms=%s",
+        resolved_set_id,
+        elapsed_ms,
+    )
     payload = get_pokemon_set_cards_payload(resolved_set_id)
     meta = dict(payload.get("meta") or {})
     warnings = list(meta.get("warnings") or [])
@@ -1965,6 +2359,7 @@ def _hydrate_market_dashboard_top_chase_histories(
     set_id: str,
     window: str,
     days: Any = None,
+    allow_live_query: bool = True,
 ) -> Dict[str, Any]:
     top_cards = (
         payload.get("topChaseCards")
@@ -1973,17 +2368,33 @@ def _hydrate_market_dashboard_top_chase_histories(
     )
     cards = [card for card in list(top_cards or []) if isinstance(card, dict)]
     variant_ids = _top_chase_variant_ids(cards)
-    histories = _existing_top_chase_histories(payload, row) if not variant_ids else {}
-    if variant_ids:
-        histories = _load_top_chase_observation_histories(
-            set_id=set_id,
-            cards=cards,
-            variant_ids=variant_ids,
-            latest_date_key=_parse_date_key(
-                row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date")
-            ),
-            window_days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
-        )
+
+    # Prefer stored histories from the snapshot — avoids expensive live observation queries.
+    # Only fall back to live card_variant_price_observations if stored histories are absent
+    # and live queries are permitted (non-UUID fast path).
+    histories = _existing_top_chase_histories(payload, row)
+    if not histories and variant_ids:
+        if allow_live_query:
+            logger.info(
+                "[pokemon-snapshot] no stored top chase histories; loading from observations set_id=%s variant_count=%s",
+                set_id,
+                len(variant_ids),
+            )
+            histories = _load_top_chase_observation_histories(
+                set_id=set_id,
+                cards=cards,
+                variant_ids=variant_ids,
+                latest_date_key=_parse_date_key(
+                    row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date")
+                ),
+                window_days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+            )
+        else:
+            logger.info(
+                "[pokemon-snapshot] no stored top chase histories; skipping live observation query (uuid fast path) set_id=%s variant_count=%s",
+                set_id,
+                len(variant_ids),
+            )
     return _attach_top_chase_histories(
         payload,
         histories,
@@ -1991,46 +2402,110 @@ def _hydrate_market_dashboard_top_chase_histories(
     )
 
 
+_MARKET_DASHBOARD_SNAPSHOT_COLUMNS = (
+    "set_id,window_key,set_value_histories_json,performance_vs_cost_history_json,"
+    "top_chase_cards_json,top_chase_card_histories_json,available_scopes_json,"
+    "latest_market_date,updated_at"
+)
+
+
+def _build_market_dashboard_payload_from_row(
+    row: Dict[str, Any],
+    *,
+    set_row: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    resolved_set_id = _to_optional_str(row.get("set_id"))
+    identity_row = set_row or {"id": resolved_set_id}
+    set_identity = {
+        "id": _to_optional_str(identity_row.get("id")) or resolved_set_id,
+        "name": _to_optional_str(identity_row.get("name")),
+        "slug": _to_optional_str(identity_row.get("canonical_key")),
+        "pokemon_api_set_id": _to_optional_str(identity_row.get("pokemon_api_set_id")),
+    }
+    histories_by_scope = row.get("set_value_histories_json") if isinstance(row.get("set_value_histories_json"), dict) else {}
+    performance_vs_cost_history = (
+        row.get("performance_vs_cost_history_json") if isinstance(row.get("performance_vs_cost_history_json"), list) else []
+    )
+    top_chase_cards = row.get("top_chase_cards_json") if isinstance(row.get("top_chase_cards_json"), list) else []
+    available_scopes = row.get("available_scopes_json") if isinstance(row.get("available_scopes_json"), list) else []
+    window_key = _to_optional_str(row.get("window_key"))
+    latest_market_date = _parse_date_key(row.get("latest_market_date"))
+
+    return {
+        "set": set_identity,
+        "window": window_key,
+        "window_key": window_key,
+        "setValueHistoriesByScope": histories_by_scope,
+        "set_value_histories_by_scope": histories_by_scope,
+        "performanceVsCostHistory": performance_vs_cost_history,
+        "performance_vs_cost_history": performance_vs_cost_history,
+        "topChaseCards": top_chase_cards,
+        "top_chase_cards": top_chase_cards,
+        "availableScopes": available_scopes,
+        "available_scopes": available_scopes,
+        "latestMarketDate": latest_market_date,
+        "latest_market_date": latest_market_date,
+        "meta": {"warnings": []},
+    }
+
+
 def _read_market_dashboard_snapshot(
     set_id: str,
     window: str = DEFAULT_DASHBOARD_WINDOW,
     days: Any = None,
+    *,
+    set_row: Optional[Dict[str, Any]] = None,
+    allow_live_history_hydration: bool = True,
 ) -> Optional[Dict[str, Any]]:
+    t0 = time.perf_counter()
     resolved_window = _normalize_market_dashboard_window_key(window)
     try:
         result = (
             public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
-            .select("set_id,window_key,payload_json,top_chase_card_histories_json,latest_market_date,updated_at")
+            .select(_MARKET_DASHBOARD_SNAPSHOT_COLUMNS)
             .eq("set_id", set_id)
             .eq("window_key", resolved_window)
             .limit(1)
             .execute()
         )
+        query_ms = round((time.perf_counter() - t0) * 1000, 3)
     except Exception as exc:
         if _is_missing_snapshot_relation_error(exc):
             logger.warning(
-                "[pokemon-snapshot] market dashboard snapshot relation missing set_id=%s window=%s snapshot_read_status=missing_relation fallback_used=true",
+                "[pokemon-snapshot] market dashboard snapshot relation missing set_id=%s window=%s snapshot_read_status=missing_relation fallback_used=true elapsed_ms=%.1f",
                 set_id,
                 resolved_window,
+                (time.perf_counter() - t0) * 1000,
             )
             return None
         raise
 
     row = _first_row(result)
-    if not row or not isinstance(row.get("payload_json"), dict):
+    if not row:
         logger.info(
-            "[pokemon-snapshot] market dashboard snapshot missing row set_id=%s window=%s snapshot_read_status=missing_row fallback_used=true",
+            "[pokemon-snapshot] market dashboard snapshot missing row set_id=%s window=%s snapshot_read_status=missing_row fallback_used=true query_ms=%s",
             set_id,
             resolved_window,
+            query_ms,
         )
         return None
+
+    logger.info(
+        "[pokemon-snapshot] market dashboard snapshot query done set_id=%s window=%s query_ms=%s row_present=true",
+        set_id,
+        resolved_window,
+        query_ms,
+    )
+    t_hydrate = time.perf_counter()
     payload = _hydrate_market_dashboard_top_chase_histories(
-        row["payload_json"],
+        _build_market_dashboard_payload_from_row(row, set_row=set_row),
         row,
         set_id=set_id,
         window=resolved_window,
         days=days,
+        allow_live_query=allow_live_history_hydration,
     )
+    hydrate_ms = round((time.perf_counter() - t_hydrate) * 1000, 3)
     meta = dict(payload.get("meta") or {})
     snapshot = dict(meta.get("snapshot") or {})
     snapshot.update(
@@ -2042,7 +2517,20 @@ def _read_market_dashboard_snapshot(
             "isStaleFallback": True,
         }
     )
+    timings = dict(meta.get("timings") or {})
+    timings["snapshot_query_ms"] = query_ms
+    timings["hydration_ms"] = hydrate_ms
+    timings["snapshot_read_ms"] = round((time.perf_counter() - t0) * 1000, 3)
     meta["snapshot"] = snapshot
+    meta["timings"] = timings
+    logger.info(
+        "[pokemon-snapshot] market dashboard snapshot read complete set_id=%s window=%s query_ms=%s hydrate_ms=%s total_ms=%s",
+        set_id,
+        resolved_window,
+        query_ms,
+        hydrate_ms,
+        timings["snapshot_read_ms"],
+    )
     return {**payload, "meta": meta}
 
 
@@ -2178,30 +2666,101 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
     window: str = DEFAULT_DASHBOARD_WINDOW,
     days: Any = None,
 ) -> Dict[str, Any]:
-    set_row = _resolve_set_row(set_id)
-    resolved_set_id = str(set_row["id"])
+    started = time.perf_counter()
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_MARKET_ID_REQUIRED")
+    is_uuid = _looks_like_uuid(resolved)
+    logger.info(
+        "[pokemon-snapshot] market dashboard snapshot start set_id=%s window=%s uuid_fast_path=%s",
+        resolved,
+        window,
+        is_uuid,
+    )
+
+    set_row: Optional[Dict[str, Any]] = None
+    set_resolve_ms: Optional[float] = None
+
     resolved_window = _normalize_market_dashboard_window_key(window)
     resolved_days = _sanitize_days(days, default=DEFAULT_SET_VALUE_HISTORY_DAYS)
+
+    if is_uuid:
+        resolved_set_id = resolved
+    else:
+        t_resolve = time.perf_counter()
+        set_row = _resolve_set_row(resolved)
+        resolved_set_id = str(set_row["id"])
+        set_resolve_ms = round((time.perf_counter() - t_resolve) * 1000, 3)
+        logger.info(
+            "[pokemon-snapshot] market dashboard set resolved set_id=%s resolved_set_id=%s window=%s resolve_ms=%s",
+            resolved,
+            resolved_set_id,
+            resolved_window,
+            set_resolve_ms,
+        )
+
     try:
-        payload = _read_market_dashboard_snapshot(resolved_set_id, resolved_window, days=_market_dashboard_window_days(resolved_window, days))
+        t_snapshot = time.perf_counter()
+        logger.info(
+            "[pokemon-snapshot] market dashboard snapshot query start set_id=%s window=%s",
+            resolved_set_id,
+            resolved_window,
+        )
+        payload = _read_market_dashboard_snapshot(
+            resolved_set_id,
+            resolved_window,
+            days=_market_dashboard_window_days(resolved_window, days),
+            set_row=set_row,
+            allow_live_history_hydration=not is_uuid,
+        )
+        snapshot_ms = round((time.perf_counter() - t_snapshot) * 1000, 3)
         if payload is not None:
             logger.info(
-                "[pokemon-snapshot] market dashboard snapshot read set_id=%s resolved_set_id=%s window=%s snapshot_read_status=hit fallback_used=false",
-                set_id,
+                "[pokemon-snapshot] market dashboard snapshot read set_id=%s resolved_set_id=%s window=%s "
+                "snapshot_read_status=hit fallback_used=false uuid_fast_path=%s resolve_ms=%s snapshot_ms=%s total_ms=%s",
+                resolved,
                 resolved_set_id,
                 resolved_window,
+                is_uuid,
+                set_resolve_ms,
+                snapshot_ms,
+                round((time.perf_counter() - started) * 1000, 3),
             )
             return payload
     except Exception as exc:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
         logger.warning(
-            "[pokemon-snapshot] market dashboard snapshot read failed set_id=%s resolved_set_id=%s window=%s snapshot_read_status=failed fallback_used=true error=%s",
-            set_id,
+            "[pokemon-snapshot] market dashboard snapshot read failed set_id=%s resolved_set_id=%s window=%s "
+            "snapshot_read_status=failed fallback_used=true uuid_fast_path=%s exc_type=%s exc=%s elapsed_ms=%s",
+            resolved,
             resolved_set_id,
             resolved_window,
+            is_uuid,
+            type(exc).__name__,
             exc,
+            elapsed_ms,
             exc_info=True,
         )
+        if is_uuid:
+            raise PokemonSetMarketError(500, "Failed to read Pokemon market dashboard snapshot", "POKEMON_SET_MARKET_SNAPSHOT_FAILED")
 
+    # UUID fast path: snapshot miss → return fast empty, no live assembly
+    if is_uuid:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
+        logger.warning(
+            "[pokemon-snapshot] market dashboard missing snapshot uuid fast path returning empty set_id=%s window=%s elapsed_ms=%s",
+            resolved_set_id,
+            resolved_window,
+            elapsed_ms,
+        )
+        return _empty_market_dashboard_payload(
+            set_row={"id": resolved_set_id},
+            window=resolved_window,
+            warnings=["Pokemon market dashboard snapshot is missing; served empty fallback payload."],
+            fallback_source="empty_fallback_missing_pokemon_set_market_dashboard_snapshot_latest",
+        )
+
+    # Non-UUID path: live assembly fallback (set_row is already resolved above)
     logger.warning("[pokemon-snapshot] missing market dashboard snapshot; falling back to live market assembly set_id=%s", resolved_set_id)
     histories_by_scope: Dict[str, List[Dict[str, Any]]] = {}
     warnings: List[str] = ["Pokemon market dashboard snapshot is missing; served live fallback data."]
@@ -2215,7 +2774,7 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
             warnings.append(f"Pokemon set value history is unavailable for {scope}; served remaining market data.")
             logger.warning(
                 "[pokemon-snapshot] live market dashboard value history fallback failed set_id=%s resolved_set_id=%s window=%s scope=%s error=%s",
-                set_id,
+                resolved,
                 resolved_set_id,
                 resolved_window,
                 scope,
@@ -2226,6 +2785,7 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
         top_payload = get_pokemon_set_top_market_cards_payload(resolved_set_id, limit=10, days=resolved_days)
         warnings.extend((top_payload.get("meta") or {}).get("warnings") or [])
     except Exception as exc:
+        assert set_row is not None
         top_payload = {
             "set": {
                 "id": _to_optional_str(set_row.get("id")),
@@ -2239,7 +2799,7 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
         warnings.append("Pokemon top chase card market data is unavailable; served set value history only.")
         logger.warning(
             "[pokemon-snapshot] live market dashboard top cards fallback failed set_id=%s resolved_set_id=%s window=%s error=%s",
-            set_id,
+            resolved,
             resolved_set_id,
             resolved_window,
             exc,
@@ -2269,6 +2829,7 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
 
     has_set_value_history = any(len(history) > 0 for history in histories_by_scope.values())
     top_chase_cards = top_payload.get("cards") or []
+    assert set_row is not None
     if not has_set_value_history and not top_chase_cards:
         return _empty_market_dashboard_payload(
             set_row=set_row,

@@ -39,12 +39,18 @@ export function marketDashboardReducer(state, action) {
   switch (action?.type) {
     case "visible_window_changed":
       return state;
-    case "reset":
+    case "reset": {
+      // A reset for the same set that already has a successful payload must
+      // not blank the tab — only a genuine set change (or no set at all)
+      // should discard the existing seeded/fetched data.
+      const keepPayload = setId && state?.setId === setId && state?.payload ? state.payload : null;
       return createMarketDashboardState({
-        status: action.status || "idle",
+        status: keepPayload ? "success_stale" : action.status || "idle",
         setId,
+        payload: keepPayload,
         sourceWindow,
       });
+    }
     case "loading": {
       const keepPayload = state?.setId === setId && state?.payload ? state.payload : null;
       return createMarketDashboardState({

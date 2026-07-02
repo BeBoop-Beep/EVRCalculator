@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from supabase import create_client
+from supabase import ClientOptions, create_client
 
 
 def _has_malformed_quoted_value(line: str) -> bool:
@@ -43,9 +43,15 @@ logger.info(
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in the environment")
 
+_PUBLIC_READ_TIMEOUT_SECONDS = 20
+
 try:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    public_read_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    public_read_client = create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY,
+        options=ClientOptions(postgrest_client_timeout=_PUBLIC_READ_TIMEOUT_SECONDS),
+    )
     logger.info("supabase_client: supabase client initialized successfully")
     # Clear the schema cache to avoid stale schema issues
     if hasattr(supabase, 'postgrest') and hasattr(supabase.postgrest, '_cache'):
