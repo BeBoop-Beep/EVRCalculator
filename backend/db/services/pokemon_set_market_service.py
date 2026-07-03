@@ -335,6 +335,7 @@ def _load_price_observation_rows(
         sources["card_variant_price_observations"] = "NO_VARIANTS_OR_CONDITION"
         return []
 
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows: List[Dict[str, Any]] = []
     for variant_id_chunk in _chunk(variant_ids):
         result = (
@@ -432,7 +433,14 @@ def _load_conditioned_price_observation_rows(
             .select("card_variant_id,condition_id,market_price,source,captured_at")
             .in_("card_variant_id", variant_id_chunk)
             .gte("captured_at", since)
-            .order("captured_at", desc=False)
+            # PostgREST enforces its own server-side max-rows cap (observed: 1000)
+            # regardless of this .limit() value. With ascending order, a chunk with
+            # more matching rows than that cap silently drops the most recent
+            # rows — exactly the ones 1D/7D movers need — while keeping decades-old
+            # history. Fetch newest-first so any truncation drops old rows instead.
+            # _build_card_movements_from_context re-sorts ascending before use, so
+            # this ordering only affects which rows survive truncation.
+            .order("captured_at", desc=True)
             .limit(10000)
         )
         if condition_ids:
@@ -695,7 +703,12 @@ def _build_card_movements_from_context(
             observations_by_variant.get(variant_id, []),
             key=lambda row: _to_optional_str(row.get("captured_at")) or "",
         )
-        if len(observations) < 2:
+        if not observations:
+            # No raw observation at all means there's no possible baseline — but a
+            # single observation is enough; the current price row from
+            # card_market_usd_latest_by_condition supplies the second point below.
+            # Rejecting here before that point is appended discarded valid 1D/7D
+            # movers that only ever have one stored observation plus a live price.
             continue
         latest_dt = _parse_datetime(latest_row.get("captured_at")) or _parse_datetime(observations[-1].get("captured_at"))
         if latest_dt is None:
@@ -742,6 +755,8 @@ def _build_card_movements_from_context(
             continue
 
         history_points_for_confidence = [baseline_point, *window_observations]
+        if len(history_points_for_confidence) < 2:
+            continue
         movement = _public_card_movement(
             canonical_card=canonical_card,
             variant_id=variant_id,

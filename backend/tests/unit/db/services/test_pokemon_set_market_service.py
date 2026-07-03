@@ -331,3 +331,129 @@ def test_1d_7d_30d_produce_distinct_deltas_when_valid_baselines_exist(monkeypatc
     # The three windows must not collapse to the same amount/baseline.
     amounts = {results[1]["change30dAmount"], results[7]["change30dAmount"], results[30]["change30dAmount"]}
     assert len(amounts) == 3
+
+
+def test_single_raw_observation_at_t_minus_1_day_plus_latest_row_is_a_valid_1d_mover(monkeypatch):
+    """A variant with exactly one raw observation (T-1) plus a current price row (T) must not be discarded."""
+    canonical_cards = [_canonical_card("card-3", name="Card Three", api_id="api-3")]
+    legacy_cards = [_legacy_card("legacy-3", name="Card Three", api_id="api-3")]
+    variants = [_variant("variant-3", legacy_card_id="legacy-3", api_id="api-3")]
+    latest_rows = [
+        {
+            "variant_id": "variant-3",
+            "condition_id": _CONDITION_ID,
+            "market_price": 60.0,
+            "source": "TCGPLAYER",
+            "captured_at": "2026-07-02T12:00:00+00:00",
+        }
+    ]
+    # Only ONE raw observation row exists for this variant — this is the shape the
+    # old `if len(observations) < 2: continue` guard discarded before ever reaching
+    # the current-price row appended below.
+    observation_rows = [
+        {
+            "card_variant_id": "variant-3",
+            "condition_id": _CONDITION_ID,
+            "market_price": 55.0,
+            "source": "TCGPLAYER",
+            "captured_at": "2026-07-01T12:00:00+00:00",
+        }
+    ]
+    client = _build_movement_client(
+        canonical_cards=canonical_cards,
+        legacy_cards=legacy_cards,
+        variants=variants,
+        latest_rows=latest_rows,
+        observation_rows=observation_rows,
+    )
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=1)
+
+    movers = _movers_by_card_id(payload)
+    assert "card-3" in movers, "a single T-1 observation plus a live price must produce a valid 1D mover"
+    movement = movers["card-3"]
+    assert movement["change30dAmount"] == 5.0
+    assert movement["historyStartDate"] == "2026-07-01"
+    assert movement["historyEndDate"] == "2026-07-02"
+
+
+def test_single_raw_observation_around_t_minus_5_days_plus_latest_row_is_a_valid_7d_mover(monkeypatch):
+    """A variant with exactly one raw observation (~T-5) plus a current price row (T) must not be discarded."""
+    canonical_cards = [_canonical_card("card-4", name="Card Four", api_id="api-4")]
+    legacy_cards = [_legacy_card("legacy-4", name="Card Four", api_id="api-4")]
+    variants = [_variant("variant-4", legacy_card_id="legacy-4", api_id="api-4")]
+    latest_rows = [
+        {
+            "variant_id": "variant-4",
+            "condition_id": _CONDITION_ID,
+            "market_price": 60.0,
+            "source": "TCGPLAYER",
+            "captured_at": "2026-07-02T12:00:00+00:00",
+        }
+    ]
+    observation_rows = [
+        {
+            "card_variant_id": "variant-4",
+            "condition_id": _CONDITION_ID,
+            "market_price": 50.0,
+            "source": "TCGPLAYER",
+            "captured_at": "2026-06-27T12:00:00+00:00",
+        }
+    ]
+    client = _build_movement_client(
+        canonical_cards=canonical_cards,
+        legacy_cards=legacy_cards,
+        variants=variants,
+        latest_rows=latest_rows,
+        observation_rows=observation_rows,
+    )
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=7)
+
+    movers = _movers_by_card_id(payload)
+    assert "card-4" in movers, "a single ~T-5 observation plus a live price must produce a valid 7D mover"
+    movement = movers["card-4"]
+    assert movement["change30dAmount"] == 10.0
+    assert movement["historyStartDate"] == "2026-06-27"
+    assert movement["historyEndDate"] == "2026-07-02"
+
+
+def test_single_stale_observation_at_t_minus_26_days_is_still_excluded_from_1d(monkeypatch):
+    """The relaxed single-observation path must not bypass the max-span guardrail."""
+    canonical_cards = [_canonical_card("card-5", name="Card Five", api_id="api-5")]
+    legacy_cards = [_legacy_card("legacy-5", name="Card Five", api_id="api-5")]
+    variants = [_variant("variant-5", legacy_card_id="legacy-5", api_id="api-5")]
+    latest_rows = [
+        {
+            "variant_id": "variant-5",
+            "condition_id": _CONDITION_ID,
+            "market_price": 130.0,
+            "source": "TCGPLAYER",
+            "captured_at": "2026-07-02T12:00:00+00:00",
+        }
+    ]
+    observation_rows = [
+        {
+            "card_variant_id": "variant-5",
+            "condition_id": _CONDITION_ID,
+            "market_price": 100.0,
+            "source": "TCGPLAYER",
+            "captured_at": "2026-06-06T12:00:00+00:00",
+        }
+    ]
+    client = _build_movement_client(
+        canonical_cards=canonical_cards,
+        legacy_cards=legacy_cards,
+        variants=variants,
+        latest_rows=latest_rows,
+        observation_rows=observation_rows,
+    )
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=1)
+
+    movers = _movers_by_card_id(payload)
+    assert "card-5" not in movers, "a 26-day-old single observation must still be excluded from a 1D window"
+    assert payload["movements"] == []
