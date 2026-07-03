@@ -51,6 +51,9 @@ RIP_DESIRABILITY_COMPARISON_FIELDS = (
     "rip_desirability_comparison_version",
 )
 
+MARKET_MOVERS_WINDOWS_DAYS = {"1D": 1, "7D": 7, "30D": 30}
+MARKET_MOVERS_COMPATIBILITY_WINDOW = "30D"
+
 TOP_HITS_WARNING_PATTERNS = (
     "top hits",
     "simulation_input_cards is failed",
@@ -1098,7 +1101,23 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             "stability_score",
             "desirability_score",
             "experience_score",
+            "relative_experience_score",
+            "experience_tier",
+            "experience_rank",
             "chase_potential_score",
+            "relative_chase_potential_score",
+            "chase_potential_tier",
+            "chase_potential_rank",
+            "biggest_upside_score",
+            "relative_biggest_upside_score",
+            "biggest_upside_tier",
+            "biggest_upside_rank",
+            "average_return_score",
+            "relative_average_return_score",
+            "mean_value_to_cost_score",
+            "relative_mean_value_to_cost_score",
+            "mean_value_to_cost_tier",
+            "mean_value_to_cost_rank",
             *RANK_CONTEXT_FIELDS,
             *RIP_DESIRABILITY_COMPARISON_FIELDS,
         ),
@@ -1118,6 +1137,8 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             "p99_value_to_cost_ratio",
             "simulated_set_value",
             "simulated_set_value_card_count",
+            "average_hit_value",
+            "expected_loss_per_pack",
         ),
     )
     risk_summary = _summary_subset(
@@ -1725,9 +1746,20 @@ def build_market_dashboard_snapshot_rows(
         for point in history
         if parse_date_key(point.get("date"))
     ]
-    movement_payload = build_pokemon_set_card_movement_payload(set_id=set_id)
-    market_movers = movement_payload.get("marketMovers") or {}
-    market_movers_snake = movement_payload.get("market_movers") or {}
+    movement_payloads_by_window = {
+        window_key: build_pokemon_set_card_movement_payload(set_id=set_id, window_days=window_days)
+        for window_key, window_days in MARKET_MOVERS_WINDOWS_DAYS.items()
+    }
+    market_movers_by_window = {
+        window_key: payload.get("marketMovers") or {}
+        for window_key, payload in movement_payloads_by_window.items()
+    }
+    market_movers_by_window_snake = {
+        window_key: payload.get("market_movers") or {}
+        for window_key, payload in movement_payloads_by_window.items()
+    }
+    market_movers = market_movers_by_window[MARKET_MOVERS_COMPATIBILITY_WINDOW]
+    market_movers_snake = market_movers_by_window_snake[MARKET_MOVERS_COMPATIBILITY_WINDOW]
     set_value_history_latest_date_by_scope = {
         scope: _latest_history_date({scope: history})
         for scope, history in histories_by_scope.items()
@@ -1762,6 +1794,8 @@ def build_market_dashboard_snapshot_rows(
         "top_chase_card_histories": top_chase_card_histories,
         "marketMovers": market_movers,
         "market_movers": market_movers_snake,
+        "marketMoversByWindow": market_movers_by_window,
+        "market_movers_by_window": market_movers_by_window_snake,
         "availableScopes": list(available_scope_lookup.values()),
         "available_scopes": list(available_scope_lookup.values()),
         "latestMarketDate": latest_market_date,
@@ -1783,6 +1817,7 @@ def build_market_dashboard_snapshot_rows(
                 "performanceVsCostHistory": "calculation_history_trend+simulation_run_summary",
                 "top_chase_cards": "pokemon_set_top_chase_card_daily_history/simulation_input_cards",
                 "market_movers": "card_variant_price_observations/card_market_usd_latest_by_condition",
+                "market_movers_by_window": "card_variant_price_observations/card_market_usd_latest_by_condition",
             },
             "latestPerformanceDate": latest_performance_date,
             "latest_performance_date": latest_performance_date,

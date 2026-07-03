@@ -74,12 +74,30 @@ test("set page route passes initial module snapshots into the client", () => {
 
   assert.ok(source.includes("getPokemonSetInitialSnapshots"));
   assert.ok(source.includes("initialModuleSnapshots"));
-  assert.ok(source.includes("getPokemonSetInitialSnapshots(requestedTargetId)"));
+  assert.ok(source.includes("getPokemonSetInitialSnapshots(requestedTargetId, { tab: activeSetDetailTab })"));
   assert.ok(source.includes("initialModuleSnapshots={initialModuleSnapshots}"));
 });
 
-test("set page snapshot fetch opts out of Next data cache for large payloads", () => {
+test("set page snapshot fetch bypasses Next's data cache for the oversized Pokemon set full-page payload only", () => {
   const source = fs.readFileSync(serverPath, "utf8");
 
-  assert.ok(source.includes('isPokemonSetPage ? { cache: "no-store" } : { next: { revalidate: 300 } }'));
+  // The Pokemon set /page backend fetch (targetType === "set") can exceed
+  // Next's 2MB data-cache limit and must never opt into Next's fetch cache —
+  // this is the direct backend URL, a separate code path from the local
+  // /api proxy route.js, and the log prefix that showed the 2MB cache
+  // failure ([explore-page-server]) originates here.
+  assert.ok(
+    source.includes('isPokemonSetPage ? { cache: "no-store" } : { next: { revalidate: 300 } }'),
+    "isPokemonSetPage branch must use cache: \"no-store\"; non-set explore fetch keeps revalidate: 300"
+  );
+  assert.ok(!source.includes("SET_PAGE_REVALIDATE_S"), "the orphaned set-page revalidate constant must be removed, not left dead");
+  assert.ok(!source.includes("pokemon-set-page:"), "must not tag the set page fetch for Next's data cache since it is never cached");
+
+  // Non-set explore pages (RIP targets) are smaller and must keep their
+  // existing revalidate: 300 caching — this fix is scoped to the Pokemon
+  // set full-page payload only.
+  const fetchStart = source.indexOf("res = await fetchWithTimeout");
+  const fetchCallEnd = source.indexOf("timeoutMs\n      );", fetchStart);
+  const fetchCallSource = source.slice(fetchStart, fetchCallEnd);
+  assert.ok(fetchCallSource.includes("{ next: { revalidate: 300 } }"), "non-set explore fetch must still use next.revalidate: 300");
 });

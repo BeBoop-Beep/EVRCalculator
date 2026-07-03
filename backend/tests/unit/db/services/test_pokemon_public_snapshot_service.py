@@ -19,6 +19,7 @@ class _Query:
         self.limit_value = None
 
     def select(self, _fields):
+        self.select_fields = _fields
         return self
 
     def in_(self, _field, _values):
@@ -351,26 +352,18 @@ def test_market_dashboard_snapshot_hydrates_empty_top_chase_histories_from_raw_o
                 "window_key": "365d",
                 "latest_market_date": "2026-06-02",
                 "updated_at": "2026-06-03T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-02", "setValue": 321.0}]},
+                "top_chase_cards_json": [
+                    {
+                        "cardId": "card-1",
+                        "cardVariantId": "variant-1",
+                        "name": "Chase Card",
+                        "imageUrl": "https://example.test/card.png",
+                        "marketPrice": 12.0,
+                        "deltas": {"30D": None},
+                    }
+                ],
                 "top_chase_card_histories_json": {},
-                "payload_json": {
-                    "set": {"id": "set-1", "name": "Known Set"},
-                    "window": "365d",
-                    "window_key": "365d",
-                    "setValueHistoriesByScope": {"standard": [{"date": "2026-06-02", "setValue": 321.0}]},
-                    "topChaseCards": [
-                        {
-                            "cardId": "card-1",
-                            "cardVariantId": "variant-1",
-                            "name": "Chase Card",
-                            "imageUrl": "https://example.test/card.png",
-                            "marketPrice": 12.0,
-                            "deltas": {"30D": None},
-                        }
-                    ],
-                    "topChaseCardHistories": {},
-                    "top_chase_card_histories": {},
-                    "meta": {},
-                },
             }
         ]
 
@@ -463,22 +456,15 @@ def test_market_dashboard_snapshot_hydrates_top_chase_history_from_canonical_var
                 "window_key": "365d",
                 "latest_market_date": "2026-06-25",
                 "updated_at": "2026-06-25T00:00:00+00:00",
+                "top_chase_cards_json": [
+                    {
+                        "cardId": "legacy-card-1",
+                        "cardVariantId": "stale-variant",
+                        "name": "Reshiram ex",
+                        "marketPrice": 12.0,
+                    }
+                ],
                 "top_chase_card_histories_json": {},
-                "payload_json": {
-                    "set": {"id": "set-1", "name": "Known Set"},
-                    "window": "365d",
-                    "window_key": "365d",
-                    "topChaseCards": [
-                        {
-                            "cardId": "legacy-card-1",
-                            "cardVariantId": "stale-variant",
-                            "name": "Reshiram ex",
-                            "marketPrice": 12.0,
-                        }
-                    ],
-                    "topChaseCardHistories": {},
-                    "meta": {},
-                },
             }
         ]
 
@@ -625,7 +611,8 @@ def test_canonical_top_chase_history_forward_fills_only_missing_days_and_later_a
     assert diagnostics["stale-variant"]["latestHistoryPrice"] == 23.0
 
 
-def test_market_dashboard_snapshot_uses_75_raw_points_instead_of_365_synthetic_top_chase_rows(monkeypatch):
+def test_market_dashboard_snapshot_returns_stored_histories_without_live_queries(monkeypatch):
+    """Stored topChaseCardHistories in the snapshot are returned directly — no live observation queries."""
     observation_queries = []
     daily_queries = []
     stale_history = [
@@ -647,23 +634,14 @@ def test_market_dashboard_snapshot_uses_75_raw_points_instead_of_365_synthetic_t
                 "latest_market_date": "2026-06-24",
                 "updated_at": "2026-06-24T00:00:00+00:00",
                 "top_chase_card_histories_json": {"variant-1": stale_history},
-                "payload_json": {
-                    "set": {"id": "set-1", "name": "Known Set"},
-                    "window": "365d",
-                    "window_key": "365d",
-                    "topChaseCards": [
-                        {
-                            "cardId": "card-1",
-                            "cardVariantId": "variant-1",
-                            "name": "Chase Card",
-                            "marketPrice": 374.0,
-                            "priceHistory": stale_history,
-                            "price_history": stale_history,
-                        }
-                    ],
-                    "topChaseCardHistories": {"variant-1": stale_history},
-                    "meta": {},
-                },
+                "top_chase_cards_json": [
+                    {
+                        "cardId": "card-1",
+                        "cardVariantId": "variant-1",
+                        "name": "Chase Card",
+                        "marketPrice": 374.0,
+                    }
+                ],
             }
         ]
 
@@ -688,23 +666,25 @@ def test_market_dashboard_snapshot_uses_75_raw_points_instead_of_365_synthetic_t
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
     history = payload["topChaseCards"][0]["priceHistory"]
 
-    assert len(history) == 75
-    assert history[0]["date"] == "2026-04-11"
+    # Stored histories must be used directly — no live observation or daily-history queries.
+    assert len(history) == 365
+    assert history[0]["date"] == "2025-06-25"
     assert history[-1]["date"] == "2026-06-24"
     assert payload["topChaseCardHistories"]["variant-1"] == history
+    assert observation_queries == [], "live card_variant_price_observations must NOT be queried when stored histories exist"
     assert daily_queries == []
-    assert ("captured_at", "2025-06-25") in observation_queries[0].gte_filters
-    assert ("captured_at", "2026-06-25") in observation_queries[0].lt_filters
     assert payload["meta"]["topChaseHistorySource"] == "card_variant_price_observations"
     assert payload["meta"]["topChaseHistorySourceWindowDays"] == 365
-    assert payload["meta"]["topChaseHistoryMinPoints"] == 75
-    assert payload["meta"]["topChaseHistoryMaxPoints"] == 75
-    assert payload["meta"]["topChaseHistoryFirstObservedDate"] == "2026-04-11"
-    assert payload["meta"]["topChaseHistoryLatestObservedDate"] == "2026-06-24"
+    assert payload["meta"]["topChaseHistoryMinPoints"] == 365
+    assert payload["meta"]["topChaseHistoryMaxPoints"] == 365
     assert payload["meta"]["topChaseHistoryHydratedFromDailyTable"] is False
 
 
-def test_market_dashboard_snapshot_returns_no_top_chase_points_before_first_raw_observation(monkeypatch):
+def test_market_dashboard_snapshot_uses_row_histories_when_payload_histories_empty(monkeypatch):
+    """When payload_json has empty topChaseCardHistories but top_chase_card_histories_json has data, row data is used without live queries."""
+    observation_queries = []
+    row_histories = _daily_top_chase_rows(365)
+
     def read_dashboard(_query):
         return [
             {
@@ -712,15 +692,8 @@ def test_market_dashboard_snapshot_returns_no_top_chase_points_before_first_raw_
                 "window_key": "365d",
                 "latest_market_date": "2026-06-24",
                 "updated_at": "2026-06-24T00:00:00+00:00",
-                "top_chase_card_histories_json": {"variant-1": _daily_top_chase_rows(365)},
-                "payload_json": {
-                    "set": {"id": "set-1", "name": "Known Set"},
-                    "window": "365d",
-                    "window_key": "365d",
-                    "topChaseCards": [{"cardId": "card-1", "cardVariantId": "variant-1", "name": "Chase Card"}],
-                    "topChaseCardHistories": {},
-                    "meta": {},
-                },
+                "top_chase_card_histories_json": {"variant-1": row_histories},
+                "top_chase_cards_json": [{"cardId": "card-1", "cardVariantId": "variant-1", "name": "Chase Card"}],
             }
         ]
 
@@ -728,7 +701,7 @@ def test_market_dashboard_snapshot_returns_no_top_chase_points_before_first_raw_
         {
             "sets": lambda _query: [{"id": "set-1", "name": "Known Set", "canonical_key": "knownSet"}],
             "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
-            "card_variant_price_observations": lambda _query: _raw_observation_rows(75),
+            "card_variant_price_observations": lambda _query: (observation_queries.append(_query) or _raw_observation_rows(75)),
         }
     )
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
@@ -736,9 +709,10 @@ def test_market_dashboard_snapshot_returns_no_top_chase_points_before_first_raw_
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
     history = payload["topChaseCards"][0]["priceHistory"]
 
-    assert history[0]["date"] == "2026-04-11"
-    assert all(point["date"] >= "2026-04-11" for point in history)
-    assert not any(point["date"] < "2026-04-11" for point in history)
+    # Stored row histories must be returned; no live observation queries.
+    assert len(history) == 365
+    assert history[0]["date"] == "2025-06-25"
+    assert observation_queries == [], "live card_variant_price_observations must NOT be queried when top_chase_card_histories_json has data"
 
 
 def test_market_dashboard_top_chase_hydration_uses_365_day_observation_window_for_30d_request(monkeypatch):
@@ -752,21 +726,14 @@ def test_market_dashboard_top_chase_hydration_uses_365_day_observation_window_fo
                 "latest_market_date": "2026-06-24",
                 "updated_at": "2026-06-24T00:00:00+00:00",
                 "top_chase_card_histories_json": {},
-                "payload_json": {
-                    "set": {"id": "set-1", "name": "Known Set"},
-                    "window": "30d",
-                    "window_key": "30d",
-                    "topChaseCards": [
-                        {
-                            "cardId": "card-1",
-                            "cardVariantId": "variant-1",
-                            "name": "Chase Card",
-                            "marketPrice": 374.0,
-                        }
-                    ],
-                    "topChaseCardHistories": {},
-                    "meta": {},
-                },
+                "top_chase_cards_json": [
+                    {
+                        "cardId": "card-1",
+                        "cardVariantId": "variant-1",
+                        "name": "Chase Card",
+                        "marketPrice": 374.0,
+                    }
+                ],
             }
         ]
 
@@ -1443,3 +1410,722 @@ def test_live_fallback_performance_history_empty_when_no_simulation_data(monkeyp
     # Warning must be present
     warnings = payload["meta"]["warnings"]
     assert any("simulation performance history" in w.lower() for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot-read fast-path: stored rows return directly, no live rebuilds
+# ---------------------------------------------------------------------------
+
+
+def test_market_dashboard_snapshot_row_returns_stored_payload_without_live_rebuild(monkeypatch):
+    """When a market dashboard snapshot row exists with top chase cards and stored histories, no live DB calls
+    are made to card_variant_price_observations, set value history, or top market cards."""
+    live_queries = []
+    stored_history = [
+        {"date": "2026-06-23", "marketPrice": 100.0, "market_price": 100.0, "sourceDate": "2026-06-23", "source_date": "2026-06-23"},
+        {"date": "2026-06-24", "marketPrice": 101.0, "market_price": 101.0, "sourceDate": "2026-06-24", "source_date": "2026-06-24"},
+    ]
+
+    def read_dashboard(_query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-24",
+                "updated_at": "2026-06-24T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-24", "setValue": 500.0}]},
+                "performance_vs_cost_history_json": [{"date": "2026-06-24", "meanValueToCostRatio": 0.8}],
+                "top_chase_card_histories_json": {"variant-1": stored_history},
+                "top_chase_cards_json": [
+                    {
+                        "cardId": "card-1",
+                        "cardVariantId": "variant-1",
+                        "name": "Chase Card",
+                        "marketPrice": 101.0,
+                    }
+                ],
+            }
+        ]
+
+    def track_live(query):
+        live_queries.append(query)
+        return []
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Snapshot Set", "canonical_key": "snapshotSet"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+            "card_variant_price_observations": track_live,
+            "calculation_history_trend": track_live,
+            "simulation_run_summary": track_live,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_value_history_payload",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("live set value history must not be called when snapshot exists")),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("live top market cards must not be called when snapshot exists")),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    assert payload["set"]["name"] == "Snapshot Set"
+    assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 500.0
+    assert payload["topChaseCards"][0]["priceHistory"] == stored_history
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
+    assert live_queries == [], "no live observation, calculation_history_trend, or simulation queries when snapshot row exists"
+    assert payload["meta"]["timings"]["snapshot_query_ms"] is not None
+
+
+def test_cards_snapshot_missing_falls_back_to_canonical_cards(monkeypatch):
+    """When the cards snapshot row is missing, falls back to get_pokemon_set_cards_payload without desirability enrichment."""
+    client = _Client(
+        {
+            "sets": lambda _query: [
+                {"id": "set-1", "name": "Known Set", "canonical_key": "knownSet", "pokemon_api_set_id": "sv-known"}
+            ],
+            "pokemon_set_cards_snapshot_latest": lambda _query: [],
+            "pokemon_card_desirability_links": lambda _query: (_ for _ in ()).throw(
+                AssertionError("desirability links must not be queried on fallback path")
+            ),
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_cards_payload",
+        lambda set_id: {
+            "set": {"id": set_id, "name": "Known Set"},
+            "cards": [{"id": "card-1", "name": "Charizard ex"}],
+            "meta": {"warnings": []},
+        },
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_cards_snapshot_payload("set-1")
+
+    assert payload["cards"][0]["id"] == "card-1"
+    assert payload["meta"]["snapshot"]["source"] == "live_fallback_missing_pokemon_set_cards_snapshot_latest"
+    assert any("Pokemon set cards snapshot is missing" in w for w in payload["meta"]["warnings"])
+    assert payload["meta"]["cardDesirabilityValidation"]["precomputed"] is False
+
+
+def test_uuid_set_id_resolves_with_single_query(monkeypatch):
+    """UUID-shaped set_id must be resolved via a single id= lookup — no sequential field fallbacks."""
+    queries_made = []
+
+    def track_sets(query):
+        queries_made.append(list(query.eq_filters))
+        return [{"id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "name": "Ascended Heroes", "canonical_key": "ascendedHeroes"}]
+
+    client = _Client(
+        {
+            "sets": track_sets,
+            "pokemon_set_page_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("75cd439d-aaa2-41cb-86f3-2fefa5b26e29")
+
+    # Only one sets query should be made, and it must use `id` equality.
+    assert len(queries_made) == 1, f"expected 1 sets query, got {len(queries_made)}: {queries_made}"
+    assert ("id", "75cd439d-aaa2-41cb-86f3-2fefa5b26e29") in queries_made[0]
+
+
+_TEST_UUID = "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
+
+
+def test_uuid_page_snapshot_hit_skips_sets_query(monkeypatch):
+    """UUID set_id + existing page snapshot row → returns stored payload without any sets table query."""
+
+    def reject_sets(_query):
+        raise AssertionError("sets table must not be queried for UUID fast path on snapshot hit")
+
+    client = _Client(
+        {
+            "sets": reject_sets,
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": _TEST_UUID,
+                    "payload_json": {
+                        "set": {"id": _TEST_UUID, "name": "Fast Set"},
+                        "cards": [],
+                        "meta": {"snapshot": {"source": "pokemon_set_page_snapshot_latest"}},
+                    },
+                    "as_of": "2026-06-28",
+                    "source_updated_at": "2026-06-28T00:00:00+00:00",
+                    "updated_at": "2026-06-28T00:00:00+00:00",
+                }
+            ],
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload(_TEST_UUID)
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_set_page_snapshot_latest"
+    assert payload["meta"]["timings"]["snapshot_query_ms"] is not None
+
+
+def test_uuid_cards_snapshot_hit_skips_sets_query(monkeypatch):
+    """UUID set_id + existing cards snapshot row → returns stored payload without any sets table query."""
+
+    def reject_sets(_query):
+        raise AssertionError("sets table must not be queried for UUID fast path on snapshot hit")
+
+    client = _Client(
+        {
+            "sets": reject_sets,
+            "pokemon_set_cards_snapshot_latest": lambda _query: [
+                {
+                    "set_id": _TEST_UUID,
+                    "card_count": 165,
+                    "updated_at": "2026-06-28T00:00:00+00:00",
+                    "payload_json": {
+                        "set": {"id": _TEST_UUID, "name": "Fast Cards Set"},
+                        "cards": [{"id": "card-1", "name": "Pikachu ex"}],
+                        "meta": {
+                            "snapshot": {"source": "pokemon_set_cards_snapshot_latest"},
+                            "timings": {},
+                        },
+                    },
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_cards_snapshot_payload(_TEST_UUID)
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["cards"][0]["name"] == "Pikachu ex"
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_set_cards_snapshot_latest"
+    assert payload["meta"]["cardDesirabilityValidation"]["precomputed"] is True
+    assert payload["meta"]["timings"]["snapshot_query_ms"] is not None
+    assert "set_resolve_ms" not in payload["meta"]["timings"]
+
+
+def test_uuid_market_dashboard_snapshot_hit_skips_sets_and_live_queries(monkeypatch):
+    """UUID set_id + existing market dashboard snapshot row → returns stored payload; no sets query, no live assembly."""
+    live_calls = []
+
+    stored_history = [
+        {"date": "2026-06-27", "marketPrice": 50.0},
+        {"date": "2026-06-28", "marketPrice": 55.0},
+    ]
+
+    def reject_sets(_query):
+        raise AssertionError("sets table must not be queried for UUID fast path on snapshot hit")
+
+    client = _Client(
+        {
+            "sets": reject_sets,
+            "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [
+                {
+                    "set_id": _TEST_UUID,
+                    "window_key": "365d",
+                    "latest_market_date": "2026-06-28",
+                    "updated_at": "2026-06-28T00:00:00+00:00",
+                    "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                    "performance_vs_cost_history_json": [],
+                    "top_chase_card_histories_json": {"variant-uuid": stored_history},
+                    "top_chase_cards_json": [
+                        {
+                            "cardId": "card-uuid-1",
+                            "cardVariantId": "variant-uuid",
+                            "name": "UUID Chase Card",
+                            "marketPrice": 55.0,
+                        }
+                    ],
+                }
+            ],
+            "card_variant_price_observations": lambda _q: (live_calls.append("observations") or []),
+            "calculation_history_trend": lambda _q: (live_calls.append("calc_trend") or []),
+            "simulation_run_summary": lambda _q: (live_calls.append("sim_summary") or []),
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_value_history_payload",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("live value history must not run on UUID snapshot hit")),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("live top cards must not run on UUID snapshot hit")),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(_TEST_UUID, window="365d")
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 200.0
+    price_history = payload["topChaseCards"][0]["priceHistory"]
+    assert len(price_history) == len(stored_history)
+    assert price_history[0]["date"] == stored_history[0]["date"]
+    assert price_history[0]["marketPrice"] == stored_history[0]["marketPrice"]
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
+    assert live_calls == [], f"no live DB calls expected for UUID snapshot hit, got: {live_calls}"
+
+
+def test_uuid_market_dashboard_snapshot_miss_returns_fast_empty(monkeypatch):
+    """UUID set_id + no market dashboard snapshot row → fast empty payload; no sets query, no live assembly."""
+
+    def reject_sets(_query):
+        raise AssertionError("sets table must not be queried for UUID fast path on snapshot miss")
+
+    client = _Client(
+        {
+            "sets": reject_sets,
+            "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_value_history_payload",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("live value history must not run on UUID snapshot miss")),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("live top cards must not run on UUID snapshot miss")),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_load_simulation_performance_history_live",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("simulation history must not run on UUID snapshot miss")),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(_TEST_UUID, window="365d")
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["topChaseCards"] == []
+    assert payload["setValueHistoriesByScope"] == {"standard": [], "hits": [], "top10": []}
+    assert "missing" in payload["meta"]["warnings"][0].lower() or "snapshot" in payload["meta"]["warnings"][0].lower()
+    assert "empty_fallback" in payload["meta"]["snapshot"]["source"]
+
+
+def test_market_dashboard_reader_selects_payload_json_for_market_movers(monkeypatch):
+    """The market dashboard reader must select payload_json — it's the only source of marketMovers."""
+    captured_queries = []
+
+    def read_dashboard(query):
+        captured_queries.append(query)
+        return [
+            {
+                "set_id": _TEST_UUID,
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {"marketMovers": {"heatingUp": [], "coolingOff": [], "all": []}},
+            }
+        ]
+
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(_TEST_UUID, window="365d")
+
+    assert len(captured_queries) == 1
+    selected_fields = captured_queries[0].select_fields
+    assert "payload_json" in selected_fields
+    assert "set_value_histories_json" in selected_fields
+    assert "top_chase_cards_json" in selected_fields
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["setValueHistoriesByScope"]["standard"][0]["setValue"] == 200.0
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
+
+
+def test_market_dashboard_snapshot_returns_market_movers_from_payload_json(monkeypatch):
+    """marketMovers/market_movers must be read from the stored payload_json blob, not dropped."""
+    heating_up = [{"cardId": "card-1", "name": "Hot Card", "change30dPercent": 42.0}]
+    cooling_off = [{"cardId": "card-2", "name": "Cold Card", "change30dPercent": -12.0}]
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {
+                    "marketMovers": {"heatingUp": heating_up, "coolingOff": cooling_off, "all": heating_up + cooling_off},
+                    "market_movers": {"heatingUp": heating_up, "coolingOff": cooling_off, "all": heating_up + cooling_off},
+                },
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    for key in ("marketMovers", "market_movers"):
+        assert payload[key]["heatingUp"] == heating_up
+        assert payload[key]["coolingOff"] == cooling_off
+        assert payload[key]["all"] == heating_up + cooling_off
+
+
+def test_market_dashboard_snapshot_defaults_market_movers_when_missing_from_payload_json(monkeypatch):
+    """A stored snapshot without marketMovers in payload_json still returns the empty shape, not a KeyError."""
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {},
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    for key in ("marketMovers", "market_movers"):
+        assert payload[key] == {"heatingUp": [], "coolingOff": [], "all": []}
+
+
+def test_market_dashboard_snapshot_returns_market_movers_by_window_from_payload_json(monkeypatch):
+    """marketMoversByWindow/market_movers_by_window must expose 1D/7D/30D, with marketMovers as the 30D compat field."""
+    by_window = {
+        "1D": {"heatingUp": [{"cardId": "card-1d"}], "coolingOff": [], "all": [{"cardId": "card-1d"}]},
+        "7D": {"heatingUp": [{"cardId": "card-7d"}], "coolingOff": [], "all": [{"cardId": "card-7d"}]},
+        "30D": {"heatingUp": [{"cardId": "card-30d"}], "coolingOff": [], "all": [{"cardId": "card-30d"}]},
+    }
+    by_window_snake = {
+        "1D": {"heating_up": [{"cardId": "card-1d"}], "cooling_off": [], "all": [{"cardId": "card-1d"}]},
+        "7D": {"heating_up": [{"cardId": "card-7d"}], "cooling_off": [], "all": [{"cardId": "card-7d"}]},
+        "30D": {"heating_up": [{"cardId": "card-30d"}], "cooling_off": [], "all": [{"cardId": "card-30d"}]},
+    }
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {
+                    "marketMovers": by_window["30D"],
+                    "market_movers": by_window_snake["30D"],
+                    "marketMoversByWindow": by_window,
+                    "market_movers_by_window": by_window_snake,
+                },
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    # Both the camelCase and snake_case top-level keys resolve to the same picked
+    # dict (camelCase preferred), mirroring the existing marketMovers/market_movers pattern.
+    assert payload["marketMoversByWindow"] == by_window
+    assert payload["market_movers_by_window"] == by_window
+    for key in ("1D", "7D", "30D"):
+        assert payload["marketMoversByWindow"][key]["heatingUp"][0]["cardId"] == f"card-{key.lower()}"
+
+    # Backward compatibility: marketMovers/market_movers must still be the 30D entry.
+    assert payload["marketMovers"] == by_window["30D"]
+    assert payload["market_movers"] == by_window["30D"]
+
+
+def test_market_dashboard_snapshot_defaults_market_movers_by_window_to_30d_when_missing(monkeypatch):
+    """Snapshots written before per-window movers existed must still serve the 30D tab via fallback."""
+    thirty_day_movers = {"heatingUp": [{"cardId": "card-30d"}], "coolingOff": [], "all": [{"cardId": "card-30d"}]}
+
+    def read_dashboard(query):
+        return [
+            {
+                "set_id": "set-1",
+                "window_key": "365d",
+                "latest_market_date": "2026-06-28",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+                "set_value_histories_json": {"standard": [{"date": "2026-06-28", "setValue": 200.0}]},
+                "performance_vs_cost_history_json": [],
+                "top_chase_cards_json": [],
+                "top_chase_card_histories_json": {},
+                "available_scopes_json": [],
+                "payload_json": {"marketMovers": thirty_day_movers, "market_movers": thirty_day_movers},
+            }
+        ]
+
+    client = _Client(
+        {
+            "sets": lambda _query: [{"id": "set-1", "name": "Set One", "canonical_key": "set-one"}],
+            "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
+
+    assert payload["marketMoversByWindow"] == {"30D": thirty_day_movers}
+    assert payload["market_movers_by_window"] == {"30D": thirty_day_movers}
+
+
+def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):
+    """The shell reader must never pull payload_json off pokemon_set_page_snapshot_latest."""
+    captured_queries = []
+
+    def read_shell(query):
+        captured_queries.append(query)
+        return [
+            {
+                "set_id": _TEST_UUID,
+                "set_identity_json": {"id": _TEST_UUID, "name": "Shell Set", "slug": "shell-set"},
+                "title_card_json": {"pack_score": 71.5, "pack_tier": "A"},
+                "rip_summary_json": {"pack_rank": 3, "profit_score": 60.1},
+                "market_summary_json": {"simulated_set_value": 199.5, "pack_cost": 4.99},
+                "risk_summary_json": {"coefficient_of_variation": 1.2},
+                "concentration_json": {"hhi_ev_concentration": 0.3},
+                "desirability_summary_json": {"score": 0.8},
+                "as_of": "2026-06-28",
+                "source_updated_at": "2026-06-28T00:00:00+00:00",
+                "updated_at": "2026-06-28T00:00:00+00:00",
+            }
+        ]
+
+    client = _Client({"pokemon_set_page_snapshot_latest": read_shell})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    assert len(captured_queries) == 1
+    selected_fields = captured_queries[0].select_fields
+    assert "payload_json" not in selected_fields
+    assert "set_identity_json" in selected_fields
+    assert "title_card_json" in selected_fields
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["set"]["name"] == "Shell Set"
+    assert payload["summary"]["pack_score"] == 71.5
+    assert payload["summary"]["pack_rank"] == 3
+    assert payload["summary"]["simulated_set_value"] == 199.5
+    assert payload["titleCard"]["pack_tier"] == "A"
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_set_page_snapshot_latest"
+    assert payload["meta"]["timings"]["snapshot_query_ms"] is not None
+
+
+def test_shell_snapshot_missing_row_returns_fallback(monkeypatch):
+    """Missing shell snapshot row falls back to a minimal identity-only shell without raising."""
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _query: [],
+            "sets": lambda _query: [{"id": _TEST_UUID, "name": "Fallback Set", "canonical_key": "fallback-set"}],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["set"]["name"] == "Fallback Set"
+    assert payload["meta"]["fallback"] is True
+    assert payload["summary"] == {}
+
+
+def test_uuid_shell_snapshot_hit_skips_sets_query(monkeypatch):
+    """UUID set_id + existing shell row → returns split-column payload without any sets table query."""
+
+    def reject_sets(_query):
+        raise AssertionError("sets table must not be queried for UUID fast path on shell snapshot hit")
+
+    client = _Client(
+        {
+            "sets": reject_sets,
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": _TEST_UUID,
+                    "set_identity_json": {"id": _TEST_UUID, "name": "Fast Shell Set"},
+                    "title_card_json": {"pack_score": 50.0},
+                    "rip_summary_json": {},
+                    "market_summary_json": {},
+                    "risk_summary_json": {},
+                    "concentration_json": {},
+                    "desirability_summary_json": {},
+                    "as_of": "2026-06-28",
+                    "source_updated_at": "2026-06-28T00:00:00+00:00",
+                    "updated_at": "2026-06-28T00:00:00+00:00",
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    assert payload["set"]["id"] == _TEST_UUID
+    assert payload["set"]["name"] == "Fast Shell Set"
+    assert payload["summary"]["pack_score"] == 50.0
+
+
+def test_shell_snapshot_exposes_interpretation_from_set_intelligence_json(monkeypatch):
+    """The shell must expose the same recommendation badge/summary the full /page payload uses."""
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": _TEST_UUID,
+                    "set_identity_json": {"id": _TEST_UUID, "name": "Shell Set"},
+                    "title_card_json": {"pack_score": 71.5, "pack_tier": "A"},
+                    "rip_summary_json": {},
+                    "market_summary_json": {},
+                    "risk_summary_json": {},
+                    "concentration_json": {},
+                    "desirability_summary_json": {},
+                    "set_intelligence_json": {
+                        "packScore": "Very Weak Value Profile",
+                        "meta": {
+                            "packScore": {"label": "Very Weak Value Profile", "summary": "This set trails the field."},
+                            "set_intelligence": [{"key": "opening_experience", "tier": "C"}],
+                        },
+                    },
+                    "as_of": "2026-06-28",
+                    "source_updated_at": "2026-06-28T00:00:00+00:00",
+                    "updated_at": "2026-06-28T00:00:00+00:00",
+                }
+            ],
+            "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    assert payload["interpretation"]["meta"]["packScore"]["label"] == "Very Weak Value Profile"
+    assert payload["interpretation"]["meta"]["packScore"]["summary"] == "This set trails the field."
+    assert payload["interpretation"]["meta"]["set_intelligence"][0]["tier"] == "C"
+
+
+def test_shell_snapshot_includes_checklist_set_value_history(monkeypatch):
+    """The shell must include a standard-scope set value history so the title-card
+    sparkline renders immediately on every tab, not only after Overview loads."""
+
+    def read_market_dashboard(query):
+        assert ("set_id", _TEST_UUID) in query.eq_filters
+        return [
+            {
+                "window_key": "30d",
+                "set_value_histories_json": {
+                    "standard": [
+                        {"date": "2026-06-01", "setValue": 100.0},
+                        {"date": "2026-06-28", "setValue": 123.45},
+                    ]
+                },
+            },
+            {
+                "window_key": "365d",
+                "set_value_histories_json": {
+                    "standard": [{"date": "2025-07-01", "setValue": 50.0}]
+                },
+            },
+        ]
+
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": _TEST_UUID,
+                    "set_identity_json": {"id": _TEST_UUID, "name": "Shell Set"},
+                    "title_card_json": {},
+                    "rip_summary_json": {},
+                    "market_summary_json": {},
+                    "risk_summary_json": {},
+                    "concentration_json": {},
+                    "desirability_summary_json": {},
+                    "as_of": "2026-06-28",
+                    "source_updated_at": "2026-06-28T00:00:00+00:00",
+                    "updated_at": "2026-06-28T00:00:00+00:00",
+                }
+            ],
+            "pokemon_set_market_dashboard_snapshot_latest": read_market_dashboard,
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    # Prefers the 30d window row's history over the 365d row when both exist.
+    assert payload["setValueHistoriesByScope"]["standard"][-1]["setValue"] == 123.45
+    assert len(payload["setValueHistoriesByScope"]["standard"]) == 2
+    assert payload["set_value_histories_by_scope"] == payload["setValueHistoriesByScope"]
+
+
+def test_shell_snapshot_tolerates_missing_market_dashboard_row(monkeypatch):
+    """A missing/empty market dashboard row must not fail the shell request."""
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _query: [
+                {
+                    "set_id": _TEST_UUID,
+                    "set_identity_json": {"id": _TEST_UUID, "name": "Shell Set"},
+                    "title_card_json": {},
+                    "rip_summary_json": {},
+                    "market_summary_json": {},
+                    "risk_summary_json": {},
+                    "concentration_json": {},
+                    "desirability_summary_json": {},
+                    "as_of": "2026-06-28",
+                    "source_updated_at": "2026-06-28T00:00:00+00:00",
+                    "updated_at": "2026-06-28T00:00:00+00:00",
+                }
+            ],
+            "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    assert payload["setValueHistoriesByScope"] == {}
+    assert payload["set"]["id"] == _TEST_UUID

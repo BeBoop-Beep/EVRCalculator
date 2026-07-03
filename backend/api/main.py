@@ -58,6 +58,7 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_cards_snapshot_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
     get_pokemon_set_page_snapshot_payload,
+    get_pokemon_set_shell_snapshot_payload,
     get_pokemon_set_top_market_cards_snapshot_payload,
     get_pokemon_set_value_history_snapshot_payload,
 )
@@ -615,6 +616,24 @@ def get_pokemon_set_cards(set_id: str):
         logger.exception("/tcgs/pokemon/sets/%s/cards unexpected error", set_id)
         return JSONResponse(
             content={"message": "Unable to load Pokemon set cards", "code": "POKEMON_SET_CARDS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/shell")
+def get_pokemon_set_shell(set_id: str):
+    """Return the lightweight header/title-card snapshot for a Pokemon set (no payload_json)."""
+    try:
+        return get_pokemon_set_shell_snapshot_payload(set_id=set_id)
+    except ExplorePageError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/shell unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set shell snapshot", "code": "POKEMON_SET_SHELL_FAILED"},
             status_code=500,
         )
 

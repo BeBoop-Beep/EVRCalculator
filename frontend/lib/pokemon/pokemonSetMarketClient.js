@@ -369,13 +369,7 @@ function normalizeMarketMoverCard(card) {
   };
 }
 
-function normalizeMarketMoversPayload(payload) {
-  const source =
-    payload?.marketMovers && typeof payload.marketMovers === "object"
-      ? payload.marketMovers
-      : payload?.market_movers && typeof payload.market_movers === "object"
-      ? payload.market_movers
-      : {};
+function normalizeMarketMoversEntry(source, payload) {
   const heating = Array.isArray(source?.heatingUp)
     ? source.heatingUp
     : Array.isArray(source?.heating_up)
@@ -395,6 +389,33 @@ function normalizeMarketMoversPayload(payload) {
     coolingOff: cooling.map(normalizeMarketMoverCard).filter((card) => card.name),
     all: all.map(normalizeMarketMoverCard).filter((card) => card.name),
   };
+}
+
+function normalizeMarketMoversPayload(payload) {
+  const source =
+    payload?.marketMovers && typeof payload.marketMovers === "object"
+      ? payload.marketMovers
+      : payload?.market_movers && typeof payload.market_movers === "object"
+      ? payload.market_movers
+      : {};
+  return normalizeMarketMoversEntry(source, payload);
+}
+
+function normalizeMarketMoversByWindowPayload(payload) {
+  const source =
+    payload?.marketMoversByWindow && typeof payload.marketMoversByWindow === "object"
+      ? payload.marketMoversByWindow
+      : payload?.market_movers_by_window && typeof payload.market_movers_by_window === "object"
+      ? payload.market_movers_by_window
+      : null;
+  if (!source) {
+    return null;
+  }
+  return Object.fromEntries(
+    Object.entries(source)
+      .filter(([, entry]) => entry && typeof entry === "object")
+      .map(([windowKey, entry]) => [windowKey, normalizeMarketMoversEntry(entry, payload)])
+  );
 }
 
 function normalizeSimulationPerformanceHistory(history) {
@@ -506,6 +527,7 @@ export function normalizeMarketDashboardPayload(payload) {
     meta: payload?.meta,
   });
   const marketMovers = normalizeMarketMoversPayload(payload);
+  const marketMoversByWindow = normalizeMarketMoversByWindowPayload(payload);
 
   const normalizedHistoriesByScope = Object.fromEntries(
     Object.entries(historiesByScope).map(([scope, history]) => [
@@ -527,6 +549,8 @@ export function normalizeMarketDashboardPayload(payload) {
     top_chase_card_histories: topCardsPayload.top_chase_card_histories,
     marketMovers,
     market_movers: marketMovers,
+    marketMoversByWindow,
+    market_movers_by_window: marketMoversByWindow,
     setValueHistoriesByScope: normalizedHistoriesByScope,
     set_value_histories_by_scope: normalizedHistoriesByScope,
     performanceVsCostHistory: normalizeSimulationPerformanceHistory(

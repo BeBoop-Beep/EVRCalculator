@@ -39,12 +39,18 @@ export function marketDashboardReducer(state, action) {
   switch (action?.type) {
     case "visible_window_changed":
       return state;
-    case "reset":
+    case "reset": {
+      // A reset for the same set that already has a successful payload must
+      // not blank the tab — only a genuine set change (or no set at all)
+      // should discard the existing seeded/fetched data.
+      const keepPayload = setId && state?.setId === setId && state?.payload ? state.payload : null;
       return createMarketDashboardState({
-        status: action.status || "idle",
+        status: keepPayload ? "success_stale" : action.status || "idle",
         setId,
+        payload: keepPayload,
         sourceWindow,
       });
+    }
     case "loading": {
       const keepPayload = state?.setId === setId && state?.payload ? state.payload : null;
       return createMarketDashboardState({
@@ -155,10 +161,20 @@ export function buildMarketDashboardStateFromPayload(payload) {
       : payload?.market_dashboard?.market_movers && typeof payload.market_dashboard.market_movers === "object"
       ? payload.market_dashboard.market_movers
       : { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW, windowDays: 30 };
+  const marketMoversByWindow =
+    payload?.marketMoversByWindow && typeof payload.marketMoversByWindow === "object"
+      ? payload.marketMoversByWindow
+      : payload?.market_movers_by_window && typeof payload.market_movers_by_window === "object"
+      ? payload.market_movers_by_window
+      : payload?.marketDashboard?.marketMoversByWindow && typeof payload.marketDashboard.marketMoversByWindow === "object"
+      ? payload.marketDashboard.marketMoversByWindow
+      : payload?.market_dashboard?.market_movers_by_window && typeof payload.market_dashboard.market_movers_by_window === "object"
+      ? payload.market_dashboard.market_movers_by_window
+      : null;
   const meta = payload?.meta || null;
 
   return {
-    topCards: { cards, meta, marketMovers },
+    topCards: { cards, meta, marketMovers, marketMoversByWindow },
     setValue: { history, historiesByScope, availableScopes, meta, hasAnyHistory },
   };
 }

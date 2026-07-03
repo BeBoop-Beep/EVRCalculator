@@ -200,3 +200,72 @@ test("normalizeMarketDashboardPayload preserves camelCase simulation ratio alias
   assert.equal(pt.calculationRunId, "run-camel");
   assert.equal(pt.calculation_run_id, "run-camel");
 });
+
+// ---------------------------------------------------------------------------
+// normalizeMarketMoversByWindowPayload (via normalizeMarketDashboardPayload)
+// ---------------------------------------------------------------------------
+
+function makeMoverCard(overrides = {}) {
+  return {
+    cardId: "card-1",
+    name: "Charizard ex",
+    currentPrice: 100,
+    change30dAmount: 10,
+    change30dPercent: 11.1,
+    ...overrides,
+  };
+}
+
+test("normalizeMarketDashboardPayload normalizes marketMoversByWindow for 1D/7D/30D", () => {
+  const payload = makeDashboardPayload({});
+  payload.marketMoversByWindow = {
+    "1D": {
+      window: "1D",
+      windowDays: 1,
+      heatingUp: [makeMoverCard({ cardId: "card-1d", name: "1D Gainer" })],
+      coolingOff: [],
+    },
+    "7D": {
+      window: "7D",
+      windowDays: 7,
+      heatingUp: [makeMoverCard({ cardId: "card-7d", name: "7D Gainer" })],
+      coolingOff: [],
+    },
+    "30D": {
+      window: "30D",
+      windowDays: 30,
+      heatingUp: [makeMoverCard({ cardId: "card-30d", name: "30D Gainer" })],
+      coolingOff: [],
+    },
+  };
+
+  const result = normalizeMarketDashboardPayload(payload);
+
+  assert.ok(result.marketMoversByWindow, "marketMoversByWindow must be present");
+  assert.deepEqual(Object.keys(result.marketMoversByWindow).sort(), ["1D", "30D", "7D"]);
+  assert.equal(result.marketMoversByWindow["1D"].heatingUp[0].name, "1D Gainer");
+  assert.equal(result.marketMoversByWindow["1D"].heatingUp[0].cardId, "card-1d");
+  assert.equal(result.marketMoversByWindow["7D"].heatingUp[0].name, "7D Gainer");
+  assert.equal(result.marketMoversByWindow["30D"].heatingUp[0].name, "30D Gainer");
+  assert.deepEqual(result.marketMoversByWindow, result.market_movers_by_window);
+});
+
+test("normalizeMarketDashboardPayload accepts snake_case market_movers_by_window", () => {
+  const payload = makeDashboardPayload({});
+  payload.market_movers_by_window = {
+    "1D": { heating_up: [makeMoverCard({ cardId: "card-1d", name: "1D Gainer" })], cooling_off: [] },
+  };
+
+  const result = normalizeMarketDashboardPayload(payload);
+
+  assert.equal(result.marketMoversByWindow["1D"].heatingUp[0].name, "1D Gainer");
+});
+
+test("normalizeMarketDashboardPayload returns null marketMoversByWindow when absent", () => {
+  const payload = makeDashboardPayload({});
+
+  const result = normalizeMarketDashboardPayload(payload);
+
+  assert.equal(result.marketMoversByWindow, null);
+  assert.equal(result.market_movers_by_window, null);
+});

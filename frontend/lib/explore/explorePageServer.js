@@ -146,6 +146,8 @@ const _fetchExplorePayload = cache(async function _fetchExplorePayload(
     try {
       res = await fetchWithTimeout(
         url.toString(),
+        // The Pokemon set full /page payload can exceed Next's 2MB data-cache
+        // limit, so it must bypass Next's fetch cache entirely.
         isPokemonSetPage ? { cache: "no-store" } : { next: { revalidate: 300 } },
         timeoutMs
       );
