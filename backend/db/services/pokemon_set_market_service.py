@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -206,22 +207,74 @@ def _first_row(result) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _resolve_set_row(set_id: str) -> Dict[str, Any]:
-    resolved_set_id = _to_optional_str(set_id)
-    if not resolved_set_id:
+def _normalise_set_lookup_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_uuid(value: str) -> bool:
+    return bool(_UUID_RE.match(value))
+
+
+def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[str, Any]:
+    """Resolve a Pokemon set identifier to its `sets` row.
+
+    Shared across page/shell/cards/market-dashboard/value-history/top-cards so
+    every route accepts the same identifier forms: UUID, canonical_key,
+    pokemon_api_set_id, exact set name, or a normalized/hyphenated slug (e.g.
+    "prismatic-evolutions").
+
+    `client` defaults to this module's own `public_read_client`. Callers in
+    other modules that monkeypatch their own module-level `public_read_client`
+    (e.g. in tests) must pass their own patched client explicitly — a plain
+    function reference would otherwise always resolve `public_read_client`
+    from this module's globals, silently bypassing a caller's mock.
+    """
+    active_client = client if client is not None else public_read_client
+    t0 = time.perf_counter()
+    resolved = _to_optional_str(set_id)
+    if not resolved:
         raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_ID_REQUIRED")
 
-    filters = (
-        ("id", resolved_set_id),
-        ("canonical_key", resolved_set_id),
-        ("pokemon_api_set_id", resolved_set_id),
-    )
-    for field, value in filters:
+    if _looks_like_uuid(resolved):
+        # UUID input: single indexed lookup only — no sequential fallback queries.
         try:
             result = (
-                public_read_client.table("sets")
+                active_client.table("sets")
                 .select("id,name,canonical_key,pokemon_api_set_id")
-                .eq(field, value)
+                .eq("id", resolved)
+                .limit(1)
+                .execute()
+            )
+            row = _first_row(result)
+        except Exception as exc:
+            logger.exception(
+                "[pokemon-set-market] set id lookup failed set_id=%s elapsed_ms=%.1f exc_type=%s",
+                resolved,
+                (time.perf_counter() - t0) * 1000,
+                type(exc).__name__,
+            )
+            raise PokemonSetMarketError(500, "Set lookup failed", "POKEMON_SET_LOOKUP_FAILED") from exc
+        if row:
+            logger.debug(
+                "[pokemon-set-market] set id resolved set_id=%s elapsed_ms=%.1f",
+                resolved,
+                (time.perf_counter() - t0) * 1000,
+            )
+            return row
+        raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
+
+    for field in ("id", "canonical_key", "pokemon_api_set_id"):
+        try:
+            result = (
+                active_client.table("sets")
+                .select("id,name,canonical_key,pokemon_api_set_id")
+                .eq(field, resolved)
                 .limit(1)
                 .execute()
             )
@@ -229,9 +282,43 @@ def _resolve_set_row(set_id: str) -> Dict[str, Any]:
             if row:
                 return row
         except Exception:
-            logger.warning("[pokemon-set-market] set lookup failed field=%s set_id=%s", field, resolved_set_id)
+            logger.warning("[pokemon-set-market] set lookup failed field=%s set_id=%s", field, resolved)
+
+    normalized_resolved = _normalise_set_lookup_key(resolved)
+    if normalized_resolved:
+        try:
+            result = (
+                active_client.table("sets")
+                .select("id,name,canonical_key,pokemon_api_set_id")
+                .execute()
+            )
+            for row in list(result.data or []):
+                candidate_keys = (
+                    row.get("id"),
+                    row.get("name"),
+                    row.get("canonical_key"),
+                    row.get("pokemon_api_set_id"),
+                )
+                if any(_normalise_set_lookup_key(candidate) == normalized_resolved for candidate in candidate_keys):
+                    logger.info(
+                        "[pokemon-set-market] resolved set identifier by normalized slug raw=%s canonical_set_id=%s canonical_key=%s",
+                        resolved,
+                        row.get("id"),
+                        row.get("canonical_key"),
+                    )
+                    return row
+        except Exception:
+            logger.warning("[pokemon-set-market] normalized set lookup failed set_id=%s", resolved)
 
     raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
+
+
+def _resolve_set_row(set_id: str) -> Dict[str, Any]:
+    # Internal call sites in this module always use this module's own
+    # public_read_client (picked up by resolve_pokemon_set_identifier's
+    # default), so this stays a plain wrapper rather than a bare alias —
+    # see resolve_pokemon_set_identifier's docstring for why that matters.
+    return resolve_pokemon_set_identifier(set_id)
 
 
 def _load_near_mint_condition_id(warnings: List[str], sources: Dict[str, str]) -> Optional[str]:
@@ -842,6 +929,69 @@ def build_pokemon_set_card_movement_payload(
             "priceBasis": "Near Mint card_variant_price_observations and card_market_usd_latest_by_condition mapped to canonical Pokemon cards",
             "sources": sources,
             "warnings": warnings,
+        },
+    }
+
+
+MARKET_MOVERS_WINDOWS = ("1D", "7D", "30D")
+DEFAULT_MARKET_MOVERS_WINDOW = "30D"
+_MARKET_MOVERS_WINDOW_DAYS = {"1D": 1, "7D": 7, "30D": 30}
+
+
+def _sanitize_market_movers_window(value: Any) -> str:
+    text = str(value or "").strip().upper()
+    return text if text in _MARKET_MOVERS_WINDOW_DAYS else DEFAULT_MARKET_MOVERS_WINDOW
+
+
+def _sanitize_market_movers_limit(value: Any) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_CARD_MOVERS_LIMIT
+    return max(1, min(parsed, MAX_TOP_MARKET_CARDS_LIMIT))
+
+
+def get_pokemon_set_market_movers_payload(
+    set_id: str,
+    window: str = DEFAULT_MARKET_MOVERS_WINDOW,
+    limit: Any = DEFAULT_CARD_MOVERS_LIMIT,
+) -> Dict[str, Any]:
+    """Return camelCase-only market movers for a single requested window.
+
+    Backed by build_pokemon_set_card_movement_payload, so it shares the exact
+    same movement math and guardrails as the monolithic dashboard reader —
+    just scoped to the one requested window and without top chase card
+    histories or set value histories.
+    """
+    resolved_window = _sanitize_market_movers_window(window)
+    window_days = _MARKET_MOVERS_WINDOW_DAYS[resolved_window]
+    limit_value = _sanitize_market_movers_limit(limit)
+
+    movement_payload = build_pokemon_set_card_movement_payload(
+        set_id,
+        limit=limit_value,
+        window_days=window_days,
+    )
+    market_movers = movement_payload.get("marketMovers") or {}
+    movement_meta = movement_payload.get("meta") or {}
+
+    return {
+        "set": movement_payload.get("set"),
+        "window": resolved_window,
+        "windowDays": window_days,
+        "marketMovers": {
+            "window": resolved_window,
+            "windowDays": window_days,
+            "heatingUp": market_movers.get("heatingUp") or [],
+            "coolingOff": market_movers.get("coolingOff") or [],
+            "all": market_movers.get("all") or [],
+        },
+        "meta": {
+            "limit": limit_value,
+            "guardrails": movement_meta.get("guardrails"),
+            "priceBasis": movement_meta.get("priceBasis"),
+            "sources": movement_meta.get("sources"),
+            "warnings": movement_meta.get("warnings"),
         },
     }
 

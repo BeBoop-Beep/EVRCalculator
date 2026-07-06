@@ -2,6 +2,7 @@ import Link from "next/link";
 import SecondaryNav from "@/components/SecondaryNav";
 import { toSetSlug } from "@/utils/slugify";
 import { getPokemonSets } from "@/lib/pokemon/pokemonSetsServer";
+import { isHiddenFromPublicPokemonSetsCatalog } from "@/lib/pokemon/pokemonSetPublicCoverage";
 
 function toTimestamp(value) {
   if (!value) {
@@ -149,7 +150,16 @@ export default async function SetsPage() {
   try {
     const payload = await getPokemonSets();
     const summaries = Array.isArray(payload?.sets) ? payload.sets : [];
-    sets = summaries.filter((setSummary) => setSummary?.id && setSummary?.name);
+    // Sword & Shield's simulator-era data is not yet validated for public
+    // analytics (see pokemonSetPublicCoverage.js) — hidden from the catalog
+    // entirely for now rather than shown with no way to explain why its
+    // analytics are unavailable (no status-badge UI exists yet). This is
+    // narrower than the Explore rankings filter: it must not also hide
+    // unrelated non-SWSH products (POP Series, promo-only collections) that
+    // were already catalog-visible before this change.
+    sets = summaries
+      .filter((setSummary) => setSummary?.id && setSummary?.name)
+      .filter((setSummary) => !isHiddenFromPublicPokemonSetsCatalog(setSummary));
   } catch (error) {
     loadError = error?.message || "Failed to load sets";
   }

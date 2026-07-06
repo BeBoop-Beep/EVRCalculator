@@ -8,6 +8,8 @@ const ripPageClientPath = path.resolve(__dirname, "RipStatisticsPageClient.jsx")
 const marketDashboardStatePath = path.resolve(__dirname, "marketDashboardState.mjs");
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const cardsClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCardsClient.js");
+const pullRatesClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetPullRatesClient.js");
+const insightsClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetInsightsClient.js");
 const initialSnapshotsServerPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetInitialSnapshotsServer.js");
 const setPageAdaptersPath = path.resolve(__dirname, "../../lib/pokemon/set-page/setPageAdapters.mjs");
 const setValueTrendSelectorPath = path.resolve(__dirname, "setValueTrendSelector.mjs");
@@ -21,11 +23,16 @@ const dashboardRoutePath = path.resolve(
   "../../app/api/tcgs/pokemon/sets/[setId]/market/dashboard/route.js"
 );
 const cardsRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/cards/route.js");
+const overviewRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/overview/route.js");
 const setPageRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/page/route.js");
 const explorePageServicePath = path.resolve(__dirname, "../../../backend/db/services/explore_page_service.py");
 const snapshotServicePath = path.resolve(
   __dirname,
   "../../../backend/db/services/pokemon_public_snapshot_service.py"
+);
+const marketServicePath = path.resolve(
+  __dirname,
+  "../../../backend/db/services/pokemon_set_market_service.py"
 );
 const snapshotBuilderPath = path.resolve(__dirname, "../../../backend/scripts/pokemon_snapshot_builders.py");
 const backendApiPath = path.resolve(__dirname, "../../../backend/api/main.py");
@@ -258,7 +265,7 @@ test("header and overview set value read from the same Set Value Contract", () =
 
 test("cards tab fetch caches normalized payload and does not clear stale cards on failure", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const fetchStart = source.indexOf("getPokemonSetCards(setId)");
+  const fetchStart = source.indexOf("getPokemonSetCardsValidation(setId)");
   const thenStart = source.indexOf(".then((payload) => {", fetchStart);
   const catchStart = source.indexOf(".catch((error) => {", fetchStart);
   const thenSource = source.slice(thenStart, catchStart);
@@ -305,11 +312,11 @@ test("primary snapshot fallback still gates adjacent prefetch and simulation-dep
   const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
   const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
   const warmupSource = source.slice(warmupStart, warmupEnd);
-  const cardsEffectStart = source.indexOf("getPokemonSetCards(setId)");
+  const cardsEffectStart = source.indexOf("getPokemonSetCardsValidation(setId)");
   const cardsGuardStart = source.lastIndexOf("if (!canFetchSetDetailModules)", cardsEffectStart);
   const valueHistoryStart = source.indexOf("getPokemonSetValueHistory(setId, { days: 365, scope })");
   const valueGuardStart = source.lastIndexOf("if (!canFetchSetDetailModules)", valueHistoryStart);
-  const marketStart = source.indexOf("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })");
+  const marketStart = source.indexOf("getPokemonSetTopChase(setId, { window: topChaseSourceWindow");
   const marketGuardStart = source.lastIndexOf("if (!canFetchSetDetailModules)", marketStart);
 
   assert.ok(source.includes("function isSetPagePrimarySnapshotUnavailable"));
@@ -633,7 +640,12 @@ test("set value trend uses the active market dashboard id through dropdown set s
   assert.ok(activeHistoryEnd > activeHistoryStart);
   assert.ok(activeHistorySource.includes("marketDashboardState.setId === resolvedSetResourceId"));
   assert.ok(activeHistorySource.includes("resolvedSetResourceId"));
-  assert.ok(activeHistorySource.includes("activeMarketDashboardDerivedState.setValue"));
+  // Set Value Trend/Performance vs Cost source from effectiveSetValueDerivedState,
+  // which prefers the /overview snapshot once loaded and falls back to
+  // activeMarketDashboardDerivedState.setValue until then. Top Chase Cards
+  // (activeMarketDashboardDerivedState.topCards, checked below) still reads
+  // the market dashboard state directly and is untouched.
+  assert.ok(activeHistorySource.includes("effectiveSetValueDerivedState.setValue"));
   assert.ok(activeHistorySource.includes("activeMarketDashboardDerivedState.topCards"));
   assert.ok(activeHistorySource.includes("activeDirectSetValueState"));
   assert.ok(activeHistorySource.includes("activeSetValueHistoriesByScope"));
@@ -687,11 +699,18 @@ test("value-history, market-dashboard, and cards fetch results are ignored if th
   const guardCall = "isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })";
   assert.ok(source.includes(`if (!${guardCall}) {`), "the shared stale-active-set guard shape must appear before applying fetched state");
   assert.ok(source.includes('debugSetPagePerf("set_value.direct_fetch_stale"'), "value-history fetch must guard against a stale active set before applying results");
-  assert.ok(source.includes('debugSetPagePerf("market.tab_fetch_stale"'), "market dashboard fetch must guard against a stale active set before applying results");
+  assert.ok(source.includes('debugSetPagePerf("top_chase.tab_fetch_stale"'), "top chase fetch must guard against a stale active set before applying results");
+  assert.ok(source.includes('debugSetPagePerf("market_movers.tab_fetch_stale"'), "market movers fetch must guard against a stale active set before applying results");
   assert.ok(source.includes('debugSetPagePerf("cards.tab_fetch_stale"'), "cards fetch must guard against a stale active set before applying results");
+  assert.ok(source.includes('debugSetPagePerf("cards_page.tab_fetch_stale"'), "cards page fetch must guard against a stale active set before applying results");
 
+  // cards (full, Insights-only), cards page (paginated Cards tab), pull rates
+  // (Phase 4A), insights (Phase 4B), value-history, overview, top-chase, and
+  // market-movers fetches each carry this guard shape (the monolithic
+  // market-dashboard live fetch was removed — see the split-endpoint tests
+  // below).
   const occurrences = source.split(`if (!${guardCall}) {`).length - 1;
-  assert.equal(occurrences, 3, "cards, market dashboard, and value-history fetches must each carry this stale-set guard");
+  assert.equal(occurrences, 8, "cards, cards page, pull rates, insights, value-history, overview, top-chase, and market-movers fetches must each carry this stale-set guard");
 });
 
 test("warmSetDetailResources performs route prefetch only — no cards/market/value-history data fetch", () => {
@@ -804,28 +823,227 @@ test("Market Movers module supports a 1D/7D/30D window selector defaulting to 30
   assert.ok(!source.includes('{ key: "1Y", label: "1Y" }'));
   assert.ok(!source.includes('{ key: "lifetime", label: "Lifetime" }'));
 
-  assert.ok(componentSource.includes("{ movers, moversByWindow, onViewAll }"));
-  assert.ok(componentSource.includes("useState(DEFAULT_MARKET_MOVERS_WINDOW)"));
+  // The window selector is now lifted to the parent component (so it can
+  // drive the /market/movers fetch effect per selected window) instead of
+  // living as local state inside MarketMoversModule.
+  assert.ok(
+    componentSource.includes(
+      '{ movers, moversByWindow, selectedWindow, status = "success", error, onWindowChange, onViewAll }'
+    )
+  );
+  assert.ok(!componentSource.includes("useState(DEFAULT_MARKET_MOVERS_WINDOW)"), "window state must be lifted to the parent, not local to the module");
   assert.ok(componentSource.includes("resolvedMoversByWindow[selectedWindow]"));
   assert.ok(componentSource.includes("<MarketWindowSelector"));
   assert.ok(componentSource.includes("windows={MARKET_MOVERS_WINDOW_OPTIONS}"));
+  assert.ok(componentSource.includes("value={selectedWindow}"));
+  assert.ok(componentSource.includes("onChange={onWindowChange}"));
   assert.ok(componentSource.includes("`${selectedWindow} card price movement with noise guardrails applied.`"));
   assert.ok(componentSource.includes("Ranks card-level ${selectedWindow} movement"));
 
+  assert.ok(source.includes("const [marketMoversWindowKey, setMarketMoversWindowKey] = useState(DEFAULT_MARKET_MOVERS_WINDOW)"), "parent must own the selected movers window state, defaulting to 30D");
   assert.ok(source.includes("moversByWindow={marketMoversByWindow}"));
+  assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"));
+  assert.ok(source.includes("onWindowChange={setMarketMoversWindowKey}"));
   assert.ok(source.includes("onViewAll={handleViewAllMarketMovers}"), "View all movers behavior must be unchanged");
 });
 
-test("overview shares a single canonical market dashboard request for value trend and top chase cards", () => {
+test("top chase cards and market movers each fetch their own canonical slim endpoint, and the live market dashboard fetch is gone", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const dashboardCallCount = (source.match(/getPokemonSetMarketDashboard\(/g) || []).length;
+  const topChaseCallCount = (source.match(/getPokemonSetTopChase\(/g) || []).length;
+  const marketMoversCallCount = (source.match(/getPokemonSetMarketMovers\(/g) || []).length;
 
-  assert.equal(dashboardCallCount, 1);
+  assert.equal(dashboardCallCount, 0, "the live /market/dashboard fetch must be fully removed");
+  assert.equal(topChaseCallCount, 1, "top chase cards must fetch exactly once via the slim /market/top-chase endpoint");
+  assert.equal(marketMoversCallCount, 1, "market movers must fetch exactly once via the slim /market/movers endpoint");
   assert.ok(source.includes("const [marketDashboardState, dispatchMarketDashboard] = useReducer("));
-  assert.ok(source.includes("dispatchMarketDashboard({ type: \"success\", setId, payload, sourceWindow: dashboardSourceWindow })"));
+  assert.ok(source.includes("const [topChaseState, dispatchTopChase] = useReducer("));
+  assert.ok(source.includes("const [marketMoversState, dispatchMarketMovers] = useReducer("));
   assert.ok(source.includes("buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload)"));
   assert.ok(!source.includes("setTopMarketCardsState"));
   assert.ok(!source.includes("applyMarketDashboardPayload"));
+});
+
+// ---------------------------------------------------------------------------
+// Overview module parity (regression fix) — the live /market/movers fetch
+// resolves to a flat { heatingUp, coolingOff, all, window } object (see
+// normalizeMarketMoversPayload in pokemonSetMarketClient.js), the same shape
+// hasMarketMoverRows/MarketMoversModule read directly. Reading it back out
+// through an extra `.marketMovers` key (matching only the legacy monolithic
+// /market/dashboard payload shape) silently discarded the live per-window
+// fetch's data, so Market Movers always fell back to the (now-empty, since
+// /market/dashboard is no longer live-fetched) dashboard-seeded state and
+// never rendered. This did not surface as a fetch failure or console error —
+// the request succeeded, the data just never reached the module.
+// ---------------------------------------------------------------------------
+
+test("Overview parity: the live market movers fetch result is read back in its normalized (flat) shape, not double-nested", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    source.includes("const marketMoversLive = marketMoversState.payload || null;"),
+    "marketMoversLive must read marketMoversState.payload directly — getPokemonSetMarketMovers's normalized " +
+      "payload is already the flat { heatingUp, coolingOff, all, window } shape, not wrapped in a `.marketMovers` key"
+  );
+  assert.ok(
+    !source.includes("const marketMoversLive = marketMoversState.payload?.marketMovers"),
+    "must not regress to reading a nonexistent nested `.marketMovers` key off the slim /market/movers payload"
+  );
+});
+
+test("Overview parity: getPokemonSetMarketMovers's normalized payload shape matches what hasMarketMoverRows/MarketMoversModule read", async () => {
+  const { normalizeMarketMoversPayload } = await import(pathToFileURL(marketClientPath).href);
+
+  // Shape returned by GET /tcgs/pokemon/sets/{id}/market/movers (backend
+  // get_pokemon_set_market_movers_payload), as consumed by
+  // getPokemonSetMarketMovers in pokemonSetMarketClient.js.
+  const backendResponse = {
+    set: { id: "set-1", name: "Prismatic Evolutions", slug: "prismaticEvolutions" },
+    window: "30D",
+    windowDays: 30,
+    marketMovers: {
+      window: "30D",
+      windowDays: 30,
+      heatingUp: [{ cardId: "card-1", name: "Sylveon ex", currentPrice: 555.64, change30dAmount: 50.18 }],
+      coolingOff: [{ cardId: "card-2", name: "Flareon ex", currentPrice: 223.42, change30dAmount: -10.5 }],
+      all: [],
+    },
+    meta: { warnings: [] },
+  };
+
+  const normalized = normalizeMarketMoversPayload(backendResponse);
+
+  // This is exactly what marketMoversLive is set to (marketMoversState.payload
+  // directly) and exactly what hasMarketMoverRows(entry) reads — entry.heatingUp
+  // / entry.coolingOff at the top level, not entry.marketMovers.heatingUp.
+  assert.ok(Array.isArray(normalized.heatingUp), "normalized payload must expose heatingUp at the top level");
+  assert.ok(Array.isArray(normalized.coolingOff), "normalized payload must expose coolingOff at the top level");
+  assert.equal(normalized.heatingUp.length, 1);
+  assert.equal(normalized.coolingOff.length, 1);
+  assert.equal(normalized.marketMovers, undefined, "the normalized payload must not be double-nested under a marketMovers key");
+});
+
+test("Overview parity: Market Movers and Top Chase Cards are both still rendered inside the overview tab's JSX block", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const overviewBlockStart = source.indexOf('{setDetailTab === "overview" ? (');
+  assert.ok(overviewBlockStart >= 0, "the overview tab conditional render block must exist");
+  const overviewBlockEnd = source.indexOf("<MarketMoversModule", overviewBlockStart);
+  assert.ok(overviewBlockEnd > overviewBlockStart, "MarketMoversModule must render inside the overview tab block");
+
+  const topChaseBlockEnd = source.indexOf("<TopChaseCardsModule", overviewBlockEnd);
+  assert.ok(topChaseBlockEnd > overviewBlockEnd, "TopChaseCardsModule must render inside the overview tab block, after MarketMoversModule");
+
+  // Both must appear before the overview block's own closing `) : null}` —
+  // approximated by asserting no earlier/later tab conditional interrupts
+  // between the overview block start and the TopChaseCardsModule render.
+  const nextTabBlockStart = source.indexOf('setDetailTab === "cards"', overviewBlockStart);
+  assert.ok(
+    nextTabBlockStart === -1 || nextTabBlockStart > topChaseBlockEnd,
+    "MarketMoversModule/TopChaseCardsModule must render before any subsequent tab block, i.e. still inside overview"
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5A — post-split regression stabilization. Market Movers and Top Chase
+// Cards previously disappeared entirely (no loading/empty state) whenever the
+// slim /market/movers or /market/top-chase fetch hadn't resolved yet, or
+// resolved to genuinely zero rows with no cards/dashboard fallback available.
+// Both section containers must now always render on Overview; only their
+// inner content (loading skeleton / error / empty message / real rows) may
+// vary. Verified live against a local dev server + backend: see the task
+// report for browser/network results.
+// ---------------------------------------------------------------------------
+
+test("Phase 5A: Overview fetches Top Chase and Market Movers through their slim endpoints", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  assert.ok(source.includes("getPokemonSetTopChase(setId, { window: topChaseSourceWindow, limit: 10 })"), "Top Chase must fetch via getPokemonSetTopChase");
+  assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: 5 })"), "Market Movers must fetch via getPokemonSetMarketMovers");
+});
+
+test("Phase 5A: Top Chase Cards section container always renders on Overview, regardless of data availability", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    source.includes("const shouldShowTopMarketCards = true;"),
+    "shouldShowTopMarketCards must no longer hide the Top Chase Cards container when the slim endpoint is empty/loading"
+  );
+  // The old data-dependent gate must be gone, not just overridden.
+  assert.ok(
+    !/const shouldShowTopMarketCards =\s*\n\s*activeTopMarketCardsState\.status/.test(source),
+    "must not still branch on activeTopMarketCardsState.status to decide whether to show the container"
+  );
+});
+
+test("Phase 5A: Market Movers section container always renders on Overview, regardless of data availability", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    !source.includes("{hasMarketMovers ? ("),
+    "the Market Movers container must no longer be conditionally rendered behind hasMarketMovers"
+  );
+  const renderStart = source.indexOf('id="set-detail-market-movers"');
+  assert.ok(renderStart >= 0, "the Market Movers container div must exist");
+  assert.ok(
+    source.slice(renderStart, renderStart + 400).includes("<MarketMoversModule"),
+    "MarketMoversModule must render unconditionally inside its container div"
+  );
+
+  // MarketMoversModule itself must no longer bail out to null just because
+  // there are zero rows — it must show a loading skeleton, an error message,
+  // or fall through to MarketMoverColumn's own per-column empty state.
+  const componentStart = source.indexOf("function MarketMoversModule(");
+  const componentEnd = source.indexOf("\nfunction normalizePullRateAssumptions");
+  const componentSource = source.slice(componentStart, componentEnd);
+  assert.ok(!/if \(!hasAnyWindowMovers\) \{\s*\n\s*return null;/.test(componentSource), "must not early-return null just because there are no mover rows yet");
+  assert.ok(componentSource.includes('status === "loading"'), "must render a loading state distinct from the empty state");
+  assert.ok(componentSource.includes("<InlinePanelSkeleton"), "must show a loading skeleton while the fetch is in flight");
+  assert.ok(componentSource.includes('status === "error"'), "must render an error state instead of silently disappearing");
+});
+
+test("Phase 5A: Overview does not require activeMarketDashboardDerivedState to render the Top Chase or Market Movers containers", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  // The render-gating flags themselves must not reference the dashboard
+  // derived state — only the data fallback (cards/movers content) may.
+  const shouldShowLine = source.split("\n").find((line) => line.includes("const shouldShowTopMarketCards ="));
+  assert.ok(shouldShowLine, "shouldShowTopMarketCards must exist");
+  assert.ok(
+    !shouldShowLine.includes("activeMarketDashboardDerivedState"),
+    "shouldShowTopMarketCards must not depend on activeMarketDashboardDerivedState"
+  );
+  assert.ok(
+    !source.includes("{hasMarketMovers ? ("),
+    "the Market Movers container render must not be gated on hasMarketMovers"
+  );
+});
+
+test("Phase 5A: Overview live path does not call getPokemonSetMarketDashboard or fetchPokemonSetPageSnapshot", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const dashboardCallCount = (source.match(/getPokemonSetMarketDashboard\(/g) || []).length;
+  assert.equal(dashboardCallCount, 0, "must never call getPokemonSetMarketDashboard");
+
+  const overviewEffectsStart = source.indexOf("// Slim /market/top-chase fetch");
+  const overviewEffectsEnd = source.indexOf("// Slim /overview fetch for Set Value Trend/Performance vs Cost only.");
+  const overviewEffectsSource = source.slice(overviewEffectsStart, overviewEffectsEnd);
+  assert.ok(overviewEffectsStart >= 0 && overviewEffectsEnd > overviewEffectsStart, "top-chase/market-movers effects must exist");
+  assert.ok(
+    !overviewEffectsSource.includes("fetchPokemonSetPageSnapshot("),
+    "Overview's top-chase/market-movers fetch effects must never call the legacy full-page fetch"
+  );
+});
+
+test("Phase 5A: normal tabs keep their own slim endpoints unchanged (Cards/Pull Rates/Insights/card validation) and adjacent prefetch stays disabled", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  assert.ok(source.includes("getPokemonSetCardsPage("), "Cards tab must still use getPokemonSetCardsPage");
+  assert.ok(source.includes("getPokemonSetPullRates("), "Pull Rates tab must still use getPokemonSetPullRates");
+  assert.ok(source.includes("getPokemonSetInsights("), "Insights tab must still use getPokemonSetInsights");
+  assert.ok(source.includes("getPokemonSetCardsValidation("), "card validation must still use getPokemonSetCardsValidation");
+  assert.ok(
+    source.includes("const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set([]);"),
+    "no normal tab may require the full /page payload"
+  );
+  assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "adjacent prefetch must remain disabled by default");
 });
 
 test("changing the visible top chase window does not enter dashboard loading or fetch state", async () => {
@@ -851,7 +1069,7 @@ test("changing the visible top chase window does not enter dashboard loading or 
   assert.equal(nextState.sourceWindow, "365d");
 });
 
-test("market dashboard window keys are canonical for fetches and cache keys", () => {
+test("market dashboard window keys are canonical for the cache-hydration fallback and the legacy dashboard route", () => {
   const ripSource = fs.readFileSync(ripPageClientPath, "utf8");
   const marketSource = fs.readFileSync(marketClientPath, "utf8");
   const dashboardRoute = fs.readFileSync(dashboardRoutePath, "utf8");
@@ -861,20 +1079,47 @@ test("market dashboard window keys are canonical for fetches and cache keys", ()
   assert.ok(marketSource.includes("window=${normalizeMarketDashboardWindow(window)}"));
   assert.ok(marketSource.includes('params.set("window", normalizedWindow)'));
   assert.ok(ripSource.includes('const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d"'));
-  assert.ok(ripSource.includes("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })"));
+  // The live fetch is gone, but the fallback hydration path still reads the
+  // 365d-keyed cache/seed so a previously-fetched dashboard snapshot for this
+  // set still backs Top Chase Cards/Market Movers until their own fetches land.
+  assert.ok(ripSource.includes("getCachedPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })"));
   assert.ok(dashboardRoute.includes("normalizeMarketDashboardWindow(window)"));
 });
 
-test("overview initial market dashboard request uses 365d snapshot source", () => {
+test("top chase and market movers request windows are canonical", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const marketSource = fs.readFileSync(marketClientPath, "utf8");
-  const apiSource = fs.readFileSync(backendApiPath, "utf8");
 
-  assert.ok(source.includes('const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d"'));
-  assert.ok(source.includes("const dashboardSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW"));
-  assert.ok(source.includes("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })"));
-  assert.ok(marketSource.includes('const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d"'));
-  assert.ok(apiSource.includes('window=window or "365d"'));
+  assert.ok(source.includes('const DEFAULT_TOP_CHASE_MARKET_WINDOW = "30D"'));
+  assert.ok(source.includes("const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW"));
+  assert.ok(source.includes("getPokemonSetTopChase(setId, { window: topChaseSourceWindow"));
+  assert.ok(source.includes('const [marketMoversWindowKey, setMarketMoversWindowKey] = useState(DEFAULT_MARKET_MOVERS_WINDOW)'));
+  assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow"));
+  assert.ok(marketSource.includes("export async function getPokemonSetTopChase"));
+  assert.ok(marketSource.includes("export async function getPokemonSetMarketMovers"));
+});
+
+test("market movers effect refetches by selected window and top chase effect does not depend on it", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const moversEffectStart = source.indexOf("getPokemonSetMarketMovers(setId, { window: moversSourceWindow");
+  const moversEffectDepsStart = source.indexOf("}, [", moversEffectStart);
+  const moversEffectDepsEnd = source.indexOf("]);", moversEffectDepsStart);
+  const moversEffectDeps = source.slice(moversEffectDepsStart, moversEffectDepsEnd);
+  assert.ok(moversEffectStart >= 0, "market movers effect must exist");
+  assert.ok(
+    moversEffectDeps.includes("marketMoversWindowKey"),
+    "the market movers effect must re-run (and refetch) when the selected window changes"
+  );
+
+  const topChaseEffectStart = source.indexOf("getPokemonSetTopChase(setId, { window: topChaseSourceWindow");
+  const topChaseEffectDepsStart = source.indexOf("}, [", topChaseEffectStart);
+  const topChaseEffectDepsEnd = source.indexOf("]);", topChaseEffectDepsStart);
+  const topChaseEffectDeps = source.slice(topChaseEffectDepsStart, topChaseEffectDepsEnd);
+  assert.ok(
+    !topChaseEffectDeps.includes("marketMoversWindowKey"),
+    "the top chase effect must not refetch just because the movers window selector changed"
+  );
 });
 
 test("30D top chase UI selection does not require a 30d dashboard snapshot", () => {
@@ -1085,13 +1330,35 @@ test("proxy routes do not cache failed snapshot responses", () => {
   }
 });
 
-test("backend public snapshot resolver accepts URL slugs like journey-together", () => {
-  const source = fs.readFileSync(snapshotServicePath, "utf8");
+test("overview proxy route serves no-store on failure and public cache on success", () => {
+  const source = fs.readFileSync(overviewRoutePath, "utf8");
 
-  assert.ok(source.includes("def _normalise_set_lookup_key"));
-  assert.ok(source.includes("resolved set identifier by normalized slug"));
-  assert.ok(source.includes('row.get("name")'));
-  assert.ok(source.includes('row.get("canonical_key")'));
+  assert.ok(source.includes('const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600"'));
+  assert.ok(source.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'));
+  assert.ok(
+    source.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
+    "cache-control selection must be conditional on proxyResponse.ok"
+  );
+  assert.ok(source.includes('cache: "no-store"'), "the backend fetch itself must not use Next's fetch-level cache");
+  assert.ok(!source.includes("next: { revalidate"), "must not pass next: { revalidate } to fetch");
+});
+
+test("backend set resolver accepts URL slugs like journey-together, shared across page/shell/cards/market/value-history", () => {
+  // The normalized-slug resolver lives once in pokemon_set_market_service.py
+  // (resolve_pokemon_set_identifier) and is shared by every set route,
+  // including pokemon_public_snapshot_service.py (page/shell/cards/market
+  // dashboard/top-cards) — it must not be reimplemented per module.
+  const marketSource = fs.readFileSync(marketServicePath, "utf8");
+  const snapshotSource = fs.readFileSync(snapshotServicePath, "utf8");
+
+  assert.ok(marketSource.includes("def resolve_pokemon_set_identifier"));
+  assert.ok(marketSource.includes("def _normalise_set_lookup_key"));
+  assert.ok(marketSource.includes("resolved set identifier by normalized slug"));
+  assert.ok(marketSource.includes('row.get("name")'));
+  assert.ok(marketSource.includes('row.get("canonical_key")'));
+
+  assert.ok(!snapshotSource.includes("def _normalise_set_lookup_key"), "must not reimplement the normalized-slug fallback locally");
+  assert.ok(snapshotSource.includes("resolve_pokemon_set_identifier(set_id, client=public_read_client)"));
 });
 
 test("card snapshot client preserves precomputed card validation fields", () => {
@@ -1362,9 +1629,9 @@ test("card validation section renders from an explicit readiness contract instea
 test("initial cards payload seeds checklist state before cards fetch", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const stateStart = source.indexOf("const [checklistState, setChecklistState] = useState(() => ({");
-  const effectStart = source.indexOf("getPokemonSetCards(setId)", stateStart);
+  const effectStart = source.indexOf("getPokemonSetCardsValidation(setId)", stateStart);
   const effectSource = source.slice(stateStart, effectStart);
-  const thenStart = source.indexOf("getPokemonSetCards(setId)");
+  const thenStart = source.indexOf("getPokemonSetCardsValidation(setId)");
   const thenEnd = source.indexOf(".catch((error) => {", thenStart);
   const thenSource = source.slice(thenStart, thenEnd);
 
@@ -1479,10 +1746,10 @@ test("adjacent set fanout has no bypass path outside the bounded warmSetDetailRe
   assert.equal(otherAdjacentFanoutStart, -1, "no second adjacent-set fanout loop may exist elsewhere in the file");
 });
 
-test("timeout fallback does not block cards, market dashboard, or set value fetches when set resource id is resolved", () => {
+test("timeout fallback does not block cards, top chase, or set value fetches when set resource id is resolved", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const cardsEffectStart = source.indexOf("getPokemonSetCards(setId)");
-  const marketStart = source.indexOf("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })");
+  const cardsEffectStart = source.indexOf("getPokemonSetCardsValidation(setId)");
+  const marketStart = source.indexOf("getPokemonSetTopChase(setId, { window: topChaseSourceWindow");
   const valueHistoryStart = source.indexOf("getPokemonSetValueHistory(setId, { days: 365, scope })");
 
   // canFetchSetDetailModules must exist and include the transport-fallback bypass
@@ -1570,14 +1837,14 @@ test("set page retry effect is gated to a resolved set, a true transport fallbac
   );
 });
 
-test("Cards and Overview tabs are excluded from the full page retry/lazy-fetch tabs", () => {
+test("Phase 4B: no tab may trigger a full /page fetch anymore; insights was removed alongside pull-rates", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(
-    source.includes('const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set(["pull-rates", "insights"]);'),
-    "only pull-rates and insights may trigger a full /page fetch"
+    source.includes("const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set([]);"),
+    "no tab may trigger a full /page fetch now that insights has its own slim contract"
   );
-  assert.ok(!/SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set\(\[[^\]]*(cards|overview)/i.test(source), "cards/overview must never be included");
+  assert.ok(!/SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set\(\[[^\]]*(cards|overview|pull-rates|insights)/i.test(source), "cards/overview/pull-rates/insights must never be included");
 });
 
 test("retry fetch aborts on cleanup and the resulting AbortError is ignored", () => {
@@ -1749,9 +2016,9 @@ test("overview value-history skip-when-complete check lives only in the lazy dir
   assert.ok(source.includes("if (hasCompleteSetValueScopes(seededHistoriesByScope))"), "the direct-fetch effect still skips fetching when scopes are already complete");
 });
 
-test("overview market dashboard error handling keeps stale/seeded data instead of blanking the tab", () => {
+test("overview top chase error handling keeps stale/seeded data instead of blanking the tab", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const marketEffectStart = source.indexOf("getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })");
+  const marketEffectStart = source.indexOf("getPokemonSetTopChase(setId, { window: topChaseSourceWindow");
   const marketEffectEnd = source.indexOf("return () => {", marketEffectStart);
   const marketEffectSource = source.slice(marketEffectStart, marketEffectEnd);
 
@@ -2033,4 +2300,381 @@ test("shell payload contract exposes interpretation and set value history for th
     "snapshot builder must project biggest_upside score/rank/tier into rip_summary_json"
   );
   assert.ok(source.length > 0, "setPageAdapters module must still be readable");
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3A — lock in the split-contract architecture and guard against
+// regressing back to the monolithic /market/dashboard payload.
+// ---------------------------------------------------------------------------
+
+test("Phase 3A: RipStatisticsPageClient does not import the live getPokemonSetMarketDashboard fetch", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const marketSource = fs.readFileSync(marketClientPath, "utf8");
+
+  const importBlockStart = source.indexOf('from "@/lib/pokemon/pokemonSetMarketClient"');
+  const importBlockStart2 = source.lastIndexOf("import {", importBlockStart);
+  const importBlock = source.slice(importBlockStart2, importBlockStart);
+
+  assert.ok(importBlock.includes("getCachedPokemonSetMarketDashboard"), "the cache-read helper must still be imported for the fallback path");
+  assert.ok(!importBlock.includes("getPokemonSetMarketDashboard,"), "the live-fetch helper must not be imported");
+  assert.ok(!importBlock.includes("getPokemonSetMarketDashboard\n"), "the live-fetch helper must not be imported (last import in block)");
+  assert.ok(importBlock.includes("getPokemonSetTopChase"), "top chase must be imported");
+  assert.ok(importBlock.includes("getPokemonSetMarketMovers"), "market movers must be imported");
+  assert.ok(importBlock.includes("getPokemonSetOverview"), "overview must be imported");
+
+  // The legacy helper is intentionally kept alive in the client module itself
+  // (not deleted) for any remaining legacy caller — it just must not be
+  // RipStatisticsPageClient's live source anymore.
+  assert.ok(marketSource.includes("export async function getPokemonSetMarketDashboard("), "legacy helper must still exist in pokemonSetMarketClient.js");
+  assert.ok(marketSource.includes("export function normalizeMarketDashboardPayload("), "normalizeMarketDashboardPayload must still exist");
+});
+
+test("Phase 3A: no live /market/dashboard fetch call exists anywhere in RipStatisticsPageClient", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const dashboardCallCount = (source.match(/getPokemonSetMarketDashboard\(/g) || []).length;
+  assert.equal(dashboardCallCount, 0, "no call site may invoke the live getPokemonSetMarketDashboard fetch");
+});
+
+test("Phase 3A: Overview tab activation only ever hydrates marketDashboardState from cache/seed, never a live fetch", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  // The hydration-only effect is anchored by its own explanatory comment.
+  const effectStart = source.indexOf("Top Chase Cards and Market Movers now fetch their own slim");
+  assert.ok(effectStart >= 0, "the cache-hydration-only market dashboard effect must exist with its explanatory comment");
+  const effectBodyEnd = source.indexOf("}, [", effectStart);
+  const effectBody = source.slice(effectStart, effectBodyEnd);
+
+  assert.ok(effectBody.includes('setDetailTab === "overview"'), "hydration must still be scoped to the overview tab");
+  assert.ok(effectBody.includes("getCachedPokemonSetMarketDashboard("), "must read from cache");
+  assert.ok(effectBody.includes("hydrateMarketDashboardStateFromCachedPayload("), "must hydrate via the cached-payload helper");
+  assert.ok(!effectBody.includes("await getPokemonSetMarketDashboard"), "must never await a live fetch");
+});
+
+test("Phase 3A: Top Chase live fetch path calls getPokemonSetTopChase", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const topChaseEffectStart = source.indexOf("getPokemonSetTopChase(setId, { window: topChaseSourceWindow");
+  assert.ok(topChaseEffectStart >= 0, "top chase effect must call getPokemonSetTopChase");
+  const dispatchStart = source.lastIndexOf("dispatchTopChase({ type: \"loading\"", topChaseEffectStart);
+  assert.ok(dispatchStart >= 0 && dispatchStart < topChaseEffectStart, "must dispatch loading before calling getPokemonSetTopChase");
+});
+
+test("Phase 3A: Market Movers live fetch path calls getPokemonSetMarketMovers with the selected window", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("const moversSourceWindow = marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW"), "movers fetch must derive its window from the selected window state");
+  assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow"), "must call getPokemonSetMarketMovers with the derived window");
+  assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"), "MarketMoversModule must be driven by the same selected-window state");
+});
+
+test("Phase 3A: dev-only warning fires when a legacy market dashboard payload backs the Overview fallback", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const warnStart = source.indexOf("Overview is using a legacy /market/dashboard payload as a fallback");
+  assert.ok(warnStart >= 0, "must define a console.warn call for the legacy fallback path");
+  const warnCallStart = source.lastIndexOf("console.warn(", warnStart);
+  assert.ok(warnCallStart >= 0 && warnCallStart < warnStart, "the legacy-payload message must be inside a console.warn call");
+  const warnGuardStart = source.lastIndexOf("if (isDevPerfLoggingEnabled) {", warnCallStart);
+  assert.ok(warnGuardStart >= 0 && warnGuardStart < warnStart, "console.warn must be gated behind isDevPerfLoggingEnabled so it never fires in production");
+  const warnBlockEnd = source.indexOf("dispatchMarketDashboard({", warnStart);
+  const warnBlock = source.slice(warnGuardStart, warnBlockEnd);
+  assert.ok(warnBlock.includes("legacy /market/dashboard payload"), "warning message must call out the legacy payload path");
+});
+
+test("Phase 3A: SET_PREFETCH_ADJACENT_LIMIT remains 0 and no fanout was reintroduced", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "adjacent prefetch must remain disabled by default");
+  const topChaseCallCount = (source.match(/getPokemonSetTopChase\(/g) || []).length;
+  const marketMoversCallCount = (source.match(/getPokemonSetMarketMovers\(/g) || []).length;
+  assert.equal(topChaseCallCount, 1, "top chase must be called exactly once (active set only, no adjacent fanout)");
+  assert.equal(marketMoversCallCount, 1, "market movers must be called exactly once (active set only, no adjacent fanout)");
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3B — Cards tab uses a slim, paginated contract instead of the giant
+// full /cards payload.
+// Phase 3C — Insights' card validation section now also uses its own slim
+// contract (getPokemonSetCardsValidation) instead of the full /cards
+// payload. The legacy getPokemonSetCards/normalizePokemonSetCardsPayload
+// helpers are kept in pokemonSetCardsClient.js for backward compatibility,
+// but no normal set detail live effect calls them anymore.
+// ---------------------------------------------------------------------------
+
+test("Phase 3C: RipStatisticsPageClient imports getPokemonSetCardsPage and getPokemonSetCardsValidation, not the legacy getPokemonSetCards", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const cardsClientSource = fs.readFileSync(cardsClientPath, "utf8");
+
+  const importBlockStart = source.lastIndexOf("import {", source.indexOf('from "@/lib/pokemon/pokemonSetCardsClient"'));
+  const importBlockEnd = source.indexOf('from "@/lib/pokemon/pokemonSetCardsClient"');
+  const importBlock = source.slice(importBlockStart, importBlockEnd);
+
+  assert.ok(importBlock.includes("getPokemonSetCardsPage"), "must import getPokemonSetCardsPage");
+  assert.ok(importBlock.includes("getPokemonSetCardsValidation"), "must import getPokemonSetCardsValidation for Insights");
+  assert.ok(
+    !importBlock.split(",").some((entry) => entry.trim() === "getPokemonSetCards"),
+    "must not import the legacy getPokemonSetCards fetch function anymore — no live effect calls it"
+  );
+  assert.ok(cardsClientSource.includes("export async function getPokemonSetCardsPage"), "client must export getPokemonSetCardsPage");
+  assert.ok(cardsClientSource.includes("export async function getPokemonSetCardsValidation"), "client must export getPokemonSetCardsValidation");
+  assert.ok(cardsClientSource.includes("export function normalizePokemonSetCardsPayload"), "legacy normalizePokemonSetCardsPayload must not be removed");
+  assert.ok(cardsClientSource.includes("export async function getPokemonSetCards("), "legacy getPokemonSetCards may still exist in the client for backward compatibility");
+  assert.ok(cardsClientSource.includes("export function normalizePokemonSetCardsValidationPayload"), "client must export normalizePokemonSetCardsValidationPayload");
+});
+
+test("Phase 3B: Cards tab live path calls getPokemonSetCardsPage exactly once (active set only)", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const cardsPageCallCount = (source.match(/getPokemonSetCardsPage\(/g) || []).length;
+  assert.equal(cardsPageCallCount, 1, "getPokemonSetCardsPage must be called from exactly one call site (active set only, no adjacent fanout)");
+
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  assert.ok(effectStart >= 0, "the cards-page fetch effect must exist with its explanatory comment");
+  const effectBodyEnd = source.indexOf("}, [", effectStart);
+  const effectBody = source.slice(effectStart, effectBodyEnd);
+  assert.ok(effectBody.includes('shouldRenderCardsPage = setDetailTab === "cards" && cardsSubTab === "checklist"'), "must gate the fetch on the cards checklist sub-tab");
+  assert.ok(effectBody.includes("getPokemonSetCardsPage(setId,"), "must call getPokemonSetCardsPage");
+});
+
+test("Phase 3B: Cards tab does not call the legacy getPokemonSetCards for its own live page load", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const shouldRenderChecklistStart = source.indexOf("const shouldRenderChecklist = setDetailTab ===");
+  assert.ok(shouldRenderChecklistStart >= 0, "the full-cards effect's gate must exist");
+  assert.ok(
+    source.slice(shouldRenderChecklistStart, shouldRenderChecklistStart + 80).includes('setDetailTab === "insights"'),
+    "the full-cards effect must gate its live fetch on insights only, not the cards tab"
+  );
+  assert.ok(
+    !source.slice(shouldRenderChecklistStart, shouldRenderChecklistStart + 80).includes('"cards"'),
+    "the full-cards effect's live-fetch gate must not reference the cards tab anymore"
+  );
+
+  const cardsPageEffectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const cardsPageEffectEnd = source.indexOf("}, [", cardsPageEffectStart);
+  const cardsPageEffectBody = source.slice(cardsPageEffectStart, cardsPageEffectEnd);
+  assert.ok(!cardsPageEffectBody.includes("getPokemonSetCards("), "the cards-page effect must never call the legacy full getPokemonSetCards");
+});
+
+test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for tab === \"cards\" or tab === \"insights\"", () => {
+  const source = fs.readFileSync(initialSnapshotsServerPath, "utf8");
+
+  assert.ok(!source.includes("const wantsCards ="), "wantsCards gating must be removed — no tab route-seeds the full cards snapshot anymore");
+  assert.ok(!source.includes('tab === "cards" || tab === "insights"'), "must not fetch full cards for the cards tab anymore");
+
+  const fnStart = source.indexOf("export async function getPokemonSetInitialSnapshots");
+  const fnEnd = source.indexOf("\n}\n", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+  assert.ok(
+    !fnSource.includes("getPokemonSetCardsInitialSnapshot("),
+    "getPokemonSetInitialSnapshots must never call getPokemonSetCardsInitialSnapshot anymore (the function may still exist as a legacy helper)"
+  );
+});
+
+test("Phase 3C: Insights card validation live path calls getPokemonSetCardsValidation and no longer calls the legacy getPokemonSetCards", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const serverSource = fs.readFileSync(initialSnapshotsServerPath, "utf8");
+
+  assert.ok(!serverSource.includes("const wantsCards ="), "server seed must no longer fetch full cards for insights");
+  const shouldRenderChecklistStart = source.indexOf("const shouldRenderChecklist = setDetailTab ===");
+  assert.ok(
+    source.slice(shouldRenderChecklistStart, shouldRenderChecklistStart + 80).includes('setDetailTab === "insights"'),
+    "the client card validation live fetch must still run for the insights tab"
+  );
+  assert.ok(source.includes("getPokemonSetCardsValidation(setId)"), "the live card validation fetch call must exist for insights");
+
+  const checklistEffectStart = shouldRenderChecklistStart;
+  const checklistEffectEnd = source.indexOf("\n  }, [", checklistEffectStart);
+  const checklistEffectBody = source.slice(checklistEffectStart, checklistEffectEnd);
+  assert.ok(
+    !checklistEffectBody.includes("getPokemonSetCards(setId)"),
+    "Insights must no longer call the legacy full getPokemonSetCards(setId)"
+  );
+
+  const cardsPageEffectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const cardsPageEffectEnd = source.indexOf("}, [", cardsPageEffectStart);
+  const cardsPageEffectBody = source.slice(cardsPageEffectStart, cardsPageEffectEnd);
+  assert.ok(cardsPageEffectBody.includes("getPokemonSetCardsPage(setId,"), "Cards tab must still use getPokemonSetCardsPage");
+});
+
+test("Phase 3B: cards page fetch is not fanned out across adjacent sets", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "adjacent prefetch must remain disabled by default");
+  const cardsPageCallCount = (source.match(/getPokemonSetCardsPage\(/g) || []).length;
+  assert.equal(cardsPageCallCount, 1, "cards page must be fetched for the active set only, never adjacent sets");
+
+  const warmupStart = source.indexOf("const warmSetDetailResources = useCallback");
+  const warmupEnd = source.indexOf("const outcomeDistributionInfo", warmupStart);
+  const warmupSource = source.slice(warmupStart, warmupEnd);
+  assert.ok(!warmupSource.includes("getPokemonSetCardsPage("), "warmup must not fetch the cards page directly");
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4A — Pull Rates tab uses its own slim contract (getPokemonSetPullRates)
+// instead of requiring the full /page payload. Phase 4B (below) does the same
+// for Insights (getPokemonSetInsights), so no set-detail tab depends on the
+// full /page payload anymore.
+// ---------------------------------------------------------------------------
+
+test("Phase 4A: RipStatisticsPageClient imports getPokemonSetPullRates and the client exports it", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const pullRatesClientSource = fs.readFileSync(pullRatesClientPath, "utf8");
+
+  assert.ok(
+    source.includes('import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";'),
+    "must import getPokemonSetPullRates from the new slim client"
+  );
+  assert.ok(
+    pullRatesClientSource.includes("export async function getPokemonSetPullRates"),
+    "client must export getPokemonSetPullRates"
+  );
+  assert.ok(
+    pullRatesClientSource.includes("export function normalizePokemonSetPullRatesPayload"),
+    "client must export normalizePokemonSetPullRatesPayload"
+  );
+});
+
+test("Phase 4A: Pull Rates tab live path calls getPokemonSetPullRates", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const effectStart = source.indexOf("// Pull Rates tab fetch effect (Phase 4A)");
+  const effectEnd = source.indexOf(
+    "}, [setDetailMode, setDetailTab, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);",
+    effectStart
+  );
+  assert.ok(effectStart >= 0, "the pull rates fetch effect must exist");
+  const effectBody = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectBody.includes('setDetailTab !== "pull-rates"'), "the effect must gate on the pull-rates tab");
+  assert.ok(effectBody.includes("getPokemonSetPullRates(setId)"), "must call getPokemonSetPullRates for the active set");
+});
+
+test("Phase 4A: Pull Rates tab does not call fetchPokemonSetPageSnapshot", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const effectStart = source.indexOf("// Pull Rates tab fetch effect (Phase 4A)");
+  const effectEnd = source.indexOf(
+    "}, [setDetailMode, setDetailTab, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);",
+    effectStart
+  );
+  const effectBody = source.slice(effectStart, effectEnd);
+
+  assert.ok(
+    !effectBody.includes("fetchPokemonSetPageSnapshot("),
+    "the pull rates effect must never call the legacy full-page fetch"
+  );
+});
+
+test("Phase 4A: Cards tab still uses getPokemonSetCardsPage", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const cardsPageEffectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const cardsPageEffectEnd = source.indexOf("}, [", cardsPageEffectStart);
+  const cardsPageEffectBody = source.slice(cardsPageEffectStart, cardsPageEffectEnd);
+  assert.ok(cardsPageEffectBody.includes("getPokemonSetCardsPage(setId,"), "Cards tab must still use getPokemonSetCardsPage");
+});
+
+test("Phase 4A: SET_PREFETCH_ADJACENT_LIMIT remains 0 and pull rates fetch is not fanned out", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "adjacent prefetch must remain disabled by default");
+  const pullRatesCallCount = (source.match(/getPokemonSetPullRates\(/g) || []).length;
+  assert.equal(pullRatesCallCount, 1, "pull rates must be fetched for the active set only, never adjacent sets");
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4B — Insights tab uses its own slim contract (getPokemonSetInsights)
+// instead of requiring the full /page payload. No set-detail tab depends on
+// the full /page payload anymore; the legacy /page endpoint and
+// fetchPokemonSetPageSnapshot remain (now permanently inert on this page)
+// only for non-"set" target types and any other legacy caller.
+// ---------------------------------------------------------------------------
+
+test("Phase 4B: RipStatisticsPageClient imports getPokemonSetInsights and the client exports it", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const insightsClientSource = fs.readFileSync(insightsClientPath, "utf8");
+
+  assert.ok(
+    source.includes('import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";'),
+    "must import getPokemonSetInsights from the new slim client"
+  );
+  assert.ok(
+    insightsClientSource.includes("export async function getPokemonSetInsights"),
+    "client must export getPokemonSetInsights"
+  );
+  assert.ok(
+    insightsClientSource.includes("export function normalizePokemonSetInsightsPayload"),
+    "client must export normalizePokemonSetInsightsPayload"
+  );
+});
+
+test("Phase 4B: Insights tab live path calls getPokemonSetInsights", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const effectStart = source.indexOf("// Insights tab fetch effect (Phase 4B)");
+  const effectEnd = source.indexOf(
+    "}, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);",
+    effectStart
+  );
+  assert.ok(effectStart >= 0, "the insights fetch effect must exist");
+  const effectBody = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectBody.includes('setDetailTab !== "insights"'), "the effect must gate on the insights tab");
+  assert.ok(effectBody.includes("getPokemonSetInsights(setId)"), "must call getPokemonSetInsights for the active set");
+});
+
+test("Phase 4B: Insights tab does not call fetchPokemonSetPageSnapshot", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const effectStart = source.indexOf("// Insights tab fetch effect (Phase 4B)");
+  const effectEnd = source.indexOf(
+    "}, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);",
+    effectStart
+  );
+  const effectBody = source.slice(effectStart, effectEnd);
+
+  assert.ok(
+    !effectBody.includes("fetchPokemonSetPageSnapshot("),
+    "the insights effect must never call the legacy full-page fetch"
+  );
+});
+
+test("Phase 4B: SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD is empty and no server route seeds the full /page payload for any set-detail tab", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  assert.ok(
+    source.includes("const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set([]);"),
+    "no tab may require the full /page payload anymore"
+  );
+
+  const setSlugPagePath = path.resolve(__dirname, "../../app/TCGs/Pokemon/Sets/[setSlug]/page.js");
+  const setSlugPageSource = fs.readFileSync(setSlugPagePath, "utf8");
+  assert.ok(
+    !setSlugPageSource.includes('activeSetDetailTab === "insights"'),
+    "the server route must no longer seed the full /page payload for insights"
+  );
+  assert.ok(
+    !setSlugPageSource.includes('activeSetDetailTab === "pull-rates"'),
+    "the server route must no longer seed the full /page payload for pull-rates"
+  );
+  assert.ok(
+    setSlugPageSource.includes('const needsExplorePagePayload = requestedTargetType !== "set";'),
+    "the full /page payload must only be seeded for non-set target types now"
+  );
+});
+
+test("Phase 4B: Cards still uses getPokemonSetCardsPage, Pull Rates still uses getPokemonSetPullRates, card validation still uses getPokemonSetCardsValidation", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  assert.ok(source.includes("getPokemonSetCardsPage("), "Cards tab must still use getPokemonSetCardsPage");
+  assert.ok(source.includes("getPokemonSetPullRates("), "Pull Rates tab must still use getPokemonSetPullRates");
+  assert.ok(source.includes("getPokemonSetCardsValidation("), "card validation must still use getPokemonSetCardsValidation");
+  assert.ok(source.includes("getPokemonSetOverview("), "Overview must still use getPokemonSetOverview");
+  assert.ok(source.includes("getPokemonSetTopChase("), "Overview must still use getPokemonSetTopChase");
+  assert.ok(source.includes("getPokemonSetMarketMovers("), "Overview must still use getPokemonSetMarketMovers");
+});
+
+test("Phase 4B: SET_PREFETCH_ADJACENT_LIMIT remains 0 and insights fetch is not fanned out", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "adjacent prefetch must remain disabled by default");
+  const insightsCallCount = (source.match(/getPokemonSetInsights\(/g) || []).length;
+  assert.equal(insightsCallCount, 1, "insights must be fetched for the active set only, never adjacent sets");
 });

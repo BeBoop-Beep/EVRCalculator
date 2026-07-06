@@ -16,15 +16,11 @@ export async function GET(request, { params }) {
   }
 
   const backendUrl = new URL(
-    `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/market/value-history`
+    `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/overview`
   );
-  const days = request?.nextUrl?.searchParams?.get("days");
-  if (days) {
-    backendUrl.searchParams.set("days", days);
-  }
-  const valueScope = request?.nextUrl?.searchParams?.get("value_scope") || request?.nextUrl?.searchParams?.get("scope");
-  if (valueScope) {
-    backendUrl.searchParams.set("value_scope", valueScope);
+  const window = request?.nextUrl?.searchParams?.get("window");
+  if (window) {
+    backendUrl.searchParams.set("window", window);
   }
 
   const proxyResponse = await fetch(backendUrl.toString(), {

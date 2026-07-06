@@ -149,6 +149,87 @@ function normalizeCardAppealMarketPriceCorrelation(payload) {
   };
 }
 
+function normalizeSetCard(card, validation = {}) {
+  const currentPrice = toOptionalNumber(
+    card?.currentPrice ??
+      card?.current_price ??
+      card?.marketPrice ??
+      card?.market_price ??
+      card?.estimated_market_price ??
+      validation?.marketPrice ??
+      validation?.market_price
+  );
+  const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount ?? card?.movement30d?.changeAmount ?? card?.movement30d?.change_amount);
+  const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent ?? card?.movement30d?.changePercent ?? card?.movement30d?.change_percent);
+  const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score ?? card?.movement30d?.movementScore ?? card?.movement30d?.score);
+  const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label ?? card?.movement30d?.movementLabel ?? card?.movement30d?.label);
+  const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? card?.movement30d?.enoughHistory ?? card?.movement30d?.enough_history);
+  const subjectDemandScore = toOptionalNumber(card?.subjectDemandScore ?? card?.subject_demand_score ?? card?.pokemonDesirabilityScore ?? card?.pokemon_desirability_score ?? card?.cardDesirabilityScore ?? card?.card_desirability_score ?? validation?.pokemonDesirabilityScore ?? validation?.pokemon_desirability_score ?? validation?.cardDesirabilityScore ?? validation?.card_desirability_score);
+  const treatmentScore = toOptionalNumber(card?.treatmentScore ?? card?.treatment_score ?? validation?.treatmentScore ?? validation?.treatment_score);
+  const scarcityScore = toOptionalNumber(card?.scarcityScore ?? card?.scarcity_score ?? validation?.scarcityScore ?? validation?.scarcity_score);
+  const adjustedCardAppealScore = toOptionalNumber(card?.adjustedCardAppealScore ?? card?.adjusted_card_appeal_score ?? validation?.adjustedCardAppealScore ?? validation?.adjusted_card_appeal_score);
+  const cardAppealScore = toOptionalNumber(card?.cardAppealScore ?? card?.card_appeal_score ?? validation?.cardAppealScore ?? validation?.card_appeal_score) ?? adjustedCardAppealScore;
+
+  return {
+    id: toOptionalString(card?.id),
+    name: toOptionalString(card?.name),
+    setId: toOptionalString(card?.set_id ?? card?.setId),
+    setName: toOptionalString(card?.set_name ?? card?.setName),
+    pokemonTcgApiCardId: toOptionalString(card?.pokemon_tcg_api_card_id ?? card?.pokemonTcgApiCardId),
+    cardNumber: toOptionalString(card?.card_number ?? card?.collector_number ?? card?.cardNumber ?? card?.number),
+    printedNumber: toOptionalString(card?.printed_number ?? card?.printedNumber),
+    rarity: toOptionalString(card?.rarity),
+    supertype: toOptionalString(card?.supertype),
+    subtypes: Array.isArray(card?.subtypes) ? card.subtypes.map(toOptionalString).filter(Boolean) : [],
+    nationalPokedexNumbers: Array.isArray(card?.national_pokedex_numbers ?? card?.nationalPokedexNumbers)
+      ? (card?.national_pokedex_numbers ?? card?.nationalPokedexNumbers).map(toOptionalNumber).filter((value) => value !== null)
+      : [],
+    imageSmallUrl: toOptionalString(card?.image_small_url ?? card?.small_image_url ?? card?.imageSmallUrl),
+    imageLargeUrl: toOptionalString(card?.image_large_url ?? card?.large_image_url ?? card?.imageLargeUrl),
+    marketPrice: currentPrice ?? toOptionalNumber(card?.market_price ?? card?.estimated_market_price ?? card?.marketPrice),
+    currentPrice,
+    cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id ?? validation?.cardVariantId ?? validation?.card_variant_id),
+    subjectDemandScore,
+    cardDesirabilityScore: subjectDemandScore,
+    pokemonDesirabilityScore: subjectDemandScore,
+    treatmentScore,
+    scarcityScore,
+    adjustedCardAppealScore,
+    cardAppealScore,
+    scarcityAdjustedCardAppealScore: toOptionalNumber(card?.scarcityAdjustedCardAppealScore ?? card?.scarcity_adjusted_card_appeal_score ?? validation?.scarcityAdjustedCardAppealScore ?? validation?.scarcity_adjusted_card_appeal_score),
+    pullRate: toOptionalNumber(card?.pullRate ?? card?.pull_rate ?? validation?.pullRate ?? validation?.pull_rate),
+    pullRateSource: toOptionalString(card?.pullRateSource ?? card?.pull_rate_source ?? validation?.pullRateSource ?? validation?.pull_rate_source),
+    setValueShare: toOptionalNumber(card?.setValueShare ?? card?.set_value_share ?? validation?.setValueShare ?? validation?.set_value_share),
+    linkedPokemonName: toOptionalString(card?.linkedPokemonName ?? card?.linked_pokemon_name ?? validation?.pokemonName ?? validation?.pokemon_name),
+    linkedPokemon: Array.isArray(card?.linkedPokemon ?? card?.linked_pokemon)
+      ? (card?.linkedPokemon ?? card?.linked_pokemon).map((entry) => ({
+          pokemonName: toOptionalString(entry?.pokemonName ?? entry?.pokemon_name ?? entry?.name),
+          pokemonReferenceId: toOptionalString(entry?.pokemonReferenceId ?? entry?.pokemon_reference_id),
+          pokedexNumber: toOptionalNumber(entry?.pokedexNumber ?? entry?.pokedex_number),
+          desirabilityScore: toOptionalNumber(entry?.desirabilityScore ?? entry?.desirability_score),
+          contributionWeight: toOptionalNumber(entry?.contributionWeight ?? entry?.contribution_weight),
+        })).filter((entry) => entry.pokemonName || entry.pokemonReferenceId)
+      : [],
+    isHitEligible: toOptionalBoolean(card?.isHitEligible ?? card?.is_hit_eligible ?? validation?.isHitEligible ?? validation?.is_hit_eligible),
+    change30dAmount,
+    change30dPercent,
+    movementScore,
+    movementLabel,
+    enoughHistory,
+    confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
+    movement30d: {
+      currentPrice,
+      changeAmount: change30dAmount,
+      changePercent: change30dPercent,
+      score: movementScore,
+      label: movementLabel,
+      enoughHistory,
+      confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
+    },
+    tcgplayerProductId: toOptionalString(card?.tcgplayer_product_id ?? card?.tcgplayerProductId),
+  };
+}
+
 export function normalizePokemonSetCardsPayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const validationRows = Array.isArray(payload?.cardDesirabilityValidation?.cards)
@@ -182,84 +263,7 @@ export function normalizePokemonSetCardsPayload(payload) {
         validationByKey.get(toOptionalString(card?.cardId ?? card?.card_id)) ||
         validationByKey.get(toOptionalString(card?.name)) ||
         {};
-      const currentPrice = toOptionalNumber(
-        card?.currentPrice ??
-          card?.current_price ??
-          card?.marketPrice ??
-          card?.market_price ??
-          card?.estimated_market_price ??
-          validation?.marketPrice ??
-          validation?.market_price
-      );
-      const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount ?? card?.movement30d?.changeAmount ?? card?.movement30d?.change_amount);
-      const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent ?? card?.movement30d?.changePercent ?? card?.movement30d?.change_percent);
-      const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score ?? card?.movement30d?.movementScore ?? card?.movement30d?.score);
-      const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label ?? card?.movement30d?.movementLabel ?? card?.movement30d?.label);
-      const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? card?.movement30d?.enoughHistory ?? card?.movement30d?.enough_history);
-      const subjectDemandScore = toOptionalNumber(card?.subjectDemandScore ?? card?.subject_demand_score ?? card?.pokemonDesirabilityScore ?? card?.pokemon_desirability_score ?? card?.cardDesirabilityScore ?? card?.card_desirability_score ?? validation?.pokemonDesirabilityScore ?? validation?.pokemon_desirability_score ?? validation?.cardDesirabilityScore ?? validation?.card_desirability_score);
-      const treatmentScore = toOptionalNumber(card?.treatmentScore ?? card?.treatment_score ?? validation?.treatmentScore ?? validation?.treatment_score);
-      const scarcityScore = toOptionalNumber(card?.scarcityScore ?? card?.scarcity_score ?? validation?.scarcityScore ?? validation?.scarcity_score);
-      const adjustedCardAppealScore = toOptionalNumber(card?.adjustedCardAppealScore ?? card?.adjusted_card_appeal_score ?? validation?.adjustedCardAppealScore ?? validation?.adjusted_card_appeal_score);
-      const cardAppealScore = toOptionalNumber(card?.cardAppealScore ?? card?.card_appeal_score ?? validation?.cardAppealScore ?? validation?.card_appeal_score) ?? adjustedCardAppealScore;
-
-      return {
-        id: toOptionalString(card?.id),
-        name: toOptionalString(card?.name),
-        setId: toOptionalString(card?.set_id ?? card?.setId),
-        setName: toOptionalString(card?.set_name ?? card?.setName),
-        pokemonTcgApiCardId: toOptionalString(card?.pokemon_tcg_api_card_id ?? card?.pokemonTcgApiCardId),
-        cardNumber: toOptionalString(card?.card_number ?? card?.collector_number ?? card?.number),
-        printedNumber: toOptionalString(card?.printed_number ?? card?.printedNumber),
-        rarity: toOptionalString(card?.rarity),
-        supertype: toOptionalString(card?.supertype),
-        subtypes: Array.isArray(card?.subtypes) ? card.subtypes.map(toOptionalString).filter(Boolean) : [],
-        nationalPokedexNumbers: Array.isArray(card?.national_pokedex_numbers ?? card?.nationalPokedexNumbers)
-          ? (card?.national_pokedex_numbers ?? card?.nationalPokedexNumbers).map(toOptionalNumber).filter((value) => value !== null)
-          : [],
-        imageSmallUrl: toOptionalString(card?.image_small_url ?? card?.small_image_url),
-        imageLargeUrl: toOptionalString(card?.image_large_url ?? card?.large_image_url),
-        marketPrice: currentPrice ?? toOptionalNumber(card?.market_price ?? card?.estimated_market_price),
-        currentPrice,
-        cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id ?? validation?.cardVariantId ?? validation?.card_variant_id),
-        subjectDemandScore,
-        cardDesirabilityScore: subjectDemandScore,
-        pokemonDesirabilityScore: subjectDemandScore,
-        treatmentScore,
-        scarcityScore,
-        adjustedCardAppealScore,
-        cardAppealScore,
-        scarcityAdjustedCardAppealScore: toOptionalNumber(card?.scarcityAdjustedCardAppealScore ?? card?.scarcity_adjusted_card_appeal_score ?? validation?.scarcityAdjustedCardAppealScore ?? validation?.scarcity_adjusted_card_appeal_score),
-        pullRate: toOptionalNumber(card?.pullRate ?? card?.pull_rate ?? validation?.pullRate ?? validation?.pull_rate),
-        pullRateSource: toOptionalString(card?.pullRateSource ?? card?.pull_rate_source ?? validation?.pullRateSource ?? validation?.pull_rate_source),
-        setValueShare: toOptionalNumber(card?.setValueShare ?? card?.set_value_share ?? validation?.setValueShare ?? validation?.set_value_share),
-        linkedPokemonName: toOptionalString(card?.linkedPokemonName ?? card?.linked_pokemon_name ?? validation?.pokemonName ?? validation?.pokemon_name),
-        linkedPokemon: Array.isArray(card?.linkedPokemon ?? card?.linked_pokemon)
-          ? (card?.linkedPokemon ?? card?.linked_pokemon).map((entry) => ({
-              pokemonName: toOptionalString(entry?.pokemonName ?? entry?.pokemon_name ?? entry?.name),
-              pokemonReferenceId: toOptionalString(entry?.pokemonReferenceId ?? entry?.pokemon_reference_id),
-              pokedexNumber: toOptionalNumber(entry?.pokedexNumber ?? entry?.pokedex_number),
-              desirabilityScore: toOptionalNumber(entry?.desirabilityScore ?? entry?.desirability_score),
-              contributionWeight: toOptionalNumber(entry?.contributionWeight ?? entry?.contribution_weight),
-            })).filter((entry) => entry.pokemonName || entry.pokemonReferenceId)
-          : [],
-        isHitEligible: toOptionalBoolean(card?.isHitEligible ?? card?.is_hit_eligible ?? validation?.isHitEligible ?? validation?.is_hit_eligible),
-        change30dAmount,
-        change30dPercent,
-        movementScore,
-        movementLabel,
-        enoughHistory,
-        confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
-        movement30d: {
-          currentPrice,
-          changeAmount: change30dAmount,
-          changePercent: change30dPercent,
-          score: movementScore,
-          label: movementLabel,
-          enoughHistory,
-          confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
-        },
-        tcgplayerProductId: toOptionalString(card?.tcgplayer_product_id),
-      };
+      return normalizeSetCard(card, validation);
     }),
     cardAppealMarketPriceCorrelation,
     meta: payload?.meta || { dedupe: {}, sources: {}, timings: {} },
@@ -364,4 +368,205 @@ export function prefetchPokemonSetCards(setId) {
     });
     return null;
   });
+}
+
+export function normalizePokemonSetCardsPagePayload(payload) {
+  const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+  const pagination = payload?.pagination || {};
+  const filters = payload?.filters || {};
+
+  return {
+    set: {
+      id: toOptionalString(payload?.set?.id),
+      name: toOptionalString(payload?.set?.name),
+      slug: toOptionalString(payload?.set?.slug ?? payload?.set?.canonicalKey),
+    },
+    // The backend cards-page contract is already camelCase-only (no
+    // cardDesirabilityValidation lookup needed here), but reuses the same
+    // per-card normalization as the legacy full payload so Cards tab
+    // rendering code doesn't need to branch on which endpoint served it.
+    cards: cards.map((card) => normalizeSetCard(card)),
+    pagination: {
+      page: toOptionalNumber(pagination?.page) ?? 1,
+      pageSize: toOptionalNumber(pagination?.pageSize) ?? 60,
+      totalCards: toOptionalNumber(pagination?.totalCards) ?? cards.length,
+      totalPages: toOptionalNumber(pagination?.totalPages) ?? 1,
+      hasNextPage: Boolean(pagination?.hasNextPage),
+      hasPreviousPage: Boolean(pagination?.hasPreviousPage),
+    },
+    filters: {
+      availableRarities: Array.isArray(filters?.availableRarities)
+        ? filters.availableRarities.map(toOptionalString).filter(Boolean)
+        : [],
+      availableSorts: Array.isArray(filters?.availableSorts) ? filters.availableSorts.map(toOptionalString).filter(Boolean) : [],
+      movementWindow: toOptionalString(filters?.movementWindow),
+      sort: toOptionalString(filters?.sort),
+      movementSort: toOptionalString(filters?.movementSort),
+      movementFilter: toOptionalString(filters?.movementFilter),
+      query: toOptionalString(filters?.query),
+      rarity: toOptionalString(filters?.rarity),
+    },
+    meta: payload?.meta || { warnings: [] },
+  };
+}
+
+export function normalizePokemonSetCardsValidationPayload(payload) {
+  const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+  const diagnostics = payload?.diagnostics || {};
+
+  return {
+    set: {
+      id: toOptionalString(payload?.set?.id),
+      name: toOptionalString(payload?.set?.name),
+      slug: toOptionalString(payload?.set?.slug ?? payload?.set?.canonicalKey),
+    },
+    // The validation contract is already the slim, validation-ready shape
+    // (no movement/subtypes/image fields), but reuses normalizeSetCard so
+    // CardDesirabilityMarketValidationCard's field accessors (marketPrice,
+    // adjustedCardAppealScore, etc.) work identically to the legacy full
+    // payload's cards.
+    cards: cards.map((card) =>
+      normalizeSetCard({
+        id: card?.cardId,
+        cardVariantId: card?.cardVariantId,
+        name: card?.name,
+        rarity: card?.rarity,
+        supertype: card?.supertype,
+        printedNumber: card?.printedNumber,
+        imageSmallUrl: card?.imageUrl,
+        marketPrice: card?.marketPrice,
+        linkedPokemonName: card?.linkedPokemonName,
+        pokemonDesirabilityScore: card?.pokemonDesirabilityScore,
+        treatmentScore: card?.treatmentScore,
+        scarcityScore: card?.scarcityScore,
+        adjustedCardAppealScore: card?.adjustedCardAppealScore,
+        pullRate: card?.pullRate,
+        pullRateSource: card?.pullRateSource,
+        setValueShare: card?.setValueShare,
+        isHitEligible: card?.isHitEligible,
+      })
+    ),
+    cardAppealMarketPriceCorrelation: normalizeCardAppealMarketPriceCorrelation({
+      cardAppealMarketPriceCorrelation: payload?.cardAppealMarketPriceCorrelation || null,
+    }),
+    diagnostics: {
+      canonicalCount: toOptionalNumber(diagnostics?.canonicalCount),
+      pricedCount: toOptionalNumber(diagnostics?.pricedCount),
+      linkedCount: toOptionalNumber(diagnostics?.linkedCount),
+      includedCount: toOptionalNumber(diagnostics?.includedCount),
+      excludedUnpricedCount: toOptionalNumber(diagnostics?.excludedUnpricedCount),
+      excludedUnlinkedCount: toOptionalNumber(diagnostics?.excludedUnlinkedCount),
+      excludedMissingScoreCount: toOptionalNumber(diagnostics?.excludedMissingScoreCount),
+      sampleSource: toOptionalString(diagnostics?.sampleSource),
+    },
+    meta: payload?.meta || { warnings: [] },
+  };
+}
+
+export async function getPokemonSetCardsValidation(setId, { maxCards = null, includePlotRows = null } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+
+  const params = new URLSearchParams();
+  if (maxCards) {
+    params.set("max_cards", String(maxCards));
+  }
+  if (includePlotRows !== null && includePlotRows !== undefined) {
+    params.set("include_plot_rows", String(Boolean(includePlotRows)));
+  }
+
+  const startedAt = performance.now();
+  const response = await fetch(
+    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/validation${params.toString() ? `?${params}` : ""}`,
+    { method: "GET" }
+  );
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message = payload?.message || payload?.error || "Unable to load card validation data";
+    const requestError = new Error(message);
+    requestError.status = response.status;
+    requestError.code = payload?.code;
+    throw requestError;
+  }
+
+  const normalized = normalizePokemonSetCardsValidationPayload(payload);
+  debugTiming("cards_validation.fetch_success", {
+    setId: resolvedSetId,
+    elapsedMs: Math.round(performance.now() - startedAt),
+    count: normalized.cards.length,
+  });
+  return normalized;
+}
+
+export async function getPokemonSetCardsPage(
+  setId,
+  { page = 1, pageSize = 60, sort = "set-number", query = null, rarity = null, movementFilter = null, movementSort = null } = {}
+) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+
+  const params = new URLSearchParams();
+  if (page) {
+    params.set("page", String(page));
+  }
+  if (pageSize) {
+    params.set("page_size", String(pageSize));
+  }
+  if (sort) {
+    params.set("sort", String(sort));
+  }
+  if (query) {
+    params.set("q", String(query));
+  }
+  if (rarity) {
+    params.set("rarity", String(rarity));
+  }
+  if (movementFilter) {
+    params.set("movement_filter", String(movementFilter));
+  }
+  if (movementSort) {
+    params.set("movement_sort", String(movementSort));
+  }
+
+  const startedAt = performance.now();
+  const response = await fetch(
+    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/page${params.toString() ? `?${params}` : ""}`,
+    { method: "GET" }
+  );
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message = payload?.message || payload?.error || "Unable to load set cards page";
+    const requestError = new Error(message);
+    requestError.status = response.status;
+    requestError.code = payload?.code;
+    throw requestError;
+  }
+
+  const normalized = normalizePokemonSetCardsPagePayload(payload);
+  debugTiming("cards_page.fetch_success", {
+    setId: resolvedSetId,
+    page,
+    elapsedMs: Math.round(performance.now() - startedAt),
+    count: normalized.cards.length,
+    totalCards: normalized.pagination.totalCards,
+  });
+  return normalized;
 }

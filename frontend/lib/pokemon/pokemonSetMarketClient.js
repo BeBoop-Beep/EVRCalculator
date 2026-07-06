@@ -391,7 +391,7 @@ function normalizeMarketMoversEntry(source, payload) {
   };
 }
 
-function normalizeMarketMoversPayload(payload) {
+export function normalizeMarketMoversPayload(payload) {
   const source =
     payload?.marketMovers && typeof payload.marketMovers === "object"
       ? payload.marketMovers
@@ -722,6 +722,42 @@ export async function getPokemonSetTopMarketCards(setId, { limit = 10, days = 36
   );
 }
 
+export function normalizeTopChasePayload(payload) {
+  return normalizeTopMarketCardsPayload({
+    set: payload?.set,
+    cards: payload?.topChaseCards || payload?.top_chase_cards || [],
+    topChaseCardHistories: payload?.topChaseCardHistories,
+    top_chase_card_histories: payload?.top_chase_card_histories,
+    meta: payload?.meta,
+  });
+}
+
+export async function getPokemonSetTopChase(setId, { window = "30D", limit = 10 } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+
+  const params = new URLSearchParams();
+  if (window) {
+    params.set("window", String(window));
+  }
+  if (limit) {
+    params.set("limit", String(limit));
+  }
+
+  const response = await fetch(
+    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase${params.toString() ? `?${params}` : ""}`,
+    {
+      method: "GET",
+    }
+  );
+
+  return normalizeTopChasePayload(
+    await readJsonResponse(response, "Unable to load top chase cards")
+  );
+}
+
 export async function getPokemonSetValueHistory(setId, { days = 365, scope = "standard" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -745,5 +781,89 @@ export async function getPokemonSetValueHistory(setId, { days = 365, scope = "st
 
   return normalizeSetValueHistoryPayload(
     await readJsonResponse(response, "Unable to load set value history")
+  );
+}
+
+export function normalizeOverviewPayload(payload) {
+  const historiesByScope =
+    payload?.setValueHistoriesByScope && typeof payload.setValueHistoriesByScope === "object"
+      ? payload.setValueHistoriesByScope
+      : {};
+  const normalizedHistoriesByScope = Object.fromEntries(
+    Object.entries(historiesByScope).map(([scope, history]) => [
+      scope,
+      normalizeDailySetValueHistory(Array.isArray(history) ? history : []),
+    ])
+  );
+  const availableScopes = Array.isArray(payload?.availableScopes) ? payload.availableScopes : [];
+
+  return {
+    set: {
+      id: toOptionalString(payload?.set?.id),
+      name: toOptionalString(payload?.set?.name),
+      slug: toOptionalString(payload?.set?.slug),
+    },
+    window: toOptionalString(payload?.window),
+    setValueHistoriesByScope: normalizedHistoriesByScope,
+    performanceVsCostHistory: normalizeSimulationPerformanceHistory(payload?.performanceVsCostHistory || []),
+    availableScopes: availableScopes
+      .map((scope) => ({
+        key: toOptionalString(scope?.key),
+        label: toOptionalString(scope?.label),
+        latestDate: toOptionalString(scope?.latestDate),
+      }))
+      .filter((scope) => scope.key),
+    latestMarketDate: toOptionalString(payload?.latestMarketDate),
+    meta: payload?.meta || { warnings: [] },
+  };
+}
+
+export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DASHBOARD_WINDOW } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+
+  const normalizedWindow = normalizeMarketDashboardWindow(window);
+  const params = new URLSearchParams();
+  if (normalizedWindow) {
+    params.set("window", normalizedWindow);
+  }
+
+  const response = await fetch(
+    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/overview${params.toString() ? `?${params}` : ""}`,
+    {
+      method: "GET",
+    }
+  );
+
+  return normalizeOverviewPayload(
+    await readJsonResponse(response, "Unable to load set overview")
+  );
+}
+
+export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 5 } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+
+  const params = new URLSearchParams();
+  if (window) {
+    params.set("window", String(window));
+  }
+  if (limit) {
+    params.set("limit", String(limit));
+  }
+
+  const response = await fetch(
+    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,
+    {
+      method: "GET",
+    }
+  );
+
+  return normalizeMarketMoversPayload(
+    await readJsonResponse(response, "Unable to load market movers")
   );
 }

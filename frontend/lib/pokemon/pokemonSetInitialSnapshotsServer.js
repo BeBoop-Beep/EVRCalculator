@@ -4,7 +4,6 @@ import { normalizeMarketDashboardPayload, normalizeMarketDashboardWindow } from 
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const BACKEND_API_BASE_URL = getBackendApiBaseUrl();
-const MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S = 300;
 const SHELL_SNAPSHOT_REVALIDATE_S = 300;
 const EMPTY_INITIAL_SNAPSHOT = { payload: null, error: null, elapsedMs: 0 };
 const INITIAL_SNAPSHOT_TIMEOUT_MS = Number.parseInt(
@@ -141,37 +140,66 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
   const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/dashboard`);
   url.searchParams.set("window", normalizedWindow);
 
+  // Market dashboard snapshots can exceed Next's 2MB data-cache entry limit,
+  // same root cause as cards (see getPokemonSetCardsInitialSnapshot). Omitting
+  // nextCacheOptions makes loadInitialSnapshot fall back to an uncached fetch.
   return loadInitialSnapshot(url, {
     moduleName: "market dashboard",
     normalizePayload: normalizeMarketDashboardPayload,
-    nextCacheOptions: { revalidate: MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S, tags: [`pokemon-set-market-dashboard:${resolvedSetId}:${normalizedWindow}`] },
   });
 }
 
 /**
  * Load the initial shell + active-tab snapshot for the Pokemon set detail page.
  *
- * Only the shell (lightweight header/title-card data) is always fetched. The
- * market dashboard snapshot is fetched only for its own tab. Cards are also
- * fetched for the insights tab: Insights' Pure Pokémon Demand vs Market Price
- * section is a Cards/checklist consumer (card rows + card appeal/market price
- * correlation), and Insights already fetches the full /page payload, which
- * doesn't carry that data — cards must be a first-class Insights dependency,
- * not a client-side backfill that leaves the section empty on first load.
- * Cards and market dashboard are still never both fetched together, since
- * only one tab is visible at a time.
+ * Only the shell (lightweight header/title-card data) is always fetched.
+ *
+ * The full /cards snapshot is never route-seeded here for any tab anymore.
+ * Cards uses its own slim, paginated contract (getPokemonSetCardsPage,
+ * fetched client-side — see RipStatisticsPageClient.jsx). Insights' Card
+ * Desirability/Market Validation section (card rows + card appeal/market
+ * price correlation) now fetches the slim getPokemonSetCardsValidation
+ * contract client-side instead (Phase 3C) — that endpoint reads the same
+ * pokemon_set_cards_snapshot_latest row but returns only validation-ready
+ * card rows, never the full checklist array. getPokemonSetCardsInitialSnapshot
+ * is kept below only as a legacy helper for any caller that still needs the
+ * full /cards payload server-side; getPokemonSetInitialSnapshots itself
+ * never calls it.
+ *
+ * Overview uses /overview (+ /market/top-chase, /market/movers). Cards uses
+ * /cards/page. Pull Rates uses /pull-rates (Phase 4A). Insights uses
+ * /insights (Phase 4B) plus /cards/validation for its card validation
+ * section — all four are fetched client-side from RipStatisticsPageClient.jsx,
+ * none of them server-seeded here. The full /page snapshot is legacy-only
+ * (see needsExplorePagePayload in page.js, gated on non-"set" target types
+ * only) and is not part of normal set-detail initial snapshot loading.
+ *
+ * The monolithic /market/dashboard snapshot is never requested here anymore
+ * — Overview, Top Chase Cards, and Market Movers each fetch their own slim
+ * endpoint client-side (getPokemonSetOverview/getPokemonSetTopChase/
+ * getPokemonSetMarketMovers in RipStatisticsPageClient.jsx) instead of
+ * riding this route-level seed. marketDashboardPayload/errors.marketDashboard
+ * /timings.marketDashboardMs are kept in the return shape below only for
+ * backward compatibility with existing consumers that read them as an
+ * optional (now always-empty) fallback — see
+ * getPokemonSetMarketDashboardInitialSnapshot, which still exists for any
+ * remaining legacy caller but is no longer invoked from this function.
+ *
+ * Cards snapshots do not use Next's data cache (nextCacheOptions) — the
+ * payload can exceed the 2MB per-entry limit. Only shell uses
+ * nextCacheOptions today.
  */
 export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   const startedAt = Date.now();
-  const wantsCards = tab === "cards" || tab === "insights";
-  const wantsMarketDashboard = tab === "overview";
-
+  // Cards uses the paginated client endpoint (getPokemonSetCardsPage) and
+  // Insights uses its own slim client-side endpoints (getPokemonSetInsights
+  // plus getPokemonSetCardsValidation for card validation) — neither tab
+  // needs the full /cards snapshot server-seeded anymore, so this slot
+  // always resolves empty.
   const [shell, cards, marketDashboard] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
-    wantsCards ? getPokemonSetCardsInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
-    wantsMarketDashboard
-      ? getPokemonSetMarketDashboardInitialSnapshot(setId, { window: "365d" })
-      : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);
 
   const totalMs = Date.now() - startedAt;

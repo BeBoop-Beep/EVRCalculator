@@ -3,6 +3,7 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
+const FORWARDED_PARAMS = ["page", "page_size", "sort", "q", "rarity", "movement_filter", "movement_sort"];
 
 export async function GET(request, { params }) {
   const resolvedParams = (await params) || {};
@@ -16,16 +17,14 @@ export async function GET(request, { params }) {
   }
 
   const backendUrl = new URL(
-    `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/market/value-history`
+    `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/cards/page`
   );
-  const days = request?.nextUrl?.searchParams?.get("days");
-  if (days) {
-    backendUrl.searchParams.set("days", days);
-  }
-  const valueScope = request?.nextUrl?.searchParams?.get("value_scope") || request?.nextUrl?.searchParams?.get("scope");
-  if (valueScope) {
-    backendUrl.searchParams.set("value_scope", valueScope);
-  }
+  FORWARDED_PARAMS.forEach((param) => {
+    const value = request?.nextUrl?.searchParams?.get(param);
+    if (value) {
+      backendUrl.searchParams.set(param, value);
+    }
+  });
 
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",

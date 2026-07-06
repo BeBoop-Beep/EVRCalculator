@@ -47,13 +47,18 @@ import {
 } from "@/lib/explore/interpretationTone";
 import {
   getCachedPokemonSetCards,
-  getPokemonSetCards,
+  getPokemonSetCardsPage,
+  getPokemonSetCardsValidation,
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import {
   getCachedPokemonSetMarketDashboard,
-  getPokemonSetMarketDashboard,
+  getPokemonSetMarketMovers,
+  getPokemonSetOverview,
+  getPokemonSetTopChase,
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
+import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
+import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";
 import {
   buildMarketDashboardStateFromPayload,
   createMarketDashboardState,
@@ -109,9 +114,14 @@ const SECTION_SCROLL_ORDER = [
 ];
 const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
-// Only these tabs render content sourced from the full set /page snapshot.
-// Cards/Overview must never trigger that fetch (see canFetchSetDetailModules).
-const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set(["pull-rates", "insights"]);
+// No set-detail tab renders content sourced from the full set /page snapshot
+// anymore. Pull Rates moved off this list in Phase 4A (getPokemonSetPullRates)
+// and Insights moved off it in Phase 4B (getPokemonSetInsights — see the
+// Insights tab fetch effect below). Kept as an always-empty set (rather than
+// removed outright) so the two legacy full-page effects below stay inert
+// without needing to delete fetchPokemonSetPageSnapshot or its supporting
+// state — a wider cleanup for a future phase.
+const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set([]);
 const CANONICAL_SET_VALUE_SCOPE = "standard";
 const SET_VALUE_SCOPE_OPTIONS = [
   { key: "standard", label: "Checklist" },
@@ -130,8 +140,14 @@ const CARD_MOVEMENT_FILTER_OPTIONS = [
   { value: "heating", label: "Heating Up" },
   { value: "cooling", label: "Cooling Off" },
 ];
+// Matches backend DEFAULT_CARDS_PAGE_SIZE (pokemon_public_snapshot_service.py).
+const CARDS_PAGE_SIZE = 60;
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
 const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
+// Fixed request window for the slim /market/top-chase fetch — unrelated to
+// topMarketCardsWindowKey, which only picks which already-fetched delta to
+// display client-side.
+const DEFAULT_TOP_CHASE_MARKET_WINDOW = "30D";
 // 3M/6M/1Y/Lifetime are intentionally not offered yet — the movement guardrails
 // and stored snapshot windows only cover 1D/7D/30D so far.
 const MARKET_MOVERS_WINDOW_OPTIONS = [
@@ -316,6 +332,57 @@ async function fetchPokemonSetPageSnapshot(setId, { signal } = {}) {
     throw error;
   }
   return payload;
+}
+
+// Insights tab (Phase 4B): the slim getPokemonSetInsights contract is
+// camelCase-only on the wire, but the Insights render tree below (RIP score
+// breakdown, RipDistributionChart, RarityContributionContent, PackValueHistoryChart,
+// InterpretationInsight, etc.) still reads explorePayload/summary fields in
+// snake_case, the same shape the old full /page payload used. Rather than
+// touch every one of those read sites, dualKeyCase mechanically adds the
+// snake_case sibling for every camelCase key (the same dual-key convention
+// pokemon_public_snapshot_service.py already uses elsewhere, e.g.
+// enrich_cards_payload_with_desirability) so both spellings resolve to the
+// same value. No analytics/derivation logic lives here — it is a pure
+// key-casing adapter.
+function dualKeyCase(value) {
+  if (Array.isArray(value)) {
+    return value.map(dualKeyCase);
+  }
+  if (value && typeof value === "object") {
+    const result = {};
+    for (const [key, inner] of Object.entries(value)) {
+      const convertedInner = dualKeyCase(inner);
+      result[key] = convertedInner;
+      const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+      if (snakeKey !== key && !(snakeKey in value)) {
+        result[snakeKey] = convertedInner;
+      }
+    }
+    return result;
+  }
+  return value;
+}
+
+function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
+  const outcomeDistribution = normalized?.outcomeDistribution || {};
+  const meta = normalized?.meta || { warnings: [] };
+  const isEmptyFallback = String(meta.source || "").startsWith("empty_fallback");
+  return {
+    set: normalized?.set || null,
+    summary: dualKeyCase(normalized?.summary || {}),
+    interpretation: normalized?.interpretation || {},
+    rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
+    percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
+    distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
+    threshold_bins: dualKeyCase(outcomeDistribution.thresholdBins || []),
+    top_hits: dualKeyCase(normalized?.simulationDrivers || []),
+    rankings: dualKeyCase(normalized?.rarityContribution || []),
+    history_trend: dualKeyCase(normalized?.historyTrend || []),
+    openingDesirability: normalized?.desirability || null,
+    desirabilityValidation: normalized?.desirabilityValidation || null,
+    meta: isEmptyFallback ? { ...meta, fallback: true } : meta,
+  };
 }
 
 function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }) {
@@ -2878,21 +2945,50 @@ function hasMarketMoverRows(entry) {
   );
 }
 
-function MarketMoversModule({ movers, moversByWindow, onViewAll }) {
-  const [selectedWindow, setSelectedWindow] = useState(DEFAULT_MARKET_MOVERS_WINDOW);
+function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "success", error, onWindowChange, onViewAll }) {
   const resolvedMoversByWindow = moversByWindow && typeof moversByWindow === "object" ? moversByWindow : {};
 
   const hasAnyWindowMovers =
     hasMarketMoverRows(movers) || Object.values(resolvedMoversByWindow).some(hasMarketMoverRows);
 
-  if (!hasAnyWindowMovers) {
-    return null;
+  // The section container (and its title/subtitle) must always render — a
+  // still-loading or genuinely-empty /market/movers response must not hide
+  // the whole module, only its inner content. See MarketMoverColumn's own
+  // per-column emptyLabel below for the "fetched successfully, no movers
+  // this window" case.
+  if ((status === "loading" || status === "idle") && !hasAnyWindowMovers) {
+    return (
+      <SectionCard
+        title="Market Movers"
+        subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
+        titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
+      >
+        <InlinePanelSkeleton rows={4} />
+      </SectionCard>
+    );
   }
 
-  const selectedMovers =
-    resolvedMoversByWindow[selectedWindow] ||
-    (selectedWindow === DEFAULT_MARKET_MOVERS_WINDOW ? movers : null) ||
-    { heatingUp: [], coolingOff: [], all: [] };
+  if (status === "error" && !hasAnyWindowMovers) {
+    return (
+      <SectionCard
+        title="Market Movers"
+        subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
+        titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
+      >
+        <p className="text-sm text-red-300">{error || "Unable to load market movers for this set."}</p>
+      </SectionCard>
+    );
+  }
+
+  // `movers` is the live single-window /market/movers fetch result; it is
+  // preferred whenever it matches the currently selected window. Otherwise
+  // fall back to moversByWindow, the (possibly stale) all-windows data seeded
+  // from the market dashboard snapshot, until the live fetch for this window
+  // lands.
+  const liveMoversMatchSelection = hasMarketMoverRows(movers) && (!movers?.window || movers.window === selectedWindow);
+  const selectedMovers = liveMoversMatchSelection
+    ? movers
+    : resolvedMoversByWindow[selectedWindow] || { heatingUp: [], coolingOff: [], all: [] };
   const heatingUp = Array.isArray(selectedMovers?.heatingUp) ? selectedMovers.heatingUp : [];
   const coolingOff = Array.isArray(selectedMovers?.coolingOff) ? selectedMovers.coolingOff : [];
 
@@ -2905,7 +3001,7 @@ function MarketMoversModule({ movers, moversByWindow, onViewAll }) {
       <MarketWindowSelector
         windows={MARKET_MOVERS_WINDOW_OPTIONS}
         value={selectedWindow}
-        onChange={setSelectedWindow}
+        onChange={onWindowChange}
         className="mb-3"
       />
       <div className="grid gap-4 xl:grid-cols-2">
@@ -6800,7 +6896,9 @@ export default function RipStatisticsPageClient({
   const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
   const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
   // Same precedence hazard as `summary` above: explorePayload is fetched (and
-  // therefore truthy) on the insights/pull-rates tabs, but it never carries
+  // therefore truthy) on the insights tab (and pull-rates, only if it happens
+  // to already be seeded from a prior insights visit — see
+  // SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD), but it never carries
   // the shell-only checklist setValueHistoriesByScope enrichment — only
   // shellPayload does. `explorePayload || shellPayload` discarded shellPayload
   // entirely whenever explorePayload was present, so the title-card Set Value
@@ -6863,7 +6961,21 @@ export default function RipStatisticsPageClient({
       : [];
     return rows;
   }, [initialCardAppealMarketPriceCorrelation]);
-  const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
+  // Pull Rates tab: slim, dedicated fetch (getPokemonSetPullRates) instead of
+  // requiring the full /page payload (Phase 4A). Falls back to an
+  // already-seeded explorePayload (e.g. left over from a prior Insights
+  // visit) only when this state hasn't loaded data for the active set yet —
+  // it never triggers a live /page fetch itself.
+  const [pullRatesState, setPullRatesState] = useState(() => ({
+    status: "idle",
+    setId: resolvedSetResourceId,
+    pullRateAssumptions: null,
+    error: null,
+  }));
+  const pullRateAssumptions =
+    pullRatesState.setId === resolvedSetResourceId && pullRatesState.pullRateAssumptions
+      ? pullRatesState.pullRateAssumptions
+      : normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   // Cards/Overview never load the full explorePayload, so interpretation
   // (recommendation badge/summary, pillar metas, set intelligence lenses)
@@ -6945,6 +7057,25 @@ export default function RipStatisticsPageClient({
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
+  const [cardSearchQuery, setCardSearchQuery] = useState("");
+  const [cardsPage, setCardsPage] = useState(1);
+  // Cards tab reads from this slim, paginated state (getPokemonSetCardsPage)
+  // instead of the checklistState below — checklistState is now reserved for
+  // Insights' card validation chart, sourced from the slim
+  // getPokemonSetCardsValidation contract (Phase 3C) rather than the full
+  // legacy /cards payload.
+  const [cardsPageState, setCardsPageState] = useState(() => ({
+    status: "idle",
+    setId: resolvedSetResourceId,
+    page: 1,
+    cards: [],
+    pagination: null,
+    filters: null,
+    error: null,
+  }));
+  useEffect(() => {
+    setCardsPage(1);
+  }, [cardSortMode, cardMovementFilter, cardSearchQuery, resolvedSetResourceId]);
   const initialSnapshotCards = initialSetPageDataSeed.cards;
   const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
     (scope) =>
@@ -6958,13 +7089,12 @@ export default function RipStatisticsPageClient({
     cardAppealMarketPriceCorrelation: initialCardAppealMarketPriceCorrelation,
     error: null,
   }));
-  // Card Desirability/Market Validation reads cards + correlation. cards are
-  // now fetched server-side for the insights tab too (see
-  // getPokemonSetInitialSnapshots), so this is normally seeded on first
-  // load — but slow/timed-out snapshot fetches and same-set client
-  // transitions still leave a brief window before it resolves. This
-  // contract distinguishes "still loading" from "genuinely no data" so the
-  // card doesn't render a permanent-looking n=0 empty state during that gap.
+  // Card Desirability/Market Validation reads cards + correlation from the
+  // slim getPokemonSetCardsValidation contract (Phase 3C) — this is fetched
+  // client-side only (not seeded server-side), so there's normally a brief
+  // window before it resolves on first load. This contract distinguishes
+  // "still loading" from "genuinely no data" so the card doesn't render a
+  // permanent-looking n=0 empty state during that gap.
   const activeCardValidationData = useMemo(() => {
     const cards =
       checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0
@@ -7026,6 +7156,46 @@ export default function RipStatisticsPageClient({
       setId: resolvedSetResourceId,
       payload: initialSetPageDataSeed.marketDashboard,
       sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+    },
+    createMarketDashboardState
+  );
+  // Overview's Set Value Trend/Performance vs Cost source from this slim
+  // /overview endpoint instead of the multi-MB /market/dashboard payload once
+  // it loads; marketDashboardState above is still the fallback until it does,
+  // and Top Chase Cards/Market Movers still read marketDashboardState only.
+  const [overviewState, dispatchOverview] = useReducer(
+    marketDashboardReducer,
+    {
+      status: "idle",
+      setId: resolvedSetResourceId,
+      payload: null,
+      sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+    },
+    createMarketDashboardState
+  );
+  // Top Chase Cards and Market Movers each fetch their own slim endpoint
+  // (/market/top-chase, /market/movers) instead of riding the monolithic
+  // /market/dashboard fetch above; marketDashboardState stays as a temporary
+  // seeded/cached fallback for both until these load (see
+  // activeTopMarketCardsState below).
+  const [topChaseState, dispatchTopChase] = useReducer(
+    marketDashboardReducer,
+    {
+      status: "idle",
+      setId: resolvedSetResourceId,
+      payload: null,
+      sourceWindow: DEFAULT_TOP_CHASE_MARKET_WINDOW,
+    },
+    createMarketDashboardState
+  );
+  const [marketMoversWindowKey, setMarketMoversWindowKey] = useState(DEFAULT_MARKET_MOVERS_WINDOW);
+  const [marketMoversState, dispatchMarketMovers] = useReducer(
+    marketDashboardReducer,
+    {
+      status: "idle",
+      setId: resolvedSetResourceId,
+      payload: null,
+      sourceWindow: DEFAULT_MARKET_MOVERS_WINDOW,
     },
     createMarketDashboardState
   );
@@ -7220,11 +7390,12 @@ export default function RipStatisticsPageClient({
     };
   }, [explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, setDetailMode, setDetailTab]);
 
-  // Insights and Pull Rates tab content (rankings, percentiles, RIP statistics,
-  // pull rate assumptions) is only available on the full set page snapshot.
-  // The initial server render intentionally skips fetching it when those tabs
-  // are not active (see pokemonSetInitialSnapshotsServer/page.js) — this effect
-  // lazily fetches it client-side the moment the user is on a tab that needs it.
+  // Legacy full-page lazy-fetch effect. SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD
+  // is now always empty (Insights moved off it in Phase 4B, Pull Rates in
+  // Phase 4A), so `.has(setDetailTab)` below is always false and this effect
+  // is permanently inert. Left in place (rather than deleted) alongside
+  // fetchPokemonSetPageSnapshot/setPageSnapshotRefreshState as a smaller,
+  // lower-risk diff — a future cleanup phase can remove them outright.
   useEffect(() => {
     if (!setDetailMode || explorePayload) {
       return undefined;
@@ -7263,6 +7434,55 @@ export default function RipStatisticsPageClient({
       controller.abort();
     };
   }, [setDetailMode, setDetailTab, explorePayload, resolvedSetResourceId, requestedTargetId]);
+
+  // Insights tab fetch effect (Phase 4B): slim, dedicated fetch
+  // (getPokemonSetInsights) instead of the full /page payload. Writes
+  // directly into explorePayload (via adaptPokemonSetInsightsPayloadToExplorePayload
+  // above) rather than a separate insights-only state slice, since summary/
+  // ripStatistics/percentiles/distributionBins/thresholdBins/simulationDrivers
+  // (topHits)/rankings/interpretation/historyTrend/openingDesirability/
+  // desirabilityValidation below all already read from explorePayload and
+  // need no further changes to keep rendering the same Insights UI.
+  useEffect(() => {
+    if (!setDetailMode || explorePayload) {
+      return undefined;
+    }
+    if (setDetailTab !== "insights" || !canFetchSetDetailModules) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId || requestedTargetId;
+    if (!setId) {
+      return undefined;
+    }
+
+    const fetchKey = `insights:${requestedTargetId || ""}:${setId}`;
+    if (explorePagePayloadFetchKeyRef.current === fetchKey) {
+      return undefined;
+    }
+    explorePagePayloadFetchKeyRef.current = fetchKey;
+
+    let isCancelled = false;
+    getPokemonSetInsights(setId)
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          return;
+        }
+        setExplorePayload(adaptPokemonSetInsightsPayloadToExplorePayload(payload));
+      })
+      .catch(() => {
+        if (isCancelled) {
+          return;
+        }
+        explorePagePayloadFetchKeyRef.current = null;
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
 
   const graphSectionMeta =
     activeInsightsGraphMode === "historical-trend"
@@ -7829,6 +8049,18 @@ export default function RipStatisticsPageClient({
     () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload),
     [activeMarketDashboardState.payload, seededMarketDashboardPayload]
   );
+  const activeOverviewDerivedState = useMemo(
+    () => buildMarketDashboardStateFromPayload(overviewState.payload),
+    [overviewState.payload]
+  );
+  // Set Value Trend/Performance vs Cost prefer the slim /overview snapshot
+  // once it has loaded, falling back to the market dashboard payload until
+  // then. Top Chase Cards/Market Movers are untouched and always read
+  // activeMarketDashboardState/activeMarketDashboardDerivedState directly
+  // (see activeTopMarketCardsState below) — /market/dashboard is not removed.
+  const overviewHasLoaded = overviewState.status === "success" || overviewState.status === "success_stale";
+  const effectiveSetValueDashboardState = overviewHasLoaded ? overviewState : activeMarketDashboardState;
+  const effectiveSetValueDerivedState = overviewHasLoaded ? activeOverviewDerivedState : activeMarketDashboardDerivedState;
   // Cards/Overview never load the full explore payload, so its history_trend
   // (used for title-card / metric trend arrows) is unavailable there. The
   // overview market dashboard snapshot carries an equivalent point-in-time
@@ -7836,8 +8068,8 @@ export default function RipStatisticsPageClient({
   // fall back to it so trend arrows still reflect real movement instead of
   // silently going neutral just because the full payload wasn't fetched.
   const overviewPerformanceVsCostHistory =
-    activeMarketDashboardState.payload?.performanceVsCostHistory ||
-    activeMarketDashboardState.payload?.performance_vs_cost_history ||
+    effectiveSetValueDashboardState.payload?.performanceVsCostHistory ||
+    effectiveSetValueDashboardState.payload?.performance_vs_cost_history ||
     [];
   const historyTrend = explorePayload?.history_trend || overviewPerformanceVsCostHistory;
   const activeDirectSetValueState =
@@ -7846,7 +8078,7 @@ export default function RipStatisticsPageClient({
       : createSetValueHistoryState({ setId: resolvedSetResourceId });
   const activeDirectSetValueLoadedScopes = new Set(activeDirectSetValueState.loadedScopes || []);
   const activeSetValueHistoriesByScope = {
-    ...(activeMarketDashboardDerivedState.setValue.historiesByScope || {}),
+    ...(effectiveSetValueDerivedState.setValue.historiesByScope || {}),
   };
   Object.entries(activeDirectSetValueState.historiesByScope || {}).forEach(([scope, history]) => {
     if (activeDirectSetValueLoadedScopes.has(scope)) {
@@ -7871,13 +8103,13 @@ export default function RipStatisticsPageClient({
   }
   const activeSetValueStandardHistory = activeDirectSetValueLoadedScopes.has(CANONICAL_SET_VALUE_SCOPE)
     ? activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || []
-    : activeMarketDashboardDerivedState.setValue.history?.length > 0
-    ? activeMarketDashboardDerivedState.setValue.history
+    : effectiveSetValueDerivedState.setValue.history?.length > 0
+    ? effectiveSetValueDerivedState.setValue.history
     : activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || [];
   const activeSetValueAvailableScopes =
     activeDirectSetValueState.availableScopes?.length > 0
       ? activeDirectSetValueState.availableScopes
-      : activeMarketDashboardDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS;
+      : effectiveSetValueDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS;
   const activeSetValueHasAnyHistory = Object.values(activeSetValueHistoriesByScope).some((scopeHistory) => scopeHistory.length > 0);
   const activeSetValueStatus =
     activeDirectSetValueState.status === "success" || activeDirectSetValueState.status === "success_stale"
@@ -7885,8 +8117,8 @@ export default function RipStatisticsPageClient({
         ? activeDirectSetValueState.status
         : "empty"
       : activeDirectSetValueState.status === "error"
-      ? activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-        ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
+      ? effectiveSetValueDashboardState.status === "success" || effectiveSetValueDashboardState.status === "success_stale"
+        ? effectiveSetValueDerivedState.setValue.hasAnyHistory
           ? "success_stale"
           : "empty"
         : "error"
@@ -7894,37 +8126,72 @@ export default function RipStatisticsPageClient({
       ? activeSetValueHasAnyHistory
         ? "success_stale"
         : "loading"
+      : effectiveSetValueDashboardState.status === "success" || effectiveSetValueDashboardState.status === "success_stale"
+      ? effectiveSetValueDerivedState.setValue.hasAnyHistory
+        ? effectiveSetValueDashboardState.status === "success_stale"
+          ? "success_stale"
+          : "success"
+        : "empty"
+      : effectiveSetValueDashboardState.status;
+  const activeSetValueHistory = {
+    status: activeSetValueStatus,
+    setId: activeDirectSetValueState.setId || effectiveSetValueDashboardState.setId || resolvedSetResourceId,
+    history: activeSetValueStandardHistory,
+    historiesByScope: activeSetValueHistoriesByScope,
+    availableScopes: activeSetValueAvailableScopes,
+    error: activeDirectSetValueState.error || effectiveSetValueDashboardState.error,
+    meta: activeDirectSetValueState.meta || effectiveSetValueDerivedState.setValue.meta,
+  };
+  // Top Chase Cards: prefer the slim /market/top-chase fetch; fall back to
+  // the (possibly seeded/cached) monolithic dashboard state only until the
+  // dedicated fetch lands.
+  const topChaseLiveCards = Array.isArray(topChaseState.payload?.cards) ? topChaseState.payload.cards : [];
+  const topChaseLiveHasRows = topChaseLiveCards.length > 0;
+  const topChaseFallbackCards = activeMarketDashboardDerivedState.topCards.cards;
+  const topChaseStatus =
+    topChaseState.status === "success" || topChaseState.status === "success_stale"
+      ? topChaseLiveHasRows
+        ? topChaseState.status
+        : "empty"
+      : topChaseState.status === "error"
+      ? activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
+        ? topChaseFallbackCards.length > 0
+          ? "success_stale"
+          : "empty"
+        : "error"
+      : topChaseState.status === "loading"
+      ? topChaseFallbackCards.length > 0
+        ? "success_stale"
+        : "loading"
       : activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-      ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
+      ? topChaseFallbackCards.length > 0
         ? activeMarketDashboardState.status === "success_stale"
           ? "success_stale"
           : "success"
         : "empty"
       : activeMarketDashboardState.status;
-  const activeSetValueHistory = {
-    status: activeSetValueStatus,
-    setId: activeDirectSetValueState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
-    history: activeSetValueStandardHistory,
-    historiesByScope: activeSetValueHistoriesByScope,
-    availableScopes: activeSetValueAvailableScopes,
-    error: activeDirectSetValueState.error || activeMarketDashboardState.error,
-    meta: activeDirectSetValueState.meta || activeMarketDashboardDerivedState.setValue.meta,
-  };
+  // Market Movers: prefer the slim /market/movers fetch for the selected
+  // window; fall back to the dashboard-seeded moversByWindow (all windows,
+  // possibly stale) until the dedicated per-window fetch lands.
+  // getPokemonSetMarketMovers's normalized payload is already the flat
+  // { heatingUp, coolingOff, all, window } shape hasMarketMoverRows/
+  // MarketMoversModule expect — it is not nested under a `.marketMovers` key
+  // (that nesting only exists on the legacy monolithic /market/dashboard
+  // payload, handled separately by buildMarketDashboardStateFromPayload
+  // below). Reading `.payload?.marketMovers` here always evaluated to
+  // undefined, so the live per-window fetch's data was silently discarded in
+  // favor of the (usually empty, since /market/dashboard is no longer
+  // fetched) dashboard fallback.
+  const marketMoversLive = marketMoversState.payload || null;
+  const marketMoversLiveHasRows = hasMarketMoverRows(marketMoversLive);
   const activeTopMarketCardsState = {
-    status:
-      activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-        ? activeMarketDashboardDerivedState.topCards.cards.length > 0
-          ? activeMarketDashboardState.status === "success_stale"
-            ? "success_stale"
-            : "success"
-          : "empty"
-        : activeMarketDashboardState.status,
-    setId: activeMarketDashboardState.setId || resolvedSetResourceId,
-    cards: activeMarketDashboardDerivedState.topCards.cards,
-    marketMovers: activeMarketDashboardDerivedState.topCards.marketMovers || null,
+    status: topChaseStatus,
+    setId: topChaseState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
+    cards: topChaseLiveHasRows ? topChaseLiveCards : topChaseFallbackCards,
+    marketMovers: marketMoversLiveHasRows ? marketMoversLive : activeMarketDashboardDerivedState.topCards.marketMovers || null,
     marketMoversByWindow: activeMarketDashboardDerivedState.topCards.marketMoversByWindow || null,
-    error: activeMarketDashboardState.error,
-    meta: activeMarketDashboardDerivedState.topCards.meta,
+    error: topChaseState.error || activeMarketDashboardState.error,
+    meta: topChaseLiveHasRows ? topChaseState.payload?.meta : activeMarketDashboardDerivedState.topCards.meta,
   };
   const fallbackSetValueAsOf =
     setShellContract?.setValueSummary?.asOf ||
@@ -8358,8 +8625,14 @@ export default function RipStatisticsPageClient({
   });
   const topPricedCards = topPricedCardsResult.cards;
   const hasTopPricedCards = topPricedCards.length > 0;
-  const shouldShowTopMarketCards =
-    activeTopMarketCardsState.status === "loading" || activeTopMarketCardsState.status === "error" || hasTopPricedCards;
+  // The Top Chase Cards section container must always render on Overview —
+  // TopMarketCardsContent (via topPricedCardsStatus below) already renders a
+  // loading skeleton, an error message, or "No priced cards are available
+  // yet" on its own; hiding the whole SectionCard here just because the slim
+  // /market/top-chase snapshot came back empty (with no checklist fallback
+  // available either) silently dropped the section instead of showing that
+  // empty state.
+  const shouldShowTopMarketCards = true;
   const topPricedCardsStatus =
     activeTopMarketCardsState.status === "error" && !hasTopPricedCards
       ? "error"
@@ -8401,7 +8674,36 @@ export default function RipStatisticsPageClient({
   const hasMarketMovers =
     hasMarketMoverRows(marketMovers) ||
     (marketMoversByWindow ? Object.values(marketMoversByWindow).some(hasMarketMoverRows) : false);
-  const cardMovementDataCount = getCardMovementDataCount(checklistState.cards);
+  // Status for the slim /market/movers fetch itself (independent of the
+  // top-chase fetch's status bundled into activeTopMarketCardsState.status) —
+  // drives MarketMoversModule's loading/error/empty rendering so the section
+  // container never has to hide itself outright.
+  const marketMoversStatus = hasMarketMovers
+    ? "success"
+    : marketMoversState.status === "loading" || marketMoversState.status === "idle"
+    ? "loading"
+    : marketMoversState.status === "error"
+    ? "error"
+    : "success";
+  // Temporary fallback: if a full cards payload is already seeded (e.g. the
+  // user visited Insights first, or an old SSR seed is still present), show
+  // it until the paginated fetch for this set lands, instead of an empty
+  // grid. Once cardsPageState has real data for this set it always wins.
+  const cardsPageFallbackCards =
+    checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0 ? checklistState.cards : [];
+  const effectiveCardsPageCards = cardsPageState.cards.length > 0 ? cardsPageState.cards : cardsPageFallbackCards;
+  const effectiveCardsPageStatus =
+    cardsPageState.cards.length > 0
+      ? cardsPageState.status
+      : cardsPageFallbackCards.length > 0
+      ? "success_stale"
+      : cardsPageState.status;
+  // Sourced from the currently loaded/fallback cards (not the full
+  // checklist), since Cards tab no longer loads the full card list — this is
+  // a known trade-off: if page 1 happens to have no movement data but a
+  // later page does, the movement sort/filter controls may not appear until
+  // that page loads.
+  const cardMovementDataCount = getCardMovementDataCount(effectiveCardsPageCards);
   const hasCardMovementData = cardMovementDataCount >= 5;
   const effectiveCardSortMode =
     hasCardMovementData || !CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === cardSortMode)
@@ -8411,9 +8713,14 @@ export default function RipStatisticsPageClient({
   const cardSortOptions = hasCardMovementData
     ? [...CARD_BASE_SORT_OPTIONS, ...CARD_MOVEMENT_SORT_OPTIONS]
     : CARD_BASE_SORT_OPTIONS;
+  // getPokemonSetCardsPage already sorts/filters server-side using these same
+  // effective values, so this client-side pass is idempotent — it exists to
+  // reuse the exact same rendering pipeline the full-payload Cards tab used
+  // before, not to redo the work. The fallback branch (seeded full payload)
+  // still needs it, since that data hasn't been through the new endpoint.
   const displayedChecklistCards = useMemo(
-    () => getDisplayChecklistCards(checklistState.cards, effectiveCardSortMode, effectiveCardMovementFilter),
-    [checklistState.cards, effectiveCardSortMode, effectiveCardMovementFilter]
+    () => getDisplayChecklistCards(effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter),
+    [effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter]
   );
   const handleViewAllMarketMovers = () => {
     setSetDetailTab("cards");
@@ -8769,7 +9076,15 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderChecklist = (setDetailTab === "cards" && cardsSubTab === "checklist") || setDetailTab === "insights";
+    // Cards tab no longer triggers this live fetch (it uses
+    // getPokemonSetCardsPage instead, see the cardsPageState effect below) —
+    // only Insights needs card validation rows + correlation, sourced from
+    // the slim getPokemonSetCardsValidation contract (Phase 3C) rather than
+    // the full legacy /cards payload. The cache/snapshot seeding above this
+    // line still runs unconditionally, so an already-seeded/cached payload
+    // (e.g. from a prior Insights visit, or a legacy full cardsPayload if
+    // one happens to be present) still seeds checklistState for free.
+    const shouldRenderChecklist = setDetailTab === "insights";
     const cachedPayload = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId) || null;
     const cachedCards = Array.isArray(cachedPayload) ? cachedPayload : Array.isArray(cachedPayload?.cards) ? cachedPayload.cards : [];
     const cachedCorrelation = resolvePreferredCardAppealCorrelation({
@@ -8821,7 +9136,7 @@ export default function RipStatisticsPageClient({
       error: null,
     }));
 
-    getPokemonSetCards(setId)
+    getPokemonSetCardsValidation(setId)
       .then((payload) => {
         if (isCancelled) {
           return;
@@ -8917,6 +9232,183 @@ export default function RipStatisticsPageClient({
     initialSetPageDataSeed,
     initialCardAppealMarketPriceCorrelation,
   ]);
+
+  // Cards tab: slim, paginated fetch (getPokemonSetCardsPage) instead of the
+  // full /cards payload above. Refetches whenever the set, page, sort,
+  // movement filter, or search query changes.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    if (!setId) {
+      setCardsPageState({ status: "empty", setId: null, page: 1, cards: [], pagination: null, filters: null, error: null });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      setCardsPageState((previous) => ({
+        status: previous.setId === setId && previous.cards.length > 0 ? previous.status : "empty",
+        setId,
+        page: cardsPage,
+        cards: previous.setId === setId ? previous.cards : [],
+        pagination: previous.setId === setId ? previous.pagination : null,
+        filters: previous.setId === setId ? previous.filters : null,
+        error: null,
+      }));
+      return undefined;
+    }
+
+    const shouldRenderCardsPage = setDetailTab === "cards" && cardsSubTab === "checklist";
+    if (!shouldRenderCardsPage) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    const requestedPage = cardsPage;
+    const movementSortValue = CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === effectiveCardSortMode)
+      ? effectiveCardSortMode
+      : null;
+    debugSetPagePerf("cards_page.tab_fetch_start", {
+      resolvedSetId: setId,
+      page: requestedPage,
+      sort: effectiveCardSortMode,
+      movementFilter: effectiveCardMovementFilter,
+    });
+    setCardsPageState((previous) => ({
+      status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "loading",
+      setId,
+      page: requestedPage,
+      cards: previous.setId === setId ? previous.cards : [],
+      pagination: previous.setId === setId ? previous.pagination : null,
+      filters: previous.setId === setId ? previous.filters : null,
+      error: null,
+    }));
+
+    getPokemonSetCardsPage(setId, {
+      page: requestedPage,
+      pageSize: CARDS_PAGE_SIZE,
+      sort: effectiveCardSortMode,
+      query: cardSearchQuery.trim() || null,
+      movementFilter: effectiveCardMovementFilter,
+      movementSort: movementSortValue,
+    })
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("cards_page.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          return;
+        }
+        setCardsPageState({
+          status: payload.cards.length > 0 ? "success" : "empty",
+          setId,
+          page: payload.pagination.page,
+          cards: payload.cards,
+          pagination: payload.pagination,
+          filters: payload.filters,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setCardsPageState((previous) => ({
+          status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "error",
+          setId,
+          page: requestedPage,
+          cards: previous.setId === setId ? previous.cards : [],
+          pagination: previous.setId === setId ? previous.pagination : null,
+          filters: previous.setId === setId ? previous.filters : null,
+          error: error?.message || "Unable to load cards for this set.",
+        }));
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    setDetailMode,
+    setDetailTab,
+    cardsSubTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
+    cardsPage,
+    effectiveCardSortMode,
+    effectiveCardMovementFilter,
+    cardSearchQuery,
+  ]);
+
+  // Pull Rates tab fetch effect (Phase 4A): slim, dedicated fetch
+  // (getPokemonSetPullRates) instead of the full /page payload — see the
+  // pullRateAssumptions derivation above for the fallback-to-explorePayload
+  // behavior.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    if (!setId) {
+      setPullRatesState({ status: "idle", setId: null, pullRateAssumptions: null, error: null });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      setPullRatesState((previous) => ({
+        status: previous.setId === setId ? previous.status : "idle",
+        setId,
+        pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
+        error: null,
+      }));
+      return undefined;
+    }
+    if (setDetailTab !== "pull-rates") {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    setPullRatesState((previous) => ({
+      status: previous.setId === setId && previous.pullRateAssumptions ? "success_stale" : "loading",
+      setId,
+      pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
+      error: null,
+    }));
+
+    getPokemonSetPullRates(setId)
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          return;
+        }
+        setPullRatesState({
+          status: payload?.pullRateAssumptions ? "success" : "empty",
+          setId,
+          pullRateAssumptions: payload?.pullRateAssumptions || null,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setPullRatesState((previous) => ({
+          status: previous.setId === setId && previous.pullRateAssumptions ? "success_stale" : "error",
+          setId,
+          pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
+          error: error?.message || "Unable to load pull rate assumptions for this set.",
+        }));
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [setDetailMode, setDetailTab, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -9146,6 +9638,12 @@ export default function RipStatisticsPageClient({
     activeMarketDashboardDerivedState,
   ]);
 
+  // Top Chase Cards and Market Movers now fetch their own slim
+  // /market/top-chase and /market/movers endpoints (see the two effects
+  // below). This effect no longer issues a live /market/dashboard fetch — it
+  // only hydrates marketDashboardState from an already-seeded/cached payload,
+  // which both modules read as a temporary safety-net fallback until their
+  // own fetches land (see activeTopMarketCardsState above).
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
@@ -9168,6 +9666,12 @@ export default function RipStatisticsPageClient({
     }
 
     const shouldRenderMarketData = setDetailTab === "overview";
+    if (!shouldRenderMarketData) {
+      // No background hydration for a tab the user isn't on — overview's own
+      // render (or a future switch back to it) triggers this effect again.
+      return undefined;
+    }
+
     const seededDashboardPayload = initialSetPageDataSeed.marketDashboard;
     const cachedDashboard = getCachedPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow });
     const mergedCachedDashboard = cachedDashboard || seededDashboardPayload;
@@ -9178,6 +9682,18 @@ export default function RipStatisticsPageClient({
     });
 
     if (cachedMarketDashboardState) {
+      if (isDevPerfLoggingEnabled) {
+        // Dev-only signal that a legacy /market/dashboard payload (SSR seed or
+        // a cache entry from some other legacy caller of
+        // getPokemonSetMarketDashboard) is still backing the temporary
+        // fallback path for Top Chase Cards/Market Movers. Expected to fire
+        // rarely now that both modules fetch their own slim endpoints; if it
+        // fires often, something is still populating the legacy cache.
+        console.warn(
+          "[pokemon-set-perf] Overview is using a legacy /market/dashboard payload as a fallback for Top Chase Cards/Market Movers — this should only happen briefly before /market/top-chase and /market/movers finish loading.",
+          { setId }
+        );
+      }
       dispatchMarketDashboard({
         type: "success",
         setId,
@@ -9185,73 +9701,69 @@ export default function RipStatisticsPageClient({
         sourceWindow: dashboardSourceWindow,
       });
     }
-    if (!shouldRenderMarketData) {
-      // No background fetch for a tab the user isn't on — overview's own
-      // render (or a future switch back to it) triggers this effect again
-      // and fetches live data then.
+    return undefined;
+  }, [
+    setDetailMode,
+    setDetailTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
+    explorePayload,
+    initialSetPageDataSeed,
+  ]);
+
+  // Slim /market/top-chase fetch — Top Chase Cards no longer depends on the
+  // monolithic /market/dashboard fetch.
+  useEffect(() => {
+    if (!setDetailMode) {
       return undefined;
     }
-    if (cachedMarketDashboardState) {
-      const stateFromCache = buildMarketDashboardStateFromPayload(cachedMarketDashboardState.payload);
-      const hasSeededRows =
-        stateFromCache.topCards.cards.length > 0 ||
-        hasAnySetValueHistory(stateFromCache.setValue.historiesByScope);
-      if (hasSeededRows) {
-        debugSetPagePerf("market.tab_fetch_skipped", {
-          setId,
-          sourceWindow: dashboardSourceWindow,
-          reason: "snapshot_seed_available",
-          topCards: stateFromCache.topCards.cards.length,
-        });
-        return undefined;
-      }
+
+    const setId = resolvedSetResourceId;
+    const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW;
+    if (!setId) {
+      dispatchTopChase({ type: "reset", status: "empty", sourceWindow: topChaseSourceWindow });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      dispatchTopChase({
+        type: "reset",
+        status: "empty",
+        setId,
+        sourceWindow: topChaseSourceWindow,
+      });
+      return undefined;
+    }
+
+    const shouldRenderOverviewData = setDetailTab === "overview";
+    if (!shouldRenderOverviewData) {
       return undefined;
     }
 
     let isCancelled = false;
-    const clickStartedAt = performance.now();
-    debugSetPagePerf("market.tab_fetch_start", {
-      resolvedSetId: setId,
-      sourceWindow: dashboardSourceWindow,
-    });
-    dispatchMarketDashboard({ type: "loading", setId, sourceWindow: dashboardSourceWindow });
+    dispatchTopChase({ type: "loading", setId, sourceWindow: topChaseSourceWindow });
 
-    getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })
+    getPokemonSetTopChase(setId, { window: topChaseSourceWindow, limit: 10 })
       .then((payload) => {
         if (isCancelled) {
           return;
         }
         if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          debugSetPagePerf("market.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          debugSetPagePerf("top_chase.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
           return;
         }
-        const marketState = buildMarketDashboardStateFromPayload(payload);
-        dispatchMarketDashboard({ type: "success", setId, payload, sourceWindow: dashboardSourceWindow });
-        debugSetPagePerf("market.tab_ready", {
-          setId,
-          sourceWindow: dashboardSourceWindow,
-          elapsedMs: Math.round(performance.now() - clickStartedAt),
-          topCards: marketState.topCards.cards.length,
-          standardPoints: marketState.setValue.history.length,
-        });
-        debugLoadingTiming("critical_data_ready", {
-          label: "market-overview",
-          setId,
-          sourceWindow: dashboardSourceWindow,
-          elapsedMs: Math.round(performance.now() - clickStartedAt),
-          topCards: marketState.topCards.cards.length,
-          standardPoints: marketState.setValue.history.length,
-        });
+        dispatchTopChase({ type: "success", setId, payload, sourceWindow: topChaseSourceWindow });
       })
       .catch((error) => {
         if (isCancelled) {
           return;
         }
-        dispatchMarketDashboard({
+        dispatchTopChase({
           type: "error",
           setId,
-          error: error?.message || "Unable to load market dashboard for this set.",
-          sourceWindow: dashboardSourceWindow,
+          error: error?.message || "Unable to load top chase cards for this set.",
+          sourceWindow: topChaseSourceWindow,
         });
       });
 
@@ -9265,8 +9777,140 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
-    explorePayload,
-    initialSetPageDataSeed,
+  ]);
+
+  // Slim /market/movers fetch for the selected 1D/7D/30D window — Market
+  // Movers no longer depends on the monolithic /market/dashboard fetch
+  // either, and refetches whenever the selected window changes.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    const moversSourceWindow = marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW;
+    if (!setId) {
+      dispatchMarketMovers({ type: "reset", status: "empty", sourceWindow: moversSourceWindow });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      dispatchMarketMovers({
+        type: "reset",
+        status: "empty",
+        setId,
+        sourceWindow: moversSourceWindow,
+      });
+      return undefined;
+    }
+
+    const shouldRenderOverviewData = setDetailTab === "overview";
+    if (!shouldRenderOverviewData) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    dispatchMarketMovers({ type: "loading", setId, sourceWindow: moversSourceWindow });
+
+    getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: 5 })
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("market_movers.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          return;
+        }
+        dispatchMarketMovers({ type: "success", setId, payload, sourceWindow: moversSourceWindow });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        dispatchMarketMovers({
+          type: "error",
+          setId,
+          error: error?.message || "Unable to load market movers for this set.",
+          sourceWindow: moversSourceWindow,
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    setDetailMode,
+    setDetailTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
+    marketMoversWindowKey,
+  ]);
+
+  // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    const overviewSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW;
+    if (!setId) {
+      dispatchOverview({ type: "reset", status: "empty", sourceWindow: overviewSourceWindow });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      dispatchOverview({
+        type: "reset",
+        status: "empty",
+        setId,
+        sourceWindow: overviewSourceWindow,
+      });
+      return undefined;
+    }
+
+    const shouldRenderOverviewData = setDetailTab === "overview";
+    if (!shouldRenderOverviewData) {
+      // No background fetch for a tab the user isn't on — overview's own
+      // render (or a future switch back to it) triggers this effect again.
+      return undefined;
+    }
+
+    let isCancelled = false;
+    dispatchOverview({ type: "loading", setId, sourceWindow: overviewSourceWindow });
+
+    getPokemonSetOverview(setId, { window: overviewSourceWindow })
+      .then((payload) => {
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          return;
+        }
+        dispatchOverview({ type: "success", setId, payload, sourceWindow: overviewSourceWindow });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        dispatchOverview({
+          type: "error",
+          setId,
+          error: error?.message || "Unable to load set overview for this set.",
+          sourceWindow: overviewSourceWindow,
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    setDetailMode,
+    setDetailTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
   ]);
 
   const setDetailSidebarContent = (
@@ -9699,15 +10343,17 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    {hasMarketMovers ? (
-                      <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
-                        <MarketMoversModule
-                          movers={marketMovers}
-                          moversByWindow={marketMoversByWindow}
-                          onViewAll={handleViewAllMarketMovers}
-                        />
-                      </div>
-                    ) : null}
+                    <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
+                      <MarketMoversModule
+                        movers={marketMovers}
+                        moversByWindow={marketMoversByWindow}
+                        selectedWindow={marketMoversWindowKey}
+                        status={marketMoversStatus}
+                        error={marketMoversState.error}
+                        onWindowChange={setMarketMoversWindowKey}
+                        onViewAll={handleViewAllMarketMovers}
+                      />
+                    </div>
 
                     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)] lg:items-start">
                       {shouldShowTopMarketCards ? (
@@ -9748,19 +10394,32 @@ export default function RipStatisticsPageClient({
 
                     {cardsSubTab === "checklist" ? (
                       <div className="min-w-0">
-                        {checklistState.status === "loading" && checklistState.cards.length === 0 ? (
+                        <div className="mb-4">
+                          <label className="block min-w-0 max-w-sm text-xs font-semibold text-[var(--text-secondary)]">
+                            <span className="mb-1 block uppercase tracking-[0.08em]">Search</span>
+                            <input
+                              type="text"
+                              value={cardSearchQuery}
+                              onChange={(event) => setCardSearchQuery(event.target.value)}
+                              placeholder="Search cards by name"
+                              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                            />
+                          </label>
+                        </div>
+
+                        {effectiveCardsPageStatus === "loading" && effectiveCardsPageCards.length === 0 ? (
                           <CardGridSkeleton />
                         ) : null}
 
-                        {checklistState.status === "error" ? (
-                          <p className="text-sm text-red-300">{checklistState.error || "Unable to load cards for this set."}</p>
+                        {effectiveCardsPageStatus === "error" ? (
+                          <p className="text-sm text-red-300">{cardsPageState.error || "Unable to load cards for this set."}</p>
                         ) : null}
 
-                        {checklistState.status === "empty" ? (
+                        {effectiveCardsPageStatus === "empty" ? (
                           <p className="text-sm text-[var(--text-secondary)]">No cards found for this set.</p>
                         ) : null}
 
-                        {checklistState.cards.length > 0 ? (
+                        {effectiveCardsPageCards.length > 0 ? (
                           <>
                             {hasCardMovementData ? (
                             <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3 sm:flex-row sm:items-end sm:justify-between">
@@ -9791,13 +10450,13 @@ export default function RipStatisticsPageClient({
                                 </label>
                               </div>
                               <p className="text-xs text-[var(--text-secondary)]">
-                                {displayedChecklistCards.length.toLocaleString("en-US")} of {checklistState.cards.length.toLocaleString("en-US")} cards
+                                {displayedChecklistCards.length.toLocaleString("en-US")} of {(cardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
                               </p>
                             </div>
                             ) : null}
 
                             {displayedChecklistCards.length > 0 ? (
-                              <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 ${checklistState.status === "loading" ? "opacity-80" : ""}`.trim()}>
+                              <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 ${effectiveCardsPageStatus === "loading" ? "opacity-80" : ""}`.trim()}>
                                 {displayedChecklistCards.map((card) => (
                                   <ChecklistCardTile
                                     key={`${card.id || card.cardNumber || card.name}`}
@@ -9808,6 +10467,30 @@ export default function RipStatisticsPageClient({
                             ) : (
                               <p className="text-sm text-[var(--text-secondary)]">No cards match this movement filter yet.</p>
                             )}
+
+                            {cardsPageState.pagination ? (
+                              <div className="mt-4 flex items-center justify-between gap-3">
+                                <button
+                                  type="button"
+                                  disabled={!cardsPageState.pagination.hasPreviousPage}
+                                  onClick={() => setCardsPage((page) => Math.max(1, page - 1))}
+                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Previous
+                                </button>
+                                <p className="text-xs text-[var(--text-secondary)]">
+                                  Page {cardsPageState.pagination.page.toLocaleString("en-US")} of {cardsPageState.pagination.totalPages.toLocaleString("en-US")}
+                                </p>
+                                <button
+                                  type="button"
+                                  disabled={!cardsPageState.pagination.hasNextPage}
+                                  onClick={() => setCardsPage((page) => page + 1)}
+                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            ) : null}
                           </>
                         ) : null}
                       </div>
