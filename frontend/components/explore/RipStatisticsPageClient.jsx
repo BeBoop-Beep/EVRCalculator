@@ -59,6 +59,7 @@ import {
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
 import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";
+import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import {
   buildMarketDashboardStateFromPayload,
   createMarketDashboardState,
@@ -4180,7 +4181,10 @@ function toOptionalUpper(value) {
 function getLensTagline(lens, summary, resolvedLensScore = null) {
   const tier = toOptionalUpper(summary[lens.tierField]);
   const score = resolvedLensScore?.score ?? resolveLensScore(lens, summary).score;
-  if (score === null) return "No data available for this lens.";
+  // A missing numeric score with a known tier still has an honest tier-based
+  // line to tell (the tier badge renders next to this copy either way) —
+  // only fall back to "no data" when neither is available.
+  if (score === null && !tier) return "No data available for this lens.";
   if (lens.key === "experience") {
     if (tier === "S" || tier === "A") return "Strong pack feel compared with the field.";
     if (tier === "B") return "Above-average opening experience.";
@@ -4851,12 +4855,6 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
     if (requestTimeout) {
       return [];
     }
-    const compactSummaries = {
-      "Opening Experience": "Swingy pack feel",
-      "Chase Potential": "Rare top-heavy chase",
-      "Biggest Upside": "Huge but rare spikes",
-      "Expected Value": "Strong Expected Value",
-    };
     const pillarRows = requestTimeout ? [] : selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
 
     const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
@@ -4883,7 +4881,11 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
         scoreTrend: null,
         rankTier,
         rankValue,
-        summary: compactSummaries[backendLens?.label || lens.label] || summaryText || lens.simpleCardSummary || lens.description,
+        // Compact mode shows the same data-driven tagline as expanded mode
+        // (clamped to two lines) — a static per-label catchphrase here read
+        // as per-set insight while contradicting the tier badge next to it
+        // (e.g. "Strong Expected Value" beside an F tier).
+        summary: summaryText || lens.simpleCardSummary || lens.description,
         detailSummary:
           backendLens?.long_summary ||
           backendLens?.summary ||
@@ -4903,7 +4905,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
         titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
       >
         <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-4 text-sm text-[var(--text-secondary)]">
-          Decision Signals loading: set page snapshot request timed out; retrying.
+          Decision Signals are taking longer than expected to load. Retrying now…
         </div>
       </SectionCard>
     ) : null;
@@ -6056,7 +6058,7 @@ function CardDesirabilityMarketValidationCard({
           <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
             <p className="text-sm text-[var(--text-secondary)]">
               {snapshotLoading
-                ? "Card appeal validation loading: set page snapshot request timed out; retrying."
+                ? "Card appeal data is taking longer than expected to load. Retrying now…"
                 : dataLoading
                 ? "Loading card appeal and market price data…"
                 : "Not enough card appeal and market price data yet."}
@@ -6857,6 +6859,22 @@ export default function RipStatisticsPageClient({
 
   const rawTargets = targetsPayload?.targets;
   const targets = useMemo(() => (Array.isArray(rawTargets) ? rawTargets : []), [rawTargets]);
+  // Set-switcher option lists must match Explore and the public Sets catalog,
+  // which exclude hidden/unvalidated-era sets (e.g. Sword & Shield pending
+  // validation — see pokemonSetPublicCoverage.js); otherwise hidden sets stay
+  // one dropdown away from unvalidated public analytics. The currently
+  // requested target is kept even when ineligible so a direct URL to a hidden
+  // set still renders a coherent switcher (correct selected option) instead of
+  // a blank/mismatched control. Only the switcher surfaces use this list —
+  // `targets` above still feeds non-switcher consumers unchanged.
+  const switcherTargets = useMemo(() => {
+    const requestedId = String(requestedTargetId || "");
+    return targets.filter(
+      (target) =>
+        isPublicAnalyticsEligiblePokemonSet(target) ||
+        String(target?.target_id || "") === requestedId
+    );
+  }, [targets, requestedTargetId]);
   const resolvedSetResourceId = useMemo(
     () => getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }),
     [requestedTargetId, selectedTarget, explorePayload, shellPayload]
@@ -6892,7 +6910,7 @@ export default function RipStatisticsPageClient({
     ? Boolean(resolvedSetResourceId) &&
       (!explorePayload || isSetPageTransportFallback(explorePayload) || hasActiveSetPageIdentity)
     : true;
-  const timeoutSnapshotRankTitle = "Snapshot loading; retrying.";
+  const timeoutSnapshotRankTitle = "Still loading; retrying.";
   const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
   const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
   // Same precedence hazard as `summary` above: explorePayload is fetched (and
@@ -10108,7 +10126,7 @@ export default function RipStatisticsPageClient({
 
   const setDetailSidebarContent = (
     <SetPageNavigationRail
-      targets={targets}
+      targets={switcherTargets}
       requestedTargetId={displayedTargetId}
       selectedTarget={selectedTarget}
       selectedName={selectedName}
@@ -10159,10 +10177,10 @@ export default function RipStatisticsPageClient({
               value={displayedTargetId || ""}
               onChange={handleTargetChange}
               onFocus={() => handleTargetPrefetch(requestedTargetId, { includeAdjacent: true, reason: "sidebar-focus" })}
-              disabled={isPending || targets.length === 0}
+              disabled={isPending || switcherTargets.length === 0}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             >
-              {targets.map((target) => (
+              {switcherTargets.map((target) => (
                 <option key={`${target.target_type}:${target.target_id}`} value={target.target_id}>
                   {target.name}
                 </option>
@@ -10226,10 +10244,10 @@ export default function RipStatisticsPageClient({
               value={displayedTargetId || ""}
               onChange={(event) => handleTargetChange(event, { closeToolsPanel })}
               onFocus={() => handleTargetPrefetch(requestedTargetId, { includeAdjacent: true, reason: "mobile-focus" })}
-              disabled={isPending || targets.length === 0}
+              disabled={isPending || switcherTargets.length === 0}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             >
-              {targets.map((target) => (
+              {switcherTargets.map((target) => (
                 <option key={`${target.target_type}:${target.target_id}`} value={target.target_id}>
                   {target.name}
                 </option>
@@ -10323,12 +10341,12 @@ export default function RipStatisticsPageClient({
                             <button
                               type="button"
                               onClick={() => setHeroSetPickerOpen((open) => !open)}
-                              disabled={isPending || targets.length === 0}
+                              disabled={isPending || switcherTargets.length === 0}
                               aria-expanded={heroSetPickerOpen}
                               aria-haspopup="listbox"
                               aria-controls="hero-set-picker-list"
                               className="flex w-full min-w-0 items-start justify-between gap-3 rounded-lg text-left text-xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] md:text-2xl disabled:cursor-not-allowed disabled:opacity-90"
-                              title={targets.length > 0 ? "Switch set" : "No sets available"}
+                              title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
                             >
                               <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight">{selectedName}</span>
                               <span aria-hidden="true" className="mt-1 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/70">
@@ -10350,7 +10368,7 @@ export default function RipStatisticsPageClient({
                                 aria-label="Available sets"
                                 className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full max-w-full overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
                               >
-                                {targets.map((target) => {
+                                {switcherTargets.map((target) => {
                                   const isSelected = String(target.target_id) === String(requestedTargetId || "");
                                   return (
                                     <button
@@ -10725,7 +10743,7 @@ export default function RipStatisticsPageClient({
                     as="button"
                     type="button"
                     onClick={() => setHeroSetPickerOpen((open) => !open)}
-                    disabled={isPending || targets.length === 0}
+                    disabled={isPending || switcherTargets.length === 0}
                     aria-expanded={heroSetPickerOpen}
                     aria-haspopup="listbox"
                     aria-controls="hero-set-picker-list"
@@ -10742,7 +10760,7 @@ export default function RipStatisticsPageClient({
                         <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
                       </svg>
                     }
-                    title={targets.length > 0 ? "Switch set" : "No sets available"}
+                    title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
                   >
                     <span>{selectedName}</span>
                   </CenteredSuffixInline>
@@ -10754,7 +10772,7 @@ export default function RipStatisticsPageClient({
                       aria-label="Available sets"
                       className="index-scrollbar absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
                     >
-                      {targets.map((target) => {
+                      {switcherTargets.map((target) => {
                         const isSelected = String(target.target_id) === String(requestedTargetId || "");
                         return (
                           <button

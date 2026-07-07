@@ -2887,3 +2887,74 @@ test("Phase 6C: every per-tab module fetch effect has a request-key guard that s
   const settledFlagCount = (source.match(/let requestSettled = false;/g) || []).length;
   assert.equal(settledFlagCount, 7, "every guarded fetch effect must track request settlement for its cleanup release");
 });
+
+// ---------------------------------------------------------------------------
+// Phase 8B: hidden/unvalidated-era sets (SWSH pending validation — see
+// lib/pokemon/pokemonSetPublicCoverage.js) are excluded from Explore and the
+// public Sets catalog, but the set-switcher rail/dropdowns listed the raw
+// targets payload, leaving hidden sets one dropdown away from unvalidated
+// public analytics (e.g. Evolving Skies showing RIP Score 0.0 / F). The
+// switcher option lists must apply the same centralized eligibility filter,
+// while direct URLs to a hidden set keep working (the requested target stays
+// in the list so the switcher renders a coherent selected option).
+// ---------------------------------------------------------------------------
+
+test("Phase 8B: set-switcher option lists filter hidden/unvalidated-era sets via the centralized coverage helper", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes(
+      'import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";'
+    ),
+    "must import the centralized eligibility helper instead of a one-off era check"
+  );
+  assert.ok(
+    !/era\s*===\s*["'`]Sword/i.test(source),
+    "must not scatter a one-off `era === \"Sword & Shield\"` check instead of using the centralized helper"
+  );
+
+  const switcherMemoStart = source.indexOf("const switcherTargets = useMemo(() => {");
+  assert.ok(switcherMemoStart >= 0, "must derive a dedicated switcherTargets list from the raw targets");
+  const switcherMemoEnd = source.indexOf("}, [targets, requestedTargetId]);", switcherMemoStart);
+  assert.ok(switcherMemoEnd > switcherMemoStart, "switcherTargets must recompute when targets or the requested target change");
+  const switcherMemoSource = source.slice(switcherMemoStart, switcherMemoEnd);
+  assert.ok(
+    switcherMemoSource.includes("isPublicAnalyticsEligiblePokemonSet(target)"),
+    "switcherTargets must filter through the centralized public-analytics eligibility helper"
+  );
+  assert.ok(
+    switcherMemoSource.includes('String(target?.target_id || "") === requestedId'),
+    "the currently requested target must stay listed even when ineligible, so direct URLs to a hidden set render a coherent switcher"
+  );
+});
+
+test("Phase 8B: every set-switcher surface renders switcherTargets while non-switcher consumers keep the raw targets list", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes("targets={switcherTargets}"),
+    "SetPageNavigationRail (set-detail rail) must receive the filtered switcher list"
+  );
+
+  // Explore-mode sidebar select, mobile tools select, and both hero set
+  // pickers (set-detail and Explore-mode) — 4 inline option renders total.
+  const switcherMapCount = (source.match(/switcherTargets\.map\(/g) || []).length;
+  assert.equal(
+    switcherMapCount,
+    4,
+    `all four inline switcher option lists must map over switcherTargets (found ${switcherMapCount})`
+  );
+
+  // Non-switcher consumers intentionally stay on the raw list: the
+  // Desirability Validation scatter's sample and the adjacent-target route
+  // prefetch are not switcher surfaces, and Phase 8B must not silently
+  // change analytics-chart contents or prefetch behavior.
+  assert.ok(
+    source.includes("<DesirabilityValidationCard targets={targets}"),
+    "DesirabilityValidationCard must keep receiving the unfiltered targets list"
+  );
+  assert.ok(
+    source.includes('const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);'),
+    "adjacent-target prefetch must keep walking the unfiltered targets list"
+  );
+});
