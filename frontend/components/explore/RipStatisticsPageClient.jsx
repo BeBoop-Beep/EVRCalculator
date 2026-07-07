@@ -10710,7 +10710,12 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {setDetailTab === "pull-rates" ? (
-                  <section id="set-detail-pull-rates" className="scroll-mt-24 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5">
+                  <section id="set-detail-pull-rates" className="scroll-mt-24 space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5">
+                    <div>
+                      <p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>
+                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Modeled rarity frequency and specific-card odds used by this simulation.</p>
+                      <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
+                    </div>
                     {pullRateAssumptions ? (
                       <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
                     ) : (
