@@ -24,8 +24,12 @@ from backend.db.services.explore_rip_statistics_service import (
 )
 from backend.db.services.pokemon_set_cards_service import PokemonSetCardsError, get_pokemon_set_cards_payload
 from backend.db.services.pokemon_set_market_service import (
+    DEFAULT_CARD_MOVERS_LIMIT,
+    DEFAULT_MARKET_MOVERS_WINDOW,
     DEFAULT_SET_VALUE_HISTORY_DAYS,
     DEFAULT_TOP_MARKET_CARDS_LIMIT,
+    MARKET_MOVERS_WINDOWS,
+    MAX_TOP_MARKET_CARDS_LIMIT,
     SET_VALUE_SCOPE_LABELS,
     SET_VALUE_SCOPES,
     PokemonSetMarketError,
@@ -119,6 +123,22 @@ def _sanitize_top_limit(value: Any) -> int:
     except (TypeError, ValueError):
         return DEFAULT_TOP_MARKET_CARDS_LIMIT
     return max(1, min(parsed, 50))
+
+
+def _sanitize_market_movers_window_key(value: Any) -> str:
+    text = str(value or "").strip().upper()
+    return text if text in MARKET_MOVERS_WINDOWS else DEFAULT_MARKET_MOVERS_WINDOW
+
+
+def _sanitize_market_movers_limit(value: Any) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_CARD_MOVERS_LIMIT
+    return max(1, min(parsed, MAX_TOP_MARKET_CARDS_LIMIT))
+
+
+_MARKET_MOVERS_WINDOW_DAYS_BY_KEY = {"1D": 1, "7D": 7, "30D": 30}
 
 
 def _sanitize_scope(value: Any) -> str:
@@ -3926,6 +3946,229 @@ def get_pokemon_set_top_chase_snapshot_payload(
     }
     logger.info(
         "[pokemon-snapshot] top chase snapshot read complete set_id=%s window=%s query_ms=%s total_ms=%s",
+        resolved_set_id,
+        resolved_window,
+        query_ms,
+        timings["snapshotReadMs"],
+    )
+    return payload
+
+
+def _empty_market_movers_payload(
+    *,
+    set_row: Dict[str, Any],
+    window: str,
+    window_days: int,
+    warnings: Optional[List[str]] = None,
+    fallback_source: str,
+) -> Dict[str, Any]:
+    return {
+        "set": {
+            "id": _to_optional_str(set_row.get("id")),
+            "name": _to_optional_str(set_row.get("name")),
+            "slug": _to_optional_str(set_row.get("canonical_key")),
+            "pokemon_api_set_id": _to_optional_str(set_row.get("pokemon_api_set_id")),
+        },
+        "window": window,
+        "windowDays": window_days,
+        "marketMovers": {
+            "window": window,
+            "windowDays": window_days,
+            "heatingUp": [],
+            "coolingOff": [],
+        },
+        "meta": {
+            "limit": DEFAULT_CARD_MOVERS_LIMIT,
+            "warnings": list(warnings or []),
+            "snapshot": {
+                "source": fallback_source,
+                "sourceField": None,
+                "window": window,
+                "usedReadModel": False,
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+                "isStaleFallback": False,
+            },
+        },
+    }
+
+
+def get_pokemon_set_market_movers_snapshot_payload(
+    set_id: str,
+    window: str = DEFAULT_MARKET_MOVERS_WINDOW,
+    limit: Any = None,
+) -> Dict[str, Any]:
+    """Return the slim Market Movers snapshot (camelCase only) for a Pokemon set.
+
+    Reads only set_id, window_key, latest_market_date, updated_at, and the
+    heatingUp/coolingOff sub-arrays of the single requested mover window out
+    of payload_json->marketMoversByWindow (via two PostgREST JSON-path
+    selects), so neither the ~3MB monolithic payload_json blob nor the
+    unused "all" movements list (Phase 5.8 Gate 4: never read by
+    MarketMoversModule/hasMarketMoverRows, only ever passed through as a
+    default-empty shape field) is pulled over the wire — only the exact
+    heatingUp/coolingOff cards this endpoint serves. The stored snapshot
+    payload itself is untouched; this only narrows what this one reader
+    selects out of it. The full /market/dashboard contract still serves
+    "all" unchanged (get_pokemon_set_market_dashboard_snapshot_payload reads
+    payload_json directly, a separate code path).
+
+    marketMoversByWindow is precomputed by
+    scripts/pokemon_snapshot_builders.py (build_market_dashboard_snapshot_rows)
+    from the exact same build_pokemon_set_card_movement_payload used by the
+    live /market/movers read path — same scores, labels, thresholds, order —
+    just computed once at snapshot-build time instead of on every request.
+    Never falls back to that live aggregation: a missing snapshot serves a
+    safe empty payload, matching the sibling slim endpoints
+    (get_pokemon_set_top_chase_snapshot_payload,
+    get_pokemon_set_overview_snapshot_payload) instead of recomputing.
+
+    The dashboard snapshot's own window_key column (e.g. "365d"/"30d")
+    identifies which dashboard build variant a row is, independent of the
+    1D/7D/30D mover window requested here — every row's
+    marketMoversByWindow already contains all three mover windows together.
+    The "365d" row is the one the builder keeps fully populated in practice,
+    so it's tried first; "30d" is a fallback for sets that only have an
+    older/partial row under that key.
+    """
+    started = time.perf_counter()
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_MARKET_ID_REQUIRED")
+
+    is_uuid = _looks_like_uuid(resolved)
+    resolved_window = _sanitize_market_movers_window_key(window)
+    window_days = _MARKET_MOVERS_WINDOW_DAYS_BY_KEY[resolved_window]
+    limit_value = _sanitize_market_movers_limit(limit)
+
+    set_row: Optional[Dict[str, Any]] = None
+    if is_uuid:
+        resolved_set_id = resolved
+    else:
+        set_row = resolve_pokemon_set_identifier(resolved, client=public_read_client)
+        resolved_set_id = str(set_row["id"])
+
+    select_fields = (
+        f"set_id,window_key,latest_market_date,updated_at,"
+        f"heating:payload_json->marketMoversByWindow->{resolved_window}->heatingUp,"
+        f"cooling:payload_json->marketMoversByWindow->{resolved_window}->coolingOff"
+    )
+
+    def _read_movers_row(window_key: str) -> Optional[Dict[str, Any]]:
+        result = (
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            .select(select_fields)
+            .eq("set_id", resolved_set_id)
+            .eq("window_key", window_key)
+            .limit(1)
+            .execute()
+        )
+        row = _first_row(result)
+        # A row whose marketMoversByWindow never had this window at all
+        # resolves both paths to SQL NULL (None here). A row with a
+        # legitimately empty side (e.g. no cards met the heating-up
+        # guardrails this window) still resolves that side to `[]`, not
+        # None — so either key being present is enough to call this "found".
+        if row and (row.get("heating") is not None or row.get("cooling") is not None):
+            return row
+        return None
+
+    t_query = time.perf_counter()
+    row: Optional[Dict[str, Any]] = None
+    used_fallback_window = False
+    try:
+        row = _read_movers_row(DEFAULT_DASHBOARD_WINDOW)
+        if not row:
+            row = _read_movers_row(DEFAULT_TOP_CHASE_DASHBOARD_WINDOW)
+            if row:
+                used_fallback_window = True
+    except Exception as exc:
+        logger.warning(
+            "[pokemon-snapshot] market movers snapshot read failed set_id=%s window=%s exc=%s",
+            resolved_set_id,
+            resolved_window,
+            exc,
+            exc_info=True,
+        )
+        row = None
+    query_ms = round((time.perf_counter() - t_query) * 1000, 3)
+
+    if not row:
+        logger.info(
+            "[pokemon-snapshot] market movers snapshot missing set_id=%s window=%s elapsed_ms=%s",
+            resolved_set_id,
+            resolved_window,
+            round((time.perf_counter() - started) * 1000, 3),
+        )
+        return _empty_market_movers_payload(
+            set_row=set_row or {"id": resolved_set_id},
+            window=resolved_window,
+            window_days=window_days,
+            warnings=["Pokemon market movers snapshot is missing; served empty fallback payload."],
+            fallback_source="empty_fallback_missing_pokemon_set_market_dashboard_snapshot_latest",
+        )
+
+    if used_fallback_window:
+        logger.info(
+            "[pokemon-snapshot] market movers snapshot used fallback row window_key set_id=%s mover_window=%s row_window_key=%s",
+            resolved_set_id,
+            resolved_window,
+            row.get("window_key"),
+        )
+
+    resolved_row_set_id = _to_optional_str(row.get("set_id")) or resolved_set_id
+    identity_row = set_row or {"id": resolved_row_set_id}
+    set_identity = {
+        "id": _to_optional_str(identity_row.get("id")) or resolved_row_set_id,
+        "name": _to_optional_str(identity_row.get("name")),
+        "slug": _to_optional_str(identity_row.get("canonical_key")),
+        "pokemon_api_set_id": _to_optional_str(identity_row.get("pokemon_api_set_id")),
+    }
+
+    heating_up = row.get("heating") if isinstance(row.get("heating"), list) else []
+    cooling_off = row.get("cooling") if isinstance(row.get("cooling"), list) else []
+
+    timings = {
+        "snapshotQueryMs": query_ms,
+        "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
+    }
+    warnings: List[str] = []
+    if used_fallback_window:
+        warnings.append(
+            f"Market movers snapshot row for window_key {DEFAULT_DASHBOARD_WINDOW} is missing; served the "
+            f"{DEFAULT_TOP_CHASE_DASHBOARD_WINDOW} row's stored movers instead."
+        )
+
+    payload = {
+        "set": set_identity,
+        "window": resolved_window,
+        "windowDays": window_days,
+        "marketMovers": {
+            "window": resolved_window,
+            "windowDays": window_days,
+            "heatingUp": heating_up[:limit_value],
+            "coolingOff": cooling_off[:limit_value],
+        },
+        "meta": {
+            "limit": limit_value,
+            "warnings": warnings,
+            "priceBasis": "pokemon_set_market_dashboard_snapshot_latest.payload_json.marketMoversByWindow",
+            "snapshot": {
+                "source": "pokemon_set_market_dashboard_snapshot_latest",
+                "sourceField": "payload_json.marketMoversByWindow.heatingUp/coolingOff",
+                "window": resolved_window,
+                "usedReadModel": True,
+                "rowWindowKey": row.get("window_key"),
+                "usedFallbackWindow": used_fallback_window,
+                **({"fallbackReason": "missing_365d_row"} if used_fallback_window else {}),
+                "updatedAt": _to_optional_str(row.get("updated_at")),
+                "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
+                "isStaleFallback": True,
+            },
+            "timings": timings,
+        },
+    }
+    logger.info(
+        "[pokemon-snapshot] market movers snapshot read complete set_id=%s window=%s query_ms=%s total_ms=%s",
         resolved_set_id,
         resolved_window,
         query_ms,

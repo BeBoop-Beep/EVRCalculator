@@ -58,17 +58,38 @@ export function normalizePokemonSetInsightsPayload(payload) {
   };
 }
 
+// Joins concurrent identical getPokemonSetInsights calls onto one in-flight
+// promise (same pattern as pokemonSetMarketClient.js's joinSlimModuleRequest)
+// — React 18 StrictMode double-invokes effects in development, and the
+// Insights fetch effect has no AbortController, only a local isCancelled
+// flag that ignores the second result. Both requests still hit the network
+// without this.
+const insightsInflight = new Map();
+
+function joinInsightsRequest(key, factory) {
+  if (insightsInflight.has(key)) {
+    return insightsInflight.get(key);
+  }
+  const request = factory().finally(() => {
+    insightsInflight.delete(key);
+  });
+  insightsInflight.set(key, request);
+  return request;
+}
+
 export async function getPokemonSetInsights(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
 
-  const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/insights`, {
-    method: "GET",
-  });
+  return joinInsightsRequest(`insights:${resolvedSetId}`, async () => {
+    const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/insights`, {
+      method: "GET",
+    });
 
-  return normalizePokemonSetInsightsPayload(
-    await readJsonResponse(response, "Unable to load Pokemon set insights")
-  );
+    return normalizePokemonSetInsightsPayload(
+      await readJsonResponse(response, "Unable to load Pokemon set insights")
+    );
+  });
 }

@@ -79,17 +79,38 @@ export function normalizePokemonSetPullRatesPayload(payload) {
   };
 }
 
+// Joins concurrent identical getPokemonSetPullRates calls onto one in-flight
+// promise (same pattern as pokemonSetMarketClient.js's joinSlimModuleRequest)
+// — React 18 StrictMode double-invokes effects in development, and the Pull
+// Rates fetch effect has no AbortController, only a local isCancelled flag
+// that ignores the second result. Both requests still hit the network
+// without this.
+const pullRatesInflight = new Map();
+
+function joinPullRatesRequest(key, factory) {
+  if (pullRatesInflight.has(key)) {
+    return pullRatesInflight.get(key);
+  }
+  const request = factory().finally(() => {
+    pullRatesInflight.delete(key);
+  });
+  pullRatesInflight.set(key, request);
+  return request;
+}
+
 export async function getPokemonSetPullRates(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
 
-  const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/pull-rates`, {
-    method: "GET",
-  });
+  return joinPullRatesRequest(`pull-rates:${resolvedSetId}`, async () => {
+    const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/pull-rates`, {
+      method: "GET",
+    });
 
-  return normalizePokemonSetPullRatesPayload(
-    await readJsonResponse(response, "Unable to load pull rate assumptions")
-  );
+    return normalizePokemonSetPullRatesPayload(
+      await readJsonResponse(response, "Unable to load pull rate assumptions")
+    );
+  });
 }

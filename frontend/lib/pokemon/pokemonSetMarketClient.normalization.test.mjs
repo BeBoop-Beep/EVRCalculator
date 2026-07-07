@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getPokemonSetMarketMovers,
+  getPokemonSetOverview,
+  getPokemonSetTopChase,
+  getPokemonSetValueHistory,
   normalizeMarketDashboardPayload,
   normalizeMarketMoversPayload,
   normalizeOverviewPayload,
@@ -422,4 +426,141 @@ test("normalizeMarketMoversPayload tolerates missing fields defensively", () => 
   assert.equal(result.window, "30D");
   assert.deepEqual(result.heatingUp, []);
   assert.deepEqual(result.coolingOff, []);
+});
+
+test("normalizeMarketMoversPayload synthesizes `all` from heatingUp/coolingOff when the source omits it", () => {
+  // Phase 5.8: the slim /market/movers backend contract intentionally no
+  // longer serves `all` (unused by the UI — see MarketMoversModule/
+  // hasMarketMoverRows, which only ever read heatingUp/coolingOff). The
+  // normalizer must keep working without it rather than assume it's present.
+  const heating = makeMoverCard({ cardId: "card-heat", name: "Heat Card" });
+  const cooling = makeMoverCard({ cardId: "card-cool", name: "Cool Card" });
+  const payload = {
+    window: "30D",
+    windowDays: 30,
+    marketMovers: {
+      window: "30D",
+      windowDays: 30,
+      heatingUp: [heating],
+      coolingOff: [cooling],
+      // no `all` key at all
+    },
+  };
+
+  const result = normalizeMarketMoversPayload(payload);
+
+  assert.equal(result.heatingUp.length, 1);
+  assert.equal(result.coolingOff.length, 1);
+  assert.equal(result.all.length, 2, "all must be synthesized from heatingUp+coolingOff when absent");
+  assert.deepEqual(
+    result.all.map((card) => card.cardId),
+    ["card-heat", "card-cool"]
+  );
+});
+
+// ---------------------------------------------------------------------------
+// In-flight request dedupe for the slim Overview-tab fetchers.
+//
+// React 18 StrictMode double-invokes the Overview effects in development,
+// firing two concurrent, identical requests per module (overview, top-chase,
+// movers, value-history) with no AbortController to cancel the first. Both
+// requests used to hit the network, doubling backend load and occasionally
+// tripping a Windows httpx/HTTP2 connection-pool race under concurrent
+// duplicate load (observed as intermittent 500s from /market/movers). These
+// tests guard that concurrent identical calls join a single in-flight
+// request instead of firing twice, while distinct params still fetch
+// independently.
+// ---------------------------------------------------------------------------
+
+function stubFetchJson(responseFactory) {
+  const originalFetch = globalThis.fetch;
+  let callCount = 0;
+  globalThis.fetch = async (...args) => {
+    callCount += 1;
+    const body = responseFactory(callCount, ...args);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => body,
+    };
+  };
+  return {
+    getCallCount: () => callCount,
+    restore: () => {
+      globalThis.fetch = originalFetch;
+    },
+  };
+}
+
+test("getPokemonSetMarketMovers joins concurrent identical calls into a single fetch", async () => {
+  const stub = stubFetchJson(() => makeMarketMoversPayload());
+  try {
+    const [first, second] = await Promise.all([
+      getPokemonSetMarketMovers("set-dedupe-1", { window: "30D", limit: 5 }),
+      getPokemonSetMarketMovers("set-dedupe-1", { window: "30D", limit: 5 }),
+    ]);
+    assert.equal(stub.getCallCount(), 1, "two concurrent identical calls must issue exactly one network fetch");
+    assert.deepEqual(first, second);
+
+    await getPokemonSetMarketMovers("set-dedupe-1", { window: "30D", limit: 5 });
+    assert.equal(stub.getCallCount(), 2, "a call after the first resolves must fetch again, not reuse a stale in-flight entry");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getPokemonSetMarketMovers does not join calls for a different set id or window", async () => {
+  const stub = stubFetchJson(() => makeMarketMoversPayload());
+  try {
+    await Promise.all([
+      getPokemonSetMarketMovers("set-dedupe-2", { window: "30D", limit: 5 }),
+      getPokemonSetMarketMovers("set-dedupe-3", { window: "30D", limit: 5 }),
+      getPokemonSetMarketMovers("set-dedupe-2", { window: "7D", limit: 5 }),
+    ]);
+    assert.equal(stub.getCallCount(), 3, "distinct set ids or windows must not be joined together");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getPokemonSetOverview joins concurrent identical calls into a single fetch", async () => {
+  const stub = stubFetchJson(() => makeOverviewPayload());
+  try {
+    await Promise.all([
+      getPokemonSetOverview("set-dedupe-overview", { window: "365d" }),
+      getPokemonSetOverview("set-dedupe-overview", { window: "365d" }),
+    ]);
+    assert.equal(stub.getCallCount(), 1, "two concurrent identical overview calls must issue exactly one network fetch");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getPokemonSetTopChase joins concurrent identical calls into a single fetch", async () => {
+  const stub = stubFetchJson(() => makeTopChasePayload());
+  try {
+    await Promise.all([
+      getPokemonSetTopChase("set-dedupe-topchase", { window: "30D", limit: 10 }),
+      getPokemonSetTopChase("set-dedupe-topchase", { window: "30D", limit: 10 }),
+    ]);
+    assert.equal(stub.getCallCount(), 1, "two concurrent identical top-chase calls must issue exactly one network fetch");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getPokemonSetValueHistory joins concurrent identical calls but keeps distinct scopes independent", async () => {
+  const stub = stubFetchJson(() => ({ set: { id: "set-1" }, history: [], meta: { warnings: [] } }));
+  try {
+    await Promise.all([
+      getPokemonSetValueHistory("set-dedupe-vh", { days: 365, scope: "standard" }),
+      getPokemonSetValueHistory("set-dedupe-vh", { days: 365, scope: "standard" }),
+    ]);
+    assert.equal(stub.getCallCount(), 1, "two concurrent identical value-history calls must issue exactly one network fetch");
+
+    await getPokemonSetValueHistory("set-dedupe-vh", { days: 365, scope: "hits" });
+    assert.equal(stub.getCallCount(), 2, "a different scope must fetch independently, not join the standard-scope request");
+  } finally {
+    stub.restore();
+  }
 });

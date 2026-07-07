@@ -7216,6 +7216,24 @@ export default function RipStatisticsPageClient({
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
+  // Tracks the last getPokemonSetCardsPage request key this effect actually
+  // issued, so leaving Cards and coming back (or any other re-render that
+  // re-triggers the effect without the set/page/sort/filter actually
+  // changing) doesn't refetch the exact same page. Cleared on error so a
+  // genuine retry isn't permanently blocked.
+  const lastCardsPageRequestKeyRef = useRef(null);
+  // Phase 6C: same request-key guard for the remaining per-tab module
+  // fetches. Each ref holds the key of the request its effect last issued;
+  // re-runs with an identical key (tab revisit, prop-identity churn after a
+  // router transition) skip the refetch, a genuinely new set/window fetches
+  // fresh, and the key is released both on error and when the effect is
+  // cleaned up mid-flight (so an ignored response can't strand its tab in a
+  // permanent loading state).
+  const lastPullRatesRequestKeyRef = useRef(null);
+  const lastCardsValidationRequestKeyRef = useRef(null);
+  const lastOverviewRequestKeyRef = useRef(null);
+  const lastTopChaseRequestKeyRef = useRef(null);
+  const lastMarketMoversRequestKeyRef = useRef(null);
   const activeInsightsGraphMode =
     setDetailMode && setDetailTab === "insights" && graphMode === "historical-trend"
       ? "outcome-distribution"
@@ -7462,8 +7480,10 @@ export default function RipStatisticsPageClient({
     explorePagePayloadFetchKeyRef.current = fetchKey;
 
     let isCancelled = false;
+    let requestSettled = false;
     getPokemonSetInsights(setId)
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -7473,14 +7493,20 @@ export default function RipStatisticsPageClient({
         setExplorePayload(adaptPokemonSetInsightsPayloadToExplorePayload(payload));
       })
       .catch(() => {
-        if (isCancelled) {
-          return;
+        requestSettled = true;
+        if (explorePagePayloadFetchKeyRef.current === fetchKey) {
+          explorePagePayloadFetchKeyRef.current = null;
         }
-        explorePagePayloadFetchKeyRef.current = null;
       });
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again — otherwise Insights could
+      // render without its payload forever with the key still claimed.
+      if (!requestSettled && explorePagePayloadFetchKeyRef.current === fetchKey) {
+        explorePagePayloadFetchKeyRef.current = null;
+      }
     };
   }, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
 
@@ -8049,17 +8075,26 @@ export default function RipStatisticsPageClient({
     () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload),
     [activeMarketDashboardState.payload, seededMarketDashboardPayload]
   );
+  // overviewState only resets to this set's "loading"/empty shape once its
+  // fetch effect fires post-paint (setDetailTab === "overview"), so a set
+  // switch can otherwise render the previous set's overview payload for one
+  // commit under the new set's title — guard the same way
+  // activeMarketDashboardState/activeDirectSetValueState already do.
+  const activeOverviewState =
+    overviewState.setId === resolvedSetResourceId
+      ? overviewState
+      : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: overviewState.sourceWindow });
   const activeOverviewDerivedState = useMemo(
-    () => buildMarketDashboardStateFromPayload(overviewState.payload),
-    [overviewState.payload]
+    () => buildMarketDashboardStateFromPayload(activeOverviewState.payload),
+    [activeOverviewState.payload]
   );
   // Set Value Trend/Performance vs Cost prefer the slim /overview snapshot
   // once it has loaded, falling back to the market dashboard payload until
   // then. Top Chase Cards/Market Movers are untouched and always read
   // activeMarketDashboardState/activeMarketDashboardDerivedState directly
   // (see activeTopMarketCardsState below) — /market/dashboard is not removed.
-  const overviewHasLoaded = overviewState.status === "success" || overviewState.status === "success_stale";
-  const effectiveSetValueDashboardState = overviewHasLoaded ? overviewState : activeMarketDashboardState;
+  const overviewHasLoaded = activeOverviewState.status === "success" || activeOverviewState.status === "success_stale";
+  const effectiveSetValueDashboardState = overviewHasLoaded ? activeOverviewState : activeMarketDashboardState;
   const effectiveSetValueDerivedState = overviewHasLoaded ? activeOverviewDerivedState : activeMarketDashboardDerivedState;
   // Cards/Overview never load the full explore payload, so its history_trend
   // (used for title-card / metric trend arrows) is unavailable there. The
@@ -8142,24 +8177,37 @@ export default function RipStatisticsPageClient({
     error: activeDirectSetValueState.error || effectiveSetValueDashboardState.error,
     meta: activeDirectSetValueState.meta || effectiveSetValueDerivedState.setValue.meta,
   };
+  // Top Chase Cards / Market Movers only reset to this set's "loading"/empty
+  // shape once their fetch effects fire post-paint (setDetailTab ===
+  // "overview"), so a set switch can otherwise render the previous set's
+  // cards/movers for one commit under the new set's title — guard the same
+  // way activeMarketDashboardState/activeDirectSetValueState already do.
+  const activeTopChaseState =
+    topChaseState.setId === resolvedSetResourceId
+      ? topChaseState
+      : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: topChaseState.sourceWindow });
+  const activeMarketMoversState =
+    marketMoversState.setId === resolvedSetResourceId
+      ? marketMoversState
+      : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: marketMoversState.sourceWindow });
   // Top Chase Cards: prefer the slim /market/top-chase fetch; fall back to
   // the (possibly seeded/cached) monolithic dashboard state only until the
   // dedicated fetch lands.
-  const topChaseLiveCards = Array.isArray(topChaseState.payload?.cards) ? topChaseState.payload.cards : [];
+  const topChaseLiveCards = Array.isArray(activeTopChaseState.payload?.cards) ? activeTopChaseState.payload.cards : [];
   const topChaseLiveHasRows = topChaseLiveCards.length > 0;
   const topChaseFallbackCards = activeMarketDashboardDerivedState.topCards.cards;
   const topChaseStatus =
-    topChaseState.status === "success" || topChaseState.status === "success_stale"
+    activeTopChaseState.status === "success" || activeTopChaseState.status === "success_stale"
       ? topChaseLiveHasRows
-        ? topChaseState.status
+        ? activeTopChaseState.status
         : "empty"
-      : topChaseState.status === "error"
+      : activeTopChaseState.status === "error"
       ? activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
         ? topChaseFallbackCards.length > 0
           ? "success_stale"
           : "empty"
         : "error"
-      : topChaseState.status === "loading"
+      : activeTopChaseState.status === "loading"
       ? topChaseFallbackCards.length > 0
         ? "success_stale"
         : "loading"
@@ -8182,16 +8230,16 @@ export default function RipStatisticsPageClient({
   // undefined, so the live per-window fetch's data was silently discarded in
   // favor of the (usually empty, since /market/dashboard is no longer
   // fetched) dashboard fallback.
-  const marketMoversLive = marketMoversState.payload || null;
+  const marketMoversLive = activeMarketMoversState.payload || null;
   const marketMoversLiveHasRows = hasMarketMoverRows(marketMoversLive);
   const activeTopMarketCardsState = {
     status: topChaseStatus,
-    setId: topChaseState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
+    setId: activeTopChaseState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
     cards: topChaseLiveHasRows ? topChaseLiveCards : topChaseFallbackCards,
     marketMovers: marketMoversLiveHasRows ? marketMoversLive : activeMarketDashboardDerivedState.topCards.marketMovers || null,
     marketMoversByWindow: activeMarketDashboardDerivedState.topCards.marketMoversByWindow || null,
-    error: topChaseState.error || activeMarketDashboardState.error,
-    meta: topChaseLiveHasRows ? topChaseState.payload?.meta : activeMarketDashboardDerivedState.topCards.meta,
+    error: activeTopChaseState.error || activeMarketDashboardState.error,
+    meta: topChaseLiveHasRows ? activeTopChaseState.payload?.meta : activeMarketDashboardDerivedState.topCards.meta,
   };
   const fallbackSetValueAsOf =
     setShellContract?.setValueSummary?.asOf ||
@@ -8680,9 +8728,9 @@ export default function RipStatisticsPageClient({
   // container never has to hide itself outright.
   const marketMoversStatus = hasMarketMovers
     ? "success"
-    : marketMoversState.status === "loading" || marketMoversState.status === "idle"
+    : activeMarketMoversState.status === "loading" || activeMarketMoversState.status === "idle"
     ? "loading"
-    : marketMoversState.status === "error"
+    : activeMarketMoversState.status === "error"
     ? "error"
     : "success";
   // Temporary fallback: if a full cards payload is already seeded (e.g. the
@@ -8691,13 +8739,22 @@ export default function RipStatisticsPageClient({
   // grid. Once cardsPageState has real data for this set it always wins.
   const cardsPageFallbackCards =
     checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0 ? checklistState.cards : [];
-  const effectiveCardsPageCards = cardsPageState.cards.length > 0 ? cardsPageState.cards : cardsPageFallbackCards;
+  // cardsPageState only resets to this set's "idle"/empty shape once its
+  // fetch effect fires post-paint (setDetailTab === "cards"), so a set
+  // switch can otherwise render the previous set's cards grid/pagination for
+  // one commit under the new set's title — guard it the same way
+  // activeMarketDashboardState/activeDirectSetValueState already do.
+  const activeCardsPageState =
+    cardsPageState.setId === resolvedSetResourceId
+      ? cardsPageState
+      : { status: "idle", setId: resolvedSetResourceId, page: 1, cards: [], pagination: null, filters: null, error: null };
+  const effectiveCardsPageCards = activeCardsPageState.cards.length > 0 ? activeCardsPageState.cards : cardsPageFallbackCards;
   const effectiveCardsPageStatus =
-    cardsPageState.cards.length > 0
-      ? cardsPageState.status
+    activeCardsPageState.cards.length > 0
+      ? activeCardsPageState.status
       : cardsPageFallbackCards.length > 0
       ? "success_stale"
-      : cardsPageState.status;
+      : activeCardsPageState.status;
   // Sourced from the currently loaded/fallback cards (not the full
   // checklist), since Cards tab no longer loads the full card list — this is
   // a known trade-off: if page 1 happens to have no movement data but a
@@ -9114,7 +9171,15 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    const cardsValidationRequestKey = String(setId);
+    if (lastCardsValidationRequestKeyRef.current === cardsValidationRequestKey) {
+      debugSetPagePerf("cards.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastCardsValidationRequestKeyRef.current = cardsValidationRequestKey;
+
     let isCancelled = false;
+    let requestSettled = false;
     const clickStartedAt = performance.now();
     debugSetPagePerf("cards.tab_fetch_start", {
       routeSetId: requestedTargetId,
@@ -9138,6 +9203,7 @@ export default function RipStatisticsPageClient({
 
     getPokemonSetCardsValidation(setId)
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -9196,6 +9262,10 @@ export default function RipStatisticsPageClient({
         });
       })
       .catch((error) => {
+        requestSettled = true;
+        if (lastCardsValidationRequestKeyRef.current === cardsValidationRequestKey) {
+          lastCardsValidationRequestKeyRef.current = null;
+        }
         if (isCancelled) {
           return;
         }
@@ -9217,6 +9287,11 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastCardsValidationRequestKeyRef.current === cardsValidationRequestKey) {
+        lastCardsValidationRequestKeyRef.current = null;
+      }
     };
   }, [
     setDetailMode,
@@ -9264,11 +9339,33 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    let isCancelled = false;
     const requestedPage = cardsPage;
     const movementSortValue = CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === effectiveCardSortMode)
       ? effectiveCardSortMode
       : null;
+
+    // Leaving Cards and coming back (or any other re-render that re-triggers
+    // this effect, e.g. a sibling tab's payload updating explorePayload)
+    // re-evaluates this effect even though the set/page/sort/filter/query
+    // haven't actually changed. Skip re-issuing the exact same request —
+    // getPokemonSetCardsPage's own in-flight join only catches concurrent
+    // duplicates, not these later, non-overlapping repeats.
+    const cardsPageRequestKey = [
+      setId,
+      requestedPage,
+      effectiveCardSortMode,
+      cardSearchQuery.trim(),
+      effectiveCardMovementFilter,
+      movementSortValue,
+    ].join("|");
+    if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
+      debugSetPagePerf("cards_page.tab_fetch_skipped_duplicate", { resolvedSetId: setId, requestKey: cardsPageRequestKey });
+      return undefined;
+    }
+    lastCardsPageRequestKeyRef.current = cardsPageRequestKey;
+
+    let isCancelled = false;
+    let requestSettled = false;
     debugSetPagePerf("cards_page.tab_fetch_start", {
       resolvedSetId: setId,
       page: requestedPage,
@@ -9294,6 +9391,7 @@ export default function RipStatisticsPageClient({
       movementSort: movementSortValue,
     })
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -9312,6 +9410,10 @@ export default function RipStatisticsPageClient({
         });
       })
       .catch((error) => {
+        requestSettled = true;
+        if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
+          lastCardsPageRequestKeyRef.current = null;
+        }
         if (isCancelled) {
           return;
         }
@@ -9328,6 +9430,12 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again — otherwise the tab could sit
+      // on its loading state forever with the key still claimed.
+      if (!requestSettled && lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
+        lastCardsPageRequestKeyRef.current = null;
+      }
     };
   }, [
     setDetailMode,
@@ -9370,7 +9478,15 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    const pullRatesRequestKey = String(setId);
+    if (lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
+      debugSetPagePerf("pull_rates.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastPullRatesRequestKeyRef.current = pullRatesRequestKey;
+
     let isCancelled = false;
+    let requestSettled = false;
     setPullRatesState((previous) => ({
       status: previous.setId === setId && previous.pullRateAssumptions ? "success_stale" : "loading",
       setId,
@@ -9380,6 +9496,7 @@ export default function RipStatisticsPageClient({
 
     getPokemonSetPullRates(setId)
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -9394,6 +9511,10 @@ export default function RipStatisticsPageClient({
         });
       })
       .catch((error) => {
+        requestSettled = true;
+        if (lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
+          lastPullRatesRequestKeyRef.current = null;
+        }
         if (isCancelled) {
           return;
         }
@@ -9407,6 +9528,12 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again — otherwise the tab could sit
+      // on its loading state forever with the key still claimed.
+      if (!requestSettled && lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
+        lastPullRatesRequestKeyRef.current = null;
+      }
     };
   }, [setDetailMode, setDetailTab, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
 
@@ -9493,7 +9620,19 @@ export default function RipStatisticsPageClient({
         ...(setDetailTab === "overview" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
       ])
     );
-    const requestedScopes = desiredScopes.filter((scope) => !seededLoadedScopes.includes(scope));
+    // This effect re-runs on every tab switch (setDetailTab is a dependency,
+    // since Overview also needs setValueTrendScope), but seededLoadedScopes
+    // above only reflects server-seeded/dashboard-cached data — it never
+    // reflects a scope this very effect already fetched on an earlier run.
+    // Without also checking the live setValueHistoryState here, switching
+    // Cards -> Pull Rates -> Insights -> Overview re-issues an identical
+    // /market/value-history?scope=standard request at every stop even though
+    // nothing about the request key changed.
+    const alreadyLoadedScopes =
+      setValueHistoryState.setId === setId ? setValueHistoryState.loadedScopes || [] : [];
+    const requestedScopes = desiredScopes.filter(
+      (scope) => !seededLoadedScopes.includes(scope) && !alreadyLoadedScopes.includes(scope)
+    );
     if (requestedScopes.length === 0) {
       return undefined;
     }
@@ -9741,11 +9880,20 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    const topChaseRequestKey = `${setId}|${topChaseSourceWindow}`;
+    if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+      debugSetPagePerf("top_chase.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastTopChaseRequestKeyRef.current = topChaseRequestKey;
+
     let isCancelled = false;
+    let requestSettled = false;
     dispatchTopChase({ type: "loading", setId, sourceWindow: topChaseSourceWindow });
 
     getPokemonSetTopChase(setId, { window: topChaseSourceWindow, limit: 10 })
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -9756,6 +9904,10 @@ export default function RipStatisticsPageClient({
         dispatchTopChase({ type: "success", setId, payload, sourceWindow: topChaseSourceWindow });
       })
       .catch((error) => {
+        requestSettled = true;
+        if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+          lastTopChaseRequestKeyRef.current = null;
+        }
         if (isCancelled) {
           return;
         }
@@ -9769,6 +9921,11 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+        lastTopChaseRequestKeyRef.current = null;
+      }
     };
   }, [
     setDetailMode,
@@ -9808,11 +9965,20 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    const marketMoversRequestKey = `${setId}|${moversSourceWindow}`;
+    if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+      debugSetPagePerf("market_movers.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastMarketMoversRequestKeyRef.current = marketMoversRequestKey;
+
     let isCancelled = false;
+    let requestSettled = false;
     dispatchMarketMovers({ type: "loading", setId, sourceWindow: moversSourceWindow });
 
     getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: 5 })
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -9823,6 +9989,10 @@ export default function RipStatisticsPageClient({
         dispatchMarketMovers({ type: "success", setId, payload, sourceWindow: moversSourceWindow });
       })
       .catch((error) => {
+        requestSettled = true;
+        if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+          lastMarketMoversRequestKeyRef.current = null;
+        }
         if (isCancelled) {
           return;
         }
@@ -9836,6 +10006,11 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+        lastMarketMoversRequestKeyRef.current = null;
+      }
     };
   }, [
     setDetailMode,
@@ -9876,11 +10051,20 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    const overviewRequestKey = `${setId}|${overviewSourceWindow}`;
+    if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
+      debugSetPagePerf("overview.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastOverviewRequestKeyRef.current = overviewRequestKey;
+
     let isCancelled = false;
+    let requestSettled = false;
     dispatchOverview({ type: "loading", setId, sourceWindow: overviewSourceWindow });
 
     getPokemonSetOverview(setId, { window: overviewSourceWindow })
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -9890,6 +10074,10 @@ export default function RipStatisticsPageClient({
         dispatchOverview({ type: "success", setId, payload, sourceWindow: overviewSourceWindow });
       })
       .catch((error) => {
+        requestSettled = true;
+        if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
+          lastOverviewRequestKeyRef.current = null;
+        }
         if (isCancelled) {
           return;
         }
@@ -9903,6 +10091,11 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastOverviewRequestKeyRef.current === overviewRequestKey) {
+        lastOverviewRequestKeyRef.current = null;
+      }
     };
   }, [
     setDetailMode,
@@ -10349,7 +10542,7 @@ export default function RipStatisticsPageClient({
                         moversByWindow={marketMoversByWindow}
                         selectedWindow={marketMoversWindowKey}
                         status={marketMoversStatus}
-                        error={marketMoversState.error}
+                        error={activeMarketMoversState.error}
                         onWindowChange={setMarketMoversWindowKey}
                         onViewAll={handleViewAllMarketMovers}
                       />
@@ -10412,7 +10605,7 @@ export default function RipStatisticsPageClient({
                         ) : null}
 
                         {effectiveCardsPageStatus === "error" ? (
-                          <p className="text-sm text-red-300">{cardsPageState.error || "Unable to load cards for this set."}</p>
+                          <p className="text-sm text-red-300">{activeCardsPageState.error || "Unable to load cards for this set."}</p>
                         ) : null}
 
                         {effectiveCardsPageStatus === "empty" ? (
@@ -10450,7 +10643,7 @@ export default function RipStatisticsPageClient({
                                 </label>
                               </div>
                               <p className="text-xs text-[var(--text-secondary)]">
-                                {displayedChecklistCards.length.toLocaleString("en-US")} of {(cardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
+                                {displayedChecklistCards.length.toLocaleString("en-US")} of {(activeCardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
                               </p>
                             </div>
                             ) : null}
@@ -10468,22 +10661,22 @@ export default function RipStatisticsPageClient({
                               <p className="text-sm text-[var(--text-secondary)]">No cards match this movement filter yet.</p>
                             )}
 
-                            {cardsPageState.pagination ? (
+                            {activeCardsPageState.pagination ? (
                               <div className="mt-4 flex items-center justify-between gap-3">
                                 <button
                                   type="button"
-                                  disabled={!cardsPageState.pagination.hasPreviousPage}
+                                  disabled={!activeCardsPageState.pagination.hasPreviousPage}
                                   onClick={() => setCardsPage((page) => Math.max(1, page - 1))}
                                   className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   Previous
                                 </button>
                                 <p className="text-xs text-[var(--text-secondary)]">
-                                  Page {cardsPageState.pagination.page.toLocaleString("en-US")} of {cardsPageState.pagination.totalPages.toLocaleString("en-US")}
+                                  Page {activeCardsPageState.pagination.page.toLocaleString("en-US")} of {activeCardsPageState.pagination.totalPages.toLocaleString("en-US")}
                                 </p>
                                 <button
                                   type="button"
-                                  disabled={!cardsPageState.pagination.hasNextPage}
+                                  disabled={!activeCardsPageState.pagination.hasNextPage}
                                   onClick={() => setCardsPage((page) => page + 1)}
                                   className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
                                 >

@@ -9,6 +9,27 @@ const cardSnapshotInflight = new Map();
 const isDev = process.env.NODE_ENV !== "production";
 const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
 
+// Joins concurrent identical getPokemonSetCardsPage /
+// getPokemonSetCardsValidation calls onto one in-flight promise (same pattern
+// as pokemonSetMarketClient.js's joinSlimModuleRequest) — React 18 StrictMode
+// double-invokes effects in development, and the Cards/Insights fetch effects
+// have no AbortController, only a local isCancelled flag that ignores the
+// second result. Both requests still hit the network without this, doubling
+// load on an already slow backend read path. Keys are namespaced per endpoint
+// ("cards-page:", "cards-validation:") so the two never collide.
+const cardsClientInflight = new Map();
+
+function joinCardsClientRequest(key, factory) {
+  if (cardsClientInflight.has(key)) {
+    return cardsClientInflight.get(key);
+  }
+  const request = factory().finally(() => {
+    cardsClientInflight.delete(key);
+  });
+  cardsClientInflight.set(key, request);
+  return request;
+}
+
 function nowMs() {
   return Date.now();
 }
@@ -477,34 +498,37 @@ export async function getPokemonSetCardsValidation(setId, { maxCards = null, inc
     params.set("include_plot_rows", String(Boolean(includePlotRows)));
   }
 
-  const startedAt = performance.now();
-  const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/validation${params.toString() ? `?${params}` : ""}`,
-    { method: "GET" }
-  );
+  const cacheKey = `cards-validation:${resolvedSetId}:${params.toString()}`;
+  return joinCardsClientRequest(cacheKey, async () => {
+    const startedAt = performance.now();
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/validation${params.toString() ? `?${params}` : ""}`,
+      { method: "GET" }
+    );
 
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
 
-  if (!response.ok) {
-    const message = payload?.message || payload?.error || "Unable to load card validation data";
-    const requestError = new Error(message);
-    requestError.status = response.status;
-    requestError.code = payload?.code;
-    throw requestError;
-  }
+    if (!response.ok) {
+      const message = payload?.message || payload?.error || "Unable to load card validation data";
+      const requestError = new Error(message);
+      requestError.status = response.status;
+      requestError.code = payload?.code;
+      throw requestError;
+    }
 
-  const normalized = normalizePokemonSetCardsValidationPayload(payload);
-  debugTiming("cards_validation.fetch_success", {
-    setId: resolvedSetId,
-    elapsedMs: Math.round(performance.now() - startedAt),
-    count: normalized.cards.length,
+    const normalized = normalizePokemonSetCardsValidationPayload(payload);
+    debugTiming("cards_validation.fetch_success", {
+      setId: resolvedSetId,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      count: normalized.cards.length,
+    });
+    return normalized;
   });
-  return normalized;
 }
 
 export async function getPokemonSetCardsPage(
@@ -539,34 +563,37 @@ export async function getPokemonSetCardsPage(
     params.set("movement_sort", String(movementSort));
   }
 
-  const startedAt = performance.now();
-  const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/page${params.toString() ? `?${params}` : ""}`,
-    { method: "GET" }
-  );
+  const cacheKey = `cards-page:${resolvedSetId}:${params.toString()}`;
+  return joinCardsClientRequest(cacheKey, async () => {
+    const startedAt = performance.now();
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/page${params.toString() ? `?${params}` : ""}`,
+      { method: "GET" }
+    );
 
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
 
-  if (!response.ok) {
-    const message = payload?.message || payload?.error || "Unable to load set cards page";
-    const requestError = new Error(message);
-    requestError.status = response.status;
-    requestError.code = payload?.code;
-    throw requestError;
-  }
+    if (!response.ok) {
+      const message = payload?.message || payload?.error || "Unable to load set cards page";
+      const requestError = new Error(message);
+      requestError.status = response.status;
+      requestError.code = payload?.code;
+      throw requestError;
+    }
 
-  const normalized = normalizePokemonSetCardsPagePayload(payload);
-  debugTiming("cards_page.fetch_success", {
-    setId: resolvedSetId,
-    page,
-    elapsedMs: Math.round(performance.now() - startedAt),
-    count: normalized.cards.length,
-    totalCards: normalized.pagination.totalCards,
+    const normalized = normalizePokemonSetCardsPagePayload(payload);
+    debugTiming("cards_page.fetch_success", {
+      setId: resolvedSetId,
+      page,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      count: normalized.cards.length,
+      totalCards: normalized.pagination.totalCards,
+    });
+    return normalized;
   });
-  return normalized;
 }

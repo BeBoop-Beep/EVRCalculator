@@ -673,7 +673,8 @@ test("set value history direct-fetch effect requests only the scopes the active 
   // unconditional fanout over every SET_VALUE_SCOPE_OPTIONS entry.
   assert.ok(directEffectSource.includes("const desiredScopes = Array.from("));
   assert.ok(directEffectSource.includes('setDetailTab === "overview" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []'));
-  assert.ok(directEffectSource.includes("const requestedScopes = desiredScopes.filter((scope) => !seededLoadedScopes.includes(scope));"));
+  assert.ok(directEffectSource.includes("const requestedScopes = desiredScopes.filter("));
+  assert.ok(directEffectSource.includes("!seededLoadedScopes.includes(scope) && !alreadyLoadedScopes.includes(scope)"));
   assert.ok(!directEffectSource.includes("const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter("), "must not unconditionally request every scope");
   assert.ok(directFetchSource.includes("requestedScopes.map"));
   assert.ok(directFetchSource.includes("CANONICAL_SET_VALUE_SCOPE"));
@@ -881,12 +882,14 @@ test("Overview parity: the live market movers fetch result is read back in its n
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(
-    source.includes("const marketMoversLive = marketMoversState.payload || null;"),
-    "marketMoversLive must read marketMoversState.payload directly — getPokemonSetMarketMovers's normalized " +
-      "payload is already the flat { heatingUp, coolingOff, all, window } shape, not wrapped in a `.marketMovers` key"
+    source.includes("const marketMoversLive = activeMarketMoversState.payload || null;"),
+    "marketMoversLive must read activeMarketMoversState.payload directly — getPokemonSetMarketMovers's normalized " +
+      "payload is already the flat { heatingUp, coolingOff, all, window } shape, not wrapped in a `.marketMovers` key " +
+      "(activeMarketMoversState is the resolvedSetResourceId-guarded read of marketMoversState — see the set-switch " +
+      "stale-state regression test below)"
   );
   assert.ok(
-    !source.includes("const marketMoversLive = marketMoversState.payload?.marketMovers"),
+    !source.includes("const marketMoversLive = activeMarketMoversState.payload?.marketMovers"),
     "must not regress to reading a nonexistent nested `.marketMovers` key off the slim /market/movers payload"
   );
 });
@@ -2677,4 +2680,210 @@ test("Phase 4B: SET_PREFETCH_ADJACENT_LIMIT remains 0 and insights fetch is not 
   assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "adjacent prefetch must remain disabled by default");
   const insightsCallCount = (source.match(/getPokemonSetInsights\(/g) || []).length;
   assert.equal(insightsCallCount, 1, "insights must be fetched for the active set only, never adjacent sets");
+});
+
+// ---------------------------------------------------------------------------
+// Phase 6A: set-switch stale-state guard (regression fix) — topChaseState,
+// marketMoversState, overviewState, and cardsPageState each only reset to the
+// newly-selected set's "loading"/empty shape once their own fetch effect
+// fires (and those effects are gated on the matching tab being active, e.g.
+// setDetailTab === "overview"). If the user switches sets while on a
+// different tab (or the effect just hasn't committed yet), reading these
+// reducer/state values raw at render time can render the *previous* set's
+// cards/top-chase/movers/overview payload under the *new* set's title —
+// exactly the class of bug activeMarketDashboardState/
+// activeDirectSetValueState already guard against via a
+// `.setId === resolvedSetResourceId` check. These assertions pin the same
+// guard on the four modules that were missing it.
+// ---------------------------------------------------------------------------
+
+test("Phase 6A: topChaseState/marketMoversState/overviewState/cardsPageState are read through a resolvedSetResourceId-guarded derived value, not raw", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("const activeOverviewState ="), "overviewState must have a guarded derived value");
+  assert.ok(
+    source.includes("overviewState.setId === resolvedSetResourceId"),
+    "overviewState must be guarded by a resolvedSetResourceId check before being read at render time"
+  );
+  assert.ok(source.includes("const activeTopChaseState ="), "topChaseState must have a guarded derived value");
+  assert.ok(
+    source.includes("topChaseState.setId === resolvedSetResourceId"),
+    "topChaseState must be guarded by a resolvedSetResourceId check before being read at render time"
+  );
+  assert.ok(source.includes("const activeMarketMoversState ="), "marketMoversState must have a guarded derived value");
+  assert.ok(
+    source.includes("marketMoversState.setId === resolvedSetResourceId"),
+    "marketMoversState must be guarded by a resolvedSetResourceId check before being read at render time"
+  );
+  assert.ok(source.includes("const activeCardsPageState ="), "cardsPageState must have a guarded derived value");
+  assert.ok(
+    source.includes("cardsPageState.setId === resolvedSetResourceId"),
+    "cardsPageState must be guarded by a resolvedSetResourceId check before being read at render time"
+  );
+
+  // The raw reducer/state values must no longer be read directly anywhere
+  // outside their own declaration and fetch effect (which legitimately read
+  // their own previous value to decide the next dispatch/request). The one
+  // exception is topChaseState.setId, which appears exactly once — inside
+  // activeTopChaseState's own guard condition above.
+  const rawOverviewReads = (source.match(/overviewState\.(payload|status)\b/g) || []).length;
+  const rawTopChaseReads = (source.match(/topChaseState\.(payload|status|error)\b/g) || []).length;
+  const topChaseSetIdReads = (source.match(/topChaseState\.setId\b/g) || []).length;
+  const rawMarketMoversReads = (source.match(/marketMoversState\.(payload|status|error)\b/g) || []).length;
+  const rawCardsPageReads = (source.match(/cardsPageState\.(cards|status|error|pagination)\b/g) || []).length;
+
+  assert.equal(rawOverviewReads, 0, "overviewState.payload/status must not be read directly anymore — use activeOverviewState");
+  assert.equal(rawTopChaseReads, 0, "topChaseState.payload/status/error must not be read directly anymore — use activeTopChaseState");
+  assert.equal(topChaseSetIdReads, 1, "topChaseState.setId must only appear in activeTopChaseState's own guard condition");
+  assert.equal(rawMarketMoversReads, 0, "marketMoversState.payload/status/error must not be read directly anymore — use activeMarketMoversState");
+  assert.equal(rawCardsPageReads, 0, "cardsPageState.cards/status/error/pagination must not be read directly anymore — use activeCardsPageState");
+});
+
+// ---------------------------------------------------------------------------
+// Phase 6B: duplicate request audit (regression fix) — browser measurement
+// showed getPokemonSetCardsPage firing 3x on a single initial Cards-tab load
+// (getPokemonSetCardsPage had no in-flight join, unlike every other slim
+// endpoint in pokemonSetMarketClient.js), and getPokemonSetValueHistory
+// re-firing on every tab switch (Cards -> Pull Rates -> Insights -> Overview)
+// even when the "standard" scope was already loaded, because the effect only
+// checked seed/dashboard-cache sources, never its own previously-fetched
+// setValueHistoryState. These assertions pin both fixes.
+// ---------------------------------------------------------------------------
+
+test("Phase 6B: getPokemonSetCardsPage joins concurrent identical requests, same pattern as the slim market client", () => {
+  const source = fs.readFileSync(cardsClientPath, "utf8");
+
+  // Renamed in Phase 6C from cardsPageInflight/joinCardsPageRequest when the
+  // same join was extended to getPokemonSetCardsValidation — keys are
+  // namespaced per endpoint so the two never collide.
+  assert.ok(source.includes("const cardsClientInflight = new Map();"), "cards client must have its own in-flight map");
+  assert.ok(source.includes("function joinCardsClientRequest("), "cards client must expose a join helper");
+
+  const fnStart = source.indexOf("export async function getPokemonSetCardsPage(");
+  const fnEnd = source.indexOf("\nexport ", fnStart + 1);
+  const fnSource = source.slice(fnStart, fnEnd < 0 ? source.length : fnEnd);
+
+  assert.ok(fnStart >= 0, "getPokemonSetCardsPage must exist");
+  assert.ok(fnSource.includes("joinCardsClientRequest("), "getPokemonSetCardsPage must route its fetch through the in-flight join");
+  assert.ok(fnSource.includes("cacheKey = `cards-page:"), "the join key must be built from the resolved set id and request params");
+});
+
+test("Phase 6B: Cards tab fetch effect skips re-issuing an identical page/sort/filter request via a stable request-key ref", () => {
+  // Normalize CRLF -> LF: this file has mixed line endings, and multi-line
+  // anchors like "\n\n  useEffect(() => {" silently fail to match against a
+  // "\r\n\r\n  useEffect(() => {" run without this.
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes("const lastCardsPageRequestKeyRef = useRef(null);"),
+    "must track the last cards-page request key issued, to skip identical repeats across tab revisits"
+  );
+
+  const effectStart = source.indexOf('debugSetPagePerf("cards_page.tab_fetch_start"');
+  const effectSectionStart = source.lastIndexOf("useEffect(() => {", effectStart);
+  const effectSectionEnd = source.indexOf("\n\n  useEffect(() => {", effectStart);
+  const effectSource = source.slice(effectSectionStart, effectSectionEnd);
+
+  assert.ok(effectSectionStart >= 0 && effectSectionEnd > effectSectionStart);
+  assert.ok(
+    effectSource.includes("const cardsPageRequestKey = ["),
+    "the request key must be built from every param that changes the fetched resource"
+  );
+  assert.ok(
+    effectSource.includes("if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey)") &&
+      effectSource.includes("return undefined;"),
+    "an identical repeated request key must skip re-fetching"
+  );
+  assert.ok(
+    effectSource.includes("lastCardsPageRequestKeyRef.current = cardsPageRequestKey;"),
+    "the effect must claim the request key before issuing the fetch"
+  );
+  assert.ok(
+    effectSource.includes("lastCardsPageRequestKeyRef.current = null;"),
+    "the claimed key must be released on error so a later retry isn't permanently blocked"
+  );
+});
+
+test("Phase 6B: set value history direct-fetch effect skips scopes already present in its own setValueHistoryState", () => {
+  // Normalize CRLF -> LF (see note above) so the multi-line effect-boundary
+  // anchor matches.
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const directFetchStart = source.indexOf('debugSetPagePerf("set_value.direct_fetch_start"');
+  const directEffectStart = source.lastIndexOf("useEffect(() => {", directFetchStart);
+  const directEffectEnd = source.indexOf("activeMarketDashboardDerivedState,\n  ]);", directFetchStart);
+  const directEffectSource = source.slice(directEffectStart, directEffectEnd);
+
+  assert.ok(directEffectStart >= 0 && directEffectEnd > directEffectStart);
+  assert.ok(
+    directEffectSource.includes(
+      "const alreadyLoadedScopes =\n      setValueHistoryState.setId === setId ? setValueHistoryState.loadedScopes || [] : [];"
+    ) || directEffectSource.includes("setValueHistoryState.setId === setId ? setValueHistoryState.loadedScopes || [] : [];"),
+    "must check the live setValueHistoryState (not just seed/dashboard-cache sources) before deciding which scopes to fetch"
+  );
+  assert.ok(
+    directEffectSource.includes("!seededLoadedScopes.includes(scope) && !alreadyLoadedScopes.includes(scope)"),
+    "requestedScopes must exclude scopes already present in either the seed or the effect's own prior state"
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Phase 6C: remaining same-pattern duplicate guards — browser measurement
+// showed /pull-rates ×3-4, /cards/validation ×3-4, and /overview,
+// /market/top-chase, /market/movers each ×4 on Overview revisit, from the
+// same two gaps Phase 6B fixed for cards-page/value-history: no client-level
+// in-flight join (concurrent StrictMode remount duplicates) and no effect
+// request-key guard (sequential re-runs from tab revisits and prop-identity
+// churn after router transitions). These assertions pin both fix layers.
+// ---------------------------------------------------------------------------
+
+test("Phase 6C: pull-rates, insights, and cards-validation clients join concurrent identical requests", () => {
+  const pullRatesSource = fs.readFileSync(pullRatesClientPath, "utf8");
+  assert.ok(pullRatesSource.includes("const pullRatesInflight = new Map();"), "pull-rates client must have an in-flight map");
+  assert.ok(pullRatesSource.includes("joinPullRatesRequest(`pull-rates:"), "getPokemonSetPullRates must route through the join");
+
+  const insightsSource = fs.readFileSync(insightsClientPath, "utf8");
+  assert.ok(insightsSource.includes("const insightsInflight = new Map();"), "insights client must have an in-flight map");
+  assert.ok(insightsSource.includes("joinInsightsRequest(`insights:"), "getPokemonSetInsights must route through the join");
+
+  const cardsSource = fs.readFileSync(cardsClientPath, "utf8");
+  const validationStart = cardsSource.indexOf("export async function getPokemonSetCardsValidation(");
+  const validationEnd = cardsSource.indexOf("\nexport ", validationStart + 1);
+  const validationSource = cardsSource.slice(validationStart, validationEnd < 0 ? cardsSource.length : validationEnd);
+  assert.ok(validationStart >= 0, "getPokemonSetCardsValidation must exist");
+  assert.ok(
+    validationSource.includes("joinCardsClientRequest(") && validationSource.includes("cacheKey = `cards-validation:"),
+    "getPokemonSetCardsValidation must route through the shared cards-client join with its own key namespace"
+  );
+});
+
+test("Phase 6C: every per-tab module fetch effect has a request-key guard that skips identical repeats and releases on error/unsettled cleanup", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const modules = [
+    { ref: "lastPullRatesRequestKeyRef", key: "pullRatesRequestKey", skipLog: "pull_rates.tab_fetch_skipped_duplicate" },
+    { ref: "lastCardsValidationRequestKeyRef", key: "cardsValidationRequestKey", skipLog: "cards.tab_fetch_skipped_duplicate" },
+    { ref: "lastOverviewRequestKeyRef", key: "overviewRequestKey", skipLog: "overview.tab_fetch_skipped_duplicate" },
+    { ref: "lastTopChaseRequestKeyRef", key: "topChaseRequestKey", skipLog: "top_chase.tab_fetch_skipped_duplicate" },
+    { ref: "lastMarketMoversRequestKeyRef", key: "marketMoversRequestKey", skipLog: "market_movers.tab_fetch_skipped_duplicate" },
+  ];
+
+  for (const { ref, key, skipLog } of modules) {
+    assert.ok(source.includes(`const ${ref} = useRef(null);`), `${ref} must be declared`);
+    assert.ok(
+      source.includes(`if (${ref}.current === ${key}) {`),
+      `${ref} must skip re-issuing an identical ${key}`
+    );
+    assert.ok(source.includes(`debugSetPagePerf("${skipLog}"`), `skipping must be observable via ${skipLog}`);
+    assert.ok(source.includes(`${ref}.current = ${key};`), `${ref} must claim the key before fetching`);
+    // Released on error (retry stays possible) and on unsettled cleanup (a
+    // response ignored via isCancelled must not strand the tab in loading).
+    const releaseCount = (source.match(new RegExp(`${ref}\\.current = null;`, "g")) || []).length;
+    assert.ok(releaseCount >= 2, `${ref} must be released both on error and on unsettled cleanup (found ${releaseCount} release sites)`);
+  }
+
+  // The unsettled-cleanup pattern requires each guarded fetch to track
+  // settlement — one requestSettled flag per guarded effect (5 above plus
+  // the Phase 6B cards-page effect and the Insights fetchKey effect).
+  const settledFlagCount = (source.match(/let requestSettled = false;/g) || []).length;
+  assert.equal(settledFlagCount, 7, "every guarded fetch effect must track request settlement for its cleanup release");
 });

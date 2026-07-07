@@ -52,7 +52,6 @@ from backend.db.services.pokemon_set_cards_service import (
 )
 from backend.db.services.pokemon_set_market_service import (
     PokemonSetMarketError,
-    get_pokemon_set_market_movers_payload,
 )
 from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_explore_rankings_snapshot_payload,
@@ -61,6 +60,7 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_cards_snapshot_payload,
     get_pokemon_set_insights_snapshot_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
+    get_pokemon_set_market_movers_snapshot_payload,
     get_pokemon_set_overview_snapshot_payload,
     get_pokemon_set_page_snapshot_payload,
     get_pokemon_set_pull_rates_snapshot_payload,
@@ -848,7 +848,7 @@ def get_pokemon_set_market_movers(
 ):
     """Return market movers for a single requested window for a Pokemon set."""
     try:
-        return get_pokemon_set_market_movers_payload(set_id=set_id, window=window or "30D", limit=limit)
+        return get_pokemon_set_market_movers_snapshot_payload(set_id=set_id, window=window or "30D", limit=limit)
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},

@@ -2663,6 +2663,401 @@ def test_top_chase_payload_serialized_size_is_under_250kb(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Phase 5.7 — Market Movers now reads pokemon_set_market_dashboard_snapshot_latest
+# (payload_json->marketMoversByWindow) via a narrow PostgREST JSON-path select,
+# instead of live-aggregating card_variant_price_observations on every
+# request. These tests guard the read-model path, the safe-empty fallback,
+# and that the live aggregation path is never touched when a snapshot exists.
+# ---------------------------------------------------------------------------
+
+
+def _mover_card(card_id, *, score=10.0, label="heating_up", price=100.0):
+    return {
+        "cardId": card_id,
+        "name": f"Card {card_id}",
+        "currentPrice": price,
+        "change30dAmount": 5.0,
+        "change30dPercent": 5.0,
+        "movementScore": score,
+        "movementLabel": label,
+        "enoughHistory": True,
+        "confidence": "medium",
+    }
+
+
+def _market_movers_by_window(
+    *,
+    heating_30d=None,
+    cooling_30d=None,
+    heating_7d=None,
+    cooling_7d=None,
+    heating_1d=None,
+    cooling_1d=None,
+):
+    def entry(window, days, heating, cooling):
+        heating = heating if heating is not None else [_mover_card("30d-heat-1", score=42.0)]
+        cooling = cooling if cooling is not None else [_mover_card("30d-cool-1", score=-10.0, label="cooling_off")]
+        return {
+            "window": window,
+            "windowDays": days,
+            "heatingUp": heating,
+            "heating_up": heating,
+            "coolingOff": cooling,
+            "cooling_off": cooling,
+            "all": [*heating, *cooling],
+        }
+
+    return {
+        "1D": entry("1D", 1, heating_1d, cooling_1d),
+        "7D": entry("7D", 7, heating_7d, cooling_7d),
+        "30D": entry("30D", 30, heating_30d, cooling_30d),
+    }
+
+
+def _make_movers_handler(rows_by_window_key, *, calls=None):
+    """Fake `pokemon_set_market_dashboard_snapshot_latest` table handler that
+    simulates PostgREST's JSON-path push-down
+    (`payload_json->marketMoversByWindow->30D->heatingUp` /
+    `->coolingOff`): the real query never transfers the full payload_json
+    blob (nor the unused "all" list), so this fake resolves the requested
+    mover sub-window's heatingUp/coolingOff arrays straight from the select
+    string's aliases, exactly like Postgres would do server-side."""
+
+    def handler(query):
+        if calls is not None:
+            calls.append(query)
+        requested_window_key = None
+        for field, value in query.eq_filters:
+            if field == "window_key":
+                requested_window_key = value
+        row = rows_by_window_key.get(requested_window_key)
+        if not row:
+            return []
+        mover_window = None
+        for candidate in ("1D", "7D", "30D"):
+            if f"marketMoversByWindow->{candidate}->" in query.select_fields:
+                mover_window = candidate
+                break
+        movers_by_window = row.get("_market_movers_by_window") or {}
+        entry = movers_by_window.get(mover_window)
+        result_row = {key: value for key, value in row.items() if not key.startswith("_")}
+        result_row["heating"] = (entry or {}).get("heatingUp") if entry is not None else None
+        result_row["cooling"] = (entry or {}).get("coolingOff") if entry is not None else None
+        return [result_row]
+
+    return handler
+
+
+def test_market_movers_snapshot_reads_from_read_model(monkeypatch):
+    calls = []
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client(
+        {"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row}, calls=calls)}
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID)
+
+    assert len(calls) == 1, "must read the snapshot row in a single query"
+    assert payload["meta"]["snapshot"]["usedReadModel"] is True
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
+    assert payload["meta"]["snapshot"]["sourceField"] == "payload_json.marketMoversByWindow.heatingUp/coolingOff"
+
+
+def test_market_movers_snapshot_preserves_heating_cooling_order(monkeypatch):
+    heating = [_mover_card("h1", score=90.0), _mover_card("h2", score=50.0), _mover_card("h3", score=10.0)]
+    cooling = [_mover_card("c1", score=-80.0, label="cooling_off"), _mover_card("c2", score=-20.0, label="cooling_off")]
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(heating_30d=heating, cooling_30d=cooling),
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D", limit=5)
+
+    assert [c["cardId"] for c in payload["marketMovers"]["heatingUp"]] == ["h1", "h2", "h3"]
+    assert [c["cardId"] for c in payload["marketMovers"]["coolingOff"]] == ["c1", "c2"]
+
+
+def test_market_movers_snapshot_preserves_scores_labels_and_deltas(monkeypatch):
+    card = _mover_card("h1", score=42.7574, label="heating_up", price=556.57)
+    card["change30dAmount"] = 41.81
+    card["change30dPercent"] = 8.12
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(heating_30d=[card], cooling_30d=[]),
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+    served = payload["marketMovers"]["heatingUp"][0]
+
+    assert served["movementScore"] == 42.7574
+    assert served["movementLabel"] == "heating_up"
+    assert served["change30dAmount"] == 41.81
+    assert served["change30dPercent"] == 8.12
+    assert served["currentPrice"] == 556.57
+
+
+def test_market_movers_snapshot_safe_empty_when_snapshot_missing(monkeypatch):
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: []})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+
+    assert payload["marketMovers"]["heatingUp"] == []
+    assert payload["marketMovers"]["coolingOff"] == []
+    assert "all" not in payload["marketMovers"], "the slim contract no longer serves the unused 'all' field"
+    assert payload["meta"]["snapshot"]["usedReadModel"] is False
+    assert "missing" in payload["meta"]["snapshot"]["source"]
+
+
+def test_market_movers_snapshot_safe_empty_when_window_absent_from_stored_payload(monkeypatch):
+    """A stale row whose marketMoversByWindow predates a mover window (or is
+    simply empty) must serve safe empty data, not raise."""
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-20",
+        "updated_at": "2026-06-20T00:00:00+00:00",
+        "_market_movers_by_window": {},
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+
+    assert payload["marketMovers"]["heatingUp"] == []
+    assert payload["marketMovers"]["coolingOff"] == []
+
+
+def test_market_movers_snapshot_never_calls_live_aggregation(monkeypatch):
+    """The slim /market/movers snapshot reader must never fall back to the
+    live build_pokemon_set_card_movement_payload aggregation — a missing or
+    incomplete snapshot serves a safe empty payload instead, exactly like its
+    top-chase/overview siblings."""
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    def _fail_if_called(*_args, **_kwargs):
+        raise AssertionError("build_pokemon_set_card_movement_payload must not be called")
+
+    monkeypatch.setattr(pokemon_set_market_service, "build_pokemon_set_card_movement_payload", _fail_if_called)
+    monkeypatch.setattr(pokemon_set_market_service, "get_pokemon_set_market_movers_payload", _fail_if_called)
+
+    # Also exercise the missing-snapshot path with the live functions patched
+    # to raise, proving the empty-fallback path truly never calls them either.
+    pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+
+    empty_client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: []})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", empty_client)
+    pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+
+
+def test_market_movers_snapshot_normalizes_window_case(monkeypatch):
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    upper = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+    lower = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30d")
+
+    assert upper["window"] == "30D"
+    assert lower["window"] == "30D", "lowercase '30d' must normalize to the same '30D' window as uppercase"
+    assert upper["marketMovers"]["heatingUp"] == lower["marketMovers"]["heatingUp"]
+
+
+def test_market_movers_snapshot_falls_back_to_30d_row_when_365d_missing(monkeypatch):
+    row_30d = {
+        "set_id": _TEST_UUID,
+        "window_key": "30d",
+        "latest_market_date": "2026-06-20",
+        "updated_at": "2026-06-20T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"30d": row_30d})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+
+    assert payload["meta"]["snapshot"]["usedFallbackWindow"] is True
+    assert payload["meta"]["snapshot"]["fallbackReason"] == "missing_365d_row"
+    assert len(payload["marketMovers"]["heatingUp"]) > 0
+
+
+def test_market_movers_snapshot_response_shape_matches_frontend_normalizer_contract(monkeypatch):
+    """normalizeMarketMoversPayload (pokemonSetMarketClient.js) reads
+    payload.marketMovers.{heatingUp,coolingOff,window,windowDays} and falls
+    back to synthesizing `all` from heatingUp+coolingOff when the source
+    lacks it (Phase 5.8: the slim contract intentionally omits `all` — see
+    normalizeMarketMoversEntry's `Array.isArray(source?.all) ? source.all :
+    [...heating, ...cooling]` fallback), so the snapshot-backed payload only
+    needs to keep serving heatingUp/coolingOff/window/windowDays."""
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D", limit=5)
+
+    market_movers = payload["marketMovers"]
+    assert set(["window", "windowDays", "heatingUp", "coolingOff"]).issubset(market_movers.keys())
+    assert "all" not in market_movers, "the slim contract must not serve the unused 'all' field"
+    assert isinstance(market_movers["heatingUp"], list)
+    assert isinstance(market_movers["coolingOff"], list)
+    first_card = market_movers["heatingUp"][0]
+    for field in ("cardId", "name", "currentPrice", "change30dAmount", "change30dPercent", "movementScore", "movementLabel"):
+        assert field in first_card
+
+
+def test_market_movers_snapshot_never_returns_full_dashboard_fields(monkeypatch):
+    """The movers-only slim payload must never leak the full monolithic
+    dashboard contract's other fields (set value histories, top chase, etc.)."""
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
+
+    for forbidden_key in (
+        "setValueHistoriesByScope",
+        "performanceVsCostHistory",
+        "topChaseCards",
+        "topChaseCardHistories",
+        "availableScopes",
+        "payload_json",
+    ):
+        assert forbidden_key not in payload
+    assert set(payload.keys()) == {"set", "window", "windowDays", "marketMovers", "meta"}
+
+
+def test_full_market_dashboard_still_preserves_all_field(monkeypatch):
+    """Phase 5.8 Gate 5 only trims the slim /market/movers contract. The full
+    /market/dashboard payload (get_pokemon_set_market_dashboard_snapshot_payload)
+    reads payload_json directly and must keep serving `all` unchanged — it's
+    a separate code path from get_pokemon_set_market_movers_snapshot_payload
+    and this phase must not touch it."""
+    row = _overview_dashboard_row(
+        payload_json={
+            "marketMovers": {"heatingUp": [{"cardId": "card-1"}], "coolingOff": [], "all": [{"cardId": "card-1"}]},
+            "marketMoversByWindow": {
+                "30D": {"heatingUp": [{"cardId": "card-1"}], "coolingOff": [], "all": [{"cardId": "card-1"}]},
+            },
+        }
+    )
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(_TEST_UUID)
+
+    assert "all" in payload["marketMovers"], "full dashboard marketMovers must still include 'all'"
+    assert payload["marketMovers"]["all"] == [{"cardId": "card-1"}]
+    assert "all" in payload["marketMoversByWindow"]["30D"], "full dashboard marketMoversByWindow must still include 'all'"
+    assert payload["marketMoversByWindow"]["30D"]["all"] == [{"cardId": "card-1"}]
+
+
+def test_market_movers_snapshot_query_selects_only_narrow_json_path(monkeypatch):
+    """Guards the bandwidth fix itself: the select string must reference only
+    the requested mover window's heatingUp/coolingOff JSON paths — never the
+    bare payload_json column (the ~3MB monolithic blob) and never the "all"
+    sub-path (Phase 5.8 Gate 4/5: unused by the UI, dropped at the query
+    level so it's never even transferred from Postgres)."""
+    calls = []
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client(
+        {"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row}, calls=calls)}
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="7D")
+
+    assert len(calls) == 1
+    select_fields = calls[0].select_fields
+    assert "marketMoversByWindow->7D->heatingUp" in select_fields
+    assert "marketMoversByWindow->7D->coolingOff" in select_fields
+    assert "marketMoversByWindow->7D->all" not in select_fields, "must never select the unused 'all' sub-path"
+    assert select_fields.count("payload_json") == 2, "must select exactly two narrow JSON paths off payload_json, not the whole column"
+    assert not select_fields.rstrip(",").endswith("payload_json"), "must not select the bare payload_json column"
+
+
+def test_market_movers_snapshot_resolves_prismatic_evolutions(monkeypatch):
+    sets_rows = [
+        {"id": "set-uuid-1", "name": "Prismatic Evolutions", "canonical_key": "prismaticEvolutions", "pokemon_api_set_id": "sv8pt5"}
+    ]
+
+    def read_sets(query):
+        if query.eq_filters:
+            field, value = query.eq_filters[-1]
+            return [row for row in sets_rows if row.get(field) == value]
+        return sets_rows
+
+    row = {
+        "set_id": "set-uuid-1",
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": _market_movers_by_window(),
+    }
+    client = _Client(
+        {
+            "sets": read_sets,
+            "pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row}),
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload("prismatic-evolutions")
+
+    assert payload["set"]["id"] == "set-uuid-1"
+    assert len(payload["marketMovers"]["heatingUp"]) > 0
+
+
+# ---------------------------------------------------------------------------
 # Phase 3A — new v2-style slim contracts (overview, top-chase) must be
 # camelCase-only, with no legacy snake_case alias duplicates. The legacy
 # /market/dashboard contract is intentionally left alone in this phase.

@@ -10,6 +10,29 @@ const isDev = process.env.NODE_ENV !== "production";
 const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
 const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 
+// Shared in-flight join map for the slim per-module Overview fetches
+// (overview, top-chase, movers, value-history). React 18 StrictMode
+// double-invokes effects in development, and each of these effects has no
+// AbortController — only a local isCancelled flag that ignores the second
+// result. Both requests still hit the network, doubling load on an already
+// slow backend read path (see pokemon_set_market_service.py market movers)
+// and occasionally tripping a Windows httpx/HTTP2 connection-pool race under
+// concurrent duplicate load. Joining identical concurrent calls onto one
+// in-flight promise (same pattern as marketDashboardInflight above) removes
+// the duplicate network round trip without adding any persistent caching.
+const slimModuleInflight = new Map();
+
+function joinSlimModuleRequest(key, factory) {
+  if (slimModuleInflight.has(key)) {
+    return slimModuleInflight.get(key);
+  }
+  const request = factory().finally(() => {
+    slimModuleInflight.delete(key);
+  });
+  slimModuleInflight.set(key, request);
+  return request;
+}
+
 function nowMs() {
   return Date.now();
 }
@@ -746,16 +769,19 @@ export async function getPokemonSetTopChase(setId, { window = "30D", limit = 10 
     params.set("limit", String(limit));
   }
 
-  const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase${params.toString() ? `?${params}` : ""}`,
-    {
-      method: "GET",
-    }
-  );
+  const cacheKey = `top-chase:${resolvedSetId}:${window || ""}:${limit || ""}`;
+  return joinSlimModuleRequest(cacheKey, async () => {
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase${params.toString() ? `?${params}` : ""}`,
+      {
+        method: "GET",
+      }
+    );
 
-  return normalizeTopChasePayload(
-    await readJsonResponse(response, "Unable to load top chase cards")
-  );
+    return normalizeTopChasePayload(
+      await readJsonResponse(response, "Unable to load top chase cards")
+    );
+  });
 }
 
 export async function getPokemonSetValueHistory(setId, { days = 365, scope = "standard" } = {}) {
@@ -772,16 +798,19 @@ export async function getPokemonSetValueHistory(setId, { days = 365, scope = "st
     params.set("scope", String(scope));
   }
 
-  const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/value-history${params.toString() ? `?${params}` : ""}`,
-    {
-      method: "GET",
-    }
-  );
+  const cacheKey = `value-history:${resolvedSetId}:${days || ""}:${scope || ""}`;
+  return joinSlimModuleRequest(cacheKey, async () => {
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/value-history${params.toString() ? `?${params}` : ""}`,
+      {
+        method: "GET",
+      }
+    );
 
-  return normalizeSetValueHistoryPayload(
-    await readJsonResponse(response, "Unable to load set value history")
-  );
+    return normalizeSetValueHistoryPayload(
+      await readJsonResponse(response, "Unable to load set value history")
+    );
+  });
 }
 
 export function normalizeOverviewPayload(payload) {
@@ -830,16 +859,19 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
     params.set("window", normalizedWindow);
   }
 
-  const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/overview${params.toString() ? `?${params}` : ""}`,
-    {
-      method: "GET",
-    }
-  );
+  const cacheKey = `overview:${resolvedSetId}:${normalizedWindow || ""}`;
+  return joinSlimModuleRequest(cacheKey, async () => {
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/overview${params.toString() ? `?${params}` : ""}`,
+      {
+        method: "GET",
+      }
+    );
 
-  return normalizeOverviewPayload(
-    await readJsonResponse(response, "Unable to load set overview")
-  );
+    return normalizeOverviewPayload(
+      await readJsonResponse(response, "Unable to load set overview")
+    );
+  });
 }
 
 export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 5 } = {}) {
@@ -856,14 +888,17 @@ export async function getPokemonSetMarketMovers(setId, { window = "30D", limit =
     params.set("limit", String(limit));
   }
 
-  const response = await fetch(
-    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,
-    {
-      method: "GET",
-    }
-  );
+  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}`;
+  return joinSlimModuleRequest(cacheKey, async () => {
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,
+      {
+        method: "GET",
+      }
+    );
 
-  return normalizeMarketMoversPayload(
-    await readJsonResponse(response, "Unable to load market movers")
-  );
+    return normalizeMarketMoversPayload(
+      await readJsonResponse(response, "Unable to load market movers")
+    );
+  });
 }
