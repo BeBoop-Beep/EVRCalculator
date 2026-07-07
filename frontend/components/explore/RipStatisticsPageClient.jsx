@@ -14,11 +14,13 @@ import {
   YAxis,
 } from "recharts";
 
+import ChartFrame from "@/components/explore/ChartFrame";
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
+import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
 import InfoPopover from "@/components/ui/InfoPopover";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
@@ -47,13 +49,19 @@ import {
 } from "@/lib/explore/interpretationTone";
 import {
   getCachedPokemonSetCards,
-  getPokemonSetCards,
+  getPokemonSetCardsPage,
+  getPokemonSetCardsValidation,
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import {
   getCachedPokemonSetMarketDashboard,
-  getPokemonSetMarketDashboard,
+  getPokemonSetMarketMovers,
+  getPokemonSetOverview,
+  getPokemonSetTopChase,
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
+import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
+import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";
+import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import {
   buildMarketDashboardStateFromPayload,
   createMarketDashboardState,
@@ -109,9 +117,14 @@ const SECTION_SCROLL_ORDER = [
 ];
 const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
-// Only these tabs render content sourced from the full set /page snapshot.
-// Cards/Overview must never trigger that fetch (see canFetchSetDetailModules).
-const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set(["pull-rates", "insights"]);
+// No set-detail tab renders content sourced from the full set /page snapshot
+// anymore. Pull Rates moved off this list in Phase 4A (getPokemonSetPullRates)
+// and Insights moved off it in Phase 4B (getPokemonSetInsights — see the
+// Insights tab fetch effect below). Kept as an always-empty set (rather than
+// removed outright) so the two legacy full-page effects below stay inert
+// without needing to delete fetchPokemonSetPageSnapshot or its supporting
+// state — a wider cleanup for a future phase.
+const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set([]);
 const CANONICAL_SET_VALUE_SCOPE = "standard";
 const SET_VALUE_SCOPE_OPTIONS = [
   { key: "standard", label: "Checklist" },
@@ -130,8 +143,14 @@ const CARD_MOVEMENT_FILTER_OPTIONS = [
   { value: "heating", label: "Heating Up" },
   { value: "cooling", label: "Cooling Off" },
 ];
+// Matches backend DEFAULT_CARDS_PAGE_SIZE (pokemon_public_snapshot_service.py).
+const CARDS_PAGE_SIZE = 60;
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
 const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
+// Fixed request window for the slim /market/top-chase fetch — unrelated to
+// topMarketCardsWindowKey, which only picks which already-fetched delta to
+// display client-side.
+const DEFAULT_TOP_CHASE_MARKET_WINDOW = "30D";
 // 3M/6M/1Y/Lifetime are intentionally not offered yet — the movement guardrails
 // and stored snapshot windows only cover 1D/7D/30D so far.
 const MARKET_MOVERS_WINDOW_OPTIONS = [
@@ -146,6 +165,16 @@ const DEFAULT_MARKET_MOVERS_WINDOW = "30D";
 // Keep the mechanism but disable it by default — the active destination set
 // is enough; bump this only behind a deliberate, measured decision.
 const SET_PREFETCH_ADJACENT_LIMIT = 0;
+// Overview holds one cohesive skeleton until its critical assets (set value
+// history, /overview payload, top chase, market movers) have all settled for
+// the active set, instead of letting each card pop in independently. The cap
+// below force-reveals whatever is available if any fetch hangs, so a stuck
+// request can never wedge the whole tab behind a skeleton.
+const OVERVIEW_COHESIVE_LOADING_MAX_MS = 8000;
+// Insights sections that depend on the /insights payload show skeletons while
+// it loads; after this long they switch to an explicit "taking longer than
+// expected" fallback instead of shimmering forever.
+const INSIGHTS_PENDING_TIMEOUT_MS = 8000;
 const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
 const SET_DETAIL_TAB_ALIASES = {
   analytics: "insights",
@@ -316,6 +345,57 @@ async function fetchPokemonSetPageSnapshot(setId, { signal } = {}) {
     throw error;
   }
   return payload;
+}
+
+// Insights tab (Phase 4B): the slim getPokemonSetInsights contract is
+// camelCase-only on the wire, but the Insights render tree below (RIP score
+// breakdown, RipDistributionChart, RarityContributionContent, PackValueHistoryChart,
+// InterpretationInsight, etc.) still reads explorePayload/summary fields in
+// snake_case, the same shape the old full /page payload used. Rather than
+// touch every one of those read sites, dualKeyCase mechanically adds the
+// snake_case sibling for every camelCase key (the same dual-key convention
+// pokemon_public_snapshot_service.py already uses elsewhere, e.g.
+// enrich_cards_payload_with_desirability) so both spellings resolve to the
+// same value. No analytics/derivation logic lives here — it is a pure
+// key-casing adapter.
+function dualKeyCase(value) {
+  if (Array.isArray(value)) {
+    return value.map(dualKeyCase);
+  }
+  if (value && typeof value === "object") {
+    const result = {};
+    for (const [key, inner] of Object.entries(value)) {
+      const convertedInner = dualKeyCase(inner);
+      result[key] = convertedInner;
+      const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+      if (snakeKey !== key && !(snakeKey in value)) {
+        result[snakeKey] = convertedInner;
+      }
+    }
+    return result;
+  }
+  return value;
+}
+
+function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
+  const outcomeDistribution = normalized?.outcomeDistribution || {};
+  const meta = normalized?.meta || { warnings: [] };
+  const isEmptyFallback = String(meta.source || "").startsWith("empty_fallback");
+  return {
+    set: normalized?.set || null,
+    summary: dualKeyCase(normalized?.summary || {}),
+    interpretation: normalized?.interpretation || {},
+    rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
+    percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
+    distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
+    threshold_bins: dualKeyCase(outcomeDistribution.thresholdBins || []),
+    top_hits: dualKeyCase(normalized?.simulationDrivers || []),
+    rankings: dualKeyCase(normalized?.rarityContribution || []),
+    history_trend: dualKeyCase(normalized?.historyTrend || []),
+    openingDesirability: normalized?.desirability || null,
+    desirabilityValidation: normalized?.desirabilityValidation || null,
+    meta: isEmptyFallback ? { ...meta, fallback: true } : meta,
+  };
 }
 
 function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }) {
@@ -1355,6 +1435,31 @@ function getPaddedNumberDomain(values, { floorAtZero = false, fallback = [0, 100
   return [Number(min.toFixed(2)), Number(max.toFixed(2))];
 }
 
+function hasRenderableOutcomeDistributionRows(distributionRows, thresholdRows) {
+  const thresholdSource = Array.isArray(thresholdRows) ? thresholdRows : [];
+  const distributionSource = Array.isArray(distributionRows) ? distributionRows : [];
+  const source = thresholdSource.length > 0 ? thresholdSource : distributionSource;
+  return source.some((row) => {
+    const floor = toNumber(row?.threshold_floor ?? row?.bin_floor);
+    const ceiling = toNumber(row?.threshold_ceiling ?? row?.bin_ceiling);
+    const probability = toNumber(row?.probability);
+    return (floor !== null || ceiling !== null) && probability !== null;
+  });
+}
+
+function hasRenderablePackPathRows(packPaths, normalStateRows) {
+  const source = packPaths && typeof packPaths === "object" ? packPaths : {};
+  const hasPackPathCounts = Object.values(source).some((value) => {
+    const count = toNumber(value);
+    return count !== null && count > 0;
+  });
+  const hasNormalStateCounts = (Array.isArray(normalStateRows) ? normalStateRows : []).some(([, value]) => {
+    const count = toNumber(value);
+    return count !== null && count > 0;
+  });
+  return hasPackPathCounts || hasNormalStateCounts;
+}
+
 function getMarketReadSummary({ packCost, averagePackValue, returnRatio, setValue, topShare, chaseDepth }) {
   const hasPriceValue = packCost !== null && averagePackValue !== null;
   const pricePosition = hasPriceValue
@@ -1502,6 +1607,32 @@ function hasNegativeMovement(card) {
   return (movement?.amount ?? movement?.score ?? 0) < 0;
 }
 
+// Card-shaped placeholder for the checklist grid's image slot: a faint
+// trading-card silhouette inside the tile's aspect-ratio box. `shimmer`
+// pulses while the remote image is still loading; the static variant with a
+// label is the settled "image unavailable" presentation (missing URL or a
+// failed load) — intentionally distinct from the loading state so a slow
+// image never reads as a broken card.
+function CardImagePlaceholder({ shimmer = false, label = null }) {
+  return (
+    <div
+      className={`absolute inset-1 flex flex-col items-center justify-center gap-1.5 rounded-md border border-[rgba(255,255,255,0.05)] ${
+        shimmer ? "animate-pulse bg-[rgba(148,163,184,0.09)]" : "bg-[rgba(148,163,184,0.05)]"
+      }`}
+      aria-hidden={label ? undefined : "true"}
+    >
+      <svg viewBox="0 0 24 24" className="h-9 w-9 text-[rgba(148,163,184,0.35)]" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden="true">
+        <rect x="5.5" y="3" width="13" height="18" rx="1.8" />
+        <circle cx="12" cy="9.5" r="2.4" />
+        <path d="M8.4 16.6c1-1.7 2.2-2.6 3.6-2.6s2.6.9 3.6 2.6" />
+      </svg>
+      {label ? (
+        <span className="px-2 text-center text-[10px] font-medium leading-tight text-[rgba(148,163,184,0.6)]">{label}</span>
+      ) : null}
+    </div>
+  );
+}
+
 function ChecklistCardTile({ card }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
   const name = card?.name || "Unknown card";
@@ -1512,25 +1643,42 @@ function ChecklistCardTile({ card }) {
   // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
   const marketDelta = getCardMovement30d(card) || getCardMarketDelta(card);
   const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
+  // Remote card art lands well after the tile's data (about a second on a
+  // cold cache), so the aspect-ratio box shows a shimmering card silhouette
+  // and the image fades in once loaded — the grid keeps its final layout
+  // instead of flashing empty frames. Cached images may complete before
+  // React attaches onLoad (SSR-seeded grids), so the ref checks .complete.
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [hasImageFailed, setHasImageFailed] = useState(false);
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+    setHasImageFailed(false);
+  }, [imageUrl]);
 
   return (
     <article className="group overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
       <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-[rgba(2,6,23,0.46)] p-1">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={name}
-            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.01]"
-            loading="lazy"
-            decoding="async"
-          />
+        {imageUrl && !hasImageFailed ? (
+          <>
+            {!isImageLoaded ? <CardImagePlaceholder shimmer /> : null}
+            <img
+              ref={(node) => {
+                if (node && node.complete && node.naturalWidth > 0) {
+                  setIsImageLoaded(true);
+                }
+              }}
+              src={imageUrl}
+              alt={name}
+              onLoad={() => setIsImageLoaded(true)}
+              onError={() => setHasImageFailed(true)}
+              className={`h-full w-full object-contain transition-all duration-300 group-hover:scale-[1.01] ${isImageLoaded ? "opacity-100" : "opacity-0"}`}
+              loading="lazy"
+              decoding="async"
+            />
+          </>
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-3 text-center text-[var(--text-secondary)]">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]">
-              {getCardInitials(name)}
-            </span>
-            <p className="line-clamp-2 text-xs">{name}</p>
-          </div>
+          <CardImagePlaceholder label="Image unavailable" />
         )}
       </div>
       <div className="space-y-1 px-2.5 py-2.5">
@@ -2271,9 +2419,9 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
 
   if (valuedPoints.length < 2) {
     return (
-      <div className="flex min-h-[20rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-sm text-[var(--text-secondary)]">
-        Not enough set value history yet.
-      </div>
+      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-4 py-3 text-sm text-[var(--text-secondary)]">
+        Not enough set value history yet. The trend chart appears after a few days of market observations.
+      </p>
     );
   }
 
@@ -2295,7 +2443,7 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
 
   return (
     <div className="min-h-[21rem] w-full">
-      <div className="h-[21rem] w-full">
+      <ChartFrame className="h-[21rem] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={numericPoints} margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
@@ -2331,7 +2479,7 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
             />
           </LineChart>
         </ResponsiveContainer>
-      </div>
+      </ChartFrame>
     </div>
   );
 }
@@ -2644,19 +2792,6 @@ function InlinePanelSkeleton({ rows = 3, className = "" }) {
   );
 }
 
-function CardGridSkeleton({ count = 12 }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" aria-hidden="true">
-      {Array.from({ length: count }).map((_, index) => (
-        <div
-          key={`card-grid-skeleton:${index}`}
-          className="min-h-[13rem] animate-pulse rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
-        />
-      ))}
-    </div>
-  );
-}
-
 function TopMarketCardsContent({
   cards,
   status,
@@ -2878,21 +3013,50 @@ function hasMarketMoverRows(entry) {
   );
 }
 
-function MarketMoversModule({ movers, moversByWindow, onViewAll }) {
-  const [selectedWindow, setSelectedWindow] = useState(DEFAULT_MARKET_MOVERS_WINDOW);
+function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "success", error, onWindowChange, onViewAll }) {
   const resolvedMoversByWindow = moversByWindow && typeof moversByWindow === "object" ? moversByWindow : {};
 
   const hasAnyWindowMovers =
     hasMarketMoverRows(movers) || Object.values(resolvedMoversByWindow).some(hasMarketMoverRows);
 
-  if (!hasAnyWindowMovers) {
-    return null;
+  // The section container (and its title/subtitle) must always render — a
+  // still-loading or genuinely-empty /market/movers response must not hide
+  // the whole module, only its inner content. See MarketMoverColumn's own
+  // per-column emptyLabel below for the "fetched successfully, no movers
+  // this window" case.
+  if ((status === "loading" || status === "idle") && !hasAnyWindowMovers) {
+    return (
+      <SectionCard
+        title="Market Movers"
+        subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
+        titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
+      >
+        <InlinePanelSkeleton rows={4} />
+      </SectionCard>
+    );
   }
 
-  const selectedMovers =
-    resolvedMoversByWindow[selectedWindow] ||
-    (selectedWindow === DEFAULT_MARKET_MOVERS_WINDOW ? movers : null) ||
-    { heatingUp: [], coolingOff: [], all: [] };
+  if (status === "error" && !hasAnyWindowMovers) {
+    return (
+      <SectionCard
+        title="Market Movers"
+        subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
+        titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
+      >
+        <p className="text-sm text-red-300">{error || "Unable to load market movers for this set."}</p>
+      </SectionCard>
+    );
+  }
+
+  // `movers` is the live single-window /market/movers fetch result; it is
+  // preferred whenever it matches the currently selected window. Otherwise
+  // fall back to moversByWindow, the (possibly stale) all-windows data seeded
+  // from the market dashboard snapshot, until the live fetch for this window
+  // lands.
+  const liveMoversMatchSelection = hasMarketMoverRows(movers) && (!movers?.window || movers.window === selectedWindow);
+  const selectedMovers = liveMoversMatchSelection
+    ? movers
+    : resolvedMoversByWindow[selectedWindow] || { heatingUp: [], coolingOff: [], all: [] };
   const heatingUp = Array.isArray(selectedMovers?.heatingUp) ? selectedMovers.heatingUp : [];
   const coolingOff = Array.isArray(selectedMovers?.coolingOff) ? selectedMovers.coolingOff : [];
 
@@ -2905,7 +3069,7 @@ function MarketMoversModule({ movers, moversByWindow, onViewAll }) {
       <MarketWindowSelector
         windows={MARKET_MOVERS_WINDOW_OPTIONS}
         value={selectedWindow}
-        onChange={setSelectedWindow}
+        onChange={onWindowChange}
         className="mb-3"
       />
       <div className="grid gap-4 xl:grid-cols-2">
@@ -4084,7 +4248,10 @@ function toOptionalUpper(value) {
 function getLensTagline(lens, summary, resolvedLensScore = null) {
   const tier = toOptionalUpper(summary[lens.tierField]);
   const score = resolvedLensScore?.score ?? resolveLensScore(lens, summary).score;
-  if (score === null) return "No data available for this lens.";
+  // A missing numeric score with a known tier still has an honest tier-based
+  // line to tell (the tier badge renders next to this copy either way) —
+  // only fall back to "no data" when neither is available.
+  if (score === null && !tier) return "No data available for this lens.";
   if (lens.key === "experience") {
     if (tier === "S" || tier === "A") return "Strong pack feel compared with the field.";
     if (tier === "B") return "Above-average opening experience.";
@@ -4755,12 +4922,6 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
     if (requestTimeout) {
       return [];
     }
-    const compactSummaries = {
-      "Opening Experience": "Swingy pack feel",
-      "Chase Potential": "Rare top-heavy chase",
-      "Biggest Upside": "Huge but rare spikes",
-      "Expected Value": "Strong Expected Value",
-    };
     const pillarRows = requestTimeout ? [] : selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
 
     const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
@@ -4787,7 +4948,11 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
         scoreTrend: null,
         rankTier,
         rankValue,
-        summary: compactSummaries[backendLens?.label || lens.label] || summaryText || lens.simpleCardSummary || lens.description,
+        // Compact mode shows the same data-driven tagline as expanded mode
+        // (clamped to two lines) — a static per-label catchphrase here read
+        // as per-set insight while contradicting the tier badge next to it
+        // (e.g. "Strong Expected Value" beside an F tier).
+        summary: summaryText || lens.simpleCardSummary || lens.description,
         detailSummary:
           backendLens?.long_summary ||
           backendLens?.summary ||
@@ -4807,7 +4972,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
         titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
       >
         <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-4 text-sm text-[var(--text-secondary)]">
-          Decision Signals loading: set page snapshot request timed out; retrying.
+          Decision Signals are taking longer than expected to load. Retrying now…
         </div>
       </SectionCard>
     ) : null;
@@ -5076,9 +5241,74 @@ function ProofMetric({ label, value }) {
   );
 }
 
-function DesirabilityProofCards({ validation }) {
-  if (!validation) {
-    return null;
+// The /insights normalizer coerces a missing desirabilityValidation to `{}`
+// (truthy), and a populated object can still carry only identity fields — in
+// both cases the proof card used to render a full grid of "—" placeholders
+// that read as stuck skeleton rows. A proof payload only counts as real when
+// at least one field the card actually displays has a value.
+function hasDesirabilityProofSignal(validation) {
+  if (!validation || typeof validation !== "object") {
+    return false;
+  }
+  const signalKeys = [
+    "desirability_impact_band", "desirabilityImpactBand",
+    "desirability_alignment_band", "desirabilityAlignmentBand",
+    "desirability_impact_summary", "desirabilityImpactSummary",
+    "desirability_alignment_summary", "desirabilityAlignmentSummary",
+    "rip_core_rank_without_desirability", "ripCoreRankWithoutDesirability",
+    "final_rip_rank_with_desirability", "finalRipRankWithDesirability",
+    "desirability_score_delta", "desirabilityScoreDelta",
+    "desirability_rank_delta", "desirabilityRankDelta",
+    "desirability_rank", "desirabilityRank",
+    "card_appeal_score", "cardAppealScore",
+    "card_appeal_summary", "cardAppealSummary",
+  ];
+  return signalKeys.some((key) => {
+    const value = validation[key];
+    if (value === null || value === undefined) {
+      return false;
+    }
+    return typeof value === "string" ? value.trim().length > 0 : true;
+  });
+}
+
+function DesirabilityProofCards({ validation, loading = false, loadingTimedOut = false }) {
+  if (!hasDesirabilityProofSignal(validation)) {
+    // While the /insights payload is still in flight this section holds a
+    // stable skeleton box (instead of mounting late as an afterthought); if
+    // loading stalls or fails it says so explicitly. A settled payload with
+    // no proof data renders a compact, intentional empty state — never a
+    // grid of "—" placeholders and never a silently missing section.
+    if (loading) {
+      return (
+        <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28" aria-busy={!loadingTimedOut}>
+          <SectionCard
+            title="Desirability Proof"
+            subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
+          >
+            {loadingTimedOut ? (
+              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                Set insights are taking longer than expected to load. Refresh the page to retry.
+              </div>
+            ) : (
+              <InlinePanelSkeleton rows={3} />
+            )}
+          </SectionCard>
+        </section>
+      );
+    }
+    return (
+      <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28">
+        <SectionCard
+          title="Desirability Proof"
+          subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
+        >
+          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+            Desirability proof isn&apos;t available for this set yet. It appears once this set has enough desirability and market data to compare.
+          </p>
+        </SectionCard>
+      </section>
+    );
   }
 
   const impactBand = formatProofBand(validation.desirability_impact_band || validation.desirabilityImpactBand);
@@ -5321,7 +5551,7 @@ function DesirabilityValidationCard({ targets, freshness = null }) {
               ) : null}
               {/* TODO: Add rank-trend visual line after validation dataset stabilizes. */}
             </div>
-            <div className="h-[22rem] min-w-0">
+            <ChartFrame className="h-[22rem] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
               <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
@@ -5366,12 +5596,12 @@ function DesirabilityValidationCard({ targets, freshness = null }) {
                 <Scatter data={points} dataKey="y" fill="rgba(45,212,191,0.84)" fillOpacity={0.82} isAnimationActive={false} />
               </ComposedChart>
               </ResponsiveContainer>
-            </div>
+            </ChartFrame>
           </div>
         ) : (
-          <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">Not enough set data to compare yet.</p>
-          </div>
+          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+            Not enough set data to compare yet. This chart appears once at least three sets have this metric.
+          </p>
         )}
       </SectionCard>
     </section>
@@ -5888,7 +6118,7 @@ function CardDesirabilityMarketValidationCard({
                 <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
               ) : null}
             </div>
-            <div className="h-[22rem] min-w-0">
+            <ChartFrame className="h-[22rem] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
                   <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
@@ -5933,7 +6163,7 @@ function CardDesirabilityMarketValidationCard({
                   <Scatter data={points} dataKey="y" fill="rgba(125,211,252,0.84)" fillOpacity={0.82} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
-            </div>
+            </ChartFrame>
             {buckets ? (
               <div className="grid gap-3 md:grid-cols-3">
                 {buckets.map((bucket) => (
@@ -5956,16 +6186,23 @@ function CardDesirabilityMarketValidationCard({
               </div>
             ) : null}
           </div>
-        ) : (
-          <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">
+        ) : snapshotLoading || dataLoading ? (
+          // Still loading — a skeleton, not empty-state copy, so the section
+          // never reads as "no data" before the fetch settles.
+          <div className="space-y-3" aria-busy="true">
+            <InlinePanelSkeleton rows={3} />
+            <p className="text-xs text-[var(--text-secondary)]">
               {snapshotLoading
-                ? "Card appeal validation loading: set page snapshot request timed out; retrying."
-                : dataLoading
-                ? "Loading card appeal and market price data…"
-                : "Not enough card appeal and market price data yet."}
+                ? "Card appeal data is taking longer than expected to load. Retrying now…"
+                : "Loading card appeal and market price data…"}
             </p>
           </div>
+        ) : (
+          // Settled with too few points — compact, intentional empty state
+          // instead of a chart-sized blank panel.
+          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+            {"Not enough card appeal and market price data yet."} This chart appears once enough cards in this set have both appeal scores and market prices.
+          </p>
         )}
       </SectionCard>
     </section>
@@ -6761,6 +6998,22 @@ export default function RipStatisticsPageClient({
 
   const rawTargets = targetsPayload?.targets;
   const targets = useMemo(() => (Array.isArray(rawTargets) ? rawTargets : []), [rawTargets]);
+  // Set-switcher option lists must match Explore and the public Sets catalog,
+  // which exclude hidden/unvalidated-era sets (e.g. Sword & Shield pending
+  // validation — see pokemonSetPublicCoverage.js); otherwise hidden sets stay
+  // one dropdown away from unvalidated public analytics. The currently
+  // requested target is kept even when ineligible so a direct URL to a hidden
+  // set still renders a coherent switcher (correct selected option) instead of
+  // a blank/mismatched control. Only the switcher surfaces use this list —
+  // `targets` above still feeds non-switcher consumers unchanged.
+  const switcherTargets = useMemo(() => {
+    const requestedId = String(requestedTargetId || "");
+    return targets.filter(
+      (target) =>
+        isPublicAnalyticsEligiblePokemonSet(target) ||
+        String(target?.target_id || "") === requestedId
+    );
+  }, [targets, requestedTargetId]);
   const resolvedSetResourceId = useMemo(
     () => getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }),
     [requestedTargetId, selectedTarget, explorePayload, shellPayload]
@@ -6796,11 +7049,13 @@ export default function RipStatisticsPageClient({
     ? Boolean(resolvedSetResourceId) &&
       (!explorePayload || isSetPageTransportFallback(explorePayload) || hasActiveSetPageIdentity)
     : true;
-  const timeoutSnapshotRankTitle = "Snapshot loading; retrying.";
+  const timeoutSnapshotRankTitle = "Still loading; retrying.";
   const sectionFreshness = explorePayload?.meta?.sectionFreshness || {};
   const decisionSignalFreshnessInfo = formatSectionFreshnessInfo(sectionFreshness.decisionSignalRanks);
   // Same precedence hazard as `summary` above: explorePayload is fetched (and
-  // therefore truthy) on the insights/pull-rates tabs, but it never carries
+  // therefore truthy) on the insights tab (and pull-rates, only if it happens
+  // to already be seeded from a prior insights visit — see
+  // SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD), but it never carries
   // the shell-only checklist setValueHistoriesByScope enrichment — only
   // shellPayload does. `explorePayload || shellPayload` discarded shellPayload
   // entirely whenever explorePayload was present, so the title-card Set Value
@@ -6863,7 +7118,21 @@ export default function RipStatisticsPageClient({
       : [];
     return rows;
   }, [initialCardAppealMarketPriceCorrelation]);
-  const pullRateAssumptions = normalizePullRateAssumptions(explorePayload);
+  // Pull Rates tab: slim, dedicated fetch (getPokemonSetPullRates) instead of
+  // requiring the full /page payload (Phase 4A). Falls back to an
+  // already-seeded explorePayload (e.g. left over from a prior Insights
+  // visit) only when this state hasn't loaded data for the active set yet —
+  // it never triggers a live /page fetch itself.
+  const [pullRatesState, setPullRatesState] = useState(() => ({
+    status: "idle",
+    setId: resolvedSetResourceId,
+    pullRateAssumptions: null,
+    error: null,
+  }));
+  const pullRateAssumptions =
+    pullRatesState.setId === resolvedSetResourceId && pullRatesState.pullRateAssumptions
+      ? pullRatesState.pullRateAssumptions
+      : normalizePullRateAssumptions(explorePayload);
   const ripStatistics = explorePayload?.rip_statistics;
   // Cards/Overview never load the full explorePayload, so interpretation
   // (recommendation badge/summary, pillar metas, set intelligence lenses)
@@ -6943,8 +7212,44 @@ export default function RipStatisticsPageClient({
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
+  // Loading-cohesion escape hatches, keyed by set id so a set switch
+  // re-engages the cohesive hold for the new set: Overview force-reveals its
+  // content if a critical fetch hangs past OVERVIEW_COHESIVE_LOADING_MAX_MS,
+  // and Insights swaps its skeletons for explicit "taking longer than
+  // expected" copy past INSIGHTS_PENDING_TIMEOUT_MS.
+  const [overviewCohesionForceReveal, setOverviewCohesionForceReveal] = useState({ setId: null, revealed: false });
+  const [insightsPendingTimeoutState, setInsightsPendingTimeoutState] = useState({ setId: null, timedOut: false });
+  // Explicit /insights fetch lifecycle, keyed by set id. The payload itself
+  // lives in explorePayload, but sections need to distinguish "fetch still in
+  // flight" (skeleton) from "fetch settled in error with no payload" (compact
+  // fallback copy) — without this, a failed fetch left skeletons shimmering
+  // until the generic timeout fired, and nothing distinguished error from
+  // slow.
+  const [insightsFetchState, setInsightsFetchState] = useState({ setId: null, status: "idle", error: null });
+  // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
+  // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
+  const [pullRatesPendingTimeoutState, setPullRatesPendingTimeoutState] = useState({ setId: null, timedOut: false });
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
+  const [cardSearchQuery, setCardSearchQuery] = useState("");
+  const [cardsPage, setCardsPage] = useState(1);
+  // Cards tab reads from this slim, paginated state (getPokemonSetCardsPage)
+  // instead of the checklistState below — checklistState is now reserved for
+  // Insights' card validation chart, sourced from the slim
+  // getPokemonSetCardsValidation contract (Phase 3C) rather than the full
+  // legacy /cards payload.
+  const [cardsPageState, setCardsPageState] = useState(() => ({
+    status: "idle",
+    setId: resolvedSetResourceId,
+    page: 1,
+    cards: [],
+    pagination: null,
+    filters: null,
+    error: null,
+  }));
+  useEffect(() => {
+    setCardsPage(1);
+  }, [cardSortMode, cardMovementFilter, cardSearchQuery, resolvedSetResourceId]);
   const initialSnapshotCards = initialSetPageDataSeed.cards;
   const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
     (scope) =>
@@ -6958,13 +7263,12 @@ export default function RipStatisticsPageClient({
     cardAppealMarketPriceCorrelation: initialCardAppealMarketPriceCorrelation,
     error: null,
   }));
-  // Card Desirability/Market Validation reads cards + correlation. cards are
-  // now fetched server-side for the insights tab too (see
-  // getPokemonSetInitialSnapshots), so this is normally seeded on first
-  // load — but slow/timed-out snapshot fetches and same-set client
-  // transitions still leave a brief window before it resolves. This
-  // contract distinguishes "still loading" from "genuinely no data" so the
-  // card doesn't render a permanent-looking n=0 empty state during that gap.
+  // Card Desirability/Market Validation reads cards + correlation from the
+  // slim getPokemonSetCardsValidation contract (Phase 3C) — this is fetched
+  // client-side only (not seeded server-side), so there's normally a brief
+  // window before it resolves on first load. This contract distinguishes
+  // "still loading" from "genuinely no data" so the card doesn't render a
+  // permanent-looking n=0 empty state during that gap.
   const activeCardValidationData = useMemo(() => {
     const cards =
       checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0
@@ -7029,6 +7333,46 @@ export default function RipStatisticsPageClient({
     },
     createMarketDashboardState
   );
+  // Overview's Set Value Trend/Performance vs Cost source from this slim
+  // /overview endpoint instead of the multi-MB /market/dashboard payload once
+  // it loads; marketDashboardState above is still the fallback until it does,
+  // and Top Chase Cards/Market Movers still read marketDashboardState only.
+  const [overviewState, dispatchOverview] = useReducer(
+    marketDashboardReducer,
+    {
+      status: "idle",
+      setId: resolvedSetResourceId,
+      payload: null,
+      sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+    },
+    createMarketDashboardState
+  );
+  // Top Chase Cards and Market Movers each fetch their own slim endpoint
+  // (/market/top-chase, /market/movers) instead of riding the monolithic
+  // /market/dashboard fetch above; marketDashboardState stays as a temporary
+  // seeded/cached fallback for both until these load (see
+  // activeTopMarketCardsState below).
+  const [topChaseState, dispatchTopChase] = useReducer(
+    marketDashboardReducer,
+    {
+      status: "idle",
+      setId: resolvedSetResourceId,
+      payload: null,
+      sourceWindow: DEFAULT_TOP_CHASE_MARKET_WINDOW,
+    },
+    createMarketDashboardState
+  );
+  const [marketMoversWindowKey, setMarketMoversWindowKey] = useState(DEFAULT_MARKET_MOVERS_WINDOW);
+  const [marketMoversState, dispatchMarketMovers] = useReducer(
+    marketDashboardReducer,
+    {
+      status: "idle",
+      setId: resolvedSetResourceId,
+      payload: null,
+      sourceWindow: DEFAULT_MARKET_MOVERS_WINDOW,
+    },
+    createMarketDashboardState
+  );
   const [setValueHistoryState, setSetValueHistoryState] = useState(() =>
     createSetValueHistoryState({
       status: initialSetValueLoadedScopes.length > 0 ? "success" : "idle",
@@ -7046,6 +7390,24 @@ export default function RipStatisticsPageClient({
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
+  // Tracks the last getPokemonSetCardsPage request key this effect actually
+  // issued, so leaving Cards and coming back (or any other re-render that
+  // re-triggers the effect without the set/page/sort/filter actually
+  // changing) doesn't refetch the exact same page. Cleared on error so a
+  // genuine retry isn't permanently blocked.
+  const lastCardsPageRequestKeyRef = useRef(null);
+  // Phase 6C: same request-key guard for the remaining per-tab module
+  // fetches. Each ref holds the key of the request its effect last issued;
+  // re-runs with an identical key (tab revisit, prop-identity churn after a
+  // router transition) skip the refetch, a genuinely new set/window fetches
+  // fresh, and the key is released both on error and when the effect is
+  // cleaned up mid-flight (so an ignored response can't strand its tab in a
+  // permanent loading state).
+  const lastPullRatesRequestKeyRef = useRef(null);
+  const lastCardsValidationRequestKeyRef = useRef(null);
+  const lastOverviewRequestKeyRef = useRef(null);
+  const lastTopChaseRequestKeyRef = useRef(null);
+  const lastMarketMoversRequestKeyRef = useRef(null);
   const activeInsightsGraphMode =
     setDetailMode && setDetailTab === "insights" && graphMode === "historical-trend"
       ? "outcome-distribution"
@@ -7073,9 +7435,39 @@ export default function RipStatisticsPageClient({
     marketOrSetValueSeededForActiveTab;
 
   useEffect(() => {
-    setExplorePayload(initialExplorePayload || null);
+    setExplorePayload((previous) => {
+      if (initialExplorePayload) {
+        return initialExplorePayload;
+      }
+      // Same-set navigation (tab hops always go through router.push) replaces
+      // props with a null payload seed — Cards/Overview routes never seed the
+      // full payload. Blanking an already-loaded same-set payload here
+      // flashed Insights back to skeletons mid-view, forced a redundant
+      // /insights refetch, and stranded the tab on skeletons whenever that
+      // refetch was interrupted. Keep the payload when it verifiably belongs
+      // to the requested set; a genuine set switch (identity mismatch) still
+      // resets to null.
+      const previousIdentity = getSetSnapshotIdentity(previous);
+      if (
+        previous &&
+        !isSetPageTransportFallback(previous) &&
+        previousIdentity &&
+        setIdentityMatchesTarget(previousIdentity, requestedTargetId)
+      ) {
+        return previous;
+      }
+      return null;
+    });
     setSetPageSnapshotRefreshState({ status: "idle", setId: null, error: null });
     timeoutSnapshotRefreshKeyRef.current = null;
+    // Navigation just replaced the payload seed (often with null — Cards/
+    // Overview routes never seed the full payload). The insights fetch key
+    // stays claimed after a successful fetch, so without releasing it here a
+    // same-set revisit to Insights whose payload this reset just cleared
+    // would skip its refetch forever and strand the tab without data (seen
+    // as Insights sections never loading after a set switch when the RSC
+    // navigation response lands after the insights fetch resolved).
+    explorePagePayloadFetchKeyRef.current = null;
     const routeSeed = buildInitialSetPageDataSeed({
       explorePayload: initialExplorePayload || {},
       cardsPayload: initialCardsPayload,
@@ -7220,11 +7612,12 @@ export default function RipStatisticsPageClient({
     };
   }, [explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, setDetailMode, setDetailTab]);
 
-  // Insights and Pull Rates tab content (rankings, percentiles, RIP statistics,
-  // pull rate assumptions) is only available on the full set page snapshot.
-  // The initial server render intentionally skips fetching it when those tabs
-  // are not active (see pokemonSetInitialSnapshotsServer/page.js) — this effect
-  // lazily fetches it client-side the moment the user is on a tab that needs it.
+  // Legacy full-page lazy-fetch effect. SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD
+  // is now always empty (Insights moved off it in Phase 4B, Pull Rates in
+  // Phase 4A), so `.has(setDetailTab)` below is always false and this effect
+  // is permanently inert. Left in place (rather than deleted) alongside
+  // fetchPokemonSetPageSnapshot/setPageSnapshotRefreshState as a smaller,
+  // lower-risk diff — a future cleanup phase can remove them outright.
   useEffect(() => {
     if (!setDetailMode || explorePayload) {
       return undefined;
@@ -7263,6 +7656,69 @@ export default function RipStatisticsPageClient({
       controller.abort();
     };
   }, [setDetailMode, setDetailTab, explorePayload, resolvedSetResourceId, requestedTargetId]);
+
+  // Insights tab fetch effect (Phase 4B): slim, dedicated fetch
+  // (getPokemonSetInsights) instead of the full /page payload. Writes
+  // directly into explorePayload (via adaptPokemonSetInsightsPayloadToExplorePayload
+  // above) rather than a separate insights-only state slice, since summary/
+  // ripStatistics/percentiles/distributionBins/thresholdBins/simulationDrivers
+  // (topHits)/rankings/interpretation/historyTrend/openingDesirability/
+  // desirabilityValidation below all already read from explorePayload and
+  // need no further changes to keep rendering the same Insights UI.
+  useEffect(() => {
+    if (!setDetailMode || explorePayload) {
+      return undefined;
+    }
+    if (setDetailTab !== "insights" || !canFetchSetDetailModules) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId || requestedTargetId;
+    if (!setId) {
+      return undefined;
+    }
+
+    const fetchKey = `insights:${requestedTargetId || ""}:${setId}`;
+    if (explorePagePayloadFetchKeyRef.current === fetchKey) {
+      return undefined;
+    }
+    explorePagePayloadFetchKeyRef.current = fetchKey;
+
+    let isCancelled = false;
+    let requestSettled = false;
+    setInsightsFetchState({ setId, status: "loading", error: null });
+    getPokemonSetInsights(setId)
+      .then((payload) => {
+        requestSettled = true;
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          return;
+        }
+        setExplorePayload(adaptPokemonSetInsightsPayloadToExplorePayload(payload));
+        setInsightsFetchState({ setId, status: "success", error: null });
+      })
+      .catch((error) => {
+        requestSettled = true;
+        if (explorePagePayloadFetchKeyRef.current === fetchKey) {
+          explorePagePayloadFetchKeyRef.current = null;
+        }
+        if (isCancelled) {
+          return;
+        }
+        setInsightsFetchState({ setId, status: "error", error: error?.message || "Unable to load set insights." });
+      });
+
+    return () => {
+      isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again — otherwise Insights could
+      // render without its payload forever with the key still claimed.
+      if (!requestSettled && explorePagePayloadFetchKeyRef.current === fetchKey) {
+        explorePagePayloadFetchKeyRef.current = null;
+      }
+    };
+  }, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
 
   const graphSectionMeta =
     activeInsightsGraphMode === "historical-trend"
@@ -7829,6 +8285,27 @@ export default function RipStatisticsPageClient({
     () => buildMarketDashboardStateFromPayload(activeMarketDashboardState.payload || seededMarketDashboardPayload),
     [activeMarketDashboardState.payload, seededMarketDashboardPayload]
   );
+  // overviewState only resets to this set's "loading"/empty shape once its
+  // fetch effect fires post-paint (setDetailTab === "overview"), so a set
+  // switch can otherwise render the previous set's overview payload for one
+  // commit under the new set's title — guard the same way
+  // activeMarketDashboardState/activeDirectSetValueState already do.
+  const activeOverviewState =
+    overviewState.setId === resolvedSetResourceId
+      ? overviewState
+      : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: overviewState.sourceWindow });
+  const activeOverviewDerivedState = useMemo(
+    () => buildMarketDashboardStateFromPayload(activeOverviewState.payload),
+    [activeOverviewState.payload]
+  );
+  // Set Value Trend/Performance vs Cost prefer the slim /overview snapshot
+  // once it has loaded, falling back to the market dashboard payload until
+  // then. Top Chase Cards/Market Movers are untouched and always read
+  // activeMarketDashboardState/activeMarketDashboardDerivedState directly
+  // (see activeTopMarketCardsState below) — /market/dashboard is not removed.
+  const overviewHasLoaded = activeOverviewState.status === "success" || activeOverviewState.status === "success_stale";
+  const effectiveSetValueDashboardState = overviewHasLoaded ? activeOverviewState : activeMarketDashboardState;
+  const effectiveSetValueDerivedState = overviewHasLoaded ? activeOverviewDerivedState : activeMarketDashboardDerivedState;
   // Cards/Overview never load the full explore payload, so its history_trend
   // (used for title-card / metric trend arrows) is unavailable there. The
   // overview market dashboard snapshot carries an equivalent point-in-time
@@ -7836,8 +8313,8 @@ export default function RipStatisticsPageClient({
   // fall back to it so trend arrows still reflect real movement instead of
   // silently going neutral just because the full payload wasn't fetched.
   const overviewPerformanceVsCostHistory =
-    activeMarketDashboardState.payload?.performanceVsCostHistory ||
-    activeMarketDashboardState.payload?.performance_vs_cost_history ||
+    effectiveSetValueDashboardState.payload?.performanceVsCostHistory ||
+    effectiveSetValueDashboardState.payload?.performance_vs_cost_history ||
     [];
   const historyTrend = explorePayload?.history_trend || overviewPerformanceVsCostHistory;
   const activeDirectSetValueState =
@@ -7846,7 +8323,7 @@ export default function RipStatisticsPageClient({
       : createSetValueHistoryState({ setId: resolvedSetResourceId });
   const activeDirectSetValueLoadedScopes = new Set(activeDirectSetValueState.loadedScopes || []);
   const activeSetValueHistoriesByScope = {
-    ...(activeMarketDashboardDerivedState.setValue.historiesByScope || {}),
+    ...(effectiveSetValueDerivedState.setValue.historiesByScope || {}),
   };
   Object.entries(activeDirectSetValueState.historiesByScope || {}).forEach(([scope, history]) => {
     if (activeDirectSetValueLoadedScopes.has(scope)) {
@@ -7871,13 +8348,13 @@ export default function RipStatisticsPageClient({
   }
   const activeSetValueStandardHistory = activeDirectSetValueLoadedScopes.has(CANONICAL_SET_VALUE_SCOPE)
     ? activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || []
-    : activeMarketDashboardDerivedState.setValue.history?.length > 0
-    ? activeMarketDashboardDerivedState.setValue.history
+    : effectiveSetValueDerivedState.setValue.history?.length > 0
+    ? effectiveSetValueDerivedState.setValue.history
     : activeSetValueHistoriesByScope[CANONICAL_SET_VALUE_SCOPE] || [];
   const activeSetValueAvailableScopes =
     activeDirectSetValueState.availableScopes?.length > 0
       ? activeDirectSetValueState.availableScopes
-      : activeMarketDashboardDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS;
+      : effectiveSetValueDerivedState.setValue.availableScopes || SET_VALUE_SCOPE_OPTIONS;
   const activeSetValueHasAnyHistory = Object.values(activeSetValueHistoriesByScope).some((scopeHistory) => scopeHistory.length > 0);
   const activeSetValueStatus =
     activeDirectSetValueState.status === "success" || activeDirectSetValueState.status === "success_stale"
@@ -7885,8 +8362,8 @@ export default function RipStatisticsPageClient({
         ? activeDirectSetValueState.status
         : "empty"
       : activeDirectSetValueState.status === "error"
-      ? activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-        ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
+      ? effectiveSetValueDashboardState.status === "success" || effectiveSetValueDashboardState.status === "success_stale"
+        ? effectiveSetValueDerivedState.setValue.hasAnyHistory
           ? "success_stale"
           : "empty"
         : "error"
@@ -7894,37 +8371,85 @@ export default function RipStatisticsPageClient({
       ? activeSetValueHasAnyHistory
         ? "success_stale"
         : "loading"
+      : effectiveSetValueDashboardState.status === "success" || effectiveSetValueDashboardState.status === "success_stale"
+      ? effectiveSetValueDerivedState.setValue.hasAnyHistory
+        ? effectiveSetValueDashboardState.status === "success_stale"
+          ? "success_stale"
+          : "success"
+        : "empty"
+      : effectiveSetValueDashboardState.status;
+  const activeSetValueHistory = {
+    status: activeSetValueStatus,
+    setId: activeDirectSetValueState.setId || effectiveSetValueDashboardState.setId || resolvedSetResourceId,
+    history: activeSetValueStandardHistory,
+    historiesByScope: activeSetValueHistoriesByScope,
+    availableScopes: activeSetValueAvailableScopes,
+    error: activeDirectSetValueState.error || effectiveSetValueDashboardState.error,
+    meta: activeDirectSetValueState.meta || effectiveSetValueDerivedState.setValue.meta,
+  };
+  // Top Chase Cards / Market Movers only reset to this set's "loading"/empty
+  // shape once their fetch effects fire post-paint (setDetailTab ===
+  // "overview"), so a set switch can otherwise render the previous set's
+  // cards/movers for one commit under the new set's title — guard the same
+  // way activeMarketDashboardState/activeDirectSetValueState already do.
+  const activeTopChaseState =
+    topChaseState.setId === resolvedSetResourceId
+      ? topChaseState
+      : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: topChaseState.sourceWindow });
+  const activeMarketMoversState =
+    marketMoversState.setId === resolvedSetResourceId
+      ? marketMoversState
+      : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: marketMoversState.sourceWindow });
+  // Top Chase Cards: prefer the slim /market/top-chase fetch; fall back to
+  // the (possibly seeded/cached) monolithic dashboard state only until the
+  // dedicated fetch lands.
+  const topChaseLiveCards = Array.isArray(activeTopChaseState.payload?.cards) ? activeTopChaseState.payload.cards : [];
+  const topChaseLiveHasRows = topChaseLiveCards.length > 0;
+  const topChaseFallbackCards = activeMarketDashboardDerivedState.topCards.cards;
+  const topChaseStatus =
+    activeTopChaseState.status === "success" || activeTopChaseState.status === "success_stale"
+      ? topChaseLiveHasRows
+        ? activeTopChaseState.status
+        : "empty"
+      : activeTopChaseState.status === "error"
+      ? activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
+        ? topChaseFallbackCards.length > 0
+          ? "success_stale"
+          : "empty"
+        : "error"
+      : activeTopChaseState.status === "loading"
+      ? topChaseFallbackCards.length > 0
+        ? "success_stale"
+        : "loading"
       : activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-      ? activeMarketDashboardDerivedState.setValue.hasAnyHistory
+      ? topChaseFallbackCards.length > 0
         ? activeMarketDashboardState.status === "success_stale"
           ? "success_stale"
           : "success"
         : "empty"
       : activeMarketDashboardState.status;
-  const activeSetValueHistory = {
-    status: activeSetValueStatus,
-    setId: activeDirectSetValueState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
-    history: activeSetValueStandardHistory,
-    historiesByScope: activeSetValueHistoriesByScope,
-    availableScopes: activeSetValueAvailableScopes,
-    error: activeDirectSetValueState.error || activeMarketDashboardState.error,
-    meta: activeDirectSetValueState.meta || activeMarketDashboardDerivedState.setValue.meta,
-  };
+  // Market Movers: prefer the slim /market/movers fetch for the selected
+  // window; fall back to the dashboard-seeded moversByWindow (all windows,
+  // possibly stale) until the dedicated per-window fetch lands.
+  // getPokemonSetMarketMovers's normalized payload is already the flat
+  // { heatingUp, coolingOff, all, window } shape hasMarketMoverRows/
+  // MarketMoversModule expect — it is not nested under a `.marketMovers` key
+  // (that nesting only exists on the legacy monolithic /market/dashboard
+  // payload, handled separately by buildMarketDashboardStateFromPayload
+  // below). Reading `.payload?.marketMovers` here always evaluated to
+  // undefined, so the live per-window fetch's data was silently discarded in
+  // favor of the (usually empty, since /market/dashboard is no longer
+  // fetched) dashboard fallback.
+  const marketMoversLive = activeMarketMoversState.payload || null;
+  const marketMoversLiveHasRows = hasMarketMoverRows(marketMoversLive);
   const activeTopMarketCardsState = {
-    status:
-      activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-        ? activeMarketDashboardDerivedState.topCards.cards.length > 0
-          ? activeMarketDashboardState.status === "success_stale"
-            ? "success_stale"
-            : "success"
-          : "empty"
-        : activeMarketDashboardState.status,
-    setId: activeMarketDashboardState.setId || resolvedSetResourceId,
-    cards: activeMarketDashboardDerivedState.topCards.cards,
-    marketMovers: activeMarketDashboardDerivedState.topCards.marketMovers || null,
+    status: topChaseStatus,
+    setId: activeTopChaseState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
+    cards: topChaseLiveHasRows ? topChaseLiveCards : topChaseFallbackCards,
+    marketMovers: marketMoversLiveHasRows ? marketMoversLive : activeMarketDashboardDerivedState.topCards.marketMovers || null,
     marketMoversByWindow: activeMarketDashboardDerivedState.topCards.marketMoversByWindow || null,
-    error: activeMarketDashboardState.error,
-    meta: activeMarketDashboardDerivedState.topCards.meta,
+    error: activeTopChaseState.error || activeMarketDashboardState.error,
+    meta: topChaseLiveHasRows ? activeTopChaseState.payload?.meta : activeMarketDashboardDerivedState.topCards.meta,
   };
   const fallbackSetValueAsOf =
     setShellContract?.setValueSummary?.asOf ||
@@ -8358,8 +8883,14 @@ export default function RipStatisticsPageClient({
   });
   const topPricedCards = topPricedCardsResult.cards;
   const hasTopPricedCards = topPricedCards.length > 0;
-  const shouldShowTopMarketCards =
-    activeTopMarketCardsState.status === "loading" || activeTopMarketCardsState.status === "error" || hasTopPricedCards;
+  // The Top Chase Cards section container must always render on Overview —
+  // TopMarketCardsContent (via topPricedCardsStatus below) already renders a
+  // loading skeleton, an error message, or "No priced cards are available
+  // yet" on its own; hiding the whole SectionCard here just because the slim
+  // /market/top-chase snapshot came back empty (with no checklist fallback
+  // available either) silently dropped the section instead of showing that
+  // empty state.
+  const shouldShowTopMarketCards = true;
   const topPricedCardsStatus =
     activeTopMarketCardsState.status === "error" && !hasTopPricedCards
       ? "error"
@@ -8401,7 +8932,186 @@ export default function RipStatisticsPageClient({
   const hasMarketMovers =
     hasMarketMoverRows(marketMovers) ||
     (marketMoversByWindow ? Object.values(marketMoversByWindow).some(hasMarketMoverRows) : false);
-  const cardMovementDataCount = getCardMovementDataCount(checklistState.cards);
+  // Status for the slim /market/movers fetch itself (independent of the
+  // top-chase fetch's status bundled into activeTopMarketCardsState.status) —
+  // drives MarketMoversModule's loading/error/empty rendering so the section
+  // container never has to hide itself outright.
+  const marketMoversStatus = hasMarketMovers
+    ? "success"
+    : activeMarketMoversState.status === "loading" || activeMarketMoversState.status === "idle"
+    ? "loading"
+    : activeMarketMoversState.status === "error"
+    ? "error"
+    : "success";
+  // Overview loading cohesion (Phase 9B): hold one full-layout skeleton until
+  // every critical Overview asset has settled for the active set — set value
+  // history, the slim /overview payload (Performance vs Cost), top chase
+  // cards, and the default-window market movers. Optional secondary fetches
+  // (non-default mover windows, non-visible set value scopes) never re-enter
+  // these pending states because their reducers/effects keep already-loaded
+  // data as success/success_stale, so this gate only engages on the first
+  // load of a set's Overview (including after a set switch) and can never be
+  // re-triggered by window/scope changes. Error/empty are settled states —
+  // per-module error and empty rendering takes over after reveal.
+  const overviewSetValuePending =
+    activeSetValueHistory.status === "idle" || activeSetValueHistory.status === "loading";
+  const overviewPayloadPending =
+    activeOverviewState.status === "idle" || activeOverviewState.status === "loading";
+  const overviewTopChasePending = topPricedCardsStatus === "loading";
+  const overviewMarketMoversPending = marketMoversStatus === "loading";
+  const overviewCriticalAssetsPending =
+    overviewSetValuePending || overviewPayloadPending || overviewTopChasePending || overviewMarketMoversPending;
+  const showOverviewCohesiveLoading =
+    setDetailMode &&
+    setDetailTab === "overview" &&
+    // The timeout escape below is keyed by resolvedSetResourceId, so the
+    // skeleton must never engage without one — it could not force-reveal.
+    Boolean(resolvedSetResourceId) &&
+    overviewCriticalAssetsPending &&
+    !(overviewCohesionForceReveal.setId === resolvedSetResourceId && overviewCohesionForceReveal.revealed);
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    const timer = window.setTimeout(() => {
+      setOverviewCohesionForceReveal({ setId, revealed: true });
+    }, OVERVIEW_COHESIVE_LOADING_MAX_MS);
+    return () => window.clearTimeout(timer);
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId]);
+  // Insights loading cohesion (Phase 9B/9C): sections sourced from the
+  // /insights payload (Desirability Proof, Opening Outcomes) hold stable
+  // skeleton boxes only while the fetch is genuinely in flight; a fetch that
+  // settled in error (or hung past the timeout) switches them to explicit
+  // compact fallback copy instead of shimmering forever.
+  // Requires a resolved set id for the same reason as the Overview gate: the
+  // timeout escape can't fire without one, and without an id the insights
+  // fetch could never start anyway.
+  const activeInsightsFetchStatus =
+    insightsFetchState.setId === resolvedSetResourceId ? insightsFetchState.status : "idle";
+  const insightsLoadFailed =
+    setDetailMode && setDetailTab === "insights" && !explorePayload && activeInsightsFetchStatus === "error";
+  const insightsCriticalPending =
+    setDetailMode &&
+    setDetailTab === "insights" &&
+    Boolean(resolvedSetResourceId) &&
+    !explorePayload &&
+    !insightsLoadFailed;
+  const insightsPendingTimedOut =
+    insightsPendingTimeoutState.setId === resolvedSetResourceId && insightsPendingTimeoutState.timedOut;
+  // Sections stay in their loading/fallback presentation while blocked; the
+  // fallback copy takes over once loading is no longer expected to resolve on
+  // its own (fetch error or timeout).
+  const insightsSectionsBlocked = insightsCriticalPending || insightsLoadFailed;
+  const insightsSectionsShowFallbackCopy = insightsLoadFailed || insightsPendingTimedOut;
+  // Phase 9D.2: while the /insights payload is genuinely in flight for the
+  // active set, the whole Insights tab holds one branded loading panel
+  // (SetTabLoadingPanel) instead of section-by-section skeleton pop-in. Once
+  // the fetch errors or hangs past the timeout, the sections render with
+  // their explicit compact fallback copy (insightsSectionsShowFallbackCopy);
+  // once loaded, empty sub-views get compact empty states — never the loader.
+  const showInsightsCohesiveLoading = insightsCriticalPending && !insightsPendingTimedOut;
+  // Opening Outcomes settled-state audit (Phase 9C): once the payload is in,
+  // each sub-view either has rows to render or gets a compact empty state —
+  // never a chart-sized blank panel. The card's large min-height is also only
+  // applied when the active view actually renders chart-sized content.
+  const openingOutcomesViewHasData =
+    activeInsightsGraphMode === "simulation-drivers"
+      ? topHits.length > 0
+      : activeInsightsGraphMode === "value-contribution"
+      ? rankings.length > 0
+      : activeInsightsGraphMode === "pack-breakdown"
+      ? hasRenderablePackPathRows(ripStatistics?.pack_paths, normalStateRows)
+      : hasRenderableOutcomeDistributionRows(distributionBins, thresholdBins);
+  const openingOutcomesEmptyViewCopy =
+    activeInsightsGraphMode === "simulation-drivers"
+      ? "Simulation driver data isn't available for this set yet."
+      : activeInsightsGraphMode === "value-contribution"
+      ? "Value structure data isn't available for this set yet."
+      : activeInsightsGraphMode === "pack-breakdown"
+      ? "Pack path data isn't available for this set yet."
+      : "Outcome distribution data isn't available for this set yet.";
+  const openingOutcomesUsesExpandedLayout = !insightsSectionsBlocked && openingOutcomesViewHasData;
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "insights" || !resolvedSetResourceId || explorePayload) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    // A fresh pending episode (e.g. retrying after navigation reset the
+    // payload) must start from the skeleton again, not from stale timeout
+    // copy left over from an earlier episode for the same set.
+    setInsightsPendingTimeoutState((previous) =>
+      previous.setId === setId && previous.timedOut ? { setId: null, timedOut: false } : previous
+    );
+    const timer = window.setTimeout(() => {
+      setInsightsPendingTimeoutState({ setId, timedOut: true });
+    }, INSIGHTS_PENDING_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, explorePayload]);
+  // Pull Rates loading shell (Phase 9B): pullRatesState only resets to this
+  // set's shape once its fetch effect fires post-paint, so guard by set id
+  // the same way the other per-tab states do, and treat idle/loading with no
+  // usable assumptions as "show the loading shell" instead of the misleading
+  // "coming soon" copy.
+  const activePullRatesState =
+    pullRatesState.setId === resolvedSetResourceId
+      ? pullRatesState
+      : { status: "idle", setId: resolvedSetResourceId, pullRateAssumptions: null, error: null };
+  const pullRatesTabPending =
+    setDetailMode &&
+    setDetailTab === "pull-rates" &&
+    !pullRateAssumptions &&
+    (activePullRatesState.status === "idle" || activePullRatesState.status === "loading");
+  // Phase 9D.1: the loading shell may never settle if the fetch hangs (no
+  // request timeout) or an upstream gate keeps the state parked on "idle" —
+  // same escape hatch as Insights, so Pull Rates can never shimmer
+  // indefinitely: after the timeout the shell switches to explicit
+  // "taking longer than expected" copy.
+  const pullRatesPendingTimedOut =
+    pullRatesPendingTimeoutState.setId === resolvedSetResourceId && pullRatesPendingTimeoutState.timedOut;
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "pull-rates" || !resolvedSetResourceId || pullRateAssumptions) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    // A fresh pending episode must start from the skeleton again, not from
+    // stale timeout copy left over from an earlier episode for the same set.
+    setPullRatesPendingTimeoutState((previous) =>
+      previous.setId === setId && previous.timedOut ? { setId: null, timedOut: false } : previous
+    );
+    const timer = window.setTimeout(() => {
+      setPullRatesPendingTimeoutState({ setId, timedOut: true });
+    }, INSIGHTS_PENDING_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, pullRateAssumptions]);
+  // Temporary fallback: if a full cards payload is already seeded (e.g. the
+  // user visited Insights first, or an old SSR seed is still present), show
+  // it until the paginated fetch for this set lands, instead of an empty
+  // grid. Once cardsPageState has real data for this set it always wins.
+  const cardsPageFallbackCards =
+    checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0 ? checklistState.cards : [];
+  // cardsPageState only resets to this set's "idle"/empty shape once its
+  // fetch effect fires post-paint (setDetailTab === "cards"), so a set
+  // switch can otherwise render the previous set's cards grid/pagination for
+  // one commit under the new set's title — guard it the same way
+  // activeMarketDashboardState/activeDirectSetValueState already do.
+  const activeCardsPageState =
+    cardsPageState.setId === resolvedSetResourceId
+      ? cardsPageState
+      : { status: "idle", setId: resolvedSetResourceId, page: 1, cards: [], pagination: null, filters: null, error: null };
+  const effectiveCardsPageCards = activeCardsPageState.cards.length > 0 ? activeCardsPageState.cards : cardsPageFallbackCards;
+  const effectiveCardsPageStatus =
+    activeCardsPageState.cards.length > 0
+      ? activeCardsPageState.status
+      : cardsPageFallbackCards.length > 0
+      ? "success_stale"
+      : activeCardsPageState.status;
+  // Sourced from the currently loaded/fallback cards (not the full
+  // checklist), since Cards tab no longer loads the full card list — this is
+  // a known trade-off: if page 1 happens to have no movement data but a
+  // later page does, the movement sort/filter controls may not appear until
+  // that page loads.
+  const cardMovementDataCount = getCardMovementDataCount(effectiveCardsPageCards);
   const hasCardMovementData = cardMovementDataCount >= 5;
   const effectiveCardSortMode =
     hasCardMovementData || !CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === cardSortMode)
@@ -8411,9 +9121,14 @@ export default function RipStatisticsPageClient({
   const cardSortOptions = hasCardMovementData
     ? [...CARD_BASE_SORT_OPTIONS, ...CARD_MOVEMENT_SORT_OPTIONS]
     : CARD_BASE_SORT_OPTIONS;
+  // getPokemonSetCardsPage already sorts/filters server-side using these same
+  // effective values, so this client-side pass is idempotent — it exists to
+  // reuse the exact same rendering pipeline the full-payload Cards tab used
+  // before, not to redo the work. The fallback branch (seeded full payload)
+  // still needs it, since that data hasn't been through the new endpoint.
   const displayedChecklistCards = useMemo(
-    () => getDisplayChecklistCards(checklistState.cards, effectiveCardSortMode, effectiveCardMovementFilter),
-    [checklistState.cards, effectiveCardSortMode, effectiveCardMovementFilter]
+    () => getDisplayChecklistCards(effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter),
+    [effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter]
   );
   const handleViewAllMarketMovers = () => {
     setSetDetailTab("cards");
@@ -8769,7 +9484,15 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderChecklist = (setDetailTab === "cards" && cardsSubTab === "checklist") || setDetailTab === "insights";
+    // Cards tab no longer triggers this live fetch (it uses
+    // getPokemonSetCardsPage instead, see the cardsPageState effect below) —
+    // only Insights needs card validation rows + correlation, sourced from
+    // the slim getPokemonSetCardsValidation contract (Phase 3C) rather than
+    // the full legacy /cards payload. The cache/snapshot seeding above this
+    // line still runs unconditionally, so an already-seeded/cached payload
+    // (e.g. from a prior Insights visit, or a legacy full cardsPayload if
+    // one happens to be present) still seeds checklistState for free.
+    const shouldRenderChecklist = setDetailTab === "insights";
     const cachedPayload = checklistCacheRef.current.get(setId) || getCachedPokemonSetCards(setId) || null;
     const cachedCards = Array.isArray(cachedPayload) ? cachedPayload : Array.isArray(cachedPayload?.cards) ? cachedPayload.cards : [];
     const cachedCorrelation = resolvePreferredCardAppealCorrelation({
@@ -8799,7 +9522,15 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    const cardsValidationRequestKey = String(setId);
+    if (lastCardsValidationRequestKeyRef.current === cardsValidationRequestKey) {
+      debugSetPagePerf("cards.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastCardsValidationRequestKeyRef.current = cardsValidationRequestKey;
+
     let isCancelled = false;
+    let requestSettled = false;
     const clickStartedAt = performance.now();
     debugSetPagePerf("cards.tab_fetch_start", {
       routeSetId: requestedTargetId,
@@ -8821,8 +9552,9 @@ export default function RipStatisticsPageClient({
       error: null,
     }));
 
-    getPokemonSetCards(setId)
+    getPokemonSetCardsValidation(setId)
       .then((payload) => {
+        requestSettled = true;
         if (isCancelled) {
           return;
         }
@@ -8881,6 +9613,10 @@ export default function RipStatisticsPageClient({
         });
       })
       .catch((error) => {
+        requestSettled = true;
+        if (lastCardsValidationRequestKeyRef.current === cardsValidationRequestKey) {
+          lastCardsValidationRequestKeyRef.current = null;
+        }
         if (isCancelled) {
           return;
         }
@@ -8902,6 +9638,11 @@ export default function RipStatisticsPageClient({
 
     return () => {
       isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastCardsValidationRequestKeyRef.current === cardsValidationRequestKey) {
+        lastCardsValidationRequestKeyRef.current = null;
+      }
     };
   }, [
     setDetailMode,
@@ -8917,6 +9658,235 @@ export default function RipStatisticsPageClient({
     initialSetPageDataSeed,
     initialCardAppealMarketPriceCorrelation,
   ]);
+
+  // Cards tab: slim, paginated fetch (getPokemonSetCardsPage) instead of the
+  // full /cards payload above. Refetches whenever the set, page, sort,
+  // movement filter, or search query changes.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    if (!setId) {
+      setCardsPageState({ status: "empty", setId: null, page: 1, cards: [], pagination: null, filters: null, error: null });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      setCardsPageState((previous) => ({
+        status: previous.setId === setId && previous.cards.length > 0 ? previous.status : "empty",
+        setId,
+        page: cardsPage,
+        cards: previous.setId === setId ? previous.cards : [],
+        pagination: previous.setId === setId ? previous.pagination : null,
+        filters: previous.setId === setId ? previous.filters : null,
+        error: null,
+      }));
+      return undefined;
+    }
+
+    const shouldRenderCardsPage = setDetailTab === "cards" && cardsSubTab === "checklist";
+    if (!shouldRenderCardsPage) {
+      return undefined;
+    }
+
+    const requestedPage = cardsPage;
+    const movementSortValue = CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === effectiveCardSortMode)
+      ? effectiveCardSortMode
+      : null;
+
+    // Leaving Cards and coming back (or any other re-render that re-triggers
+    // this effect, e.g. a sibling tab's payload updating explorePayload)
+    // re-evaluates this effect even though the set/page/sort/filter/query
+    // haven't actually changed. Skip re-issuing the exact same request —
+    // getPokemonSetCardsPage's own in-flight join only catches concurrent
+    // duplicates, not these later, non-overlapping repeats.
+    const cardsPageRequestKey = [
+      setId,
+      requestedPage,
+      effectiveCardSortMode,
+      cardSearchQuery.trim(),
+      effectiveCardMovementFilter,
+      movementSortValue,
+    ].join("|");
+    if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
+      debugSetPagePerf("cards_page.tab_fetch_skipped_duplicate", { resolvedSetId: setId, requestKey: cardsPageRequestKey });
+      return undefined;
+    }
+    lastCardsPageRequestKeyRef.current = cardsPageRequestKey;
+
+    let isCancelled = false;
+    let requestSettled = false;
+    debugSetPagePerf("cards_page.tab_fetch_start", {
+      resolvedSetId: setId,
+      page: requestedPage,
+      sort: effectiveCardSortMode,
+      movementFilter: effectiveCardMovementFilter,
+    });
+    setCardsPageState((previous) => ({
+      status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "loading",
+      setId,
+      page: requestedPage,
+      cards: previous.setId === setId ? previous.cards : [],
+      pagination: previous.setId === setId ? previous.pagination : null,
+      filters: previous.setId === setId ? previous.filters : null,
+      error: null,
+    }));
+
+    getPokemonSetCardsPage(setId, {
+      page: requestedPage,
+      pageSize: CARDS_PAGE_SIZE,
+      sort: effectiveCardSortMode,
+      query: cardSearchQuery.trim() || null,
+      movementFilter: effectiveCardMovementFilter,
+      movementSort: movementSortValue,
+    })
+      .then((payload) => {
+        requestSettled = true;
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("cards_page.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          return;
+        }
+        setCardsPageState({
+          status: payload.cards.length > 0 ? "success" : "empty",
+          setId,
+          page: payload.pagination.page,
+          cards: payload.cards,
+          pagination: payload.pagination,
+          filters: payload.filters,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        requestSettled = true;
+        if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
+          lastCardsPageRequestKeyRef.current = null;
+        }
+        if (isCancelled) {
+          return;
+        }
+        setCardsPageState((previous) => ({
+          status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "error",
+          setId,
+          page: requestedPage,
+          cards: previous.setId === setId ? previous.cards : [],
+          pagination: previous.setId === setId ? previous.pagination : null,
+          filters: previous.setId === setId ? previous.filters : null,
+          error: error?.message || "Unable to load cards for this set.",
+        }));
+      });
+
+    return () => {
+      isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again — otherwise the tab could sit
+      // on its loading state forever with the key still claimed.
+      if (!requestSettled && lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
+        lastCardsPageRequestKeyRef.current = null;
+      }
+    };
+  }, [
+    setDetailMode,
+    setDetailTab,
+    cardsSubTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
+    cardsPage,
+    effectiveCardSortMode,
+    effectiveCardMovementFilter,
+    cardSearchQuery,
+  ]);
+
+  // Pull Rates tab fetch effect (Phase 4A): slim, dedicated fetch
+  // (getPokemonSetPullRates) instead of the full /page payload — see the
+  // pullRateAssumptions derivation above for the fallback-to-explorePayload
+  // behavior.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    if (!setId) {
+      setPullRatesState({ status: "idle", setId: null, pullRateAssumptions: null, error: null });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      setPullRatesState((previous) => ({
+        status: previous.setId === setId ? previous.status : "idle",
+        setId,
+        pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
+        error: null,
+      }));
+      return undefined;
+    }
+    if (setDetailTab !== "pull-rates") {
+      return undefined;
+    }
+
+    const pullRatesRequestKey = String(setId);
+    if (lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
+      debugSetPagePerf("pull_rates.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastPullRatesRequestKeyRef.current = pullRatesRequestKey;
+
+    let isCancelled = false;
+    let requestSettled = false;
+    setPullRatesState((previous) => ({
+      status: previous.setId === setId && previous.pullRateAssumptions ? "success_stale" : "loading",
+      setId,
+      pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
+      error: null,
+    }));
+
+    getPokemonSetPullRates(setId)
+      .then((payload) => {
+        requestSettled = true;
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          return;
+        }
+        setPullRatesState({
+          status: payload?.pullRateAssumptions ? "success" : "empty",
+          setId,
+          pullRateAssumptions: payload?.pullRateAssumptions || null,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        requestSettled = true;
+        if (lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
+          lastPullRatesRequestKeyRef.current = null;
+        }
+        if (isCancelled) {
+          return;
+        }
+        setPullRatesState((previous) => ({
+          status: previous.setId === setId && previous.pullRateAssumptions ? "success_stale" : "error",
+          setId,
+          pullRateAssumptions: previous.setId === setId ? previous.pullRateAssumptions : null,
+          error: error?.message || "Unable to load pull rate assumptions for this set.",
+        }));
+      });
+
+    return () => {
+      isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again — otherwise the tab could sit
+      // on its loading state forever with the key still claimed.
+      if (!requestSettled && lastPullRatesRequestKeyRef.current === pullRatesRequestKey) {
+        lastPullRatesRequestKeyRef.current = null;
+      }
+    };
+  }, [setDetailMode, setDetailTab, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
 
   useEffect(() => {
     if (!setDetailMode) {
@@ -9001,7 +9971,19 @@ export default function RipStatisticsPageClient({
         ...(setDetailTab === "overview" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
       ])
     );
-    const requestedScopes = desiredScopes.filter((scope) => !seededLoadedScopes.includes(scope));
+    // This effect re-runs on every tab switch (setDetailTab is a dependency,
+    // since Overview also needs setValueTrendScope), but seededLoadedScopes
+    // above only reflects server-seeded/dashboard-cached data — it never
+    // reflects a scope this very effect already fetched on an earlier run.
+    // Without also checking the live setValueHistoryState here, switching
+    // Cards -> Pull Rates -> Insights -> Overview re-issues an identical
+    // /market/value-history?scope=standard request at every stop even though
+    // nothing about the request key changed.
+    const alreadyLoadedScopes =
+      setValueHistoryState.setId === setId ? setValueHistoryState.loadedScopes || [] : [];
+    const requestedScopes = desiredScopes.filter(
+      (scope) => !seededLoadedScopes.includes(scope) && !alreadyLoadedScopes.includes(scope)
+    );
     if (requestedScopes.length === 0) {
       return undefined;
     }
@@ -9146,6 +10128,12 @@ export default function RipStatisticsPageClient({
     activeMarketDashboardDerivedState,
   ]);
 
+  // Top Chase Cards and Market Movers now fetch their own slim
+  // /market/top-chase and /market/movers endpoints (see the two effects
+  // below). This effect no longer issues a live /market/dashboard fetch — it
+  // only hydrates marketDashboardState from an already-seeded/cached payload,
+  // which both modules read as a temporary safety-net fallback until their
+  // own fetches land (see activeTopMarketCardsState above).
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
@@ -9168,6 +10156,12 @@ export default function RipStatisticsPageClient({
     }
 
     const shouldRenderMarketData = setDetailTab === "overview";
+    if (!shouldRenderMarketData) {
+      // No background hydration for a tab the user isn't on — overview's own
+      // render (or a future switch back to it) triggers this effect again.
+      return undefined;
+    }
+
     const seededDashboardPayload = initialSetPageDataSeed.marketDashboard;
     const cachedDashboard = getCachedPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow });
     const mergedCachedDashboard = cachedDashboard || seededDashboardPayload;
@@ -9178,6 +10172,18 @@ export default function RipStatisticsPageClient({
     });
 
     if (cachedMarketDashboardState) {
+      if (isDevPerfLoggingEnabled) {
+        // Dev-only signal that a legacy /market/dashboard payload (SSR seed or
+        // a cache entry from some other legacy caller of
+        // getPokemonSetMarketDashboard) is still backing the temporary
+        // fallback path for Top Chase Cards/Market Movers. Expected to fire
+        // rarely now that both modules fetch their own slim endpoints; if it
+        // fires often, something is still populating the legacy cache.
+        console.warn(
+          "[pokemon-set-perf] Overview is using a legacy /market/dashboard payload as a fallback for Top Chase Cards/Market Movers — this should only happen briefly before /market/top-chase and /market/movers finish loading.",
+          { setId }
+        );
+      }
       dispatchMarketDashboard({
         type: "success",
         setId,
@@ -9185,79 +10191,7 @@ export default function RipStatisticsPageClient({
         sourceWindow: dashboardSourceWindow,
       });
     }
-    if (!shouldRenderMarketData) {
-      // No background fetch for a tab the user isn't on — overview's own
-      // render (or a future switch back to it) triggers this effect again
-      // and fetches live data then.
-      return undefined;
-    }
-    if (cachedMarketDashboardState) {
-      const stateFromCache = buildMarketDashboardStateFromPayload(cachedMarketDashboardState.payload);
-      const hasSeededRows =
-        stateFromCache.topCards.cards.length > 0 ||
-        hasAnySetValueHistory(stateFromCache.setValue.historiesByScope);
-      if (hasSeededRows) {
-        debugSetPagePerf("market.tab_fetch_skipped", {
-          setId,
-          sourceWindow: dashboardSourceWindow,
-          reason: "snapshot_seed_available",
-          topCards: stateFromCache.topCards.cards.length,
-        });
-        return undefined;
-      }
-      return undefined;
-    }
-
-    let isCancelled = false;
-    const clickStartedAt = performance.now();
-    debugSetPagePerf("market.tab_fetch_start", {
-      resolvedSetId: setId,
-      sourceWindow: dashboardSourceWindow,
-    });
-    dispatchMarketDashboard({ type: "loading", setId, sourceWindow: dashboardSourceWindow });
-
-    getPokemonSetMarketDashboard(setId, { window: dashboardSourceWindow })
-      .then((payload) => {
-        if (isCancelled) {
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          debugSetPagePerf("market.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
-          return;
-        }
-        const marketState = buildMarketDashboardStateFromPayload(payload);
-        dispatchMarketDashboard({ type: "success", setId, payload, sourceWindow: dashboardSourceWindow });
-        debugSetPagePerf("market.tab_ready", {
-          setId,
-          sourceWindow: dashboardSourceWindow,
-          elapsedMs: Math.round(performance.now() - clickStartedAt),
-          topCards: marketState.topCards.cards.length,
-          standardPoints: marketState.setValue.history.length,
-        });
-        debugLoadingTiming("critical_data_ready", {
-          label: "market-overview",
-          setId,
-          sourceWindow: dashboardSourceWindow,
-          elapsedMs: Math.round(performance.now() - clickStartedAt),
-          topCards: marketState.topCards.cards.length,
-          standardPoints: marketState.setValue.history.length,
-        });
-      })
-      .catch((error) => {
-        if (isCancelled) {
-          return;
-        }
-        dispatchMarketDashboard({
-          type: "error",
-          setId,
-          error: error?.message || "Unable to load market dashboard for this set.",
-          sourceWindow: dashboardSourceWindow,
-        });
-      });
-
-    return () => {
-      isCancelled = true;
-    };
+    return undefined;
   }, [
     setDetailMode,
     setDetailTab,
@@ -9269,9 +10203,263 @@ export default function RipStatisticsPageClient({
     initialSetPageDataSeed,
   ]);
 
+  // Slim /market/top-chase fetch — Top Chase Cards no longer depends on the
+  // monolithic /market/dashboard fetch.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW;
+    if (!setId) {
+      dispatchTopChase({ type: "reset", status: "empty", sourceWindow: topChaseSourceWindow });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      dispatchTopChase({
+        type: "reset",
+        status: "empty",
+        setId,
+        sourceWindow: topChaseSourceWindow,
+      });
+      return undefined;
+    }
+
+    const shouldRenderOverviewData = setDetailTab === "overview";
+    if (!shouldRenderOverviewData) {
+      return undefined;
+    }
+
+    const topChaseRequestKey = `${setId}|${topChaseSourceWindow}`;
+    if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+      debugSetPagePerf("top_chase.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastTopChaseRequestKeyRef.current = topChaseRequestKey;
+
+    let isCancelled = false;
+    let requestSettled = false;
+    dispatchTopChase({ type: "loading", setId, sourceWindow: topChaseSourceWindow });
+
+    getPokemonSetTopChase(setId, { window: topChaseSourceWindow, limit: 10 })
+      .then((payload) => {
+        requestSettled = true;
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("top_chase.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          return;
+        }
+        dispatchTopChase({ type: "success", setId, payload, sourceWindow: topChaseSourceWindow });
+      })
+      .catch((error) => {
+        requestSettled = true;
+        if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+          lastTopChaseRequestKeyRef.current = null;
+        }
+        if (isCancelled) {
+          return;
+        }
+        dispatchTopChase({
+          type: "error",
+          setId,
+          error: error?.message || "Unable to load top chase cards for this set.",
+          sourceWindow: topChaseSourceWindow,
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+        lastTopChaseRequestKeyRef.current = null;
+      }
+    };
+  }, [
+    setDetailMode,
+    setDetailTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
+  ]);
+
+  // Slim /market/movers fetch for the selected 1D/7D/30D window — Market
+  // Movers no longer depends on the monolithic /market/dashboard fetch
+  // either, and refetches whenever the selected window changes.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    const moversSourceWindow = marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW;
+    if (!setId) {
+      dispatchMarketMovers({ type: "reset", status: "empty", sourceWindow: moversSourceWindow });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      dispatchMarketMovers({
+        type: "reset",
+        status: "empty",
+        setId,
+        sourceWindow: moversSourceWindow,
+      });
+      return undefined;
+    }
+
+    const shouldRenderOverviewData = setDetailTab === "overview";
+    if (!shouldRenderOverviewData) {
+      return undefined;
+    }
+
+    const marketMoversRequestKey = `${setId}|${moversSourceWindow}`;
+    if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+      debugSetPagePerf("market_movers.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastMarketMoversRequestKeyRef.current = marketMoversRequestKey;
+
+    let isCancelled = false;
+    let requestSettled = false;
+    dispatchMarketMovers({ type: "loading", setId, sourceWindow: moversSourceWindow });
+
+    getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: 5 })
+      .then((payload) => {
+        requestSettled = true;
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          debugSetPagePerf("market_movers.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          return;
+        }
+        dispatchMarketMovers({ type: "success", setId, payload, sourceWindow: moversSourceWindow });
+      })
+      .catch((error) => {
+        requestSettled = true;
+        if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+          lastMarketMoversRequestKeyRef.current = null;
+        }
+        if (isCancelled) {
+          return;
+        }
+        dispatchMarketMovers({
+          type: "error",
+          setId,
+          error: error?.message || "Unable to load market movers for this set.",
+          sourceWindow: moversSourceWindow,
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+        lastMarketMoversRequestKeyRef.current = null;
+      }
+    };
+  }, [
+    setDetailMode,
+    setDetailTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
+    marketMoversWindowKey,
+  ]);
+
+  // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
+  useEffect(() => {
+    if (!setDetailMode) {
+      return undefined;
+    }
+
+    const setId = resolvedSetResourceId;
+    const overviewSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW;
+    if (!setId) {
+      dispatchOverview({ type: "reset", status: "empty", sourceWindow: overviewSourceWindow });
+      return undefined;
+    }
+    if (!canFetchSetDetailModules) {
+      dispatchOverview({
+        type: "reset",
+        status: "empty",
+        setId,
+        sourceWindow: overviewSourceWindow,
+      });
+      return undefined;
+    }
+
+    const shouldRenderOverviewData = setDetailTab === "overview";
+    if (!shouldRenderOverviewData) {
+      // No background fetch for a tab the user isn't on — overview's own
+      // render (or a future switch back to it) triggers this effect again.
+      return undefined;
+    }
+
+    const overviewRequestKey = `${setId}|${overviewSourceWindow}`;
+    if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
+      debugSetPagePerf("overview.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
+      return undefined;
+    }
+    lastOverviewRequestKeyRef.current = overviewRequestKey;
+
+    let isCancelled = false;
+    let requestSettled = false;
+    dispatchOverview({ type: "loading", setId, sourceWindow: overviewSourceWindow });
+
+    getPokemonSetOverview(setId, { window: overviewSourceWindow })
+      .then((payload) => {
+        requestSettled = true;
+        if (isCancelled) {
+          return;
+        }
+        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          return;
+        }
+        dispatchOverview({ type: "success", setId, payload, sourceWindow: overviewSourceWindow });
+      })
+      .catch((error) => {
+        requestSettled = true;
+        if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
+          lastOverviewRequestKeyRef.current = null;
+        }
+        if (isCancelled) {
+          return;
+        }
+        dispatchOverview({
+          type: "error",
+          setId,
+          error: error?.message || "Unable to load set overview for this set.",
+          sourceWindow: overviewSourceWindow,
+        });
+      });
+
+    return () => {
+      isCancelled = true;
+      // An unsettled request's response will be ignored (isCancelled), so a
+      // revisit must be allowed to fetch again.
+      if (!requestSettled && lastOverviewRequestKeyRef.current === overviewRequestKey) {
+        lastOverviewRequestKeyRef.current = null;
+      }
+    };
+  }, [
+    setDetailMode,
+    setDetailTab,
+    requestedTargetId,
+    selectedTarget,
+    resolvedSetResourceId,
+    canFetchSetDetailModules,
+  ]);
+
   const setDetailSidebarContent = (
     <SetPageNavigationRail
-      targets={targets}
+      targets={switcherTargets}
       requestedTargetId={displayedTargetId}
       selectedTarget={selectedTarget}
       selectedName={selectedName}
@@ -9322,10 +10510,10 @@ export default function RipStatisticsPageClient({
               value={displayedTargetId || ""}
               onChange={handleTargetChange}
               onFocus={() => handleTargetPrefetch(requestedTargetId, { includeAdjacent: true, reason: "sidebar-focus" })}
-              disabled={isPending || targets.length === 0}
+              disabled={isPending || switcherTargets.length === 0}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             >
-              {targets.map((target) => (
+              {switcherTargets.map((target) => (
                 <option key={`${target.target_type}:${target.target_id}`} value={target.target_id}>
                   {target.name}
                 </option>
@@ -9389,10 +10577,10 @@ export default function RipStatisticsPageClient({
               value={displayedTargetId || ""}
               onChange={(event) => handleTargetChange(event, { closeToolsPanel })}
               onFocus={() => handleTargetPrefetch(requestedTargetId, { includeAdjacent: true, reason: "mobile-focus" })}
-              disabled={isPending || targets.length === 0}
+              disabled={isPending || switcherTargets.length === 0}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             >
-              {targets.map((target) => (
+              {switcherTargets.map((target) => (
                 <option key={`${target.target_type}:${target.target_id}`} value={target.target_id}>
                   {target.name}
                 </option>
@@ -9486,12 +10674,12 @@ export default function RipStatisticsPageClient({
                             <button
                               type="button"
                               onClick={() => setHeroSetPickerOpen((open) => !open)}
-                              disabled={isPending || targets.length === 0}
+                              disabled={isPending || switcherTargets.length === 0}
                               aria-expanded={heroSetPickerOpen}
                               aria-haspopup="listbox"
                               aria-controls="hero-set-picker-list"
                               className="flex w-full min-w-0 items-start justify-between gap-3 rounded-lg text-left text-xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] md:text-2xl disabled:cursor-not-allowed disabled:opacity-90"
-                              title={targets.length > 0 ? "Switch set" : "No sets available"}
+                              title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
                             >
                               <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight">{selectedName}</span>
                               <span aria-hidden="true" className="mt-1 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/70">
@@ -9513,7 +10701,7 @@ export default function RipStatisticsPageClient({
                                 aria-label="Available sets"
                                 className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full max-w-full overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
                               >
-                                {targets.map((target) => {
+                                {switcherTargets.map((target) => {
                                   const isSelected = String(target.target_id) === String(requestedTargetId || "");
                                   return (
                                     <button
@@ -9672,6 +10860,18 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {setDetailTab === "overview" ? (
+                  showOverviewCohesiveLoading ? (
+                    // One cohesive Overview loading state while the critical
+                    // assets (set value history, /overview payload, top
+                    // chase, market movers) load — a single branded panel
+                    // reads as deliberate progress, not five broken chart
+                    // rows (Phase 9C feedback). The real layout reveals at
+                    // once when every critical asset settles.
+                    <SetTabLoadingPanel
+                      title="Loading overview data…"
+                      helper="Pulling set value history, market movers, and top chase cards for this set."
+                    />
+                  ) : (
                   <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
                       <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
@@ -9699,15 +10899,17 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    {hasMarketMovers ? (
-                      <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
-                        <MarketMoversModule
-                          movers={marketMovers}
-                          moversByWindow={marketMoversByWindow}
-                          onViewAll={handleViewAllMarketMovers}
-                        />
-                      </div>
-                    ) : null}
+                    <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
+                      <MarketMoversModule
+                        movers={marketMovers}
+                        moversByWindow={marketMoversByWindow}
+                        selectedWindow={marketMoversWindowKey}
+                        status={marketMoversStatus}
+                        error={activeMarketMoversState.error}
+                        onWindowChange={setMarketMoversWindowKey}
+                        onViewAll={handleViewAllMarketMovers}
+                      />
+                    </div>
 
                     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)] lg:items-start">
                       {shouldShowTopMarketCards ? (
@@ -9733,6 +10935,7 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
                   </section>
+                  )
                 ) : null}
 
                 {setDetailTab === "cards" ? (
@@ -9748,19 +10951,42 @@ export default function RipStatisticsPageClient({
 
                     {cardsSubTab === "checklist" ? (
                       <div className="min-w-0">
-                        {checklistState.status === "loading" && checklistState.cards.length === 0 ? (
-                          <CardGridSkeleton />
+                        <div className="mb-4">
+                          <label className="block min-w-0 max-w-sm text-xs font-semibold text-[var(--text-secondary)]">
+                            <span className="mb-1 block uppercase tracking-[0.08em]">Search</span>
+                            <input
+                              type="text"
+                              value={cardSearchQuery}
+                              onChange={(event) => setCardSearchQuery(event.target.value)}
+                              placeholder="Search cards by name"
+                              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                            />
+                          </label>
+                        </div>
+
+                        {(effectiveCardsPageStatus === "idle" || effectiveCardsPageStatus === "loading") &&
+                        effectiveCardsPageCards.length === 0 ? (
+                          // Branded tab loader only while the card page
+                          // payload itself is loading and no card rows exist
+                          // yet. Once rows render, lazy card images keep
+                          // their card-shaped placeholders (ChecklistCardTile
+                          // → CardImagePlaceholder) — individual image loads
+                          // must never re-block the whole tab.
+                          <SetTabLoadingPanel
+                            title="Loading cards…"
+                            helper="Pulling the checklist page and card market fields for this set."
+                          />
                         ) : null}
 
-                        {checklistState.status === "error" ? (
-                          <p className="text-sm text-red-300">{checklistState.error || "Unable to load cards for this set."}</p>
+                        {effectiveCardsPageStatus === "error" ? (
+                          <p className="text-sm text-red-300">{activeCardsPageState.error || "Unable to load cards for this set."}</p>
                         ) : null}
 
-                        {checklistState.status === "empty" ? (
+                        {effectiveCardsPageStatus === "empty" ? (
                           <p className="text-sm text-[var(--text-secondary)]">No cards found for this set.</p>
                         ) : null}
 
-                        {checklistState.cards.length > 0 ? (
+                        {effectiveCardsPageCards.length > 0 ? (
                           <>
                             {hasCardMovementData ? (
                             <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3 sm:flex-row sm:items-end sm:justify-between">
@@ -9791,13 +11017,13 @@ export default function RipStatisticsPageClient({
                                 </label>
                               </div>
                               <p className="text-xs text-[var(--text-secondary)]">
-                                {displayedChecklistCards.length.toLocaleString("en-US")} of {checklistState.cards.length.toLocaleString("en-US")} cards
+                                {displayedChecklistCards.length.toLocaleString("en-US")} of {(activeCardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
                               </p>
                             </div>
                             ) : null}
 
                             {displayedChecklistCards.length > 0 ? (
-                              <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 ${checklistState.status === "loading" ? "opacity-80" : ""}`.trim()}>
+                              <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 ${effectiveCardsPageStatus === "loading" ? "opacity-80" : ""}`.trim()}>
                                 {displayedChecklistCards.map((card) => (
                                   <ChecklistCardTile
                                     key={`${card.id || card.cardNumber || card.name}`}
@@ -9808,6 +11034,30 @@ export default function RipStatisticsPageClient({
                             ) : (
                               <p className="text-sm text-[var(--text-secondary)]">No cards match this movement filter yet.</p>
                             )}
+
+                            {activeCardsPageState.pagination ? (
+                              <div className="mt-4 flex items-center justify-between gap-3">
+                                <button
+                                  type="button"
+                                  disabled={!activeCardsPageState.pagination.hasPreviousPage}
+                                  onClick={() => setCardsPage((page) => Math.max(1, page - 1))}
+                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Previous
+                                </button>
+                                <p className="text-xs text-[var(--text-secondary)]">
+                                  Page {activeCardsPageState.pagination.page.toLocaleString("en-US")} of {activeCardsPageState.pagination.totalPages.toLocaleString("en-US")}
+                                </p>
+                                <button
+                                  type="button"
+                                  disabled={!activeCardsPageState.pagination.hasNextPage}
+                                  onClick={() => setCardsPage((page) => page + 1)}
+                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            ) : null}
                           </>
                         ) : null}
                       </div>
@@ -9816,18 +11066,55 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {setDetailTab === "pull-rates" ? (
-                  <section id="set-detail-pull-rates" className="scroll-mt-24 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5">
+                  <section id="set-detail-pull-rates" className="scroll-mt-24 space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5">
+                    <div>
+                      <p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>
+                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Modeled rarity frequency and specific-card odds used by this simulation.</p>
+                      <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
+                    </div>
                     {pullRateAssumptions ? (
                       <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                    ) : pullRatesTabPending ? (
+                      // Branded tab loader from the moment the tab is active
+                      // until the assumptions payload settles. If the request
+                      // hangs, the timeout swaps the loader for explicit copy
+                      // so this can never load indefinitely.
+                      pullRatesPendingTimedOut ? (
+                        <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          Pull rates are taking longer than expected to load. Refresh the page to retry.
+                        </p>
+                      ) : (
+                        <SetTabLoadingPanel
+                          title="Loading pull rate assumptions…"
+                          helper="Pulling rarity frequencies and specific-card odds for this set."
+                          minHeightClassName="min-h-[18rem]"
+                        />
+                      )
+                    ) : activePullRatesState.status === "error" ? (
+                      <p className="text-sm text-red-300">{activePullRatesState.error || "Unable to load pull rate assumptions for this set."}</p>
                     ) : (
-                      <p className="text-sm text-[var(--text-secondary)]">Pull-rate data coming soon for this set.</p>
+                      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                        Pull-rate data coming soon for this set. Modeled odds appear once this set&apos;s pack structure has been configured.
+                      </p>
                     )}
                   </section>
                 ) : null}
               </>
             ) : null}
 
-            {!setDetailMode || setDetailTab === "insights" ? (
+            {showInsightsCohesiveLoading ? (
+              // Whole-tab branded loader for Insights' critical payload —
+              // avoids section-by-section pop-in on the initial view. Only
+              // engages in set detail mode (insightsCriticalPending is false
+              // on /Explore) and hands off to the sections' compact fallback
+              // copy on timeout/error via insightsSectionsShowFallbackCopy.
+              <SetTabLoadingPanel
+                title="Loading insight data…"
+                helper="Pulling RIP breakdown, opening outcomes, desirability checks, and simulation drivers."
+              />
+            ) : null}
+
+            {(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (
               <>
             {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
@@ -9849,7 +11136,7 @@ export default function RipStatisticsPageClient({
                     as="button"
                     type="button"
                     onClick={() => setHeroSetPickerOpen((open) => !open)}
-                    disabled={isPending || targets.length === 0}
+                    disabled={isPending || switcherTargets.length === 0}
                     aria-expanded={heroSetPickerOpen}
                     aria-haspopup="listbox"
                     aria-controls="hero-set-picker-list"
@@ -9866,7 +11153,7 @@ export default function RipStatisticsPageClient({
                         <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
                       </svg>
                     }
-                    title={targets.length > 0 ? "Switch set" : "No sets available"}
+                    title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
                   >
                     <span>{selectedName}</span>
                   </CenteredSuffixInline>
@@ -9878,7 +11165,7 @@ export default function RipStatisticsPageClient({
                       aria-label="Available sets"
                       className="index-scrollbar absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
                     >
-                      {targets.map((target) => {
+                      {switcherTargets.map((target) => {
                         const isSelected = String(target.target_id) === String(requestedTargetId || "");
                         return (
                           <button
@@ -10162,7 +11449,11 @@ export default function RipStatisticsPageClient({
                   ripDesirabilityComparison={ripDesirabilityComparison}
                 />
 
-                <DesirabilityProofCards validation={desirabilityValidationPayload} />
+                <DesirabilityProofCards
+                  validation={desirabilityValidationPayload}
+                  loading={insightsSectionsBlocked}
+                  loadingTimedOut={insightsSectionsShowFallbackCopy}
+                />
                 <DesirabilityValidationCard targets={targets} freshness={sectionFreshness.desirabilityValidation} />
                 <CardDesirabilityMarketValidationCard
                   cards={activeCardValidationData.cards}
@@ -10180,8 +11471,8 @@ export default function RipStatisticsPageClient({
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   <SectionCard
                     title="Opening Outcomes"
-                    className="min-h-[38rem]"
-                    bodyClassName="min-h-[32rem]"
+                    className={openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : ""}
+                    bodyClassName={openingOutcomesUsesExpandedLayout ? "min-h-[32rem]" : ""}
                     subtitle={activeInsightsGraphMode === "outcome-distribution" ? openingOutcomesSubtitle : null}
                     titleInfoText={
                       activeInsightsGraphMode === "value-contribution"
@@ -10216,7 +11507,28 @@ export default function RipStatisticsPageClient({
                       ]}
                     />
 
-                    {activeInsightsGraphMode === "simulation-drivers" ? (
+                    {insightsSectionsBlocked ? (
+                      // The /insights payload feeds every Opening Outcomes
+                      // view (distribution bins, drivers, rankings, pack
+                      // paths) — hold one stable in-card loading state
+                      // instead of each view's misleading "no data" empty
+                      // state while the fetch is in flight, and switch to
+                      // compact fallback copy if it fails or stalls.
+                      insightsSectionsShowFallbackCopy ? (
+                        <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          Set insights are taking longer than expected to load. Refresh the page to retry.
+                        </p>
+                      ) : (
+                        <InlinePanelSkeleton rows={6} className="min-h-[24rem]" />
+                      )
+                    ) : !openingOutcomesViewHasData ? (
+                      // Loaded, but this sub-view genuinely has no rows for
+                      // this set — a compact note, not a chart-sized blank
+                      // panel, and only for the affected sub-tab.
+                      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                        {openingOutcomesEmptyViewCopy}
+                      </p>
+                    ) : activeInsightsGraphMode === "simulation-drivers" ? (
                       <div id="set-detail-simulation-drivers" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
                         <InterpretationInsight
                           sectionMeta={topEvDriversMeta}

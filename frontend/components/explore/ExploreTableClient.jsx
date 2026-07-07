@@ -140,7 +140,7 @@ function sortTargetsByMode(targets, modeId) {
   });
 }
 
-export default function ExploreTableClient({ targets = [] }) {
+export default function ExploreTableClient({ targets = [], loadError = false }) {
   const [selectedMode, setSelectedMode] = useState("overall");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownContainerRef = useRef(null);
@@ -370,6 +370,13 @@ export default function ExploreTableClient({ targets = [] }) {
             })}
           </div>
         </>
+      ) : loadError ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border border-dashed border-[var(--color-danger,#f87171)]/60 bg-[var(--surface-page)]/45 px-4 py-5 text-sm text-[var(--text-secondary)]"
+        >
+          Rankings are temporarily unavailable — the ranking service could not be reached. Please refresh in a moment.
+        </p>
       ) : (
         <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-4 py-5 text-sm text-[var(--text-secondary)]">
           Ranking snapshots are still loading. Open any set in RIP Statistics once data is available.

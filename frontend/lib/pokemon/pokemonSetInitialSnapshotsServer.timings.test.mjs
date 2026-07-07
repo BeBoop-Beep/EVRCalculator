@@ -54,28 +54,45 @@ test("getPokemonSetInitialSnapshots totalMs is placed before the return statemen
   assert.ok(returnIndex > totalMsIndex, "totalMs must be computed before the return");
 });
 
-test("getPokemonSetInitialSnapshots fetches cards for the insights tab, not just the cards tab", () => {
-  // Regression guard: Insights' Pure Pokémon Demand vs Market Price section
-  // (CardDesirabilityMarketValidationCard) is a Cards/checklist consumer
-  // (card rows + card appeal/market price correlation), but cards were only
-  // ever fetched server-side when tab === "cards". Direct/first loads of the
-  // insights tab therefore always started with no cardsPayload, so the
-  // section rendered n=0/"not enough data" until a client-side backfill
-  // fetch (or a tab switch through Overview) happened to populate it later.
-  // Cards must be a first-class server-fetched Insights dependency, same as
-  // the full /page payload already is.
+test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for tab === \"cards\" or tab === \"insights\"", () => {
+  // Regression guard: Insights' Card Desirability/Market Validation section
+  // (CardDesirabilityMarketValidationCard) used to be a full-checklist
+  // consumer (card rows + card appeal/market price correlation), and Insights
+  // fetched the full /cards snapshot server-side as a temporary exception
+  // (Phase 3B) because it didn't have its own slim contract yet. Phase 3C
+  // adds getPokemonSetCardsValidation (a slim, client-side-fetched contract),
+  // so the full /cards snapshot is no longer route-seeded for any tab —
+  // Cards uses getPokemonSetCardsPage and Insights uses
+  // getPokemonSetCardsValidation, both fetched client-side.
   const source = fs.readFileSync(snapshotsServerPath, "utf8");
   const fnStart = source.indexOf("export async function getPokemonSetInitialSnapshots");
   const fnEnd = source.indexOf("\n}\n", fnStart);
   const fnSource = source.slice(fnStart, fnEnd);
 
   assert.ok(
-    fnSource.includes('const wantsCards = tab === "cards" || tab === "insights"'),
-    "wantsCards must include the insights tab alongside the cards tab"
+    !fnSource.includes("const wantsCards ="),
+    "wantsCards gating must be removed — no tab triggers the full-cards server fetch anymore"
   );
   assert.ok(
-    fnSource.includes('const wantsMarketDashboard = tab === "overview"'),
-    "market dashboard fetch gating must be untouched (overview only)"
+    !fnSource.includes("getPokemonSetCardsInitialSnapshot("),
+    "getPokemonSetInitialSnapshots must never call getPokemonSetCardsInitialSnapshot anymore"
+  );
+  // The monolithic /market/dashboard snapshot is no longer requested here for
+  // any tab — Overview/Top Chase Cards/Market Movers each fetch their own
+  // slim endpoint client-side instead (see RipStatisticsPageClient.jsx).
+  assert.ok(
+    !fnSource.includes('const wantsMarketDashboard ='),
+    "market dashboard fetch gating must be removed — the live fetch is retired for every tab"
+  );
+  assert.ok(
+    !fnSource.includes("getPokemonSetMarketDashboardInitialSnapshot("),
+    "getPokemonSetInitialSnapshots must never call getPokemonSetMarketDashboardInitialSnapshot anymore"
+  );
+  const emptyPlaceholderCount = (fnSource.match(/Promise\.resolve\(EMPTY_INITIAL_SNAPSHOT\)/g) || []).length;
+  assert.equal(
+    emptyPlaceholderCount,
+    2,
+    "both the cards slot and the market dashboard slot must unconditionally resolve to the empty placeholder"
   );
 });
 

@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 
+import ChartFrame from "@/components/explore/ChartFrame";
 import { POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import {
   filterHistoryPointsForDeltaWindow,
@@ -259,18 +260,18 @@ function RatioPointLabel({ x, y, value, dollarValue = null }) {
 }
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
+// Compact by design: a settled "no data yet" note must not occupy a
+// chart-sized blank panel (Phase 9C loading-presentation polish).
 function EmptyTrendState({ flush = false }) {
   return (
-    <div className={[
-      "flex min-h-[24rem] flex-col items-center justify-center rounded-xl px-6 py-10 text-center",
+    <p className={[
+      "rounded-xl px-4 py-3 text-sm text-[var(--text-secondary)]",
       flush
         ? "border border-dashed border-[rgba(255,255,255,0.06)] bg-transparent"
         : "border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60",
     ].join(" ")}>
-      <p className="max-w-md text-sm text-[var(--text-secondary)]">
-        Historical trend will appear after multiple daily simulation snapshots.
-      </p>
-    </div>
+      Performance history isn&apos;t available for this set yet. The trend appears after multiple daily simulation snapshots.
+    </p>
   );
 }
 
@@ -467,7 +468,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         </div>
       </div>
 
-      <div className={flush ? "mt-3 min-h-[24rem] w-full flex-1" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
+      <ChartFrame className={flush ? "mt-3 min-h-[24rem] w-full flex-1" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 10, right: 112, left: 6, bottom: 14 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
@@ -568,7 +569,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             ) : null}
           </LineChart>
         </ResponsiveContainer>
-      </div>
+      </ChartFrame>
     </div>
   );
 }

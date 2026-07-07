@@ -32,6 +32,7 @@ function normalisePayload(payload) {
       name: toOptionalString(setSummary?.name),
       slug: toOptionalString(setSummary?.slug),
       era: toOptionalString(setSummary?.era),
+      eraId: toOptionalString(setSummary?.era_id ?? setSummary?.eraId),
       series: toOptionalString(setSummary?.series),
       releaseDate: toOptionalString(setSummary?.release_date ?? setSummary?.releaseDate),
       cardCount: toOptionalNumber(setSummary?.card_count ?? setSummary?.cardCount),

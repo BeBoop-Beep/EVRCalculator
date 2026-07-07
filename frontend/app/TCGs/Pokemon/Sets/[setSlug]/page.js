@@ -56,11 +56,13 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
   };
 
   // Initial set page render only needs the shell (header/title card) plus the
-  // active tab's payload — the full page snapshot (payload_json) is only
-  // required for the insights/pull-rates tabs, which render its RIP
-  // statistics, rankings, and pull-rate content directly.
-  const needsExplorePagePayload =
-    requestedTargetType !== "set" || activeSetDetailTab === "insights" || activeSetDetailTab === "pull-rates";
+  // active tab's payload — no set-detail tab needs the full page snapshot
+  // (payload_json) server-seeded anymore. Pull Rates moved off this in Phase
+  // 4A (getPokemonSetPullRates) and Insights moved off it in Phase 4B
+  // (getPokemonSetInsights) — both now fetch their own slim contract
+  // client-side instead, in RipStatisticsPageClient.jsx. The full /page
+  // fetch below is legacy-only, kept for non-"set" target types.
+  const needsExplorePagePayload = requestedTargetType !== "set";
 
   if (requestedTargetId) {
     const snapshotPromise =

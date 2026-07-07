@@ -20,10 +20,12 @@ test("CARDS_SNAPSHOT_REVALIDATE_S no longer exists – cards snapshots do not us
   assert.ok(!source.includes("CARDS_SNAPSHOT_REVALIDATE_S"), "must not define or reference CARDS_SNAPSHOT_REVALIDATE_S");
 });
 
-test("MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S is defined as 300", () => {
+test("MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S no longer exists – market dashboard snapshots do not use Next's data cache", () => {
   const source = fs.readFileSync(snapshotsServerPath, "utf8");
 
-  assert.ok(source.includes("const MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S = 300"), "must define MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S = 300");
+  // Market dashboard snapshots can exceed Next's 2MB data-cache entry size limit,
+  // same root cause as cards (see the CARDS_SNAPSHOT_REVALIDATE_S test above).
+  assert.ok(!source.includes("MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S"), "must not define or reference MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S");
 });
 
 // ---------------------------------------------------------------------------
@@ -65,27 +67,15 @@ test("getPokemonSetCardsInitialSnapshot does not pass nextCacheOptions (falls ba
 // getPokemonSetMarketDashboardInitialSnapshot – cache options
 // ---------------------------------------------------------------------------
 
-test("getPokemonSetMarketDashboardInitialSnapshot passes MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S revalidation", () => {
+test("getPokemonSetMarketDashboardInitialSnapshot does not pass nextCacheOptions (falls back to cache: no-store)", () => {
   const source = fs.readFileSync(snapshotsServerPath, "utf8");
   const fnStart = source.indexOf("export async function getPokemonSetMarketDashboardInitialSnapshot");
   const fnEnd = source.indexOf("export async function getPokemonSetInitialSnapshots", fnStart);
   const fnSource = source.slice(fnStart, fnEnd);
 
-  assert.ok(fnSource.includes("MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S"), "must use MARKET_DASHBOARD_SNAPSHOT_REVALIDATE_S");
-  assert.ok(fnSource.includes("nextCacheOptions:"), "must pass nextCacheOptions to loadInitialSnapshot");
-  assert.ok(fnSource.includes("revalidate:"), "nextCacheOptions must include revalidate");
-  assert.ok(fnSource.includes("tags:"), "nextCacheOptions must include tags");
-});
-
-test("getPokemonSetMarketDashboardInitialSnapshot tags include pokemon-set-market-dashboard: prefix with setId and window", () => {
-  const source = fs.readFileSync(snapshotsServerPath, "utf8");
-  const fnStart = source.indexOf("export async function getPokemonSetMarketDashboardInitialSnapshot");
-  const fnEnd = source.indexOf("export async function getPokemonSetInitialSnapshots", fnStart);
-  const fnSource = source.slice(fnStart, fnEnd);
-
-  assert.ok(fnSource.includes("pokemon-set-market-dashboard:"), "tags must include pokemon-set-market-dashboard: prefix");
-  assert.ok(fnSource.includes("resolvedSetId"), "tag must incorporate resolvedSetId");
-  assert.ok(fnSource.includes("normalizedWindow"), "tag must incorporate normalizedWindow");
+  assert.ok(!fnSource.includes("nextCacheOptions:"), "market dashboard snapshot must not pass nextCacheOptions to loadInitialSnapshot");
+  assert.ok(!fnSource.includes("revalidate:"), "market dashboard snapshot must not request Next revalidation");
+  assert.ok(!fnSource.includes("pokemon-set-market-dashboard:"), "market dashboard snapshot must not tag a Next cache entry that can't hold >2MB payloads");
 });
 
 // ---------------------------------------------------------------------------

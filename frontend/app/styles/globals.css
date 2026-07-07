@@ -316,6 +316,27 @@ body::-webkit-scrollbar-thumb:hover {
   padding: 2.25rem 1rem;
 }
 
+/* In-tab embedded usage (SetTabLoadingPanel): same logo/dots visual
+   language, but sized to sit inside a tab panel above its title/helper copy
+   instead of filling the viewport. */
+.index-loader-shell--embedded {
+  padding: 0.25rem 1rem 1rem;
+}
+
+.index-loader-shell--embedded .index-loader-logo {
+  width: clamp(4.5rem, 8vw, 6rem);
+  height: clamp(4.5rem, 8vw, 6rem);
+}
+
+.index-loader-shell--embedded .index-loader-glow {
+  width: clamp(6rem, 10vw, 8rem);
+  height: clamp(6rem, 10vw, 8rem);
+}
+
+.index-loader-shell--embedded .index-loader-dots {
+  margin-top: 0.9rem;
+}
+
 .index-loader-shell--fullscreen {
   --index-loader-header-offset: var(--app-header-offset, 64px);
   --index-loader-bottom-offset: calc(5.25rem + env(safe-area-inset-bottom));
