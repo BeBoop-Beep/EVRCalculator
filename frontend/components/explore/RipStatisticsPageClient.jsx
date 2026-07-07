@@ -14,11 +14,13 @@ import {
   YAxis,
 } from "recharts";
 
+import ChartFrame from "@/components/explore/ChartFrame";
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
+import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
 import InfoPopover from "@/components/ui/InfoPopover";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
@@ -163,6 +165,16 @@ const DEFAULT_MARKET_MOVERS_WINDOW = "30D";
 // Keep the mechanism but disable it by default — the active destination set
 // is enough; bump this only behind a deliberate, measured decision.
 const SET_PREFETCH_ADJACENT_LIMIT = 0;
+// Overview holds one cohesive skeleton until its critical assets (set value
+// history, /overview payload, top chase, market movers) have all settled for
+// the active set, instead of letting each card pop in independently. The cap
+// below force-reveals whatever is available if any fetch hangs, so a stuck
+// request can never wedge the whole tab behind a skeleton.
+const OVERVIEW_COHESIVE_LOADING_MAX_MS = 8000;
+// Insights sections that depend on the /insights payload show skeletons while
+// it loads; after this long they switch to an explicit "taking longer than
+// expected" fallback instead of shimmering forever.
+const INSIGHTS_PENDING_TIMEOUT_MS = 8000;
 const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
 const SET_DETAIL_TAB_ALIASES = {
   analytics: "insights",
@@ -1423,6 +1435,31 @@ function getPaddedNumberDomain(values, { floorAtZero = false, fallback = [0, 100
   return [Number(min.toFixed(2)), Number(max.toFixed(2))];
 }
 
+function hasRenderableOutcomeDistributionRows(distributionRows, thresholdRows) {
+  const thresholdSource = Array.isArray(thresholdRows) ? thresholdRows : [];
+  const distributionSource = Array.isArray(distributionRows) ? distributionRows : [];
+  const source = thresholdSource.length > 0 ? thresholdSource : distributionSource;
+  return source.some((row) => {
+    const floor = toNumber(row?.threshold_floor ?? row?.bin_floor);
+    const ceiling = toNumber(row?.threshold_ceiling ?? row?.bin_ceiling);
+    const probability = toNumber(row?.probability);
+    return (floor !== null || ceiling !== null) && probability !== null;
+  });
+}
+
+function hasRenderablePackPathRows(packPaths, normalStateRows) {
+  const source = packPaths && typeof packPaths === "object" ? packPaths : {};
+  const hasPackPathCounts = Object.values(source).some((value) => {
+    const count = toNumber(value);
+    return count !== null && count > 0;
+  });
+  const hasNormalStateCounts = (Array.isArray(normalStateRows) ? normalStateRows : []).some(([, value]) => {
+    const count = toNumber(value);
+    return count !== null && count > 0;
+  });
+  return hasPackPathCounts || hasNormalStateCounts;
+}
+
 function getMarketReadSummary({ packCost, averagePackValue, returnRatio, setValue, topShare, chaseDepth }) {
   const hasPriceValue = packCost !== null && averagePackValue !== null;
   const pricePosition = hasPriceValue
@@ -1570,6 +1607,32 @@ function hasNegativeMovement(card) {
   return (movement?.amount ?? movement?.score ?? 0) < 0;
 }
 
+// Card-shaped placeholder for the checklist grid's image slot: a faint
+// trading-card silhouette inside the tile's aspect-ratio box. `shimmer`
+// pulses while the remote image is still loading; the static variant with a
+// label is the settled "image unavailable" presentation (missing URL or a
+// failed load) — intentionally distinct from the loading state so a slow
+// image never reads as a broken card.
+function CardImagePlaceholder({ shimmer = false, label = null }) {
+  return (
+    <div
+      className={`absolute inset-1 flex flex-col items-center justify-center gap-1.5 rounded-md border border-[rgba(255,255,255,0.05)] ${
+        shimmer ? "animate-pulse bg-[rgba(148,163,184,0.09)]" : "bg-[rgba(148,163,184,0.05)]"
+      }`}
+      aria-hidden={label ? undefined : "true"}
+    >
+      <svg viewBox="0 0 24 24" className="h-9 w-9 text-[rgba(148,163,184,0.35)]" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden="true">
+        <rect x="5.5" y="3" width="13" height="18" rx="1.8" />
+        <circle cx="12" cy="9.5" r="2.4" />
+        <path d="M8.4 16.6c1-1.7 2.2-2.6 3.6-2.6s2.6.9 3.6 2.6" />
+      </svg>
+      {label ? (
+        <span className="px-2 text-center text-[10px] font-medium leading-tight text-[rgba(148,163,184,0.6)]">{label}</span>
+      ) : null}
+    </div>
+  );
+}
+
 function ChecklistCardTile({ card }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
   const name = card?.name || "Unknown card";
@@ -1580,25 +1643,42 @@ function ChecklistCardTile({ card }) {
   // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
   const marketDelta = getCardMovement30d(card) || getCardMarketDelta(card);
   const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
+  // Remote card art lands well after the tile's data (about a second on a
+  // cold cache), so the aspect-ratio box shows a shimmering card silhouette
+  // and the image fades in once loaded — the grid keeps its final layout
+  // instead of flashing empty frames. Cached images may complete before
+  // React attaches onLoad (SSR-seeded grids), so the ref checks .complete.
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [hasImageFailed, setHasImageFailed] = useState(false);
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+    setHasImageFailed(false);
+  }, [imageUrl]);
 
   return (
     <article className="group overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
       <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-[rgba(2,6,23,0.46)] p-1">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={name}
-            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.01]"
-            loading="lazy"
-            decoding="async"
-          />
+        {imageUrl && !hasImageFailed ? (
+          <>
+            {!isImageLoaded ? <CardImagePlaceholder shimmer /> : null}
+            <img
+              ref={(node) => {
+                if (node && node.complete && node.naturalWidth > 0) {
+                  setIsImageLoaded(true);
+                }
+              }}
+              src={imageUrl}
+              alt={name}
+              onLoad={() => setIsImageLoaded(true)}
+              onError={() => setHasImageFailed(true)}
+              className={`h-full w-full object-contain transition-all duration-300 group-hover:scale-[1.01] ${isImageLoaded ? "opacity-100" : "opacity-0"}`}
+              loading="lazy"
+              decoding="async"
+            />
+          </>
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-3 text-center text-[var(--text-secondary)]">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]">
-              {getCardInitials(name)}
-            </span>
-            <p className="line-clamp-2 text-xs">{name}</p>
-          </div>
+          <CardImagePlaceholder label="Image unavailable" />
         )}
       </div>
       <div className="space-y-1 px-2.5 py-2.5">
@@ -2339,9 +2419,9 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
 
   if (valuedPoints.length < 2) {
     return (
-      <div className="flex min-h-[20rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-sm text-[var(--text-secondary)]">
-        Not enough set value history yet.
-      </div>
+      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-4 py-3 text-sm text-[var(--text-secondary)]">
+        Not enough set value history yet. The trend chart appears after a few days of market observations.
+      </p>
     );
   }
 
@@ -2363,7 +2443,7 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
 
   return (
     <div className="min-h-[21rem] w-full">
-      <div className="h-[21rem] w-full">
+      <ChartFrame className="h-[21rem] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={numericPoints} margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
@@ -2399,7 +2479,7 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
             />
           </LineChart>
         </ResponsiveContainer>
-      </div>
+      </ChartFrame>
     </div>
   );
 }
@@ -2706,19 +2786,6 @@ function InlinePanelSkeleton({ rows = 3, className = "" }) {
         <div
           key={`inline-skeleton:${index}`}
           className="h-12 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/50"
-        />
-      ))}
-    </div>
-  );
-}
-
-function CardGridSkeleton({ count = 12 }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" aria-hidden="true">
-      {Array.from({ length: count }).map((_, index) => (
-        <div
-          key={`card-grid-skeleton:${index}`}
-          className="min-h-[13rem] animate-pulse rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
         />
       ))}
     </div>
@@ -5174,9 +5241,74 @@ function ProofMetric({ label, value }) {
   );
 }
 
-function DesirabilityProofCards({ validation }) {
-  if (!validation) {
-    return null;
+// The /insights normalizer coerces a missing desirabilityValidation to `{}`
+// (truthy), and a populated object can still carry only identity fields — in
+// both cases the proof card used to render a full grid of "—" placeholders
+// that read as stuck skeleton rows. A proof payload only counts as real when
+// at least one field the card actually displays has a value.
+function hasDesirabilityProofSignal(validation) {
+  if (!validation || typeof validation !== "object") {
+    return false;
+  }
+  const signalKeys = [
+    "desirability_impact_band", "desirabilityImpactBand",
+    "desirability_alignment_band", "desirabilityAlignmentBand",
+    "desirability_impact_summary", "desirabilityImpactSummary",
+    "desirability_alignment_summary", "desirabilityAlignmentSummary",
+    "rip_core_rank_without_desirability", "ripCoreRankWithoutDesirability",
+    "final_rip_rank_with_desirability", "finalRipRankWithDesirability",
+    "desirability_score_delta", "desirabilityScoreDelta",
+    "desirability_rank_delta", "desirabilityRankDelta",
+    "desirability_rank", "desirabilityRank",
+    "card_appeal_score", "cardAppealScore",
+    "card_appeal_summary", "cardAppealSummary",
+  ];
+  return signalKeys.some((key) => {
+    const value = validation[key];
+    if (value === null || value === undefined) {
+      return false;
+    }
+    return typeof value === "string" ? value.trim().length > 0 : true;
+  });
+}
+
+function DesirabilityProofCards({ validation, loading = false, loadingTimedOut = false }) {
+  if (!hasDesirabilityProofSignal(validation)) {
+    // While the /insights payload is still in flight this section holds a
+    // stable skeleton box (instead of mounting late as an afterthought); if
+    // loading stalls or fails it says so explicitly. A settled payload with
+    // no proof data renders a compact, intentional empty state — never a
+    // grid of "—" placeholders and never a silently missing section.
+    if (loading) {
+      return (
+        <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28" aria-busy={!loadingTimedOut}>
+          <SectionCard
+            title="Desirability Proof"
+            subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
+          >
+            {loadingTimedOut ? (
+              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                Set insights are taking longer than expected to load. Refresh the page to retry.
+              </div>
+            ) : (
+              <InlinePanelSkeleton rows={3} />
+            )}
+          </SectionCard>
+        </section>
+      );
+    }
+    return (
+      <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28">
+        <SectionCard
+          title="Desirability Proof"
+          subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
+        >
+          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+            Desirability proof isn&apos;t available for this set yet. It appears once this set has enough desirability and market data to compare.
+          </p>
+        </SectionCard>
+      </section>
+    );
   }
 
   const impactBand = formatProofBand(validation.desirability_impact_band || validation.desirabilityImpactBand);
@@ -5419,7 +5551,7 @@ function DesirabilityValidationCard({ targets, freshness = null }) {
               ) : null}
               {/* TODO: Add rank-trend visual line after validation dataset stabilizes. */}
             </div>
-            <div className="h-[22rem] min-w-0">
+            <ChartFrame className="h-[22rem] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
               <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
@@ -5464,12 +5596,12 @@ function DesirabilityValidationCard({ targets, freshness = null }) {
                 <Scatter data={points} dataKey="y" fill="rgba(45,212,191,0.84)" fillOpacity={0.82} isAnimationActive={false} />
               </ComposedChart>
               </ResponsiveContainer>
-            </div>
+            </ChartFrame>
           </div>
         ) : (
-          <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">Not enough set data to compare yet.</p>
-          </div>
+          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+            Not enough set data to compare yet. This chart appears once at least three sets have this metric.
+          </p>
         )}
       </SectionCard>
     </section>
@@ -5986,7 +6118,7 @@ function CardDesirabilityMarketValidationCard({
                 <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
               ) : null}
             </div>
-            <div className="h-[22rem] min-w-0">
+            <ChartFrame className="h-[22rem] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
                   <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
@@ -6031,7 +6163,7 @@ function CardDesirabilityMarketValidationCard({
                   <Scatter data={points} dataKey="y" fill="rgba(125,211,252,0.84)" fillOpacity={0.82} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
-            </div>
+            </ChartFrame>
             {buckets ? (
               <div className="grid gap-3 md:grid-cols-3">
                 {buckets.map((bucket) => (
@@ -6054,16 +6186,23 @@ function CardDesirabilityMarketValidationCard({
               </div>
             ) : null}
           </div>
-        ) : (
-          <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-6 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">
+        ) : snapshotLoading || dataLoading ? (
+          // Still loading — a skeleton, not empty-state copy, so the section
+          // never reads as "no data" before the fetch settles.
+          <div className="space-y-3" aria-busy="true">
+            <InlinePanelSkeleton rows={3} />
+            <p className="text-xs text-[var(--text-secondary)]">
               {snapshotLoading
                 ? "Card appeal data is taking longer than expected to load. Retrying now…"
-                : dataLoading
-                ? "Loading card appeal and market price data…"
-                : "Not enough card appeal and market price data yet."}
+                : "Loading card appeal and market price data…"}
             </p>
           </div>
+        ) : (
+          // Settled with too few points — compact, intentional empty state
+          // instead of a chart-sized blank panel.
+          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+            {"Not enough card appeal and market price data yet."} This chart appears once enough cards in this set have both appeal scores and market prices.
+          </p>
         )}
       </SectionCard>
     </section>
@@ -7073,6 +7212,23 @@ export default function RipStatisticsPageClient({
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
+  // Loading-cohesion escape hatches, keyed by set id so a set switch
+  // re-engages the cohesive hold for the new set: Overview force-reveals its
+  // content if a critical fetch hangs past OVERVIEW_COHESIVE_LOADING_MAX_MS,
+  // and Insights swaps its skeletons for explicit "taking longer than
+  // expected" copy past INSIGHTS_PENDING_TIMEOUT_MS.
+  const [overviewCohesionForceReveal, setOverviewCohesionForceReveal] = useState({ setId: null, revealed: false });
+  const [insightsPendingTimeoutState, setInsightsPendingTimeoutState] = useState({ setId: null, timedOut: false });
+  // Explicit /insights fetch lifecycle, keyed by set id. The payload itself
+  // lives in explorePayload, but sections need to distinguish "fetch still in
+  // flight" (skeleton) from "fetch settled in error with no payload" (compact
+  // fallback copy) — without this, a failed fetch left skeletons shimmering
+  // until the generic timeout fired, and nothing distinguished error from
+  // slow.
+  const [insightsFetchState, setInsightsFetchState] = useState({ setId: null, status: "idle", error: null });
+  // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
+  // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
+  const [pullRatesPendingTimeoutState, setPullRatesPendingTimeoutState] = useState({ setId: null, timedOut: false });
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
   const [cardSearchQuery, setCardSearchQuery] = useState("");
@@ -7279,9 +7435,39 @@ export default function RipStatisticsPageClient({
     marketOrSetValueSeededForActiveTab;
 
   useEffect(() => {
-    setExplorePayload(initialExplorePayload || null);
+    setExplorePayload((previous) => {
+      if (initialExplorePayload) {
+        return initialExplorePayload;
+      }
+      // Same-set navigation (tab hops always go through router.push) replaces
+      // props with a null payload seed — Cards/Overview routes never seed the
+      // full payload. Blanking an already-loaded same-set payload here
+      // flashed Insights back to skeletons mid-view, forced a redundant
+      // /insights refetch, and stranded the tab on skeletons whenever that
+      // refetch was interrupted. Keep the payload when it verifiably belongs
+      // to the requested set; a genuine set switch (identity mismatch) still
+      // resets to null.
+      const previousIdentity = getSetSnapshotIdentity(previous);
+      if (
+        previous &&
+        !isSetPageTransportFallback(previous) &&
+        previousIdentity &&
+        setIdentityMatchesTarget(previousIdentity, requestedTargetId)
+      ) {
+        return previous;
+      }
+      return null;
+    });
     setSetPageSnapshotRefreshState({ status: "idle", setId: null, error: null });
     timeoutSnapshotRefreshKeyRef.current = null;
+    // Navigation just replaced the payload seed (often with null — Cards/
+    // Overview routes never seed the full payload). The insights fetch key
+    // stays claimed after a successful fetch, so without releasing it here a
+    // same-set revisit to Insights whose payload this reset just cleared
+    // would skip its refetch forever and strand the tab without data (seen
+    // as Insights sections never loading after a set switch when the RSC
+    // navigation response lands after the insights fetch resolved).
+    explorePagePayloadFetchKeyRef.current = null;
     const routeSeed = buildInitialSetPageDataSeed({
       explorePayload: initialExplorePayload || {},
       cardsPayload: initialCardsPayload,
@@ -7499,6 +7685,7 @@ export default function RipStatisticsPageClient({
 
     let isCancelled = false;
     let requestSettled = false;
+    setInsightsFetchState({ setId, status: "loading", error: null });
     getPokemonSetInsights(setId)
       .then((payload) => {
         requestSettled = true;
@@ -7509,12 +7696,17 @@ export default function RipStatisticsPageClient({
           return;
         }
         setExplorePayload(adaptPokemonSetInsightsPayloadToExplorePayload(payload));
+        setInsightsFetchState({ setId, status: "success", error: null });
       })
-      .catch(() => {
+      .catch((error) => {
         requestSettled = true;
         if (explorePagePayloadFetchKeyRef.current === fetchKey) {
           explorePagePayloadFetchKeyRef.current = null;
         }
+        if (isCancelled) {
+          return;
+        }
+        setInsightsFetchState({ setId, status: "error", error: error?.message || "Unable to load set insights." });
       });
 
     return () => {
@@ -8751,6 +8943,147 @@ export default function RipStatisticsPageClient({
     : activeMarketMoversState.status === "error"
     ? "error"
     : "success";
+  // Overview loading cohesion (Phase 9B): hold one full-layout skeleton until
+  // every critical Overview asset has settled for the active set — set value
+  // history, the slim /overview payload (Performance vs Cost), top chase
+  // cards, and the default-window market movers. Optional secondary fetches
+  // (non-default mover windows, non-visible set value scopes) never re-enter
+  // these pending states because their reducers/effects keep already-loaded
+  // data as success/success_stale, so this gate only engages on the first
+  // load of a set's Overview (including after a set switch) and can never be
+  // re-triggered by window/scope changes. Error/empty are settled states —
+  // per-module error and empty rendering takes over after reveal.
+  const overviewSetValuePending =
+    activeSetValueHistory.status === "idle" || activeSetValueHistory.status === "loading";
+  const overviewPayloadPending =
+    activeOverviewState.status === "idle" || activeOverviewState.status === "loading";
+  const overviewTopChasePending = topPricedCardsStatus === "loading";
+  const overviewMarketMoversPending = marketMoversStatus === "loading";
+  const overviewCriticalAssetsPending =
+    overviewSetValuePending || overviewPayloadPending || overviewTopChasePending || overviewMarketMoversPending;
+  const showOverviewCohesiveLoading =
+    setDetailMode &&
+    setDetailTab === "overview" &&
+    // The timeout escape below is keyed by resolvedSetResourceId, so the
+    // skeleton must never engage without one — it could not force-reveal.
+    Boolean(resolvedSetResourceId) &&
+    overviewCriticalAssetsPending &&
+    !(overviewCohesionForceReveal.setId === resolvedSetResourceId && overviewCohesionForceReveal.revealed);
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    const timer = window.setTimeout(() => {
+      setOverviewCohesionForceReveal({ setId, revealed: true });
+    }, OVERVIEW_COHESIVE_LOADING_MAX_MS);
+    return () => window.clearTimeout(timer);
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId]);
+  // Insights loading cohesion (Phase 9B/9C): sections sourced from the
+  // /insights payload (Desirability Proof, Opening Outcomes) hold stable
+  // skeleton boxes only while the fetch is genuinely in flight; a fetch that
+  // settled in error (or hung past the timeout) switches them to explicit
+  // compact fallback copy instead of shimmering forever.
+  // Requires a resolved set id for the same reason as the Overview gate: the
+  // timeout escape can't fire without one, and without an id the insights
+  // fetch could never start anyway.
+  const activeInsightsFetchStatus =
+    insightsFetchState.setId === resolvedSetResourceId ? insightsFetchState.status : "idle";
+  const insightsLoadFailed =
+    setDetailMode && setDetailTab === "insights" && !explorePayload && activeInsightsFetchStatus === "error";
+  const insightsCriticalPending =
+    setDetailMode &&
+    setDetailTab === "insights" &&
+    Boolean(resolvedSetResourceId) &&
+    !explorePayload &&
+    !insightsLoadFailed;
+  const insightsPendingTimedOut =
+    insightsPendingTimeoutState.setId === resolvedSetResourceId && insightsPendingTimeoutState.timedOut;
+  // Sections stay in their loading/fallback presentation while blocked; the
+  // fallback copy takes over once loading is no longer expected to resolve on
+  // its own (fetch error or timeout).
+  const insightsSectionsBlocked = insightsCriticalPending || insightsLoadFailed;
+  const insightsSectionsShowFallbackCopy = insightsLoadFailed || insightsPendingTimedOut;
+  // Phase 9D.2: while the /insights payload is genuinely in flight for the
+  // active set, the whole Insights tab holds one branded loading panel
+  // (SetTabLoadingPanel) instead of section-by-section skeleton pop-in. Once
+  // the fetch errors or hangs past the timeout, the sections render with
+  // their explicit compact fallback copy (insightsSectionsShowFallbackCopy);
+  // once loaded, empty sub-views get compact empty states — never the loader.
+  const showInsightsCohesiveLoading = insightsCriticalPending && !insightsPendingTimedOut;
+  // Opening Outcomes settled-state audit (Phase 9C): once the payload is in,
+  // each sub-view either has rows to render or gets a compact empty state —
+  // never a chart-sized blank panel. The card's large min-height is also only
+  // applied when the active view actually renders chart-sized content.
+  const openingOutcomesViewHasData =
+    activeInsightsGraphMode === "simulation-drivers"
+      ? topHits.length > 0
+      : activeInsightsGraphMode === "value-contribution"
+      ? rankings.length > 0
+      : activeInsightsGraphMode === "pack-breakdown"
+      ? hasRenderablePackPathRows(ripStatistics?.pack_paths, normalStateRows)
+      : hasRenderableOutcomeDistributionRows(distributionBins, thresholdBins);
+  const openingOutcomesEmptyViewCopy =
+    activeInsightsGraphMode === "simulation-drivers"
+      ? "Simulation driver data isn't available for this set yet."
+      : activeInsightsGraphMode === "value-contribution"
+      ? "Value structure data isn't available for this set yet."
+      : activeInsightsGraphMode === "pack-breakdown"
+      ? "Pack path data isn't available for this set yet."
+      : "Outcome distribution data isn't available for this set yet.";
+  const openingOutcomesUsesExpandedLayout = !insightsSectionsBlocked && openingOutcomesViewHasData;
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "insights" || !resolvedSetResourceId || explorePayload) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    // A fresh pending episode (e.g. retrying after navigation reset the
+    // payload) must start from the skeleton again, not from stale timeout
+    // copy left over from an earlier episode for the same set.
+    setInsightsPendingTimeoutState((previous) =>
+      previous.setId === setId && previous.timedOut ? { setId: null, timedOut: false } : previous
+    );
+    const timer = window.setTimeout(() => {
+      setInsightsPendingTimeoutState({ setId, timedOut: true });
+    }, INSIGHTS_PENDING_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, explorePayload]);
+  // Pull Rates loading shell (Phase 9B): pullRatesState only resets to this
+  // set's shape once its fetch effect fires post-paint, so guard by set id
+  // the same way the other per-tab states do, and treat idle/loading with no
+  // usable assumptions as "show the loading shell" instead of the misleading
+  // "coming soon" copy.
+  const activePullRatesState =
+    pullRatesState.setId === resolvedSetResourceId
+      ? pullRatesState
+      : { status: "idle", setId: resolvedSetResourceId, pullRateAssumptions: null, error: null };
+  const pullRatesTabPending =
+    setDetailMode &&
+    setDetailTab === "pull-rates" &&
+    !pullRateAssumptions &&
+    (activePullRatesState.status === "idle" || activePullRatesState.status === "loading");
+  // Phase 9D.1: the loading shell may never settle if the fetch hangs (no
+  // request timeout) or an upstream gate keeps the state parked on "idle" —
+  // same escape hatch as Insights, so Pull Rates can never shimmer
+  // indefinitely: after the timeout the shell switches to explicit
+  // "taking longer than expected" copy.
+  const pullRatesPendingTimedOut =
+    pullRatesPendingTimeoutState.setId === resolvedSetResourceId && pullRatesPendingTimeoutState.timedOut;
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "pull-rates" || !resolvedSetResourceId || pullRateAssumptions) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    // A fresh pending episode must start from the skeleton again, not from
+    // stale timeout copy left over from an earlier episode for the same set.
+    setPullRatesPendingTimeoutState((previous) =>
+      previous.setId === setId && previous.timedOut ? { setId: null, timedOut: false } : previous
+    );
+    const timer = window.setTimeout(() => {
+      setPullRatesPendingTimeoutState({ setId, timedOut: true });
+    }, INSIGHTS_PENDING_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, pullRateAssumptions]);
   // Temporary fallback: if a full cards payload is already seeded (e.g. the
   // user visited Insights first, or an old SSR seed is still present), show
   // it until the paginated fetch for this set lands, instead of an empty
@@ -10527,6 +10860,18 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {setDetailTab === "overview" ? (
+                  showOverviewCohesiveLoading ? (
+                    // One cohesive Overview loading state while the critical
+                    // assets (set value history, /overview payload, top
+                    // chase, market movers) load — a single branded panel
+                    // reads as deliberate progress, not five broken chart
+                    // rows (Phase 9C feedback). The real layout reveals at
+                    // once when every critical asset settles.
+                    <SetTabLoadingPanel
+                      title="Loading overview data…"
+                      helper="Pulling set value history, market movers, and top chase cards for this set."
+                    />
+                  ) : (
                   <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
                       <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
@@ -10590,6 +10935,7 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
                   </section>
+                  )
                 ) : null}
 
                 {setDetailTab === "cards" ? (
@@ -10618,8 +10964,18 @@ export default function RipStatisticsPageClient({
                           </label>
                         </div>
 
-                        {effectiveCardsPageStatus === "loading" && effectiveCardsPageCards.length === 0 ? (
-                          <CardGridSkeleton />
+                        {(effectiveCardsPageStatus === "idle" || effectiveCardsPageStatus === "loading") &&
+                        effectiveCardsPageCards.length === 0 ? (
+                          // Branded tab loader only while the card page
+                          // payload itself is loading and no card rows exist
+                          // yet. Once rows render, lazy card images keep
+                          // their card-shaped placeholders (ChecklistCardTile
+                          // → CardImagePlaceholder) — individual image loads
+                          // must never re-block the whole tab.
+                          <SetTabLoadingPanel
+                            title="Loading cards…"
+                            helper="Pulling the checklist page and card market fields for this set."
+                          />
                         ) : null}
 
                         {effectiveCardsPageStatus === "error" ? (
@@ -10718,15 +11074,47 @@ export default function RipStatisticsPageClient({
                     </div>
                     {pullRateAssumptions ? (
                       <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
+                    ) : pullRatesTabPending ? (
+                      // Branded tab loader from the moment the tab is active
+                      // until the assumptions payload settles. If the request
+                      // hangs, the timeout swaps the loader for explicit copy
+                      // so this can never load indefinitely.
+                      pullRatesPendingTimedOut ? (
+                        <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          Pull rates are taking longer than expected to load. Refresh the page to retry.
+                        </p>
+                      ) : (
+                        <SetTabLoadingPanel
+                          title="Loading pull rate assumptions…"
+                          helper="Pulling rarity frequencies and specific-card odds for this set."
+                          minHeightClassName="min-h-[18rem]"
+                        />
+                      )
+                    ) : activePullRatesState.status === "error" ? (
+                      <p className="text-sm text-red-300">{activePullRatesState.error || "Unable to load pull rate assumptions for this set."}</p>
                     ) : (
-                      <p className="text-sm text-[var(--text-secondary)]">Pull-rate data coming soon for this set.</p>
+                      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                        Pull-rate data coming soon for this set. Modeled odds appear once this set&apos;s pack structure has been configured.
+                      </p>
                     )}
                   </section>
                 ) : null}
               </>
             ) : null}
 
-            {!setDetailMode || setDetailTab === "insights" ? (
+            {showInsightsCohesiveLoading ? (
+              // Whole-tab branded loader for Insights' critical payload —
+              // avoids section-by-section pop-in on the initial view. Only
+              // engages in set detail mode (insightsCriticalPending is false
+              // on /Explore) and hands off to the sections' compact fallback
+              // copy on timeout/error via insightsSectionsShowFallbackCopy.
+              <SetTabLoadingPanel
+                title="Loading insight data…"
+                helper="Pulling RIP breakdown, opening outcomes, desirability checks, and simulation drivers."
+              />
+            ) : null}
+
+            {(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (
               <>
             {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
@@ -11061,7 +11449,11 @@ export default function RipStatisticsPageClient({
                   ripDesirabilityComparison={ripDesirabilityComparison}
                 />
 
-                <DesirabilityProofCards validation={desirabilityValidationPayload} />
+                <DesirabilityProofCards
+                  validation={desirabilityValidationPayload}
+                  loading={insightsSectionsBlocked}
+                  loadingTimedOut={insightsSectionsShowFallbackCopy}
+                />
                 <DesirabilityValidationCard targets={targets} freshness={sectionFreshness.desirabilityValidation} />
                 <CardDesirabilityMarketValidationCard
                   cards={activeCardValidationData.cards}
@@ -11079,8 +11471,8 @@ export default function RipStatisticsPageClient({
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   <SectionCard
                     title="Opening Outcomes"
-                    className="min-h-[38rem]"
-                    bodyClassName="min-h-[32rem]"
+                    className={openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : ""}
+                    bodyClassName={openingOutcomesUsesExpandedLayout ? "min-h-[32rem]" : ""}
                     subtitle={activeInsightsGraphMode === "outcome-distribution" ? openingOutcomesSubtitle : null}
                     titleInfoText={
                       activeInsightsGraphMode === "value-contribution"
@@ -11115,7 +11507,28 @@ export default function RipStatisticsPageClient({
                       ]}
                     />
 
-                    {activeInsightsGraphMode === "simulation-drivers" ? (
+                    {insightsSectionsBlocked ? (
+                      // The /insights payload feeds every Opening Outcomes
+                      // view (distribution bins, drivers, rankings, pack
+                      // paths) — hold one stable in-card loading state
+                      // instead of each view's misleading "no data" empty
+                      // state while the fetch is in flight, and switch to
+                      // compact fallback copy if it fails or stalls.
+                      insightsSectionsShowFallbackCopy ? (
+                        <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          Set insights are taking longer than expected to load. Refresh the page to retry.
+                        </p>
+                      ) : (
+                        <InlinePanelSkeleton rows={6} className="min-h-[24rem]" />
+                      )
+                    ) : !openingOutcomesViewHasData ? (
+                      // Loaded, but this sub-view genuinely has no rows for
+                      // this set — a compact note, not a chart-sized blank
+                      // panel, and only for the affected sub-tab.
+                      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                        {openingOutcomesEmptyViewCopy}
+                      </p>
+                    ) : activeInsightsGraphMode === "simulation-drivers" ? (
                       <div id="set-detail-simulation-drivers" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
                         <InterpretationInsight
                           sectionMeta={topEvDriversMeta}

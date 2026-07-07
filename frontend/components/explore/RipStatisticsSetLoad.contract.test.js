@@ -2958,3 +2958,166 @@ test("Phase 8B: every set-switcher surface renders switcherTargets while non-swi
     "adjacent-target prefetch must keep walking the unfiltered targets list"
   );
 });
+
+// ---------------------------------------------------------------------------
+// Phase 9D.2: unified set-tab loading presentation. Every set-detail tab
+// (Overview, Cards, Pull Rates, Insights) shows one shared branded loading
+// panel (SetTabLoadingPanel, reusing the inDex logo + three-dot loader from
+// the route-level loading screens) while that tab's critical data assets are
+// loading. Generic circular spinners and per-tab skeleton shells are gone
+// from the tab-level loading paths; per-card image placeholders remain for
+// lazy image loading only.
+// ---------------------------------------------------------------------------
+
+const setTabLoadingPanelPath = path.resolve(__dirname, "SetTabLoadingPanel.jsx");
+const inDexLogoLoaderPath = path.resolve(__dirname, "../brand/InDexLogoLoader.jsx");
+const exploreRouteLoadingPath = path.resolve(__dirname, "../../app/Explore/loading.js");
+const setSlugRouteLoadingPath = path.resolve(__dirname, "../../app/TCGs/Pokemon/Sets/[setSlug]/loading.js");
+
+test("Phase 9D.2: one shared branded SetTabLoadingPanel exists and reuses InDexLogoLoader, with no generic circular spinner", () => {
+  const panelSource = fs.readFileSync(setTabLoadingPanelPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    panelSource.includes('import InDexLogoLoader from "@/components/brand/InDexLogoLoader";'),
+    "SetTabLoadingPanel must reuse the branded InDexLogoLoader"
+  );
+  assert.ok(panelSource.includes("<InDexLogoLoader"), "the panel must render the branded loader");
+  assert.ok(panelSource.includes("fullScreen={false}"), "the in-tab loader must not use the fullscreen overlay variant");
+  assert.ok(panelSource.includes('aria-busy="true"'), "the panel must announce a busy region");
+  assert.ok(panelSource.includes("label={title}"), "the loader must receive the panel title as its accessible label");
+  assert.ok(!panelSource.includes("animate-spin"), "no generic CSS circular spinner in the shared tab loading panel");
+
+  // The branded loader itself still carries the logo + three-dot treatment
+  // the route-level loading screens use.
+  const loaderSource = fs.readFileSync(inDexLogoLoaderPath, "utf8").replace(/\r\n/g, "\n");
+  assert.ok(loaderSource.includes("index-loader-logo"), "InDexLogoLoader must keep its logo frame");
+  const dotCount = (loaderSource.match(/className="index-loader-dot"/g) || []).length;
+  assert.equal(dotCount, 3, "InDexLogoLoader must keep the three-dot treatment");
+});
+
+test("Phase 9D.2: the page client uses the shared branded panel for all four tabs and has no generic circular spinner left", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes('import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";'),
+    "the page client must import the shared panel"
+  );
+  assert.ok(!source.includes("animate-spin"), "the generic circular spinner markup must be gone from the page client");
+
+  const panelUsageCount = (source.match(/<SetTabLoadingPanel/g) || []).length;
+  assert.equal(
+    panelUsageCount,
+    4,
+    `Overview, Cards, Pull Rates, and Insights must each render the shared panel exactly once (found ${panelUsageCount})`
+  );
+});
+
+test("Phase 9D.2: Overview's cohesive loading state renders the shared branded panel with the overview copy", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(!source.includes("OverviewCohesiveLoadingPanel"), "the one-off spinner panel component must be gone");
+  const branchStart = source.indexOf("showOverviewCohesiveLoading ? (");
+  assert.ok(branchStart >= 0, "the overview cohesive loading branch must exist in the render");
+  const branchSource = source.slice(branchStart, source.indexOf(") : (", branchStart));
+  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Overview must use the shared branded panel");
+  assert.ok(branchSource.includes("Loading overview data…"), "Overview loading title must be preserved");
+  assert.ok(
+    branchSource.includes("Pulling set value history, market movers, and top chase cards for this set."),
+    "Overview loading helper copy must be preserved"
+  );
+});
+
+test("Phase 9D.2: Pull Rates pending path uses the shared branded panel, keeps its timeout escape and settled empty state", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const branchStart = source.indexOf("pullRatesTabPending ? (");
+  assert.ok(branchStart >= 0, "the pull-rates pending branch must exist in the render");
+  const branchEnd = source.indexOf('activePullRatesState.status === "error"', branchStart);
+  assert.ok(branchEnd > branchStart, "the pending branch must be followed by the error branch");
+  const branchSource = source.slice(branchStart, branchEnd);
+
+  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Pull Rates must use the shared branded panel while pending");
+  assert.ok(branchSource.includes("Loading pull rate assumptions…"), "Pull Rates loading title must exist");
+  assert.ok(
+    branchSource.includes("Pulling rarity frequencies and specific-card odds for this set."),
+    "Pull Rates loading helper copy must exist"
+  );
+  assert.ok(!branchSource.includes("InlinePanelSkeleton"), "the old skeleton rows must be gone from the pending path");
+  assert.ok(
+    branchSource.includes("Pull rates are taking longer than expected to load."),
+    "the timeout escape must remain so the loader can never run indefinitely"
+  );
+  assert.ok(
+    source.includes("Pull-rate data coming soon for this set."),
+    "the settled-empty compact state must remain after the request resolves empty"
+  );
+});
+
+test("Phase 9D.2: Insights holds one whole-tab branded panel while the /insights payload is in flight, then falls back to compact states", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes("const showInsightsCohesiveLoading = insightsCriticalPending && !insightsPendingTimedOut;"),
+    "the cohesive gate must engage only while the fetch is genuinely pending (not after timeout)"
+  );
+
+  const branchStart = source.indexOf("{showInsightsCohesiveLoading ? (");
+  assert.ok(branchStart >= 0, "the insights cohesive loading branch must exist in the render");
+  const branchSource = source.slice(branchStart, branchStart + 900);
+  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Insights must use the shared branded panel");
+  assert.ok(branchSource.includes("Loading insight data…"), "Insights loading title must exist");
+  assert.ok(
+    branchSource.includes("Pulling RIP breakdown, opening outcomes, desirability checks, and simulation drivers."),
+    "Insights loading helper copy must exist"
+  );
+
+  assert.ok(
+    source.includes('{(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? ('),
+    "the insights sections must stay hidden while the cohesive panel shows, and /Explore (non set-detail) must be unaffected"
+  );
+  assert.ok(
+    source.includes("Set insights are taking longer than expected to load."),
+    "the timeout/error fallback copy must remain for the settled-failure path"
+  );
+});
+
+test("Phase 9D.2: Cards shows the branded panel only while the card page payload loads with no rows, and keeps per-card image placeholders", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const branchStart = source.indexOf(
+    '{(effectiveCardsPageStatus === "idle" || effectiveCardsPageStatus === "loading") &&'
+  );
+  assert.ok(branchStart >= 0, "the cards initial-loading branch must cover idle and loading for the active set");
+  const branchSource = source.slice(branchStart, branchStart + 1200);
+  assert.ok(
+    branchSource.includes("effectiveCardsPageCards.length === 0 ? ("),
+    "the branded panel must only engage when no effective card rows exist yet"
+  );
+  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Cards must use the shared branded panel for the initial load");
+  assert.ok(branchSource.includes("Loading cards…"), "Cards loading title must exist");
+  assert.ok(
+    branchSource.includes("Pulling the checklist page and card market fields for this set."),
+    "Cards loading helper copy must exist"
+  );
+  assert.ok(!source.includes("CardGridSkeleton"), "the old card grid skeleton must be gone");
+
+  // Lazy per-card image loading keeps card-shaped placeholders — it must not
+  // regress to blank tiles, and it must not route through the tab-level panel.
+  const tileStart = source.indexOf("function ChecklistCardTile(");
+  assert.ok(tileStart >= 0, "ChecklistCardTile must exist");
+  const tileSource = source.slice(tileStart, source.indexOf("\nfunction ", tileStart + 10));
+  assert.ok(tileSource.includes("<CardImagePlaceholder"), "per-card image placeholders must remain for lazy image loads");
+  assert.ok(!tileSource.includes("SetTabLoadingPanel"), "individual card image loading must not use the tab-level panel");
+});
+
+test("Phase 9D.2: route-level loading screens keep the fullscreen branded loader unchanged", () => {
+  for (const routeLoadingPath of [exploreRouteLoadingPath, setSlugRouteLoadingPath]) {
+    const routeSource = fs.readFileSync(routeLoadingPath, "utf8").replace(/\r\n/g, "\n");
+    assert.ok(
+      routeSource.includes('import InDexLogoLoader from "@/components/brand/InDexLogoLoader";'),
+      `${path.basename(path.dirname(routeLoadingPath))}/loading.js must keep the branded loader`
+    );
+    assert.ok(routeSource.includes("fullScreen"), "route-level loading must remain fullscreen");
+    assert.ok(!routeSource.includes("SetTabLoadingPanel"), "route-level loading must not switch to the in-tab panel");
+  }
+});

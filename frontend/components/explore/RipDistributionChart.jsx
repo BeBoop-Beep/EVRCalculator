@@ -14,6 +14,8 @@ import {
   YAxis,
 } from "recharts";
 
+import ChartFrame from "@/components/explore/ChartFrame";
+
 
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -257,11 +259,13 @@ function ActiveMarkerLabel({ viewBox, label, value, slotIndex, totalSlots }) {
   );
 }
 
+// Compact by design: a settled "no data yet" note must not occupy a
+// chart-sized blank panel (Phase 9C loading-presentation polish).
 function EmptyChartState({ title, body }) {
   return (
-    <div className="flex min-h-[26rem] flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-6 py-10 text-center">
+    <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-4 py-3">
       <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
-      <p className="mt-2 max-w-md text-sm text-[var(--text-secondary)]">{body}</p>
+      <p className="mt-1 max-w-md text-sm text-[var(--text-secondary)]">{body}</p>
     </div>
   );
 }
@@ -622,7 +626,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   }, [markerSlotsMap]);
 
   if (histogramData.length === 0) {
-    return <EmptyChartState title="No outcome distribution is available." body="Distribution bins were not returned by the live payload for this set." />;
+    return <EmptyChartState title="Outcome distribution isn't available for this set yet." body="It appears once this set's simulation snapshot includes distribution data." />;
   }
 
   return (
@@ -674,6 +678,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
       </div>
 
       <div ref={chartContainerRef} className="mt-4 h-[20rem] w-full max-w-full min-w-0 sm:h-[23rem]">
+        <ChartFrame className="h-full w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={combinedData} margin={isMobile ? { top: 8, right: 8, left: 0, bottom: 8 } : { top: 8, right: 56, left: 4, bottom: 8 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
@@ -797,6 +802,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
             ) : null}
           </ComposedChart>
         </ResponsiveContainer>
+        </ChartFrame>
       </div>
 
       <div className="mt-1 min-h-[1rem]" aria-hidden="true" />
