@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 const serverPath = path.resolve(__dirname, "explorePageServer.js");
 const targetsServerPath = path.resolve(__dirname, "ripStatisticsServer.js");
 const setRoutePath = path.resolve(__dirname, "../../app/TCGs/Pokemon/Sets/[setSlug]/page.js");
+const explorePagePath = path.resolve(__dirname, "../../app/Explore/page.js");
 
 test("getExplorePagePayload set fetch uses timeout and recoverable fallback instead of route-killing throw", () => {
   const source = fs.readFileSync(serverPath, "utf8");
@@ -100,4 +101,56 @@ test("set page snapshot fetch bypasses Next's data cache for the oversized Pokem
   const fetchCallEnd = source.indexOf("timeoutMs\n      );", fetchStart);
   const fetchCallSource = source.slice(fetchStart, fetchCallEnd);
   assert.ok(fetchCallSource.includes("{ next: { revalidate: 300 } }"), "non-set explore fetch must still use next.revalidate: 300");
+});
+
+// -----------------------------------------------------------------------
+// Phase 5.5 (Gate 3): /Explore rendered "0 RANKED SETS / still loading" even
+// when getRipStatisticsTargets's meta.requestFailed already marked a genuine
+// backend fetch failure — ExplorePage discarded payload.meta entirely, so a
+// real outage and a legitimately-empty rankings snapshot were visually
+// indistinguishable. This is a read-path/prop-plumbing fix only: no ranking
+// order, RIP math, or data source changed.
+// -----------------------------------------------------------------------
+
+test("Explore page derives rankingsLoadError from requestFailed meta and forwards it to ExploreTableClient", () => {
+  const source = fs.readFileSync(explorePagePath, "utf8");
+
+  assert.ok(
+    source.includes("const rankingsLoadError = payload === null || Boolean(payload?.meta?.requestFailed);"),
+    "ExplorePage must derive a load-error flag from the targets payload's requestFailed meta (or a null payload)"
+  );
+  assert.ok(
+    source.includes("<ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />"),
+    "ExplorePage must forward the load-error flag into ExploreTableClient"
+  );
+});
+
+// -----------------------------------------------------------------------
+// Phase 5.6: SWSH sets are not yet validated for public analytics (see
+// lib/pokemon/pokemonSetPublicCoverage.js) and must be excluded from Explore
+// rankings ("Best Sets to Rip Right Now") and its ranked-set count, without
+// touching how pack_score/relative scores are computed for the sets that do
+// remain.
+// -----------------------------------------------------------------------
+
+test("Explore page filters targets through the centralized public-analytics eligibility helper before ranking/counting", () => {
+  const source = fs.readFileSync(explorePagePath, "utf8");
+
+  assert.ok(
+    source.includes(
+      'import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";'
+    ),
+    "must import the centralized eligibility helper"
+  );
+
+  const targetsIndex = source.indexOf("const targets = Array.isArray(payload?.targets)");
+  const eligibleIndex = source.indexOf("const eligibleTargets = targets.filter(isPublicAnalyticsEligiblePokemonSet);");
+  const sortedIndex = source.indexOf("const sortedTargets = rankTargets(eligibleTargets);");
+
+  assert.ok(targetsIndex >= 0 && eligibleIndex > targetsIndex, "must filter raw targets before ranking them");
+  assert.ok(sortedIndex > eligibleIndex, "rankTargets must run on the already-filtered eligible list, not the raw list");
+  assert.ok(
+    !/era\s*===\s*["'`]Sword/i.test(source),
+    "must not scatter a one-off `era === \"Sword & Shield\"` check instead of using the centralized helper"
+  );
 });

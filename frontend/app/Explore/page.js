@@ -5,6 +5,7 @@ import SetIdentity from "@/components/explore/SetIdentity";
 import InfoPopover from "@/components/ui/InfoPopover";
 import ExploreTableClient from "@/components/explore/ExploreTableClient";
 import { getDangerValueStyle } from "@/lib/explore/interpretationTone";
+import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -205,8 +206,19 @@ export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
   const payload = await getRipStatisticsTargets({ limit: 60 }).catch(() => null);
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
-  const sortedTargets = rankTargets(targets);
+  // Sword & Shield's simulator-era data is not yet validated for public
+  // analytics (incomplete pull/hit-rate model, unblended subsets) — see
+  // pokemonSetPublicCoverage.js. Filtering here means every consumer below
+  // (the ranked table, its "N RANKED SETS" count) only ever sees eligible
+  // sets; this never touches how pack_score/relative scores are computed.
+  const eligibleTargets = targets.filter(isPublicAnalyticsEligiblePokemonSet);
+  const sortedTargets = rankTargets(eligibleTargets);
   const leaderboardTargets = sortedTargets;
+  // requestFailed marks a genuine fetch/backend failure (see
+  // ripStatisticsServer.js's withTargetsRequestFailureMeta) as distinct from
+  // a real "no ranked sets yet" empty result — payload === null covers the
+  // unexpected-throw case the .catch above guards against.
+  const rankingsLoadError = payload === null || Boolean(payload?.meta?.requestFailed);
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 pb-24 sm:px-6 lg:px-8">
@@ -218,7 +230,7 @@ export default async function ExplorePage({ searchParams }) {
           </div>
         </div>
 
-        <ExploreTableClient targets={leaderboardTargets} />
+        <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
 
         <section className="grid grid-cols-1 gap-4">
           <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-5 sm:p-6">

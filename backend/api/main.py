@@ -55,10 +55,17 @@ from backend.db.services.pokemon_set_market_service import (
 )
 from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_explore_rankings_snapshot_payload,
+    get_pokemon_set_card_validation_snapshot_payload,
+    get_pokemon_set_cards_page_snapshot_payload,
     get_pokemon_set_cards_snapshot_payload,
+    get_pokemon_set_insights_snapshot_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
+    get_pokemon_set_market_movers_snapshot_payload,
+    get_pokemon_set_overview_snapshot_payload,
     get_pokemon_set_page_snapshot_payload,
+    get_pokemon_set_pull_rates_snapshot_payload,
     get_pokemon_set_shell_snapshot_payload,
+    get_pokemon_set_top_chase_snapshot_payload,
     get_pokemon_set_top_market_cards_snapshot_payload,
     get_pokemon_set_value_history_snapshot_payload,
 )
@@ -620,6 +627,107 @@ def get_pokemon_set_cards(set_id: str):
         )
 
 
+@app.get("/tcgs/pokemon/sets/{set_id}/cards/page")
+def get_pokemon_set_cards_page(
+    set_id: str,
+    page: Optional[str] = Query(default=None),
+    page_size: Optional[str] = Query(default=None),
+    sort: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None),
+    rarity: Optional[str] = Query(default=None),
+    movement_filter: Optional[str] = Query(default=None),
+    movement_sort: Optional[str] = Query(default=None),
+):
+    """Return a single paginated slice of checklist cards for a Pokemon set."""
+    try:
+        return get_pokemon_set_cards_page_snapshot_payload(
+            set_id=set_id,
+            page=page or 1,
+            page_size=page_size,
+            sort=sort or "set-number",
+            query=q,
+            rarity=rarity,
+            movement_filter=movement_filter,
+            movement_sort=movement_sort,
+        )
+    except (PokemonSetCardsError, PokemonSetMarketError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/cards/page unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set cards page", "code": "POKEMON_SET_CARDS_PAGE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/cards/validation")
+def get_pokemon_set_cards_validation(
+    set_id: str,
+    max_cards: Optional[str] = Query(default=None),
+    include_plot_rows: Optional[str] = Query(default=None),
+):
+    """Return the slim Insights card-validation snapshot (validation-ready
+    card rows + cardAppealMarketPriceCorrelation) for a Pokemon set."""
+    try:
+        return get_pokemon_set_card_validation_snapshot_payload(
+            set_id=set_id,
+            max_cards=max_cards or 300,
+            include_plot_rows=True if include_plot_rows is None else include_plot_rows,
+        )
+    except (PokemonSetCardsError, PokemonSetMarketError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/cards/validation unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set card validation data", "code": "POKEMON_SET_CARDS_VALIDATION_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/pull-rates")
+def get_pokemon_set_pull_rates(set_id: str):
+    """Return the slim Pull Rates-tab snapshot (pull rate assumptions only) for a Pokemon set."""
+    try:
+        return get_pokemon_set_pull_rates_snapshot_payload(set_id=set_id)
+    except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/pull-rates unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set pull rates", "code": "POKEMON_SET_PULL_RATES_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/insights")
+def get_pokemon_set_insights(set_id: str):
+    """Return the slim Insights-tab snapshot (RIP breakdown inputs, outcome
+    distribution, simulation drivers, value/rarity contribution, and
+    desirability proof) for a Pokemon set."""
+    try:
+        return get_pokemon_set_insights_snapshot_payload(set_id=set_id)
+    except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/insights unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set insights", "code": "POKEMON_SET_INSIGHTS_FAILED"},
+            status_code=500,
+        )
+
+
 @app.get("/tcgs/pokemon/sets/{set_id}/shell")
 def get_pokemon_set_shell(set_id: str):
     """Return the lightweight header/title-card snapshot for a Pokemon set (no payload_json)."""
@@ -682,6 +790,74 @@ def get_pokemon_set_market_dashboard(
                 "message": "Unable to load Pokemon set market dashboard",
                 "code": "POKEMON_SET_MARKET_DASHBOARD_FAILED",
             },
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/overview")
+def get_pokemon_set_overview(
+    set_id: str,
+    window: Optional[str] = Query(default=None),
+):
+    """Return the slim Overview-tab snapshot (set value trend + performance vs cost) for a Pokemon set."""
+    try:
+        return get_pokemon_set_overview_snapshot_payload(set_id=set_id, window=window or "365d")
+    except PokemonSetMarketError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/overview unexpected error", set_id)
+        return JSONResponse(
+            content={
+                "message": "Unable to load Pokemon set overview",
+                "code": "POKEMON_SET_OVERVIEW_FAILED",
+            },
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/top-chase")
+def get_pokemon_set_top_chase(
+    set_id: str,
+    window: Optional[str] = Query(default=None),
+    limit: Optional[str] = Query(default=None),
+):
+    """Return the slim Top Chase Cards snapshot for a Pokemon set."""
+    try:
+        return get_pokemon_set_top_chase_snapshot_payload(set_id=set_id, window=window or "30D", limit=limit)
+    except PokemonSetMarketError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/top-chase unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set top chase cards", "code": "POKEMON_SET_TOP_CHASE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/movers")
+def get_pokemon_set_market_movers(
+    set_id: str,
+    window: Optional[str] = Query(default=None),
+    limit: Optional[str] = Query(default=None),
+):
+    """Return market movers for a single requested window for a Pokemon set."""
+    try:
+        return get_pokemon_set_market_movers_snapshot_payload(set_id=set_id, window=window or "30D", limit=limit)
+    except PokemonSetMarketError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/movers unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set market movers", "code": "POKEMON_SET_MARKET_MOVERS_FAILED"},
             status_code=500,
         )
 

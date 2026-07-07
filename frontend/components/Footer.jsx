@@ -89,7 +89,7 @@ export default function Footer() {
         {/* Bottom row */}
         <div className="mt-12 border-t border-[var(--border-subtle)] pt-6">
           <div className="text-center text-xs text-[var(--text-secondary)]">
-            © 2025 inDex. All rights reserved.
+            © {new Date().getFullYear()} inDex. All rights reserved.
           </div>
           <div className="mx-auto mt-4 max-w-3xl text-center text-[11px] leading-relaxed text-[var(--text-secondary)]">
             <p>
