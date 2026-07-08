@@ -4672,3 +4672,271 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
         payload["meta"]["timings"]["snapshotReadMs"],
     )
     return payload
+
+
+def _fetch_insights_snapshot_row(set_id: str):
+    """Shared row-fetch step for the full/critical/secondary Insights
+    payloads below — one indexed read against pokemon_set_page_snapshot_latest,
+    keyed by set_id. Extracted so the critical/secondary split shares it
+    instead of duplicating the query logic; the full payload above is left
+    inlined and untouched to keep its blast radius at zero.
+
+    Returns (row, set_row, resolved_set_id, query_ms, started). `row` is None
+    when the snapshot is missing/unreadable — callers fall back to their own
+    empty-payload shape in that case.
+    """
+    started = time.perf_counter()
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_INSIGHTS_ID_REQUIRED")
+
+    is_uuid = _looks_like_uuid(resolved)
+    set_row: Optional[Dict[str, Any]] = None
+    if is_uuid:
+        resolved_set_id = resolved
+    else:
+        set_row = _resolve_set_row(resolved)
+        resolved_set_id = str(set_row["id"])
+
+    t_query = time.perf_counter()
+    row: Optional[Dict[str, Any]] = None
+    try:
+        result = (
+            public_read_client.table("pokemon_set_page_snapshot_latest")
+            .select(_INSIGHTS_SNAPSHOT_COLUMNS)
+            .eq("set_id", resolved_set_id)
+            .limit(1)
+            .execute()
+        )
+        row = _first_row(result)
+    except Exception as exc:
+        logger.warning(
+            "[pokemon-snapshot] insights snapshot read failed set_id=%s exc=%s",
+            resolved_set_id,
+            exc,
+            exc_info=True,
+        )
+        row = None
+    query_ms = round((time.perf_counter() - t_query) * 1000, 3)
+    return row, set_row, resolved_set_id, query_ms, started
+
+
+def _resolve_insights_set_identity(row: Dict[str, Any], set_row: Optional[Dict[str, Any]], resolved_set_id: str) -> Dict[str, Any]:
+    resolved_row_set_id = _to_optional_str(row.get("set_id")) or resolved_set_id
+    identity_row = set_row or {"id": resolved_row_set_id}
+    return {
+        "id": _to_optional_str(identity_row.get("id")) or resolved_row_set_id,
+        "name": _to_optional_str(identity_row.get("name")),
+        "slug": _to_optional_str(identity_row.get("canonical_key")),
+        "canonicalKey": _to_optional_str(identity_row.get("canonical_key")),
+    }
+
+
+def _empty_insights_critical_payload(
+    *, set_row: Dict[str, Any], warnings: Optional[List[str]] = None, fallback_source: str
+) -> Dict[str, Any]:
+    return {
+        "set": {
+            "id": _to_optional_str(set_row.get("id")),
+            "name": _to_optional_str(set_row.get("name")),
+            "slug": _to_optional_str(set_row.get("canonical_key")),
+            "canonicalKey": _to_optional_str(set_row.get("canonical_key")),
+        },
+        "summary": {},
+        "recommendation": {},
+        "ripScore": {},
+        "interpretation": {},
+        "meta": {
+            "source": fallback_source,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "warnings": list(warnings or []),
+        },
+    }
+
+
+def _empty_insights_secondary_payload(
+    *, set_row: Dict[str, Any], warnings: Optional[List[str]] = None, fallback_source: str
+) -> Dict[str, Any]:
+    return {
+        "set": {
+            "id": _to_optional_str(set_row.get("id")),
+            "name": _to_optional_str(set_row.get("name")),
+            "slug": _to_optional_str(set_row.get("canonical_key")),
+            "canonicalKey": _to_optional_str(set_row.get("canonical_key")),
+        },
+        "ripStatistics": {},
+        "outcomeDistribution": {"percentiles": [], "distributionBins": [], "thresholdBins": []},
+        "simulationDrivers": [],
+        "rarityContribution": [],
+        "historyTrend": [],
+        "desirability": {},
+        "desirabilityValidation": {},
+        "meta": {
+            "source": fallback_source,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "warnings": list(warnings or []),
+        },
+    }
+
+
+def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    """Priority 1-3 slice of the Insights tab: RIP Score hero, pillar cards
+    (interpretation), and the recommendation/"what usually happens" copy.
+    Shares _fetch_insights_snapshot_row with the secondary/full variants —
+    the same one cheap indexed read, no duplicate query logic. See
+    get_pokemon_set_insights_snapshot_payload above for the full-payload
+    docstring; this is a strict subset of the same fields, none of which are
+    ever budget-trimmed (see _INSIGHTS_TRIMMABLE_LIST_PATHS).
+    """
+    row, set_row, resolved_set_id, query_ms, started = _fetch_insights_snapshot_row(set_id)
+
+    if not row or not isinstance(row.get("payload_json"), dict):
+        logger.info(
+            "[pokemon-snapshot] insights critical snapshot missing set_id=%s elapsed_ms=%s",
+            resolved_set_id,
+            round((time.perf_counter() - started) * 1000, 3),
+        )
+        return _empty_insights_critical_payload(
+            set_row=set_row or {"id": resolved_set_id},
+            warnings=["Pokemon set insights snapshot is missing; served empty fallback payload."],
+            fallback_source="empty_fallback_missing_pokemon_set_page_snapshot_latest",
+        )
+
+    payload_json = row["payload_json"]
+    set_identity = _resolve_insights_set_identity(row, set_row, resolved_set_id)
+
+    raw_summary = payload_json.get("summary")
+    raw_interpretation = payload_json.get("interpretation")
+    summary_camel = _to_camel_case_only(raw_summary) if isinstance(raw_summary, dict) else {}
+    interpretation_camel = _to_camel_case_only(raw_interpretation) if isinstance(raw_interpretation, dict) else {}
+
+    interpretation_meta = interpretation_camel.get("meta") if isinstance(interpretation_camel.get("meta"), dict) else {}
+    pack_score_meta = interpretation_meta.get("packScore") if isinstance(interpretation_meta.get("packScore"), dict) else {}
+
+    rip_score_value = summary_camel.get("relativePackScore")
+    if rip_score_value is None:
+        rip_score_value = summary_camel.get("packScore")
+
+    warnings: List[str] = []
+    if not summary_camel:
+        warnings.append("RIP summary is not available for this set yet.")
+
+    payload = {
+        "set": set_identity,
+        "summary": summary_camel,
+        "recommendation": {
+            "label": pack_score_meta.get("label"),
+            "summary": pack_score_meta.get("summary"),
+        },
+        "ripScore": {
+            "score": rip_score_value,
+            "rank": summary_camel.get("packRank"),
+            "tier": summary_camel.get("packTier"),
+        },
+        "interpretation": interpretation_camel,
+        "meta": {
+            "source": "pokemon_set_page_snapshot_latest",
+            "updatedAt": _to_optional_str(row.get("updated_at")),
+            "warnings": warnings,
+            "timings": {
+                "snapshotQueryMs": query_ms,
+                "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
+            },
+        },
+    }
+
+    logger.info(
+        "[pokemon-snapshot] insights critical snapshot read complete set_id=%s query_ms=%s total_ms=%s",
+        resolved_set_id,
+        query_ms,
+        payload["meta"]["timings"]["snapshotReadMs"],
+    )
+    return payload
+
+
+def get_pokemon_set_insights_secondary_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    """Priority 4-5 slice of the Insights tab: charts/distributions (outcome
+    distribution, simulation drivers, rarity contribution, history trend) and
+    deep diagnostics (desirability/desirabilityValidation). Shares
+    _fetch_insights_snapshot_row with the critical/full variants. Reuses
+    _enforce_insights_payload_budget unchanged — its trimmable paths
+    (historyTrend, rarityContribution, simulationDrivers, outcomeDistribution.*)
+    already fall entirely inside this payload.
+    """
+    row, set_row, resolved_set_id, query_ms, started = _fetch_insights_snapshot_row(set_id)
+
+    if not row or not isinstance(row.get("payload_json"), dict):
+        logger.info(
+            "[pokemon-snapshot] insights secondary snapshot missing set_id=%s elapsed_ms=%s",
+            resolved_set_id,
+            round((time.perf_counter() - started) * 1000, 3),
+        )
+        return _empty_insights_secondary_payload(
+            set_row=set_row or {"id": resolved_set_id},
+            warnings=["Pokemon set insights snapshot is missing; served empty fallback payload."],
+            fallback_source="empty_fallback_missing_pokemon_set_page_snapshot_latest",
+        )
+
+    payload_json = row["payload_json"]
+    set_identity = _resolve_insights_set_identity(row, set_row, resolved_set_id)
+
+    raw_rip_statistics = payload_json.get("rip_statistics")
+    raw_percentiles = payload_json.get("percentiles")
+    raw_distribution_bins = payload_json.get("distribution_bins")
+    raw_threshold_bins = payload_json.get("threshold_bins")
+    raw_top_hits = payload_json.get("top_hits")
+    raw_rankings = payload_json.get("rankings")
+    raw_history_trend = payload_json.get("history_trend")
+    raw_desirability = payload_json.get("openingDesirability")
+    if not isinstance(raw_desirability, dict):
+        raw_desirability = payload_json.get("opening_desirability")
+    raw_desirability_validation = payload_json.get("desirabilityValidation")
+    if not isinstance(raw_desirability_validation, dict):
+        raw_desirability_validation = payload_json.get("desirability_validation")
+
+    rip_statistics_camel = _to_camel_case_only(raw_rip_statistics) if isinstance(raw_rip_statistics, dict) else {}
+    desirability_camel = _to_camel_case_only(raw_desirability) if isinstance(raw_desirability, dict) else {}
+    desirability_validation_camel = (
+        _to_camel_case_only(raw_desirability_validation) if isinstance(raw_desirability_validation, dict) else {}
+    )
+
+    warnings: List[str] = []
+    if not isinstance(raw_top_hits, list) or not raw_top_hits:
+        warnings.append("Simulation drivers (top hits) are not available for this set yet.")
+
+    payload = {
+        "set": set_identity,
+        "ripStatistics": rip_statistics_camel,
+        "outcomeDistribution": {
+            "percentiles": _to_camel_case_only(raw_percentiles) if isinstance(raw_percentiles, list) else [],
+            "distributionBins": _to_camel_case_only(raw_distribution_bins) if isinstance(raw_distribution_bins, list) else [],
+            "thresholdBins": _to_camel_case_only(raw_threshold_bins) if isinstance(raw_threshold_bins, list) else [],
+        },
+        "simulationDrivers": _to_camel_case_only(raw_top_hits) if isinstance(raw_top_hits, list) else [],
+        "rarityContribution": _to_camel_case_only(raw_rankings) if isinstance(raw_rankings, list) else [],
+        "historyTrend": _to_camel_case_only(raw_history_trend) if isinstance(raw_history_trend, list) else [],
+        "desirability": desirability_camel,
+        "desirabilityValidation": desirability_validation_camel,
+        "meta": {
+            "source": "pokemon_set_page_snapshot_latest",
+            "updatedAt": _to_optional_str(row.get("updated_at")),
+            "warnings": warnings,
+            "timings": {
+                "snapshotQueryMs": query_ms,
+                "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
+            },
+        },
+    }
+
+    truncated_counts = _enforce_insights_payload_budget(payload)
+    if truncated_counts:
+        payload["meta"]["truncated"] = True
+        payload["meta"]["truncatedOriginalCounts"] = truncated_counts
+
+    logger.info(
+        "[pokemon-snapshot] insights secondary snapshot read complete set_id=%s query_ms=%s total_ms=%s",
+        resolved_set_id,
+        query_ms,
+        payload["meta"]["timings"]["snapshotReadMs"],
+    )
+    return payload

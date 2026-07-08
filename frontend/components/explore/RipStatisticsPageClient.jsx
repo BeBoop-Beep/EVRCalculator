@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
+import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
@@ -19,9 +19,15 @@ import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
-import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
+import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
+import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
 import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
 import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
+import SectionBoundary from "@/components/ui/SectionBoundary";
+import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
+import { useSectionTiming } from "@/hooks/useSectionTiming";
+import { useSectionFetchState } from "@/hooks/useSectionFetchState";
+import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming";
 import InfoPopover from "@/components/ui/InfoPopover";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
@@ -61,7 +67,8 @@ import {
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
-import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";
+import { getPokemonSetInsightsCritical } from "@/lib/pokemon/pokemonSetInsightsCriticalClient";
+import { getPokemonSetInsightsSecondary } from "@/lib/pokemon/pokemonSetInsightsSecondaryClient";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import {
   buildMarketDashboardStateFromPayload,
@@ -166,12 +173,6 @@ const DEFAULT_MARKET_MOVERS_WINDOW = "30D";
 // Keep the mechanism but disable it by default — the active destination set
 // is enough; bump this only behind a deliberate, measured decision.
 const SET_PREFETCH_ADJACENT_LIMIT = 0;
-// Overview holds one cohesive skeleton until its critical assets (set value
-// history, /overview payload, top chase, market movers) have all settled for
-// the active set, instead of letting each card pop in independently. The cap
-// below force-reveals whatever is available if any fetch hangs, so a stuck
-// request can never wedge the whole tab behind a skeleton.
-const OVERVIEW_COHESIVE_LOADING_MAX_MS = 8000;
 // Insights sections that depend on the /insights payload show skeletons while
 // it loads; after this long they switch to an explicit "taking longer than
 // expected" fallback instead of shimmering forever.
@@ -402,6 +403,35 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     openingDesirability: normalized?.desirability || null,
     desirabilityValidation: normalized?.desirabilityValidation || null,
     meta: isEmptyFallback ? { ...meta, fallback: true } : meta,
+  };
+}
+
+// Progressive-rendering split of the adapter above: the critical fetch
+// (priorities 1-3 — RIP Score hero, pillar cards, recommendation copy) and
+// secondary fetch (priorities 4-5 — charts/distributions, deep diagnostics)
+// each merge only their own slice into explorePayload, via functional
+// updates in the two effects below, so they can arrive independently without
+// clobbering each other regardless of which settles first.
+function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
+  return {
+    set: critical?.set || null,
+    summary: dualKeyCase(critical?.summary || {}),
+    interpretation: critical?.interpretation || {},
+  };
+}
+
+function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(secondary) {
+  const outcomeDistribution = secondary?.outcomeDistribution || {};
+  return {
+    rip_statistics: dualKeyCase(secondary?.ripStatistics || {}),
+    percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
+    distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
+    threshold_bins: dualKeyCase(outcomeDistribution.thresholdBins || []),
+    top_hits: dualKeyCase(secondary?.simulationDrivers || []),
+    rankings: dualKeyCase(secondary?.rarityContribution || []),
+    history_trend: dualKeyCase(secondary?.historyTrend || []),
+    openingDesirability: secondary?.desirability || null,
+    desirabilityValidation: secondary?.desirabilityValidation || null,
   };
 }
 
@@ -1728,6 +1758,7 @@ function ChecklistCardTile({ card }) {
   // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
   const marketDelta = getCardMovement30d(card) || getCardMarketDelta(card);
   const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
+  const hasPriceData = marketPrice !== null;
   // Remote card art lands well after the tile's data (about a second on a
   // cold cache), so the aspect-ratio box shows a shimmering card silhouette
   // and the image fades in once loaded — the grid keeps its final layout
@@ -1740,6 +1771,24 @@ function ChecklistCardTile({ card }) {
     setIsImageLoaded(false);
     setHasImageFailed(false);
   }, [imageUrl]);
+
+  // Priority 5 (secondary metadata): price/delta badges are already part of
+  // the same fetched payload as name/number/rarity — there's nothing extra to
+  // fetch — but computing and painting them for a full batch of tiles at once
+  // is deprioritized behind the base grid via startTransition, so the name +
+  // image (the part that makes a tile identifiable/usable) commits first. The
+  // badge slot's width is reserved from the tile's first commit either way,
+  // so this reveal never shifts the surrounding layout.
+  const [isMetaRevealed, setIsMetaRevealed] = useState(false);
+
+  useEffect(() => {
+    if (!hasPriceData) {
+      return;
+    }
+    startTransition(() => {
+      setIsMetaRevealed(true);
+    });
+  }, [hasPriceData]);
 
   return (
     <article className="group overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
@@ -1774,15 +1823,21 @@ function ChecklistCardTile({ card }) {
             {rarity ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{rarity}</p> : null}
             {subtypeLabel ? <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
           </div>
-          {marketPrice !== null ? (
-            <div className="shrink-0 text-right">
-              <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(marketPrice)}</p>
-              {marketDelta ? (
-                <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight" style={getDeltaBadgeStyle(deltaTone)}>
-                  {marketDelta.amount !== null ? <p>{formatSignedCurrency(marketDelta.amount)}</p> : null}
-                  {marketDelta.percent !== null ? <p>{marketDelta.percent > 0 ? "+" : ""}{marketDelta.percent.toFixed(1)}%</p> : null}
-                </div>
-              ) : null}
+          {hasPriceData ? (
+            <div className="min-w-[4.5rem] shrink-0 text-right">
+              {isMetaRevealed ? (
+                <>
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(marketPrice)}</p>
+                  {marketDelta ? (
+                    <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight" style={getDeltaBadgeStyle(deltaTone)}>
+                      {marketDelta.amount !== null ? <p>{formatSignedCurrency(marketDelta.amount)}</p> : null}
+                      {marketDelta.percent !== null ? <p>{marketDelta.percent > 0 ? "+" : ""}{marketDelta.percent.toFixed(1)}%</p> : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="ml-auto h-3.5 w-12 animate-pulse rounded bg-[rgba(148,163,184,0.12)]" aria-hidden="true" />
+              )}
             </div>
           ) : null}
         </div>
@@ -7143,6 +7198,14 @@ export default function RipStatisticsPageClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  // Dedicated transition for same-set tab/section navigation, separate from
+  // isPending/startTransition above (which only covers the set-switcher).
+  // Wrapping router.push here keeps the currently-mounted tab content visible
+  // with a pending flag instead of letting Next show the route's fullscreen
+  // loading.js fallback during the RSC round-trip — router.push itself is
+  // unchanged, still the single call site, still a real navigation (see
+  // pushSetDetailRouteState below).
+  const [isTabNavPending, startTabTransition] = useTransition();
   const [explorePayload, setExplorePayload] = useState(initialExplorePayload || null);
   const [setPageSnapshotRefreshState, setSetPageSnapshotRefreshState] = useState({
     status: "idle",
@@ -7390,20 +7453,33 @@ export default function RipStatisticsPageClient({
       ? "market-movers"
       : "all-cards"
   );
-  // Loading-cohesion escape hatches, keyed by set id so a set switch
-  // re-engages the cohesive hold for the new set: Overview force-reveals its
-  // content if a critical fetch hangs past OVERVIEW_COHESIVE_LOADING_MAX_MS,
-  // and Insights swaps its skeletons for explicit "taking longer than
-  // expected" copy past INSIGHTS_PENDING_TIMEOUT_MS.
-  const [overviewCohesionForceReveal, setOverviewCohesionForceReveal] = useState({ setId: null, revealed: false });
+  // Loading-cohesion escape hatch, keyed by set id so a set switch re-engages
+  // the hold for the new set: Insights swaps its skeletons for explicit
+  // "taking longer than expected" copy past INSIGHTS_PENDING_TIMEOUT_MS.
+  // Overview no longer has an equivalent whole-tab hold — each of its
+  // sections (Set Value, Performance vs Cost, Market Movers, Top Chase,
+  // Market Signals) now gates independently on its own fetch status instead
+  // of one shared cohesive skeleton.
   const [insightsPendingTimeoutState, setInsightsPendingTimeoutState] = useState({ setId: null, timedOut: false });
-  // Explicit /insights fetch lifecycle, keyed by set id. The payload itself
-  // lives in explorePayload, but sections need to distinguish "fetch still in
-  // flight" (skeleton) from "fetch settled in error with no payload" (compact
-  // fallback copy) — without this, a failed fetch left skeletons shimmering
-  // until the generic timeout fired, and nothing distinguished error from
-  // slow.
-  const [insightsFetchState, setInsightsFetchState] = useState({ setId: null, status: "idle", error: null });
+  const [insightsCriticalPendingTimeoutState, setInsightsCriticalPendingTimeoutState] = useState({ setId: null, timedOut: false });
+  // Insights critical (priorities 1-3: RIP Score hero, pillar cards,
+  // recommendation copy) and secondary (priorities 4-5: charts/distributions,
+  // deep diagnostics) fetches, split from the single getPokemonSetInsights
+  // call this replaced. Each merges only its own slice into explorePayload
+  // (see the two effects below and the adapters above) so the existing
+  // Insights render tree — which still just reads summary/interpretation/
+  // rip_statistics/percentiles/etc. off explorePayload — needs no changes;
+  // only what feeds it, and how each section gates on it, changed.
+  const insightsFetchEnabled =
+    setDetailMode && setDetailTab === "insights" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
+  const { state: insightsCriticalFetchState, refetch: refetchInsightsCritical } = useSectionFetchState(
+    getPokemonSetInsightsCritical,
+    { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }
+  );
+  const { state: insightsSecondaryFetchState, refetch: refetchInsightsSecondary } = useSectionFetchState(
+    getPokemonSetInsightsSecondary,
+    { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }
+  );
   // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
   // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
   const [pullRatesPendingTimeoutState, setPullRatesPendingTimeoutState] = useState({ setId: null, timedOut: false });
@@ -7845,75 +7921,36 @@ export default function RipStatisticsPageClient({
     };
   }, [setDetailMode, setDetailTab, explorePayload, resolvedSetResourceId, requestedTargetId]);
 
-  // Insights tab fetch effect (Phase 4B): slim, dedicated fetch
-  // (getPokemonSetInsights) instead of the full /page payload. Writes
-  // directly into explorePayload (via adaptPokemonSetInsightsPayloadToExplorePayload
-  // above) rather than a separate insights-only state slice, since summary/
-  // ripStatistics/percentiles/distributionBins/thresholdBins/simulationDrivers
-  // (topHits)/rankings/interpretation/historyTrend/openingDesirability/
-  // desirabilityValidation below all already read from explorePayload and
-  // need no further changes to keep rendering the same Insights UI.
+  // Insights tab fetch effects (progressive-rendering split of the former
+  // Phase 4B single getPokemonSetInsights call): insightsCriticalFetchState/
+  // insightsSecondaryFetchState (declared above via useSectionFetchState)
+  // fetch in parallel; each merge effect below writes only its own slice
+  // into explorePayload as soon as it settles, via a functional update so
+  // the two writes can land in either order without clobbering each other.
+  // hasInsightsPayloadData(explorePayload) (used elsewhere) already checks
+  // exactly the secondary-owned fields (percentiles/topHits/rankings/
+  // historyTrend/rip_statistics/openingDesirability/desirabilityValidation),
+  // so it continues to work unchanged as a "secondary data has arrived"
+  // signal without needing to know about the split.
   useEffect(() => {
-    if (!setDetailMode || setDetailTab !== "insights") {
-      return undefined;
+    if (insightsCriticalFetchState.status !== "success" || insightsCriticalFetchState.setId !== resolvedSetResourceId) {
+      return;
     }
-    if (!canFetchSetDetailModules) {
-      return undefined;
-    }
-    if (hasInsightsPayloadData(explorePayload)) {
-      const setId = resolvedSetResourceId || requestedTargetId;
-      if (setId) {
-        setInsightsFetchState({ setId, status: "success", error: null });
-      }
-      return undefined;
-    }
-    const setId = resolvedSetResourceId || requestedTargetId;
-    if (!setId) {
-      return undefined;
-    }
+    setExplorePayload((previous) => ({
+      ...(previous || {}),
+      ...adaptPokemonSetInsightsCriticalPayloadToExplorePayload(insightsCriticalFetchState.data),
+    }));
+  }, [insightsCriticalFetchState.status, insightsCriticalFetchState.setId, insightsCriticalFetchState.data, resolvedSetResourceId]);
 
-    const fetchKey = `insights:${requestedTargetId || ""}:${setId}`;
-    if (explorePagePayloadFetchKeyRef.current === fetchKey) {
-      return undefined;
+  useEffect(() => {
+    if (insightsSecondaryFetchState.status !== "success" || insightsSecondaryFetchState.setId !== resolvedSetResourceId) {
+      return;
     }
-    explorePagePayloadFetchKeyRef.current = fetchKey;
-
-    let isCancelled = false;
-    let requestSettled = false;
-    setInsightsFetchState({ setId, status: "loading", error: null });
-    getPokemonSetInsights(setId)
-      .then((payload) => {
-        requestSettled = true;
-        if (isCancelled) {
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          return;
-        }
-        setExplorePayload(adaptPokemonSetInsightsPayloadToExplorePayload(payload));
-        setInsightsFetchState({ setId, status: "success", error: null });
-      })
-      .catch((error) => {
-        requestSettled = true;
-        if (explorePagePayloadFetchKeyRef.current === fetchKey) {
-          explorePagePayloadFetchKeyRef.current = null;
-        }
-        if (isCancelled) {
-          return;
-        }
-        setInsightsFetchState({ setId, status: "error", error: error?.message || "Unable to load set insights." });
-      });
-
-    return () => {
-      isCancelled = true;
-      // An unsettled request's response will be ignored (isCancelled), so a
-      // revisit must be allowed to fetch again — otherwise Insights could
-      // render without its payload forever with the key still claimed.
-      if (!requestSettled && explorePagePayloadFetchKeyRef.current === fetchKey) {
-        explorePagePayloadFetchKeyRef.current = null;
-      }
-    };
-  }, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
+    setExplorePayload((previous) => ({
+      ...(previous || {}),
+      ...adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(insightsSecondaryFetchState.data),
+    }));
+  }, [insightsSecondaryFetchState.status, insightsSecondaryFetchState.setId, insightsSecondaryFetchState.data, resolvedSetResourceId]);
 
   const graphSectionMeta =
     activeInsightsGraphMode === "historical-trend"
@@ -8200,7 +8237,9 @@ export default function RipStatisticsPageClient({
       tab: tab || setDetailTab,
       section,
     });
-    router.push(nextHref, { scroll: false });
+    startTabTransition(() => {
+      router.push(nextHref, { scroll: false });
+    });
   };
 
   const handleSetDetailTabChange = (nextTab) => {
@@ -9158,55 +9197,76 @@ export default function RipStatisticsPageClient({
     : activeMarketMoversState.status === "error"
     ? "error"
     : "success";
-  // Overview loading cohesion (Phase 9B): hold one full-layout skeleton until
-  // every critical Overview asset has settled for the active set — set value
-  // history, the slim /overview payload (Performance vs Cost), top chase
-  // cards, and the default-window market movers. Optional secondary fetches
-  // (non-default mover windows, non-visible set value scopes) never re-enter
-  // these pending states because their reducers/effects keep already-loaded
-  // data as success/success_stale, so this gate only engages on the first
-  // load of a set's Overview (including after a set switch) and can never be
-  // re-triggered by window/scope changes. Error/empty are settled states —
-  // per-module error and empty rendering takes over after reveal.
-  const overviewSetValuePending =
-    activeSetValueHistory.status === "idle" || activeSetValueHistory.status === "loading";
-  const overviewPayloadPending =
-    activeOverviewState.status === "idle" || activeOverviewState.status === "loading";
-  const overviewTopChasePending = topPricedCardsStatus === "loading";
-  const overviewMarketMoversPending = marketMoversStatus === "loading";
-  const overviewCriticalAssetsPending =
-    overviewSetValuePending || overviewPayloadPending || overviewTopChasePending || overviewMarketMoversPending;
-  const showOverviewCohesiveLoading =
-    setDetailMode &&
-    setDetailTab === "overview" &&
-    // The timeout escape below is keyed by resolvedSetResourceId, so the
-    // skeleton must never engage without one — it could not force-reveal.
-    Boolean(resolvedSetResourceId) &&
-    overviewCriticalAssetsPending &&
-    !(overviewCohesionForceReveal.setId === resolvedSetResourceId && overviewCohesionForceReveal.revealed);
-  useEffect(() => {
-    if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId) {
-      return undefined;
-    }
-    const setId = resolvedSetResourceId;
-    const timer = window.setTimeout(() => {
-      setOverviewCohesionForceReveal({ setId, revealed: true });
-    }, OVERVIEW_COHESIVE_LOADING_MAX_MS);
-    return () => window.clearTimeout(timer);
-  }, [setDetailMode, setDetailTab, resolvedSetResourceId]);
-  // Insights loading cohesion (Phase 9B/9C): sections sourced from the
-  // /insights payload (Desirability Proof, Opening Outcomes) hold stable
-  // skeleton boxes only while the fetch is genuinely in flight; a fetch that
-  // settled in error (or hung past the timeout) switches them to explicit
-  // compact fallback copy instead of shimmering forever.
-  // Requires a resolved set id for the same reason as the Overview gate: the
-  // timeout escape can't fire without one, and without an id the insights
-  // fetch could never start anyway.
-  const activeInsightsFetchStatus =
-    insightsFetchState.setId === resolvedSetResourceId ? insightsFetchState.status : "idle";
-  const insightsLoadFailed =
-    setDetailMode && setDetailTab === "insights" && !hasActiveInsightsPayload && activeInsightsFetchStatus === "error";
+  // Progressive rendering (replaces the old Phase 9B whole-tab cohesive
+  // skeleton): each Overview section gates independently on its own fetch's
+  // status instead of waiting for every critical asset to settle together.
+  // Set Value and Performance vs Cost already receive status/error props and
+  // self-render their own loading/error states (SetValueTrendCard,
+  // MarketMoversModule, TopMarketCardsContent); Performance vs Cost's
+  // PackValueHistoryChart does not, so it gets an explicit SectionBoundary
+  // below keyed to overviewPerformanceVsCostStatus. Market Signals
+  // (DecisionSignalsCard) depends only on summary/interpretation, which are
+  // already available from the SSR shell payload on this tab (Overview never
+  // populates explorePayload), so it has no async gate at all.
+  const overviewPerformanceVsCostStatus = activeOverviewState.status;
+  // Section-level timing (see components/ui/SectionBoundary.jsx and
+  // hooks/useSectionTiming.js): one metric per Overview priority section.
+  // Market Signals has no async gate (see comment above), so it's reported
+  // as "success" the moment the tab mounts — an honest ~0ms.
+  const overviewTimingSetId = setDetailMode && setDetailTab === "overview" ? resolvedSetResourceId : null;
+  useSectionTiming("setValue", overviewTimingSetId ? activeSetValueHistory.status : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("performanceVsCost", overviewTimingSetId ? overviewPerformanceVsCostStatus : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("marketMovers", overviewTimingSetId ? marketMoversStatus : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("topChase", overviewTimingSetId ? topPricedCardsStatus : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("marketSignals", overviewTimingSetId ? "success" : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  // Insights loading cohesion, split by priority tier (progressive-rendering
+  // refactor): critical (RIP Score hero + pillar cards, priorities 1-3) and
+  // secondary (Opening Outcomes charts + Desirability Evidence, priorities
+  // 4-5) each gate independently on their own fetch's status now, instead of
+  // one shared whole-tab hold keyed to a single combined fetch.
+  const activeInsightsCriticalStatus =
+    insightsCriticalFetchState.setId === resolvedSetResourceId ? insightsCriticalFetchState.status : "idle";
+  const activeInsightsSecondaryStatus =
+    insightsSecondaryFetchState.setId === resolvedSetResourceId ? insightsSecondaryFetchState.status : "idle";
+  const insightsCriticalLoadFailed =
+    setDetailMode && setDetailTab === "insights" && activeInsightsCriticalStatus === "error";
   const insightsCriticalPending =
+    setDetailMode &&
+    setDetailTab === "insights" &&
+    Boolean(resolvedSetResourceId) &&
+    (activeInsightsCriticalStatus === "idle" || activeInsightsCriticalStatus === "loading");
+  const insightsCriticalPendingTimedOut =
+    insightsCriticalPendingTimeoutState.setId === resolvedSetResourceId && insightsCriticalPendingTimeoutState.timedOut;
+  // RIP Score hero/pillar cards hold their own branded panel (see
+  // showInsightsCohesiveLoading's new render usage below, scoped to just
+  // that section now — not the whole tab) until the critical fetch settles
+  // or times out.
+  const showInsightsCohesiveLoading = insightsCriticalPending && !insightsCriticalPendingTimedOut;
+  // criticalHeroMs is shared by Insights' RIP Score hero and Pull Rates' hit
+  // rate summary (both are each tab's priority-1 content), disambiguated by
+  // the tab field — see hooks/useSectionTiming.js.
+  useSectionTiming("criticalHero", setDetailMode && setDetailTab === "insights" ? activeInsightsCriticalStatus : "idle", {
+    setId: resolvedSetResourceId,
+    tab: "insights",
+  });
+  const insightsLoadFailed =
+    setDetailMode && setDetailTab === "insights" && !hasActiveInsightsPayload && activeInsightsSecondaryStatus === "error";
+  const insightsSecondaryPending =
     setDetailMode &&
     setDetailTab === "insights" &&
     Boolean(resolvedSetResourceId) &&
@@ -9214,18 +9274,12 @@ export default function RipStatisticsPageClient({
     !insightsLoadFailed;
   const insightsPendingTimedOut =
     insightsPendingTimeoutState.setId === resolvedSetResourceId && insightsPendingTimeoutState.timedOut;
-  // Sections stay in their loading/fallback presentation while blocked; the
-  // fallback copy takes over once loading is no longer expected to resolve on
-  // its own (fetch error or timeout).
-  const insightsSectionsBlocked = insightsCriticalPending || insightsLoadFailed;
+  // Opening Outcomes + Desirability Evidence (secondary tier) stay in their
+  // loading/fallback presentation while blocked; the fallback copy takes
+  // over once loading is no longer expected to resolve on its own (fetch
+  // error or timeout).
+  const insightsSectionsBlocked = insightsSecondaryPending || insightsLoadFailed;
   const insightsSectionsShowFallbackCopy = insightsLoadFailed || insightsPendingTimedOut;
-  // Phase 9D.2: while the /insights payload is genuinely in flight for the
-  // active set, the whole Insights tab holds one branded loading panel
-  // (SetTabLoadingPanel) instead of section-by-section skeleton pop-in. Once
-  // the fetch errors or hangs past the timeout, the sections render with
-  // their explicit compact fallback copy (insightsSectionsShowFallbackCopy);
-  // once loaded, empty sub-views get compact empty states — never the loader.
-  const showInsightsCohesiveLoading = insightsCriticalPending && !insightsPendingTimedOut;
   // Opening Outcomes settled-state audit (Phase 9C): once the payload is in,
   // each sub-view either has rows to render or gets a compact empty state —
   // never a chart-sized blank panel. The card's large min-height is also only
@@ -9263,6 +9317,22 @@ export default function RipStatisticsPageClient({
     }, INSIGHTS_PENDING_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
   }, [setDetailMode, setDetailTab, resolvedSetResourceId, hasActiveInsightsPayload]);
+  // Mirrors the timeout effect above, for the critical (RIP Score hero/pillar
+  // cards) tier specifically, keyed off insightsCriticalPending rather than
+  // hasActiveInsightsPayload (which only reflects secondary-owned fields).
+  useEffect(() => {
+    if (!insightsCriticalPending) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    setInsightsCriticalPendingTimeoutState((previous) =>
+      previous.setId === setId && previous.timedOut ? { setId: null, timedOut: false } : previous
+    );
+    const timer = window.setTimeout(() => {
+      setInsightsCriticalPendingTimeoutState({ setId, timedOut: true });
+    }, INSIGHTS_PENDING_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [insightsCriticalPending, resolvedSetResourceId]);
   // Pull Rates loading shell (Phase 9B): pullRatesState only resets to this
   // set's shape once its fetch effect fires post-paint, so guard by set id
   // the same way the other per-tab states do, and treat idle/loading with no
@@ -10059,6 +10129,8 @@ export default function RipStatisticsPageClient({
       };
     });
 
+    const cardsFetchStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+
     getPokemonSetCardsPage(setId, {
       page: requestedPage,
       pageSize: CARDS_PAGE_SIZE,
@@ -10095,6 +10167,28 @@ export default function RipStatisticsPageClient({
             filters: payload.filters,
             error: null,
           };
+        });
+        // Section-level timing (see lib/perf/sectionTiming.js): the first
+        // page load reports cardsFirstBatchMs (grid becomes usable), every
+        // subsequent IntersectionObserver-triggered page reports
+        // cardsNextBatchMs — a repeatable per-batch event, so this is logged
+        // directly here rather than through useSectionTiming (which reports
+        // a single-shot loading->settled transition per section).
+        const cardsBatchElapsedMs = Math.round(
+          (typeof performance !== "undefined" ? performance.now() : Date.now()) - cardsFetchStartedAt
+        );
+        const cardsBatchMetricName = requestedPage > 1 ? "cardsNextBatch" : "cardsFirstBatch";
+        markSectionTiming(`${cardsBatchMetricName}_success`, {
+          setId,
+          tab: "cards",
+          page: requestedPage,
+          elapsedMs: cardsBatchElapsedMs,
+        });
+        debugSectionTiming("[section-timing]", `${cardsBatchMetricName}Ms`, {
+          setId,
+          tab: "cards",
+          page: requestedPage,
+          elapsedMs: cardsBatchElapsedMs,
         });
       })
       .catch((error) => {
@@ -11184,9 +11278,9 @@ export default function RipStatisticsPageClient({
                   </div>
                 </section>
 
-                <div id="set-detail-content" className="scroll-mt-24 md:scroll-mt-28">
+                <div id="set-detail-content" className="scroll-mt-24 md:scroll-mt-28" aria-busy={isTabNavPending}>
                   <SectionViewTabs
-                    className="mt-2"
+                    className={`mt-2 transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
                     value={setDetailTab}
                     onChange={handleSetDetailTabChange}
                     variant="primary"
@@ -11200,82 +11294,106 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {setDetailTab === "overview" ? (
-                  showOverviewCohesiveLoading ? (
-                    // One cohesive Overview loading state while the critical
-                    // assets (set value history, /overview payload, top
-                    // chase, market movers) load — a single branded panel
-                    // reads as deliberate progress, not five broken chart
-                    // rows (Phase 9C feedback). The real layout reveals at
-                    // once when every critical asset settles.
-                    <SetTabLoadingPanel
-                      title="Loading overview data…"
-                      helper="Pulling set value history, market movers, and top chase cards for this set."
-                    />
-                  ) : (
+                  // Progressive rendering: each section below gates
+                  // independently on its own fetch status instead of one
+                  // shared whole-tab skeleton (removed — see
+                  // overviewPerformanceVsCostStatus above). Set Value renders
+                  // as soon as its history settles even if Market Movers/Top
+                  // Chase are still loading, and vice versa.
                   <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
                       <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
-                        <SetValueTrendCard
-                          setId={resolvedSetResourceId}
-                          setValueContract={activeSetValueContract}
-                          history={activeSetValueHistory.history}
-                          historiesByScope={activeSetValueHistory.historiesByScope}
-                          availableScopes={activeSetValueHistory.availableScopes}
-                          status={activeSetValueHistory.status}
-                          error={activeSetValueHistory.error}
-                          selectedScope={setValueTrendScope}
-                          onSelectedScopeChange={setSetValueTrendScope}
-                        />
+                        {/* Priority 2: Set Value. SetValueTrendCard already
+                            self-renders loading/error from status/error, so
+                            it only needs render-exception isolation here. */}
+                        <SectionErrorBoundary sectionName="overview-set-value" resetKeys={[resolvedSetResourceId]} title="Set Value" minHeightClassName="min-h-[16rem]">
+                          <SetValueTrendCard
+                            setId={resolvedSetResourceId}
+                            setValueContract={activeSetValueContract}
+                            history={activeSetValueHistory.history}
+                            historiesByScope={activeSetValueHistory.historiesByScope}
+                            availableScopes={activeSetValueHistory.availableScopes}
+                            status={activeSetValueHistory.status}
+                            error={activeSetValueHistory.error}
+                            selectedScope={setValueTrendScope}
+                            onSelectedScopeChange={setSetValueTrendScope}
+                          />
+                        </SectionErrorBoundary>
                       </div>
                       <div className="min-w-0 lg:h-full">
-                        <SectionCard
-                          title="Performance vs Cost"
-                          titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}
-                          className="flex h-full flex-col"
-                          bodyClassName="flex min-h-0 flex-1 flex-col"
-                        >
-                          <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} flush />
-                        </SectionCard>
+                        {/* Priority 3: Performance vs Cost. PackValueHistoryChart
+                            has no internal status handling, so it gets an
+                            explicit SectionBoundary keyed to the /overview
+                            payload's own status. */}
+                        <SectionErrorBoundary sectionName="overview-performance-vs-cost" resetKeys={[resolvedSetResourceId]} title="Performance vs Cost" minHeightClassName="min-h-[16rem]">
+                          <SectionCard
+                            title="Performance vs Cost"
+                            titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}
+                            className="flex h-full flex-col"
+                            bodyClassName="flex min-h-0 flex-1 flex-col"
+                          >
+                            <SectionBoundary
+                              status={overviewPerformanceVsCostStatus}
+                              error={activeOverviewState.error ? new Error(activeOverviewState.error) : null}
+                              title="Loading performance vs cost…"
+                              minHeightClassName="min-h-[14rem]"
+                              className="h-full"
+                            >
+                              <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} flush />
+                            </SectionBoundary>
+                          </SectionCard>
+                        </SectionErrorBoundary>
                       </div>
                     </div>
 
                     <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
-                      <MarketMoversModule
-                        movers={marketMovers}
-                        moversByWindow={marketMoversByWindow}
-                        selectedWindow={marketMoversWindowKey}
-                        status={marketMoversStatus}
-                        error={activeMarketMoversState.error}
-                        onWindowChange={setMarketMoversWindowKey}
-                        onViewAll={handleViewAllMarketMovers}
-                      />
+                      {/* Priority 4: Market Movers — self-renders loading/error. */}
+                      <SectionErrorBoundary sectionName="overview-market-movers" resetKeys={[resolvedSetResourceId]} title="Market Movers" minHeightClassName="min-h-[14rem]">
+                        <MarketMoversModule
+                          movers={marketMovers}
+                          moversByWindow={marketMoversByWindow}
+                          selectedWindow={marketMoversWindowKey}
+                          status={marketMoversStatus}
+                          error={activeMarketMoversState.error}
+                          onWindowChange={setMarketMoversWindowKey}
+                          onViewAll={handleViewAllMarketMovers}
+                        />
+                      </SectionErrorBoundary>
                     </div>
 
                     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)] lg:items-start">
                       {shouldShowTopMarketCards ? (
                         <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                          <TopChaseCardsModule
-                            cards={topPricedCards}
-                            status={topPricedCardsStatus}
-                            error={activeTopMarketCardsState.error}
-                            infoText={topPricedCardsInfo}
-                            selectedWindowKey={topMarketCardsWindowKey}
-                            onWindowChange={setTopMarketCardsWindowKey}
-                          />
+                          {/* Priority 5: Top Chase Cards — self-renders loading/error. */}
+                          <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
+                            <TopChaseCardsModule
+                              cards={topPricedCards}
+                              status={topPricedCardsStatus}
+                              error={activeTopMarketCardsState.error}
+                              infoText={topPricedCardsInfo}
+                              selectedWindowKey={topMarketCardsWindowKey}
+                              onWindowChange={setTopMarketCardsWindowKey}
+                            />
+                          </SectionErrorBoundary>
                         </div>
                       ) : null}
 
                       <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                        <DecisionSignalsCard
-                          pillarSignals={overviewPillarSignals}
-                          summary={summary}
-                          setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                          requestTimeout={isTimeoutFallbackPayload}
-                        />
+                        {/* Priority 6: Market Signals. Derived purely from
+                            summary/interpretation, both already available
+                            from the SSR shell on this tab — no async gate
+                            needed, just render-exception isolation. */}
+                        <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
+                          <DecisionSignalsCard
+                            pillarSignals={overviewPillarSignals}
+                            summary={summary}
+                            setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                            requestTimeout={isTimeoutFallbackPayload}
+                          />
+                        </SectionErrorBoundary>
                       </div>
                     </div>
                   </section>
-                  )
                 ) : null}
 
                 {setDetailTab === "cards" ? (
@@ -11432,51 +11550,30 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {setDetailTab === "pull-rates" ? (
-                  <section id="set-detail-pull-rates" className="scroll-mt-24 space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5">
-                    <div>
-                      <p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>
-                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Modeled rarity frequency and specific-card odds used by this simulation.</p>
-                      <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
-                    </div>
-                    {pullRateAssumptions ? (
-                      <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
-                    ) : pullRatesTabPending ? (
-                      // Branded tab loader from the moment the tab is active
-                      // until the assumptions payload settles. If the request
-                      // hangs, the timeout swaps the loader for explicit copy
-                      // so this can never load indefinitely.
-                      pullRatesPendingTimedOut ? (
-                        <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-                          Pull rates are taking longer than expected to load. Refresh the page to retry.
-                        </p>
-                      ) : (
-                        <SetTabLoadingPanel
-                          title="Loading pull rate assumptions…"
-                          helper="Pulling rarity frequencies and specific-card odds for this set."
-                          minHeightClassName="min-h-[18rem]"
-                        />
-                      )
-                    ) : activePullRatesState.status === "error" ? (
-                      <p className="text-sm text-red-300">{activePullRatesState.error || "Unable to load pull rate assumptions for this set."}</p>
-                    ) : (
-                      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-                        Pull-rate data coming soon for this set. Modeled odds appear once this set&apos;s pack structure has been configured.
-                      </p>
-                    )}
-                  </section>
+                  <PullRatesTab
+                    pullRateAssumptions={pullRateAssumptions}
+                    pullRatesTabPending={pullRatesTabPending}
+                    pullRatesPendingTimedOut={pullRatesPendingTimedOut}
+                    activePullRatesState={activePullRatesState}
+                    resolvedSetResourceId={resolvedSetResourceId}
+                  />
                 ) : null}
               </>
             ) : null}
 
             {showInsightsCohesiveLoading ? (
-              // Whole-tab branded loader for Insights' critical payload —
-              // avoids section-by-section pop-in on the initial view. Only
-              // engages in set detail mode (insightsCriticalPending is false
-              // on /Explore) and hands off to the sections' compact fallback
-              // copy on timeout/error via insightsSectionsShowFallbackCopy.
+              // Branded loader for just the critical tier (RIP Score hero +
+              // pillar cards, priorities 1-3) — only engages in set detail
+              // mode (insightsCriticalPending is false on /Explore). Once the
+              // critical fetch settles this whole region reveals; Opening
+              // Outcomes and Desirability Evidence below then show their own
+              // secondary-tier loading/fallback state independently
+              // (insightsSectionsBlocked/insightsSectionsShowFallbackCopy)
+              // while priorities 4-5 catch up — this is the actual
+              // progressive-rendering seam for Insights.
               <SetTabLoadingPanel
-                title="Loading insight data…"
-                helper="Pulling RIP breakdown, opening outcomes, desirability checks, and simulation drivers."
+                title="Loading RIP score…"
+                helper="Pulling your set's RIP score and pillar breakdown."
               />
             ) : null}
 
@@ -11803,38 +11900,52 @@ export default function RipStatisticsPageClient({
 
             {setDetailMode ? (
               <section id="set-detail-insights" className="scroll-mt-24 space-y-4 pt-0 md:scroll-mt-28">
-                <RipScoreBreakdownModule
-                  score={topScoreRaw}
-                  scoreTrend={trendByMetricKey.ripScore}
-                  rankTier={summary.pack_tier}
-                  rankValue={summary.pack_rank}
-                  verdict={recommendationBadge}
-                  explanation={recommendationSummary}
-                  pillars={ripPillarTiles}
-                  titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                  ripDesirabilityComparison={ripDesirabilityComparison}
-                />
+                {/* Priorities 1-2: RIP Score hero + pillar cards. Gated above
+                    via showInsightsCohesiveLoading (critical-only now), so
+                    only render-exception isolation is needed here. */}
+                <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score" minHeightClassName="min-h-[14rem]">
+                  <RipScoreBreakdownModule
+                    score={topScoreRaw}
+                    scoreTrend={trendByMetricKey.ripScore}
+                    rankTier={summary.pack_tier}
+                    rankValue={summary.pack_rank}
+                    verdict={recommendationBadge}
+                    explanation={recommendationSummary}
+                    pillars={ripPillarTiles}
+                    titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
+                    ripDesirabilityComparison={ripDesirabilityComparison}
+                  />
+                </SectionErrorBoundary>
 
-                <DesirabilityEvidenceCard
-                  mode={selectedDesirabilityEvidenceMode}
-                  onModeChange={setSelectedDesirabilityEvidenceMode}
-                  validation={desirabilityValidationPayload}
-                  proofLoading={insightsSectionsBlocked}
-                  proofLoadingTimedOut={insightsSectionsShowFallbackCopy}
-                  targets={targets}
-                  setValidationFreshness={sectionFreshness.desirabilityValidation}
-                  cards={activeCardValidationData.cards}
-                  cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}
-                  diagnosticsContext={{
-                    setId: resolvedSetResourceId,
-                    setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
-                    selectedTab: setDetailTab,
-                  }}
-                  cardValidationFreshness={sectionFreshness.cardAppealValidation}
-                  snapshotLoading={isTimeoutFallbackPayload}
-                  dataLoading={activeCardValidationData.status === "loading"}
-                />
+                {/* Priority 5: deep diagnostics. proofLoading/proofLoadingTimedOut
+                    already reflect the secondary-tier fetch (insightsSectionsBlocked/
+                    insightsSectionsShowFallbackCopy), independent of the critical
+                    tier above. */}
+                <SectionErrorBoundary sectionName="insights-desirability-evidence" resetKeys={[resolvedSetResourceId]} title="Desirability Evidence" minHeightClassName="min-h-[14rem]">
+                  <DesirabilityEvidenceCard
+                    mode={selectedDesirabilityEvidenceMode}
+                    onModeChange={setSelectedDesirabilityEvidenceMode}
+                    validation={desirabilityValidationPayload}
+                    proofLoading={insightsSectionsBlocked}
+                    proofLoadingTimedOut={insightsSectionsShowFallbackCopy}
+                    targets={targets}
+                    setValidationFreshness={sectionFreshness.desirabilityValidation}
+                    cards={activeCardValidationData.cards}
+                    cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}
+                    diagnosticsContext={{
+                      setId: resolvedSetResourceId,
+                      setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
+                      selectedTab: setDetailTab,
+                    }}
+                    cardValidationFreshness={sectionFreshness.cardAppealValidation}
+                    snapshotLoading={isTimeoutFallbackPayload}
+                    dataLoading={activeCardValidationData.status === "loading"}
+                  />
+                </SectionErrorBoundary>
 
+                {/* Priority 4: charts/distributions (Opening Outcomes). Already
+                    internally gated on the secondary tier via insightsSectionsBlocked. */}
+                <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Opening Outcomes" minHeightClassName="min-h-[24rem]">
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   <SectionCard
                     title="Opening Outcomes"
@@ -11932,6 +12043,7 @@ export default function RipStatisticsPageClient({
                     )}
                   </SectionCard>
                 </section>
+                </SectionErrorBoundary>
               </section>
             ) : null}
 
