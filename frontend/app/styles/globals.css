@@ -337,6 +337,32 @@ body::-webkit-scrollbar-thumb:hover {
   margin-top: 0.9rem;
 }
 
+/* Bottom "load more" usage (infinite scroll): same logo/dots language at a
+   footer scale, so appended-chunk loading reads as part of the list rather
+   than a page-level event. */
+.index-loader-shell--compact {
+  padding: 0.75rem 1rem;
+}
+
+.index-loader-shell--compact .index-loader-logo {
+  width: 3rem;
+  height: 3rem;
+}
+
+.index-loader-shell--compact .index-loader-glow {
+  width: 4rem;
+  height: 4rem;
+}
+
+.index-loader-shell--compact .index-loader-dots {
+  margin-top: 0.55rem;
+}
+
+.index-loader-shell--compact .index-loader-dot {
+  width: 0.3rem;
+  height: 0.3rem;
+}
+
 .index-loader-shell--fullscreen {
   --index-loader-header-offset: var(--app-header-offset, 64px);
   --index-loader-bottom-offset: calc(5.25rem + env(safe-area-inset-bottom));

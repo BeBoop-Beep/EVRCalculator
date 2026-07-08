@@ -1180,7 +1180,7 @@ test("set page insights receive RIP desirability comparison through snapshot sum
   const comparisonEnd = source.indexOf("const desirabilitySummary", comparisonStart);
   const comparisonSource = source.slice(comparisonStart, comparisonEnd);
   const insightsStart = source.indexOf('{setDetailMode ? (', comparisonEnd);
-  const insightsEnd = source.indexOf("<DesirabilityProofCards", insightsStart);
+  const insightsEnd = source.indexOf("<DesirabilityEvidenceCard", insightsStart);
   const insightsSource = source.slice(insightsStart, insightsEnd);
 
   assert.ok(summaryStart >= 0);
@@ -1472,7 +1472,7 @@ test("card appeal market chart prefers canonical correlation sample when availab
 test("card validation bucket row keys include stable identity beyond card name", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const helperStart = source.indexOf("function getValidationBucketRowKey");
-  const helperEnd = source.indexOf("function CardDesirabilityMarketValidationCard", helperStart);
+  const helperEnd = source.indexOf("function CardDesirabilityMarketValidationContent", helperStart);
   const helperSource = source.slice(helperStart, helperEnd);
   const renderStart = source.indexOf("{bucket.rows.map((row, rowIndex) => (", helperEnd);
   const renderEnd = source.indexOf("</div>", renderStart);
@@ -1498,10 +1498,15 @@ test("card validation bucket row keys include stable identity beyond card name",
   assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
 });
 
-test("desirability proof cards render from set payload validation data", () => {
+test("desirability evidence proof content renders from set payload validation data", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("function DesirabilityProofCards"));
+  assert.ok(source.includes("function DesirabilityEvidenceCard"));
+  assert.ok(source.includes("function DesirabilityProofContent"));
+  assert.ok(source.includes('title="Desirability Evidence"'));
+  assert.ok(source.includes('label: "Proof"'));
+  assert.ok(source.includes('label: "Set Validation"'));
+  assert.ok(source.includes('label: "Card Validation"'));
   assert.ok(source.includes("Desirability Impact"));
   assert.ok(source.includes("Desirability Signal Check"));
   assert.ok(source.includes("getDesirabilityValidationPayload(explorePayload)"));
@@ -1595,7 +1600,7 @@ test("card validation section renders from an explicit readiness contract instea
   assert.ok(memoSource.includes("checklistState.setId !== resolvedSetResourceId"), "must treat a stale/mismatched set id as loading");
   assert.ok(memoSource.includes('setDetailTab === "insights"'), "must scope the loading classification to the insights tab");
 
-  const renderStart = source.indexOf("<CardDesirabilityMarketValidationCard");
+  const renderStart = source.indexOf("<DesirabilityEvidenceCard");
   const renderEnd = source.indexOf("/>", renderStart);
   const renderSource = source.slice(renderStart, renderEnd);
 
@@ -1613,7 +1618,7 @@ test("card validation section renders from an explicit readiness contract instea
     "must not re-resolve correlation inline in JSX now that activeCardValidationData owns it"
   );
 
-  const componentStart = source.indexOf("function CardDesirabilityMarketValidationCard(");
+  const componentStart = source.indexOf("function CardDesirabilityMarketValidationContent(");
   const componentEnd = source.indexOf("\n}\n", componentStart);
   const componentSource = source.slice(componentStart, componentEnd);
 
@@ -2623,7 +2628,61 @@ test("Phase 4B: Insights tab live path calls getPokemonSetInsights", () => {
   const effectBody = source.slice(effectStart, effectEnd);
 
   assert.ok(effectBody.includes('setDetailTab !== "insights"'), "the effect must gate on the insights tab");
+  assert.ok(
+    effectBody.includes("hasInsightsPayloadData(explorePayload)"),
+    "the effect must only skip once real /insights data exists"
+  );
+  assert.ok(
+    !effectBody.includes("!setDetailMode || explorePayload"),
+    "the effect must not treat raw explorePayload truthiness as insights readiness"
+  );
   assert.ok(effectBody.includes("getPokemonSetInsights(setId)"), "must call getPokemonSetInsights for the active set");
+});
+
+test("Phase 4B: summary-only payloads do not count as loaded Insights data", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const helperStart = source.indexOf("function hasInsightsPayloadData(payload)");
+  const helperEnd = source.indexOf("function getResolvedPokemonSetResourceId", helperStart);
+  assert.ok(helperStart >= 0, "hasInsightsPayloadData helper must exist");
+  assert.ok(helperEnd > helperStart, "hasInsightsPayloadData helper must live near the insights adapter/readiness helpers");
+  const helperSource = source.slice(helperStart, helperEnd);
+
+  for (const expected of [
+    "distribution_bins",
+    "distributionBins",
+    "threshold_bins",
+    "thresholdBins",
+    "percentiles",
+    "top_hits",
+    "topHits",
+    "rankings",
+    "history_trend",
+    "historyTrend",
+    "rip_statistics",
+    "ripStatistics",
+    "openingDesirability",
+    "opening_desirability",
+    "desirabilityValidation",
+    "desirability_validation",
+    "hasDesirabilityProofSignal",
+  ]) {
+    assert.ok(helperSource.includes(expected), `helper must inspect ${expected}`);
+  }
+  assert.ok(!helperSource.includes("payload.summary"), "summary alone must not count as insights data");
+});
+
+test("Insights readiness is declared after setDetailTab", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const setDetailTabIndex = source.indexOf("const [setDetailTab");
+  const hasActiveInsightsPayloadIndex = source.indexOf("const hasActiveInsightsPayload =");
+
+  assert.ok(setDetailTabIndex >= 0, "setDetailTab must be declared");
+  assert.ok(hasActiveInsightsPayloadIndex >= 0, "hasActiveInsightsPayload must be declared");
+  assert.ok(
+    setDetailTabIndex < hasActiveInsightsPayloadIndex,
+    "hasActiveInsightsPayload must not read setDetailTab before setDetailTab is initialized"
+  );
 });
 
 test("Phase 4B: Insights tab does not call fetchPokemonSetPageSnapshot", () => {
@@ -2786,8 +2845,12 @@ test("Phase 6B: Cards tab fetch effect skips re-issuing an identical page/sort/f
 
   assert.ok(effectSectionStart >= 0 && effectSectionEnd > effectSectionStart);
   assert.ok(
-    effectSource.includes("const cardsPageRequestKey = ["),
-    "the request key must be built from every param that changes the fetched resource"
+    effectSource.includes("const cardsPageScopeKey = ["),
+    "the scope key must be built from every param that changes the fetched resource (set, sort, search, movement filter)"
+  );
+  assert.ok(
+    effectSource.includes("const cardsPageRequestKey = `${cardsPageScopeKey}|page:${requestedPage}`"),
+    "the request key must be the scope key plus the requested page"
   );
   assert.ok(
     effectSource.includes("if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey)") &&
@@ -2950,8 +3013,8 @@ test("Phase 8B: every set-switcher surface renders switcherTargets while non-swi
   // prefetch are not switcher surfaces, and Phase 8B must not silently
   // change analytics-chart contents or prefetch behavior.
   assert.ok(
-    source.includes("<DesirabilityValidationCard targets={targets}"),
-    "DesirabilityValidationCard must keep receiving the unfiltered targets list"
+    source.includes("<DesirabilityEvidenceCard") && source.includes("targets={targets}"),
+    "DesirabilityEvidenceCard must keep receiving the unfiltered targets list for its Set Validation mode"
   );
   assert.ok(
     source.includes('const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);'),
@@ -3057,6 +3120,17 @@ test("Phase 9D.2: Insights holds one whole-tab branded panel while the /insights
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
+    source.includes('const hasActiveInsightsPayload =\n    setDetailMode && setDetailTab === "insights"\n      ? hasInsightsPayloadData(explorePayload)\n      : Boolean(explorePayload);'),
+    "active insights readiness must use hasInsightsPayloadData on the Insights tab only"
+  );
+  const loadingGateStart = source.indexOf("const activeInsightsFetchStatus =");
+  const loadingGateEnd = source.indexOf("const openingOutcomesViewHasData =", loadingGateStart);
+  assert.ok(loadingGateStart >= 0 && loadingGateEnd > loadingGateStart, "the insights loading gate block must exist");
+  const loadingGateSource = source.slice(loadingGateStart, loadingGateEnd);
+  assert.ok(loadingGateSource.includes("!hasActiveInsightsPayload"), "pending/error gates must use insights-data readiness");
+  assert.ok(!loadingGateSource.includes("!explorePayload"), "pending/error gates must not use raw explorePayload truthiness");
+
+  assert.ok(
     source.includes("const showInsightsCohesiveLoading = insightsCriticalPending && !insightsPendingTimedOut;"),
     "the cohesive gate must engage only while the fetch is genuinely pending (not after timeout)"
   );
@@ -3078,6 +3152,17 @@ test("Phase 9D.2: Insights holds one whole-tab branded panel while the /insights
   assert.ok(
     source.includes("Set insights are taking longer than expected to load."),
     "the timeout/error fallback copy must remain for the settled-failure path"
+  );
+
+  const insightsSectionStart = source.indexOf('{(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (');
+  const openingOutcomesStart = source.indexOf('title="Opening Outcomes"', insightsSectionStart);
+  const openingOutcomesEnd = source.indexOf("</SectionCard>", openingOutcomesStart);
+  assert.ok(openingOutcomesStart > insightsSectionStart, "Opening Outcomes must still render under the Insights section");
+  assert.ok(openingOutcomesEnd > openingOutcomesStart, "Opening Outcomes card body must be present");
+  const openingOutcomesSource = source.slice(openingOutcomesStart, openingOutcomesEnd);
+  assert.ok(
+    openingOutcomesSource.includes("insightsSectionsBlocked ? ("),
+    "Opening Outcomes must remain gated by the shared insightsSectionsBlocked lifecycle"
   );
 });
 
@@ -3120,4 +3205,200 @@ test("Phase 9D.2: route-level loading screens keep the fullscreen branded loader
     assert.ok(routeSource.includes("fullScreen"), "route-level loading must remain fullscreen");
     assert.ok(!routeSource.includes("SetTabLoadingPanel"), "route-level loading must not switch to the in-tab panel");
   }
+});
+
+// ---------------------------------------------------------------------------
+// Phase 10: Cards tab infinite scroll + section/sidebar/URL synchronization.
+// Explicit Previous/Next paging is gone: a sentinel below the grid advances
+// the page via IntersectionObserver (generous prefetch margin), responses for
+// pages > 1 append (deduped) into the accumulated list for the same scope
+// (set + sort + search + movement filter), and the already-rendered cards
+// stay on screen while the next chunk loads (bottom inDex loader only, no
+// grid blanking/dimming). The Cards tab's active section ("all-cards" |
+// "market-movers") is derived from the URL `section` param so the sidebar
+// highlight, section tab strip, and URL can never diverge.
+// ---------------------------------------------------------------------------
+
+test("Phase 10: cards pagination buttons are gone; an IntersectionObserver sentinel drives load-more with a generous prefetch margin", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(!source.includes("hasPreviousPage"), "the Previous button (and any hasPreviousPage read) must be gone");
+  assert.ok(!/>\s*Previous\s*</.test(source), "no user-facing Previous button");
+  assert.ok(!/setCardsPage\(\(page\) => page \+ 1\)/.test(source), "the Next button's manual page increment must be gone");
+
+  // The scaffold mounts the page tree twice (desktop `hidden xl:block` +
+  // mobile `xl:hidden`), so a single element ref would land on the hidden
+  // mobile copy and never intersect on desktop — the sentinel must be located
+  // by data attribute and every mounted instance observed.
+  assert.ok(source.includes('<div data-cards-load-more-sentinel="true"'), "the sentinel element must render below the grid");
+  assert.ok(
+    source.includes('document.querySelectorAll("[data-cards-load-more-sentinel]")'),
+    "the observer must find every mounted sentinel (desktop + mobile copies), not a single ref"
+  );
+  assert.ok(source.includes("for (const sentinel of sentinels)"), "every sentinel instance must be observed");
+  assert.ok(!source.includes("cardsLoadMoreSentinelRef"), "the single-element sentinel ref must be gone");
+  assert.ok(source.includes("new IntersectionObserver("), "load-more must be driven by IntersectionObserver");
+  const rootMarginMatch = source.match(/rootMargin: "(\d+)px 0px"/);
+  assert.ok(rootMarginMatch, "the observer must set a vertical rootMargin");
+  const rootMargin = Number(rootMarginMatch[1]);
+  assert.ok(rootMargin >= 800 && rootMargin <= 1200, `rootMargin must be a generous 800-1200px prefetch margin (got ${rootMargin})`);
+  assert.ok(
+    source.includes("typeof IntersectionObserver === \"undefined\""),
+    "environments without IntersectionObserver must not crash"
+  );
+});
+
+test("Phase 10: pages append into the accumulated list for the same scope, deduped by stable card identity", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes("function getChecklistCardKey(card)"), "a stable card identity helper must exist");
+  assert.ok(
+    source.includes("String(card?.id || card?.cardNumber || card?.card_number || card?.name || \"\")"),
+    "identity must prefer id, then card number, then name — matching the grid's React keys"
+  );
+  assert.ok(source.includes("function dedupeChecklistCards(cards)"), "an append-dedupe helper must exist");
+
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("\n\n  // Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+  assert.ok(effectStart >= 0 && effectEnd > effectStart, "cards page fetch effect must exist");
+
+  assert.ok(effectSource.includes("const shouldAppend ="), "the success handler must decide append vs replace");
+  assert.ok(
+    effectSource.includes("previous.scopeKey === cardsPageScopeKey") && effectSource.includes("requestedPage > 1"),
+    "append is allowed only for page > 1 responses whose scope matches the cards already in state"
+  );
+  assert.ok(
+    effectSource.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"),
+    "appended chunks must merge below the existing cards, deduped"
+  );
+  assert.ok(
+    effectSource.includes('return { ...previous, status: "loading_more", error: null };'),
+    "loading a further chunk must keep every rendered card in place (loading_more), never blank or swap the list"
+  );
+});
+
+test("Phase 10: duplicate and stale load-more fetches are prevented", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // The observer callback is gated by a latest-value ref and an idempotent
+  // page advance, and the fetch effect dedupes by request key.
+  assert.ok(source.includes("const cardsLoadMoreGateRef = useRef("), "a latest-value gate ref must exist for the observer callback");
+  assert.ok(source.includes("setCardsPage((page) => (page >= nextPage ? page : nextPage));"), "the page advance must be idempotent under duplicate observer fires");
+  assert.ok(source.includes("!cardsPageIsFetching"), "load-more must be blocked while a cards request is already in flight");
+  assert.ok(source.includes("cardsPage === activeCardsPageState.page"), "load-more must be blocked while a requested page has not merged yet");
+
+  // A response landing after the user changed set/scope must not append into
+  // the new view: effect cleanup cancels, cross-set responses are dropped by
+  // the shared guard, and appends additionally require a scope match.
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("\n\n  // Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+  assert.ok(effectSource.includes("let isCancelled = false;"), "in-flight responses must be cancellable");
+  assert.ok(effectSource.includes("if (isCancelled) {"), "cancelled responses must be dropped");
+  assert.ok(effectSource.includes('debugSetPagePerf("cards_page.tab_fetch_stale"'), "cross-set stale responses must be dropped");
+  assert.ok(
+    effectSource.includes("cardsLoadMoreGateRef.current.stateScopeKey !== cardsPageScopeKey"),
+    "a page-N request of a brand-new scope must be skipped (the reset effect rewinds to page 1 in the same commit)"
+  );
+});
+
+test("Phase 10: changing set/sort/search/movement filter rewinds to the first chunk", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const resetStart = source.indexOf("setCardsPage(1);");
+  assert.ok(resetStart >= 0, "a scope-reset effect must rewind the page counter");
+  const resetSource = source.slice(source.lastIndexOf("useEffect(() => {", resetStart), source.indexOf("]);", resetStart) + 3);
+  for (const dep of ["cardSortMode", "cardMovementFilter", "cardSearchQuery", "resolvedSetResourceId"]) {
+    assert.ok(resetSource.includes(dep), `the scope-reset effect must depend on ${dep}`);
+  }
+});
+
+test("Phase 10: load-more failures keep the loaded cards, disable the sentinel, and offer an explicit Retry", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes("const cardsPageLoadMoreError = Boolean("), "a failed load-more must be distinguishable from a failed first load");
+  assert.ok(source.includes("!activeCardsPageState.error"), "the sentinel gate must be disabled while an error is pending (no retry hammering)");
+  assert.ok(source.includes("Couldn&apos;t load more cards."), "a failed load-more must surface explicit copy");
+  assert.ok(source.includes("setCardsPageRetryNonce((nonce) => nonce + 1)"), "Retry must re-run the fetch effect via the retry nonce");
+  assert.ok(source.includes("cardsPageRetryNonce,"), "the fetch effect must depend on the retry nonce");
+});
+
+test("Phase 10: bottom load-more state uses the branded inDex loader, and completion shows a subtle all-loaded note", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes('import InDexLogoLoader from "@/components/brand/InDexLogoLoader";'),
+    "the page client must use the branded loader for load-more"
+  );
+  const loadingMoreStart = source.indexOf("{cardsPageIsLoadingMore ? (");
+  assert.ok(loadingMoreStart >= 0, "a bottom loading-more state must render");
+  const loadingMoreSource = source.slice(loadingMoreStart, loadingMoreStart + 700);
+  assert.ok(loadingMoreSource.includes("<InDexLogoLoader"), "loading more must show the inDex logo/dots loader, not a generic spinner");
+  assert.ok(loadingMoreSource.includes("index-loader-shell--compact"), "the bottom loader must use the compact footer scale");
+  assert.ok(!source.includes("animate-spin"), "no generic circular spinner anywhere in the page client");
+
+  assert.ok(source.includes("const cardsPageFullyLoaded = Boolean("), "completion must be derived from pagination");
+  assert.ok(source.includes("cards loaded"), "completion must show a subtle all-loaded note");
+});
+
+test("Phase 10: the Cards section (all-cards | market-movers) is derived from the URL and drives the sidebar highlight and section tabs", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes("const [cardsSection, setCardsSection] = useState("), "a cards-section state must exist");
+  assert.ok(
+    source.includes('setCardsSection(nextSection === "market-movers" ? "market-movers" : "all-cards");'),
+    "the URL-consumption effect must re-derive the cards section from the section param (URL is the source of truth)"
+  );
+  assert.ok(
+    source.includes('"all-cards": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" }'),
+    "all-cards must be a routable section target"
+  );
+
+  // Sidebar rail: both sections listed, highlight driven by the section.
+  assert.ok(source.includes("activeCardsSection = \"all-cards\""), "the rail must accept the active cards section");
+  assert.ok(source.includes("activeCardsSection={cardsSection}"), "the rail must be driven by the page's cards section");
+  assert.ok(
+    source.includes('active: activeCardsSubTab === "checklist" && activeCardsSection !== "market-movers"'),
+    "All Cards must not be highlighted while the market-movers section is active"
+  );
+  assert.ok(
+    source.includes('active: activeCardsSubTab === "checklist" && activeCardsSection === "market-movers"'),
+    "Market Movers must be highlighted when its section is active"
+  );
+
+  // Section tab strip inside the Cards tab mirrors the same state.
+  assert.ok(source.includes('{ value: "all-cards", label: "All Cards" }'), "the section tab strip must include All Cards");
+  assert.ok(source.includes('{ value: "market-movers", label: "Market Movers" }'), "the section tab strip must include Market Movers");
+  assert.ok(source.includes("value={cardsSection}"), "the section tab strip must render the active cards section");
+});
+
+test("Phase 10: entering a cards section applies its preset and routes through the URL, so movers and all-cards share the infinite grid", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const navStart = source.indexOf("const handleSetDetailNavSelect = (");
+  const navEnd = source.indexOf("const handleViewSetValueTrend", navStart);
+  const navSource = source.slice(navStart, navEnd);
+  assert.ok(navStart >= 0 && navEnd > navStart, "handleSetDetailNavSelect must exist");
+  assert.ok(
+    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortMode("30d-gainers");'),
+    "entering Market Movers must preset the movers sort"
+  );
+  assert.ok(
+    navSource.includes('setCardsSection("all-cards");') && navSource.includes('setCardSortMode("set-number");'),
+    "entering All Cards must restore the default checklist view"
+  );
+
+  const viewAllStart = source.indexOf("const handleViewAllMarketMovers = () => {");
+  const viewAllSource = source.slice(viewAllStart, source.indexOf("};", viewAllStart));
+  assert.ok(viewAllSource.includes('setCardsSection("market-movers");'), "View-all-movers must activate the market-movers section");
+  assert.ok(viewAllSource.includes('pushSetDetailRouteState({ tab: "cards", section: "market-movers" });'), "View-all-movers must reflect the section in the URL");
+
+  // Both sections render the same checklist grid, so the movers view gets the
+  // same append/sentinel mechanics and the fetch always carries the active
+  // sort + movement filter (single call site, asserted elsewhere).
+  const cardsPageCallCount = (source.match(/getPokemonSetCardsPage\(/g) || []).length;
+  assert.equal(cardsPageCallCount, 1, "one shared paginated fetch serves both cards sections");
+  assert.ok(source.includes("movementFilter: effectiveCardMovementFilter,"), "the shared fetch must carry the movement filter");
+  assert.ok(source.includes("movementSort: movementSortValue,"), "the shared fetch must carry the movement sort");
 });
