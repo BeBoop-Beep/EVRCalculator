@@ -116,6 +116,14 @@ export function buildSetHeaderSummary({
   selectedTarget = null,
   resolvedSetResourceId = null,
   explorePayloadIsFresh = false,
+  // A set switch can leave the shellPayload prop holding the PREVIOUS set's
+  // data for a render or two before the new set's shell commits. Using that
+  // mismatched shell would render the previous set's metrics under the new
+  // set's title. Callers pass false when the shell's identity does not match
+  // the active set; the shell is then ignored for summary/interpretation/
+  // identity (the metrics fall through to the same-set cache or null, and the
+  // caller renders a pending state rather than leaking the wrong set).
+  shellPayloadIsForActiveSet = true,
   previousSameSetSummary = null,
 } = {}) {
   const resolvedSetId = toOptionalString(resolvedSetResourceId);
@@ -124,19 +132,21 @@ export function buildSetHeaderSummary({
       ? previousSameSetSummary
       : null;
 
+  const effectiveShellPayload = shellPayloadIsForActiveSet === false ? null : shellPayload;
+
   const exploreSummary = explorePayloadIsFresh ? asObject(explorePayload?.summary) : {};
-  const shellSummary = asObject(shellPayload?.summary);
+  const shellSummary = asObject(effectiveShellPayload?.summary);
   const previousSummary = asObject(previousForSet?.raw?.summary);
   const summarySource = { ...previousSummary, ...shellSummary, ...exploreSummary };
 
   const exploreInterpretation = explorePayloadIsFresh ? explorePayload?.interpretation : null;
-  const shellInterpretation = shellPayload?.interpretation;
+  const shellInterpretation = effectiveShellPayload?.interpretation;
   const previousInterpretation = previousForSet?.raw?.interpretation;
   const interpretation = exploreInterpretation || shellInterpretation || previousInterpretation || null;
   const packScoreMeta = interpretation?.meta?.packScore || null;
 
   const exploreIdentity = explorePayloadIsFresh ? normalizeSetIdentity(explorePayload) : {};
-  const shellIdentity = normalizeSetIdentity(shellPayload);
+  const shellIdentity = normalizeSetIdentity(effectiveShellPayload);
   const targetIdentity = normalizeTargetIdentity(selectedTarget);
   const previousIdentity = asObject(previousForSet?.set);
 
@@ -238,7 +248,8 @@ export function buildSetHeaderSummary({
     diagnostics: {
       source: "set_header_summary",
       explorePayloadIsFresh: Boolean(explorePayloadIsFresh),
-      usedShellPayload: Boolean(shellPayload),
+      usedShellPayload: Boolean(effectiveShellPayload),
+      shellPayloadIgnoredIdentityMismatch: Boolean(shellPayload) && shellPayloadIsForActiveSet === false,
       usedPreviousSameSetSummary: Boolean(previousForSet),
       missingFields,
     },

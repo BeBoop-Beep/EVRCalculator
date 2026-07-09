@@ -135,7 +135,15 @@ def card_appeal_summary(band: Optional[str], available: bool) -> str:
 
 
 def calculate_rip_core_score_without_desirability(row: Mapping[str, Any]) -> Optional[float]:
-    direct = first_nested_numeric(row, ("rip_core_score_without_desirability", "ripCoreScoreWithoutDesirability"))
+    direct = first_nested_numeric(
+        row,
+        (
+            "rip_core_score_without_desirability",
+            "ripCoreScoreWithoutDesirability",
+            "rip_score_without_desirability",
+            "ripScoreWithoutDesirability",
+        ),
+    )
     if direct is not None:
         return round(direct, 2)
     component_scores = [
@@ -222,7 +230,14 @@ def build_opening_set_audit(target_rows: Iterable[Mapping[str, Any]]) -> Dict[st
     }
 
 
-def _rank_values(rows: List[Dict[str, Any]], value_key: str, rank_key: str, *, descending: bool = True) -> None:
+def _rank_values(
+    rows: List[Dict[str, Any]],
+    value_key: str,
+    rank_key: str,
+    *,
+    descending: bool = True,
+    preserve_existing: bool = False,
+) -> None:
     sortable = [
         row
         for row in rows
@@ -230,6 +245,8 @@ def _rank_values(rows: List[Dict[str, Any]], value_key: str, rank_key: str, *, d
     ]
     sortable.sort(key=lambda item: to_optional_float(item.get(value_key)) or 0.0, reverse=descending)
     for index, row in enumerate(sortable, start=1):
+        if preserve_existing and to_optional_int(row.get(rank_key)) is not None:
+            continue
         row[rank_key] = index
 
 
@@ -266,11 +283,33 @@ def _extract_card_appeal_from_cards(cards_payload: Optional[Mapping[str, Any]]) 
 def _base_validation_row(row: Mapping[str, Any]) -> Dict[str, Any]:
     summary = row.get("summary") if isinstance(row.get("summary"), Mapping) else row
     top_hits = row.get("top_hits") if isinstance(row.get("top_hits"), list) else row.get("topHits") if isinstance(row.get("topHits"), list) else []
-    top_hit_prices = [
-        first_numeric(hit, ("marketPrice", "market_price", "currentPrice", "current_price", "price", "cardPrice", "card_price", "ev_contribution"))
-        for hit in top_hits
-        if isinstance(hit, Mapping)
-    ]
+    top_hit_prices = (
+        [
+            first_numeric(
+                hit,
+                (
+                    "current_near_mint_price",
+                    "currentNearMintPrice",
+                    "near_mint_price",
+                    "nearMintPrice",
+                    "marketPrice",
+                    "market_price",
+                    "currentPrice",
+                    "current_price",
+                    "price",
+                    "cardPrice",
+                    "card_price",
+                    "ev_contribution",
+                ),
+            )
+            for hit in top_hits
+            if isinstance(hit, Mapping)
+        ]
+        if top_hits
+        else [to_optional_float(price) for price in row.get("_top_hit_prices", [])]
+        if isinstance(row.get("_top_hit_prices"), list)
+        else []
+    )
     top_hit_prices = [price for price in top_hit_prices if price is not None]
     return {
         "set_id": normalize_set_id(row),
@@ -280,8 +319,44 @@ def _base_validation_row(row: Mapping[str, Any]) -> Dict[str, Any]:
         "card_appeal_score": first_nested_numeric(row, ("card_appeal_score", "cardAppealScore", "collectorAppealScore", "collector_appeal_score")),
         "card_appeal_rank": to_optional_int(first_nested_numeric(row, ("card_appeal_rank", "cardAppealRank", "collectorAppealRank", "collector_appeal_rank"))),
         "rip_core_score_without_desirability": calculate_rip_core_score_without_desirability(row),
-        "final_rip_score_with_desirability": first_nested_numeric(row, ("relative_pack_score", "relativePackScore", "pack_score", "packScore")),
-        "final_rip_rank_with_desirability": to_optional_int(first_nested_numeric(row, ("pack_rank", "packRank", "rank"))),
+        "rip_core_rank_without_desirability": to_optional_int(
+            first_nested_numeric(
+                row,
+                (
+                    "rip_core_rank_without_desirability",
+                    "ripCoreRankWithoutDesirability",
+                    "rip_rank_without_desirability",
+                    "ripRankWithoutDesirability",
+                ),
+            )
+        ),
+        "final_rip_score_with_desirability": first_nested_numeric(
+            row,
+            (
+                "final_rip_score_with_desirability",
+                "finalRipScoreWithDesirability",
+                "rip_score_with_desirability",
+                "ripScoreWithDesirability",
+                "relative_pack_score",
+                "relativePackScore",
+                "pack_score",
+                "packScore",
+            ),
+        ),
+        "final_rip_rank_with_desirability": to_optional_int(
+            first_nested_numeric(
+                row,
+                (
+                    "final_rip_rank_with_desirability",
+                    "finalRipRankWithDesirability",
+                    "rip_rank_with_desirability",
+                    "ripRankWithDesirability",
+                    "pack_rank",
+                    "packRank",
+                    "rank",
+                ),
+            )
+        ),
         "set_value": first_nested_numeric(row, ("checklistSetValue", "checklist_set_value", "currentChecklistSetValue", "current_checklist_set_value", "setValue", "set_value", "simulated_set_value", "simulatedSetValue")),
         "pack_cost": first_nested_numeric(row, ("pack_cost", "packCost", "current_pack_cost", "currentPackCost", "pack_market_price", "packMarketPrice")),
         "expected_value": first_nested_numeric(row, ("mean_value", "meanValue", "expected_value", "expectedValue", "average_pack_value", "averagePackValue")),
@@ -317,21 +392,21 @@ def build_validation_rows(target_rows: Iterable[Mapping[str, Any]]) -> List[Dict
         row.pop("_top_hit_prices", None)
         row.pop("_summary", None)
 
-    for value_key, rank_key in (
-        ("desirability_score", "desirability_rank"),
-        ("card_appeal_score", "card_appeal_rank"),
-        ("rip_core_score_without_desirability", "rip_core_rank_without_desirability"),
-        ("final_rip_score_with_desirability", "final_rip_rank_with_desirability"),
-        ("set_value", "set_value_rank"),
-        ("pack_cost", "pack_cost_rank"),
-        ("expected_value", "expected_value_rank"),
-        ("p95_value", "p95_rank"),
-        ("top_chase_value", "top_chase_value_rank"),
-        ("top_10_card_value", "top_10_card_value_rank"),
-        ("avg_hit_value", "avg_hit_value_rank"),
-        ("median_hit_value", "median_hit_value_rank"),
+    for value_key, rank_key, preserve_existing in (
+        ("desirability_score", "desirability_rank", False),
+        ("card_appeal_score", "card_appeal_rank", False),
+        ("rip_core_score_without_desirability", "rip_core_rank_without_desirability", True),
+        ("final_rip_score_with_desirability", "final_rip_rank_with_desirability", True),
+        ("set_value", "set_value_rank", False),
+        ("pack_cost", "pack_cost_rank", False),
+        ("expected_value", "expected_value_rank", False),
+        ("p95_value", "p95_rank", False),
+        ("top_chase_value", "top_chase_value_rank", False),
+        ("top_10_card_value", "top_10_card_value_rank", False),
+        ("avg_hit_value", "avg_hit_value_rank", False),
+        ("median_hit_value", "median_hit_value_rank", False),
     ):
-        _rank_values(rows, value_key, rank_key)
+        _rank_values(rows, value_key, rank_key, preserve_existing=preserve_existing)
     return rows
 
 

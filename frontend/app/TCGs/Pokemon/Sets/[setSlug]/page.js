@@ -130,6 +130,7 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
     initialShellSnapshotMs: snapshotTimings.shellMs ?? null,
     initialCardsSnapshotMs: snapshotTimings.cardsMs ?? null,
     initialMarketDashboardSnapshotMs: snapshotTimings.marketDashboardMs ?? null,
+    initialOverviewSnapshotMs: snapshotTimings.overviewMs ?? null,
     initialModuleSnapshotsTotalMs: snapshotTimings.totalMs ?? null,
     snapshotTimedOut,
     routeTotalMs,

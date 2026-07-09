@@ -14,6 +14,7 @@ const initialSnapshotsServerPath = path.resolve(__dirname, "../../lib/pokemon/po
 const setPageAdaptersPath = path.resolve(__dirname, "../../lib/pokemon/set-page/setPageAdapters.mjs");
 const setValueTrendSelectorPath = path.resolve(__dirname, "setValueTrendSelector.mjs");
 const setValueContractPath = path.resolve(__dirname, "setValueContract.mjs");
+const setHeaderSummarySelectorPath = path.resolve(__dirname, "setHeaderSummarySelector.mjs");
 const trendScoresSelectorPath = path.resolve(__dirname, "trendScoresSelector.mjs");
 const simulationDriversSelectorPath = path.resolve(__dirname, "simulationDriversSelector.mjs");
 const decisionSignalsSelectorPath = path.resolve(__dirname, "decisionSignalsSelector.mjs");
@@ -706,12 +707,14 @@ test("value-history, market-dashboard, and cards fetch results are ignored if th
   assert.ok(source.includes('debugSetPagePerf("cards_page.tab_fetch_stale"'), "cards page fetch must guard against a stale active set before applying results");
 
   // cards (full, Insights-only), cards page (paginated Cards tab), pull rates
-  // (Phase 4A), insights (Phase 4B), value-history, overview, top-chase, and
-  // market-movers fetches each carry this guard shape (the monolithic
-  // market-dashboard live fetch was removed — see the split-endpoint tests
-  // below).
+  // (Phase 4A), value-history, overview, top-chase, and market-movers
+  // fetches each carry this guard shape (the monolithic market-dashboard
+  // live fetch was removed — see the split-endpoint tests below). Insights
+  // moved off this guard shape in the progressive-rendering refactor: its
+  // critical/secondary fetches use useSectionFetchState's own request-id
+  // based staleness guard instead (see the Phase 11 Insights tests below).
   const occurrences = source.split(`if (!${guardCall}) {`).length - 1;
-  assert.equal(occurrences, 8, "cards, cards page, pull rates, insights, value-history, overview, top-chase, and market-movers fetches must each carry this stale-set guard");
+  assert.equal(occurrences, 7, "cards, cards page, pull rates, value-history, overview, top-chase, and market-movers fetches must each carry this stale-set guard");
 });
 
 test("warmSetDetailResources performs route prefetch only — no cards/market/value-history data fetch", () => {
@@ -1040,7 +1043,13 @@ test("Phase 5A: normal tabs keep their own slim endpoints unchanged (Cards/Pull 
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   assert.ok(source.includes("getPokemonSetCardsPage("), "Cards tab must still use getPokemonSetCardsPage");
   assert.ok(source.includes("getPokemonSetPullRates("), "Pull Rates tab must still use getPokemonSetPullRates");
-  assert.ok(source.includes("getPokemonSetInsights("), "Insights tab must still use getPokemonSetInsights");
+  // Insights split into critical/secondary fetches in the progressive-
+  // rendering refactor (see the Phase 11 Insights tests below) — the old
+  // single getPokemonSetInsights( call site is gone from this file. Each new
+  // fetcher is passed by reference to useSectionFetchState rather than
+  // called directly, so there's no literal trailing "(" here.
+  assert.ok(source.includes("getPokemonSetInsightsCritical"), "Insights tab must reference getPokemonSetInsightsCritical for its critical tier");
+  assert.ok(source.includes("getPokemonSetInsightsSecondary"), "Insights tab must reference getPokemonSetInsightsSecondary for its secondary tier");
   assert.ok(source.includes("getPokemonSetCardsValidation("), "card validation must still use getPokemonSetCardsValidation");
   assert.ok(
     source.includes("const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set([]);"),
@@ -1168,19 +1177,19 @@ test("set page insights receive RIP desirability comparison through snapshot sum
   assert.ok(snapshotBuilderSource.includes("RIP_DESIRABILITY_COMPARISON_FIELDS"));
   assert.ok(snapshotBuilderSource.includes("_merge_rip_desirability_comparison_into_set_payload"));
   assert.ok(snapshotBuilderSource.includes('next_payload["summary"] = summary'));
-  assert.ok(source.includes("const summary = { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) };"));
+  assert.ok(source.includes("const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };"));
 
   for (const field of requiredFields) {
     assert.ok(snapshotBuilderSource.includes(field), `snapshot builder propagates ${field}`);
     assert.ok(source.includes(field), `frontend normalizer accepts ${field}`);
   }
 
-  const summaryStart = source.indexOf("const summary = { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) };");
+  const summaryStart = source.indexOf("const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };");
   const comparisonStart = source.indexOf("const ripDesirabilityComparison = useMemo(", summaryStart);
   const comparisonEnd = source.indexOf("const desirabilitySummary", comparisonStart);
   const comparisonSource = source.slice(comparisonStart, comparisonEnd);
   const insightsStart = source.indexOf('{setDetailMode ? (', comparisonEnd);
-  const insightsEnd = source.indexOf("<DesirabilityProofCards", insightsStart);
+  const insightsEnd = source.indexOf("<DesirabilityEvidenceCard", insightsStart);
   const insightsSource = source.slice(insightsStart, insightsEnd);
 
   assert.ok(summaryStart >= 0);
@@ -1472,7 +1481,7 @@ test("card appeal market chart prefers canonical correlation sample when availab
 test("card validation bucket row keys include stable identity beyond card name", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const helperStart = source.indexOf("function getValidationBucketRowKey");
-  const helperEnd = source.indexOf("function CardDesirabilityMarketValidationCard", helperStart);
+  const helperEnd = source.indexOf("function CardDesirabilityMarketValidationContent", helperStart);
   const helperSource = source.slice(helperStart, helperEnd);
   const renderStart = source.indexOf("{bucket.rows.map((row, rowIndex) => (", helperEnd);
   const renderEnd = source.indexOf("</div>", renderStart);
@@ -1498,10 +1507,15 @@ test("card validation bucket row keys include stable identity beyond card name",
   assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
 });
 
-test("desirability proof cards render from set payload validation data", () => {
+test("desirability evidence proof content renders from set payload validation data", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("function DesirabilityProofCards"));
+  assert.ok(source.includes("function DesirabilityEvidenceCard"));
+  assert.ok(source.includes("function DesirabilityProofContent"));
+  assert.ok(source.includes('title="Desirability Evidence"'));
+  assert.ok(source.includes('label: "Proof"'));
+  assert.ok(source.includes('label: "Set Validation"'));
+  assert.ok(source.includes('label: "Card Validation"'));
   assert.ok(source.includes("Desirability Impact"));
   assert.ok(source.includes("Desirability Signal Check"));
   assert.ok(source.includes("getDesirabilityValidationPayload(explorePayload)"));
@@ -1595,7 +1609,7 @@ test("card validation section renders from an explicit readiness contract instea
   assert.ok(memoSource.includes("checklistState.setId !== resolvedSetResourceId"), "must treat a stale/mismatched set id as loading");
   assert.ok(memoSource.includes('setDetailTab === "insights"'), "must scope the loading classification to the insights tab");
 
-  const renderStart = source.indexOf("<CardDesirabilityMarketValidationCard");
+  const renderStart = source.indexOf("<DesirabilityEvidenceCard");
   const renderEnd = source.indexOf("/>", renderStart);
   const renderSource = source.slice(renderStart, renderEnd);
 
@@ -1613,7 +1627,7 @@ test("card validation section renders from an explicit readiness contract instea
     "must not re-resolve correlation inline in JSX now that activeCardValidationData owns it"
   );
 
-  const componentStart = source.indexOf("function CardDesirabilityMarketValidationCard(");
+  const componentStart = source.indexOf("function CardDesirabilityMarketValidationContent(");
   const componentEnd = source.indexOf("\n}\n", componentStart);
   const componentSource = source.slice(componentStart, componentEnd);
 
@@ -2197,6 +2211,133 @@ test("title/header card renders from the Set Header Summary Contract, not active
   assert.ok(heroSource.includes("headerDecisionMetrics.map("), "header metric tiles must come from headerDecisionMetrics, not the shared decisionMetrics array");
 });
 
+// ---------------------------------------------------------------------------
+// Patch 2 — Temporal Forces title-card blank-state guard. A set switch can
+// leave the shellPayload prop holding the previous set's data for a render or
+// two; the title card must neither leak the previous set's metrics under the
+// new set's name, nor flash "Coming soon"/"—" for metrics the (not-yet-
+// matched) shell actually has. It must show a pending state until a matching
+// shell arrives, and same-set cached data may render as stale.
+// ---------------------------------------------------------------------------
+
+test("buildSetHeaderSummary ignores a shell payload whose identity does not match the active set", async () => {
+  const { buildSetHeaderSummary } = await import(pathToFileURL(setHeaderSummarySelectorPath).href);
+
+  const previousSetShell = {
+    set: { id: "prev-set", name: "Phantasmal Flames" },
+    summary: { pack_score: 88, pack_rank: 3, pack_cost: 4.5, mean_value: 9.9, average_hit_value: 20, prob_profit: 0.6, prob_big_hit: 0.1 },
+  };
+
+  // Active set is Temporal Forces, but the shell prop still holds the previous
+  // set. With the mismatch flag, none of the previous set's numbers may leak.
+  const mismatched = buildSetHeaderSummary({
+    explorePayload: null,
+    shellPayload: previousSetShell,
+    selectedTarget: { id: "temporal-forces", name: "Temporal Forces" },
+    resolvedSetResourceId: "temporal-forces",
+    explorePayloadIsFresh: false,
+    shellPayloadIsForActiveSet: false,
+  });
+  assert.equal(mismatched.score, null, "previous set's score must not leak under the new set's title");
+  assert.equal(mismatched.packCost, null, "previous set's pack cost must not leak");
+  assert.equal(mismatched.expectedValue, null, "previous set's expected value must not leak");
+  assert.notEqual(mismatched.set.name, "Phantasmal Flames", "previous set's name must not leak from the mismatched shell");
+  assert.equal(mismatched.diagnostics.usedShellPayload, false, "a mismatched shell must not be recorded as used");
+  assert.equal(mismatched.diagnostics.shellPayloadIgnoredIdentityMismatch, true, "the mismatch must be recorded in diagnostics");
+
+  // With the matching flag, the same shell IS used (default true keeps the
+  // pre-existing behavior for the common case).
+  const matched = buildSetHeaderSummary({
+    explorePayload: null,
+    shellPayload: { set: { id: "temporal-forces", name: "Temporal Forces" }, summary: previousSetShell.summary },
+    selectedTarget: { id: "temporal-forces", name: "Temporal Forces" },
+    resolvedSetResourceId: "temporal-forces",
+    explorePayloadIsFresh: false,
+    shellPayloadIsForActiveSet: true,
+  });
+  assert.equal(matched.score, 88, "a matching shell must still populate the header metrics");
+  assert.equal(matched.packCost, 4.5, "a matching shell must still populate pack cost");
+  assert.equal(matched.diagnostics.usedShellPayload, true, "a matching shell must be recorded as used");
+});
+
+test("Patch 2: client gates the header shell on identity match and passes it into buildSetHeaderSummary", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const guardStart = source.indexOf("const shellPayloadIsForActiveSet = useMemo(");
+  assert.ok(guardStart >= 0, "a shellPayloadIsForActiveSet identity guard must exist");
+  const guardEnd = source.indexOf("}, [shellPayload, resolvedSetResourceId]);", guardStart);
+  assert.ok(guardEnd > guardStart, "the shell guard memo must close on [shellPayload, resolvedSetResourceId]");
+  const guardSource = source.slice(guardStart, guardEnd);
+  assert.ok(guardSource.includes("getSetSnapshotIdentity(shellPayload)"), "the guard must derive the shell's own identity");
+  assert.ok(guardSource.includes("setIdentityMatchesTarget(shellIdentity, resolvedSetResourceId)"), "the guard must compare shell identity to the active set");
+  assert.ok(guardSource.includes("getSetIdentityTokens(shellIdentity).length === 0"), "an identity-less shell must stay usable (no false mismatch)");
+
+  assert.ok(
+    source.includes("const effectiveShellPayload = shellPayloadIsForActiveSet ? shellPayload : null;"),
+    "an effectiveShellPayload must null out a mismatched shell"
+  );
+  // The summary/interpretation/shell-contract merges must consume the guarded
+  // shell, not the raw prop, so a mismatched shell can't leak into them.
+  assert.ok(
+    source.includes("const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };"),
+    "the summary merge must use the guarded shell"
+  );
+  assert.ok(
+    source.includes("const interpretation = explorePayload?.interpretation || effectiveShellPayload?.interpretation || {};"),
+    "interpretation must fall back to the guarded shell"
+  );
+  assert.ok(
+    source.includes("...(effectiveShellPayload || {}),") && source.includes("summary: { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) },"),
+    "setShellContract must be built from the guarded shell"
+  );
+  assert.ok(
+    source.includes("shellPayloadIsForActiveSet,"),
+    "the guard flag must be threaded into buildSetHeaderSummary"
+  );
+});
+
+test("Patch 2: set-switch pending state exists and replaces placeholder metric values", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const pendingStart = source.indexOf("const titleCardMetricsPending =");
+  assert.ok(pendingStart >= 0, "a titleCardMetricsPending flag must exist");
+  const pendingEnd = source.indexOf(";", pendingStart);
+  const pendingSource = source.slice(pendingStart, pendingEnd);
+  assert.ok(pendingSource.includes("!isPrimarySnapshotReady"), "pending requires no fresh explore payload");
+  assert.ok(pendingSource.includes("!shellPayloadIsForActiveSet"), "pending requires no matching shell");
+  assert.ok(
+    pendingSource.includes("setHeaderSummary.score === null") && pendingSource.includes("setHeaderSummary.setValue.current === null"),
+    "pending requires the header summary to have come out empty (no same-set cache filled it)"
+  );
+
+  // The known shell metrics must render the pending placeholder, not
+  // "Coming soon", while pending.
+  assert.ok(
+    source.includes("const formatHeaderMetric = (value, formatter) =>") &&
+      source.includes("titleCardMetricsPending\n        ? titleMetricPendingPlaceholder\n        : \"Coming soon\""),
+    "header metric tiles must show the pending placeholder (not 'Coming soon') during a switch"
+  );
+  for (const field of [
+    "setHeaderSummary.packCost",
+    "setHeaderSummary.expectedValue",
+    "setHeaderSummary.averageHitValue",
+    "setHeaderSummary.averageLoss",
+    "setHeaderSummary.chanceToBeatPackCost",
+    "setHeaderSummary.chanceAtBigPull",
+  ]) {
+    assert.ok(source.includes(`formatHeaderMetric(${field}`), `${field} must route through formatHeaderMetric`);
+  }
+  // RIP score and set value get pending treatment too.
+  assert.ok(
+    source.includes("titleCardMetricsPending && setHeaderSummary.score === null ? ("),
+    "the RIP score must render a pending skeleton instead of a placeholder score during a switch"
+  );
+  assert.ok(
+    source.includes("setHeaderSummary.setValue.current === null\n                                    ? titleCardMetricsPending\n                                      ? titleMetricPendingPlaceholder"),
+    "the set value must render the pending placeholder during a switch"
+  );
+});
+
 test("title-card checklist set value sparkline has a hover tooltip like the Overview Set Value Trend chart", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
@@ -2268,11 +2409,15 @@ test("compact header sparkline tooltip floats above the RIP score/title card ins
 test("interpretation (recommendation badge/summary, pillar metas, set intelligence) falls back to shellPayload", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
+  // Patch 2: the shell fallback now goes through the identity-guarded
+  // effectiveShellPayload so a mismatched (previous-set) shell can't leak its
+  // interpretation under the new set's title — behavior is otherwise unchanged
+  // (the matching set's shell interpretation still survives tab switches).
   assert.ok(
     source.includes(
-      "const interpretation = explorePayload?.interpretation || shellPayload?.interpretation || {};"
+      "const interpretation = explorePayload?.interpretation || effectiveShellPayload?.interpretation || {};"
     ),
-    "interpretation must fall back to shellPayload so Decision Signals / recommendation text survive tab switches"
+    "interpretation must fall back to the identity-guarded shell so Decision Signals / recommendation text survive tab switches without leaking a mismatched set"
   );
 });
 
@@ -2593,52 +2738,168 @@ test("Phase 4A: SET_PREFETCH_ADJACENT_LIMIT remains 0 and pull rates fetch is no
 // only for non-"set" target types and any other legacy caller.
 // ---------------------------------------------------------------------------
 
-test("Phase 4B: RipStatisticsPageClient imports getPokemonSetInsights and the client exports it", () => {
+// Phase 4B originally moved Insights onto one slim getPokemonSetInsights
+// fetch. The progressive-rendering refactor (Phase 11) split that into two
+// independent fetches — critical (priorities 1-3) and secondary (priorities
+// 4-5) — each with its own client module, fired in parallel via
+// useSectionFetchState. The old pokemonSetInsightsClient.js / /insights
+// endpoint are deliberately left in place (unused by this file) rather than
+// deleted — see the plan's "don't delete existing endpoints" risk note.
+test("Phase 11: RipStatisticsPageClient imports the split insights critical/secondary clients and both export their fetchers", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const insightsClientSource = fs.readFileSync(insightsClientPath, "utf8");
+  const criticalClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetInsightsCriticalClient.js");
+  const secondaryClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetInsightsSecondaryClient.js");
+  const criticalClientSource = fs.readFileSync(criticalClientPath, "utf8");
+  const secondaryClientSource = fs.readFileSync(secondaryClientPath, "utf8");
 
   assert.ok(
-    source.includes('import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";'),
-    "must import getPokemonSetInsights from the new slim client"
+    source.includes('import { getPokemonSetInsightsCritical } from "@/lib/pokemon/pokemonSetInsightsCriticalClient";'),
+    "must import getPokemonSetInsightsCritical from the new slim client"
   );
   assert.ok(
-    insightsClientSource.includes("export async function getPokemonSetInsights"),
-    "client must export getPokemonSetInsights"
+    source.includes('import { getPokemonSetInsightsSecondary } from "@/lib/pokemon/pokemonSetInsightsSecondaryClient";'),
+    "must import getPokemonSetInsightsSecondary from the new slim client"
+  );
+  assert.ok(criticalClientSource.includes("export async function getPokemonSetInsightsCritical"), "critical client must export its fetcher");
+  assert.ok(secondaryClientSource.includes("export async function getPokemonSetInsightsSecondary"), "secondary client must export its fetcher");
+  assert.ok(
+    criticalClientSource.includes("export function normalizePokemonSetInsightsCriticalPayload"),
+    "critical client must export its normalizer"
   );
   assert.ok(
-    insightsClientSource.includes("export function normalizePokemonSetInsightsPayload"),
-    "client must export normalizePokemonSetInsightsPayload"
+    secondaryClientSource.includes("export function normalizePokemonSetInsightsSecondaryPayload"),
+    "secondary client must export its normalizer"
+  );
+  assert.ok(!source.includes('import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";'), "the old single-fetch import must be gone");
+});
+
+test("Phase 11: Insights tab fetches critical and secondary in parallel via useSectionFetchState, gated on the insights tab", () => {
+  // This file has mixed CRLF/LF line endings — normalize before multi-line
+  // indexOf/substring anchors (see feedback-crlf-line-endings-in-source-string-tests).
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes('import { useSectionFetchState } from "@/hooks/useSectionFetchState";'), "must import the shared fetch-state hook");
+
+  const enabledStart = source.indexOf("const insightsFetchEnabled =");
+  const enabledEnd = source.indexOf(";", enabledStart);
+  const enabledSource = source.slice(enabledStart, enabledEnd);
+  assert.ok(enabledSource.includes('setDetailTab === "insights"'), "fetching must be gated on the insights tab being active");
+  assert.ok(enabledSource.includes("canFetchSetDetailModules"), "fetching must respect the shared canFetchSetDetailModules gate");
+
+  assert.ok(
+    source.includes("useSectionFetchState(\n    getPokemonSetInsightsCritical,\n    { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }\n  );"),
+    "critical fetch must use useSectionFetchState with the shared enabled flag"
+  );
+  assert.ok(
+    source.includes("useSectionFetchState(\n    getPokemonSetInsightsSecondary,\n    { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }\n  );"),
+    "secondary fetch must use useSectionFetchState with the same shared enabled flag, so both fire in parallel"
   );
 });
 
-test("Phase 4B: Insights tab live path calls getPokemonSetInsights", () => {
+test("Phase 11: critical and secondary Insights payloads each merge only their own slice into explorePayload", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  const effectStart = source.indexOf("// Insights tab fetch effect (Phase 4B)");
-  const effectEnd = source.indexOf(
-    "}, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);",
-    effectStart
+  assert.ok(
+    source.includes("function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical)"),
+    "a dedicated critical adapter must exist"
   );
-  assert.ok(effectStart >= 0, "the insights fetch effect must exist");
-  const effectBody = source.slice(effectStart, effectEnd);
+  assert.ok(
+    source.includes("function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(secondary)"),
+    "a dedicated secondary adapter must exist"
+  );
 
-  assert.ok(effectBody.includes('setDetailTab !== "insights"'), "the effect must gate on the insights tab");
-  assert.ok(effectBody.includes("getPokemonSetInsights(setId)"), "must call getPokemonSetInsights for the active set");
+  const criticalMergeStart = source.indexOf("if (insightsCriticalFetchState.status !== \"success\"");
+  const secondaryMergeStart = source.indexOf("if (insightsSecondaryFetchState.status !== \"success\"");
+  assert.ok(criticalMergeStart >= 0, "the critical merge effect must exist");
+  assert.ok(secondaryMergeStart >= 0, "the secondary merge effect must exist");
+
+  const criticalMergeSource = source.slice(criticalMergeStart, source.indexOf("}, [insightsCriticalFetchState.status", criticalMergeStart));
+  const secondaryMergeSource = source.slice(secondaryMergeStart, source.indexOf("}, [insightsSecondaryFetchState.status", secondaryMergeStart));
+
+  assert.ok(criticalMergeSource.includes("setExplorePayload((previous) => ("), "critical merge must use a functional update, not clobber concurrent secondary writes");
+  assert.ok(criticalMergeSource.includes("...adaptPokemonSetInsightsCriticalPayloadToExplorePayload(insightsCriticalFetchState.data)"), "critical merge must spread only critical fields");
+  assert.ok(secondaryMergeSource.includes("setExplorePayload((previous) => ("), "secondary merge must use a functional update, not clobber concurrent critical writes");
+  assert.ok(
+    secondaryMergeSource.includes("adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(insightsSecondaryFetchState.data)"),
+    "secondary merge must adapt the secondary payload"
+  );
+  assert.ok(secondaryMergeSource.includes("...secondarySlice"), "secondary merge must spread only the adapted secondary slice");
+  // Stabilization pass: the secondary merge must be observable in perf debug
+  // output with the row counts the DB-vs-UI investigation needs.
+  assert.ok(secondaryMergeSource.includes('debugSetPagePerf("insights.secondary_merged"'), "secondary merge must emit a debug log");
+  for (const field of ["setId", "topHitsCount", "percentilesCount", "distributionBinsCount", "rankingsCount", "historyTrendCount", "payloadSource"]) {
+    assert.ok(secondaryMergeSource.includes(field), `secondary merge debug log must include ${field}`);
+  }
+
+  // Each merge only applies data recorded for the currently-resolved set,
+  // guarding against a late response landing after a set switch (the same
+  // class of guard isSetStateForActiveSet provides for the other per-tab
+  // fetches, expressed here via useSectionFetchState's own setId field).
+  assert.ok(criticalMergeSource.includes("insightsCriticalFetchState.setId !== resolvedSetResourceId"), "critical merge must guard against a stale set");
+  assert.ok(secondaryMergeSource.includes("insightsSecondaryFetchState.setId !== resolvedSetResourceId"), "secondary merge must guard against a stale set");
 });
 
-test("Phase 4B: Insights tab does not call fetchPokemonSetPageSnapshot", () => {
+test("Phase 4B: summary-only payloads do not count as loaded Insights data", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const helperStart = source.indexOf("function hasInsightsPayloadData(payload)");
+  const helperEnd = source.indexOf("function getResolvedPokemonSetResourceId", helperStart);
+  assert.ok(helperStart >= 0, "hasInsightsPayloadData helper must exist");
+  assert.ok(helperEnd > helperStart, "hasInsightsPayloadData helper must live near the insights adapter/readiness helpers");
+  const helperSource = source.slice(helperStart, helperEnd);
+
+  for (const expected of [
+    "distribution_bins",
+    "distributionBins",
+    "threshold_bins",
+    "thresholdBins",
+    "percentiles",
+    "top_hits",
+    "topHits",
+    "rankings",
+    "history_trend",
+    "historyTrend",
+    "rip_statistics",
+    "ripStatistics",
+    "openingDesirability",
+    "opening_desirability",
+    "desirabilityValidation",
+    "desirability_validation",
+    "hasDesirabilityProofSignal",
+  ]) {
+    assert.ok(helperSource.includes(expected), `helper must inspect ${expected}`);
+  }
+  assert.ok(!helperSource.includes("payload.summary"), "summary alone must not count as insights data");
+});
+
+test("Insights readiness is declared after setDetailTab", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  const effectStart = source.indexOf("// Insights tab fetch effect (Phase 4B)");
+  const setDetailTabIndex = source.indexOf("const [setDetailTab");
+  const hasActiveInsightsPayloadIndex = source.indexOf("const hasActiveInsightsPayload =");
+
+  assert.ok(setDetailTabIndex >= 0, "setDetailTab must be declared");
+  assert.ok(hasActiveInsightsPayloadIndex >= 0, "hasActiveInsightsPayload must be declared");
+  assert.ok(
+    setDetailTabIndex < hasActiveInsightsPayloadIndex,
+    "hasActiveInsightsPayload must not read setDetailTab before setDetailTab is initialized"
+  );
+});
+
+test("Phase 4B/11: Insights tab does not call fetchPokemonSetPageSnapshot", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const effectStart = source.indexOf("// Insights tab fetch effects (progressive-rendering split");
   const effectEnd = source.indexOf(
-    "}, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);",
+    "}, [insightsSecondaryFetchState.status, insightsSecondaryFetchState.setId, insightsSecondaryFetchState.data, resolvedSetResourceId]);",
     effectStart
   );
+  assert.ok(effectStart >= 0, "the insights merge effects must exist");
+  assert.ok(effectEnd > effectStart, "the secondary merge effect must close after the critical one");
   const effectBody = source.slice(effectStart, effectEnd);
 
   assert.ok(
     !effectBody.includes("fetchPokemonSetPageSnapshot("),
-    "the insights effect must never call the legacy full-page fetch"
+    "the insights fetch effects must never call the legacy full-page fetch"
   );
 });
 
@@ -2675,11 +2936,15 @@ test("Phase 4B: Cards still uses getPokemonSetCardsPage, Pull Rates still uses g
   assert.ok(source.includes("getPokemonSetMarketMovers("), "Overview must still use getPokemonSetMarketMovers");
 });
 
-test("Phase 4B: SET_PREFETCH_ADJACENT_LIMIT remains 0 and insights fetch is not fanned out", () => {
+test("Phase 4B/11: SET_PREFETCH_ADJACENT_LIMIT remains 0 and insights critical/secondary fetches are not fanned out", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   assert.ok(source.includes("const SET_PREFETCH_ADJACENT_LIMIT = 0"), "adjacent prefetch must remain disabled by default");
-  const insightsCallCount = (source.match(/getPokemonSetInsights\(/g) || []).length;
-  assert.equal(insightsCallCount, 1, "insights must be fetched for the active set only, never adjacent sets");
+  const insightsCriticalCallCount = (source.match(/getPokemonSetInsightsCritical(?!\w)/g) || []).length;
+  const insightsSecondaryCallCount = (source.match(/getPokemonSetInsightsSecondary(?!\w)/g) || []).length;
+  // One import + one useSectionFetchState call site each (the fetch itself
+  // happens inside the shared hook, not fanned out per adjacent set here).
+  assert.equal(insightsCriticalCallCount, 2, "insights critical must be referenced for the active set's fetch only, never adjacent sets");
+  assert.equal(insightsSecondaryCallCount, 2, "insights secondary must be referenced for the active set's fetch only, never adjacent sets");
 });
 
 // ---------------------------------------------------------------------------
@@ -2786,8 +3051,12 @@ test("Phase 6B: Cards tab fetch effect skips re-issuing an identical page/sort/f
 
   assert.ok(effectSectionStart >= 0 && effectSectionEnd > effectSectionStart);
   assert.ok(
-    effectSource.includes("const cardsPageRequestKey = ["),
-    "the request key must be built from every param that changes the fetched resource"
+    effectSource.includes("const cardsPageScopeKey = ["),
+    "the scope key must be built from every param that changes the fetched resource (set, sort, search, movement filter)"
+  );
+  assert.ok(
+    effectSource.includes("const cardsPageRequestKey = `${cardsPageScopeKey}|page:${requestedPage}`"),
+    "the request key must be the scope key plus the requested page"
   );
   assert.ok(
     effectSource.includes("if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey)") &&
@@ -2883,9 +3152,13 @@ test("Phase 6C: every per-tab module fetch effect has a request-key guard that s
 
   // The unsettled-cleanup pattern requires each guarded fetch to track
   // settlement — one requestSettled flag per guarded effect (5 above plus
-  // the Phase 6B cards-page effect and the Insights fetchKey effect).
+  // the Phase 6B cards-page effect). Insights moved off this hand-rolled
+  // requestSettled pattern in the progressive-rendering refactor — its
+  // critical/secondary fetches track settlement inside the shared
+  // useSectionFetchState hook instead (one implementation, reused, rather
+  // than a duplicated inline flag per insights tier).
   const settledFlagCount = (source.match(/let requestSettled = false;/g) || []).length;
-  assert.equal(settledFlagCount, 7, "every guarded fetch effect must track request settlement for its cleanup release");
+  assert.equal(settledFlagCount, 6, "every guarded fetch effect must track request settlement for its cleanup release");
 });
 
 // ---------------------------------------------------------------------------
@@ -2950,8 +3223,8 @@ test("Phase 8B: every set-switcher surface renders switcherTargets while non-swi
   // prefetch are not switcher surfaces, and Phase 8B must not silently
   // change analytics-chart contents or prefetch behavior.
   assert.ok(
-    source.includes("<DesirabilityValidationCard targets={targets}"),
-    "DesirabilityValidationCard must keep receiving the unfiltered targets list"
+    source.includes("<DesirabilityEvidenceCard") && source.includes("targets={targets}"),
+    "DesirabilityEvidenceCard must keep receiving the unfiltered targets list for its Set Validation mode"
   );
   assert.ok(
     source.includes('const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);'),
@@ -2995,7 +3268,14 @@ test("Phase 9D.2: one shared branded SetTabLoadingPanel exists and reuses InDexL
   assert.equal(dotCount, 3, "InDexLogoLoader must keep the three-dot treatment");
 });
 
-test("Phase 9D.2: the page client uses the shared branded panel for all four tabs and has no generic circular spinner left", () => {
+test("Phase 9D.2: the page client uses the shared branded panel only for its remaining whole-tab gates (Cards, Insights)", () => {
+  // Progressive-rendering refactor: Pull Rates and Overview both moved off
+  // the page client's whole-tab SetTabLoadingPanel usage. Pull Rates
+  // delegates to PullRatesTab.jsx; Overview gates each of its 5 sections
+  // independently via SectionBoundary/SectionErrorBoundary instead of one
+  // shared showOverviewCohesiveLoading gate (see the dedicated tests below).
+  // Cards and Insights still gate their (not-yet-split) critical paths
+  // behind the shared panel directly in this file.
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
@@ -3007,44 +3287,136 @@ test("Phase 9D.2: the page client uses the shared branded panel for all four tab
   const panelUsageCount = (source.match(/<SetTabLoadingPanel/g) || []).length;
   assert.equal(
     panelUsageCount,
-    4,
-    `Overview, Cards, Pull Rates, and Insights must each render the shared panel exactly once (found ${panelUsageCount})`
+    2,
+    `Cards and Insights must each render the shared panel exactly once (found ${panelUsageCount})`
+  );
+
+  assert.ok(
+    source.includes('import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";'),
+    "the page client must delegate the Pull Rates tab to the new section-split container"
+  );
+  assert.ok(
+    !source.includes("pullRatesTabPending ? ("),
+    "the old inline whole-tab pending branch for Pull Rates must be gone from the page client"
+  );
+  assert.ok(
+    !source.includes("showOverviewCohesiveLoading"),
+    "the Overview whole-tab cohesive loading gate must be gone from the page client"
   );
 });
 
-test("Phase 9D.2: Overview's cohesive loading state renders the shared branded panel with the overview copy", () => {
+test("Phase 11: Overview renders 5 priority-ordered sections, each independently error-isolated, with no whole-tab loading gate", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  assert.ok(!source.includes("OverviewCohesiveLoadingPanel"), "the one-off spinner panel component must be gone");
-  const branchStart = source.indexOf("showOverviewCohesiveLoading ? (");
-  assert.ok(branchStart >= 0, "the overview cohesive loading branch must exist in the render");
-  const branchSource = source.slice(branchStart, source.indexOf(") : (", branchStart));
-  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Overview must use the shared branded panel");
-  assert.ok(branchSource.includes("Loading overview data…"), "Overview loading title must be preserved");
+  const renderStart = source.indexOf('id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28"');
+  assert.ok(renderStart >= 0, "the Overview section render must exist");
+  const renderEnd = source.indexOf("</section>", renderStart);
+  const renderSource = source.slice(renderStart, renderEnd);
+
   assert.ok(
-    branchSource.includes("Pulling set value history, market movers, and top chase cards for this set."),
-    "Overview loading helper copy must be preserved"
+    source.includes('import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";'),
+    "the page client must import the shared render-error boundary"
+  );
+  assert.ok(
+    source.includes('import SectionBoundary from "@/components/ui/SectionBoundary";'),
+    "the page client must import the shared section boundary"
+  );
+
+  const errorBoundaryCount = (renderSource.match(/<SectionErrorBoundary/g) || []).length;
+  assert.equal(errorBoundaryCount, 5, `Overview must wrap exactly 5 sections in SectionErrorBoundary (found ${errorBoundaryCount})`);
+
+  const setValueIndex = renderSource.indexOf("<SetValueTrendCard");
+  const perfIndex = renderSource.indexOf("<SectionBoundary");
+  const moversIndex = renderSource.indexOf("<MarketMoversModule");
+  const chaseIndex = renderSource.indexOf("<TopChaseCardsModule");
+  const signalsIndex = renderSource.indexOf("<DecisionSignalsCard");
+  assert.ok(
+    setValueIndex >= 0 && perfIndex > setValueIndex && moversIndex > perfIndex && chaseIndex > moversIndex && signalsIndex > chaseIndex,
+    "sections must render in priority order: Set Value, Performance vs Cost, Market Movers, Top Chase, Market Signals"
+  );
+
+  assert.ok(
+    renderSource.includes("status={overviewPerformanceVsCostStatus}"),
+    "Performance vs Cost must gate on its own /overview payload status independently of the other sections"
+  );
+  assert.ok(
+    renderSource.includes("status={activeSetValueHistory.status}"),
+    "Set Value must keep reading its own independent fetch status"
+  );
+  assert.ok(
+    renderSource.includes("status={marketMoversStatus}"),
+    "Market Movers must keep reading its own independent fetch status"
+  );
+  assert.ok(
+    renderSource.includes("status={topPricedCardsStatus}"),
+    "Top Chase Cards must keep reading its own independent fetch status"
   );
 });
 
-test("Phase 9D.2: Pull Rates pending path uses the shared branded panel, keeps its timeout escape and settled empty state", () => {
+test("Phase 11: Overview reports section-level timing metrics via useSectionTiming", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  const branchStart = source.indexOf("pullRatesTabPending ? (");
-  assert.ok(branchStart >= 0, "the pull-rates pending branch must exist in the render");
-  const branchEnd = source.indexOf('activePullRatesState.status === "error"', branchStart);
-  assert.ok(branchEnd > branchStart, "the pending branch must be followed by the error branch");
-  const branchSource = source.slice(branchStart, branchEnd);
-
-  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Pull Rates must use the shared branded panel while pending");
-  assert.ok(branchSource.includes("Loading pull rate assumptions…"), "Pull Rates loading title must exist");
   assert.ok(
-    branchSource.includes("Pulling rarity frequencies and specific-card odds for this set."),
-    "Pull Rates loading helper copy must exist"
+    source.includes('import { useSectionTiming } from "@/hooks/useSectionTiming";'),
+    "the page client must import the shared timing hook"
   );
-  assert.ok(!branchSource.includes("InlinePanelSkeleton"), "the old skeleton rows must be gone from the pending path");
+
+  for (const metric of ["setValue", "performanceVsCost", "marketMovers", "topChase", "marketSignals"]) {
+    assert.ok(
+      source.includes(`useSectionTiming("${metric}",`),
+      `Overview must report the ${metric}Ms metric via useSectionTiming`
+    );
+  }
+});
+
+// Progressive-rendering refactor: Pull Rates is the first tab split into
+// priority-ordered section boundaries (Hit Rate Summary -> Pull Rate Table ->
+// Source & Reference -> Advanced Odds), each independently gated via the
+// shared SectionBoundary/SectionErrorBoundary primitives instead of one
+// whole-tab SetTabLoadingPanel gate. The underlying fetch (pullRatesState,
+// request-key dedupe, 8s timeout escape) is deliberately untouched in
+// RipStatisticsPageClient.jsx — only PullRatesTab.jsx's render changed.
+const pullRatesTabPath = path.resolve(__dirname, "../pokemon/set-page/PullRates/PullRatesTab.jsx");
+const pullRateAssumptionsCardPath = path.resolve(__dirname, "../pokemon/set-page/PullRates/PullRateAssumptionsCard.jsx");
+
+test("Phase 11: PullRatesTab composes 4 priority-ordered SectionBoundary sections and keeps the timeout/empty copy", () => {
+  const source = fs.readFileSync(pullRatesTabPath, "utf8").replace(/\r\n/g, "\n");
+
   assert.ok(
-    branchSource.includes("Pull rates are taking longer than expected to load."),
+    source.includes('import SectionBoundary from "@/components/ui/SectionBoundary";'),
+    "PullRatesTab must use the shared SectionBoundary primitive"
+  );
+  assert.ok(
+    source.includes('import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";'),
+    "PullRatesTab must wrap sections in the shared render-error boundary"
+  );
+
+  const sectionBoundaryCount = (source.match(/<SectionBoundary/g) || []).length;
+  assert.equal(sectionBoundaryCount, 4, `PullRatesTab must render exactly 4 section boundaries (found ${sectionBoundaryCount})`);
+
+  const errorBoundaryCount = (source.match(/<SectionErrorBoundary/g) || []).length;
+  assert.equal(errorBoundaryCount, 4, `each of the 4 sections must be wrapped in its own SectionErrorBoundary (found ${errorBoundaryCount})`);
+
+  assert.ok(source.includes("<HitRateSummarySection"), "Hit Rate Summary (priority 2) must render");
+  assert.ok(source.includes("<PullRateTableSection"), "Pull Rate Table (priority 3) must render");
+  assert.ok(source.includes("<SourceReferenceSection"), "Source & Reference (priority 4) must render");
+  assert.ok(source.includes("<AdvancedOddsSection"), "Advanced Odds (priority 5) must render");
+
+  // Priority order must match the summary -> table -> sources -> advanced
+  // sequence, so higher-priority content never renders after lower-priority
+  // content in source order.
+  const summaryIndex = source.indexOf("<HitRateSummarySection");
+  const tableIndex = source.indexOf("<PullRateTableSection");
+  const sourcesIndex = source.indexOf("<SourceReferenceSection");
+  const advancedIndex = source.indexOf("<AdvancedOddsSection");
+  assert.ok(
+    summaryIndex < tableIndex && tableIndex < sourcesIndex && sourcesIndex < advancedIndex,
+    "sections must render in priority order: summary, table, sources, advanced"
+  );
+
+  assert.ok(!source.includes("InlinePanelSkeleton"), "the old skeleton rows must be gone from the pending path");
+  assert.ok(
+    source.includes("Pull rates are taking longer than expected to load."),
     "the timeout escape must remain so the loader can never run indefinitely"
   );
   assert.ok(
@@ -3053,32 +3425,91 @@ test("Phase 9D.2: Pull Rates pending path uses the shared branded panel, keeps i
   );
 });
 
-test("Phase 9D.2: Insights holds one whole-tab branded panel while the /insights payload is in flight, then falls back to compact states", () => {
+test("Phase 11: the page client no longer inlines Pull Rates JSX and delegates to PullRatesTab with the untouched fetch state", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const renderStart = source.indexOf('setDetailTab === "pull-rates" ? (');
+  assert.ok(renderStart >= 0, "the pull-rates render branch must exist");
+  const renderEnd = source.indexOf(") : null}", renderStart);
+  const renderSource = source.slice(renderStart, renderEnd);
+
+  assert.ok(renderSource.includes("<PullRatesTab"), "must delegate to the new PullRatesTab container");
+  assert.ok(renderSource.includes("pullRateAssumptions={pullRateAssumptions}"), "must pass through the existing pullRateAssumptions derivation");
+  assert.ok(renderSource.includes("pullRatesTabPending={pullRatesTabPending}"), "must pass through the existing pending flag");
+  assert.ok(renderSource.includes("pullRatesPendingTimedOut={pullRatesPendingTimedOut}"), "must pass through the existing timeout flag");
+  assert.ok(renderSource.includes("activePullRatesState={activePullRatesState}"), "must pass through the existing set-id-guarded state");
+
+  // The fetch effect itself — request-key dedupe, staleness guard, state
+  // shape — must be untouched; this refactor only moved the render.
+  assert.ok(source.includes("const [pullRatesState, setPullRatesState] = useState(() => ({"), "pullRatesState fetch state must remain in the page client, unmoved");
+  assert.ok(source.includes("lastPullRatesRequestKeyRef"), "the request-key dedupe guard must remain in the page client");
+});
+
+test("Phase 11: PullRateAssumptionsCard exports PullRateTable/PullRateMobileRows/buildGroupsForRender for section-level reuse", () => {
+  const source = fs.readFileSync(pullRateAssumptionsCardPath, "utf8").replace(/\r\n/g, "\n");
+  assert.ok(source.includes("export function PullRateTable"), "PullRateTable must be exported for reuse by PullRateTableSection/AdvancedOddsSection");
+  assert.ok(source.includes("export function PullRateMobileRows"), "PullRateMobileRows must be exported for reuse");
+  assert.ok(source.includes("export { buildGroupsForRender }"), "buildGroupsForRender must be re-exported for reuse");
+});
+
+test("Phase 11: Insights' critical tier holds its own branded panel (not a whole-tab gate); Opening Outcomes/Desirability Evidence gate independently on the secondary tier", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
-    source.includes("const showInsightsCohesiveLoading = insightsCriticalPending && !insightsPendingTimedOut;"),
-    "the cohesive gate must engage only while the fetch is genuinely pending (not after timeout)"
+    source.includes('const hasActiveInsightsPayload =\n    setDetailMode && setDetailTab === "insights"\n      ? hasInsightsPayloadData(explorePayload)\n      : Boolean(explorePayload);'),
+    "active insights readiness must use hasInsightsPayloadData on the Insights tab only"
+  );
+  const loadingGateStart = source.indexOf("const activeInsightsCriticalStatus =");
+  const loadingGateEnd = source.indexOf("const openingOutcomesViewHasData =", loadingGateStart);
+  assert.ok(loadingGateStart >= 0 && loadingGateEnd > loadingGateStart, "the split insights loading gate block must exist");
+  const loadingGateSource = source.slice(loadingGateStart, loadingGateEnd);
+  assert.ok(loadingGateSource.includes("!hasActiveInsightsPayload"), "the secondary-tier pending/error gates must use insights-data readiness");
+  assert.ok(!loadingGateSource.includes("!explorePayload"), "pending/error gates must not use raw explorePayload truthiness");
+  assert.ok(loadingGateSource.includes("activeInsightsCriticalStatus === \"error\""), "the critical tier must have its own independent error gate");
+  assert.ok(loadingGateSource.includes("activeInsightsSecondaryStatus === \"error\""), "the secondary tier must have its own independent error gate");
+
+  assert.ok(
+    source.includes("const showInsightsCohesiveLoading = insightsCriticalPending && !insightsCriticalPendingTimedOut;"),
+    "the critical-tier panel must engage only while that fetch is genuinely pending (not after its own timeout)"
   );
 
   const branchStart = source.indexOf("{showInsightsCohesiveLoading ? (");
-  assert.ok(branchStart >= 0, "the insights cohesive loading branch must exist in the render");
+  assert.ok(branchStart >= 0, "the insights critical-tier loading branch must exist in the render");
   const branchSource = source.slice(branchStart, branchStart + 900);
-  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Insights must use the shared branded panel");
-  assert.ok(branchSource.includes("Loading insight data…"), "Insights loading title must exist");
+  assert.ok(branchSource.includes("<SetTabLoadingPanel"), "Insights critical tier must use the shared branded panel");
+  assert.ok(branchSource.includes("Loading RIP score…"), "Insights critical-tier loading title must exist");
   assert.ok(
-    branchSource.includes("Pulling RIP breakdown, opening outcomes, desirability checks, and simulation drivers."),
-    "Insights loading helper copy must exist"
+    branchSource.includes("Pulling your set's RIP score and pillar breakdown."),
+    "Insights critical-tier loading helper copy must exist"
   );
 
   assert.ok(
     source.includes('{(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? ('),
-    "the insights sections must stay hidden while the cohesive panel shows, and /Explore (non set-detail) must be unaffected"
+    "the insights region must stay hidden while the critical-tier panel shows, and /Explore (non set-detail) must be unaffected"
   );
   assert.ok(
     source.includes("Set insights are taking longer than expected to load."),
-    "the timeout/error fallback copy must remain for the settled-failure path"
+    "the secondary-tier timeout/error fallback copy must remain for the settled-failure path"
   );
+
+  const insightsSectionStart = source.indexOf('{(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (');
+  const openingOutcomesStart = source.indexOf('title="Opening Outcomes"', insightsSectionStart);
+  const openingOutcomesEnd = source.indexOf("</SectionCard>", openingOutcomesStart);
+  assert.ok(openingOutcomesStart > insightsSectionStart, "Opening Outcomes must still render under the Insights section");
+  assert.ok(openingOutcomesEnd > openingOutcomesStart, "Opening Outcomes card body must be present");
+  const openingOutcomesSource = source.slice(openingOutcomesStart, openingOutcomesEnd);
+  assert.ok(
+    openingOutcomesSource.includes("insightsSectionsBlocked ? ("),
+    "Opening Outcomes must remain gated by insightsSectionsBlocked, now driven by the secondary-tier fetch independent of the critical tier"
+  );
+
+  // Both the hero (RipScoreBreakdownModule) and the secondary-tier sections
+  // (DesirabilityEvidenceCard, Opening Outcomes) are wrapped in their own
+  // SectionErrorBoundary for render-exception isolation.
+  const insightsRegionEnd = source.indexOf("{effectiveViewMode === \"expert\" && !setDetailMode ? (", insightsSectionStart);
+  const insightsRegionSource = source.slice(insightsSectionStart, insightsRegionEnd);
+  const insightsErrorBoundaryCount = (insightsRegionSource.match(/<SectionErrorBoundary/g) || []).length;
+  assert.equal(insightsErrorBoundaryCount, 3, `Insights must wrap RIP Score, Desirability Evidence, and Opening Outcomes each in their own SectionErrorBoundary (found ${insightsErrorBoundaryCount})`);
 });
 
 test("Phase 9D.2: Cards shows the branded panel only while the card page payload loads with no rows, and keeps per-card image placeholders", () => {
@@ -3120,4 +3551,587 @@ test("Phase 9D.2: route-level loading screens keep the fullscreen branded loader
     assert.ok(routeSource.includes("fullScreen"), "route-level loading must remain fullscreen");
     assert.ok(!routeSource.includes("SetTabLoadingPanel"), "route-level loading must not switch to the in-tab panel");
   }
+});
+
+// ---------------------------------------------------------------------------
+// Phase 10: Cards tab infinite scroll + section/sidebar/URL synchronization.
+// Explicit Previous/Next paging is gone: a sentinel below the grid advances
+// the page via IntersectionObserver (generous prefetch margin), responses for
+// pages > 1 append (deduped) into the accumulated list for the same scope
+// (set + sort + search + movement filter), and the already-rendered cards
+// stay on screen while the next chunk loads (bottom inDex loader only, no
+// grid blanking/dimming). The Cards tab's active section ("all-cards" |
+// "market-movers") is derived from the URL `section` param so the sidebar
+// highlight, section tab strip, and URL can never diverge.
+// ---------------------------------------------------------------------------
+
+test("Phase 10: cards pagination buttons are gone; an IntersectionObserver sentinel drives load-more with a generous prefetch margin", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(!source.includes("hasPreviousPage"), "the Previous button (and any hasPreviousPage read) must be gone");
+  assert.ok(!/>\s*Previous\s*</.test(source), "no user-facing Previous button");
+  assert.ok(!/setCardsPage\(\(page\) => page \+ 1\)/.test(source), "the Next button's manual page increment must be gone");
+
+  // The scaffold mounts the page tree twice (desktop `hidden xl:block` +
+  // mobile `xl:hidden`), so a single element ref would land on the hidden
+  // mobile copy and never intersect on desktop — the sentinel must be located
+  // by data attribute and every mounted instance observed.
+  assert.ok(source.includes('<div data-cards-load-more-sentinel="true"'), "the sentinel element must render below the grid");
+  assert.ok(
+    source.includes('document.querySelectorAll("[data-cards-load-more-sentinel]")'),
+    "the observer must find every mounted sentinel (desktop + mobile copies), not a single ref"
+  );
+  assert.ok(source.includes("for (const sentinel of sentinels)"), "every sentinel instance must be observed");
+  assert.ok(!source.includes("cardsLoadMoreSentinelRef"), "the single-element sentinel ref must be gone");
+  assert.ok(source.includes("new IntersectionObserver("), "load-more must be driven by IntersectionObserver");
+  const rootMarginMatch = source.match(/rootMargin: "(\d+)px 0px"/);
+  assert.ok(rootMarginMatch, "the observer must set a vertical rootMargin");
+  const rootMargin = Number(rootMarginMatch[1]);
+  assert.ok(rootMargin >= 800 && rootMargin <= 1200, `rootMargin must be a generous 800-1200px prefetch margin (got ${rootMargin})`);
+  assert.ok(
+    source.includes("typeof IntersectionObserver === \"undefined\""),
+    "environments without IntersectionObserver must not crash"
+  );
+});
+
+test("Phase 10: pages append into the accumulated list for the same scope, deduped by stable card identity", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes("function getChecklistCardKey(card)"), "a stable card identity helper must exist");
+  assert.ok(
+    source.includes("String(card?.id || card?.cardNumber || card?.card_number || card?.name || \"\")"),
+    "identity must prefer id, then card number, then name — matching the grid's React keys"
+  );
+  assert.ok(source.includes("function dedupeChecklistCards(cards)"), "an append-dedupe helper must exist");
+
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("\n\n  // Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+  assert.ok(effectStart >= 0 && effectEnd > effectStart, "cards page fetch effect must exist");
+
+  assert.ok(effectSource.includes("const shouldAppend ="), "the success handler must decide append vs replace");
+  assert.ok(
+    effectSource.includes("previous.scopeKey === cardsPageScopeKey") && effectSource.includes("requestedPage > 1"),
+    "append is allowed only for page > 1 responses whose scope matches the cards already in state"
+  );
+  assert.ok(
+    effectSource.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"),
+    "appended chunks must merge below the existing cards, deduped"
+  );
+  assert.ok(
+    effectSource.includes('return { ...previous, status: "loading_more", error: null };'),
+    "loading a further chunk must keep every rendered card in place (loading_more), never blank or swap the list"
+  );
+});
+
+test("Phase 10: duplicate and stale load-more fetches are prevented", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // The observer callback is gated by a latest-value ref and an idempotent
+  // page advance, and the fetch effect dedupes by request key.
+  assert.ok(source.includes("const cardsLoadMoreGateRef = useRef("), "a latest-value gate ref must exist for the observer callback");
+  assert.ok(source.includes("setCardsPage((page) => (page >= nextPage ? page : nextPage));"), "the page advance must be idempotent under duplicate observer fires");
+  assert.ok(source.includes("!cardsPageIsFetching"), "load-more must be blocked while a cards request is already in flight");
+  assert.ok(source.includes("cardsPage === activeCardsPageState.page"), "load-more must be blocked while a requested page has not merged yet");
+
+  // A response landing after the user changed set/scope must not append into
+  // the new view: effect cleanup cancels, cross-set responses are dropped by
+  // the shared guard, and appends additionally require a scope match.
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("\n\n  // Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+  assert.ok(effectSource.includes("let isCancelled = false;"), "in-flight responses must be cancellable");
+  assert.ok(effectSource.includes("if (isCancelled) {"), "cancelled responses must be dropped");
+  assert.ok(effectSource.includes('debugSetPagePerf("cards_page.tab_fetch_stale"'), "cross-set stale responses must be dropped");
+  assert.ok(
+    effectSource.includes("cardsLoadMoreGateRef.current.stateScopeKey !== cardsPageScopeKey"),
+    "a page-N request of a brand-new scope must be skipped (the reset effect rewinds to page 1 in the same commit)"
+  );
+});
+
+test("Phase 10: changing set/sort/search/movement filter rewinds to the first chunk", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const resetStart = source.indexOf("setCardsPage(1);");
+  assert.ok(resetStart >= 0, "a scope-reset effect must rewind the page counter");
+  const resetSource = source.slice(source.lastIndexOf("useEffect(() => {", resetStart), source.indexOf("]);", resetStart) + 3);
+  for (const dep of ["cardSortMode", "cardMovementFilter", "cardSearchQuery", "resolvedSetResourceId"]) {
+    assert.ok(resetSource.includes(dep), `the scope-reset effect must depend on ${dep}`);
+  }
+});
+
+test("Phase 10: load-more failures keep the loaded cards, disable the sentinel, and offer an explicit Retry", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes("const cardsPageLoadMoreError = Boolean("), "a failed load-more must be distinguishable from a failed first load");
+  assert.ok(source.includes("!activeCardsPageState.error"), "the sentinel gate must be disabled while an error is pending (no retry hammering)");
+  assert.ok(source.includes("Couldn&apos;t load more cards."), "a failed load-more must surface explicit copy");
+  assert.ok(source.includes("setCardsPageRetryNonce((nonce) => nonce + 1)"), "Retry must re-run the fetch effect via the retry nonce");
+  assert.ok(source.includes("cardsPageRetryNonce,"), "the fetch effect must depend on the retry nonce");
+});
+
+test("Phase 10: bottom load-more state uses the branded inDex loader, and completion shows a subtle all-loaded note", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes('import InDexLogoLoader from "@/components/brand/InDexLogoLoader";'),
+    "the page client must use the branded loader for load-more"
+  );
+  const loadingMoreStart = source.indexOf("{cardsPageIsLoadingMore ? (");
+  assert.ok(loadingMoreStart >= 0, "a bottom loading-more state must render");
+  const loadingMoreSource = source.slice(loadingMoreStart, loadingMoreStart + 700);
+  assert.ok(loadingMoreSource.includes("<InDexLogoLoader"), "loading more must show the inDex logo/dots loader, not a generic spinner");
+  assert.ok(loadingMoreSource.includes("index-loader-shell--compact"), "the bottom loader must use the compact footer scale");
+  assert.ok(!source.includes("animate-spin"), "no generic circular spinner anywhere in the page client");
+
+  assert.ok(source.includes("const cardsPageFullyLoaded = Boolean("), "completion must be derived from pagination");
+  assert.ok(source.includes("cards loaded"), "completion must show a subtle all-loaded note");
+});
+
+test("Phase 10: the Cards section (all-cards | market-movers) is derived from the URL and drives the sidebar highlight and section tabs", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes("const [cardsSection, setCardsSection] = useState("), "a cards-section state must exist");
+  assert.ok(
+    source.includes('setCardsSection(nextSection === "market-movers" ? "market-movers" : "all-cards");'),
+    "the URL-consumption effect must re-derive the cards section from the section param (URL is the source of truth)"
+  );
+  assert.ok(
+    source.includes('"all-cards": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" }'),
+    "all-cards must be a routable section target"
+  );
+
+  // Sidebar rail: both sections listed, highlight driven by the section.
+  assert.ok(source.includes("activeCardsSection = \"all-cards\""), "the rail must accept the active cards section");
+  assert.ok(source.includes("activeCardsSection={cardsSection}"), "the rail must be driven by the page's cards section");
+  assert.ok(
+    source.includes('active: activeCardsSubTab === "checklist" && activeCardsSection !== "market-movers"'),
+    "All Cards must not be highlighted while the market-movers section is active"
+  );
+  assert.ok(
+    source.includes('active: activeCardsSubTab === "checklist" && activeCardsSection === "market-movers"'),
+    "Market Movers must be highlighted when its section is active"
+  );
+
+  // Section tab strip inside the Cards tab mirrors the same state.
+  assert.ok(source.includes('{ value: "all-cards", label: "All Cards" }'), "the section tab strip must include All Cards");
+  assert.ok(source.includes('{ value: "market-movers", label: "Market Movers" }'), "the section tab strip must include Market Movers");
+  assert.ok(source.includes("value={cardsSection}"), "the section tab strip must render the active cards section");
+});
+
+test("Phase 10: entering a cards section applies its preset and routes through the URL, so movers and all-cards share the infinite grid", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const navStart = source.indexOf("const handleSetDetailNavSelect = (");
+  const navEnd = source.indexOf("const handleViewSetValueTrend", navStart);
+  const navSource = source.slice(navStart, navEnd);
+  assert.ok(navStart >= 0 && navEnd > navStart, "handleSetDetailNavSelect must exist");
+  assert.ok(
+    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortMode("30d-gainers");'),
+    "entering Market Movers must preset the movers sort"
+  );
+  assert.ok(
+    navSource.includes('setCardsSection("all-cards");') && navSource.includes('setCardSortMode("set-number");'),
+    "entering All Cards must restore the default checklist view"
+  );
+
+  const viewAllStart = source.indexOf("const handleViewAllMarketMovers = () => {");
+  const viewAllSource = source.slice(viewAllStart, source.indexOf("};", viewAllStart));
+  assert.ok(viewAllSource.includes('setCardsSection("market-movers");'), "View-all-movers must activate the market-movers section");
+  assert.ok(viewAllSource.includes('pushSetDetailRouteState({ tab: "cards", section: "market-movers" });'), "View-all-movers must reflect the section in the URL");
+
+  // Both sections render the same checklist grid, so the movers view gets the
+  // same append/sentinel mechanics and the fetch always carries the active
+  // sort + movement filter (single call site, asserted elsewhere).
+  const cardsPageCallCount = (source.match(/getPokemonSetCardsPage\(/g) || []).length;
+  assert.equal(cardsPageCallCount, 1, "one shared paginated fetch serves both cards sections");
+  assert.ok(source.includes("movementFilter: effectiveCardMovementFilter,"), "the shared fetch must carry the movement filter");
+  assert.ok(source.includes("movementSort: movementSortValue,"), "the shared fetch must carry the movement sort");
+});
+
+// Progressive-rendering refactor: Cards priority 5 ("secondary metadata/
+// deltas/badges after initial grid is usable") — the price/delta badge is
+// deferred via startTransition per tile so the name/image commit first, with
+// its width reserved from the tile's first render so no layout shift occurs
+// when it pops in. Priority 3 (stable image placeholders) was already
+// implemented before this refactor (aspect-[3/4] box, absolutely-positioned
+// placeholder) and is asserted here too so a future edit can't regress it.
+test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition with a reserved-width skeleton", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes('import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";'),
+    "the page client must import the standalone startTransition function"
+  );
+
+  const tileStart = source.indexOf("function ChecklistCardTile({ card }) {");
+  assert.ok(tileStart >= 0, "ChecklistCardTile must exist");
+  const tileEnd = source.indexOf("\nfunction getChecklistCardMarketPrice", tileStart);
+  const tileSource = source.slice(tileStart, tileEnd);
+
+  assert.ok(tileSource.includes("const [isMetaRevealed, setIsMetaRevealed] = useState(false);"), "must track a deferred-reveal flag");
+  assert.ok(
+    tileSource.includes("startTransition(() => {\n      setIsMetaRevealed(true);\n    });"),
+    "the reveal must be scheduled via startTransition, not a synchronous state update"
+  );
+  assert.ok(
+    tileSource.includes('className="min-w-[4.5rem] shrink-0 text-right"'),
+    "the badge slot must reserve its width before content is revealed, so reveal never shifts the name/number column"
+  );
+  assert.ok(
+    tileSource.includes("animate-pulse rounded bg-[rgba(148,163,184,0.12)]"),
+    "an unrevealed badge slot must show a quiet skeleton, not blank space"
+  );
+
+  // Priority 3, pre-existing: the image box is a fixed aspect-ratio
+  // container with an absolutely-positioned placeholder, so swapping in the
+  // loaded <img> never resizes the tile.
+  assert.ok(tileSource.includes('className="relative aspect-[3/4] w-full'), "the image box must keep a fixed aspect-ratio container");
+  assert.ok(tileSource.includes("<CardImagePlaceholder shimmer />"), "a shimmering placeholder must render while the image loads");
+});
+
+test("Phase 11: Cards reports cardsFirstBatchMs/cardsNextBatchMs section timing per page load", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes('import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming";'),
+    "the page client must import the shared timing primitives"
+  );
+
+  const fetchStart = source.indexOf("getPokemonSetCardsPage(setId, {");
+  assert.ok(fetchStart >= 0, "the cards page fetch call must exist");
+  const fetchEnd = source.indexOf("\n      .catch((error) => {", fetchStart);
+  const fetchSource = source.slice(fetchStart, fetchEnd);
+
+  assert.ok(fetchSource.includes("const cardsBatchMetricName = requestedPage > 1 ? \"cardsNextBatch\" : \"cardsFirstBatch\";"), "must distinguish first batch from subsequent batches by requestedPage");
+  assert.ok(fetchSource.includes("markSectionTiming(`${cardsBatchMetricName}_success`"), "must mark timing for each settled batch");
+  assert.ok(fetchSource.includes('debugSectionTiming("[section-timing]", `${cardsBatchMetricName}Ms`'), "must log the cardsFirstBatchMs/cardsNextBatchMs metric per batch");
+});
+
+// ---------------------------------------------------------------------------
+// Stabilization pass (post progressive-rendering + Overview seed): renderable
+// data beats loading status. DB-backed sets (e.g. Paradox Rift,
+// 5d3d5c23-7098-4393-ad63-6ad9372aee30: 60 performance points, 10 top_hits
+// rows) were showing "history unavailable" / "taking longer than expected" /
+// "no top_hits rows" purely from frontend state/merge/gating bugs. These
+// tests pin the fixes.
+// ---------------------------------------------------------------------------
+
+test("Stabilization: Performance vs Cost never shows loading/empty when a performance series has points", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes("const hasPerformanceVsCostHistory ="),
+    "a dedicated hasPerformanceVsCostHistory boolean must exist"
+  );
+  const hasHistoryStart = source.indexOf("const hasPerformanceVsCostHistory =");
+  const hasHistoryEnd = source.indexOf(";", hasHistoryStart);
+  const hasHistorySource = source.slice(hasHistoryStart, hasHistoryEnd);
+  assert.ok(
+    hasHistorySource.includes("Array.isArray(overviewPerformanceVsCostHistory)") &&
+      hasHistorySource.includes("overviewPerformanceVsCostHistory.length > 0"),
+    "hasPerformanceVsCostHistory must check the overview payload's series for points"
+  );
+
+  // Paradox Rift regression: explorePayload.history_trend is always written
+  // by the insights secondary merge — an EMPTY array is truthy and used to
+  // shadow the populated /overview series via ||.
+  assert.ok(
+    !source.includes("const historyTrend = explorePayload?.history_trend ||"),
+    "an empty explorePayload.history_trend must never shadow the /overview series via ||"
+  );
+  assert.ok(
+    source.includes("const historyTrend = hasNonEmptyArray(explorePayload?.history_trend)\n    ? explorePayload.history_trend\n    : overviewPerformanceVsCostHistory;"),
+    "historyTrend must only prefer a NON-EMPTY explorePayload series over the overview series"
+  );
+
+  // Paradox-style state: seeded overview has performanceVsCostHistory points
+  // while activeOverviewState is loading/idle — the SectionBoundary status
+  // must resolve to success/success_stale (renders the chart), never
+  // loading/idle/empty and never the error panel over renderable points.
+  const statusStart = source.indexOf("const overviewPerformanceVsCostStatus =");
+  const statusEnd = source.indexOf(";", statusStart);
+  const statusSource = source.slice(statusStart, statusEnd);
+  assert.ok(statusStart >= 0, "overviewPerformanceVsCostStatus must exist");
+  assert.ok(
+    statusSource.includes("hasPerformanceVsCostHistory"),
+    "the status must key on hasPerformanceVsCostHistory"
+  );
+  assert.ok(
+    statusSource.includes('? "success"') && statusSource.includes('"success_stale"'),
+    "with points in hand the status must map to success/success_stale, never a loader"
+  );
+  assert.ok(
+    statusSource.includes("activeOverviewState.status") &&
+      !statusSource.includes('=== "loading"') &&
+      !statusSource.includes('=== "idle"'),
+    "the with-data branch must not depend on loading/idle checks — data presence alone decides"
+  );
+  assert.ok(
+    source.includes("status={overviewPerformanceVsCostStatus}"),
+    "the Performance vs Cost SectionBoundary must consume the derived status"
+  );
+});
+
+test("Stabilization: insights secondary adapter maps simulationDrivers -> top_hits (and the other secondary-owned fields)", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const adapterStart = source.indexOf("function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(secondary)");
+  const adapterEnd = source.indexOf("\n}\n", adapterStart);
+  const adapterSource = source.slice(adapterStart, adapterEnd);
+
+  assert.ok(adapterStart >= 0, "the secondary adapter must exist");
+  assert.ok(
+    adapterSource.includes("top_hits: dualKeyCase(secondary?.simulationDrivers || [])"),
+    "simulationDrivers from /insights/secondary must merge into explorePayload.top_hits"
+  );
+  for (const mapping of [
+    "percentiles: dualKeyCase(outcomeDistribution.percentiles || [])",
+    "distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || [])",
+    "rankings: dualKeyCase(secondary?.rarityContribution || [])",
+    "history_trend: dualKeyCase(secondary?.historyTrend || [])",
+  ]) {
+    assert.ok(adapterSource.includes(mapping), `secondary adapter must keep mapping: ${mapping}`);
+  }
+});
+
+test("Stabilization: navigation resets rebuild explorePayload from already-successful insights fetches instead of clobbering them", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // The reset effect's identity check can't vouch for a payload assembled
+  // purely from the secondary fetch (it carries no `set` field) — the reset
+  // must rebuild from the fetch states (guarded to the active set) rather
+  // than return null and strand Insights on skeletons until timeout.
+  const resetStart = source.indexOf("setExplorePayload((previous) => {");
+  const resetEnd = source.indexOf('setSetPageSnapshotRefreshState({ status: "idle", setId: null, error: null });', resetStart);
+  assert.ok(resetStart >= 0 && resetEnd > resetStart, "the navigation reset effect must exist");
+  const resetSource = source.slice(resetStart, resetEnd);
+
+  assert.ok(
+    resetSource.includes('insightsCriticalFetchState.status === "success"') &&
+      resetSource.includes("adaptPokemonSetInsightsCriticalPayloadToExplorePayload(insightsCriticalFetchState.data)"),
+    "the reset must re-merge a successful critical fetch"
+  );
+  assert.ok(
+    resetSource.includes('insightsSecondaryFetchState.status === "success"') &&
+      resetSource.includes("adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(insightsSecondaryFetchState.data)"),
+    "the reset must re-merge a successful secondary fetch"
+  );
+  assert.ok(
+    resetSource.includes("isSetStateForActiveSet(insightsCriticalFetchState.setId") &&
+      resetSource.includes("isSetStateForActiveSet(insightsSecondaryFetchState.setId"),
+    "re-merged slices must be guarded by the REQUEST set id (not payload.set completeness)"
+  );
+  assert.ok(
+    resetSource.includes("return { ...(criticalSlice || {}), ...(secondarySlice || {}) };"),
+    "when either slice exists the reset must return the rebuilt payload instead of null"
+  );
+});
+
+test("Stabilization: insights pending timeout clears as soon as secondary renderable data exists", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const readinessStart = source.indexOf("const insightsSecondaryHasRenderableData =");
+  assert.ok(readinessStart >= 0, "insightsSecondaryHasRenderableData must be declared");
+  const readinessEnd = source.indexOf(";", readinessStart);
+  const readinessSource = source.slice(readinessStart, readinessEnd);
+  for (const field of [
+    "top_hits",
+    "distribution_bins",
+    "percentiles",
+    "rankings",
+    "history_trend",
+    "rip_statistics",
+    "openingDesirability",
+    "hasDesirabilityProofSignal",
+  ]) {
+    assert.ok(readinessSource.includes(field), `secondary readiness must inspect ${field}`);
+  }
+
+  // The clearing effect: once renderable data lands, a previously-fired
+  // "taking longer than expected" timeout no longer describes reality.
+  const clearEffectStart = source.indexOf("if (!insightsSecondaryHasRenderableData) {\n      return;\n    }");
+  assert.ok(clearEffectStart >= 0, "a timeout-clearing effect keyed on secondary readiness must exist");
+  const clearEffectSource = source.slice(clearEffectStart, clearEffectStart + 700);
+  assert.ok(
+    clearEffectSource.includes("setInsightsPendingTimeoutState"),
+    "the clearing effect must reset insightsPendingTimeoutState"
+  );
+
+  // And the render-time flag is synchronously gated too, so the fallback copy
+  // can't flash for the one commit before the effect runs.
+  assert.ok(
+    source.includes("const insightsPendingTimedOut =\n    !insightsSecondaryHasRenderableData &&"),
+    "insightsPendingTimedOut must be impossible while renderable secondary data exists"
+  );
+});
+
+test("Stabilization: Opening Outcomes renders data first, quiet placeholder while its fetch is in flight, empty copy only when settled", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const openingOutcomesStart = source.indexOf('title="Opening Outcomes"');
+  const openingOutcomesEnd = source.indexOf("</SectionCard>", openingOutcomesStart);
+  const openingOutcomesSource = source.slice(openingOutcomesStart, openingOutcomesEnd);
+
+  const blockedIndex = openingOutcomesSource.indexOf("insightsSectionsBlocked ? (");
+  const viewHasDataIndex = openingOutcomesSource.indexOf("!openingOutcomesViewHasData ? (");
+  const loadingGuardIndex = openingOutcomesSource.indexOf('activeInsightsSecondaryStatus === "loading" ? (');
+  const emptyCopyIndex = openingOutcomesSource.indexOf("{openingOutcomesEmptyViewCopy}");
+
+  assert.ok(blockedIndex >= 0, "the blocked (no data at all) gate must exist");
+  assert.ok(viewHasDataIndex > blockedIndex, "per-subtab data check must come after the blocked gate");
+  assert.ok(
+    loadingGuardIndex > viewHasDataIndex && loadingGuardIndex < emptyCopyIndex,
+    "a sub-view with no rows must show a quiet placeholder while the secondary fetch is loading, before any empty verdict"
+  );
+  assert.ok(emptyCopyIndex >= 0, "the settled per-subtab empty copy must remain");
+});
+
+test("Stabilization: Simulation Drivers warning appears only after the secondary fetch SUCCEEDED with truly empty top_hits", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // The diagnostics warning must be out of rawWarnings (computed before the
+  // fetch status exists) ...
+  const rawWarningsStart = source.indexOf("const rawWarnings = [");
+  const rawWarningsEnd = source.indexOf("];", rawWarningsStart);
+  const rawWarningsSource = source.slice(rawWarningsStart, rawWarningsEnd);
+  assert.ok(rawWarningsStart >= 0, "rawWarnings must exist");
+  assert.ok(
+    !rawWarningsSource.includes("simulationDrivers.diagnostics"),
+    "the drivers diagnostics warning must not be an unconditional rawWarnings member"
+  );
+
+  // ... and re-added only as settled evidence.
+  const visibleStart = source.indexOf("const simulationDriversWarningVisible =");
+  const visibleEnd = source.indexOf(";", visibleStart);
+  const visibleSource = source.slice(visibleStart, visibleEnd);
+  assert.ok(visibleStart >= 0, "simulationDriversWarningVisible must exist");
+  assert.ok(visibleSource.includes("topHits.length === 0"), "the warning requires truly empty top_hits");
+  assert.ok(
+    visibleSource.includes('activeInsightsSecondaryStatus === "success"'),
+    "on set-detail pages the warning requires the secondary fetch to have succeeded"
+  );
+  assert.ok(
+    !visibleSource.includes('activeInsightsSecondaryStatus === "error"'),
+    "a failed fetch is not evidence of missing DB rows — the error path has its own copy"
+  );
+
+  assert.ok(source.includes("const visibleSetPageWarnings ="), "a gated warnings list must exist");
+  assert.ok(
+    source.includes("{visibleSetPageWarnings.length > 0 ? (") &&
+      source.includes("{visibleSetPageWarnings.map((warning, index) => ("),
+    "the warnings strip must render the gated list"
+  );
+});
+
+test("Stabilization: useSectionFetchState dedupes auto-fetches by set id and releases the claim on error", () => {
+  const sectionFetchStatePath = path.resolve(__dirname, "../../hooks/useSectionFetchState.js");
+  const source = fs.readFileSync(sectionFetchStatePath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes("const autoFetchedSetIdRef = useRef(null);"),
+    "the hook must track the last auto-fetched set id"
+  );
+  assert.ok(
+    source.includes("if (autoFetchedSetIdRef.current === setId) {\n      return;\n    }\n    autoFetchedSetIdRef.current = setId;\n    runFetch(setId);"),
+    "the auto-fetch effect must skip identical repeats (tab revisits, StrictMode double effects) and claim before fetching"
+  );
+  assert.ok(
+    source.includes("if (autoFetchedSetIdRef.current === targetSetId) {\n          autoFetchedSetIdRef.current = null;\n        }"),
+    "an error must release the claim so a revisit can retry"
+  );
+  // Manual refetch stays an explicit override.
+  const refetchStart = source.indexOf("const refetch = useCallback(() => {");
+  const refetchEnd = source.indexOf("}, [setId, runFetch]);", refetchStart);
+  const refetchSource = source.slice(refetchStart, refetchEnd);
+  assert.ok(refetchSource.includes("runFetch(setId);"), "refetch must still force a fetch");
+});
+
+// ---------------------------------------------------------------------------
+// Patch 3 — Desirability Evidence N/A handling. Uncomputed proof fields
+// (final RIP rank/score, score/rank deltas, top-10 card value) must read
+// "Not computed yet" rather than a bare "N/A" that looks broken, and Price
+// Relation must reuse the already-computed cardAppealMarketPriceCorrelation
+// (pearson/spearman) instead of showing "n/a" — never recompute.
+// ---------------------------------------------------------------------------
+
+test("Patch 3: uncomputed proof fields render 'Not computed yet' instead of bare N/A", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes('const PROOF_NOT_COMPUTED_LABEL = "Not computed yet";'), "a shared 'Not computed yet' label must exist");
+  assert.ok(source.includes("function formatProofRankOrNotComputed(value)"), "a rank formatter that yields the not-computed label must exist");
+  assert.ok(source.includes("function formatProofDeltaOrNotComputed(value, suffix"), "a delta formatter that yields the not-computed label must exist");
+
+  // Final RIP Rank / Score Delta / Rank Delta must route through the
+  // not-computed formatters, not the bare N/A ones.
+  assert.ok(
+    source.includes('<ProofMetric label="Final RIP Rank" value={formatProofRankOrNotComputed(finalRank)} />'),
+    "Final RIP Rank must use the not-computed formatter"
+  );
+  assert.ok(
+    source.includes("<ProofMetric label=\"Score Delta\" value={formatProofDeltaOrNotComputed(validation.desirability_score_delta ?? validation.desirabilityScoreDelta)} />"),
+    "Score Delta must use the not-computed formatter"
+  );
+  assert.ok(
+    source.includes('<ProofMetric label="Rank Delta" value={formatProofDeltaOrNotComputed(rankDelta, " ranks")} />'),
+    "Rank Delta must use the not-computed formatter"
+  );
+});
+
+test("Patch 3: Top 10 Cards honors missing_data_flags and null rank with 'Not computed yet'", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const flagStart = source.indexOf("const top10CardValueNotComputed =");
+  assert.ok(flagStart >= 0, "a top10CardValueNotComputed flag must exist");
+  const flagEnd = source.indexOf(";", flagStart);
+  const flagSource = source.slice(flagStart, flagEnd);
+  assert.ok(flagSource.includes('missingDataFlags') && flagSource.includes('"top_10_card_value"'), "must consult missing_data_flags");
+  assert.ok(
+    flagSource.includes("toNumber(validation.top_10_card_value_rank ?? validation.top10CardValueRank) === null"),
+    "must also treat a null top-10 rank as not computed"
+  );
+  assert.ok(
+    source.includes("value={top10CardValueNotComputed ? PROOF_NOT_COMPUTED_LABEL : formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank)}"),
+    "the Top 10 Cards tile must render the not-computed label when flagged/null"
+  );
+});
+
+test("Patch 3: Price Relation reuses cardAppealMarketPriceCorrelation instead of raw N/A", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const resolverStart = source.indexOf("function resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation)");
+  assert.ok(resolverStart >= 0, "a Price Relation resolver must exist");
+  const resolverEnd = source.indexOf("\n}\n", resolverStart);
+  const resolverSource = source.slice(resolverStart, resolverEnd);
+  assert.ok(
+    resolverSource.includes("validation?.card_appeal_vs_market_price_correlation ?? validation?.cardAppealVsMarketPriceCorrelation"),
+    "must prefer the persisted desirabilityValidation correlation field first"
+  );
+  assert.ok(
+    resolverSource.includes("toNumber(correlation.pearson) ?? toNumber(correlation.spearman)"),
+    "must fall back to the existing cardAppealMarketPriceCorrelation pearson/spearman"
+  );
+
+  // The proof card must consume the resolver and pass the correlation down.
+  assert.ok(
+    source.includes("const priceRelationValue = resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation);"),
+    "the proof card must resolve Price Relation via the shared resolver"
+  );
+  assert.ok(
+    source.includes("value={priceRelationValue === null ? PROOF_NOT_COMPUTED_LABEL : formatCorrelationValue(priceRelationValue)}"),
+    "Price Relation must show the resolved correlation, or 'Not computed yet' only when truly absent"
+  );
+  assert.ok(
+    source.includes("cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}"),
+    "DesirabilityEvidenceCard must pass the correlation into DesirabilityProofContent"
+  );
+});
+
+test("Patch 3: Desirability Impact and Signal Check blocks still render (regression guard)", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes('<h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Impact</h3>'), "Desirability Impact block must remain");
+  assert.ok(source.includes('<h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Signal Check</h3>'), "Desirability Signal Check block must remain");
+  // RIP Core Rank keeps the plain formatter (the investigation found it
+  // populated) — only the confirmed-null fields switched to not-computed.
+  assert.ok(source.includes('<ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} />'), "RIP Core Rank keeps the plain rank formatter");
 });

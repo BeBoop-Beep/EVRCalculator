@@ -3470,7 +3470,7 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
 
 _OVERVIEW_SNAPSHOT_COLUMNS = (
     "set_id,window_key,set_value_histories_json,performance_vs_cost_history_json,"
-    "available_scopes_json,latest_market_date,updated_at,payload_json"
+    "available_scopes_json,latest_market_date,updated_at"
 )
 
 
@@ -3478,9 +3478,10 @@ def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[D
     """Build the slim Overview-tab payload (camelCase only) from a
     pokemon_set_market_dashboard_snapshot_latest row.
 
-    Prefers the split JSON columns; payload_json is read only as a per-field
-    fallback for older rows that predate one of those columns — it is never
-    included in the response, and topChaseCards/topChaseCardHistories/
+    Reads only the split JSON columns — payload_json is never selected or read
+    (the large monolithic column would dominate the query cost; current
+    snapshot rows always populate the split columns). A missing split column
+    yields an empty structure, and topChaseCards/topChaseCardHistories/
     marketMovers/marketMoversByWindow are never built here at all.
     """
     resolved_set_id = _to_optional_str(row.get("set_id"))
@@ -3492,22 +3493,17 @@ def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[D
         "pokemonApiSetId": _to_optional_str(identity_row.get("pokemon_api_set_id")),
     }
 
-    stored_payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-
     histories_by_scope = row.get("set_value_histories_json")
     if not isinstance(histories_by_scope, dict):
-        fallback_histories = stored_payload.get("setValueHistoriesByScope")
-        histories_by_scope = fallback_histories if isinstance(fallback_histories, dict) else {}
+        histories_by_scope = {}
 
     performance_vs_cost_history = row.get("performance_vs_cost_history_json")
     if not isinstance(performance_vs_cost_history, list):
-        fallback_performance = stored_payload.get("performanceVsCostHistory")
-        performance_vs_cost_history = fallback_performance if isinstance(fallback_performance, list) else []
+        performance_vs_cost_history = []
 
     available_scopes = row.get("available_scopes_json")
     if not isinstance(available_scopes, list):
-        fallback_scopes = stored_payload.get("availableScopes")
-        available_scopes = fallback_scopes if isinstance(fallback_scopes, list) else []
+        available_scopes = []
 
     return {
         "set": set_identity,
@@ -3563,10 +3559,10 @@ def get_pokemon_set_overview_snapshot_payload(
     """Return the slim Overview-tab snapshot (Set Value Trend + Performance vs
     Cost + scopes/latestMarketDate) for a Pokemon set.
 
-    Reads pokemon_set_market_dashboard_snapshot_latest, preferring the split
-    set_value_histories_json / performance_vs_cost_history_json /
-    available_scopes_json / latest_market_date columns. Never includes
-    topChaseCards, topChaseCardHistories, marketMovers, or
+    Reads pokemon_set_market_dashboard_snapshot_latest, selecting only the
+    split set_value_histories_json / performance_vs_cost_history_json /
+    available_scopes_json / latest_market_date columns (never payload_json).
+    Never includes topChaseCards, topChaseCardHistories, marketMovers, or
     marketMoversByWindow — see get_pokemon_set_market_dashboard_snapshot_payload
     for those. Public contract is camelCase only.
     """
@@ -3651,6 +3647,40 @@ _TOP_CHASE_SNAPSHOT_COLUMNS = (
     "set_id,window_key,top_chase_cards_json,top_chase_card_histories_json,"
     "latest_market_date,updated_at"
 )
+
+
+def _top_chase_row_latest_date(row: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not isinstance(row, dict):
+        return None
+    return _parse_date_key(row.get("latest_market_date"))
+
+
+def _pick_fresher_top_chase_row(
+    requested_row: Optional[Dict[str, Any]],
+    canonical_row: Optional[Dict[str, Any]],
+) -> tuple[Optional[Dict[str, Any]], bool, Optional[str]]:
+    """Choose which stored dashboard row the slim /market/top-chase endpoint
+    serves, returning (chosen_row, used_fallback_window, fallback_reason).
+
+    Prefer the requested-window row, but fall back to the canonical 365d row
+    when the requested row is missing OR staler than it (a strictly older
+    latest_market_date, or none at all). ISO date keys compare correctly as
+    strings. This keeps Top Chase reading the freshest stored data — the same
+    fresh 365d row Market Movers reads — so a lagging per-window rebuild can
+    never leave Top Chase serving a stale price/history the mover view has
+    already moved past.
+    """
+    if requested_row is None:
+        if canonical_row is None:
+            return None, False, None
+        return canonical_row, True, "missing_requested_window_row"
+    if canonical_row is None:
+        return requested_row, False, None
+    requested_date = _top_chase_row_latest_date(requested_row)
+    canonical_date = _top_chase_row_latest_date(canonical_row)
+    if canonical_date and (requested_date is None or canonical_date > requested_date):
+        return canonical_row, True, "requested_window_row_stale"
+    return requested_row, False, None
 
 
 def _slice_top_chase_history(history: Any, *, days: int) -> List[Dict[str, Any]]:
@@ -3768,10 +3798,20 @@ def get_pokemon_set_top_chase_snapshot_payload(
     filed under a window_key this endpoint's default ("30d") never matches.
     Phase 5E: if the requested-window row is missing, fall back to reading
     the 365d row (still a single extra indexed read, never a rebuild/write)
-    and serve its already-stored cards/histories unchanged. The response
-    still reports the requested window; meta.snapshot records that a
-    fallback window was used so callers/diagnostics can tell the two cases
-    apart.
+    and serve its already-stored cards/histories unchanged.
+
+    Freshness fix (Ascended Heroes): the fallback also triggers when the
+    requested-window row EXISTS but is STALE — its latest_market_date is older
+    than the canonical 365d row's. A lagging per-window rebuild can leave, say,
+    the 30d row frozen weeks behind (stale card price + carried-forward/absent
+    history) while the 365d row is current. Market Movers already reads the
+    fresh 365d row, so serving the stale 30d row here made Top Chase contradict
+    Market Movers for the same card. Serving whichever row is fresher keeps the
+    two in agreement and never lets stale stored data override current data.
+
+    The response still reports the requested window; meta.snapshot records
+    whether a fallback row was used and why (missing vs stale) so callers/
+    diagnostics can tell the cases apart.
     """
     started = time.perf_counter()
     resolved = _to_optional_str(set_id)
@@ -3804,12 +3844,23 @@ def get_pokemon_set_top_chase_snapshot_payload(
     t_query = time.perf_counter()
     row: Optional[Dict[str, Any]] = None
     used_fallback_window = False
+    fallback_reason: Optional[str] = None
     try:
-        row = _read_top_chase_row(resolved_window)
-        if not row and resolved_window == DEFAULT_TOP_CHASE_DASHBOARD_WINDOW:
-            row = _read_top_chase_row(DEFAULT_DASHBOARD_WINDOW)
-            if row:
-                used_fallback_window = True
+        requested_row = _read_top_chase_row(resolved_window)
+        if resolved_window == DEFAULT_DASHBOARD_WINDOW:
+            # The requested window IS the canonical 365d row — there is nothing
+            # fresher to compare it against, so serve it directly.
+            row = requested_row
+        else:
+            # Read the canonical 365d row too and serve whichever is fresher —
+            # this is what stops a stale-but-present requested-window row (the
+            # Ascended Heroes 30d case) from overriding fresher 365d data. Both
+            # reads are single indexed lookups on (set_id, window_key); no
+            # per-card raw-observation scan is added by this comparison.
+            canonical_row = _read_top_chase_row(DEFAULT_DASHBOARD_WINDOW)
+            row, used_fallback_window, fallback_reason = _pick_fresher_top_chase_row(
+                requested_row, canonical_row
+            )
     except Exception as exc:
         logger.warning(
             "[pokemon-snapshot] top chase snapshot read failed set_id=%s window=%s exc=%s",
@@ -3819,6 +3870,8 @@ def get_pokemon_set_top_chase_snapshot_payload(
             exc_info=True,
         )
         row = None
+        used_fallback_window = False
+        fallback_reason = None
     query_ms = round((time.perf_counter() - t_query) * 1000, 3)
 
     if not row:
@@ -3837,10 +3890,11 @@ def get_pokemon_set_top_chase_snapshot_payload(
 
     if used_fallback_window:
         logger.info(
-            "[pokemon-snapshot] top chase snapshot used fallback window set_id=%s requested_window=%s source_window=%s",
+            "[pokemon-snapshot] top chase snapshot used fallback window set_id=%s requested_window=%s source_window=%s reason=%s",
             resolved_set_id,
             resolved_window,
             row.get("window_key"),
+            fallback_reason,
         )
 
     resolved_row_set_id = _to_optional_str(row.get("set_id")) or resolved_set_id
@@ -3893,6 +3947,25 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 top_chase_card_histories = sliced_observation_histories
                 hydrated_from_observations = True
 
+    # The card price column reads top_chase_cards_json's own marketPrice/
+    # currentPrice — the price the snapshot builder computed for the served row.
+    # We deliberately do NOT overwrite it with the latest history point: history
+    # can be stale/carried-forward, and dragging the price onto it makes the
+    # price column MORE stale, not less. Freshness is handled upstream by serving
+    # the fresher row (_pick_fresher_top_chase_row), so the served row's card
+    # price and its history already reflect the same current market truth.
+    top_chase_history_latest_observed_date = max(
+        (
+            date_key
+            for history in top_chase_card_histories.values()
+            if isinstance(history, list)
+            for point in history
+            for date_key in [_parse_date_key(point.get("date"))]
+            if date_key
+        ),
+        default=None,
+    )
+
     history_point_counts = [len(history) for history in top_chase_card_histories.values()]
 
     timings = {
@@ -3901,9 +3974,10 @@ def get_pokemon_set_top_chase_snapshot_payload(
     }
     warnings: List[str] = []
     if used_fallback_window:
+        stale_or_missing = "stale" if fallback_reason == "requested_window_row_stale" else "missing"
         warnings.append(
-            f"Top chase snapshot for window {resolved_window} is missing; served the "
-            f"{DEFAULT_DASHBOARD_WINDOW} window's stored cards/histories instead."
+            f"Top chase snapshot for window {resolved_window} is {stale_or_missing}; served the "
+            f"fresher {DEFAULT_DASHBOARD_WINDOW} window's stored cards/histories instead."
         )
     if top_chase_cards and not any(count > 0 for count in history_point_counts):
         warnings.append(
@@ -3921,13 +3995,20 @@ def get_pokemon_set_top_chase_snapshot_payload(
         "meta": {
             "limit": limit_value,
             "warnings": warnings,
+            # The card price column comes from the served row's own stored
+            # top_chase_cards_json (never dragged onto the history) — the served
+            # row is the freshest of the requested/canonical rows, so priceBasis
+            # + priceSourceWindowKey together say exactly which stored row's
+            # current price the caller is seeing.
             "priceBasis": "pokemon_set_market_dashboard_snapshot_latest.top_chase_cards_json",
+            "priceSourceWindowKey": _to_optional_str(row.get("window_key")) or resolved_window,
             "topChaseHistorySource": (
                 TOP_CHASE_HISTORY_SOURCE
                 if hydrated_from_observations
                 else "pokemon_set_market_dashboard_snapshot_latest.top_chase_card_histories_json"
             ),
             "topChaseHistoryHydratedFromObservations": hydrated_from_observations,
+            "topChaseHistorySourceLatestObservedDate": top_chase_history_latest_observed_date,
             "topChaseHistoryMinPoints": min(history_point_counts) if history_point_counts else 0,
             "topChaseHistoryMaxPoints": max(history_point_counts) if history_point_counts else 0,
             "snapshot": {
@@ -3936,7 +4017,7 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 "requestedWindow": resolved_window,
                 "sourceWindow": _to_optional_str(row.get("window_key")) or resolved_window,
                 "usedFallbackWindow": used_fallback_window,
-                **({"fallbackReason": "missing_requested_window_row"} if used_fallback_window else {}),
+                **({"fallbackReason": fallback_reason} if used_fallback_window and fallback_reason else {}),
                 "updatedAt": _to_optional_str(row.get("updated_at")),
                 "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
                 "isStaleFallback": True,
@@ -4667,6 +4748,274 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
 
     logger.info(
         "[pokemon-snapshot] insights snapshot read complete set_id=%s query_ms=%s total_ms=%s",
+        resolved_set_id,
+        query_ms,
+        payload["meta"]["timings"]["snapshotReadMs"],
+    )
+    return payload
+
+
+def _fetch_insights_snapshot_row(set_id: str):
+    """Shared row-fetch step for the full/critical/secondary Insights
+    payloads below — one indexed read against pokemon_set_page_snapshot_latest,
+    keyed by set_id. Extracted so the critical/secondary split shares it
+    instead of duplicating the query logic; the full payload above is left
+    inlined and untouched to keep its blast radius at zero.
+
+    Returns (row, set_row, resolved_set_id, query_ms, started). `row` is None
+    when the snapshot is missing/unreadable — callers fall back to their own
+    empty-payload shape in that case.
+    """
+    started = time.perf_counter()
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_INSIGHTS_ID_REQUIRED")
+
+    is_uuid = _looks_like_uuid(resolved)
+    set_row: Optional[Dict[str, Any]] = None
+    if is_uuid:
+        resolved_set_id = resolved
+    else:
+        set_row = _resolve_set_row(resolved)
+        resolved_set_id = str(set_row["id"])
+
+    t_query = time.perf_counter()
+    row: Optional[Dict[str, Any]] = None
+    try:
+        result = (
+            public_read_client.table("pokemon_set_page_snapshot_latest")
+            .select(_INSIGHTS_SNAPSHOT_COLUMNS)
+            .eq("set_id", resolved_set_id)
+            .limit(1)
+            .execute()
+        )
+        row = _first_row(result)
+    except Exception as exc:
+        logger.warning(
+            "[pokemon-snapshot] insights snapshot read failed set_id=%s exc=%s",
+            resolved_set_id,
+            exc,
+            exc_info=True,
+        )
+        row = None
+    query_ms = round((time.perf_counter() - t_query) * 1000, 3)
+    return row, set_row, resolved_set_id, query_ms, started
+
+
+def _resolve_insights_set_identity(row: Dict[str, Any], set_row: Optional[Dict[str, Any]], resolved_set_id: str) -> Dict[str, Any]:
+    resolved_row_set_id = _to_optional_str(row.get("set_id")) or resolved_set_id
+    identity_row = set_row or {"id": resolved_row_set_id}
+    return {
+        "id": _to_optional_str(identity_row.get("id")) or resolved_row_set_id,
+        "name": _to_optional_str(identity_row.get("name")),
+        "slug": _to_optional_str(identity_row.get("canonical_key")),
+        "canonicalKey": _to_optional_str(identity_row.get("canonical_key")),
+    }
+
+
+def _empty_insights_critical_payload(
+    *, set_row: Dict[str, Any], warnings: Optional[List[str]] = None, fallback_source: str
+) -> Dict[str, Any]:
+    return {
+        "set": {
+            "id": _to_optional_str(set_row.get("id")),
+            "name": _to_optional_str(set_row.get("name")),
+            "slug": _to_optional_str(set_row.get("canonical_key")),
+            "canonicalKey": _to_optional_str(set_row.get("canonical_key")),
+        },
+        "summary": {},
+        "recommendation": {},
+        "ripScore": {},
+        "interpretation": {},
+        "meta": {
+            "source": fallback_source,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "warnings": list(warnings or []),
+        },
+    }
+
+
+def _empty_insights_secondary_payload(
+    *, set_row: Dict[str, Any], warnings: Optional[List[str]] = None, fallback_source: str
+) -> Dict[str, Any]:
+    return {
+        "set": {
+            "id": _to_optional_str(set_row.get("id")),
+            "name": _to_optional_str(set_row.get("name")),
+            "slug": _to_optional_str(set_row.get("canonical_key")),
+            "canonicalKey": _to_optional_str(set_row.get("canonical_key")),
+        },
+        "ripStatistics": {},
+        "outcomeDistribution": {"percentiles": [], "distributionBins": [], "thresholdBins": []},
+        "simulationDrivers": [],
+        "rarityContribution": [],
+        "historyTrend": [],
+        "desirability": {},
+        "desirabilityValidation": {},
+        "meta": {
+            "source": fallback_source,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "warnings": list(warnings or []),
+        },
+    }
+
+
+def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    """Priority 1-3 slice of the Insights tab: RIP Score hero, pillar cards
+    (interpretation), and the recommendation/"what usually happens" copy.
+    Shares _fetch_insights_snapshot_row with the secondary/full variants —
+    the same one cheap indexed read, no duplicate query logic. See
+    get_pokemon_set_insights_snapshot_payload above for the full-payload
+    docstring; this is a strict subset of the same fields, none of which are
+    ever budget-trimmed (see _INSIGHTS_TRIMMABLE_LIST_PATHS).
+    """
+    row, set_row, resolved_set_id, query_ms, started = _fetch_insights_snapshot_row(set_id)
+
+    if not row or not isinstance(row.get("payload_json"), dict):
+        logger.info(
+            "[pokemon-snapshot] insights critical snapshot missing set_id=%s elapsed_ms=%s",
+            resolved_set_id,
+            round((time.perf_counter() - started) * 1000, 3),
+        )
+        return _empty_insights_critical_payload(
+            set_row=set_row or {"id": resolved_set_id},
+            warnings=["Pokemon set insights snapshot is missing; served empty fallback payload."],
+            fallback_source="empty_fallback_missing_pokemon_set_page_snapshot_latest",
+        )
+
+    payload_json = row["payload_json"]
+    set_identity = _resolve_insights_set_identity(row, set_row, resolved_set_id)
+
+    raw_summary = payload_json.get("summary")
+    raw_interpretation = payload_json.get("interpretation")
+    summary_camel = _to_camel_case_only(raw_summary) if isinstance(raw_summary, dict) else {}
+    interpretation_camel = _to_camel_case_only(raw_interpretation) if isinstance(raw_interpretation, dict) else {}
+
+    interpretation_meta = interpretation_camel.get("meta") if isinstance(interpretation_camel.get("meta"), dict) else {}
+    pack_score_meta = interpretation_meta.get("packScore") if isinstance(interpretation_meta.get("packScore"), dict) else {}
+
+    rip_score_value = summary_camel.get("relativePackScore")
+    if rip_score_value is None:
+        rip_score_value = summary_camel.get("packScore")
+
+    warnings: List[str] = []
+    if not summary_camel:
+        warnings.append("RIP summary is not available for this set yet.")
+
+    payload = {
+        "set": set_identity,
+        "summary": summary_camel,
+        "recommendation": {
+            "label": pack_score_meta.get("label"),
+            "summary": pack_score_meta.get("summary"),
+        },
+        "ripScore": {
+            "score": rip_score_value,
+            "rank": summary_camel.get("packRank"),
+            "tier": summary_camel.get("packTier"),
+        },
+        "interpretation": interpretation_camel,
+        "meta": {
+            "source": "pokemon_set_page_snapshot_latest",
+            "updatedAt": _to_optional_str(row.get("updated_at")),
+            "warnings": warnings,
+            "timings": {
+                "snapshotQueryMs": query_ms,
+                "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
+            },
+        },
+    }
+
+    logger.info(
+        "[pokemon-snapshot] insights critical snapshot read complete set_id=%s query_ms=%s total_ms=%s",
+        resolved_set_id,
+        query_ms,
+        payload["meta"]["timings"]["snapshotReadMs"],
+    )
+    return payload
+
+
+def get_pokemon_set_insights_secondary_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    """Priority 4-5 slice of the Insights tab: charts/distributions (outcome
+    distribution, simulation drivers, rarity contribution, history trend) and
+    deep diagnostics (desirability/desirabilityValidation). Shares
+    _fetch_insights_snapshot_row with the critical/full variants. Reuses
+    _enforce_insights_payload_budget unchanged — its trimmable paths
+    (historyTrend, rarityContribution, simulationDrivers, outcomeDistribution.*)
+    already fall entirely inside this payload.
+    """
+    row, set_row, resolved_set_id, query_ms, started = _fetch_insights_snapshot_row(set_id)
+
+    if not row or not isinstance(row.get("payload_json"), dict):
+        logger.info(
+            "[pokemon-snapshot] insights secondary snapshot missing set_id=%s elapsed_ms=%s",
+            resolved_set_id,
+            round((time.perf_counter() - started) * 1000, 3),
+        )
+        return _empty_insights_secondary_payload(
+            set_row=set_row or {"id": resolved_set_id},
+            warnings=["Pokemon set insights snapshot is missing; served empty fallback payload."],
+            fallback_source="empty_fallback_missing_pokemon_set_page_snapshot_latest",
+        )
+
+    payload_json = row["payload_json"]
+    set_identity = _resolve_insights_set_identity(row, set_row, resolved_set_id)
+
+    raw_rip_statistics = payload_json.get("rip_statistics")
+    raw_percentiles = payload_json.get("percentiles")
+    raw_distribution_bins = payload_json.get("distribution_bins")
+    raw_threshold_bins = payload_json.get("threshold_bins")
+    raw_top_hits = payload_json.get("top_hits")
+    raw_rankings = payload_json.get("rankings")
+    raw_history_trend = payload_json.get("history_trend")
+    raw_desirability = payload_json.get("openingDesirability")
+    if not isinstance(raw_desirability, dict):
+        raw_desirability = payload_json.get("opening_desirability")
+    raw_desirability_validation = payload_json.get("desirabilityValidation")
+    if not isinstance(raw_desirability_validation, dict):
+        raw_desirability_validation = payload_json.get("desirability_validation")
+
+    rip_statistics_camel = _to_camel_case_only(raw_rip_statistics) if isinstance(raw_rip_statistics, dict) else {}
+    desirability_camel = _to_camel_case_only(raw_desirability) if isinstance(raw_desirability, dict) else {}
+    desirability_validation_camel = (
+        _to_camel_case_only(raw_desirability_validation) if isinstance(raw_desirability_validation, dict) else {}
+    )
+
+    warnings: List[str] = []
+    if not isinstance(raw_top_hits, list) or not raw_top_hits:
+        warnings.append("Simulation drivers (top hits) are not available for this set yet.")
+
+    payload = {
+        "set": set_identity,
+        "ripStatistics": rip_statistics_camel,
+        "outcomeDistribution": {
+            "percentiles": _to_camel_case_only(raw_percentiles) if isinstance(raw_percentiles, list) else [],
+            "distributionBins": _to_camel_case_only(raw_distribution_bins) if isinstance(raw_distribution_bins, list) else [],
+            "thresholdBins": _to_camel_case_only(raw_threshold_bins) if isinstance(raw_threshold_bins, list) else [],
+        },
+        "simulationDrivers": _to_camel_case_only(raw_top_hits) if isinstance(raw_top_hits, list) else [],
+        "rarityContribution": _to_camel_case_only(raw_rankings) if isinstance(raw_rankings, list) else [],
+        "historyTrend": _to_camel_case_only(raw_history_trend) if isinstance(raw_history_trend, list) else [],
+        "desirability": desirability_camel,
+        "desirabilityValidation": desirability_validation_camel,
+        "meta": {
+            "source": "pokemon_set_page_snapshot_latest",
+            "updatedAt": _to_optional_str(row.get("updated_at")),
+            "warnings": warnings,
+            "timings": {
+                "snapshotQueryMs": query_ms,
+                "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
+            },
+        },
+    }
+
+    truncated_counts = _enforce_insights_payload_budget(payload)
+    if truncated_counts:
+        payload["meta"]["truncated"] = True
+        payload["meta"]["truncatedOriginalCounts"] = truncated_counts
+
+    logger.info(
+        "[pokemon-snapshot] insights secondary snapshot read complete set_id=%s query_ms=%s total_ms=%s",
         resolved_set_id,
         query_ms,
         payload["meta"]["timings"]["snapshotReadMs"],
