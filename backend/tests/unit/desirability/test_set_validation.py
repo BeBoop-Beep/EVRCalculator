@@ -87,6 +87,61 @@ def test_card_appeal_validation_uses_card_aliases_when_available():
     assert payload["card_appeal_summary"] != "Card appeal validation is not available for this set yet."
 
 
+def test_validation_preserves_explicit_rip_comparison_fields_for_delta():
+    payload = build_desirability_validation_payload(
+        set_id="phantasmal-flames",
+        set_payload={
+            "summary": {
+                "rip_score_without_desirability": 10.97,
+                "rip_score_with_desirability": 21.13,
+                "rip_rank_without_desirability": 27,
+                "rip_rank_with_desirability": 20,
+            }
+        },
+        target_rows=[
+            {
+                "id": "phantasmal-flames",
+                "name": "Phantasmal Flames",
+                "rip_score_without_desirability": 10.97,
+                "rip_score_with_desirability": 21.13,
+                "rip_rank_without_desirability": 27,
+                "rip_rank_with_desirability": 20,
+            },
+            {
+                "id": "other-set",
+                "name": "Other Set",
+                "profit_score": 80,
+                "safety_score": 80,
+                "stability_score": 80,
+                "pack_score": 80,
+            },
+        ],
+    )
+
+    assert payload["rip_core_score_without_desirability"] == 10.97
+    assert payload["final_rip_score_with_desirability"] == 21.13
+    assert payload["rip_core_rank_without_desirability"] == 27
+    assert payload["final_rip_rank_with_desirability"] == 20
+    assert payload["desirability_score_delta"] == 10.16
+    assert payload["desirability_rank_delta"] == 7
+
+
+def test_top_hits_current_near_mint_price_populates_top_10_card_value():
+    payload = build_desirability_validation_payload(
+        set_id="set-1",
+        set_payload={
+            "summary": {"desirability_score": 90, "pack_score": 80},
+            "top_hits": [
+                {"card_name": "A", "current_near_mint_price": 12.34},
+                {"card_name": "B", "current_near_mint_price": 5.66},
+            ],
+        },
+    )
+
+    assert payload["top_10_card_value"] == 18.0
+    assert "top_10_card_value" not in payload["missing_data_flags"]
+
+
 def test_subset_rows_are_excluded_unless_mapped_to_opening_set():
     rows = build_validation_rows(
         [

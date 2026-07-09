@@ -58,6 +58,8 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_card_validation_snapshot_payload,
     get_pokemon_set_cards_page_snapshot_payload,
     get_pokemon_set_cards_snapshot_payload,
+    get_pokemon_set_insights_critical_snapshot_payload,
+    get_pokemon_set_insights_secondary_snapshot_payload,
     get_pokemon_set_insights_snapshot_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
     get_pokemon_set_market_movers_snapshot_payload,
@@ -724,6 +726,47 @@ def get_pokemon_set_insights(set_id: str):
         logger.exception("/tcgs/pokemon/sets/%s/insights unexpected error", set_id)
         return JSONResponse(
             content={"message": "Unable to load Pokemon set insights", "code": "POKEMON_SET_INSIGHTS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/insights/critical")
+def get_pokemon_set_insights_critical(set_id: str):
+    """Priority 1-3 slice of the Insights tab: RIP Score hero, pillar cards
+    (interpretation), and the recommendation copy. Small, fast payload meant
+    to render before /insights/secondary's charts/diagnostics arrive."""
+    try:
+        return get_pokemon_set_insights_critical_snapshot_payload(set_id=set_id)
+    except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/insights/critical unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set insights", "code": "POKEMON_SET_INSIGHTS_CRITICAL_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/insights/secondary")
+def get_pokemon_set_insights_secondary(set_id: str):
+    """Priority 4-5 slice of the Insights tab: outcome distribution,
+    simulation drivers, rarity contribution, history trend, and desirability
+    diagnostics. Fetched independently of /insights/critical so a slow or
+    failed secondary fetch never blocks the RIP Score hero/pillar cards."""
+    try:
+        return get_pokemon_set_insights_secondary_snapshot_payload(set_id=set_id)
+    except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/insights/secondary unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set insights", "code": "POKEMON_SET_INSIGHTS_SECONDARY_FAILED"},
             status_code=500,
         )
 

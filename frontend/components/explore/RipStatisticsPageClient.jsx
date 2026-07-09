@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
+import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
@@ -19,8 +19,15 @@ import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
-import PullRateAssumptionsCard from "@/components/explore/PullRateAssumptionsCard";
+import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
+import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
 import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
+import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
+import SectionBoundary from "@/components/ui/SectionBoundary";
+import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
+import { useSectionTiming } from "@/hooks/useSectionTiming";
+import { useSectionFetchState } from "@/hooks/useSectionFetchState";
+import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming";
 import InfoPopover from "@/components/ui/InfoPopover";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
@@ -60,7 +67,8 @@ import {
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
-import { getPokemonSetInsights } from "@/lib/pokemon/pokemonSetInsightsClient";
+import { getPokemonSetInsightsCritical } from "@/lib/pokemon/pokemonSetInsightsCriticalClient";
+import { getPokemonSetInsightsSecondary } from "@/lib/pokemon/pokemonSetInsightsSecondaryClient";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import {
   buildMarketDashboardStateFromPayload,
@@ -165,12 +173,6 @@ const DEFAULT_MARKET_MOVERS_WINDOW = "30D";
 // Keep the mechanism but disable it by default — the active destination set
 // is enough; bump this only behind a deliberate, measured decision.
 const SET_PREFETCH_ADJACENT_LIMIT = 0;
-// Overview holds one cohesive skeleton until its critical assets (set value
-// history, /overview payload, top chase, market movers) have all settled for
-// the active set, instead of letting each card pop in independently. The cap
-// below force-reveals whatever is available if any fetch hangs, so a stuck
-// request can never wedge the whole tab behind a skeleton.
-const OVERVIEW_COHESIVE_LOADING_MAX_MS = 8000;
 // Insights sections that depend on the /insights payload show skeletons while
 // it loads; after this long they switch to an explicit "taking longer than
 // expected" fallback instead of shimmering forever.
@@ -184,9 +186,9 @@ const SET_DETAIL_SECTION_TARGETS = {
   "set-intelligence": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "set-signals": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "rip-score": { tab: "insights", targetId: "set-detail-rip-score", graphMode: "outcome-distribution" },
-  "desirability-proof": { tab: "insights", targetId: "set-detail-desirability-proof" },
-  "desirability-validation": { tab: "insights", targetId: "set-detail-desirability-validation" },
-  "card-desirability-price": { tab: "insights", targetId: "set-detail-card-desirability-price" },
+  "desirability-proof": { tab: "insights", targetId: "set-detail-desirability-evidence" },
+  "desirability-validation": { tab: "insights", targetId: "set-detail-desirability-evidence" },
+  "card-desirability-price": { tab: "insights", targetId: "set-detail-desirability-evidence" },
   "opening-outcomes": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" },
   "simulation-cards": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-drivers" },
   value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" },
@@ -195,6 +197,12 @@ const SET_DETAIL_SECTION_TARGETS = {
   "set-value-trend": { tab: "overview", targetId: "set-detail-set-value-trend" },
   "top-market-cards": { tab: "overview", targetId: "set-detail-top-market-cards" },
   "market-movers": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
+  "all-cards": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
+};
+const DESIRABILITY_EVIDENCE_MODE_BY_SECTION = {
+  "desirability-proof": "proof",
+  "desirability-validation": "set-validation",
+  "card-desirability-price": "card-validation",
 };
 
 function debugSetPagePerf(label, details = {}) {
@@ -398,6 +406,113 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
   };
 }
 
+// Progressive-rendering split of the adapter above: the critical fetch
+// (priorities 1-3 — RIP Score hero, pillar cards, recommendation copy) and
+// secondary fetch (priorities 4-5 — charts/distributions, deep diagnostics)
+// each merge only their own slice into explorePayload, via functional
+// updates in the two effects below, so they can arrive independently without
+// clobbering each other regardless of which settles first.
+function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
+  return {
+    set: critical?.set || null,
+    summary: dualKeyCase(critical?.summary || {}),
+    interpretation: critical?.interpretation || {},
+  };
+}
+
+function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(secondary) {
+  const outcomeDistribution = secondary?.outcomeDistribution || {};
+  return {
+    rip_statistics: dualKeyCase(secondary?.ripStatistics || {}),
+    percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
+    distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
+    threshold_bins: dualKeyCase(outcomeDistribution.thresholdBins || []),
+    top_hits: dualKeyCase(secondary?.simulationDrivers || []),
+    rankings: dualKeyCase(secondary?.rarityContribution || []),
+    history_trend: dualKeyCase(secondary?.historyTrend || []),
+    openingDesirability: secondary?.desirability || null,
+    desirabilityValidation: secondary?.desirabilityValidation || null,
+  };
+}
+
+function hasNonEmptyArray(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasMeaningfulObjectFields(value, keys = null) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const entries = keys
+    ? keys.map((key) => [key, value[key]])
+    : Object.entries(value);
+  return entries.some(([, inner]) => {
+    if (inner === null || inner === undefined) {
+      return false;
+    }
+    if (Array.isArray(inner)) {
+      return inner.length > 0;
+    }
+    if (typeof inner === "object") {
+      return Object.keys(inner).length > 0;
+    }
+    return typeof inner === "string" ? inner.trim().length > 0 : true;
+  });
+}
+
+function hasInsightsPayloadData(payload) {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+  if (
+    hasNonEmptyArray(payload.distribution_bins || payload.distributionBins) ||
+    hasNonEmptyArray(payload.threshold_bins || payload.thresholdBins) ||
+    hasNonEmptyArray(payload.percentiles) ||
+    hasNonEmptyArray(payload.top_hits || payload.topHits) ||
+    hasNonEmptyArray(payload.rankings) ||
+    hasNonEmptyArray(payload.history_trend || payload.historyTrend)
+  ) {
+    return true;
+  }
+
+  const ripStatistics = payload.rip_statistics || payload.ripStatistics;
+  if (
+    hasMeaningfulObjectFields(ripStatistics, [
+      "pack_paths",
+      "packPaths",
+      "normal_pack_states",
+      "normalPackStates",
+      "distribution_bins",
+      "distributionBins",
+      "threshold_bins",
+      "thresholdBins",
+      "percentiles",
+    ])
+  ) {
+    return true;
+  }
+
+  const openingDesirability = payload.openingDesirability || payload.opening_desirability;
+  if (
+    hasMeaningfulObjectFields(openingDesirability, [
+      "score",
+      "status",
+      "band",
+      "rank",
+      "desirability_score",
+      "desirabilityScore",
+      "opening_desirability_score",
+      "openingDesirabilityScore",
+      "opening_desirability_rank",
+      "openingDesirabilityRank",
+    ])
+  ) {
+    return true;
+  }
+
+  return hasDesirabilityProofSignal(payload.desirabilityValidation || payload.desirability_validation);
+}
+
 function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }) {
   const requestedResourceId = toStableIdentifier(requestedTargetId);
   const selectedResourceId =
@@ -515,11 +630,20 @@ function extractSnapshotCardsFromExplorePayload(payload) {
   return [];
 }
 
-function buildInitialSetPageDataSeed({ explorePayload = null, cardsPayload = null, marketDashboardPayload = null } = {}) {
+function buildInitialSetPageDataSeed({
+  explorePayload = null,
+  cardsPayload = null,
+  marketDashboardPayload = null,
+  overviewPayload = null,
+} = {}) {
   const source = explorePayload && typeof explorePayload === "object" ? explorePayload : {};
   const cardsSource = cardsPayload && typeof cardsPayload === "object" ? cardsPayload : null;
   const marketDashboardSource =
     marketDashboardPayload && typeof marketDashboardPayload === "object" ? marketDashboardPayload : null;
+  // Server-seeded slim /overview snapshot (Overview-tab direct entries only) —
+  // already normalized via normalizeOverviewPayload server-side, passed
+  // through untouched for overviewState hydration.
+  const overviewSource = overviewPayload && typeof overviewPayload === "object" ? overviewPayload : null;
   const cards = Array.isArray(cardsSource?.cards) && cardsSource.cards.length > 0
     ? cardsSource.cards
     : extractSnapshotCardsFromExplorePayload(source);
@@ -589,6 +713,7 @@ function buildInitialSetPageDataSeed({ explorePayload = null, cardsPayload = nul
     cardAppealMarketPriceCorrelation,
     setValueHistoriesByScope,
     marketDashboard: seededMarketDashboardPayload,
+    overview: overviewSource,
     topMarketCards,
     simulationDrivers: selectSimulationDrivers(source).rows,
   };
@@ -1643,6 +1768,7 @@ function ChecklistCardTile({ card }) {
   // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
   const marketDelta = getCardMovement30d(card) || getCardMarketDelta(card);
   const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
+  const hasPriceData = marketPrice !== null;
   // Remote card art lands well after the tile's data (about a second on a
   // cold cache), so the aspect-ratio box shows a shimmering card silhouette
   // and the image fades in once loaded — the grid keeps its final layout
@@ -1655,6 +1781,24 @@ function ChecklistCardTile({ card }) {
     setIsImageLoaded(false);
     setHasImageFailed(false);
   }, [imageUrl]);
+
+  // Priority 5 (secondary metadata): price/delta badges are already part of
+  // the same fetched payload as name/number/rarity — there's nothing extra to
+  // fetch — but computing and painting them for a full batch of tiles at once
+  // is deprioritized behind the base grid via startTransition, so the name +
+  // image (the part that makes a tile identifiable/usable) commits first. The
+  // badge slot's width is reserved from the tile's first commit either way,
+  // so this reveal never shifts the surrounding layout.
+  const [isMetaRevealed, setIsMetaRevealed] = useState(false);
+
+  useEffect(() => {
+    if (!hasPriceData) {
+      return;
+    }
+    startTransition(() => {
+      setIsMetaRevealed(true);
+    });
+  }, [hasPriceData]);
 
   return (
     <article className="group overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
@@ -1689,15 +1833,21 @@ function ChecklistCardTile({ card }) {
             {rarity ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{rarity}</p> : null}
             {subtypeLabel ? <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
           </div>
-          {marketPrice !== null ? (
-            <div className="shrink-0 text-right">
-              <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(marketPrice)}</p>
-              {marketDelta ? (
-                <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight" style={getDeltaBadgeStyle(deltaTone)}>
-                  {marketDelta.amount !== null ? <p>{formatSignedCurrency(marketDelta.amount)}</p> : null}
-                  {marketDelta.percent !== null ? <p>{marketDelta.percent > 0 ? "+" : ""}{marketDelta.percent.toFixed(1)}%</p> : null}
-                </div>
-              ) : null}
+          {hasPriceData ? (
+            <div className="min-w-[4.5rem] shrink-0 text-right">
+              {isMetaRevealed ? (
+                <>
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(marketPrice)}</p>
+                  {marketDelta ? (
+                    <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight" style={getDeltaBadgeStyle(deltaTone)}>
+                      {marketDelta.amount !== null ? <p>{formatSignedCurrency(marketDelta.amount)}</p> : null}
+                      {marketDelta.percent !== null ? <p>{marketDelta.percent > 0 ? "+" : ""}{marketDelta.percent.toFixed(1)}%</p> : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="ml-auto h-3.5 w-12 animate-pulse rounded bg-[rgba(148,163,184,0.12)]" aria-hidden="true" />
+              )}
             </div>
           ) : null}
         </div>
@@ -1763,6 +1913,28 @@ function compareCardSetNumber(left, right) {
     leftValue.raw.localeCompare(rightValue.raw) ||
     String(left?.name || "").localeCompare(String(right?.name || ""))
   );
+}
+
+// Same stable identity the checklist grid uses for React keys — appended
+// pages must never introduce a duplicate of a card that is already rendered.
+function getChecklistCardKey(card) {
+  return String(card?.id || card?.cardNumber || card?.card_number || card?.name || "");
+}
+
+function dedupeChecklistCards(cards) {
+  const seen = new Set();
+  const result = [];
+  for (const card of cards) {
+    const key = getChecklistCardKey(card);
+    if (key && seen.has(key)) {
+      continue;
+    }
+    if (key) {
+      seen.add(key);
+    }
+    result.push(card);
+  }
+  return result;
 }
 
 function getDisplayChecklistCards(cards, sortMode, movementFilter) {
@@ -5222,6 +5394,35 @@ function formatProofDelta(value, suffix = "") {
   return `${sign}${Number.isInteger(parsed) ? parsed : parsed.toFixed(1)}${suffix}`;
 }
 
+// Some desirability proof fields (final RIP rank/score, score/rank deltas,
+// top-10 card value) are simply not computed yet for a set rather than
+// genuinely zero/absent — showing a bare "N/A" reads as broken. These wrap the
+// formatters above so an uncomputed value reads "Not computed yet" instead.
+const PROOF_NOT_COMPUTED_LABEL = "Not computed yet";
+
+function formatProofRankOrNotComputed(value) {
+  return toNumber(value) === null ? PROOF_NOT_COMPUTED_LABEL : formatProofRank(value);
+}
+
+function formatProofDeltaOrNotComputed(value, suffix = "") {
+  return toNumber(value) === null ? PROOF_NOT_COMPUTED_LABEL : formatProofDelta(value, suffix);
+}
+
+// Price Relation prefers the persisted desirabilityValidation correlation, but
+// that field is null across current snapshots even though the set page already
+// carries a computed cardAppealMarketPriceCorrelation (pearson/spearman). Fall
+// back to that existing value rather than showing "n/a" — never recompute.
+function resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation) {
+  const direct = toNumber(
+    validation?.card_appeal_vs_market_price_correlation ?? validation?.cardAppealVsMarketPriceCorrelation
+  );
+  if (direct !== null) {
+    return direct;
+  }
+  const correlation = cardAppealMarketPriceCorrelation || {};
+  return toNumber(correlation.pearson) ?? toNumber(correlation.spearman);
+}
+
 function formatProofBand(value) {
   const text = String(value || "").trim();
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : "Unavailable";
@@ -5272,7 +5473,13 @@ function hasDesirabilityProofSignal(validation) {
   });
 }
 
-function DesirabilityProofCards({ validation, loading = false, loadingTimedOut = false }) {
+function DesirabilityProofContent({
+  validation,
+  cardAppealMarketPriceCorrelation = null,
+  loading = false,
+  loadingTimedOut = false,
+  onSelectMode = null,
+}) {
   if (!hasDesirabilityProofSignal(validation)) {
     // While the /insights payload is still in flight this section holds a
     // stable skeleton box (instead of mounting late as an afterthought); if
@@ -5281,36 +5488,29 @@ function DesirabilityProofCards({ validation, loading = false, loadingTimedOut =
     // grid of "—" placeholders and never a silently missing section.
     if (loading) {
       return (
-        <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28" aria-busy={!loadingTimedOut}>
-          <SectionCard
-            title="Desirability Proof"
-            subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
-          >
-            {loadingTimedOut ? (
-              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-                Set insights are taking longer than expected to load. Refresh the page to retry.
-              </div>
-            ) : (
-              <InlinePanelSkeleton rows={3} />
-            )}
-          </SectionCard>
-        </section>
+        <div aria-busy={!loadingTimedOut}>
+          {loadingTimedOut ? (
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+              Set insights are taking longer than expected to load. Refresh the page to retry.
+            </div>
+          ) : (
+            <InlinePanelSkeleton rows={3} />
+          )}
+        </div>
       );
     }
     return (
-      <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28">
-        <SectionCard
-          title="Desirability Proof"
-          subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
-        >
-          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-            Desirability proof isn&apos;t available for this set yet. It appears once this set has enough desirability and market data to compare.
-          </p>
-        </SectionCard>
-      </section>
+      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+        Desirability proof isn&apos;t available for this set yet. It appears once this set has enough desirability and market data to compare.
+      </p>
     );
   }
 
+  const missingDataFlags = validation.missing_data_flags || validation.missingDataFlags || [];
+  const top10CardValueNotComputed =
+    (Array.isArray(missingDataFlags) && missingDataFlags.includes("top_10_card_value")) ||
+    toNumber(validation.top_10_card_value_rank ?? validation.top10CardValueRank) === null;
+  const priceRelationValue = resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation);
   const impactBand = formatProofBand(validation.desirability_impact_band || validation.desirabilityImpactBand);
   const alignmentBand = formatProofBand(validation.desirability_alignment_band || validation.desirabilityAlignmentBand);
   const cardAppealScore = toNumber(validation.card_appeal_score ?? validation.cardAppealScore);
@@ -5324,13 +5524,7 @@ function DesirabilityProofCards({ validation, loading = false, loadingTimedOut =
       : validation.desirability_impact_summary || validation.desirabilityImpactSummary;
 
   return (
-    <section id="set-detail-desirability-proof" className="scroll-mt-24 md:scroll-mt-28">
-      <SectionCard
-        title="Desirability Proof"
-        subtitle="Shows how collector demand affects RIP Score and whether market/chase outcomes support it."
-        titleInfoText="Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals."
-        bodyClassName="grid gap-4 lg:grid-cols-2"
-      >
+    <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0">
@@ -5341,9 +5535,9 @@ function DesirabilityProofCards({ validation, loading = false, loadingTimedOut =
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} />
-            <ProofMetric label="Final RIP Rank" value={formatProofRank(finalRank)} />
-            <ProofMetric label="Score Delta" value={formatProofDelta(validation.desirability_score_delta ?? validation.desirabilityScoreDelta)} />
-            <ProofMetric label="Rank Delta" value={formatProofDelta(rankDelta, " ranks")} />
+            <ProofMetric label="Final RIP Rank" value={formatProofRankOrNotComputed(finalRank)} />
+            <ProofMetric label="Score Delta" value={formatProofDeltaOrNotComputed(validation.desirability_score_delta ?? validation.desirabilityScoreDelta)} />
+            <ProofMetric label="Rank Delta" value={formatProofDeltaOrNotComputed(rankDelta, " ranks")} />
           </div>
           <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">{validation.desirability_impact_summary || validation.desirabilityImpactSummary}</p>
         </div>
@@ -5360,7 +5554,7 @@ function DesirabilityProofCards({ validation, loading = false, loadingTimedOut =
             <ProofMetric label="Desirability" value={formatProofRank(validation.desirability_rank ?? validation.desirabilityRank)} />
             <ProofMetric label="Set Value" value={formatProofRank(validation.set_value_rank ?? validation.setValueRank)} />
             <ProofMetric label="Top Chase" value={formatProofRank(validation.top_chase_value_rank ?? validation.topChaseValueRank)} />
-            <ProofMetric label="Top 10 Cards" value={formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank)} />
+            <ProofMetric label="Top 10 Cards" value={top10CardValueNotComputed ? PROOF_NOT_COMPUTED_LABEL : formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank)} />
             <ProofMetric label="P95" value={formatProofRank(validation.p95_rank ?? validation.p95Rank)} />
             <ProofMetric label="EV" value={formatProofRank(validation.expected_value_rank ?? validation.expectedValueRank)} />
           </div>
@@ -5373,15 +5567,20 @@ function DesirabilityProofCards({ validation, loading = false, loadingTimedOut =
               <div className="mb-2 grid gap-2 sm:grid-cols-3">
                 <ProofMetric label="Card Appeal" value={formatProofRank(validation.card_appeal_rank ?? validation.cardAppealRank)} />
                 <ProofMetric label="Appeal Check" value={formatProofBand(validation.card_appeal_alignment_band ?? validation.cardAppealAlignmentBand)} />
-                <ProofMetric label="Price Relation" value={formatCorrelationValue(validation.card_appeal_vs_market_price_correlation ?? validation.cardAppealVsMarketPriceCorrelation)} />
+                <ProofMetric label="Price Relation" value={priceRelationValue === null ? PROOF_NOT_COMPUTED_LABEL : formatCorrelationValue(priceRelationValue)} />
               </div>
             ) : null}
             <p>{cardAppealSummary}</p>
-            <a href="#set-detail-card-desirability-price" className="mt-2 inline-flex text-xs font-semibold text-[var(--accent)] hover:text-[var(--text-primary)]">View Card Appeal chart</a>
+            <a
+              href="#set-detail-card-desirability-price"
+              onClick={() => onSelectMode?.("card-validation")}
+              className="mt-2 inline-flex text-xs font-semibold text-[var(--accent)] hover:text-[var(--text-primary)]"
+            >
+              View Card Appeal chart
+            </a>
           </div>
         </div>
-      </SectionCard>
-    </section>
+    </div>
   );
 }
 
@@ -5451,7 +5650,7 @@ function buildDesirabilityValidationPoint(row, metric) {
   };
 }
 
-function DesirabilityValidationCard({ targets, freshness = null }) {
+function DesirabilityValidationContent({ targets, freshness = null }) {
   const [selectedMetricKey, setSelectedMetricKey] = useState("setValue");
   const rows = useMemo(() => (Array.isArray(targets) ? targets : []), [targets]);
   const metricOptions = DESIRABILITY_VALIDATION_METRICS.filter((metric) => {
@@ -5503,13 +5702,14 @@ function DesirabilityValidationCard({ targets, freshness = null }) {
   }, [points, rows, selectedMetric, validationContract.diagnostics]);
 
   return (
-    <section id="set-detail-desirability-validation" className="scroll-mt-24 md:scroll-mt-28">
-      <SectionCard
-        title="Desirability Validation"
-        subtitle="Compare set desirability against market and simulation outcomes."
-        titleInfoText={formatSectionFreshnessInfo(freshness).trim() || null}
-        bodyClassName="space-y-4"
-      >
+    <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Set Validation</h3>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+            Compare set desirability against market and simulation outcomes.
+            {formatSectionFreshnessInfo(freshness)}
+          </p>
+        </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="grid min-w-0 grid-cols-3 gap-2 sm:max-w-md">
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
@@ -5603,8 +5803,7 @@ function DesirabilityValidationCard({ targets, freshness = null }) {
             Not enough set data to compare yet. This chart appears once at least three sets have this metric.
           </p>
         )}
-      </SectionCard>
-    </section>
+    </div>
   );
 }
 
@@ -5941,7 +6140,7 @@ function getValidationBucketRowKey(bucket, row, index) {
     .join(":");
 }
 
-function CardDesirabilityMarketValidationCard({
+function CardDesirabilityMarketValidationContent({
   cards,
   cardAppealMarketPriceCorrelation = null,
   diagnosticsContext = {},
@@ -6056,13 +6255,16 @@ function CardDesirabilityMarketValidationCard({
   }, [diagnosticsContext, points, rawPoints, rows, selectedMetric, selectedScope]);
 
   return (
-    <section id="set-detail-card-desirability-price" className="scroll-mt-24 md:scroll-mt-28">
-      <SectionCard
-        title={`${selectedMetric.label} vs Market Price`}
-        subtitle={isCardAppealMetric ? CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT : selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set."}
-        titleInfoText={isCardAppealMetric ? cardAppealInfoText : null}
-        bodyClassName="space-y-4"
-      >
+    <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">{selectedMetric.label} vs Market Price</h3>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+            {isCardAppealMetric ? CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT : selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set."}
+          </p>
+          {isCardAppealMetric ? (
+            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{cardAppealInfoText}</p>
+          ) : null}
+        </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="grid min-w-0 grid-cols-3 gap-2 sm:max-w-md">
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
@@ -6203,6 +6405,69 @@ function CardDesirabilityMarketValidationCard({
           <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
             {"Not enough card appeal and market price data yet."} This chart appears once enough cards in this set have both appeal scores and market prices.
           </p>
+        )}
+    </div>
+  );
+}
+
+function DesirabilityEvidenceCard({
+  mode,
+  onModeChange,
+  validation,
+  proofLoading = false,
+  proofLoadingTimedOut = false,
+  targets,
+  setValidationFreshness = null,
+  cards,
+  cardAppealMarketPriceCorrelation = null,
+  diagnosticsContext = {},
+  cardValidationFreshness = null,
+  snapshotLoading = false,
+  dataLoading = false,
+}) {
+  const selectedMode = ["proof", "set-validation", "card-validation"].includes(mode) ? mode : "proof";
+
+  return (
+    <section id="set-detail-desirability-evidence" className="scroll-mt-24 md:scroll-mt-28">
+      <span id="set-detail-desirability-proof" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
+      <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
+      <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
+      <SectionCard
+        title="Desirability Evidence"
+        subtitle="Proof, set-level validation, and card-level market checks in one place."
+        titleInfoText="Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals."
+        bodyClassName="space-y-4"
+      >
+        <SegmentedControl
+          options={[
+            { value: "proof", label: "Proof" },
+            { value: "set-validation", label: "Set Validation" },
+            { value: "card-validation", label: "Card Validation" },
+          ]}
+          value={selectedMode}
+          onChange={onModeChange}
+          ariaLabel="Desirability evidence mode"
+        />
+
+        {selectedMode === "proof" ? (
+          <DesirabilityProofContent
+            validation={validation}
+            cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}
+            loading={proofLoading}
+            loadingTimedOut={proofLoadingTimedOut}
+            onSelectMode={onModeChange}
+          />
+        ) : selectedMode === "set-validation" ? (
+          <DesirabilityValidationContent targets={targets} freshness={setValidationFreshness} />
+        ) : (
+          <CardDesirabilityMarketValidationContent
+            cards={cards}
+            cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}
+            diagnosticsContext={diagnosticsContext}
+            freshness={cardValidationFreshness}
+            snapshotLoading={snapshotLoading}
+            dataLoading={dataLoading}
+          />
         )}
       </SectionCard>
     </section>
@@ -6641,6 +6906,7 @@ function SetPageNavigationRail({
   isSwitchingTarget = false,
   activeTab,
   activeCardsSubTab,
+  activeCardsSection = "all-cards",
   activeGraphMode,
   showTopMarketCards = false,
   onTargetChange,
@@ -6665,7 +6931,11 @@ function SetPageNavigationRail({
         ]
       : activeTab === "cards"
       ? [
-          { id: "all-cards", label: "All Cards", tab: "cards", cardsSubTab: "checklist", active: activeCardsSubTab === "checklist" },
+          // The active highlight must track the cards *section* (URL
+          // `section` param), not just the sub-tab — otherwise
+          // ?section=market-movers renders with "All Cards" highlighted.
+          { id: "all-cards", label: "All Cards", tab: "cards", section: "all-cards", cardsSubTab: "checklist", targetId: "set-detail-cards", active: activeCardsSubTab === "checklist" && activeCardsSection !== "market-movers" },
+          { id: "market-movers", label: "Market Movers", tab: "cards", section: "market-movers", cardsSubTab: "checklist", targetId: "set-detail-cards", active: activeCardsSubTab === "checklist" && activeCardsSection === "market-movers" },
         ]
       : activeTab === "pull-rates"
       ? [
@@ -6673,9 +6943,7 @@ function SetPageNavigationRail({
         ]
       : [
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
-          { id: "desirability-proof", label: "Desirability Proof", tab: "insights", section: "desirability-proof", targetId: "set-detail-desirability-proof", active: false },
-          { id: "desirability-validation", label: "Desirability Validation", tab: "insights", section: "desirability-validation", targetId: "set-detail-desirability-validation", active: false },
-          { id: "card-desirability-price", label: "Card Validation", tab: "insights", section: "card-desirability-price", targetId: "set-detail-card-desirability-price", active: false },
+          { id: "desirability-evidence", label: "Desirability Evidence", tab: "insights", section: "desirability-proof", targetId: "set-detail-desirability-evidence", active: false },
           { id: "opening-outcomes", label: "Opening Outcomes", tab: "insights", section: "opening-outcomes", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
           { id: "value", label: "Value Structure", tab: "insights", section: "value", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
@@ -6981,6 +7249,14 @@ export default function RipStatisticsPageClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  // Dedicated transition for same-set tab/section navigation, separate from
+  // isPending/startTransition above (which only covers the set-switcher).
+  // Wrapping router.push here keeps the currently-mounted tab content visible
+  // with a pending flag instead of letting Next show the route's fullscreen
+  // loading.js fallback during the RSC round-trip — router.push itself is
+  // unchanged, still the single call site, still a real navigation (see
+  // pushSetDetailRouteState below).
+  const [isTabNavPending, startTabTransition] = useTransition();
   const [explorePayload, setExplorePayload] = useState(initialExplorePayload || null);
   const [setPageSnapshotRefreshState, setSetPageSnapshotRefreshState] = useState({
     status: "idle",
@@ -7022,13 +7298,34 @@ export default function RipStatisticsPageClient({
   // fetch below) so a stale response can detect a set switch even if abort
   // somehow doesn't win the race.
   activeSetResourceIdRef.current = resolvedSetResourceId;
+  // A set switch can leave the shellPayload prop holding the PREVIOUS set's
+  // data for a render or two before the new set's shell commits. Merging that
+  // mismatched shell would render the previous set's title-card metrics under
+  // the new set's name (Temporal Forces blank/leak race). Only trust the shell
+  // when its own identity matches the active set — but if the shell carries no
+  // resolvable identity at all, keep using it (we can't prove a mismatch, and
+  // blanking a valid identity-less shell would regress the common case).
+  const shellPayloadIsForActiveSet = useMemo(() => {
+    if (!shellPayload) {
+      return false;
+    }
+    if (!resolvedSetResourceId) {
+      return true;
+    }
+    const shellIdentity = getSetSnapshotIdentity(shellPayload);
+    if (getSetIdentityTokens(shellIdentity).length === 0) {
+      return true;
+    }
+    return setIdentityMatchesTarget(shellIdentity, resolvedSetResourceId);
+  }, [shellPayload, resolvedSetResourceId]);
+  const effectiveShellPayload = shellPayloadIsForActiveSet ? shellPayload : null;
   // explorePayload and shellPayload carry different field sets for the same
   // set (e.g. shellPayload's setValueHistoriesByScope is populated by a
   // shell-only checklist-set-value enrichment that explorePayload never
   // receives), so this must merge field-by-field rather than picking one
   // payload's summary exclusively — an OR here silently drops whichever
   // payload lost, even when it's the only one carrying a given field.
-  const summary = { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) };
+  const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };
   const isTimeoutFallbackPayload = setDetailMode && isSetPageTransportFallback(explorePayload);
   const isPrimarySnapshotUnavailable = setDetailMode && isSetPagePrimarySnapshotUnavailable(explorePayload);
   const hasActiveSetPageIdentity = useMemo(
@@ -7066,12 +7363,12 @@ export default function RipStatisticsPageClient({
     () =>
       setDetailMode
         ? adaptSetShell({
-            ...(shellPayload || {}),
+            ...(effectiveShellPayload || {}),
             ...(explorePayload || {}),
-            summary: { ...(shellPayload?.summary || {}), ...(explorePayload?.summary || {}) },
+            summary: { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) },
           })
         : null,
-    [explorePayload, shellPayload, setDetailMode]
+    [explorePayload, effectiveShellPayload, setDetailMode]
   );
   // Cards/Overview intentionally skip the full explorePayload fetch for performance,
   // so set-detail pages must be able to render from shellPayload alone.
@@ -7098,15 +7395,31 @@ export default function RipStatisticsPageClient({
   );
   const initialCardsPayload = initialModuleSnapshots?.cardsPayload || null;
   const initialMarketDashboardPayload = initialModuleSnapshots?.marketDashboardPayload || null;
+  const initialOverviewPayload = initialModuleSnapshots?.overviewPayload || null;
   const initialSetPageDataSeed = useMemo(
     () =>
       buildInitialSetPageDataSeed({
         explorePayload,
         cardsPayload: initialCardsPayload,
         marketDashboardPayload: initialMarketDashboardPayload,
+        overviewPayload: initialOverviewPayload,
       }),
-    [explorePayload, initialCardsPayload, initialMarketDashboardPayload]
+    [explorePayload, initialCardsPayload, initialMarketDashboardPayload, initialOverviewPayload]
   );
+  // Server-seeded /overview snapshot, trusted only when its set identity
+  // matches the resolved set (a stale seed from a previous set must never
+  // render under the new set's title) and it was built for the same window
+  // overviewState fetches (365d).
+  const seededOverviewPayload = useMemo(() => {
+    const seed = initialSetPageDataSeed.overview;
+    if (!seed || !setIdentityMatchesTarget(seed.set, resolvedSetResourceId)) {
+      return null;
+    }
+    if (seed.window && seed.window !== DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW) {
+      return null;
+    }
+    return seed;
+  }, [initialSetPageDataSeed, resolvedSetResourceId]);
   const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation;
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
@@ -7138,7 +7451,7 @@ export default function RipStatisticsPageClient({
   // (recommendation badge/summary, pillar metas, set intelligence lenses)
   // must fall back to the shell — otherwise it silently disappears whenever
   // explorePayload isn't the active tab's payload.
-  const interpretation = explorePayload?.interpretation || shellPayload?.interpretation || {};
+  const interpretation = explorePayload?.interpretation || effectiveShellPayload?.interpretation || {};
   const interpretationMeta = interpretation?.meta || {};
   const pillarMetaByKey = useMemo(() => {
     const entries = Array.isArray(interpretationMeta?.pillars)
@@ -7171,10 +7484,13 @@ export default function RipStatisticsPageClient({
       summary?.profit_rank !== null &&
       summary?.profit_rank !== undefined
   );
+  // The Simulation Drivers diagnostics warning is intentionally NOT part of
+  // rawWarnings anymore — whether it is real evidence depends on the insights
+  // secondary fetch status, which is derived further down. See
+  // visibleSetPageWarnings below.
   const rawWarnings = [
     ...(targetsPayload?.meta?.warnings || []),
     ...(explorePayload?.meta?.warnings || []),
-    ...(simulationDrivers.diagnostics?.warning ? [simulationDrivers.diagnostics.warning] : []),
     ...(setPageSnapshotRefreshState.status === "error"
       ? [`Set page snapshot retry failed: ${setPageSnapshotRefreshState.error}`]
       : []),
@@ -7202,6 +7518,7 @@ export default function RipStatisticsPageClient({
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
   const [, setInsightsValueView] = useState("value-structure");
+  const [selectedDesirabilityEvidenceMode, setSelectedDesirabilityEvidenceMode] = useState("proof");
   const effectiveViewMode = setDetailMode ? "expert" : viewMode;
   const isExpertMode = effectiveViewMode === "expert";
   const effectiveValueView = setDetailMode ? "value" : isExpertMode ? activeValueView : "cards";
@@ -7211,36 +7528,74 @@ export default function RipStatisticsPageClient({
   const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
+  // Keep this below the setDetailTab state declaration. Computing it earlier
+  // reads setDetailTab during its temporal dead zone and crashes set routes.
+  const hasActiveInsightsPayload =
+    setDetailMode && setDetailTab === "insights"
+      ? hasInsightsPayloadData(explorePayload)
+      : Boolean(explorePayload);
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
-  // Loading-cohesion escape hatches, keyed by set id so a set switch
-  // re-engages the cohesive hold for the new set: Overview force-reveals its
-  // content if a critical fetch hangs past OVERVIEW_COHESIVE_LOADING_MAX_MS,
-  // and Insights swaps its skeletons for explicit "taking longer than
-  // expected" copy past INSIGHTS_PENDING_TIMEOUT_MS.
-  const [overviewCohesionForceReveal, setOverviewCohesionForceReveal] = useState({ setId: null, revealed: false });
+  // Active Cards-tab section ("all-cards" | "market-movers"). Mirrors the URL
+  // `section` param so the sidebar highlight, the section tab strip, and the
+  // URL can never diverge — the URL-consumption effect below re-derives it on
+  // every searchParams change.
+  const [cardsSection, setCardsSection] = useState(() =>
+    getSetDetailTabParam(searchParams) === "cards" && getSetDetailSectionParam(searchParams) === "market-movers"
+      ? "market-movers"
+      : "all-cards"
+  );
+  // Loading-cohesion escape hatch, keyed by set id so a set switch re-engages
+  // the hold for the new set: Insights swaps its skeletons for explicit
+  // "taking longer than expected" copy past INSIGHTS_PENDING_TIMEOUT_MS.
+  // Overview no longer has an equivalent whole-tab hold — each of its
+  // sections (Set Value, Performance vs Cost, Market Movers, Top Chase,
+  // Market Signals) now gates independently on its own fetch status instead
+  // of one shared cohesive skeleton.
   const [insightsPendingTimeoutState, setInsightsPendingTimeoutState] = useState({ setId: null, timedOut: false });
-  // Explicit /insights fetch lifecycle, keyed by set id. The payload itself
-  // lives in explorePayload, but sections need to distinguish "fetch still in
-  // flight" (skeleton) from "fetch settled in error with no payload" (compact
-  // fallback copy) — without this, a failed fetch left skeletons shimmering
-  // until the generic timeout fired, and nothing distinguished error from
-  // slow.
-  const [insightsFetchState, setInsightsFetchState] = useState({ setId: null, status: "idle", error: null });
+  const [insightsCriticalPendingTimeoutState, setInsightsCriticalPendingTimeoutState] = useState({ setId: null, timedOut: false });
+  // Insights critical (priorities 1-3: RIP Score hero, pillar cards,
+  // recommendation copy) and secondary (priorities 4-5: charts/distributions,
+  // deep diagnostics) fetches, split from the single getPokemonSetInsights
+  // call this replaced. Each merges only its own slice into explorePayload
+  // (see the two effects below and the adapters above) so the existing
+  // Insights render tree — which still just reads summary/interpretation/
+  // rip_statistics/percentiles/etc. off explorePayload — needs no changes;
+  // only what feeds it, and how each section gates on it, changed.
+  const insightsFetchEnabled =
+    setDetailMode && setDetailTab === "insights" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
+  const { state: insightsCriticalFetchState, refetch: refetchInsightsCritical } = useSectionFetchState(
+    getPokemonSetInsightsCritical,
+    { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }
+  );
+  const { state: insightsSecondaryFetchState, refetch: refetchInsightsSecondary } = useSectionFetchState(
+    getPokemonSetInsightsSecondary,
+    { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }
+  );
   // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
   // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
   const [pullRatesPendingTimeoutState, setPullRatesPendingTimeoutState] = useState({ setId: null, timedOut: false });
   const [cardSortMode, setCardSortMode] = useState("set-number");
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
   const [cardSearchQuery, setCardSearchQuery] = useState("");
+  // Highest requested page for the current cards scope. Pages are appended
+  // (infinite scroll) rather than swapped — the sentinel observer advances
+  // this, and the scope-reset effect below rewinds it to 1.
   const [cardsPage, setCardsPage] = useState(1);
+  // Bumped by the bottom "Retry" button after a failed load-more so the fetch
+  // effect re-runs without changing the page/scope (the request-key ref is
+  // already cleared on error).
+  const [cardsPageRetryNonce, setCardsPageRetryNonce] = useState(0);
   // Cards tab reads from this slim, paginated state (getPokemonSetCardsPage)
   // instead of the checklistState below — checklistState is now reserved for
   // Insights' card validation chart, sourced from the slim
   // getPokemonSetCardsValidation contract (Phase 3C) rather than the full
   // legacy /cards payload.
+  // `cards` accumulates every loaded page for `scopeKey` (set + sort + search
+  // + movement filter); `page` is the highest page merged into it.
   const [cardsPageState, setCardsPageState] = useState(() => ({
     status: "idle",
     setId: resolvedSetResourceId,
+    scopeKey: null,
     page: 1,
     cards: [],
     pagination: null,
@@ -7337,12 +7692,16 @@ export default function RipStatisticsPageClient({
   // /overview endpoint instead of the multi-MB /market/dashboard payload once
   // it loads; marketDashboardState above is still the fallback until it does,
   // and Top Chase Cards/Market Movers still read marketDashboardState only.
+  // Hydrated from the route-level /overview seed (Overview direct entries)
+  // so both sections render on first paint; the fetch effect below then
+  // refreshes it quietly (the reducer's "loading" case keeps a same-set
+  // payload as success_stale, so no loading panel replaces seeded data).
   const [overviewState, dispatchOverview] = useReducer(
     marketDashboardReducer,
     {
-      status: "idle",
+      status: seededOverviewPayload ? "success" : "idle",
       setId: resolvedSetResourceId,
-      payload: null,
+      payload: seededOverviewPayload,
       sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
     },
     createMarketDashboardState
@@ -7455,6 +7814,33 @@ export default function RipStatisticsPageClient({
         setIdentityMatchesTarget(previousIdentity, requestedTargetId)
       ) {
         return previous;
+      }
+      // A payload assembled purely from the split Insights fetches can lack a
+      // usable set identity (the secondary slice carries no `set` field), so
+      // the identity check above can't vouch for it — blanking here used to
+      // clobber freshly-merged insights data on same-set navigation commits,
+      // and the merge effects (keyed to fetch state that hadn't changed)
+      // never re-ran, stranding Insights on skeletons until the timeout copy
+      // appeared even though both fetches had returned 200. Rebuild from the
+      // already-successful fetches instead; the fetch-state setId guard keeps
+      // a genuinely stale set's data from surviving.
+      const criticalSlice =
+        insightsCriticalFetchState.status === "success" &&
+        isSetStateForActiveSet(insightsCriticalFetchState.setId, { requestedTargetId, selectedTarget, resolvedSetResourceId })
+          ? adaptPokemonSetInsightsCriticalPayloadToExplorePayload(insightsCriticalFetchState.data)
+          : null;
+      const secondarySlice =
+        insightsSecondaryFetchState.status === "success" &&
+        isSetStateForActiveSet(insightsSecondaryFetchState.setId, { requestedTargetId, selectedTarget, resolvedSetResourceId })
+          ? adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(insightsSecondaryFetchState.data)
+          : null;
+      if (criticalSlice || secondarySlice) {
+        debugSetPagePerf("insights.remerged_after_navigation_reset", {
+          setId: resolvedSetResourceId,
+          hasCriticalSlice: Boolean(criticalSlice),
+          hasSecondarySlice: Boolean(secondarySlice),
+        });
+        return { ...(criticalSlice || {}), ...(secondarySlice || {}) };
       }
       return null;
     });
@@ -7657,68 +8043,46 @@ export default function RipStatisticsPageClient({
     };
   }, [setDetailMode, setDetailTab, explorePayload, resolvedSetResourceId, requestedTargetId]);
 
-  // Insights tab fetch effect (Phase 4B): slim, dedicated fetch
-  // (getPokemonSetInsights) instead of the full /page payload. Writes
-  // directly into explorePayload (via adaptPokemonSetInsightsPayloadToExplorePayload
-  // above) rather than a separate insights-only state slice, since summary/
-  // ripStatistics/percentiles/distributionBins/thresholdBins/simulationDrivers
-  // (topHits)/rankings/interpretation/historyTrend/openingDesirability/
-  // desirabilityValidation below all already read from explorePayload and
-  // need no further changes to keep rendering the same Insights UI.
+  // Insights tab fetch effects (progressive-rendering split of the former
+  // Phase 4B single getPokemonSetInsights call): insightsCriticalFetchState/
+  // insightsSecondaryFetchState (declared above via useSectionFetchState)
+  // fetch in parallel; each merge effect below writes only its own slice
+  // into explorePayload as soon as it settles, via a functional update so
+  // the two writes can land in either order without clobbering each other.
+  // hasInsightsPayloadData(explorePayload) (used elsewhere) already checks
+  // exactly the secondary-owned fields (percentiles/topHits/rankings/
+  // historyTrend/rip_statistics/openingDesirability/desirabilityValidation),
+  // so it continues to work unchanged as a "secondary data has arrived"
+  // signal without needing to know about the split.
   useEffect(() => {
-    if (!setDetailMode || explorePayload) {
-      return undefined;
+    if (insightsCriticalFetchState.status !== "success" || insightsCriticalFetchState.setId !== resolvedSetResourceId) {
+      return;
     }
-    if (setDetailTab !== "insights" || !canFetchSetDetailModules) {
-      return undefined;
-    }
-    const setId = resolvedSetResourceId || requestedTargetId;
-    if (!setId) {
-      return undefined;
-    }
+    setExplorePayload((previous) => ({
+      ...(previous || {}),
+      ...adaptPokemonSetInsightsCriticalPayloadToExplorePayload(insightsCriticalFetchState.data),
+    }));
+  }, [insightsCriticalFetchState.status, insightsCriticalFetchState.setId, insightsCriticalFetchState.data, resolvedSetResourceId]);
 
-    const fetchKey = `insights:${requestedTargetId || ""}:${setId}`;
-    if (explorePagePayloadFetchKeyRef.current === fetchKey) {
-      return undefined;
+  useEffect(() => {
+    if (insightsSecondaryFetchState.status !== "success" || insightsSecondaryFetchState.setId !== resolvedSetResourceId) {
+      return;
     }
-    explorePagePayloadFetchKeyRef.current = fetchKey;
-
-    let isCancelled = false;
-    let requestSettled = false;
-    setInsightsFetchState({ setId, status: "loading", error: null });
-    getPokemonSetInsights(setId)
-      .then((payload) => {
-        requestSettled = true;
-        if (isCancelled) {
-          return;
-        }
-        if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
-          return;
-        }
-        setExplorePayload(adaptPokemonSetInsightsPayloadToExplorePayload(payload));
-        setInsightsFetchState({ setId, status: "success", error: null });
-      })
-      .catch((error) => {
-        requestSettled = true;
-        if (explorePagePayloadFetchKeyRef.current === fetchKey) {
-          explorePagePayloadFetchKeyRef.current = null;
-        }
-        if (isCancelled) {
-          return;
-        }
-        setInsightsFetchState({ setId, status: "error", error: error?.message || "Unable to load set insights." });
-      });
-
-    return () => {
-      isCancelled = true;
-      // An unsettled request's response will be ignored (isCancelled), so a
-      // revisit must be allowed to fetch again — otherwise Insights could
-      // render without its payload forever with the key still claimed.
-      if (!requestSettled && explorePagePayloadFetchKeyRef.current === fetchKey) {
-        explorePagePayloadFetchKeyRef.current = null;
-      }
-    };
-  }, [setDetailMode, setDetailTab, explorePayload, requestedTargetId, selectedTarget, resolvedSetResourceId, canFetchSetDetailModules]);
+    const secondarySlice = adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(insightsSecondaryFetchState.data);
+    debugSetPagePerf("insights.secondary_merged", {
+      setId: insightsSecondaryFetchState.setId,
+      topHitsCount: Array.isArray(secondarySlice.top_hits) ? secondarySlice.top_hits.length : 0,
+      percentilesCount: Array.isArray(secondarySlice.percentiles) ? secondarySlice.percentiles.length : 0,
+      distributionBinsCount: Array.isArray(secondarySlice.distribution_bins) ? secondarySlice.distribution_bins.length : 0,
+      rankingsCount: Array.isArray(secondarySlice.rankings) ? secondarySlice.rankings.length : 0,
+      historyTrendCount: Array.isArray(secondarySlice.history_trend) ? secondarySlice.history_trend.length : 0,
+      payloadSource: "insights_secondary_fetch",
+    });
+    setExplorePayload((previous) => ({
+      ...(previous || {}),
+      ...secondarySlice,
+    }));
+  }, [insightsSecondaryFetchState.status, insightsSecondaryFetchState.setId, insightsSecondaryFetchState.data, resolvedSetResourceId]);
 
   const graphSectionMeta =
     activeInsightsGraphMode === "historical-trend"
@@ -8005,7 +8369,9 @@ export default function RipStatisticsPageClient({
       tab: tab || setDetailTab,
       section,
     });
-    router.push(nextHref, { scroll: false });
+    startTabTransition(() => {
+      router.push(nextHref, { scroll: false });
+    });
   };
 
   const handleSetDetailTabChange = (nextTab) => {
@@ -8035,8 +8401,18 @@ export default function RipStatisticsPageClient({
       setCardsSubTab(nextCardsSubTab);
     }
     if (section === "market-movers") {
+      setCardsSection("market-movers");
       setCardSortMode("30d-gainers");
       setCardMovementFilter("all");
+    } else if (section === "all-cards") {
+      // Entering All Cards restores the default checklist view so the
+      // rendered controls always match the section the sidebar highlights.
+      setCardsSection("all-cards");
+      setCardSortMode("set-number");
+      setCardMovementFilter("all");
+    }
+    if (DESIRABILITY_EVIDENCE_MODE_BY_SECTION[section]) {
+      setSelectedDesirabilityEvidenceMode(DESIRABILITY_EVIDENCE_MODE_BY_SECTION[section]);
     }
 
     if (nextGraphMode) {
@@ -8084,6 +8460,16 @@ export default function RipStatisticsPageClient({
     if (nextSection === "market-movers") {
       setCardSortMode("30d-gainers");
       setCardMovementFilter("all");
+    }
+    if (resolvedTab === "cards") {
+      // The URL is the source of truth for the active cards section — this
+      // keeps the sidebar highlight, section tab strip, and `section` query
+      // param from ever diverging (e.g. ?section=market-movers rendering
+      // with "All Cards" highlighted).
+      setCardsSection(nextSection === "market-movers" ? "market-movers" : "all-cards");
+    }
+    if (DESIRABILITY_EVIDENCE_MODE_BY_SECTION[nextSection]) {
+      setSelectedDesirabilityEvidenceMode(DESIRABILITY_EVIDENCE_MODE_BY_SECTION[nextSection]);
     }
 
     if (sectionTarget?.graphMode) {
@@ -8290,10 +8676,24 @@ export default function RipStatisticsPageClient({
   // switch can otherwise render the previous set's overview payload for one
   // commit under the new set's title — guard the same way
   // activeMarketDashboardState/activeDirectSetValueState already do.
-  const activeOverviewState =
+  const guardedOverviewState =
     overviewState.setId === resolvedSetResourceId
       ? overviewState
       : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: overviewState.sourceWindow });
+  // Until the live fetch has produced a payload for this set, fall back to
+  // the identity-checked server seed (covers set switches without a remount,
+  // where the reducer initializer can't re-run, and a failed refresh whose
+  // seed is still perfectly renderable) — same pattern as
+  // seededMarketDashboardPayload above.
+  const activeOverviewState =
+    !guardedOverviewState.payload && seededOverviewPayload
+      ? createMarketDashboardState({
+          status: "success",
+          setId: resolvedSetResourceId,
+          payload: seededOverviewPayload,
+          sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+        })
+      : guardedOverviewState;
   const activeOverviewDerivedState = useMemo(
     () => buildMarketDashboardStateFromPayload(activeOverviewState.payload),
     [activeOverviewState.payload]
@@ -8316,7 +8716,17 @@ export default function RipStatisticsPageClient({
     effectiveSetValueDashboardState.payload?.performanceVsCostHistory ||
     effectiveSetValueDashboardState.payload?.performance_vs_cost_history ||
     [];
-  const historyTrend = explorePayload?.history_trend || overviewPerformanceVsCostHistory;
+  const hasPerformanceVsCostHistory =
+    Array.isArray(overviewPerformanceVsCostHistory) &&
+    overviewPerformanceVsCostHistory.length > 0;
+  // explorePayload.history_trend can legitimately be an EMPTY array (the
+  // insights secondary merge always writes the key, populated or not), and an
+  // empty array is truthy — `||` let it shadow a populated /overview series,
+  // rendering "performance history isn't available" over 60 real points
+  // (seen on Paradox Rift). Only a NON-EMPTY explore series may win.
+  const historyTrend = hasNonEmptyArray(explorePayload?.history_trend)
+    ? explorePayload.history_trend
+    : overviewPerformanceVsCostHistory;
   const activeDirectSetValueState =
     setValueHistoryState.setId === resolvedSetResourceId
       ? setValueHistoryState
@@ -8551,11 +8961,13 @@ export default function RipStatisticsPageClient({
         selectedTarget,
         resolvedSetResourceId,
         explorePayloadIsFresh: isPrimarySnapshotReady,
+        shellPayloadIsForActiveSet,
         previousSameSetSummary: setHeaderSummaryCacheRef.current,
       }),
     [
       explorePayload,
       shellPayload,
+      shellPayloadIsForActiveSet,
       initialMarketDashboardPayload,
       activeMarketDashboardDerivedState,
       activeSetValueContract,
@@ -8567,6 +8979,21 @@ export default function RipStatisticsPageClient({
   if (setDetailMode && setHeaderSummary.setId) {
     setHeaderSummaryCacheRef.current = setHeaderSummary;
   }
+  // Title-card metrics are pending (mid-switch, not genuinely empty) when the
+  // active set has no matching data source yet: no fresh explore payload, no
+  // identity-matched shell, and the header summary came out empty (the
+  // same-set cache didn't fill it, so this is a different set whose shell
+  // hasn't committed). In that window the metric displays show a pending
+  // indicator instead of the misleading "Coming soon"/"—" placeholders that
+  // otherwise read as "this set has no data".
+  const titleCardMetricsPending =
+    setDetailMode &&
+    Boolean(resolvedSetResourceId) &&
+    !isPrimarySnapshotReady &&
+    !shellPayloadIsForActiveSet &&
+    setHeaderSummary.score === null &&
+    setHeaderSummary.setValue.current === null;
+  const titleMetricPendingPlaceholder = "Loading…";
 
   const activeChartSetValueMetrics = useMemo(
     () =>
@@ -8943,74 +9370,140 @@ export default function RipStatisticsPageClient({
     : activeMarketMoversState.status === "error"
     ? "error"
     : "success";
-  // Overview loading cohesion (Phase 9B): hold one full-layout skeleton until
-  // every critical Overview asset has settled for the active set — set value
-  // history, the slim /overview payload (Performance vs Cost), top chase
-  // cards, and the default-window market movers. Optional secondary fetches
-  // (non-default mover windows, non-visible set value scopes) never re-enter
-  // these pending states because their reducers/effects keep already-loaded
-  // data as success/success_stale, so this gate only engages on the first
-  // load of a set's Overview (including after a set switch) and can never be
-  // re-triggered by window/scope changes. Error/empty are settled states —
-  // per-module error and empty rendering takes over after reveal.
-  const overviewSetValuePending =
-    activeSetValueHistory.status === "idle" || activeSetValueHistory.status === "loading";
-  const overviewPayloadPending =
-    activeOverviewState.status === "idle" || activeOverviewState.status === "loading";
-  const overviewTopChasePending = topPricedCardsStatus === "loading";
-  const overviewMarketMoversPending = marketMoversStatus === "loading";
-  const overviewCriticalAssetsPending =
-    overviewSetValuePending || overviewPayloadPending || overviewTopChasePending || overviewMarketMoversPending;
-  const showOverviewCohesiveLoading =
-    setDetailMode &&
-    setDetailTab === "overview" &&
-    // The timeout escape below is keyed by resolvedSetResourceId, so the
-    // skeleton must never engage without one — it could not force-reveal.
-    Boolean(resolvedSetResourceId) &&
-    overviewCriticalAssetsPending &&
-    !(overviewCohesionForceReveal.setId === resolvedSetResourceId && overviewCohesionForceReveal.revealed);
-  useEffect(() => {
-    if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId) {
-      return undefined;
-    }
-    const setId = resolvedSetResourceId;
-    const timer = window.setTimeout(() => {
-      setOverviewCohesionForceReveal({ setId, revealed: true });
-    }, OVERVIEW_COHESIVE_LOADING_MAX_MS);
-    return () => window.clearTimeout(timer);
-  }, [setDetailMode, setDetailTab, resolvedSetResourceId]);
-  // Insights loading cohesion (Phase 9B/9C): sections sourced from the
-  // /insights payload (Desirability Proof, Opening Outcomes) hold stable
-  // skeleton boxes only while the fetch is genuinely in flight; a fetch that
-  // settled in error (or hung past the timeout) switches them to explicit
-  // compact fallback copy instead of shimmering forever.
-  // Requires a resolved set id for the same reason as the Overview gate: the
-  // timeout escape can't fire without one, and without an id the insights
-  // fetch could never start anyway.
-  const activeInsightsFetchStatus =
-    insightsFetchState.setId === resolvedSetResourceId ? insightsFetchState.status : "idle";
-  const insightsLoadFailed =
-    setDetailMode && setDetailTab === "insights" && !explorePayload && activeInsightsFetchStatus === "error";
+  // Progressive rendering (replaces the old Phase 9B whole-tab cohesive
+  // skeleton): each Overview section gates independently on its own fetch's
+  // status instead of waiting for every critical asset to settle together.
+  // Set Value and Performance vs Cost already receive status/error props and
+  // self-render their own loading/error states (SetValueTrendCard,
+  // MarketMoversModule, TopMarketCardsContent); Performance vs Cost's
+  // PackValueHistoryChart does not, so it gets an explicit SectionBoundary
+  // below keyed to overviewPerformanceVsCostStatus. Market Signals
+  // (DecisionSignalsCard) depends only on summary/interpretation, which are
+  // already available from the SSR shell payload on this tab (Overview never
+  // populates explorePayload), so it has no async gate at all.
+  // Core rule: renderable data beats loading status. When the chart's series
+  // already has points (server-seeded /overview snapshot, explorePayload's
+  // history_trend, or the market-dashboard fallback historyTrend reads from),
+  // never overlay a loading panel or error panel on it — render the points as
+  // success/success_stale and let any refresh land quietly.
+  const overviewPerformanceVsCostStatus =
+    hasPerformanceVsCostHistory || hasNonEmptyArray(historyTrend)
+      ? activeOverviewState.status === "success"
+        ? "success"
+        : "success_stale"
+      : activeOverviewState.status;
+  // Section-level timing (see components/ui/SectionBoundary.jsx and
+  // hooks/useSectionTiming.js): one metric per Overview priority section.
+  // Market Signals has no async gate (see comment above), so it's reported
+  // as "success" the moment the tab mounts — an honest ~0ms.
+  const overviewTimingSetId = setDetailMode && setDetailTab === "overview" ? resolvedSetResourceId : null;
+  useSectionTiming("setValue", overviewTimingSetId ? activeSetValueHistory.status : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("performanceVsCost", overviewTimingSetId ? overviewPerformanceVsCostStatus : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("marketMovers", overviewTimingSetId ? marketMoversStatus : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("topChase", overviewTimingSetId ? topPricedCardsStatus : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  useSectionTiming("marketSignals", overviewTimingSetId ? "success" : "idle", {
+    setId: overviewTimingSetId,
+    tab: "overview",
+  });
+  // Insights loading cohesion, split by priority tier (progressive-rendering
+  // refactor): critical (RIP Score hero + pillar cards, priorities 1-3) and
+  // secondary (Opening Outcomes charts + Desirability Evidence, priorities
+  // 4-5) each gate independently on their own fetch's status now, instead of
+  // one shared whole-tab hold keyed to a single combined fetch.
+  const activeInsightsCriticalStatus =
+    insightsCriticalFetchState.setId === resolvedSetResourceId ? insightsCriticalFetchState.status : "idle";
+  const activeInsightsSecondaryStatus =
+    insightsSecondaryFetchState.setId === resolvedSetResourceId ? insightsSecondaryFetchState.status : "idle";
+  const insightsCriticalLoadFailed =
+    setDetailMode && setDetailTab === "insights" && activeInsightsCriticalStatus === "error";
   const insightsCriticalPending =
     setDetailMode &&
     setDetailTab === "insights" &&
     Boolean(resolvedSetResourceId) &&
-    !explorePayload &&
+    (activeInsightsCriticalStatus === "idle" || activeInsightsCriticalStatus === "loading");
+  const insightsCriticalPendingTimedOut =
+    insightsCriticalPendingTimeoutState.setId === resolvedSetResourceId && insightsCriticalPendingTimeoutState.timedOut;
+  // RIP Score hero/pillar cards hold their own branded panel (see
+  // showInsightsCohesiveLoading's new render usage below, scoped to just
+  // that section now — not the whole tab) until the critical fetch settles
+  // or times out.
+  const showInsightsCohesiveLoading = insightsCriticalPending && !insightsCriticalPendingTimedOut;
+  // criticalHeroMs is shared by Insights' RIP Score hero and Pull Rates' hit
+  // rate summary (both are each tab's priority-1 content), disambiguated by
+  // the tab field — see hooks/useSectionTiming.js.
+  useSectionTiming("criticalHero", setDetailMode && setDetailTab === "insights" ? activeInsightsCriticalStatus : "idle", {
+    setId: resolvedSetResourceId,
+    tab: "insights",
+  });
+  const insightsLoadFailed =
+    setDetailMode && setDetailTab === "insights" && !hasActiveInsightsPayload && activeInsightsSecondaryStatus === "error";
+  const insightsSecondaryPending =
+    setDetailMode &&
+    setDetailTab === "insights" &&
+    Boolean(resolvedSetResourceId) &&
+    !hasActiveInsightsPayload &&
     !insightsLoadFailed;
+  // "Secondary data exists" in renderable terms — any secondary-owned field
+  // the Insights sections can actually draw. Used to retire the pending
+  // timeout the moment data lands (renderable data beats loading status);
+  // the timeout copy must never linger over sections that now have content.
+  const insightsSecondaryHasRenderableData =
+    hasNonEmptyArray(explorePayload?.top_hits || explorePayload?.topHits) ||
+    hasNonEmptyArray(explorePayload?.distribution_bins || explorePayload?.distributionBins) ||
+    hasNonEmptyArray(explorePayload?.percentiles) ||
+    hasNonEmptyArray(explorePayload?.rankings) ||
+    hasNonEmptyArray(explorePayload?.history_trend || explorePayload?.historyTrend) ||
+    hasMeaningfulObjectFields(explorePayload?.rip_statistics || explorePayload?.ripStatistics) ||
+    hasMeaningfulObjectFields(explorePayload?.openingDesirability || explorePayload?.opening_desirability) ||
+    hasDesirabilityProofSignal(explorePayload?.desirabilityValidation || explorePayload?.desirability_validation);
+  useEffect(() => {
+    if (!insightsSecondaryHasRenderableData) {
+      return;
+    }
+    // Secondary data arrived (fresh fetch, re-merge after a navigation reset,
+    // or a late response) — a previously-fired "taking longer than expected"
+    // timeout no longer describes reality and must clear immediately.
+    setInsightsPendingTimeoutState((previous) =>
+      previous.setId !== null || previous.timedOut ? { setId: null, timedOut: false } : previous
+    );
+  }, [insightsSecondaryHasRenderableData]);
   const insightsPendingTimedOut =
-    insightsPendingTimeoutState.setId === resolvedSetResourceId && insightsPendingTimeoutState.timedOut;
-  // Sections stay in their loading/fallback presentation while blocked; the
-  // fallback copy takes over once loading is no longer expected to resolve on
-  // its own (fetch error or timeout).
-  const insightsSectionsBlocked = insightsCriticalPending || insightsLoadFailed;
+    !insightsSecondaryHasRenderableData &&
+    insightsPendingTimeoutState.setId === resolvedSetResourceId &&
+    insightsPendingTimeoutState.timedOut;
+  // Opening Outcomes + Desirability Evidence (secondary tier) stay in their
+  // loading/fallback presentation while blocked; the fallback copy takes
+  // over once loading is no longer expected to resolve on its own (fetch
+  // error or timeout).
+  const insightsSectionsBlocked = insightsSecondaryPending || insightsLoadFailed;
   const insightsSectionsShowFallbackCopy = insightsLoadFailed || insightsPendingTimedOut;
-  // Phase 9D.2: while the /insights payload is genuinely in flight for the
-  // active set, the whole Insights tab holds one branded loading panel
-  // (SetTabLoadingPanel) instead of section-by-section skeleton pop-in. Once
-  // the fetch errors or hangs past the timeout, the sections render with
-  // their explicit compact fallback copy (insightsSectionsShowFallbackCopy);
-  // once loaded, empty sub-views get compact empty states — never the loader.
-  const showInsightsCohesiveLoading = insightsCriticalPending && !insightsPendingTimedOut;
+  // "Simulation Drivers unavailable: no top_hits rows" is only evidence once
+  // it is settled truth: on the set-detail page the secondary insights fetch
+  // must have SUCCEEDED for this set and still produced no rows. While it is
+  // idle/loading — or a navigation reset momentarily dropped the merge — an
+  // empty explorePayload says nothing about the DB (Paradox Rift has 10
+  // top_hits rows), so surfacing the warning then is a false alarm. Explore
+  // mode keeps the old behavior: its payload is loaded up front, so missing
+  // rows there are already settled truth.
+  const simulationDriversWarningVisible =
+    Boolean(simulationDrivers.diagnostics?.warning) &&
+    topHits.length === 0 &&
+    (!setDetailMode || activeInsightsSecondaryStatus === "success");
+  const visibleSetPageWarnings = simulationDriversWarningVisible
+    ? [...warnings, simulationDrivers.diagnostics.warning]
+    : warnings;
   // Opening Outcomes settled-state audit (Phase 9C): once the payload is in,
   // each sub-view either has rows to render or gets a compact empty state —
   // never a chart-sized blank panel. The card's large min-height is also only
@@ -9033,7 +9526,7 @@ export default function RipStatisticsPageClient({
       : "Outcome distribution data isn't available for this set yet.";
   const openingOutcomesUsesExpandedLayout = !insightsSectionsBlocked && openingOutcomesViewHasData;
   useEffect(() => {
-    if (!setDetailMode || setDetailTab !== "insights" || !resolvedSetResourceId || explorePayload) {
+    if (!setDetailMode || setDetailTab !== "insights" || !resolvedSetResourceId || hasActiveInsightsPayload) {
       return undefined;
     }
     const setId = resolvedSetResourceId;
@@ -9047,7 +9540,23 @@ export default function RipStatisticsPageClient({
       setInsightsPendingTimeoutState({ setId, timedOut: true });
     }, INSIGHTS_PENDING_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [setDetailMode, setDetailTab, resolvedSetResourceId, explorePayload]);
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, hasActiveInsightsPayload]);
+  // Mirrors the timeout effect above, for the critical (RIP Score hero/pillar
+  // cards) tier specifically, keyed off insightsCriticalPending rather than
+  // hasActiveInsightsPayload (which only reflects secondary-owned fields).
+  useEffect(() => {
+    if (!insightsCriticalPending) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    setInsightsCriticalPendingTimeoutState((previous) =>
+      previous.setId === setId && previous.timedOut ? { setId: null, timedOut: false } : previous
+    );
+    const timer = window.setTimeout(() => {
+      setInsightsCriticalPendingTimeoutState({ setId, timedOut: true });
+    }, INSIGHTS_PENDING_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [insightsCriticalPending, resolvedSetResourceId]);
   // Pull Rates loading shell (Phase 9B): pullRatesState only resets to this
   // set's shape once its fetch effect fires post-paint, so guard by set id
   // the same way the other per-tab states do, and treat idle/loading with no
@@ -9098,7 +9607,7 @@ export default function RipStatisticsPageClient({
   const activeCardsPageState =
     cardsPageState.setId === resolvedSetResourceId
       ? cardsPageState
-      : { status: "idle", setId: resolvedSetResourceId, page: 1, cards: [], pagination: null, filters: null, error: null };
+      : { status: "idle", setId: resolvedSetResourceId, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, error: null };
   const effectiveCardsPageCards = activeCardsPageState.cards.length > 0 ? activeCardsPageState.cards : cardsPageFallbackCards;
   const effectiveCardsPageStatus =
     activeCardsPageState.cards.length > 0
@@ -9130,9 +9639,91 @@ export default function RipStatisticsPageClient({
     () => getDisplayChecklistCards(effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter),
     [effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter]
   );
+  // Infinite scroll (Phase 10): a sentinel below the grid advances cardsPage
+  // instead of Previous/Next buttons. `loading_more` keeps every rendered
+  // card in place and shows only the bottom brand loader.
+  const cardsPageIsLoadingMore = activeCardsPageState.status === "loading_more";
+  const cardsPageIsFetching = activeCardsPageState.status === "loading" || cardsPageIsLoadingMore;
+  // A failed load-more lands in success_stale + error with the loaded cards
+  // kept; surface a bottom retry affordance instead of silently stalling the
+  // list (the sentinel is disabled while an error is pending so it cannot
+  // hammer a failing endpoint).
+  const cardsPageLoadMoreError = Boolean(
+    activeCardsPageState.error && activeCardsPageState.cards.length > 0 && activeCardsPageState.pagination?.hasNextPage
+  );
+  const cardsPageFullyLoaded = Boolean(
+    activeCardsPageState.pagination &&
+      !activeCardsPageState.pagination.hasNextPage &&
+      activeCardsPageState.pagination.totalPages > 1
+  );
+  // Latest-value ref so the IntersectionObserver callback (created once per
+  // grid growth) always reads the current gate without re-subscribing on
+  // every state change. Duplicate fires are harmless: the next page is
+  // computed from the last *merged* page, so repeated calls set the same
+  // value, and the fetch effect's request-key dedupe drops repeats anyway.
+  const cardsLoadMoreGateRef = useRef({ canLoadMore: false, nextPage: 1, stateScopeKey: null });
+  cardsLoadMoreGateRef.current = {
+    canLoadMore: Boolean(
+      setDetailMode &&
+        setDetailTab === "cards" &&
+        cardsSubTab === "checklist" &&
+        activeCardsPageState.pagination?.hasNextPage &&
+        !cardsPageIsFetching &&
+        !activeCardsPageState.error &&
+        cardsPage === activeCardsPageState.page
+    ),
+    nextPage: (activeCardsPageState.pagination?.page || activeCardsPageState.page || 1) + 1,
+    // Scope of the cards currently in state — lets the fetch effect skip a
+    // doomed page-N request when sort/search/filter changed in the same
+    // commit that the page counter is about to be rewound to 1.
+    stateScopeKey: activeCardsPageState.scopeKey,
+  };
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "cards" || cardsSubTab !== "checklist") {
+      return undefined;
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      return undefined;
+    }
+    // PublicProfileLocalScaffold mounts the page content twice (a desktop
+    // `hidden xl:block` copy and a mobile `xl:hidden` copy), so a single
+    // element ref would land on the last-mounted (mobile) sentinel — which is
+    // display:none on desktop and never intersects. Observe every rendered
+    // sentinel instead; only the visible copy can fire, and the gate ref +
+    // idempotent page advance make duplicate fires harmless.
+    const sentinels = Array.from(document.querySelectorAll("[data-cards-load-more-sentinel]"));
+    if (sentinels.length === 0) {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+        const { canLoadMore, nextPage } = cardsLoadMoreGateRef.current;
+        if (!canLoadMore) {
+          return;
+        }
+        debugSetPagePerf("cards_page.load_more", { resolvedSetId: resolvedSetResourceId, nextPage });
+        setCardsPage((page) => (page >= nextPage ? page : nextPage));
+      },
+      // Generous prefetch margin: start loading the next chunk well before
+      // the user reaches the bottom of the grid.
+      { rootMargin: "1000px 0px" }
+    );
+    for (const sentinel of sentinels) {
+      observer.observe(sentinel);
+    }
+    return () => observer.disconnect();
+    // effectiveCardsPageCards.length: re-observe after each append so the
+    // initial-intersection callback re-fires if the sentinel is still within
+    // the prefetch margin (IntersectionObserver only reports crossings, so a
+    // fast scroller would otherwise stall after one chunk).
+  }, [setDetailMode, setDetailTab, cardsSubTab, resolvedSetResourceId, effectiveCardsPageCards.length]);
   const handleViewAllMarketMovers = () => {
     setSetDetailTab("cards");
     setCardsSubTab("checklist");
+    setCardsSection("market-movers");
     setCardSortMode("30d-gainers");
     setCardMovementFilter("all");
     pushSetDetailRouteState({ tab: "cards", section: "market-movers" });
@@ -9150,13 +9741,22 @@ export default function RipStatisticsPageClient({
   // Header/title-card variant of decisionMetrics — sourced from
   // setHeaderSummary (the stable header contract) instead of `summary`
   // directly, so these tiles stay populated regardless of setDetailTab.
+  // A null metric renders the pending placeholder mid-switch (matching shell
+  // not ready yet) and only the settled "Coming soon" once we know this set
+  // genuinely has no value — never the previous set's leaked number.
+  const formatHeaderMetric = (value, formatter) =>
+    value === null || value === undefined
+      ? titleCardMetricsPending
+        ? titleMetricPendingPlaceholder
+        : "Coming soon"
+      : formatter(value);
   const headerDecisionMetrics = [
-    { label: RIP_COPY.simpleMetrics.currentPackCost, value: setHeaderSummary.packCost === null ? "Coming soon" : formatCurrency(setHeaderSummary.packCost), trend: trendByMetricKey.packCost },
-    { label: RIP_COPY.simpleMetrics.averagePackValue, value: setHeaderSummary.expectedValue === null ? "Coming soon" : formatCurrency(setHeaderSummary.expectedValue), trend: trendByMetricKey.averagePackValue },
-    { label: RIP_COPY.simpleMetrics.averageHitValue, value: setHeaderSummary.averageHitValue === null ? "Coming soon" : formatCurrency(setHeaderSummary.averageHitValue), trend: trendByMetricKey.averageHitValue },
-    { label: RIP_COPY.simpleMetrics.averageLoss, value: setHeaderSummary.averageLoss === null ? "Coming soon" : formatSignedCurrency(setHeaderSummary.averageLoss), trend: trendByMetricKey.averageLoss },
-    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(setHeaderSummary.chanceToBeatPackCost, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
-    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(setHeaderSummary.chanceAtBigPull, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
+    { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatHeaderMetric(setHeaderSummary.packCost, formatCurrency), trend: trendByMetricKey.packCost },
+    { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatHeaderMetric(setHeaderSummary.expectedValue, formatCurrency), trend: trendByMetricKey.averagePackValue },
+    { label: RIP_COPY.simpleMetrics.averageHitValue, value: formatHeaderMetric(setHeaderSummary.averageHitValue, formatCurrency), trend: trendByMetricKey.averageHitValue },
+    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatHeaderMetric(setHeaderSummary.averageLoss, formatSignedCurrency), trend: trendByMetricKey.averageLoss },
+    { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatHeaderMetric(setHeaderSummary.chanceToBeatPackCost, (v) => formatPercent(v, { probability: true })), trend: trendByMetricKey.chanceToBeatPackCost },
+    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatHeaderMetric(setHeaderSummary.chanceAtBigPull, (v) => formatPercent(v, { probability: true })), trend: trendByMetricKey.chanceAtBigPull },
   ];
   const primaryDecisionMetricOrder = [
     RIP_COPY.simpleMetrics.currentPackCost,
@@ -9661,7 +10261,10 @@ export default function RipStatisticsPageClient({
 
   // Cards tab: slim, paginated fetch (getPokemonSetCardsPage) instead of the
   // full /cards payload above. Refetches whenever the set, page, sort,
-  // movement filter, or search query changes.
+  // movement filter, or search query changes. Pages beyond the first are
+  // appended to the accumulated list (infinite scroll) as long as they belong
+  // to the same scope (set + sort + search + movement filter); a scope change
+  // rewinds cardsPage to 1 and the page-1 response replaces the list.
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
@@ -9669,13 +10272,14 @@ export default function RipStatisticsPageClient({
 
     const setId = resolvedSetResourceId;
     if (!setId) {
-      setCardsPageState({ status: "empty", setId: null, page: 1, cards: [], pagination: null, filters: null, error: null });
+      setCardsPageState({ status: "empty", setId: null, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, error: null });
       return undefined;
     }
     if (!canFetchSetDetailModules) {
       setCardsPageState((previous) => ({
         status: previous.setId === setId && previous.cards.length > 0 ? previous.status : "empty",
         setId,
+        scopeKey: previous.setId === setId ? previous.scopeKey : null,
         page: cardsPage,
         cards: previous.setId === setId ? previous.cards : [],
         pagination: previous.setId === setId ? previous.pagination : null,
@@ -9695,20 +10299,33 @@ export default function RipStatisticsPageClient({
       ? effectiveCardSortMode
       : null;
 
-    // Leaving Cards and coming back (or any other re-render that re-triggers
-    // this effect, e.g. a sibling tab's payload updating explorePayload)
-    // re-evaluates this effect even though the set/page/sort/filter/query
-    // haven't actually changed. Skip re-issuing the exact same request —
-    // getPokemonSetCardsPage's own in-flight join only catches concurrent
-    // duplicates, not these later, non-overlapping repeats.
-    const cardsPageRequestKey = [
+    // Everything except the page number — `cardsPageState.scopeKey` records
+    // which scope the accumulated cards belong to, so a late response can
+    // never append into a different set/sort/search/filter view (stale-scope
+    // guard on top of the effect-cleanup cancellation below).
+    const cardsPageScopeKey = [
       setId,
-      requestedPage,
       effectiveCardSortMode,
       cardSearchQuery.trim(),
       effectiveCardMovementFilter,
       movementSortValue,
     ].join("|");
+    // Leaving Cards and coming back (or any other re-render that re-triggers
+    // this effect, e.g. a sibling tab's payload updating explorePayload)
+    // re-evaluates this effect even though the set/page/sort/filter/query
+    // haven't actually changed. Skip re-issuing the exact same request —
+    // getPokemonSetCardsPage's own in-flight join only catches concurrent
+    // duplicates, not these later, non-overlapping repeats. (A failed request
+    // clears the key, so the Retry nonce can re-enter with the same key.)
+    const cardsPageRequestKey = `${cardsPageScopeKey}|page:${requestedPage}`;
+    if (requestedPage > 1 && cardsLoadMoreGateRef.current.stateScopeKey !== cardsPageScopeKey) {
+      // Sort/search/filter just changed while the page counter still points
+      // into the previous scope — the scope-reset effect rewinds cardsPage to
+      // 1 in this same commit, so don't issue a page-N fetch of the new scope
+      // that would only be cancelled (or worse, render a mid-list chunk).
+      debugSetPagePerf("cards_page.tab_fetch_skipped_scope_change", { resolvedSetId: setId, requestKey: cardsPageRequestKey });
+      return undefined;
+    }
     if (lastCardsPageRequestKeyRef.current === cardsPageRequestKey) {
       debugSetPagePerf("cards_page.tab_fetch_skipped_duplicate", { resolvedSetId: setId, requestKey: cardsPageRequestKey });
       return undefined;
@@ -9723,15 +10340,29 @@ export default function RipStatisticsPageClient({
       sort: effectiveCardSortMode,
       movementFilter: effectiveCardMovementFilter,
     });
-    setCardsPageState((previous) => ({
-      status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "loading",
-      setId,
-      page: requestedPage,
-      cards: previous.setId === setId ? previous.cards : [],
-      pagination: previous.setId === setId ? previous.pagination : null,
-      filters: previous.setId === setId ? previous.filters : null,
-      error: null,
-    }));
+    setCardsPageState((previous) => {
+      const sameScope = previous.setId === setId && previous.scopeKey === cardsPageScopeKey;
+      if (requestedPage > 1 && sameScope && previous.cards.length > 0) {
+        // Loading a further chunk of the list already on screen — keep every
+        // rendered card in place and only surface the bottom loader.
+        return { ...previous, status: "loading_more", error: null };
+      }
+      return {
+        // Scope change (or first load): keep the previous same-set cards
+        // visible (success_stale) until the new page 1 lands, instead of
+        // blanking the grid. `scopeKey` still describes the *rendered* cards.
+        status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "loading",
+        setId,
+        scopeKey: previous.setId === setId ? previous.scopeKey : null,
+        page: requestedPage,
+        cards: previous.setId === setId ? previous.cards : [],
+        pagination: previous.setId === setId ? previous.pagination : null,
+        filters: previous.setId === setId ? previous.filters : null,
+        error: null,
+      };
+    });
+
+    const cardsFetchStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     getPokemonSetCardsPage(setId, {
       page: requestedPage,
@@ -9750,14 +10381,47 @@ export default function RipStatisticsPageClient({
           debugSetPagePerf("cards_page.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
           return;
         }
-        setCardsPageState({
-          status: payload.cards.length > 0 ? "success" : "empty",
+        setCardsPageState((previous) => {
+          const shouldAppend =
+            requestedPage > 1 &&
+            previous.setId === setId &&
+            previous.scopeKey === cardsPageScopeKey &&
+            previous.cards.length > 0;
+          const mergedCards = shouldAppend
+            ? dedupeChecklistCards([...previous.cards, ...payload.cards])
+            : payload.cards;
+          return {
+            status: mergedCards.length > 0 ? "success" : "empty",
+            setId,
+            scopeKey: cardsPageScopeKey,
+            page: payload.pagination?.page ?? requestedPage,
+            cards: mergedCards,
+            pagination: payload.pagination,
+            filters: payload.filters,
+            error: null,
+          };
+        });
+        // Section-level timing (see lib/perf/sectionTiming.js): the first
+        // page load reports cardsFirstBatchMs (grid becomes usable), every
+        // subsequent IntersectionObserver-triggered page reports
+        // cardsNextBatchMs — a repeatable per-batch event, so this is logged
+        // directly here rather than through useSectionTiming (which reports
+        // a single-shot loading->settled transition per section).
+        const cardsBatchElapsedMs = Math.round(
+          (typeof performance !== "undefined" ? performance.now() : Date.now()) - cardsFetchStartedAt
+        );
+        const cardsBatchMetricName = requestedPage > 1 ? "cardsNextBatch" : "cardsFirstBatch";
+        markSectionTiming(`${cardsBatchMetricName}_success`, {
           setId,
-          page: payload.pagination.page,
-          cards: payload.cards,
-          pagination: payload.pagination,
-          filters: payload.filters,
-          error: null,
+          tab: "cards",
+          page: requestedPage,
+          elapsedMs: cardsBatchElapsedMs,
+        });
+        debugSectionTiming("[section-timing]", `${cardsBatchMetricName}Ms`, {
+          setId,
+          tab: "cards",
+          page: requestedPage,
+          elapsedMs: cardsBatchElapsedMs,
         });
       })
       .catch((error) => {
@@ -9771,6 +10435,7 @@ export default function RipStatisticsPageClient({
         setCardsPageState((previous) => ({
           status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "error",
           setId,
+          scopeKey: previous.setId === setId ? previous.scopeKey : null,
           page: requestedPage,
           cards: previous.setId === setId ? previous.cards : [],
           pagination: previous.setId === setId ? previous.pagination : null,
@@ -9797,6 +10462,7 @@ export default function RipStatisticsPageClient({
     resolvedSetResourceId,
     canFetchSetDetailModules,
     cardsPage,
+    cardsPageRetryNonce,
     effectiveCardSortMode,
     effectiveCardMovementFilter,
     cardSearchQuery,
@@ -10374,6 +11040,12 @@ export default function RipStatisticsPageClient({
   ]);
 
   // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
+  // When the route seeded an /overview snapshot (see seededOverviewPayload),
+  // this effect still runs but refreshes quietly: the reducer's "loading"
+  // case keeps the same-set seeded payload as success_stale, so seeded
+  // sections never regress to a loading panel while the refresh is in
+  // flight, and the request-key guard below keeps tab revisits from
+  // re-fetching the identical set/window.
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
@@ -10467,6 +11139,7 @@ export default function RipStatisticsPageClient({
       isSwitchingTarget={Boolean(pendingTargetId)}
       activeTab={setDetailTab}
       activeCardsSubTab={cardsSubTab}
+      activeCardsSection={cardsSection}
       activeGraphMode={graphMode}
       showTopMarketCards={shouldShowTopMarketCards}
       onTargetChange={handleTargetChange}
@@ -10735,11 +11408,18 @@ export default function RipStatisticsPageClient({
                           <div className="space-y-3">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{RIP_COPY.scoreLabel}</p>
                             <div className="flex items-end gap-2">
-                              <span className="inline-flex items-end gap-1.5 text-5xl font-semibold leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-6xl">
-                                <span>{formatRawScore(setHeaderSummary.score)}</span>
-                                <span className="pb-1 text-xs font-medium tracking-normal text-[var(--text-secondary)]">/100</span>
-                                <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-1 md:mb-1.5" />
-                              </span>
+                              {titleCardMetricsPending && setHeaderSummary.score === null ? (
+                                <span
+                                  aria-label="Loading RIP score"
+                                  className="inline-block h-12 w-24 animate-pulse rounded-lg bg-[rgba(148,163,184,0.12)] md:h-14"
+                                />
+                              ) : (
+                                <span className="inline-flex items-end gap-1.5 text-5xl font-semibold leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-6xl">
+                                  <span>{formatRawScore(setHeaderSummary.score)}</span>
+                                  <span className="pb-1 text-xs font-medium tracking-normal text-[var(--text-secondary)]">/100</span>
+                                  <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-1 md:mb-1.5" />
+                                </span>
+                              )}
                             </div>
                             <ScoreMeter score={setHeaderSummary.score} rankTier={setHeaderSummary.tier} />
                             <div className="flex flex-wrap items-center gap-2">
@@ -10777,7 +11457,13 @@ export default function RipStatisticsPageClient({
                                 <InfoPopover text="Checklist set value from daily Near Mint card market observations. Falls back to the set page snapshot only while market history is unavailable." />
                               </div>
                               <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
-                                <span className="min-w-0 truncate">{setHeaderSummary.setValue.current === null ? "Coming soon" : formatCurrency(setHeaderSummary.setValue.current)}</span>
+                                <span className="min-w-0 truncate">
+                                  {setHeaderSummary.setValue.current === null
+                                    ? titleCardMetricsPending
+                                      ? titleMetricPendingPlaceholder
+                                      : "Coming soon"
+                                    : formatCurrency(setHeaderSummary.setValue.current)}
+                                </span>
                                 <DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount} size="md" className="translate-y-px" title="30D checklist set value movement" />
                               </p>
                             </div>
@@ -10844,9 +11530,9 @@ export default function RipStatisticsPageClient({
                   </div>
                 </section>
 
-                <div id="set-detail-content" className="scroll-mt-24 md:scroll-mt-28">
+                <div id="set-detail-content" className="scroll-mt-24 md:scroll-mt-28" aria-busy={isTabNavPending}>
                   <SectionViewTabs
-                    className="mt-2"
+                    className={`mt-2 transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
                     value={setDetailTab}
                     onChange={handleSetDetailTabChange}
                     variant="primary"
@@ -10860,92 +11546,124 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {setDetailTab === "overview" ? (
-                  showOverviewCohesiveLoading ? (
-                    // One cohesive Overview loading state while the critical
-                    // assets (set value history, /overview payload, top
-                    // chase, market movers) load — a single branded panel
-                    // reads as deliberate progress, not five broken chart
-                    // rows (Phase 9C feedback). The real layout reveals at
-                    // once when every critical asset settles.
-                    <SetTabLoadingPanel
-                      title="Loading overview data…"
-                      helper="Pulling set value history, market movers, and top chase cards for this set."
-                    />
-                  ) : (
+                  // Progressive rendering: each section below gates
+                  // independently on its own fetch status instead of one
+                  // shared whole-tab skeleton (removed — see
+                  // overviewPerformanceVsCostStatus above). Set Value renders
+                  // as soon as its history settles even if Market Movers/Top
+                  // Chase are still loading, and vice versa.
                   <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
                       <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
-                        <SetValueTrendCard
-                          setId={resolvedSetResourceId}
-                          setValueContract={activeSetValueContract}
-                          history={activeSetValueHistory.history}
-                          historiesByScope={activeSetValueHistory.historiesByScope}
-                          availableScopes={activeSetValueHistory.availableScopes}
-                          status={activeSetValueHistory.status}
-                          error={activeSetValueHistory.error}
-                          selectedScope={setValueTrendScope}
-                          onSelectedScopeChange={setSetValueTrendScope}
-                        />
+                        {/* Priority 2: Set Value. SetValueTrendCard already
+                            self-renders loading/error from status/error, so
+                            it only needs render-exception isolation here. */}
+                        <SectionErrorBoundary sectionName="overview-set-value" resetKeys={[resolvedSetResourceId]} title="Set Value" minHeightClassName="min-h-[16rem]">
+                          <SetValueTrendCard
+                            setId={resolvedSetResourceId}
+                            setValueContract={activeSetValueContract}
+                            history={activeSetValueHistory.history}
+                            historiesByScope={activeSetValueHistory.historiesByScope}
+                            availableScopes={activeSetValueHistory.availableScopes}
+                            status={activeSetValueHistory.status}
+                            error={activeSetValueHistory.error}
+                            selectedScope={setValueTrendScope}
+                            onSelectedScopeChange={setSetValueTrendScope}
+                          />
+                        </SectionErrorBoundary>
                       </div>
                       <div className="min-w-0 lg:h-full">
-                        <SectionCard
-                          title="Performance vs Cost"
-                          titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}
-                          className="flex h-full flex-col"
-                          bodyClassName="flex min-h-0 flex-1 flex-col"
-                        >
-                          <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} flush />
-                        </SectionCard>
+                        {/* Priority 3: Performance vs Cost. PackValueHistoryChart
+                            has no internal status handling, so it gets an
+                            explicit SectionBoundary keyed to the /overview
+                            payload's own status. */}
+                        <SectionErrorBoundary sectionName="overview-performance-vs-cost" resetKeys={[resolvedSetResourceId]} title="Performance vs Cost" minHeightClassName="min-h-[16rem]">
+                          <SectionCard
+                            title="Performance vs Cost"
+                            titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}
+                            className="flex h-full flex-col"
+                            bodyClassName="flex min-h-0 flex-1 flex-col"
+                          >
+                            <SectionBoundary
+                              status={overviewPerformanceVsCostStatus}
+                              error={activeOverviewState.error ? new Error(activeOverviewState.error) : null}
+                              title="Loading performance vs cost…"
+                              minHeightClassName="min-h-[14rem]"
+                              className="h-full"
+                            >
+                              <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} flush />
+                            </SectionBoundary>
+                          </SectionCard>
+                        </SectionErrorBoundary>
                       </div>
                     </div>
 
                     <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
-                      <MarketMoversModule
-                        movers={marketMovers}
-                        moversByWindow={marketMoversByWindow}
-                        selectedWindow={marketMoversWindowKey}
-                        status={marketMoversStatus}
-                        error={activeMarketMoversState.error}
-                        onWindowChange={setMarketMoversWindowKey}
-                        onViewAll={handleViewAllMarketMovers}
-                      />
+                      {/* Priority 4: Market Movers — self-renders loading/error. */}
+                      <SectionErrorBoundary sectionName="overview-market-movers" resetKeys={[resolvedSetResourceId]} title="Market Movers" minHeightClassName="min-h-[14rem]">
+                        <MarketMoversModule
+                          movers={marketMovers}
+                          moversByWindow={marketMoversByWindow}
+                          selectedWindow={marketMoversWindowKey}
+                          status={marketMoversStatus}
+                          error={activeMarketMoversState.error}
+                          onWindowChange={setMarketMoversWindowKey}
+                          onViewAll={handleViewAllMarketMovers}
+                        />
+                      </SectionErrorBoundary>
                     </div>
 
                     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)] lg:items-start">
                       {shouldShowTopMarketCards ? (
                         <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                          <TopChaseCardsModule
-                            cards={topPricedCards}
-                            status={topPricedCardsStatus}
-                            error={activeTopMarketCardsState.error}
-                            infoText={topPricedCardsInfo}
-                            selectedWindowKey={topMarketCardsWindowKey}
-                            onWindowChange={setTopMarketCardsWindowKey}
-                          />
+                          {/* Priority 5: Top Chase Cards — self-renders loading/error. */}
+                          <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
+                            <TopChaseCardsModule
+                              cards={topPricedCards}
+                              status={topPricedCardsStatus}
+                              error={activeTopMarketCardsState.error}
+                              infoText={topPricedCardsInfo}
+                              selectedWindowKey={topMarketCardsWindowKey}
+                              onWindowChange={setTopMarketCardsWindowKey}
+                            />
+                          </SectionErrorBoundary>
                         </div>
                       ) : null}
 
                       <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                        <DecisionSignalsCard
-                          pillarSignals={overviewPillarSignals}
-                          summary={summary}
-                          setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                          requestTimeout={isTimeoutFallbackPayload}
-                        />
+                        {/* Priority 6: Market Signals. Derived purely from
+                            summary/interpretation, both already available
+                            from the SSR shell on this tab — no async gate
+                            needed, just render-exception isolation. */}
+                        <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
+                          <DecisionSignalsCard
+                            pillarSignals={overviewPillarSignals}
+                            summary={summary}
+                            setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                            requestTimeout={isTimeoutFallbackPayload}
+                          />
+                        </SectionErrorBoundary>
                       </div>
                     </div>
                   </section>
-                  )
                 ) : null}
 
                 {setDetailTab === "cards" ? (
                   <section id="set-detail-cards" className="scroll-mt-24 space-y-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(2,6,23,0.68))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_54px_rgba(2,6,23,0.28)] backdrop-blur-md md:scroll-mt-28 md:p-6">
                     <SectionViewTabs
-                      value={cardsSubTab}
-                      onChange={setCardsSubTab}
+                      value={cardsSection}
+                      onChange={(nextSection) =>
+                        handleSetDetailNavSelect({
+                          tab: "cards",
+                          section: nextSection,
+                          cardsSubTab: "checklist",
+                          targetId: "set-detail-cards",
+                        })
+                      }
                       variant="secondary"
                       options={[
-                        { value: "checklist", label: "All Cards" },
+                        { value: "all-cards", label: "All Cards" },
+                        { value: "market-movers", label: "Market Movers" },
                       ]}
                     />
 
@@ -11023,7 +11741,10 @@ export default function RipStatisticsPageClient({
                             ) : null}
 
                             {displayedChecklistCards.length > 0 ? (
-                              <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 ${effectiveCardsPageStatus === "loading" ? "opacity-80" : ""}`.trim()}>
+                              // Never dim or overlay the grid while more
+                              // cards load — appended chunks render below and
+                              // the already-visible cards must stay stable.
+                              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                                 {displayedChecklistCards.map((card) => (
                                   <ChecklistCardTile
                                     key={`${card.id || card.cardNumber || card.name}`}
@@ -11035,28 +11756,43 @@ export default function RipStatisticsPageClient({
                               <p className="text-sm text-[var(--text-secondary)]">No cards match this movement filter yet.</p>
                             )}
 
-                            {activeCardsPageState.pagination ? (
-                              <div className="mt-4 flex items-center justify-between gap-3">
+                            {/* Infinite scroll: the sentinel sits below the
+                                grid and advances cardsPage via
+                                IntersectionObserver (generous rootMargin) —
+                                no user-facing Previous/Next buttons. Located
+                                by data attribute because the scaffold mounts
+                                this tree twice (desktop + mobile copies). */}
+                            <div data-cards-load-more-sentinel="true" aria-hidden="true" className="h-px w-full" />
+
+                            {cardsPageIsLoadingMore ? (
+                              <div aria-live="polite" className="pt-1">
+                                <InDexLogoLoader
+                                  fullScreen={false}
+                                  label="Loading more cards"
+                                  shouldDelay={false}
+                                  isLoading={true}
+                                  className="index-loader-shell--compact"
+                                />
+                              </div>
+                            ) : null}
+
+                            {cardsPageLoadMoreError ? (
+                              <div className="mt-3 flex flex-col items-center gap-2 text-center">
+                                <p className="text-xs text-[var(--text-secondary)]">Couldn&apos;t load more cards.</p>
                                 <button
                                   type="button"
-                                  disabled={!activeCardsPageState.pagination.hasPreviousPage}
-                                  onClick={() => setCardsPage((page) => Math.max(1, page - 1))}
-                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                                  onClick={() => setCardsPageRetryNonce((nonce) => nonce + 1)}
+                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
                                 >
-                                  Previous
-                                </button>
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                  Page {activeCardsPageState.pagination.page.toLocaleString("en-US")} of {activeCardsPageState.pagination.totalPages.toLocaleString("en-US")}
-                                </p>
-                                <button
-                                  type="button"
-                                  disabled={!activeCardsPageState.pagination.hasNextPage}
-                                  onClick={() => setCardsPage((page) => page + 1)}
-                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  Next
+                                  Retry
                                 </button>
                               </div>
+                            ) : null}
+
+                            {cardsPageFullyLoaded && !cardsPageIsLoadingMore ? (
+                              <p className="mt-4 text-center text-xs text-[var(--text-secondary)]/80">
+                                All {(activeCardsPageState.pagination?.totalCards ?? activeCardsPageState.cards.length).toLocaleString("en-US")} cards loaded
+                              </p>
                             ) : null}
                           </>
                         ) : null}
@@ -11066,51 +11802,30 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {setDetailTab === "pull-rates" ? (
-                  <section id="set-detail-pull-rates" className="scroll-mt-24 space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5">
-                    <div>
-                      <p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>
-                      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Modeled rarity frequency and specific-card odds used by this simulation.</p>
-                      <p className="mt-1 text-xs text-[var(--text-tertiary,var(--text-secondary))]">These are modeled estimates, not official Pokémon odds.</p>
-                    </div>
-                    {pullRateAssumptions ? (
-                      <PullRateAssumptionsCard pullRateAssumptions={pullRateAssumptions} embedded />
-                    ) : pullRatesTabPending ? (
-                      // Branded tab loader from the moment the tab is active
-                      // until the assumptions payload settles. If the request
-                      // hangs, the timeout swaps the loader for explicit copy
-                      // so this can never load indefinitely.
-                      pullRatesPendingTimedOut ? (
-                        <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-                          Pull rates are taking longer than expected to load. Refresh the page to retry.
-                        </p>
-                      ) : (
-                        <SetTabLoadingPanel
-                          title="Loading pull rate assumptions…"
-                          helper="Pulling rarity frequencies and specific-card odds for this set."
-                          minHeightClassName="min-h-[18rem]"
-                        />
-                      )
-                    ) : activePullRatesState.status === "error" ? (
-                      <p className="text-sm text-red-300">{activePullRatesState.error || "Unable to load pull rate assumptions for this set."}</p>
-                    ) : (
-                      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-                        Pull-rate data coming soon for this set. Modeled odds appear once this set&apos;s pack structure has been configured.
-                      </p>
-                    )}
-                  </section>
+                  <PullRatesTab
+                    pullRateAssumptions={pullRateAssumptions}
+                    pullRatesTabPending={pullRatesTabPending}
+                    pullRatesPendingTimedOut={pullRatesPendingTimedOut}
+                    activePullRatesState={activePullRatesState}
+                    resolvedSetResourceId={resolvedSetResourceId}
+                  />
                 ) : null}
               </>
             ) : null}
 
             {showInsightsCohesiveLoading ? (
-              // Whole-tab branded loader for Insights' critical payload —
-              // avoids section-by-section pop-in on the initial view. Only
-              // engages in set detail mode (insightsCriticalPending is false
-              // on /Explore) and hands off to the sections' compact fallback
-              // copy on timeout/error via insightsSectionsShowFallbackCopy.
+              // Branded loader for just the critical tier (RIP Score hero +
+              // pillar cards, priorities 1-3) — only engages in set detail
+              // mode (insightsCriticalPending is false on /Explore). Once the
+              // critical fetch settles this whole region reveals; Opening
+              // Outcomes and Desirability Evidence below then show their own
+              // secondary-tier loading/fallback state independently
+              // (insightsSectionsBlocked/insightsSectionsShowFallbackCopy)
+              // while priorities 4-5 catch up — this is the actual
+              // progressive-rendering seam for Insights.
               <SetTabLoadingPanel
-                title="Loading insight data…"
-                helper="Pulling RIP breakdown, opening outcomes, desirability checks, and simulation drivers."
+                title="Loading RIP score…"
+                helper="Pulling your set's RIP score and pillar breakdown."
               />
             ) : null}
 
@@ -11437,37 +12152,55 @@ export default function RipStatisticsPageClient({
 
             {setDetailMode ? (
               <section id="set-detail-insights" className="scroll-mt-24 space-y-4 pt-0 md:scroll-mt-28">
-                <RipScoreBreakdownModule
-                  score={topScoreRaw}
-                  scoreTrend={trendByMetricKey.ripScore}
-                  rankTier={summary.pack_tier}
-                  rankValue={summary.pack_rank}
-                  verdict={recommendationBadge}
-                  explanation={recommendationSummary}
-                  pillars={ripPillarTiles}
-                  titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                  ripDesirabilityComparison={ripDesirabilityComparison}
-                />
+                {/* Priorities 1-2: RIP Score hero + pillar cards. Gated above
+                    via showInsightsCohesiveLoading (critical-only now), so
+                    only render-exception isolation is needed here. */}
+                <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score" minHeightClassName="min-h-[14rem]">
+                  <RipScoreBreakdownModule
+                    score={topScoreRaw}
+                    scoreTrend={trendByMetricKey.ripScore}
+                    rankTier={summary.pack_tier}
+                    rankValue={summary.pack_rank}
+                    verdict={recommendationBadge}
+                    explanation={recommendationSummary}
+                    pillars={ripPillarTiles}
+                    titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
+                    ripDesirabilityComparison={ripDesirabilityComparison}
+                  />
+                </SectionErrorBoundary>
 
-                <DesirabilityProofCards
-                  validation={desirabilityValidationPayload}
-                  loading={insightsSectionsBlocked}
-                  loadingTimedOut={insightsSectionsShowFallbackCopy}
-                />
-                <DesirabilityValidationCard targets={targets} freshness={sectionFreshness.desirabilityValidation} />
-                <CardDesirabilityMarketValidationCard
-                  cards={activeCardValidationData.cards}
-                  cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}
-                  diagnosticsContext={{
-                    setId: resolvedSetResourceId,
-                    setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
-                    selectedTab: setDetailTab,
-                  }}
-                  freshness={sectionFreshness.cardAppealValidation}
-                  snapshotLoading={isTimeoutFallbackPayload}
-                  dataLoading={activeCardValidationData.status === "loading"}
-                />
+                {/* Priority 5: deep diagnostics. proofLoading/proofLoadingTimedOut
+                    reflect the secondary-tier fetch. DesirabilityProofContent
+                    renders data whenever the proof signal exists, so a truthy
+                    proofLoading can never hide loaded content — it only
+                    upgrades the no-data state from a premature "isn't
+                    available" verdict to a quiet placeholder while the owning
+                    fetch is still in flight. */}
+                <SectionErrorBoundary sectionName="insights-desirability-evidence" resetKeys={[resolvedSetResourceId]} title="Desirability Evidence" minHeightClassName="min-h-[14rem]">
+                  <DesirabilityEvidenceCard
+                    mode={selectedDesirabilityEvidenceMode}
+                    onModeChange={setSelectedDesirabilityEvidenceMode}
+                    validation={desirabilityValidationPayload}
+                    proofLoading={insightsSectionsBlocked || activeInsightsSecondaryStatus === "loading"}
+                    proofLoadingTimedOut={insightsSectionsShowFallbackCopy}
+                    targets={targets}
+                    setValidationFreshness={sectionFreshness.desirabilityValidation}
+                    cards={activeCardValidationData.cards}
+                    cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}
+                    diagnosticsContext={{
+                      setId: resolvedSetResourceId,
+                      setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
+                      selectedTab: setDetailTab,
+                    }}
+                    cardValidationFreshness={sectionFreshness.cardAppealValidation}
+                    snapshotLoading={isTimeoutFallbackPayload}
+                    dataLoading={activeCardValidationData.status === "loading"}
+                  />
+                </SectionErrorBoundary>
 
+                {/* Priority 4: charts/distributions (Opening Outcomes). Already
+                    internally gated on the secondary tier via insightsSectionsBlocked. */}
+                <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Opening Outcomes" minHeightClassName="min-h-[24rem]">
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   <SectionCard
                     title="Opening Outcomes"
@@ -11522,12 +12255,21 @@ export default function RipStatisticsPageClient({
                         <InlinePanelSkeleton rows={6} className="min-h-[24rem]" />
                       )
                     ) : !openingOutcomesViewHasData ? (
-                      // Loaded, but this sub-view genuinely has no rows for
-                      // this set — a compact note, not a chart-sized blank
-                      // panel, and only for the affected sub-tab.
-                      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-                        {openingOutcomesEmptyViewCopy}
-                      </p>
+                      activeInsightsSecondaryStatus === "loading" ? (
+                        // Another sub-view's data unblocked the card, but the
+                        // secondary fetch that owns THIS sub-view's rows is
+                        // still in flight — a quiet placeholder, never a
+                        // premature "isn't available" verdict (Paradox Rift
+                        // has real top_hits rows that arrive with it).
+                        <InlinePanelSkeleton rows={4} className="min-h-[12rem]" />
+                      ) : (
+                        // Settled, but this sub-view genuinely has no rows for
+                        // this set — a compact note, not a chart-sized blank
+                        // panel, and only for the affected sub-tab.
+                        <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          {openingOutcomesEmptyViewCopy}
+                        </p>
+                      )
                     ) : activeInsightsGraphMode === "simulation-drivers" ? (
                       <div id="set-detail-simulation-drivers" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
                         <InterpretationInsight
@@ -11565,6 +12307,7 @@ export default function RipStatisticsPageClient({
                     )}
                   </SectionCard>
                 </section>
+                </SectionErrorBoundary>
               </section>
             ) : null}
 
@@ -11900,11 +12643,11 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {warnings.length > 0 ? (
+            {visibleSetPageWarnings.length > 0 ? (
               <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Warnings</p>
                 <div className="mt-2 space-y-1">
-                  {warnings.map((warning, index) => (
+                  {visibleSetPageWarnings.map((warning, index) => (
                     <p key={`${warning}:${index}`} className="text-sm text-[var(--text-secondary)]">{warning}</p>
                   ))}
                 </div>
