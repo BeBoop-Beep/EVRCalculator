@@ -16,6 +16,14 @@ const IDLE_STATE = { status: "idle", setId: null, data: null, error: null };
 export function useSectionFetchState(fetcher, { setId, enabled = true } = {}) {
   const [state, setState] = useState(IDLE_STATE);
   const requestIdRef = useRef(0);
+  // Auto-fetch dedupe: the enabled/setId effect below re-runs on every tab
+  // revisit (enabled toggles false -> true) and on StrictMode's double effect
+  // invocation, which used to re-issue an identical request each time. This
+  // ref claims a setId when its auto-fetch is issued and only releases it on
+  // error (so a revisit can retry) — an in-flight or succeeded fetch for the
+  // same set is never repeated automatically. refetch() bypasses it on
+  // purpose (explicit user retry).
+  const autoFetchedSetIdRef = useRef(null);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
@@ -45,6 +53,9 @@ export function useSectionFetchState(fetcher, { setId, enabled = true } = {}) {
         if (requestIdRef.current !== requestId) {
           return;
         }
+        if (autoFetchedSetIdRef.current === targetSetId) {
+          autoFetchedSetIdRef.current = null;
+        }
         setState((prev) => ({
           status: "error",
           setId: targetSetId,
@@ -58,12 +69,17 @@ export function useSectionFetchState(fetcher, { setId, enabled = true } = {}) {
     if (!enabled || !setId) {
       return;
     }
+    if (autoFetchedSetIdRef.current === setId) {
+      return;
+    }
+    autoFetchedSetIdRef.current = setId;
     runFetch(setId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, setId, runFetch]);
 
   const refetch = useCallback(() => {
     if (setId) {
+      autoFetchedSetIdRef.current = setId;
       runFetch(setId);
     }
   }, [setId, runFetch]);

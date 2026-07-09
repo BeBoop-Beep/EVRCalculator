@@ -3470,7 +3470,7 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
 
 _OVERVIEW_SNAPSHOT_COLUMNS = (
     "set_id,window_key,set_value_histories_json,performance_vs_cost_history_json,"
-    "available_scopes_json,latest_market_date,updated_at,payload_json"
+    "available_scopes_json,latest_market_date,updated_at"
 )
 
 
@@ -3478,9 +3478,10 @@ def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[D
     """Build the slim Overview-tab payload (camelCase only) from a
     pokemon_set_market_dashboard_snapshot_latest row.
 
-    Prefers the split JSON columns; payload_json is read only as a per-field
-    fallback for older rows that predate one of those columns — it is never
-    included in the response, and topChaseCards/topChaseCardHistories/
+    Reads only the split JSON columns — payload_json is never selected or read
+    (the large monolithic column would dominate the query cost; current
+    snapshot rows always populate the split columns). A missing split column
+    yields an empty structure, and topChaseCards/topChaseCardHistories/
     marketMovers/marketMoversByWindow are never built here at all.
     """
     resolved_set_id = _to_optional_str(row.get("set_id"))
@@ -3492,22 +3493,17 @@ def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[D
         "pokemonApiSetId": _to_optional_str(identity_row.get("pokemon_api_set_id")),
     }
 
-    stored_payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-
     histories_by_scope = row.get("set_value_histories_json")
     if not isinstance(histories_by_scope, dict):
-        fallback_histories = stored_payload.get("setValueHistoriesByScope")
-        histories_by_scope = fallback_histories if isinstance(fallback_histories, dict) else {}
+        histories_by_scope = {}
 
     performance_vs_cost_history = row.get("performance_vs_cost_history_json")
     if not isinstance(performance_vs_cost_history, list):
-        fallback_performance = stored_payload.get("performanceVsCostHistory")
-        performance_vs_cost_history = fallback_performance if isinstance(fallback_performance, list) else []
+        performance_vs_cost_history = []
 
     available_scopes = row.get("available_scopes_json")
     if not isinstance(available_scopes, list):
-        fallback_scopes = stored_payload.get("availableScopes")
-        available_scopes = fallback_scopes if isinstance(fallback_scopes, list) else []
+        available_scopes = []
 
     return {
         "set": set_identity,
@@ -3563,10 +3559,10 @@ def get_pokemon_set_overview_snapshot_payload(
     """Return the slim Overview-tab snapshot (Set Value Trend + Performance vs
     Cost + scopes/latestMarketDate) for a Pokemon set.
 
-    Reads pokemon_set_market_dashboard_snapshot_latest, preferring the split
-    set_value_histories_json / performance_vs_cost_history_json /
-    available_scopes_json / latest_market_date columns. Never includes
-    topChaseCards, topChaseCardHistories, marketMovers, or
+    Reads pokemon_set_market_dashboard_snapshot_latest, selecting only the
+    split set_value_histories_json / performance_vs_cost_history_json /
+    available_scopes_json / latest_market_date columns (never payload_json).
+    Never includes topChaseCards, topChaseCardHistories, marketMovers, or
     marketMoversByWindow — see get_pokemon_set_market_dashboard_snapshot_payload
     for those. Public contract is camelCase only.
     """
@@ -3651,6 +3647,40 @@ _TOP_CHASE_SNAPSHOT_COLUMNS = (
     "set_id,window_key,top_chase_cards_json,top_chase_card_histories_json,"
     "latest_market_date,updated_at"
 )
+
+
+def _top_chase_row_latest_date(row: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not isinstance(row, dict):
+        return None
+    return _parse_date_key(row.get("latest_market_date"))
+
+
+def _pick_fresher_top_chase_row(
+    requested_row: Optional[Dict[str, Any]],
+    canonical_row: Optional[Dict[str, Any]],
+) -> tuple[Optional[Dict[str, Any]], bool, Optional[str]]:
+    """Choose which stored dashboard row the slim /market/top-chase endpoint
+    serves, returning (chosen_row, used_fallback_window, fallback_reason).
+
+    Prefer the requested-window row, but fall back to the canonical 365d row
+    when the requested row is missing OR staler than it (a strictly older
+    latest_market_date, or none at all). ISO date keys compare correctly as
+    strings. This keeps Top Chase reading the freshest stored data — the same
+    fresh 365d row Market Movers reads — so a lagging per-window rebuild can
+    never leave Top Chase serving a stale price/history the mover view has
+    already moved past.
+    """
+    if requested_row is None:
+        if canonical_row is None:
+            return None, False, None
+        return canonical_row, True, "missing_requested_window_row"
+    if canonical_row is None:
+        return requested_row, False, None
+    requested_date = _top_chase_row_latest_date(requested_row)
+    canonical_date = _top_chase_row_latest_date(canonical_row)
+    if canonical_date and (requested_date is None or canonical_date > requested_date):
+        return canonical_row, True, "requested_window_row_stale"
+    return requested_row, False, None
 
 
 def _slice_top_chase_history(history: Any, *, days: int) -> List[Dict[str, Any]]:
@@ -3768,10 +3798,20 @@ def get_pokemon_set_top_chase_snapshot_payload(
     filed under a window_key this endpoint's default ("30d") never matches.
     Phase 5E: if the requested-window row is missing, fall back to reading
     the 365d row (still a single extra indexed read, never a rebuild/write)
-    and serve its already-stored cards/histories unchanged. The response
-    still reports the requested window; meta.snapshot records that a
-    fallback window was used so callers/diagnostics can tell the two cases
-    apart.
+    and serve its already-stored cards/histories unchanged.
+
+    Freshness fix (Ascended Heroes): the fallback also triggers when the
+    requested-window row EXISTS but is STALE — its latest_market_date is older
+    than the canonical 365d row's. A lagging per-window rebuild can leave, say,
+    the 30d row frozen weeks behind (stale card price + carried-forward/absent
+    history) while the 365d row is current. Market Movers already reads the
+    fresh 365d row, so serving the stale 30d row here made Top Chase contradict
+    Market Movers for the same card. Serving whichever row is fresher keeps the
+    two in agreement and never lets stale stored data override current data.
+
+    The response still reports the requested window; meta.snapshot records
+    whether a fallback row was used and why (missing vs stale) so callers/
+    diagnostics can tell the cases apart.
     """
     started = time.perf_counter()
     resolved = _to_optional_str(set_id)
@@ -3804,12 +3844,23 @@ def get_pokemon_set_top_chase_snapshot_payload(
     t_query = time.perf_counter()
     row: Optional[Dict[str, Any]] = None
     used_fallback_window = False
+    fallback_reason: Optional[str] = None
     try:
-        row = _read_top_chase_row(resolved_window)
-        if not row and resolved_window == DEFAULT_TOP_CHASE_DASHBOARD_WINDOW:
-            row = _read_top_chase_row(DEFAULT_DASHBOARD_WINDOW)
-            if row:
-                used_fallback_window = True
+        requested_row = _read_top_chase_row(resolved_window)
+        if resolved_window == DEFAULT_DASHBOARD_WINDOW:
+            # The requested window IS the canonical 365d row — there is nothing
+            # fresher to compare it against, so serve it directly.
+            row = requested_row
+        else:
+            # Read the canonical 365d row too and serve whichever is fresher —
+            # this is what stops a stale-but-present requested-window row (the
+            # Ascended Heroes 30d case) from overriding fresher 365d data. Both
+            # reads are single indexed lookups on (set_id, window_key); no
+            # per-card raw-observation scan is added by this comparison.
+            canonical_row = _read_top_chase_row(DEFAULT_DASHBOARD_WINDOW)
+            row, used_fallback_window, fallback_reason = _pick_fresher_top_chase_row(
+                requested_row, canonical_row
+            )
     except Exception as exc:
         logger.warning(
             "[pokemon-snapshot] top chase snapshot read failed set_id=%s window=%s exc=%s",
@@ -3819,6 +3870,8 @@ def get_pokemon_set_top_chase_snapshot_payload(
             exc_info=True,
         )
         row = None
+        used_fallback_window = False
+        fallback_reason = None
     query_ms = round((time.perf_counter() - t_query) * 1000, 3)
 
     if not row:
@@ -3837,10 +3890,11 @@ def get_pokemon_set_top_chase_snapshot_payload(
 
     if used_fallback_window:
         logger.info(
-            "[pokemon-snapshot] top chase snapshot used fallback window set_id=%s requested_window=%s source_window=%s",
+            "[pokemon-snapshot] top chase snapshot used fallback window set_id=%s requested_window=%s source_window=%s reason=%s",
             resolved_set_id,
             resolved_window,
             row.get("window_key"),
+            fallback_reason,
         )
 
     resolved_row_set_id = _to_optional_str(row.get("set_id")) or resolved_set_id
@@ -3893,6 +3947,25 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 top_chase_card_histories = sliced_observation_histories
                 hydrated_from_observations = True
 
+    # The card price column reads top_chase_cards_json's own marketPrice/
+    # currentPrice — the price the snapshot builder computed for the served row.
+    # We deliberately do NOT overwrite it with the latest history point: history
+    # can be stale/carried-forward, and dragging the price onto it makes the
+    # price column MORE stale, not less. Freshness is handled upstream by serving
+    # the fresher row (_pick_fresher_top_chase_row), so the served row's card
+    # price and its history already reflect the same current market truth.
+    top_chase_history_latest_observed_date = max(
+        (
+            date_key
+            for history in top_chase_card_histories.values()
+            if isinstance(history, list)
+            for point in history
+            for date_key in [_parse_date_key(point.get("date"))]
+            if date_key
+        ),
+        default=None,
+    )
+
     history_point_counts = [len(history) for history in top_chase_card_histories.values()]
 
     timings = {
@@ -3901,9 +3974,10 @@ def get_pokemon_set_top_chase_snapshot_payload(
     }
     warnings: List[str] = []
     if used_fallback_window:
+        stale_or_missing = "stale" if fallback_reason == "requested_window_row_stale" else "missing"
         warnings.append(
-            f"Top chase snapshot for window {resolved_window} is missing; served the "
-            f"{DEFAULT_DASHBOARD_WINDOW} window's stored cards/histories instead."
+            f"Top chase snapshot for window {resolved_window} is {stale_or_missing}; served the "
+            f"fresher {DEFAULT_DASHBOARD_WINDOW} window's stored cards/histories instead."
         )
     if top_chase_cards and not any(count > 0 for count in history_point_counts):
         warnings.append(
@@ -3921,13 +3995,20 @@ def get_pokemon_set_top_chase_snapshot_payload(
         "meta": {
             "limit": limit_value,
             "warnings": warnings,
+            # The card price column comes from the served row's own stored
+            # top_chase_cards_json (never dragged onto the history) — the served
+            # row is the freshest of the requested/canonical rows, so priceBasis
+            # + priceSourceWindowKey together say exactly which stored row's
+            # current price the caller is seeing.
             "priceBasis": "pokemon_set_market_dashboard_snapshot_latest.top_chase_cards_json",
+            "priceSourceWindowKey": _to_optional_str(row.get("window_key")) or resolved_window,
             "topChaseHistorySource": (
                 TOP_CHASE_HISTORY_SOURCE
                 if hydrated_from_observations
                 else "pokemon_set_market_dashboard_snapshot_latest.top_chase_card_histories_json"
             ),
             "topChaseHistoryHydratedFromObservations": hydrated_from_observations,
+            "topChaseHistorySourceLatestObservedDate": top_chase_history_latest_observed_date,
             "topChaseHistoryMinPoints": min(history_point_counts) if history_point_counts else 0,
             "topChaseHistoryMaxPoints": max(history_point_counts) if history_point_counts else 0,
             "snapshot": {
@@ -3936,7 +4017,7 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 "requestedWindow": resolved_window,
                 "sourceWindow": _to_optional_str(row.get("window_key")) or resolved_window,
                 "usedFallbackWindow": used_fallback_window,
-                **({"fallbackReason": "missing_requested_window_row"} if used_fallback_window else {}),
+                **({"fallbackReason": fallback_reason} if used_fallback_window and fallback_reason else {}),
                 "updatedAt": _to_optional_str(row.get("updated_at")),
                 "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
                 "isStaleFallback": True,

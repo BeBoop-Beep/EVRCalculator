@@ -1,13 +1,27 @@
+import { resolveSetDetailTab } from "@/lib/explore/ripStatisticsRouting";
 import { fetchWithTimeout, previewResponseBody, sanitizeBackendPath } from "@/lib/explore/explorePageServerCore.mjs";
 import { normalizePokemonSetCardsPayload } from "@/lib/pokemon/pokemonSetCardsClient";
-import { normalizeMarketDashboardPayload, normalizeMarketDashboardWindow } from "@/lib/pokemon/pokemonSetMarketClient";
+import {
+  normalizeMarketDashboardPayload,
+  normalizeMarketDashboardWindow,
+  normalizeOverviewPayload,
+} from "@/lib/pokemon/pokemonSetMarketClient";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const BACKEND_API_BASE_URL = getBackendApiBaseUrl();
 const SHELL_SNAPSHOT_REVALIDATE_S = 300;
+const OVERVIEW_SNAPSHOT_REVALIDATE_S = 300;
 const EMPTY_INITIAL_SNAPSHOT = { payload: null, error: null, elapsedMs: 0 };
 const INITIAL_SNAPSHOT_TIMEOUT_MS = Number.parseInt(
   process.env.POKEMON_SET_INITIAL_SNAPSHOT_TIMEOUT_MS || "5000",
+  10
+);
+// The overview seed is nice-to-have first paint data, not a required asset —
+// a backend hiccup must not hold the whole route render hostage, so it gets a
+// shorter budget than the shell snapshot. On timeout the client's own
+// /overview fetch takes over exactly as before the seed existed.
+const OVERVIEW_INITIAL_SNAPSHOT_TIMEOUT_MS = Number.parseInt(
+  process.env.POKEMON_SET_OVERVIEW_INITIAL_SNAPSHOT_TIMEOUT_MS || "2500",
   10
 );
 
@@ -15,6 +29,12 @@ function getTimeoutMs() {
   return Number.isFinite(INITIAL_SNAPSHOT_TIMEOUT_MS) && INITIAL_SNAPSHOT_TIMEOUT_MS > 0
     ? INITIAL_SNAPSHOT_TIMEOUT_MS
     : 5000;
+}
+
+function getOverviewTimeoutMs() {
+  return Number.isFinite(OVERVIEW_INITIAL_SNAPSHOT_TIMEOUT_MS) && OVERVIEW_INITIAL_SNAPSHOT_TIMEOUT_MS > 0
+    ? OVERVIEW_INITIAL_SNAPSHOT_TIMEOUT_MS
+    : 2500;
 }
 
 function serializeError(error, url, elapsedMs, status = null, bodyPreview = null) {
@@ -28,7 +48,7 @@ function serializeError(error, url, elapsedMs, status = null, bodyPreview = null
   };
 }
 
-async function loadInitialSnapshot(url, { normalizePayload, moduleName, nextCacheOptions = null }) {
+async function loadInitialSnapshot(url, { normalizePayload, moduleName, nextCacheOptions = null, timeoutMs = null }) {
   const startedAt = Date.now();
   let response = null;
 
@@ -37,7 +57,7 @@ async function loadInitialSnapshot(url, { normalizePayload, moduleName, nextCach
     : { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" };
 
   try {
-    response = await fetchWithTimeout(url.toString(), fetchOpts, getTimeoutMs());
+    response = await fetchWithTimeout(url.toString(), fetchOpts, timeoutMs || getTimeoutMs());
   } catch (error) {
     const elapsedMs = Date.now() - startedAt;
     return {
@@ -106,6 +126,35 @@ export async function getPokemonSetShellInitialSnapshot(setId) {
   });
 }
 
+export async function getPokemonSetOverviewInitialSnapshot(setId, { window = "365d" } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    return {
+      payload: null,
+      error: { message: "Set id is required", code: "SET_ID_REQUIRED" },
+      elapsedMs: 0,
+    };
+  }
+
+  const normalizedWindow = normalizeMarketDashboardWindow(window);
+  const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/overview`);
+  url.searchParams.set("window", normalizedWindow);
+
+  // Unlike cards/market-dashboard, /overview no longer selects payload_json —
+  // it serves only the split Set Value/Performance vs Cost columns (<250KB
+  // budget, contract-tested backend-side), so it fits comfortably inside
+  // Next's 2MB data-cache entry limit and can use nextCacheOptions.
+  return loadInitialSnapshot(url, {
+    moduleName: "overview",
+    normalizePayload: normalizeOverviewPayload,
+    nextCacheOptions: {
+      revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
+      tags: [`pokemon-set-overview:${resolvedSetId}:${normalizedWindow}`],
+    },
+    timeoutMs: getOverviewTimeoutMs(),
+  });
+}
+
 export async function getPokemonSetCardsInitialSnapshot(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -152,7 +201,12 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
 /**
  * Load the initial shell + active-tab snapshot for the Pokemon set detail page.
  *
- * Only the shell (lightweight header/title-card data) is always fetched.
+ * Only the shell (lightweight header/title-card data) is always fetched. When
+ * the active tab is Overview, the slim /overview snapshot (Set Value Trend +
+ * Performance vs Cost + scopes) is additionally server-seeded — see
+ * getPokemonSetOverviewInitialSnapshot — so those two above-the-fold sections
+ * render without a client-side loading panel. The seed is best-effort: on
+ * error/timeout the client's own /overview fetch takes over unchanged.
  *
  * The full /cards snapshot is never route-seeded here for any tab anymore.
  * Cards uses its own slim, paginated contract (getPokemonSetCardsPage,
@@ -169,8 +223,10 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
  * Overview uses /overview (+ /market/top-chase, /market/movers). Cards uses
  * /cards/page. Pull Rates uses /pull-rates (Phase 4A). Insights uses
  * /insights (Phase 4B) plus /cards/validation for its card validation
- * section — all four are fetched client-side from RipStatisticsPageClient.jsx,
- * none of them server-seeded here. The full /page snapshot is legacy-only
+ * section — all four are fetched client-side from RipStatisticsPageClient.jsx.
+ * Of these, only /overview is additionally server-seeded (Overview tab only);
+ * top-chase/movers/cards/pull-rates/insights are never seeded here. The full
+ * /page snapshot is legacy-only
  * (see needsExplorePagePayload in page.js, gated on non-"set" target types
  * only) and is not part of normal set-detail initial snapshot loading.
  *
@@ -196,10 +252,17 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   // plus getPokemonSetCardsValidation for card validation) — neither tab
   // needs the full /cards snapshot server-seeded anymore, so this slot
   // always resolves empty.
-  const [shell, cards, marketDashboard] = await Promise.all([
+  //
+  // The slim /overview snapshot IS seeded, but only when Overview is the
+  // active tab. resolveSetDetailTab applies the same aliasing and absent-tab
+  // default as the route/client, so this stays correct if the default
+  // set-detail tab ever becomes Overview.
+  const wantsOverview = resolveSetDetailTab(tab) === "overview";
+  const [shell, cards, marketDashboard, overview] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsOverview ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);
 
   const totalMs = Date.now() - startedAt;
@@ -213,6 +276,9 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   if (marketDashboard.error) {
     errors.marketDashboard = marketDashboard.error;
   }
+  if (overview.error) {
+    errors.overview = overview.error;
+  }
 
   console.info("[set-snapshots-server] snapshots_loaded", {
     setId,
@@ -220,21 +286,26 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
     shellMs: shell.elapsedMs,
     cardsMs: cards.elapsedMs,
     marketDashboardMs: marketDashboard.elapsedMs,
+    overviewMs: overview.elapsedMs,
     totalMs,
     shellError: Boolean(shell.error),
     cardsError: Boolean(cards.error),
     marketDashboardError: Boolean(marketDashboard.error),
+    overviewError: Boolean(overview.error),
+    overviewSeeded: Boolean(overview.payload),
   });
 
   return {
     shellPayload: shell.payload,
     cardsPayload: cards.payload,
     marketDashboardPayload: marketDashboard.payload,
+    overviewPayload: overview.payload,
     errors,
     timings: {
       shellMs: shell.elapsedMs,
       cardsMs: cards.elapsedMs,
       marketDashboardMs: marketDashboard.elapsedMs,
+      overviewMs: overview.elapsedMs,
       totalMs,
     },
   };

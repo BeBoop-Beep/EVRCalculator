@@ -88,12 +88,61 @@ test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for t
     !fnSource.includes("getPokemonSetMarketDashboardInitialSnapshot("),
     "getPokemonSetInitialSnapshots must never call getPokemonSetMarketDashboardInitialSnapshot anymore"
   );
+  // Cards and market-dashboard slots resolve empty unconditionally; the
+  // overview slot falls back to the empty placeholder on non-Overview tabs.
   const emptyPlaceholderCount = (fnSource.match(/Promise\.resolve\(EMPTY_INITIAL_SNAPSHOT\)/g) || []).length;
   assert.equal(
     emptyPlaceholderCount,
-    2,
-    "both the cards slot and the market dashboard slot must unconditionally resolve to the empty placeholder"
+    3,
+    "the cards slot and the market dashboard slot must unconditionally resolve to the empty placeholder, and the overview slot must fall back to it off the Overview tab"
   );
+});
+
+test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Overview tab only", () => {
+  const source = fs.readFileSync(snapshotsServerPath, "utf8");
+  const fnStart = source.indexOf("export async function getPokemonSetInitialSnapshots");
+  const fnEnd = source.indexOf("\n}\n", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+
+  assert.ok(
+    fnSource.includes('const wantsOverview = resolveSetDetailTab(tab) === "overview"'),
+    "overview seeding must gate on the resolved set-detail tab (aliases + absent-tab default included)"
+  );
+  assert.ok(
+    fnSource.includes("wantsOverview ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
+    "overview must be fetched only when Overview is the active tab, resolving empty otherwise"
+  );
+  assert.ok(fnSource.includes("errors.overview"), "must surface errors.overview on overview seed failure");
+  assert.ok(fnSource.includes("overviewPayload: overview.payload"), "must return overviewPayload");
+  assert.ok(fnSource.includes("overviewMs: overview.elapsedMs"), "must return overviewMs in timings");
+  // Only the shell and overview snapshots are server-seeded — top chase,
+  // movers, cards, pull rates, and insights stay client-fetched.
+  const snapshotCalls = [...new Set(fnSource.match(/getPokemonSet\w+InitialSnapshot\(/g) || [])].sort();
+  assert.deepEqual(
+    snapshotCalls,
+    ["getPokemonSetOverviewInitialSnapshot(", "getPokemonSetShellInitialSnapshot("],
+    "only the shell and overview initial snapshots may be fetched here"
+  );
+});
+
+test("getPokemonSetOverviewInitialSnapshot uses the Next data cache with a per-set/window tag and a short timeout", () => {
+  const source = fs.readFileSync(snapshotsServerPath, "utf8");
+  const fnStart = source.indexOf("export async function getPokemonSetOverviewInitialSnapshot");
+  const fnEnd = source.indexOf("export async function getPokemonSetCardsInitialSnapshot", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+
+  assert.ok(fnStart >= 0, "getPokemonSetOverviewInitialSnapshot must exist");
+  assert.ok(fnSource.includes("/overview"), "must fetch the slim /overview endpoint");
+  assert.ok(fnSource.includes("normalizePayload: normalizeOverviewPayload"), "must normalize via normalizeOverviewPayload");
+  assert.ok(
+    fnSource.includes("revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S"),
+    "overview snapshots are small (<250KB budget) and must use Next's data cache"
+  );
+  assert.ok(
+    fnSource.includes("tags: [`pokemon-set-overview:${resolvedSetId}:${normalizedWindow}`]"),
+    "cache entries must be tagged per set + window for targeted revalidation"
+  );
+  assert.ok(fnSource.includes("timeoutMs: getOverviewTimeoutMs()"), "must use the short overview-specific timeout");
 });
 
 // ---------------------------------------------------------------------------
