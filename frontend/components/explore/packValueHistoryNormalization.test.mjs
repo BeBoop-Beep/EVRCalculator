@@ -226,7 +226,7 @@ test("performance tooltip rows put upside first and cost context last", () => {
 
   assert.deepEqual(
     rows.map((row) => row.label),
-    ["Big Hit Upside", "Expected Value", "Typical Return", "Break-even", "Pack Market Price"]
+    ["Realistic Upside", "Expected Value", "Typical Return", "Break-even", "Pack Market Price"]
   );
   assert.deepEqual(
     rows.map((row) => row.value),

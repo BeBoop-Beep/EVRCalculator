@@ -270,7 +270,7 @@ function EmptyChartState({ title, body }) {
   );
 }
 
-export default function RipDistributionChart({ bins = [], thresholdBins = [], markers = [] }) {
+export default function RipDistributionChart({ bins = [], thresholdBins = [], markers = [], showTitle = true, flush = false }) {
   const [activeMarkerKey, setActiveMarkerKey] = useState(null);
   const [showBars, setShowBars] = useState(true);
   const [showLine, setShowLine] = useState(true);
@@ -630,10 +630,18 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3 sm:p-4 md:p-5 w-full max-w-full min-w-0">
+    <div
+      className={
+        flush
+          ? "w-full max-w-full min-w-0"
+          : "rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3 sm:p-4 md:p-5 w-full max-w-full min-w-0"
+      }
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Outcome Distribution</p>
+          {showTitle ? (
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Outcome Distribution</p>
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 text-[11px]">

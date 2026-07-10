@@ -4,9 +4,12 @@ import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, us
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
+  Cell,
   ComposedChart,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Scatter,
   Tooltip as RechartsTooltip,
@@ -41,6 +44,16 @@ import {
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
+import { aggregateNormalStateRows } from "./packStateLabels.mjs";
+import {
+  computeModelAgreement,
+  computeMonteCarloBand,
+  computeStandardError,
+  deriveVariance,
+  selectCalculatedExpectedValue,
+  selectPercentileValue,
+  selectSimulatedExpectedValue,
+} from "./simulationMetricsSelector.mjs";
 import { buildSetValueContract, selectSetValueTrendFromContract } from "./setValueContract.mjs";
 import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
@@ -108,12 +121,13 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const REQUIRED_PACK_PATHS = ["normal", "demi_god_pack", "god_pack"];
 const ANALYSIS_SECTION_ID = "explore-outcomes";
-const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "simulation-drivers", "pack-breakdown", "value-contribution"]);
+const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "simulation-drivers", "pack-breakdown", "value-contribution", "simulation-metrics"]);
 const SECTION_ID_MAP = {
   "pack-score": "explore-score",
   "outcome-distribution": "explore-outcomes",
   "historical-trend": "explore-outcomes",
   "pack-breakdown": "explore-outcomes",
+  "simulation-metrics": "explore-outcomes",
   "top-ev-drivers": "explore-drivers",
   "rarity-contribution": "explore-rarity",
 };
@@ -189,10 +203,20 @@ const SET_DETAIL_SECTION_TARGETS = {
   "desirability-proof": { tab: "insights", targetId: "set-detail-desirability-evidence" },
   "desirability-validation": { tab: "insights", targetId: "set-detail-desirability-evidence" },
   "card-desirability-price": { tab: "insights", targetId: "set-detail-desirability-evidence" },
+  // Simulation Results card (formerly "Opening Outcomes"). `opening-outcomes`
+  // stays for backwards-compatible deep links; `simulation-results` is the
+  // preferred alias for the same card/default sub-view.
   "opening-outcomes": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" },
+  "simulation-results": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" },
   "simulation-cards": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-drivers" },
   value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" },
   "pack-breakdown": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "pack-breakdown" },
+  "simulation-metrics": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-metrics" },
+  // The technical "Opening P vs C" sub-view of Simulation Results. Kept as a
+  // distinct section id from `performance-vs-cost` so Overview's quick-read
+  // Performance vs Cost chart (below) stays exactly where it is — same data,
+  // different story.
+  "opening-performance-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" },
   "performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" },
   "set-value-trend": { tab: "overview", targetId: "set-detail-set-value-trend" },
   "top-market-cards": { tab: "overview", targetId: "set-detail-top-market-cards" },
@@ -788,8 +812,8 @@ const RIP_COPY = {
     typicalPack: "Typical Pack",
     averagePack: "Average Pack",
     badFloor: "Bad Floor",
-    bigHit: "Big Hit",
-    bigHitUpside: "Big Hit Upside",
+    bigHit: "Big Hit Threshold",
+    bigHitUpside: "Realistic Upside",
     godPullUpside: "God Pull Upside",
     bestPull: "Best Pull",
   },
@@ -798,12 +822,12 @@ const RIP_COPY = {
     badPackFloor: "Bad Pack Floor Value",
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     chanceAtBigPull: "Chance at a Big Pull",
-    bigHitUpside: "Big Hit Upside",
+    bigHitUpside: "Realistic Upside",
     godPullUpside: "God Pull Upside",
     bestPull: "Best Simulated Pull",
   },
   advancedStats: {
-    bigHitUpside: "Big Hit Upside",
+    bigHitUpside: "Realistic Upside",
     expectedLossPerPack: "Average Loss per Pack",
     expectedLossWhenLosing: "Average Loss When You Miss",
     medianLossWhenLosing: "Typical Loss When You Miss",
@@ -892,7 +916,7 @@ const PERFORMANCE_VS_COST_INFO_TEXT = (
       <li className="flex gap-2">
         <span className="flex-none">•</span>
         <span>
-          <span className="font-semibold text-[var(--text-primary)]">Big Hit Upside:</span> 95th percentile simulated pack outcome from the RIP Score breakdown.
+          <span className="font-semibold text-[var(--text-primary)]">Realistic Upside:</span> 95th percentile simulated pack outcome. Roughly 5% of simulated packs landed above this value.
         </span>
       </li>
       <li className="flex gap-2">
@@ -914,6 +938,50 @@ const PERFORMANCE_VS_COST_INFO_TEXT = (
     </ul>
   </div>
 );
+
+// Stable info bubble for the whole Simulation Results card (its title icon).
+// Per-sub-tab explanations live in the section headers below the tab strip.
+const SIMULATION_RESULTS_INFO_TEXT = (
+  <div className="space-y-2 text-left">
+    <p className="font-semibold text-[var(--text-primary)]">Simulation Results</p>
+    <p>Everything the pack-opening simulation produced for this set: how outcomes are distributed, how value compares with cost over time, which cards and rarities carry the value, the pack paths modeled, and the raw metrics behind it.</p>
+    <p>Modeled from simulated pack openings using current pack price, card values, pull rates, and pack path assumptions.</p>
+  </div>
+);
+
+// Section header for the Opening Profit vs Cost sub-tab. Describes the technical
+// (simulation-variant) series names the chart actually renders.
+const OPENING_PROFIT_VS_COST_INFO_TEXT = (
+  <div className="space-y-2 text-left">
+    <p className="font-semibold text-[var(--text-primary)]">Opening Profit vs Cost</p>
+    <p>How simulated opening value compares with pack market price over time, kept technical for the simulation view.</p>
+    <ul className="space-y-1 pl-3">
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span><span className="font-semibold text-[var(--text-primary)]">Expected Value vs Cost:</span> average simulated pack value ÷ pack price.</span>
+      </li>
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span><span className="font-semibold text-[var(--text-primary)]">50th Percentile vs Cost:</span> the median (typical) pack value ÷ pack price.</span>
+      </li>
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span><span className="font-semibold text-[var(--text-primary)]">95th Percentile vs Cost:</span> the 95th-percentile pack outcome ÷ pack price.</span>
+      </li>
+      <li className="flex gap-2">
+        <span className="flex-none">•</span>
+        <span>Above 1.0x means that outcome exceeds pack market price; below 1.0x means it is below.</span>
+      </li>
+    </ul>
+  </div>
+);
+
+const SIMULATION_DRIVERS_INFO_TEXT =
+  "Cards contributing most to modeled pack value after pull odds and card prices are applied.";
+const PACK_PATHS_INFO_TEXT =
+  "Counts of the normal and special pack-path outcome states the simulation model uses for this set.";
+const SIMULATION_METRICS_INFO_TEXT =
+  "The raw simulation and EV-derived metrics for this set — not the RIP pillar score presentation. Missing fields show an honest “not available” state rather than an invented number.";
 
 const METRIC_TREND_DIRECTIONS = {
   ripScore: "higher",
@@ -3700,6 +3768,296 @@ function MetricRow({ label, value, infoText, trend = null, content = null }) {
   );
 }
 
+// Section-level header (title + info bubble) rendered inside the Simulation
+// Results card, below the tab strip, for the active sub-view. The card's own
+// title info bubble stays high-level; these explain the specific sub-view.
+function SimulationSectionHeader({ title, infoText }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</h3>
+      {infoText ? <InfoPopover text={infoText} /> : null}
+    </div>
+  );
+}
+
+// Flush body wrapper for the non-Metrics Simulation Results sub-tabs: no border,
+// no rounded panel, no background, and no internal scroll — the parent card is
+// the only large container, so every sub-tab reads as one premium canvas
+// (Opening Profit vs Cost is the visual reference). Metrics deliberately keeps
+// its own scroll wrapper and does NOT use this.
+function SimulationResultsPanel({ id, children, className = "" }) {
+  return (
+    <div id={id} className={`min-h-[24rem] w-full min-w-0 scroll-mt-24 md:scroll-mt-28 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+// ─── Simulation Results → Metrics tab ────────────────────────────────────────
+// A deliberately technical read of the raw simulation + EV-derived fields.
+// Uses its own compact row (NOT MetricRow) so labels are shown verbatim and are
+// never remapped into the simplified/pillar copy getFriendlyMetricLabel applies.
+function countMetricEntries(value) {
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value).length;
+  }
+  return null;
+}
+
+function SimMetricRow({ label, value, infoText = null, muted = false }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] py-1.5 last:border-b-0 last:pb-0 first:pt-0">
+      <span className="inline-flex min-w-0 items-center gap-1.5 text-[13px] text-[var(--text-secondary)]">
+        <span className="truncate">{label}</span>
+        {infoText ? <InfoPopover text={infoText} /> : null}
+      </span>
+      <span className={`flex-none text-[13px] font-semibold tabular-nums ${muted ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function SimMetricGroup({ title, subtitle = null, className = "", children }) {
+  return (
+    <section className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-3.5 ${className}`}>
+      <div className="mb-1.5">
+        <h4 className="text-[11px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">{title}</h4>
+        {subtitle ? <p className="mt-0.5 text-[11px] leading-snug text-[color:color-mix(in_srgb,var(--text-secondary)_80%,transparent)]">{subtitle}</p> : null}
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+// One-line definition for every Metrics row. Keyed by the exact row label so
+// SimMetricLine can auto-attach an info bubble to every row (Task 6: every
+// metric row must be explainable).
+const SIMULATION_METRIC_INFO = {
+  "Pack Market Price": "Current pack price used as the cost baseline for every ratio and profit figure.",
+  "Simulated Packs": "Number of simulated pack openings this result is computed from.",
+  "Run / As-of Date": "Date/time of the simulation snapshot these metrics come from.",
+  "Pack Paths": "Count of pack-path types (e.g. normal, demi-god, god) the model simulates.",
+  "Normal Pack States": "Count of modeled normal-pack outcome states used by the simulation.",
+  "Min Pack": "Lowest simulated pack value across the run.",
+  P5: "5th-percentile pack value — 95% of simulated packs landed above this.",
+  P25: "25th-percentile pack value across simulated packs.",
+  "P50 (Typical Pack)": "Median (50th-percentile) simulated pack value — the typical pack.",
+  P75: "75th-percentile pack value across simulated packs.",
+  P90: "90th-percentile pack value across simulated packs.",
+  P95: "95th-percentile pack value — roughly 5% of packs beat this (Realistic Upside).",
+  P99: "99th-percentile pack value — the rare high-end (God Pull) outcome.",
+  "Max (Best Pull)": "Highest simulated pack value across the run.",
+  "Mean (Expected Value)": "Average simulated pack value across every simulated pack.",
+  "Std Dev": "Spread of simulated pack values around the mean; higher means noisier outcomes.",
+  Variance: "Square of standard deviation; derived from std dev when the backend does not export it explicitly.",
+  "Expected Value": "Average simulated pack value.",
+  "Typical Pack": "Median simulated pack value.",
+  "EV / Cost": "Expected value ÷ pack market price. Above 1.0x means value exceeds cost.",
+  "Typical / Cost": "Median pack value ÷ pack market price.",
+  "P95 / Cost": "95th-percentile pack value ÷ pack market price.",
+  "P99 / Cost": "99th-percentile pack value ÷ pack market price.",
+  "ROI %": "Expected value return relative to pack cost.",
+  "Chance to Beat Pack Cost": "Share of simulated packs worth at least the pack price.",
+  "Chance at Big Pull": "Share of simulated packs above the big-hit threshold.",
+  "Big Hit Threshold": "Value threshold used to count big-hit (big-pull) outcomes.",
+  "Average Hit Value": "Average value of hit-card output per pack, where available.",
+  "Expected Loss / Pack": "Average downside relative to cost across all simulated packs.",
+  "Coefficient of Variation": "Std dev ÷ mean; higher means outcomes swing more relative to the average.",
+  "Bad Pack Floor (P05)": "5th-percentile pack value — a rough floor for a bad pack.",
+  "P05 Shortfall to Cost": "How far the P05 (bad-floor) outcome falls short of pack cost, as a ratio.",
+  "Average Loss When Missing": "Average loss on packs that came in below cost.",
+  "Typical Loss When Missing": "Median loss on packs that came in below cost.",
+  "Loss Fraction (Avg)": "Average loss-when-missing as a fraction of pack cost.",
+  "Loss Fraction (Typical)": "Median loss-when-missing as a fraction of pack cost.",
+  "HHI EV Concentration": "Herfindahl index of how concentrated expected value is among chase cards.",
+  "Effective Chase Count": "Concentration-adjusted count of meaningful value-carrying chase outcomes.",
+  "Top Chase Share": "Share of expected value carried by the single top contributing card.",
+  "Top 3 Share": "Share of expected value carried by the top 3 contributing cards.",
+  "Top 5 Share": "Share of expected value carried by the top 5 contributing cards.",
+  "Hit EV": "Expected value coming from hit cards.",
+  "Hit EV / Pack": "Hit-card expected value expressed per pack.",
+  "Non-hit EV": "Expected value coming from non-hit / bulk cards.",
+  "Hit EV Share": "Portion of total expected value carried by hit cards.",
+  "Simulated Set Value": "Modeled total set value based on the simulation's card values.",
+  "Simulated Set Value Cards": "Number of cards included in the simulated set value calculation.",
+  "Calculated EV": "Deterministic expected value, if exported by the backend.",
+  "Simulated EV": "Monte Carlo mean expected value from the simulated packs.",
+  "Model Agreement": "Model Agreement compares deterministic/calculated EV against the Monte Carlo mean. It does not validate pull-rate assumptions or market price accuracy.",
+  "EV Delta": "Simulated EV minus calculated EV.",
+  "EV Delta %": "EV delta expressed as a percentage of calculated EV.",
+  "Std Error (MC mean)": "Standard error of the Monte Carlo mean = std dev ÷ √n.",
+  "95% Monte Carlo Band": "±1.96 × standard error — the sampling band around the Monte Carlo mean.",
+  "Simulation As-of": "Date of the simulation snapshot feeding these metrics.",
+  "Performance History Latest": "Date of the most recent performance-vs-cost history point.",
+};
+
+// Every Metrics row goes through this wrapper so it always carries an info
+// bubble (resolved from SIMULATION_METRIC_INFO unless an explicit one is given).
+function SimMetricLine({ label, value, muted = false, infoText }) {
+  return <SimMetricRow label={label} value={value} muted={muted} infoText={infoText ?? SIMULATION_METRIC_INFO[label] ?? null} />;
+}
+
+function SimulationMetricsContent({ summary, percentiles = [], ripStatistics = null, historyTrend = [], asOfDate = null }) {
+  const safeSummary = summary && typeof summary === "object" ? summary : {};
+
+  const money = (value) => formatCurrency(value);
+  const ratio = (value) => formatMultiplier(value, 2);
+  const probability = (value) => formatPercent(value, { probability: true });
+  // Match the app's existing Top-Share convention (formatPercent without the
+  // probability flag — see the advanced concentration tiles).
+  const share = (value) => formatPercent(value);
+  const roiPercent = (value) => (toNumber(value) === null ? "—" : formatPercent(value));
+  const countValue = (value) => {
+    const parsed = toNumber(value);
+    return parsed === null ? "—" : Math.round(parsed).toLocaleString("en-US");
+  };
+  const dateValue = (value) => {
+    if (!value) {
+      return "—";
+    }
+    return formatHistoryDate(value, { year: "numeric", month: "short", day: "numeric" }) || String(value);
+  };
+
+  const simulationCount = safeSummary.simulation_count ?? safeSummary.packs_simulated;
+  const packPathsCount = countMetricEntries(ripStatistics?.pack_paths);
+  const normalStatesCount = countMetricEntries(ripStatistics?.normal_pack_states);
+
+  const p05 = selectPercentileValue(percentiles, 5) ?? toNumber(safeSummary.tail_value_p05);
+  const p25 = selectPercentileValue(percentiles, 25);
+  const p50 = selectPercentileValue(percentiles, 50) ?? toNumber(safeSummary.median_value);
+  const p75 = selectPercentileValue(percentiles, 75);
+  const p90 = selectPercentileValue(percentiles, 90);
+  const p95 = selectPercentileValue(percentiles, 95);
+  const p99 = selectPercentileValue(percentiles, 99);
+  const variance = deriveVariance(safeSummary);
+
+  // TODO(backend): calculated/deterministic EV (evr_runner
+  // calculated_expected_value_per_pack) is not yet surfaced into the set-page
+  // snapshot summary payload. Once it is, Model Agreement below lights up
+  // automatically — no frontend change needed.
+  const calculatedEV = selectCalculatedExpectedValue(safeSummary);
+  const simulatedEV = selectSimulatedExpectedValue(safeSummary);
+  const agreement = computeModelAgreement({ calculatedEV, simulatedEV });
+  const standardError = computeStandardError(safeSummary.std_dev, simulationCount);
+  const monteCarloBand = computeMonteCarloBand(standardError);
+
+  const historyPoints = Array.isArray(historyTrend) ? historyTrend : [];
+  const latestHistoryPoint = historyPoints.length ? historyPoints[historyPoints.length - 1] : null;
+  const historyLatestDate =
+    latestHistoryPoint?.date || latestHistoryPoint?.snapshot_date || latestHistoryPoint?.snapshotDate || null;
+  const simulationAsOf = asOfDate || safeSummary.run_at || null;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[12px] leading-snug text-[var(--text-secondary)]">
+        Raw simulation outputs and the metrics derived from them. Values shown as
+        {" "}
+        <span className="font-semibold text-[var(--text-primary)]">&mdash;</span> are not available in the current snapshot.
+      </p>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <SimMetricGroup title="Simulation Inputs">
+          <SimMetricLine label="Pack Market Price" value={money(safeSummary.pack_cost ?? safeSummary.current_market_pack_cost)} />
+          <SimMetricLine label="Simulated Packs" value={countValue(simulationCount)} />
+          <SimMetricLine label="Run / As-of Date" value={dateValue(simulationAsOf)} />
+          <SimMetricLine label="Pack Paths" value={packPathsCount === null ? "—" : countValue(packPathsCount)} />
+          <SimMetricLine label="Normal Pack States" value={normalStatesCount === null ? "—" : countValue(normalStatesCount)} />
+        </SimMetricGroup>
+
+        <SimMetricGroup title="Distribution" subtitle="Simulated per-pack value across the run.">
+          <SimMetricLine label="Min Pack" value={money(safeSummary.min_value)} />
+          <SimMetricLine label="P5" value={money(p05)} />
+          <SimMetricLine label="P25" value={money(p25)} />
+          <SimMetricLine label="P50 (Typical Pack)" value={money(p50)} />
+          <SimMetricLine label="P75" value={money(p75)} />
+          <SimMetricLine label="P90" value={money(p90)} />
+          <SimMetricLine label="P95" value={money(p95)} />
+          <SimMetricLine label="P99" value={money(p99)} />
+          <SimMetricLine label="Max (Best Pull)" value={money(safeSummary.max_value)} />
+          <SimMetricLine label="Mean (Expected Value)" value={money(safeSummary.mean_value)} />
+          <SimMetricLine label="Std Dev" value={money(safeSummary.std_dev)} />
+          <SimMetricLine label="Variance" value={variance.value === null ? "—" : formatNumber(variance.value, 2)} />
+        </SimMetricGroup>
+
+        <SimMetricGroup title="Value vs Cost" subtitle="Per-pack value relative to pack market price.">
+          <SimMetricLine label="Expected Value" value={money(safeSummary.mean_value)} />
+          <SimMetricLine label="Typical Pack" value={money(safeSummary.median_value)} />
+          <SimMetricLine label="EV / Cost" value={ratio(safeSummary.mean_value_to_cost_ratio)} />
+          <SimMetricLine label="Typical / Cost" value={ratio(safeSummary.median_value_to_cost_ratio)} />
+          <SimMetricLine label="P95 / Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
+          <SimMetricLine label="P99 / Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
+          <SimMetricLine label="ROI %" value={roiPercent(safeSummary.roi_percent)} />
+          <SimMetricLine label="Chance to Beat Pack Cost" value={probability(safeSummary.prob_profit)} />
+          <SimMetricLine label="Chance at Big Pull" value={probability(safeSummary.prob_big_hit)} />
+          <SimMetricLine label="Big Hit Threshold" value={money(safeSummary.big_hit_threshold)} />
+          <SimMetricLine label="Average Hit Value" value={money(safeSummary.average_hit_value)} />
+          <SimMetricLine label="Expected Loss / Pack" value={money(safeSummary.expected_loss_per_pack)} />
+        </SimMetricGroup>
+
+        <SimMetricGroup title="Risk / Variance" subtitle="Downside and dispersion of pack outcomes.">
+          <SimMetricLine label="Std Dev" value={money(safeSummary.std_dev)} />
+          <SimMetricLine label="Variance" value={variance.value === null ? "—" : formatNumber(variance.value, 2)} />
+          <SimMetricLine label="Coefficient of Variation" value={formatNumber(safeSummary.coefficient_of_variation, 2)} />
+          <SimMetricLine label="Bad Pack Floor (P05)" value={money(safeSummary.tail_value_p05)} />
+          <SimMetricLine label="P05 Shortfall to Cost" value={ratio(safeSummary.p05_shortfall_to_cost)} />
+          <SimMetricLine label="Average Loss When Missing" value={money(safeSummary.expected_loss_when_losing)} />
+          <SimMetricLine label="Typical Loss When Missing" value={money(safeSummary.median_loss_when_losing)} />
+          <SimMetricLine label="Loss Fraction (Avg)" value={share(safeSummary.expected_loss_when_losing_fraction)} />
+          <SimMetricLine label="Loss Fraction (Typical)" value={share(safeSummary.median_loss_when_losing_fraction)} />
+        </SimMetricGroup>
+
+        <SimMetricGroup title="Value Concentration" subtitle="How much modeled EV sits in the chase tail.">
+          <SimMetricLine label="HHI EV Concentration" value={formatNumber(safeSummary.hhi_ev_concentration, 3)} />
+          <SimMetricLine label="Effective Chase Count" value={formatNumber(safeSummary.effective_chase_count, 2)} />
+          <SimMetricLine label="Top Chase Share" value={share(safeSummary.top1_ev_share)} />
+          <SimMetricLine label="Top 3 Share" value={share(safeSummary.top3_ev_share)} />
+          <SimMetricLine label="Top 5 Share" value={share(safeSummary.top5_ev_share)} />
+          <SimMetricLine label="Hit EV" value={money(safeSummary.hit_ev)} />
+          <SimMetricLine label="Hit EV / Pack" value={money(safeSummary.hit_ev_per_pack)} />
+          <SimMetricLine label="Non-hit EV" value={money(safeSummary.non_hit_ev)} />
+          <SimMetricLine label="Hit EV Share" value={share(safeSummary.hit_ev_share)} />
+          <SimMetricLine label="Simulated Set Value" value={money(safeSummary.simulated_set_value)} />
+          <SimMetricLine label="Simulated Set Value Cards" value={countValue(safeSummary.simulated_set_value_card_count)} />
+        </SimMetricGroup>
+
+        <SimMetricGroup
+          title="Model Agreement & Freshness"
+          subtitle="Deterministic vs Monte Carlo EV, and how fresh each source is."
+        >
+          {agreement.available ? (
+            <>
+              <SimMetricLine label="Calculated EV" value={money(calculatedEV)} />
+              <SimMetricLine label="Simulated EV" value={money(simulatedEV)} />
+              <SimMetricLine label="EV Delta" value={formatSignedCurrency(agreement.delta)} />
+              <SimMetricLine
+                label="EV Delta %"
+                value={agreement.deltaPercent === null ? "—" : `${agreement.deltaPercent >= 0 ? "+" : ""}${agreement.deltaPercent.toFixed(1)}%`}
+              />
+              <SimMetricLine label="Model Agreement" value={`${agreement.score.toFixed(1)}%`} />
+            </>
+          ) : (
+            <p className="border-b border-[var(--border-subtle)] pb-2 text-[12px] leading-snug text-[var(--text-secondary)]">
+              Calculated-vs-simulated agreement is not available in this snapshot yet.
+            </p>
+          )}
+          {standardError !== null ? (
+            <>
+              <SimMetricLine label="Std Error (MC mean)" value={money(standardError)} />
+              <SimMetricLine label="95% Monte Carlo Band" value={monteCarloBand === null ? "—" : `± ${money(monteCarloBand)}`} />
+            </>
+          ) : null}
+          <SimMetricLine label="Simulation As-of" value={dateValue(simulationAsOf)} />
+          <SimMetricLine label="Performance History Latest" value={dateValue(historyLatestDate)} />
+        </SimMetricGroup>
+      </div>
+    </div>
+  );
+}
+
 function formatDriverScore(value) {
   const parsed = toNumber(value);
   return parsed === null ? null : parsed.toFixed(1);
@@ -4305,7 +4663,7 @@ const SET_INTELLIGENCE_LENSES = [
     simpleDetailSummary:
       "This lens focuses on ceiling. It helps you understand whether the strongest possible pulls can feel truly special for this set.",
     description:
-      "This lens blends Big Hit Upside (P95) with God Pull Upside (P99) to represent total ceiling quality.",
+      "This lens blends Realistic Upside (P95) with God Pull Upside (P99) to represent total ceiling quality.",
     evidenceKeys: ["p95_value_to_cost_ratio", "p99_value_to_cost_ratio", "big_hit_threshold", "max_value"],
   },
   {
@@ -4393,7 +4751,7 @@ function getLensEvidenceRow(key, summary) {
     case "prob_big_hit":
       return { label: "Chance at a big pull", value: formatPercent(summary.prob_big_hit, { probability: true }) };
     case "p95_value_to_cost_ratio":
-      return { label: "Big Hit Upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
+      return { label: "Realistic Upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
     case "p99_value_to_cost_ratio":
       return { label: "God Pull Upside", value: fmtMult(summary.p99_value_to_cost_ratio) };
     case "effective_chase_count":
@@ -6475,8 +6833,11 @@ function DesirabilityEvidenceCard({
 }
 
 const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
+// ~half-height card art for the Simulation Results → Simulation Drivers panel,
+// so the top drivers fit inside the card without an internal scrollbar.
+const TOP_CARD_IMAGE_CONTAINER_COMPACT_CLASS = "h-11 w-[2rem] sm:h-12 sm:w-[2.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 
-function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, condensed = false }) {
+function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, condensed = false, compactImage = false }) {
   const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
   const [hasImageError, setHasImageError] = useState(false);
 
@@ -6490,7 +6851,7 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
     <div className={`w-full max-w-full min-w-0 box-border rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 ${condensed ? "p-2" : "p-2.5"}`}>
       <div className={`flex min-w-0 flex-col ${condensed ? "gap-2" : "gap-3"} sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center`}>
         <div className="flex min-w-0 items-center gap-3">
-          <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
+          <div className={compactImage ? TOP_CARD_IMAGE_CONTAINER_COMPACT_CLASS : TOP_CARD_IMAGE_CONTAINER_CLASS}>
             {shouldRenderImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -6604,16 +6965,18 @@ function SimpleTopCardsContent({ topHits }) {
   );
 }
 
-function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostics = null }) {
-  const hits = Array.isArray(topHits) ? topHits : [];
+function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostics = null, maxRows = null, compactImage = false }) {
+  const allHits = Array.isArray(topHits) ? topHits : [];
+  const hits = maxRows !== null && maxRows !== undefined ? allHits.slice(0, maxRows) : allHits;
+  const hiddenDriverCount = allHits.length - hits.length;
   const totalEV = toNumber(meanValue);
-  const visibleTopEV = hits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
+  const visibleTopEV = allHits.reduce((sum, hit) => sum + (toNumber(hit?.ev_contribution) ?? 0), 0);
   const hasPackTotalEV = totalEV !== null;
   const totalLabel = hasPackTotalEV ? "Simulated Expected Value" : "Top 10 Simulated Value";
   const totalValue = hasPackTotalEV ? totalEV : visibleTopEV;
   const freshnessInfo = formatSectionFreshnessInfo(diagnostics?.freshness);
 
-  if (hits.length === 0) {
+  if (allHits.length === 0) {
     return (
       <div className="space-y-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-3">
         <p className="text-sm text-[var(--text-secondary)]">
@@ -6656,9 +7019,343 @@ function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostic
             imageSmallUrl={hit?.image_small_url}
             imageLargeUrl={hit?.image_large_url}
             condensed={condensed}
+            compactImage={compactImage}
           />
         );
       })}
+      </div>
+      {hiddenDriverCount > 0 ? (
+        <p className="pt-0.5 text-[11px] text-[var(--text-secondary)]">
+          Showing top {hits.length} EV drivers · +{hiddenDriverCount} more
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+const PACK_PATH_CHART_COLORS = {
+  normal: "rgba(20,184,166,0.86)",
+  demi_god_pack: "rgba(56,189,248,0.58)",
+  god_pack: "rgba(148,163,184,0.52)",
+};
+const SIMULATION_COMPOSITION_COLORS = [
+  "rgba(20,184,166,0.84)",
+  "rgba(45,212,191,0.68)",
+  "rgba(56,189,248,0.62)",
+  "rgba(14,165,233,0.54)",
+  "rgba(100,116,139,0.56)",
+  "rgba(148,163,184,0.46)",
+];
+
+function formatShare(value, total) {
+  const parsedValue = toNumber(value);
+  const parsedTotal = toNumber(total);
+  if (parsedValue === null || parsedTotal === null || parsedTotal <= 0) {
+    return "0.0%";
+  }
+  return `${((parsedValue / parsedTotal) * 100).toFixed(1)}%`;
+}
+
+function buildTopLevelPackPathRows(packPaths) {
+  const source = typeof packPaths === "object" && packPaths !== null ? packPaths : {};
+  const counts = {
+    normal: toNumber(source.normal) ?? 0,
+    demi_god_pack: toNumber(source.demi_god_pack ?? source.demi_god ?? source.demigod) ?? 0,
+    god_pack: toNumber(source.god_pack ?? source.god) ?? 0,
+  };
+  return REQUIRED_PACK_PATHS.map((key) => ({
+    key,
+    name: formatPackPathLabel(key),
+    count: counts[key] ?? 0,
+    fill: PACK_PATH_CHART_COLORS[key] || "rgba(148,163,184,0.62)",
+  }));
+}
+
+function buildNormalStateMatrixRows(stateRows) {
+  const { rows } = aggregateNormalStateRows(Array.isArray(stateRows) ? stateRows : []);
+  return rows
+    .filter((row) => row.count > 0)
+    .map((row) => ({
+      ...row,
+      name: row.label,
+    }));
+}
+
+function buildRarityCompositionRows(rankings) {
+  const rows = Array.isArray(rankings) ? rankings : [];
+  return rows
+    .map((ranking, index) => {
+      const value = toNumber(ranking?.total_sampled_value) ?? 0;
+      const pullCount = toNumber(ranking?.pulled_count) ?? 0;
+      const name = titleCaseStateLabel(ranking?.rarity_bucket || "Unknown");
+      return {
+        key: `rarity:${ranking?.rarity_bucket || name}:${index}`,
+        name,
+        value,
+        pullCount,
+        fill: SIMULATION_COMPOSITION_COLORS[index % SIMULATION_COMPOSITION_COLORS.length],
+      };
+    })
+    .filter((row) => row.value > 0)
+    .sort((left, right) => right.value - left.value);
+}
+
+function SimulationChartTooltipFrame({ label, children }) {
+  return (
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+      <div className="mt-1 space-y-0.5 text-xs text-[var(--text-secondary)]">{children}</div>
+    </div>
+  );
+}
+
+function PackPathDonutTooltip({ active, payload, totalPacks }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+  const row = payload[0]?.payload;
+  if (!row) {
+    return null;
+  }
+  return (
+    <SimulationChartTooltipFrame label={row.name}>
+      <p><span className="font-semibold text-[var(--text-primary)]">{row.count.toLocaleString("en-US")}</span> simulated packs</p>
+      <p>{formatShare(row.count, totalPacks)} of total packs</p>
+    </SimulationChartTooltipFrame>
+  );
+}
+
+function CompactProgressStrip({ widthPercent, className = "" }) {
+  return (
+    <div className={["mt-2 h-1 overflow-hidden rounded-full bg-white/[0.055]", className].filter(Boolean).join(" ")}>
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-teal-300/80 via-cyan-300/70 to-sky-400/45 shadow-[0_0_16px_rgba(45,212,191,0.22)]"
+        style={{ width: `${Math.max(3, Math.min(100, widthPercent))}%` }}
+      />
+    </div>
+  );
+}
+
+function StateMatrixTile({ label, count, share, widthPercent }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.52),rgba(2,6,23,0.34))] px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <span className="min-w-0 truncate text-[13px] font-medium text-[var(--text-primary)]">{label}</span>
+        <span className="flex-none text-right text-[12px] font-semibold tabular-nums text-[var(--text-primary)]">{count.toLocaleString("en-US")}</span>
+      </div>
+      <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]">
+        <span className="truncate">Normal states</span>
+        <span className="flex-none tabular-nums">{share}</span>
+      </div>
+      <CompactProgressStrip widthPercent={widthPercent} />
+    </div>
+  );
+}
+
+function NormalStateMatrix({ rows, totalStates }) {
+  const maxCount = Math.max(...rows.map((row) => row.count), 1);
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-2 xl:grid-cols-3">
+      {rows.map((row) => (
+        <StateMatrixTile
+          key={`state-matrix:${row.label}`}
+          label={row.label}
+          count={row.count}
+          share={formatShare(row.count, totalStates)}
+          widthPercent={normalizeBarWidth(row.count, maxCount)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CompositionHoverTooltip({ row, totalValue, totalPulls }) {
+  return (
+    <div className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-20 hidden w-max min-w-[13rem] max-w-[16rem] -translate-x-1/2 group-hover:block group-focus-within:block">
+      <SimulationChartTooltipFrame label={row.name}>
+        <p><span className="font-semibold text-[var(--text-primary)]">{formatCurrency(row.value)}</span> simulated value</p>
+        <p>{formatShare(row.value, totalValue)} of total value</p>
+        <p>
+          <span className="font-semibold text-[var(--text-primary)]">{row.pullCount.toLocaleString("en-US")}</span> pulls
+          {totalPulls > 0 ? ` (${formatShare(row.pullCount, totalPulls)} of pulls)` : ""}
+        </p>
+      </SimulationChartTooltipFrame>
+    </div>
+  );
+}
+
+function ValueCompositionRibbon({ rows, totalValue, totalPulls }) {
+  return (
+    <div className="relative">
+      <div className="flex h-11 w-full overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.42)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        {rows.map((row, index) => {
+          const share = totalValue > 0 ? (row.value / totalValue) * 100 : 0;
+          const showLabel = share >= 10;
+          return (
+            <div
+              key={`value-ribbon:${row.key}`}
+              className="group relative h-full min-w-0 first:rounded-l-md last:rounded-r-md focus-within:z-10"
+              style={{ flexGrow: Math.max(share, 0.25), flexBasis: 0 }}
+            >
+              <button
+                type="button"
+                className="h-full w-full overflow-hidden border-r border-[rgba(2,6,23,0.72)] px-2 text-left outline-none last:border-r-0 focus:ring-1 focus:ring-cyan-300/60"
+                style={{ backgroundColor: row.fill }}
+                aria-label={`${row.name}: ${formatCurrency(row.value)}, ${formatShare(row.value, totalValue)} of total value`}
+              >
+                {showLabel ? (
+                  <span className="block truncate text-[11px] font-semibold text-white/92 drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]">
+                    {row.name}
+                  </span>
+                ) : (
+                  <span className="sr-only">{row.name}</span>
+                )}
+              </button>
+              <CompositionHoverTooltip row={row} totalValue={totalValue} totalPulls={totalPulls} />
+              {index === 0 ? <span className="pointer-events-none absolute inset-y-0 left-0 w-px bg-cyan-200/55" /> : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RarityDetailTile({ row, totalValue, totalPulls, maxValue }) {
+  const valueShare = formatShare(row.value, totalValue);
+  const pullShare = totalPulls > 0 ? formatShare(row.pullCount, totalPulls) : "0.0%";
+  return (
+    <div className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.50),rgba(2,6,23,0.32))] px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <span className="min-w-0 truncate text-[13px] font-medium text-[var(--text-primary)]">{row.name}</span>
+        <span className="flex-none text-right text-[12px] font-semibold tabular-nums text-[var(--text-primary)]">{formatCurrency(row.value)}</span>
+      </div>
+      <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]">
+        <span className="truncate">{row.pullCount.toLocaleString("en-US")} pulls / {pullShare}</span>
+        <span className="flex-none tabular-nums">{valueShare}</span>
+      </div>
+      <CompactProgressStrip widthPercent={normalizeBarWidth(row.value, maxValue)} />
+    </div>
+  );
+}
+
+function PackPathsVisualization({ packPaths, normalStateRows, evidenceRows = [], condensed = false }) {
+  const pathRows = useMemo(() => buildTopLevelPackPathRows(packPaths), [packPaths]);
+  const visiblePathRows = pathRows.filter((row) => row.count > 0);
+  const totalPacks = pathRows.reduce((sum, row) => sum + row.count, 0);
+  const dominantPath = pathRows.reduce((best, row) => (row.count > (best?.count ?? -1) ? row : best), null);
+  const stateRows = useMemo(() => buildNormalStateMatrixRows(normalStateRows), [normalStateRows]);
+  const totalStates = stateRows.reduce((sum, row) => sum + row.count, 0);
+
+  return (
+    <>
+      {evidenceRows.length > 0 ? (
+        <div className={`${condensed ? "mb-3" : "mb-4"} flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2`}>
+          {evidenceRows.map(([label, value]) => (
+            <span
+              key={`${label}:${value}`}
+              className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+            >
+              <span className="shrink-0 text-[var(--text-secondary)]">{label}</span>
+              <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="grid min-w-0 gap-4 md:grid-cols-[0.86fr_1.14fr]">
+        <div className="min-w-0">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Path Mix</p>
+          {visiblePathRows.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">No pack-path counts are available.</p>
+          ) : (
+            <div className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.28)] px-3 py-3">
+              <div className="relative h-[9.5rem] min-w-0 sm:h-[10.5rem] md:h-[11rem]">
+                <ChartFrame className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={visiblePathRows}
+                        dataKey="count"
+                        nameKey="name"
+                        innerRadius="66%"
+                        outerRadius="84%"
+                        paddingAngle={2}
+                        stroke="rgba(5,11,18,0.82)"
+                        strokeWidth={2}
+                        isAnimationActive={false}
+                      >
+                        {visiblePathRows.map((row) => (
+                          <Cell key={`path-slice:${row.key}`} fill={row.fill} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip content={<PackPathDonutTooltip totalPacks={totalPacks} />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartFrame>
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Simulated Packs</p>
+                    <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{totalPacks.toLocaleString("en-US")}</p>
+                    {dominantPath ? <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{dominantPath.name}</p> : null}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 grid gap-1.5 text-[11px] text-[var(--text-secondary)]">
+                {pathRows.map((row) => (
+                  <div key={`path-legend:${row.key}`} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+                    <span className="inline-flex min-w-0 items-center gap-1.5 text-[var(--text-primary)]">
+                      <span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ backgroundColor: row.fill }} />
+                      <span className="truncate">{row.name}</span>
+                    </span>
+                    <span className="flex-none tabular-nums">{row.count.toLocaleString("en-US")}</span>
+                    <span className="flex-none font-medium text-[var(--text-primary)]">{formatShare(row.count, totalPacks)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal State Matrix</p>
+          {stateRows.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">No normal-state counts are available.</p>
+          ) : (
+            <NormalStateMatrix rows={stateRows} totalStates={totalStates} />
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function RarityValueComposition({ rankings }) {
+  const rows = useMemo(() => buildRarityCompositionRows(rankings), [rankings]);
+  const totalValue = rows.reduce((sum, row) => sum + row.value, 0);
+  const totalPulls = rows.reduce((sum, row) => sum + row.pullCount, 0);
+  const maxValue = Math.max(...rows.map((row) => row.value), 1);
+
+  if (rows.length === 0) {
+    return <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>;
+  }
+
+  return (
+    <div className="min-w-0 space-y-3">
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Value Composition</p>
+        <ValueCompositionRibbon rows={rows} totalValue={totalValue} totalPulls={totalPulls} />
+      </div>
+      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => (
+          <RarityDetailTile
+            key={`rarity-detail:${row.key}`}
+            row={row}
+            totalValue={totalValue}
+            totalPulls={totalPulls}
+            maxValue={maxValue}
+          />
+        ))}
       </div>
     </div>
   );
@@ -6693,8 +7390,10 @@ function RarityContributionContent({ rankings, condensed = false }) {
 
       {evRows.maxEV === 0 ? (
         <p className="text-sm text-[var(--text-secondary)]">No value contribution data available.</p>
+      ) : condensed ? (
+        <RarityValueComposition rankings={rankings} />
       ) : (
-        <div className={condensed ? "grid gap-x-4 gap-y-1 md:grid-cols-2" : "space-y-1"}>
+        <div className="space-y-1">
           {evRows.sorted.map((ranking) => {
             const value = toNumber(ranking?.total_sampled_value) ?? 0;
             const valueShare = evRows.totalEV > 0 ? ((value / evRows.totalEV) * 100).toFixed(1) : null;
@@ -6734,7 +7433,7 @@ function RarityContributionContent({ rankings, condensed = false }) {
   );
 }
 
-function PackPathBars({ packPaths }) {
+function PackPathBars({ packPaths, condensed = false }) {
   const source = typeof packPaths === "object" && packPaths !== null ? packPaths : {};
   const normalized = {
     normal: toNumber(source.normal) ?? 0,
@@ -6753,7 +7452,7 @@ function PackPathBars({ packPaths }) {
   const maxCount = Math.max(...rows.map((row) => row.count), 1);
 
   return (
-    <div className="space-y-3">
+    <div className={condensed ? "space-y-2" : "space-y-3"}>
       {rows.map(({ key, count }) => (
         <div key={`path:${key}`}>
           <div className="flex items-center justify-between gap-2">
@@ -6767,34 +7466,43 @@ function PackPathBars({ packPaths }) {
   );
 }
 
-function StateBars({ stateRows }) {
-  const rows = Array.isArray(stateRows) ? stateRows : [];
+function StateBars({ stateRows, condensed = false }) {
+  const rawRows = Array.isArray(stateRows) ? stateRows : [];
+  const rows = rawRows.map((entry) => ({ label: titleCaseStateLabel(entry?.[0]), count: toNumber(entry?.[1]) ?? 0 }));
 
   if (rows.length === 0) {
     return <p className="text-sm text-[var(--text-secondary)]">No normal-state counts are available.</p>;
   }
 
-  const maxCount = Math.max(...rows.map(([, value]) => toNumber(value) ?? 0), 1);
+  const maxCount = Math.max(...rows.map((row) => row.count), 1);
 
   return (
-    <div className="space-y-3">
-      {rows.map(([name, count]) => {
-        const numericCount = toNumber(count) ?? 0;
-        return (
-          <div key={`state:${name}`}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm text-[var(--text-secondary)]">{titleCaseStateLabel(name)}</span>
-              <span className="text-sm font-medium text-[var(--text-primary)]">{numericCount.toLocaleString("en-US")}</span>
-            </div>
-            <HorizontalBar widthPercent={normalizeBarWidth(numericCount, maxCount)} />
+    <div className={condensed ? "space-y-2" : "space-y-3"}>
+      {rows.map(({ label, count }) => (
+        <div key={`state:${label}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-[var(--text-secondary)]">{label}</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{count.toLocaleString("en-US")}</span>
           </div>
-        );
-      })}
+          <HorizontalBar widthPercent={normalizeBarWidth(count, maxCount)} />
+        </div>
+      ))}
     </div>
   );
 }
 
 function PackBreakdownContent({ packPaths, normalStateRows, evidenceRows = [], condensed = false }) {
+  if (condensed) {
+    return (
+      <PackPathsVisualization
+        packPaths={packPaths}
+        normalStateRows={normalStateRows}
+        evidenceRows={evidenceRows}
+        condensed
+      />
+    );
+  }
+
   return (
     <>
       {evidenceRows.length > 0 ? (
@@ -6813,11 +7521,16 @@ function PackBreakdownContent({ packPaths, normalStateRows, evidenceRows = [], c
       <div className={`grid ${condensed ? "gap-4 md:grid-cols-2" : "gap-5 md:grid-cols-2"}`}>
         <div>
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pack Paths</p>
-          <PackPathBars packPaths={packPaths} />
+          <PackPathBars packPaths={packPaths} condensed={condensed} />
         </div>
         <div>
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Normal States</p>
-          <StateBars stateRows={normalStateRows} />
+          {/* Non-condensed views keep the original row list; the compact
+              Simulation Results view renders all collapsed states as a matrix. */}
+          <StateBars
+            stateRows={normalStateRows}
+            condensed={condensed}
+          />
         </div>
       </div>
     </>
@@ -6944,10 +7657,12 @@ function SetPageNavigationRail({
       : [
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
           { id: "desirability-evidence", label: "Desirability Evidence", tab: "insights", section: "desirability-proof", targetId: "set-detail-desirability-evidence", active: false },
-          { id: "opening-outcomes", label: "Opening Outcomes", tab: "insights", section: "opening-outcomes", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
+          { id: "simulation-results", label: "Simulation Results", tab: "insights", section: "simulation-results", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
+          { id: "opening-performance-cost", label: "Opening Profit vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
           { id: "value", label: "Value Structure", tab: "insights", section: "value", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
           { id: "pack-breakdown", label: "Pack Paths", tab: "insights", section: "pack-breakdown", graphMode: "pack-breakdown", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "pack-breakdown" },
+          { id: "simulation-metrics", label: "Metrics", tab: "insights", section: "simulation-metrics", graphMode: "simulation-metrics", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-metrics" },
         ];
 
   return (
@@ -7767,10 +8482,13 @@ export default function RipStatisticsPageClient({
   const lastOverviewRequestKeyRef = useRef(null);
   const lastTopChaseRequestKeyRef = useRef(null);
   const lastMarketMoversRequestKeyRef = useRef(null);
-  const activeInsightsGraphMode =
-    setDetailMode && setDetailTab === "insights" && graphMode === "historical-trend"
-      ? "outcome-distribution"
-      : graphMode;
+  // Every GRAPH_SECTION_KEYS value is now a valid Simulation Results sub-view
+  // (Outcome Distribution, Opening P vs C = historical-trend, Simulation
+  // Drivers, Value Structure, Pack Paths, Metrics), so the insights card
+  // renders whatever graphMode is active. Entering Insights from Overview's
+  // Performance vs Cost (historical-trend) still resets to Outcome Distribution
+  // via the tab-change / URL-sync handlers below.
+  const activeInsightsGraphMode = graphMode;
   const cardsNeededForActiveTab =
     setDetailMode && (setDetailTab === "cards" || setDetailTab === "insights");
   const cardsSeededForActiveSet =
@@ -8156,7 +8874,7 @@ export default function RipStatisticsPageClient({
 
   const outcomeDistributionInfo = (
     <div className="space-y-1.5 text-left">
-      <p className="font-semibold text-[var(--text-primary)]">Opening Outcomes</p>
+      <p className="font-semibold text-[var(--text-primary)]">Outcome Distribution</p>
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
         <li className="flex gap-2"><span className="flex-none">â€¢</span><span>{getSimulationContextSubtitle(summary.simulation_count ?? summary.packs_simulated)}</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often packs land in each value range.</span></li>
@@ -9508,6 +10226,7 @@ export default function RipStatisticsPageClient({
   // each sub-view either has rows to render or gets a compact empty state —
   // never a chart-sized blank panel. The card's large min-height is also only
   // applied when the active view actually renders chart-sized content.
+  const historicalTrendHasRenderablePoints = hasNonEmptyArray(historyTrend) && historyTrend.length >= 2;
   const openingOutcomesViewHasData =
     activeInsightsGraphMode === "simulation-drivers"
       ? topHits.length > 0
@@ -9515,6 +10234,14 @@ export default function RipStatisticsPageClient({
       ? rankings.length > 0
       : activeInsightsGraphMode === "pack-breakdown"
       ? hasRenderablePackPathRows(ripStatistics?.pack_paths, normalStateRows)
+      : activeInsightsGraphMode === "historical-trend"
+      // PackValueHistoryChart owns its own compact empty state, so always
+      // render its branch and let the chart decide.
+      ? true
+      : activeInsightsGraphMode === "simulation-metrics"
+      // SimulationMetricsContent renders honest per-metric "not available"
+      // states, so it is never blocked by a missing-data verdict.
+      ? true
       : hasRenderableOutcomeDistributionRows(distributionBins, thresholdBins);
   const openingOutcomesEmptyViewCopy =
     activeInsightsGraphMode === "simulation-drivers"
@@ -9524,7 +10251,14 @@ export default function RipStatisticsPageClient({
       : activeInsightsGraphMode === "pack-breakdown"
       ? "Pack path data isn't available for this set yet."
       : "Outcome distribution data isn't available for this set yet.";
-  const openingOutcomesUsesExpandedLayout = !insightsSectionsBlocked && openingOutcomesViewHasData;
+  // Chart-sized min-heights apply only to views that render chart-sized
+  // content with data. Metrics sizes itself; Opening P vs C only expands once
+  // it has enough points to plot (otherwise its compact empty state shows).
+  const openingOutcomesUsesExpandedLayout =
+    !insightsSectionsBlocked &&
+    openingOutcomesViewHasData &&
+    activeInsightsGraphMode !== "simulation-metrics" &&
+    (activeInsightsGraphMode !== "historical-trend" || historicalTrendHasRenderablePoints);
   useEffect(() => {
     if (!setDetailMode || setDetailTab !== "insights" || !resolvedSetResourceId || hasActiveInsightsPayload) {
       return undefined;
@@ -9773,7 +10507,7 @@ export default function RipStatisticsPageClient({
   const technicalScoreMetrics = [
     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
     { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2), trend: trendByMetricKey.outcomeVolatility },
     { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
@@ -9789,7 +10523,7 @@ export default function RipStatisticsPageClient({
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
     { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
   ];
   const safetyPillarMetrics = [
@@ -12198,24 +12932,16 @@ export default function RipStatisticsPageClient({
                   />
                 </SectionErrorBoundary>
 
-                {/* Priority 4: charts/distributions (Opening Outcomes). Already
-                    internally gated on the secondary tier via insightsSectionsBlocked. */}
-                <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Opening Outcomes" minHeightClassName="min-h-[24rem]">
+                {/* Priority 4: the Simulation Results deep-dive (formerly
+                    "Opening Outcomes"). Already internally gated on the
+                    secondary tier via insightsSectionsBlocked. */}
+                <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Simulation Results" minHeightClassName="min-h-[24rem]">
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   <SectionCard
-                    title="Opening Outcomes"
+                    title="Simulation Results"
                     className={openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : ""}
                     bodyClassName={openingOutcomesUsesExpandedLayout ? "min-h-[32rem]" : ""}
-                    subtitle={activeInsightsGraphMode === "outcome-distribution" ? openingOutcomesSubtitle : null}
-                    titleInfoText={
-                      activeInsightsGraphMode === "value-contribution"
-                        ? rarityContributionInfo
-                        : activeInsightsGraphMode === "simulation-drivers"
-                        ? "Cards contributing most to modeled pack value after pull odds are applied."
-                        : activeInsightsGraphMode === "pack-breakdown"
-                        ? "Simulation pack paths and normal pack states used by this set model."
-                        : outcomeDistributionInfo
-                    }
+                    titleInfoText={SIMULATION_RESULTS_INFO_TEXT}
                   >
                     <SectionViewTabs
                       className="mb-4"
@@ -12234,14 +12960,45 @@ export default function RipStatisticsPageClient({
                       variant="secondary"
                       options={[
                         { value: "outcome-distribution", label: "Outcome Distribution" },
+                        { value: "historical-trend", label: "Opening Profit vs Cost" },
                         { value: "simulation-drivers", label: "Simulation Drivers" },
                         { value: "value-contribution", label: "Value Structure" },
                         { value: "pack-breakdown", label: "Pack Paths" },
+                        { value: "simulation-metrics", label: "Metrics" },
                       ]}
                     />
 
+                    <SimulationSectionHeader
+                      title={
+                        activeInsightsGraphMode === "historical-trend"
+                          ? "Opening Profit vs Cost"
+                          : activeInsightsGraphMode === "simulation-drivers"
+                          ? "Simulation Drivers"
+                          : activeInsightsGraphMode === "value-contribution"
+                          ? "Value Structure"
+                          : activeInsightsGraphMode === "pack-breakdown"
+                          ? "Pack Paths"
+                          : activeInsightsGraphMode === "simulation-metrics"
+                          ? "Metrics"
+                          : "Outcome Distribution"
+                      }
+                      infoText={
+                        activeInsightsGraphMode === "historical-trend"
+                          ? OPENING_PROFIT_VS_COST_INFO_TEXT
+                          : activeInsightsGraphMode === "simulation-drivers"
+                          ? SIMULATION_DRIVERS_INFO_TEXT
+                          : activeInsightsGraphMode === "value-contribution"
+                          ? rarityContributionInfo
+                          : activeInsightsGraphMode === "pack-breakdown"
+                          ? PACK_PATHS_INFO_TEXT
+                          : activeInsightsGraphMode === "simulation-metrics"
+                          ? SIMULATION_METRICS_INFO_TEXT
+                          : outcomeDistributionInfo
+                      }
+                    />
+
                     {insightsSectionsBlocked ? (
-                      // The /insights payload feeds every Opening Outcomes
+                      // The /insights payload feeds every Simulation Results
                       // view (distribution bins, drivers, rankings, pack
                       // paths) — hold one stable in-card loading state
                       // instead of each view's misleading "no data" empty
@@ -12271,39 +13028,62 @@ export default function RipStatisticsPageClient({
                         </p>
                       )
                     ) : activeInsightsGraphMode === "simulation-drivers" ? (
-                      <div id="set-detail-simulation-drivers" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
+                      <SimulationResultsPanel id="set-detail-simulation-drivers">
                         <InterpretationInsight
                           sectionMeta={topEvDriversMeta}
                           fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
                           compact
                           showEvidence={false}
-                          className="mb-3"
+                          className="mb-2"
                         />
-                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed diagnostics={simulationDrivers.diagnostics} />
-                      </div>
+                        <TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed compactImage maxRows={8} diagnostics={simulationDrivers.diagnostics} />
+                      </SimulationResultsPanel>
                     ) : activeInsightsGraphMode === "value-contribution" ? (
-                      <div id="set-detail-value-structure" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
-                        <InterpretationInsight
-                          sectionMeta={rarityContributionMeta}
-                          fallbackSummary={collectorFriendlyText(interpretation?.rarityContribution)}
-                          compact
-                          showEvidence
-                          maxEvidence={4}
-                          className="mb-3"
-                        />
+                      <SimulationResultsPanel id="set-detail-value-structure">
                         <RarityContributionContent rankings={rankings} condensed />
-                      </div>
+                      </SimulationResultsPanel>
                     ) : activeInsightsGraphMode === "pack-breakdown" ? (
-                      <div id="set-detail-pack-breakdown" className="max-h-[32rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
+                      <SimulationResultsPanel id="set-detail-pack-breakdown">
                         <PackBreakdownContent
                           packPaths={ripStatistics?.pack_paths}
                           normalStateRows={normalStateRows}
                           evidenceRows={packBreakdownEvidenceRows}
                           condensed
                         />
+                      </SimulationResultsPanel>
+                    ) : activeInsightsGraphMode === "historical-trend" ? (
+                      // Opening Profit vs Cost: the SAME performance history as
+                      // Overview, but rendered in the technical "simulation"
+                      // variant so the series are named by raw percentile-vs-cost
+                      // ratios. This is the flush visual reference for the card.
+                      <SimulationResultsPanel id="set-detail-opening-performance-cost">
+                        <PackValueHistoryChart
+                          historyTrend={historyTrend}
+                          packCost={summary.pack_cost}
+                          summary={summary}
+                          variant="simulation"
+                          flush
+                        />
+                      </SimulationResultsPanel>
+                    ) : activeInsightsGraphMode === "simulation-metrics" ? (
+                      // Metrics intentionally keeps its own internal scroll — it
+                      // is allowed to overflow the fixed card height.
+                      <div id="set-detail-simulation-metrics" className="max-h-[36rem] scroll-mt-24 overflow-y-auto pr-1 md:scroll-mt-28">
+                        <SimulationMetricsContent
+                          summary={summary}
+                          percentiles={percentiles}
+                          ripStatistics={ripStatistics}
+                          historyTrend={historyTrend}
+                          asOfDate={fallbackSetValueAsOf}
+                        />
                       </div>
                     ) : (
-                      <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} />
+                      // Outcome Distribution renders flush — no inner chart card,
+                      // matching Opening Profit vs Cost. The section header above
+                      // already shows the "Outcome Distribution" title.
+                      <SimulationResultsPanel id="set-detail-outcome-distribution">
+                        <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} showTitle={false} flush />
+                      </SimulationResultsPanel>
                     )}
                   </SectionCard>
                 </section>
@@ -12335,7 +13115,7 @@ export default function RipStatisticsPageClient({
                   advancedMetrics={[
                     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
                     { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-                    { label: "Big Hit Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+                    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
                     { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
                   ]}
                 />

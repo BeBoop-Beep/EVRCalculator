@@ -3493,14 +3493,14 @@ test("Phase 11: Insights' critical tier holds its own branded panel (not a whole
   );
 
   const insightsSectionStart = source.indexOf('{(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (');
-  const openingOutcomesStart = source.indexOf('title="Opening Outcomes"', insightsSectionStart);
+  const openingOutcomesStart = source.indexOf('title="Simulation Results"', insightsSectionStart);
   const openingOutcomesEnd = source.indexOf("</SectionCard>", openingOutcomesStart);
-  assert.ok(openingOutcomesStart > insightsSectionStart, "Opening Outcomes must still render under the Insights section");
-  assert.ok(openingOutcomesEnd > openingOutcomesStart, "Opening Outcomes card body must be present");
+  assert.ok(openingOutcomesStart > insightsSectionStart, "Simulation Results (formerly Opening Outcomes) must still render under the Insights section");
+  assert.ok(openingOutcomesEnd > openingOutcomesStart, "Simulation Results card body must be present");
   const openingOutcomesSource = source.slice(openingOutcomesStart, openingOutcomesEnd);
   assert.ok(
     openingOutcomesSource.includes("insightsSectionsBlocked ? ("),
-    "Opening Outcomes must remain gated by insightsSectionsBlocked, now driven by the secondary-tier fetch independent of the critical tier"
+    "Simulation Results must remain gated by insightsSectionsBlocked, now driven by the secondary-tier fetch independent of the critical tier"
   );
 
   // Both the hero (RipScoreBreakdownModule) and the secondary-tier sections
@@ -3965,10 +3965,10 @@ test("Stabilization: insights pending timeout clears as soon as secondary render
   );
 });
 
-test("Stabilization: Opening Outcomes renders data first, quiet placeholder while its fetch is in flight, empty copy only when settled", () => {
+test("Stabilization: Simulation Results renders data first, quiet placeholder while its fetch is in flight, empty copy only when settled", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  const openingOutcomesStart = source.indexOf('title="Opening Outcomes"');
+  const openingOutcomesStart = source.indexOf('title="Simulation Results"');
   const openingOutcomesEnd = source.indexOf("</SectionCard>", openingOutcomesStart);
   const openingOutcomesSource = source.slice(openingOutcomesStart, openingOutcomesEnd);
 
@@ -3984,6 +3984,58 @@ test("Stabilization: Opening Outcomes renders data first, quiet placeholder whil
     "a sub-view with no rows must show a quiet placeholder while the secondary fetch is loading, before any empty verdict"
   );
   assert.ok(emptyCopyIndex >= 0, "the settled per-subtab empty copy must remain");
+});
+
+test("Simulation Results section targets: Opening Profit vs Cost routes to Insights while Overview's performance-vs-cost stays put", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // Backward-compatible deep links to the card + its default sub-view.
+  assert.ok(source.includes('"opening-outcomes": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" }'));
+  assert.ok(source.includes('"simulation-results": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" }'));
+
+  // The technical Opening P vs C sub-view is its own section id (historical-trend)
+  // so it does not collide with Overview's quick-read performance-vs-cost.
+  assert.ok(source.includes('"opening-performance-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" }'));
+  assert.ok(source.includes('"simulation-metrics": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-metrics" }'));
+
+  // Overview keeps its own Performance vs Cost chart, unchanged.
+  assert.ok(source.includes('"performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" }'));
+
+  // Metrics is a real graph section so scroll/highlight/URL-sync treat it like
+  // the other sub-views.
+  assert.ok(source.includes('const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "simulation-drivers", "pack-breakdown", "value-contribution", "simulation-metrics"])'));
+  assert.ok(source.includes('"simulation-metrics": "explore-outcomes"'));
+});
+
+test("Simulation Results compact Pack Paths and Value Structure use matrix/ribbon branches without hidden-row summaries", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const cardStart = source.indexOf('title="Simulation Results"');
+  const cardEnd = source.indexOf("</SectionCard>", cardStart);
+  assert.ok(cardStart >= 0 && cardEnd > cardStart, "Simulation Results card must be present");
+  const cardSource = source.slice(cardStart, cardEnd);
+
+  assert.ok(cardSource.includes('<SimulationResultsPanel id="set-detail-value-structure">'));
+  assert.ok(cardSource.includes("<RarityContributionContent rankings={rankings} condensed />"));
+  assert.ok(cardSource.includes('<SimulationResultsPanel id="set-detail-pack-breakdown">'));
+  assert.ok(cardSource.includes("<PackBreakdownContent"));
+  assert.ok(cardSource.includes("condensed"));
+
+  assert.ok(source.includes("function PackPathsVisualization("), "Pack Paths compact branch must exist");
+  assert.ok(source.includes("<PieChart>"), "Pack Paths must use a restrained donut branch for top-level paths");
+  assert.ok(source.includes("function NormalStateMatrix("), "normal states must feed the all-states matrix branch");
+  assert.ok(source.includes("buildNormalStateMatrixRows(normalStateRows)"), "normal states must be normalized before matrix rendering");
+  assert.ok(source.includes("function RarityValueComposition("), "Value Structure composition branch must exist");
+  assert.ok(source.includes("function ValueCompositionRibbon("), "Value Structure must use a composition ribbon");
+  assert.ok(source.includes("function RarityDetailTile("), "Value Structure must show all rarity groups in a compact grid");
+  assert.ok(!source.includes("<Treemap"), "Simulation Results compact views must not use the colorful treemap branch");
+  assert.ok(!source.includes("+{hiddenRarityCount} more rarity groups"), "Value Structure must not hide extra rarity groups");
+  assert.ok(!source.includes("+{hiddenCount} more states"), "Pack Paths must not hide extra normal states");
+
+  assert.ok(cardSource.includes('label: "Value Structure"'));
+  assert.ok(cardSource.includes('label: "Pack Paths"'));
+  assert.ok(source.includes('"pack-breakdown": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "pack-breakdown" }'));
+  assert.ok(source.includes('value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" }'));
 });
 
 test("Stabilization: Simulation Drivers warning appears only after the secondary fetch SUCCEEDED with truly empty top_hits", () => {
