@@ -3840,9 +3840,23 @@ test("Stabilization: Performance vs Cost never shows loading/empty when a perfor
     !source.includes("const historyTrend = explorePayload?.history_trend ||"),
     "an empty explorePayload.history_trend must never shadow the /overview series via ||"
   );
+  // Stale-snapshot regression (Prismatic Evolutions June 30 flatline): a
+  // NONEMPTY set-page history_trend must not unconditionally win either —
+  // pokemon_set_page_snapshot_latest can lag the market-dashboard series by
+  // days. The two sources must be merged per real snapshot date instead.
   assert.ok(
-    source.includes("const historyTrend = hasNonEmptyArray(explorePayload?.history_trend)\n    ? explorePayload.history_trend\n    : overviewPerformanceVsCostHistory;"),
-    "historyTrend must only prefer a NON-EMPTY explorePayload series over the overview series"
+    !source.includes("? explorePayload.history_trend\n    : overviewPerformanceVsCostHistory"),
+    "a nonempty stale explorePayload.history_trend must not shadow fresher overview history via nonempty-array precedence"
+  );
+  assert.ok(
+    source.includes("mergePerformanceHistories({") &&
+      source.includes("setPageHistory: explorePayloadHistoryTrend") &&
+      source.includes("marketHistory: overviewPerformanceVsCostHistory"),
+    "historyTrend must be the freshness-aware date-level merge of the set-page and market histories (performanceHistorySelector.mjs)"
+  );
+  assert.ok(
+    source.includes("const latestRealPerformanceDate = getLatestRealPerformanceDate(historyTrend);"),
+    "the latest real (non-carried-forward) performance date must be derived from the merged history"
   );
 
   // Paradox-style state: seeded overview has performanceVsCostHistory points
@@ -3870,6 +3884,44 @@ test("Stabilization: Performance vs Cost never shows loading/empty when a perfor
   assert.ok(
     source.includes("status={overviewPerformanceVsCostStatus}"),
     "the Performance vs Cost SectionBoundary must consume the derived status"
+  );
+});
+
+test("Stale-snapshot fix: direct Insights entry fetches the slim /overview payload and freshness copy uses real dates only", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // Opening Profit vs Cost / Metrics on Insights merge the market-dashboard
+  // performanceVsCostHistory — a direct Insights entry must trigger the slim
+  // /overview fetch itself instead of waiting for a visit to Overview.
+  assert.ok(
+    source.includes('const shouldRenderOverviewData = setDetailTab === "overview" || setDetailTab === "insights";'),
+    "the slim /overview fetch effect must run for both the Overview and Insights tabs"
+  );
+
+  // "Performance History Latest" (Metrics) must report the latest REAL
+  // observation — never the trailing row, which can be a carried-forward
+  // display-filler point.
+  const metricsStart = source.indexOf("function SimulationMetricsContent");
+  const metricsEnd = source.indexOf("function formatDriverScore", metricsStart);
+  assert.ok(metricsStart >= 0 && metricsEnd > metricsStart, "SimulationMetricsContent must exist");
+  const metricsSource = source.slice(metricsStart, metricsEnd);
+  assert.ok(
+    metricsSource.includes("performanceHistoryLatestDate ?? getLatestRealPerformanceDate(historyTrend)"),
+    "Metrics freshness must come from the shared latest-real-date selector"
+  );
+  assert.ok(
+    !metricsSource.includes("historyPoints[historyPoints.length - 1]"),
+    "Metrics freshness must not read the trailing history row directly"
+  );
+  assert.ok(
+    source.includes("performanceHistoryLatestDate={latestRealPerformanceDate}"),
+    "the page must pass the merged history's latest real date into SimulationMetricsContent"
+  );
+
+  // Trend arrows compare against the previous REAL point, not carried filler.
+  assert.ok(
+    source.includes("const realHistoryTrendPoints = normalizedHistoryTrendPoints.filter((point) => !point.isCarriedForward);"),
+    "trend calculations must exclude carried-forward points"
   );
 });
 
@@ -4007,7 +4059,7 @@ test("Simulation Results section targets: Opening Profit vs Cost routes to Insig
   assert.ok(source.includes('"simulation-metrics": "explore-outcomes"'));
 });
 
-test("Simulation Results compact Pack Paths and Value Structure use matrix/ribbon branches without hidden-row summaries", () => {
+test("Simulation Results compact Pack Paths and Value Structure use all-row contribution rails", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   const cardStart = source.indexOf('title="Simulation Results"');
@@ -4022,13 +4074,29 @@ test("Simulation Results compact Pack Paths and Value Structure use matrix/ribbo
   assert.ok(cardSource.includes("condensed"));
 
   assert.ok(source.includes("function PackPathsVisualization("), "Pack Paths compact branch must exist");
-  assert.ok(source.includes("<PieChart>"), "Pack Paths must use a restrained donut branch for top-level paths");
-  assert.ok(source.includes("function NormalStateMatrix("), "normal states must feed the all-states matrix branch");
-  assert.ok(source.includes("buildNormalStateMatrixRows(normalStateRows)"), "normal states must be normalized before matrix rendering");
-  assert.ok(source.includes("function RarityValueComposition("), "Value Structure composition branch must exist");
-  assert.ok(source.includes("function ValueCompositionRibbon("), "Value Structure must use a composition ribbon");
-  assert.ok(source.includes("function RarityDetailTile("), "Value Structure must show all rarity groups in a compact grid");
-  assert.ok(!source.includes("<Treemap"), "Simulation Results compact views must not use the colorful treemap branch");
+  assert.ok(source.includes("function PackPathDonutTooltip("), "Pack Paths must use the compact top-level donut");
+  assert.ok(source.includes("<PieChart"), "Pack Paths must render the top-level donut");
+  assert.ok(source.includes("const displayPathRows = buildPackPathDisplayRows(visiblePathRows);"), "donut sectors use display-only rescaled weights built from the nonzero paths");
+  assert.ok(source.includes("displayPathRows.map((row) => <Cell"), "zero-count paths must not render visible wedges");
+  assert.ok(source.includes("pathRows.map((row) => ("), "the legend must retain every top-level path");
+  assert.ok(source.includes('import CompactRankedBarChart from "@/components/explore/CompactRankedBarChart";'), "both compact views must share the compact ranked bar chart");
+  assert.ok(!source.includes("function ContributionBarRow("), "the old per-row progress-bar renderer must be gone");
+  assert.ok(source.includes("function ContributionBarList("), "both distributions must render through the unified contribution panel");
+  assert.ok(source.includes("function NormalStateContributionRails("), "normal states must feed the all-state chart");
+  assert.ok(source.includes("buildNormalStateContributionRows(normalStateRows)"), "normal states must be normalized before chart rendering");
+  assert.ok(source.includes("function RarityContributionRails("), "Value Structure must use the all-rarity chart");
+  assert.ok(source.includes("sharePercent: totalStates > 0 ? (row.count / totalStates) * 100 : 0,"), "state bars must use actual share");
+  assert.ok(source.includes("sharePercent: totalValue > 0 ? (row.value / totalValue) * 100 : 0,"), "rarity bars must use actual value share");
+  assert.ok(source.includes('wrapperStyle={{ zIndex: 9999, pointerEvents: "none" }}'), "donut tooltip must float above neighboring content");
+  assert.ok(!source.includes("<Treemap"), "compact Simulation Results views must not retain treemaps");
+  assert.ok(!source.includes("SIMULATION_TREEMAP_COLORS"), "the removed treemap palette must not remain");
+  assert.ok(!source.includes("function NormalStateTreemap("), "the Normal States treemap must be removed");
+  assert.ok(!source.includes("function ValueStructureTreemapTooltip("), "the Value Structure treemap tooltip must be removed");
+  assert.ok(!source.includes("function ValueCompositionRibbon("), "Value Structure must not use the old composition ribbon");
+  assert.ok(!source.includes("function RarityDetailTile("), "Value Structure must not use the old ribbon detail tile");
+  assert.ok(!source.includes("function ValueLadderTile("), "Value Structure must not use the small-card value ladder");
+  assert.ok(!source.includes("function StateMatrixTile("), "Pack Paths must not use the small-card state matrix");
+  assert.ok(!source.includes("<ValueCompositionRibbon"), "Value Structure must not render a ribbon as the primary view");
   assert.ok(!source.includes("+{hiddenRarityCount} more rarity groups"), "Value Structure must not hide extra rarity groups");
   assert.ok(!source.includes("+{hiddenCount} more states"), "Pack Paths must not hide extra normal states");
 

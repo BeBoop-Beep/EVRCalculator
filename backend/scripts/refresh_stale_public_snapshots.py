@@ -70,6 +70,21 @@ class SetRefreshPlan:
 
 
 @dataclass
+class SetPageFreshnessAudit:
+    """Post-run guard: set-page snapshots vs their simulation/market sources."""
+
+    total: int = 0
+    fresh: int = 0
+    stale_details: List[str] = field(default_factory=list)
+    max_staleness_seconds: float = 0.0
+    max_staleness_set: Optional[str] = None
+
+    @property
+    def stale(self) -> int:
+        return len(self.stale_details)
+
+
+@dataclass
 class RefreshSummary:
     source_checks_performed: int = 0
     stale_snapshot_families: set[str] = field(default_factory=set)
@@ -81,6 +96,7 @@ class RefreshSummary:
     global_rebuilt: List[str] = field(default_factory=list)
     global_skipped: List[str] = field(default_factory=list)
     global_failed: List[str] = field(default_factory=list)
+    set_page_audit: Optional[SetPageFreshnessAudit] = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -733,7 +749,17 @@ def _maybe_rebuild_set_page(
     summary: RefreshSummary,
 ) -> None:
     rankings_rebuilt_after_set_page = bool(rankings_updated_at and _is_newer(rankings_updated_at, plan.set_page.snapshot_updated_at))
-    needs_rebuild = plan.set_page.stale or plan.cards.stale or rankings_rebuilt_after_set_page
+    # plan.market_dashboard.stale means the market dashboard was (or is about
+    # to be) rebuilt earlier in THIS run — the set page embeds history/market
+    # context from it, so it must be rebuilt after, in the same run. Deferring
+    # it to the next invocation left set pages one refresh behind their
+    # market dashboards (stale Performance vs Cost flatline).
+    needs_rebuild = (
+        plan.set_page.stale
+        or plan.cards.stale
+        or plan.market_dashboard.stale
+        or rankings_rebuilt_after_set_page
+    )
     if not needs_rebuild:
         return
     set_row = plan.set_row
@@ -851,6 +877,88 @@ def _verify_after_build(client: Any, set_rows: List[Dict[str, Any]], summary: Re
     summary.problem_canonical_keys = [problem.split(":", 1)[0] for problem in problems[:10]]
 
 
+def _staleness_seconds(dependency_updated_at: Any, snapshot_updated_at: Any) -> float:
+    dependency_dt = _parse_datetime(dependency_updated_at)
+    snapshot_dt = _parse_datetime(snapshot_updated_at)
+    if not dependency_dt or not snapshot_dt:
+        return 0.0
+    return max(0.0, (dependency_dt - snapshot_dt).total_seconds())
+
+
+def _audit_set_page_freshness(client: Any, set_rows: List[Dict[str, Any]]) -> SetPageFreshnessAudit:
+    """Post-run freshness guard for the set-page snapshot family.
+
+    Compares each set page snapshot's updated_at against the newest simulation
+    run timestamp and the market dashboard snapshot timestamp — the two
+    dependencies whose lag produces stale Performance vs Cost history on the
+    set-detail pages. Only the sets this run processed are audited, so
+    intentionally unsupported/hidden sets never count against strict mode.
+    """
+    audit = SetPageFreshnessAudit()
+    for set_row in set_rows:
+        set_id = str(set_row["id"])
+        canonical_key = str(set_row.get("canonical_key") or set_id)
+        audit.total += 1
+        row = _read_snapshot_row(
+            client,
+            "pokemon_set_page_snapshot_latest",
+            "set_id,updated_at",
+            (("set_id", set_id),),
+        )
+        snapshot_updated_at = _to_text((row or {}).get("updated_at"))
+        if not row or not snapshot_updated_at:
+            audit.stale_details.append(f"{canonical_key}: set page snapshot missing")
+            continue
+
+        simulation_run_at, _checks = _latest_timestamp(
+            client,
+            table="simulation_latest_by_target",
+            timestamp_columns=("updated_at", "run_at"),
+            filters=(("target_type", "set"), ("target_id", set_id)),
+        )
+        rip_run_at, _checks = _latest_timestamp(
+            client,
+            table="explore_rip_statistics_latest",
+            timestamp_columns=("updated_at", "run_at", "created_at"),
+            filters=(("set_id", set_id),),
+        )
+        market_updated_at, _checks = _latest_timestamp(
+            client,
+            table="pokemon_set_market_dashboard_snapshot_latest",
+            timestamp_columns=("updated_at",),
+            filters=(("set_id", set_id),),
+        )
+
+        latest_simulation = _max_datetime_text(simulation_run_at, rip_run_at)
+        reasons: List[str] = []
+        if _is_newer(latest_simulation, snapshot_updated_at):
+            reasons.append(f"simulation newer ({latest_simulation} > {snapshot_updated_at})")
+        if _is_newer(market_updated_at, snapshot_updated_at):
+            reasons.append(f"market dashboard newer ({market_updated_at} > {snapshot_updated_at})")
+
+        if not reasons:
+            audit.fresh += 1
+            continue
+
+        audit.stale_details.append(f"{canonical_key}: {'; '.join(reasons)}")
+        staleness = _staleness_seconds(_max_datetime_text(latest_simulation, market_updated_at), snapshot_updated_at)
+        if staleness > audit.max_staleness_seconds:
+            audit.max_staleness_seconds = staleness
+            audit.max_staleness_set = canonical_key
+    return audit
+
+
+def _strict_should_fail(summary: RefreshSummary, *, commit: bool) -> bool:
+    audit = summary.set_page_audit
+    return bool(
+        summary.warnings_remaining
+        or summary.global_failed
+        or any(summary.failed_sets[family] for family in summary.failed_sets)
+        or (audit and audit.stale)
+        or (not commit and summary.stale_snapshot_families)
+    )
+
+
 def _print_summary(summary: RefreshSummary) -> None:
     print("public snapshot refresh summary")
     print(f"source checks performed: {summary.source_checks_performed}")
@@ -866,6 +974,16 @@ def _print_summary(summary: RefreshSummary) -> None:
     for warning in summary.warnings_remaining[:20]:
         print(f"  {warning}")
     print(f"first 10 problem canonical keys: {summary.problem_canonical_keys[:10]}")
+    audit = summary.set_page_audit
+    if audit is not None:
+        print("set page freshness audit")
+        print(f"  sets compared: {audit.total}")
+        print(f"  fresh: {audit.fresh}")
+        print(f"  stale: {audit.stale}")
+        if audit.max_staleness_set:
+            print(f"  max staleness: {audit.max_staleness_seconds / 3600.0:.1f}h ({audit.max_staleness_set})")
+        for detail in audit.stale_details[:20]:
+            print(f"  stale: {detail}")
 
 
 def main() -> None:
@@ -922,15 +1040,10 @@ def main() -> None:
         )
 
     _verify_after_build(client, set_rows, summary)
+    summary.set_page_audit = _audit_set_page_freshness(client, set_rows)
     _print_summary(summary)
 
-    stale_or_failed = bool(
-        summary.warnings_remaining
-        or summary.global_failed
-        or any(summary.failed_sets[family] for family in summary.failed_sets)
-        or (not commit and summary.stale_snapshot_families)
-    )
-    if args.strict and stale_or_failed:
+    if args.strict and _strict_should_fail(summary, commit=commit):
         raise SystemExit(1)
 
 

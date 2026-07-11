@@ -45,7 +45,9 @@ python backend/scripts/refresh_stale_public_snapshots.py --commit --set-id twili
 
 ## Scheduler
 
-Run `refresh_stale_public_snapshots.py` hourly. Overnight scrapes, later simulations, and future sources such as additional price vendors, graded pricing, sealed pricing, or other TCG imports can land whenever they finish. The refresh job will rebuild only the stale snapshot families and sets it detects.
+The daily simulation job (`infra/local/run_simulations_task.bat` → `infra/local/run_simulations.sh`, Windows Task Scheduler task "Run Simulation Jobs Daily") now chains `refresh_stale_public_snapshots.py --commit --strict` immediately after `run_all_v2_sets.py` finishes, so set pages always rebuild after the day's simulations and market dashboard rebuilds — never before. The refresh step runs even when the simulation batch partially fails, logs to `logs/refresh_public_snapshots.log`, and Slack-notifies success/failure; `--strict` makes the task exit nonzero when any set page snapshot is still older than its simulation/market dependencies (see the post-run set page freshness audit in the script's summary output).
+
+Running `refresh_stale_public_snapshots.py --commit` additionally (e.g. hourly) remains safe and idempotent: overnight scrapes, later simulations, and future sources such as additional price vendors, graded pricing, sealed pricing, or other TCG imports can land whenever they finish. The refresh job will rebuild only the stale snapshot families and sets it detects.
 
 ## Refresh Order
 

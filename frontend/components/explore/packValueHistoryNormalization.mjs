@@ -115,6 +115,10 @@ export function patchLatestHistoryRowWithSummaryRatios(
 
   return {
     ...latestRow,
+    // Display-only synthetic patch: when the stored row carried zero
+    // placeholders, its ratios are replaced from the live summary. The row
+    // keeps its real snapshotDate and never counts as a fresher update.
+    isSummaryPatched: useSummaryMeanRatio || useSummaryMedianRatio,
     meanCostRatio: resolvedMeanRatio,
     medianCostRatio: resolvedMedianRatio,
     meanValue: useSummaryMeanRatio
