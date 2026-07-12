@@ -3251,14 +3251,13 @@ function MarketMoverRow({ card }) {
   );
 }
 
-function MarketMoverColumn({ title, cards, emptyLabel }) {
+function MarketMoverList({ side, cards, emptyLabel }) {
   return (
     <div className="min-w-0">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
       {cards.length > 0 ? (
         <div className="space-y-2">
           {cards.slice(0, 5).map((card, index) => (
-            <MarketMoverRow key={`market-mover:${title}:${card?.cardId || card?.id || card?.name || index}`} card={card} />
+            <MarketMoverRow key={`market-mover:${side}:${card?.cardId || card?.id || card?.name || index}`} card={card} />
           ))}
         </div>
       ) : (
@@ -3266,6 +3265,15 @@ function MarketMoverColumn({ title, cards, emptyLabel }) {
       )}
     </div>
   );
+}
+
+// Total absolute % movement across a mover side — used only to pick which side
+// the segmented toggle shows by default for the current time range.
+function getTotalAbsolutePercentMovement(cards) {
+  return (Array.isArray(cards) ? cards : []).reduce((total, card) => {
+    const percent = getCardMovement30d(card)?.percent;
+    return percent === null || percent === undefined ? total : total + Math.abs(percent);
+  }, 0);
 }
 
 function hasMarketMoverRows(entry) {
@@ -3276,6 +3284,15 @@ function hasMarketMoverRows(entry) {
 }
 
 function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "success", error, onWindowChange, onViewAll }) {
+  // Which side ("heating" / "cooling") the user explicitly picked. null means
+  // "auto": default to the side with the larger total absolute % movement for
+  // the current time range (tie → heating). A window change resets to auto so
+  // the default rule re-applies to the new range.
+  const [userSelectedMoverSide, setUserSelectedMoverSide] = useState(null);
+  useEffect(() => {
+    setUserSelectedMoverSide(null);
+  }, [selectedWindow]);
+
   const resolvedMoversByWindow = moversByWindow && typeof moversByWindow === "object" ? moversByWindow : {};
 
   const hasAnyWindowMovers =
@@ -3321,6 +3338,10 @@ function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "
     : resolvedMoversByWindow[selectedWindow] || { heatingUp: [], coolingOff: [], all: [] };
   const heatingUp = Array.isArray(selectedMovers?.heatingUp) ? selectedMovers.heatingUp : [];
   const coolingOff = Array.isArray(selectedMovers?.coolingOff) ? selectedMovers.coolingOff : [];
+  const defaultMoverSide =
+    getTotalAbsolutePercentMovement(coolingOff) > getTotalAbsolutePercentMovement(heatingUp) ? "cooling" : "heating";
+  const selectedMoverSide = userSelectedMoverSide || defaultMoverSide;
+  const selectedSideCards = selectedMoverSide === "cooling" ? coolingOff : heatingUp;
 
   return (
     <SectionCard
@@ -3328,16 +3349,31 @@ function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "
       subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
       titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
     >
-      <MarketWindowSelector
-        windows={MARKET_MOVERS_WINDOW_OPTIONS}
-        value={selectedWindow}
-        onChange={onWindowChange}
-        className="mb-3"
-      />
-      <div className="grid gap-4 xl:grid-cols-2">
-        <MarketMoverColumn title="Heating Up" cards={heatingUp} emptyLabel={`No reliable ${selectedWindow} gainers yet.`} />
-        <MarketMoverColumn title="Cooling Off" cards={coolingOff} emptyLabel={`No reliable ${selectedWindow} decliners yet.`} />
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <MarketWindowSelector
+          windows={MARKET_MOVERS_WINDOW_OPTIONS}
+          value={selectedWindow}
+          onChange={onWindowChange}
+        />
+        <SegmentedControl
+          options={[
+            { value: "heating", label: `Heating up (${heatingUp.length})` },
+            { value: "cooling", label: `Cooling off (${coolingOff.length})` },
+          ]}
+          value={selectedMoverSide}
+          onChange={setUserSelectedMoverSide}
+          ariaLabel="Market mover direction"
+        />
       </div>
+      <MarketMoverList
+        side={selectedMoverSide}
+        cards={selectedSideCards}
+        emptyLabel={
+          selectedMoverSide === "cooling"
+            ? `No reliable ${selectedWindow} decliners yet.`
+            : `No reliable ${selectedWindow} gainers yet.`
+        }
+      />
       <div className="mt-4 flex justify-end">
         <button
           type="button"
