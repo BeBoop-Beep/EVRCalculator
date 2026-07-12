@@ -202,6 +202,18 @@ const MARKET_MOVERS_WINDOW_OPTIONS = [
   { key: "30D", label: "30D" },
 ];
 const DEFAULT_MARKET_MOVERS_WINDOW = "30D";
+// The Overview 7D Movers ticker always requests the 7D window — deliberately
+// independent of every other time-range selector on the page — and shows the
+// merged heating+cooling rows ranked by |7D %|, capped at 10 items.
+const MOVERS_TICKER_WINDOW = "7D";
+const MOVERS_TICKER_MAX_ITEMS = 10;
+// Per-side request limit for the ticker's fetch: 10 heating + 10 cooling in,
+// top 10 by |7D %| out, so one direction can fill the whole strip on a
+// one-sided market day.
+const MOVERS_TICKER_FETCH_LIMIT = 10;
+// Per-side limit for the Cards tab's dedicated Market Movers view (unchanged
+// from the retired Overview card).
+const MARKET_MOVERS_FETCH_LIMIT = 5;
 // Adjacent-set prefetching previously fired cards + dashboard + 3 value-history
 // requests per adjacent set on every navigation, saturating the browser's
 // per-origin connection limit and starving the actual destination fetch.
@@ -3387,6 +3399,117 @@ function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "
         </div>
       ) : null}
     </SectionCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 7D Movers ticker — Overview's slim replacement for the Market Movers card.
+// Heating and cooling merged, ranked by |7D %| descending, capped at
+// MOVERS_TICKER_MAX_ITEMS. Fixed 7D window regardless of any other time-range
+// state on the page. This static strip IS the prefers-reduced-motion
+// presentation; the auto-scroll loop layers on top separately and must
+// degrade back to exactly this markup.
+// ---------------------------------------------------------------------------
+
+// Merge both mover directions into the ticker's display list. Cards without a
+// usable % movement sink to the end (they still carry a $ move worth showing
+// if slots remain).
+function selectMoversTickerItems(entry) {
+  const heating = Array.isArray(entry?.heatingUp) ? entry.heatingUp : [];
+  const cooling = Array.isArray(entry?.coolingOff) ? entry.coolingOff : [];
+  const seen = new Set();
+  const unique = [];
+  for (const card of [...heating, ...cooling]) {
+    const key = card?.cardId || card?.id || (card?.name ? `${card.name}:${card?.setNumber || ""}` : null);
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    unique.push({ card, movement: getCardMovement30d(card) });
+  }
+  return unique
+    .sort((a, b) => Math.abs(b.movement?.percent ?? 0) - Math.abs(a.movement?.percent ?? 0))
+    .slice(0, MOVERS_TICKER_MAX_ITEMS);
+}
+
+function MoversTickerItemChip({ card, movement, href, onNavigate }) {
+  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const name = card?.name || "Unknown card";
+  const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
+  const percent = movement?.percent ?? null;
+
+  return (
+    <a
+      href={href}
+      onClick={onNavigate}
+      title={`${name} — view all market movers`}
+      className="flex min-w-0 flex-none items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+    >
+      <span className="flex h-8 w-6 flex-none items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.45)]">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        ) : (
+          <span className="text-[8px] font-semibold text-[var(--text-secondary)]">{getCardInitials(name)}</span>
+        )}
+      </span>
+      <span className="max-w-[9rem] truncate text-xs font-semibold text-[var(--text-primary)]">{name}</span>
+      <span className="text-xs font-semibold tabular-nums text-[var(--text-primary)]">{price === null ? "N/A" : formatCurrency(price)}</span>
+      {percent !== null ? (
+        <span className="flex-none rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums" style={getDeltaBadgeStyle(percent)}>
+          {percent > 0 ? "+" : ""}
+          {percent.toFixed(1)}%
+        </span>
+      ) : null}
+    </a>
+  );
+}
+
+function MarketMoversTicker({ items, status, error, viewAllHref, onNavigate }) {
+  const hasItems = Array.isArray(items) && items.length > 0;
+
+  return (
+    // Fixed strip height from first paint (h-12): loading, error, empty, and
+    // populated states all render inside the same box, so the ticker never
+    // shifts the Overview content below it.
+    <div className="flex h-12 min-w-0 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] py-1 pl-3 pr-2">
+      <span className="flex-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+        7D Movers
+      </span>
+      <div
+        role="region"
+        aria-label="7-day market movers"
+        tabIndex={0}
+        className="index-ticker-viewport flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+      >
+        {hasItems ? (
+          <div className="flex w-max items-center gap-1">
+            {items.map(({ card, movement }, index) => (
+              <MoversTickerItemChip
+                key={`movers-ticker:${card?.cardId || card?.id || card?.name || index}`}
+                card={card}
+                movement={movement}
+                href={viewAllHref}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        ) : status === "loading" ? (
+          <div className="h-6 w-full max-w-[28rem] animate-pulse rounded-md bg-[rgba(148,163,184,0.10)]" aria-hidden="true" />
+        ) : status === "error" ? (
+          <p className="truncate text-xs text-red-300">{error || "Unable to load 7D movers for this set."}</p>
+        ) : (
+          <p className="truncate text-xs text-[var(--text-secondary)]">No reliable 7D movers yet.</p>
+        )}
+      </div>
+      <a
+        href={viewAllHref}
+        onClick={onNavigate}
+        className="flex-none whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+      >
+        View all movers →
+      </a>
+    </div>
   );
 }
 
@@ -10636,6 +10759,43 @@ export default function RipStatisticsPageClient({
     : activeMarketMoversState.status === "error"
     ? "error"
     : "success";
+  // 7D Movers ticker source: only ever the 7D window, independent of the
+  // movers window selected on the Cards tab. Prefer the live slim fetch when
+  // it carries 7D rows; otherwise fall back to the (possibly stale)
+  // dashboard-seeded 7D entry until the live 7D fetch lands.
+  const moversTickerEntry =
+    marketMoversLiveHasRows && marketMoversLive?.window === MOVERS_TICKER_WINDOW
+      ? marketMoversLive
+      : (marketMoversByWindow && marketMoversByWindow[MOVERS_TICKER_WINDOW]) || null;
+  const moversTickerItems = useMemo(() => selectMoversTickerItems(moversTickerEntry), [moversTickerEntry]);
+  const moversTickerStatus =
+    moversTickerItems.length > 0
+      ? "success"
+      : activeMarketMoversState.status === "loading" || activeMarketMoversState.status === "idle"
+      ? "loading"
+      : activeMarketMoversState.status === "error"
+      ? "error"
+      : "empty";
+  // Stable href for the ticker's links — every ticker item and the trailing
+  // affordance navigate to the same "View all movers" destination (the Cards
+  // tab's dedicated Market Movers view). Real anchors for keyboard/AT
+  // semantics; click is intercepted to reuse the router.push tab navigation.
+  const moversTickerHref = updateSetDetailQueryParams({
+    pathname,
+    searchParams,
+    tab: "cards",
+    section: "market-movers",
+  });
+  const handleMoversTickerNavigate = (event) => {
+    if (event) {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button === 1) {
+        // Let the browser handle new-tab/new-window clicks on the real href.
+        return;
+      }
+      event.preventDefault();
+    }
+    handleViewAllMarketMovers();
+  };
   // Progressive rendering (replaces the old Phase 9B whole-tab cohesive
   // skeleton): each Overview section gates independently on its own fetch's
   // status instead of waiting for every critical asset to settle together.
@@ -10671,7 +10831,11 @@ export default function RipStatisticsPageClient({
     setId: overviewTimingSetId,
     tab: "overview",
   });
-  useSectionTiming("marketMovers", overviewTimingSetId ? marketMoversStatus : "idle", {
+  // "marketMovers" on Overview now measures the 7D Movers ticker (the
+  // Market Movers card's replacement) — same metric name so dashboards keep
+  // one continuous series. "empty" counts as settled, mirroring the old
+  // card's success-with-no-rows presentation.
+  useSectionTiming("marketMovers", overviewTimingSetId ? (moversTickerStatus === "empty" ? "success" : moversTickerStatus) : "idle", {
     setId: overviewTimingSetId,
     tab: "overview",
   });
@@ -12258,7 +12422,16 @@ export default function RipStatisticsPageClient({
     }
 
     const setId = resolvedSetResourceId;
-    const moversSourceWindow = marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW;
+    // Two consumers share this slim fetch: the Overview 7D Movers ticker
+    // (always the fixed 7D window) and the Cards tab's dedicated Market
+    // Movers view (the "View all movers" destination, selected-window). Any
+    // other tab/section leaves the last payload in place.
+    const isOverviewMoversConsumer = setDetailTab === "overview";
+    const isCardsMoversConsumer = setDetailTab === "cards" && cardsSection === "market-movers";
+    const moversSourceWindow = isOverviewMoversConsumer
+      ? MOVERS_TICKER_WINDOW
+      : marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW;
+    const moversFetchLimit = isOverviewMoversConsumer ? MOVERS_TICKER_FETCH_LIMIT : MARKET_MOVERS_FETCH_LIMIT;
     if (!setId) {
       dispatchMarketMovers({ type: "reset", status: "empty", sourceWindow: moversSourceWindow });
       return undefined;
@@ -12273,16 +12446,11 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    // Two consumers share this slim fetch: the Overview movers section and
-    // the Cards tab's dedicated Market Movers view (the "View all movers"
-    // destination). Any other tab/section leaves the last payload in place.
-    const isOverviewMoversConsumer = setDetailTab === "overview";
-    const isCardsMoversConsumer = setDetailTab === "cards" && cardsSection === "market-movers";
     if (!isOverviewMoversConsumer && !isCardsMoversConsumer) {
       return undefined;
     }
 
-    const marketMoversRequestKey = `${setId}|${moversSourceWindow}`;
+    const marketMoversRequestKey = `${setId}|${moversSourceWindow}|${moversFetchLimit}`;
     if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
       debugSetPagePerf("market_movers.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
       return undefined;
@@ -12293,7 +12461,7 @@ export default function RipStatisticsPageClient({
     let requestSettled = false;
     dispatchMarketMovers({ type: "loading", setId, sourceWindow: moversSourceWindow });
 
-    getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: 5 })
+    getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: moversFetchLimit })
       .then((payload) => {
         requestSettled = true;
         if (isCancelled) {
@@ -12865,6 +13033,22 @@ export default function RipStatisticsPageClient({
                   // as soon as its history settles even if Market Movers/Top
                   // Chase are still loading, and vice versa.
                   <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
+                    <div id="set-detail-movers-ticker" className="min-w-0">
+                      {/* 7D Movers ticker — full-width strip directly under the tab
+                          bar, replacing the retired Market Movers card on Overview.
+                          Always renders; loading/error/empty states live inside the
+                          same fixed-height strip (no layout shift). */}
+                      <SectionErrorBoundary sectionName="overview-movers-ticker" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
+                        <MarketMoversTicker
+                          items={moversTickerItems}
+                          status={moversTickerStatus}
+                          error={activeMarketMoversState.error}
+                          viewAllHref={moversTickerHref}
+                          onNavigate={handleMoversTickerNavigate}
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
                     <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
                       {/* Priority 1 (position): Decision Signals leads the tab so the page
                           reads verdict → evidence. Derived purely from
@@ -12924,21 +13108,6 @@ export default function RipStatisticsPageClient({
                           </SectionCard>
                         </SectionErrorBoundary>
                       </div>
-                    </div>
-
-                    <div id="set-detail-market-movers" className="scroll-mt-24 md:scroll-mt-28">
-                      {/* Priority 4: Market Movers — self-renders loading/error. */}
-                      <SectionErrorBoundary sectionName="overview-market-movers" resetKeys={[resolvedSetResourceId]} title="Market Movers" minHeightClassName="min-h-[14rem]">
-                        <MarketMoversModule
-                          movers={marketMovers}
-                          moversByWindow={marketMoversByWindow}
-                          selectedWindow={marketMoversWindowKey}
-                          status={marketMoversStatus}
-                          error={activeMarketMoversState.error}
-                          onWindowChange={setMarketMoversWindowKey}
-                          onViewAll={handleViewAllMarketMovers}
-                        />
-                      </SectionErrorBoundary>
                     </div>
 
                     {shouldShowTopMarketCards ? (

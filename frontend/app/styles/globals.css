@@ -272,6 +272,19 @@ body::-webkit-scrollbar-thumb:hover {
   background: rgba(94, 234, 212, 0.62);
 }
 
+/* 7D Movers ticker viewport: horizontally scrollable strip without a visible
+   scrollbar — the strip is a single compact row, so a scrollbar would add
+   height and read as chrome. Content stays reachable via keyboard focus,
+   pointer drag/wheel, and the trailing "View all movers" affordance. */
+.index-ticker-viewport {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.index-ticker-viewport::-webkit-scrollbar {
+  display: none;
+}
+
 .dropdown-enter {
   transform-origin: top center;
   animation: dropdown-enter 120ms ease-out;

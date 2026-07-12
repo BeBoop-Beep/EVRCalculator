@@ -848,7 +848,13 @@ test("Market Movers module supports a 1D/7D/30D window selector defaulting to 30
   assert.ok(source.includes("moversByWindow={marketMoversByWindow}"));
   assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"));
   assert.ok(source.includes("onWindowChange={setMarketMoversWindowKey}"));
-  assert.ok(source.includes("onViewAll={handleViewAllMarketMovers}"), "View all movers behavior must be unchanged");
+  // The module now lives on the Cards tab as the "View all movers"
+  // destination itself, so it renders without an onViewAll affordance (which
+  // would be circular there); the Overview ticker owns that navigation and
+  // routes it through the same canonical handler.
+  assert.ok(!source.includes("onViewAll={handleViewAllMarketMovers}"), "the relocated module must not render a circular View-all affordance at its own destination");
+  assert.ok(componentSource.includes("{onViewAll ? ("), "the View all movers button must be optional so the destination can omit it");
+  assert.ok(source.includes("handleViewAllMarketMovers();"), "the ticker's navigation must reuse the canonical View-all-movers handler");
 });
 
 test("top chase cards and market movers each fetch their own canonical slim endpoint, and the live market dashboard fetch is gone", () => {
@@ -929,16 +935,16 @@ test("Overview parity: getPokemonSetMarketMovers's normalized payload shape matc
   assert.equal(normalized.marketMovers, undefined, "the normalized payload must not be double-nested under a marketMovers key");
 });
 
-test("Overview parity: Market Movers and Top Chase Cards are both still rendered inside the overview tab's JSX block", () => {
+test("Overview parity: the 7D Movers ticker and Top Chase Cards are both rendered inside the overview tab's JSX block", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   const overviewBlockStart = source.indexOf('{setDetailTab === "overview" ? (');
   assert.ok(overviewBlockStart >= 0, "the overview tab conditional render block must exist");
-  const overviewBlockEnd = source.indexOf("<MarketMoversModule", overviewBlockStart);
-  assert.ok(overviewBlockEnd > overviewBlockStart, "MarketMoversModule must render inside the overview tab block");
+  const tickerIndex = source.indexOf("<MarketMoversTicker", overviewBlockStart);
+  assert.ok(tickerIndex > overviewBlockStart, "MarketMoversTicker must render inside the overview tab block");
 
-  const topChaseBlockEnd = source.indexOf("<TopChaseCardsModule", overviewBlockEnd);
-  assert.ok(topChaseBlockEnd > overviewBlockEnd, "TopChaseCardsModule must render inside the overview tab block, after MarketMoversModule");
+  const topChaseBlockEnd = source.indexOf("<TopChaseCardsModule", tickerIndex);
+  assert.ok(topChaseBlockEnd > tickerIndex, "TopChaseCardsModule must render inside the overview tab block, after the ticker");
 
   // Both must appear before the overview block's own closing `) : null}` —
   // approximated by asserting no earlier/later tab conditional interrupts
@@ -946,7 +952,17 @@ test("Overview parity: Market Movers and Top Chase Cards are both still rendered
   const nextTabBlockStart = source.indexOf('setDetailTab === "cards"', overviewBlockStart);
   assert.ok(
     nextTabBlockStart === -1 || nextTabBlockStart > topChaseBlockEnd,
-    "MarketMoversModule/TopChaseCardsModule must render before any subsequent tab block, i.e. still inside overview"
+    "MarketMoversTicker/TopChaseCardsModule must render before any subsequent tab block, i.e. still inside overview"
+  );
+
+  // The retired Market Movers card must be gone from Overview — its full
+  // experience now lives on the Cards tab (see the Phase 5A container test).
+  const overviewSectionStart = source.indexOf('id="set-detail-overview"');
+  const overviewSectionEnd = source.indexOf("</section>", overviewSectionStart);
+  assert.ok(overviewSectionStart >= 0 && overviewSectionEnd > overviewSectionStart);
+  assert.ok(
+    !source.slice(overviewSectionStart, overviewSectionEnd).includes("<MarketMoversModule"),
+    "the Market Movers card must not render on Overview anymore — the ticker replaces it"
   );
 });
 
@@ -964,7 +980,10 @@ test("Overview parity: Market Movers and Top Chase Cards are both still rendered
 test("Phase 5A: Overview fetches Top Chase and Market Movers through their slim endpoints", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   assert.ok(source.includes("getPokemonSetTopChase(setId, { window: topChaseSourceWindow, limit: 10 })"), "Top Chase must fetch via getPokemonSetTopChase");
-  assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: 5 })"), "Market Movers must fetch via getPokemonSetMarketMovers");
+  assert.ok(
+    source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: moversFetchLimit })"),
+    "Market Movers must fetch via getPokemonSetMarketMovers"
+  );
 });
 
 test("Phase 5A: Top Chase Cards section container always renders on Overview, regardless of data availability", () => {
@@ -981,23 +1000,29 @@ test("Phase 5A: Top Chase Cards section container always renders on Overview, re
   );
 });
 
-test("Phase 5A: Market Movers section container always renders on Overview, regardless of data availability", () => {
+test("Phase 5A: the 7D Movers ticker always renders on Overview, and the full module always renders at its Cards tab destination", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(
     !source.includes("{hasMarketMovers ? ("),
-    "the Market Movers container must no longer be conditionally rendered behind hasMarketMovers"
+    "the movers containers must no longer be conditionally rendered behind hasMarketMovers"
   );
-  const renderStart = source.indexOf('id="set-detail-market-movers"');
-  assert.ok(renderStart >= 0, "the Market Movers container div must exist");
+  const tickerStart = source.indexOf('id="set-detail-movers-ticker"');
+  assert.ok(tickerStart >= 0, "the Overview movers ticker container div must exist");
   assert.ok(
-    source.slice(renderStart, renderStart + 400).includes("<MarketMoversModule"),
-    "MarketMoversModule must render unconditionally inside its container div"
+    source.slice(tickerStart, tickerStart + 1200).includes("<MarketMoversTicker"),
+    "MarketMoversTicker must render unconditionally inside its container div"
+  );
+  const cardsHomeStart = source.indexOf('id="set-detail-cards-market-movers"');
+  assert.ok(cardsHomeStart >= 0, "the Cards tab Market Movers container div must exist");
+  assert.ok(
+    source.slice(cardsHomeStart, cardsHomeStart + 1600).includes("<MarketMoversModule"),
+    "MarketMoversModule must render inside the Cards tab market-movers section"
   );
 
   // MarketMoversModule itself must no longer bail out to null just because
   // there are zero rows — it must show a loading skeleton, an error message,
-  // or fall through to MarketMoverColumn's own per-column empty state.
+  // or fall through to the list's own empty state.
   const componentStart = source.indexOf("function MarketMoversModule(");
   const componentEnd = source.indexOf("\nfunction normalizePullRateAssumptions");
   const componentSource = source.slice(componentStart, componentEnd);
@@ -1005,6 +1030,15 @@ test("Phase 5A: Market Movers section container always renders on Overview, rega
   assert.ok(componentSource.includes('status === "loading"'), "must render a loading state distinct from the empty state");
   assert.ok(componentSource.includes("<InlinePanelSkeleton"), "must show a loading skeleton while the fetch is in flight");
   assert.ok(componentSource.includes('status === "error"'), "must render an error state instead of silently disappearing");
+
+  // The ticker renders its loading/error/empty states inside the same
+  // fixed-height strip, so Overview never shifts while movers settle.
+  const tickerComponentStart = source.indexOf("function MarketMoversTicker(");
+  assert.ok(tickerComponentStart >= 0, "MarketMoversTicker must exist");
+  const tickerComponentSource = source.slice(tickerComponentStart, componentEnd);
+  assert.ok(tickerComponentSource.includes("h-12"), "the ticker strip must reserve a fixed height from first paint");
+  assert.ok(tickerComponentSource.includes('status === "loading"'), "the ticker must render a loading state inside the strip");
+  assert.ok(tickerComponentSource.includes('status === "error"'), "the ticker must render an error state inside the strip");
 });
 
 test("Phase 5A: Overview does not require activeMarketDashboardDerivedState to render the Top Chase or Market Movers containers", () => {
@@ -2508,12 +2542,20 @@ test("Phase 3A: Top Chase live fetch path calls getPokemonSetTopChase", () => {
   assert.ok(dispatchStart >= 0 && dispatchStart < topChaseEffectStart, "must dispatch loading before calling getPokemonSetTopChase");
 });
 
-test("Phase 3A: Market Movers live fetch path calls getPokemonSetMarketMovers with the selected window", () => {
+test("Phase 3A: Market Movers live fetch path calls getPokemonSetMarketMovers with the per-consumer window", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("const moversSourceWindow = marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW"), "movers fetch must derive its window from the selected window state");
+  // Overview's ticker always requests the fixed 7D window; the Cards tab
+  // destination follows the user's 1D/7D/30D selection.
+  assert.ok(
+    source.includes("const moversSourceWindow = isOverviewMoversConsumer") &&
+      source.includes("? MOVERS_TICKER_WINDOW") &&
+      source.includes(": marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW"),
+    "movers fetch must derive its window from the active consumer (ticker: fixed 7D; Cards tab: selected window)"
+  );
+  assert.ok(source.includes('const MOVERS_TICKER_WINDOW = "7D"'), "the ticker window must be pinned to 7D");
   assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow"), "must call getPokemonSetMarketMovers with the derived window");
-  assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"), "MarketMoversModule must be driven by the same selected-window state");
+  assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"), "MarketMoversModule must be driven by the selected-window state");
 });
 
 test("Phase 3A: dev-only warning fires when a legacy market dashboard payload backs the Overview fallback", () => {
@@ -3325,14 +3367,14 @@ test("Phase 11: Overview renders 5 priority-ordered sections, each independently
   const errorBoundaryCount = (renderSource.match(/<SectionErrorBoundary/g) || []).length;
   assert.equal(errorBoundaryCount, 5, `Overview must wrap exactly 5 sections in SectionErrorBoundary (found ${errorBoundaryCount})`);
 
+  const tickerIndex = renderSource.indexOf("<MarketMoversTicker");
   const setValueIndex = renderSource.indexOf("<SetValueTrendCard");
   const perfIndex = renderSource.indexOf("<SectionBoundary");
-  const moversIndex = renderSource.indexOf("<MarketMoversModule");
   const chaseIndex = renderSource.indexOf("<TopChaseCardsModule");
   const signalsIndex = renderSource.indexOf("<DecisionSignalsCard");
   assert.ok(
-    signalsIndex >= 0 && setValueIndex > signalsIndex && perfIndex > setValueIndex && moversIndex > perfIndex && chaseIndex > moversIndex,
-    "sections must render verdict-first: Decision Signals, then Set Value, Opening Performance vs Cost, Market Movers, Top Chase"
+    tickerIndex >= 0 && signalsIndex > tickerIndex && setValueIndex > signalsIndex && perfIndex > setValueIndex && chaseIndex > perfIndex,
+    "sections must render ticker-first: 7D Movers ticker, then Decision Signals, Set Value, Opening Performance vs Cost, Top Chase"
   );
 
   assert.ok(
@@ -3344,8 +3386,8 @@ test("Phase 11: Overview renders 5 priority-ordered sections, each independently
     "Set Value must keep reading its own independent fetch status"
   );
   assert.ok(
-    renderSource.includes("status={marketMoversStatus}"),
-    "Market Movers must keep reading its own independent fetch status"
+    renderSource.includes("status={moversTickerStatus}"),
+    "the 7D Movers ticker must keep reading its own independent fetch status"
   );
   assert.ok(
     renderSource.includes("status={topPricedCardsStatus}"),
