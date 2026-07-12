@@ -1267,20 +1267,21 @@ test("compact sparkline tooltip is local to the sparkline wrapper", () => {
   assert.ok(!compactSource.includes("event.clientY"));
 });
 
-test("header set value compact sparkline shows the simple date/value/delta hover tooltip", () => {
+test("header set value block is de-duplicated: no sparkline or 30D chips, trend icon + View Set Value Trend kept", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const labelIndex = source.indexOf("{setValueMetricLabel}");
-  const sparklineStart = source.indexOf("<CompactSparkline", labelIndex);
-  const sparklineEnd = source.indexOf("/>", sparklineStart);
-  const setValueSparklineSource = source.slice(sparklineStart, sparklineEnd);
-
   assert.ok(labelIndex >= 0);
-  assert.ok(sparklineStart > labelIndex);
-  assert.ok(setValueSparklineSource.includes("points={setHeaderSummary.setValue.sparklinePoints}"));
-  assert.ok(setValueSparklineSource.includes('valueKey="setValue"'));
-  // CompactSparkline's default tooltip already renders exactly date/value/delta
-  // (see its own showTooltip block) — the title card must not opt back out of it.
-  assert.ok(!setValueSparklineSource.includes("showTooltip={false}"));
+  const heroBlockEnd = source.indexOf("View Set Value Trend", labelIndex);
+  assert.ok(heroBlockEnd > labelIndex, "the hero set value block must keep the View Set Value Trend affordance");
+  const heroBlock = source.slice(labelIndex, heroBlockEnd);
+
+  // The mini sparkline and the 30D Delta / 30D % chips now live solely in the
+  // Set Value Trend card — the hero keeps only the headline value plus its
+  // trend-direction icon.
+  assert.ok(!heroBlock.includes("<CompactSparkline"), "hero must not render the mini sparkline");
+  assert.ok(!heroBlock.includes("30D Delta"), "hero must not repeat the 30D Delta chip");
+  assert.ok(!heroBlock.includes("30D %"), "hero must not repeat the 30D % chip");
+  assert.ok(heroBlock.includes("<DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount}"), "hero keeps the trend-direction indicator");
 });
 
 test("dropdown set switch can hydrate from a cached 365d market dashboard payload", async () => {
@@ -2207,7 +2208,10 @@ test("title/header card renders from the Set Header Summary Contract, not active
   assert.ok(heroSource.includes("setHeaderSummary.recommendationSummary"), "header recommendation text must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.current"), "header set value must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.delta30dAmount"), "header set value delta must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.setValue.sparklinePoints"), "header sparkline must come from setHeaderSummary");
+  assert.ok(
+    !heroSource.includes("setHeaderSummary.setValue.sparklinePoints"),
+    "the hero must not render the sparkline anymore — the Set Value Trend card is its single home"
+  );
   assert.ok(heroSource.includes("headerDecisionMetrics.map("), "header metric tiles must come from headerDecisionMetrics, not the shared decisionMetrics array");
 });
 
@@ -2333,51 +2337,30 @@ test("Patch 2: set-switch pending state exists and replaces placeholder metric v
     "the RIP score must render a pending skeleton instead of a placeholder score during a switch"
   );
   assert.ok(
-    source.includes("setHeaderSummary.setValue.current === null\n                                    ? titleCardMetricsPending\n                                      ? titleMetricPendingPlaceholder"),
+    /setHeaderSummary\.setValue\.current === null\s*\n\s*\? titleCardMetricsPending\s*\n\s*\? titleMetricPendingPlaceholder/.test(source),
     "the set value must render the pending placeholder during a switch"
   );
 });
 
-test("title-card checklist set value sparkline has a hover tooltip like the Overview Set Value Trend chart", () => {
+test("title card hosts no sparkline; the Set Value Trend chart keeps the compact hover tooltip", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
+  // De-duplication pass: the hero (RIP score → tab strip) must not render a
+  // CompactSparkline anymore — the Set Value Trend card is the single home
+  // for the set value chart and its tooltip.
   const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
-  const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
-  const sparklineEnd = source.indexOf("/>", sparklineStart);
-  const sparklineSource = source.slice(sparklineStart, sparklineEnd);
-
-  assert.ok(sparklineStart >= 0, "header CompactSparkline must exist");
+  const heroEnd = source.indexOf("set-detail-content", heroStart);
+  assert.ok(heroStart >= 0 && heroEnd > heroStart);
   assert.ok(
-    !sparklineSource.includes("showTooltip={false}"),
-    "header sparkline must not explicitly disable the built-in date/value/delta tooltip"
-  );
-});
-
-test("compact header sparkline tooltip floats above the RIP score/title card instead of being clipped", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
-
-  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
-  const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
-  assert.ok(sparklineStart > heroStart, "header CompactSparkline must exist after the RIP score label");
-
-  const cardWrapperStart = source.lastIndexOf('<div className="relative flex min-h-[8.25rem]', sparklineStart);
-  const cardWrapperEnd = source.indexOf(">", cardWrapperStart);
-  const cardWrapperClassName = source.slice(cardWrapperStart, cardWrapperEnd);
-
-  assert.ok(cardWrapperStart >= 0, "checklist set value card wrapping the header sparkline must exist");
-  assert.ok(
-    cardWrapperClassName.includes("has-[[data-compact-sparkline-tooltip]]:z-30"),
-    "checklist set value card must raise its stacking context above the RIP score/title card (z-20) while its tooltip is showing"
-  );
-  assert.ok(
-    !cardWrapperClassName.includes("overflow-hidden"),
-    "checklist set value card must not clip the sparkline tooltip"
+    !source.slice(heroStart, heroEnd).includes("<CompactSparkline"),
+    "the title card must not render a sparkline (de-duplicated into Set Value Trend)"
   );
 
+  // CompactSparkline itself survives (other headers still use it) with its
+  // tooltip primitives intact.
   const compactStart = source.indexOf("function CompactSparkline");
   const compactEnd = source.indexOf("function normalizeSetValueHistoryPoints", compactStart);
   const compactSource = source.slice(compactStart, compactEnd);
-
   assert.ok(
     compactSource.includes("overflow-visible"),
     "sparkline container must allow its tooltip to escape the tiny chart box instead of clipping it"
@@ -2391,7 +2374,7 @@ test("compact header sparkline tooltip floats above the RIP score/title card ins
     "sparkline tooltip must use a high z-index so it floats above surrounding cards"
   );
 
-  // The Overview Set Value Trend chart must reuse the same compact tooltip shape.
+  // The Overview Set Value Trend chart keeps the compact tooltip shape.
   const overviewTooltipStart = source.indexOf("<RechartsTooltip content={<SetValueTooltip");
   const overviewTooltipLineEnd = source.indexOf("\n", overviewTooltipStart);
   const overviewTooltipSource = source.slice(overviewTooltipStart, overviewTooltipLineEnd);
@@ -2399,10 +2382,6 @@ test("compact header sparkline tooltip floats above the RIP score/title card ins
   assert.ok(
     overviewTooltipSource.includes('content={<SetValueTooltip />}'),
     "Overview chart tooltip content must use the compact set value tooltip"
-  );
-  assert.ok(
-    !overviewTooltipSource.includes("wrapperStyle"),
-    "Overview chart tooltip must not be modified by the compact header tooltip fix"
   );
 });
 

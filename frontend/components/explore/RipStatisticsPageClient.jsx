@@ -12692,65 +12692,35 @@ export default function RipStatisticsPageClient({
                         </div>
                       </div>
 
-                      <div className="relative flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px] has-[[data-compact-sparkline-tooltip]]:z-30">
-                        <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[minmax(0,0.95fr)_minmax(9rem,1fr)] sm:items-stretch">
-                          <div className="flex min-w-0 flex-col justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{setValueMetricLabel}</p>
-                                <InfoPopover text="Checklist set value from daily Near Mint card market observations. Falls back to the set page snapshot only while market history is unavailable." />
-                              </div>
-                              <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
-                                <span className="min-w-0 truncate">
-                                  {setHeaderSummary.setValue.current === null
-                                    ? titleCardMetricsPending
-                                      ? titleMetricPendingPlaceholder
-                                      : "Coming soon"
-                                    : formatCurrency(setHeaderSummary.setValue.current)}
-                                </span>
-                                <DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount} size="md" className="translate-y-px" title="30D checklist set value movement" />
-                              </p>
+                      <div className="relative flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
+                        {/* De-duplicated: the mini sparkline + 30D Delta / 30D % chips now live
+                            solely in the Set Value Trend card below — the hero keeps the
+                            headline value, its trend-direction icon, and the existing
+                            "View Set Value Trend" affordance that scrolls to that card. */}
+                        <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{setValueMetricLabel}</p>
+                              <InfoPopover text="Checklist set value from daily Near Mint card market observations. Falls back to the set page snapshot only while market history is unavailable." />
                             </div>
-                            <button
-                              type="button"
-                              onClick={handleViewSetValueTrend}
-                              className="inline-flex w-fit items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-                            >
-                              View Set Value Trend
-                            </button>
+                            <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
+                              <span className="min-w-0 truncate">
+                                {setHeaderSummary.setValue.current === null
+                                  ? titleCardMetricsPending
+                                    ? titleMetricPendingPlaceholder
+                                    : "Coming soon"
+                                  : formatCurrency(setHeaderSummary.setValue.current)}
+                              </span>
+                              <DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount} size="md" className="translate-y-px" title="30D checklist set value movement" />
+                            </p>
                           </div>
-
-                          <div className="flex min-w-0 flex-col justify-between gap-2">
-                            <CompactSparkline
-                              points={setHeaderSummary.setValue.sparklinePoints}
-                              valueKey="setValue"
-                              trendDirection={
-                                setHeaderSummary.setValue.delta30dAmount === null
-                                  ? "neutral"
-                                  : setHeaderSummary.setValue.delta30dAmount < 0
-                                  ? "negative"
-                                  : setHeaderSummary.setValue.delta30dAmount > 0
-                                  ? "positive"
-                                  : "neutral"
-                              }
-                              className="h-14 w-full"
-                              emptyLabel="History pending"
-                            />
-                            <div className="grid min-w-0 grid-cols-2 gap-2">
-                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setHeaderSummary.setValue.delta30dAmount)}>
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D Delta</p>
-                                <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                                  {setHeaderSummary.setValue.delta30dAmount === null ? "N/A" : formatSignedCurrency(setHeaderSummary.setValue.delta30dAmount)}
-                                </p>
-                              </div>
-                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setHeaderSummary.setValue.delta30dPercent)}>
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D %</p>
-                                <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                                  {setHeaderSummary.setValue.delta30dPercent === null ? "N/A" : `${setHeaderSummary.setValue.delta30dPercent > 0 ? "+" : ""}${setHeaderSummary.setValue.delta30dPercent.toFixed(1)}%`}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={handleViewSetValueTrend}
+                            className="inline-flex w-fit items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                          >
+                            View Set Value Trend
+                          </button>
                         </div>
                       </div>
                       </div>
