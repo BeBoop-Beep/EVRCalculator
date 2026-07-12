@@ -12676,6 +12676,11 @@ export default function RipStatisticsPageClient({
                               />
                               <RecommendationBadge label={setHeaderSummary.recommendationBadge} rankTier={setHeaderSummary.tier} />
                             </div>
+                            {/* Static qualifier — hardcoded copy, deliberately not wired to the
+                                interpretation/recommendation engine. */}
+                            <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
+                              Measures the rip experience — not investment return.
+                            </p>
                             <button
                               type="button"
                               onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
