@@ -285,6 +285,40 @@ body::-webkit-scrollbar-thumb:hover {
   display: none;
 }
 
+/* 7D Movers ticker marquee: constant-speed CSS transform loop. The track
+   holds two copies of the item sequence, so translating the track by -50%
+   lands exactly on the second copy's origin for a seamless wrap. Hover and
+   focus-within pause playback (WCAG 2.2.2 pause mechanism); under
+   prefers-reduced-motion the animation and the presentation-only duplicate
+   are removed, leaving the static, manually scrollable strip. */
+@keyframes index-ticker-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.index-ticker-track {
+  animation: index-ticker-marquee var(--index-ticker-duration, 48s) linear infinite;
+}
+
+.index-ticker-viewport:hover .index-ticker-track,
+.index-ticker-viewport:focus-within .index-ticker-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .index-ticker-track {
+    animation: none;
+  }
+
+  .index-ticker-duplicate {
+    display: none;
+  }
+}
+
 .dropdown-enter {
   transform-origin: top center;
   animation: dropdown-enter 120ms ease-out;

@@ -3432,7 +3432,7 @@ function selectMoversTickerItems(entry) {
     .slice(0, MOVERS_TICKER_MAX_ITEMS);
 }
 
-function MoversTickerItemChip({ card, movement, href, onNavigate }) {
+function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
   const name = card?.name || "Unknown card";
   const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
@@ -3442,6 +3442,7 @@ function MoversTickerItemChip({ card, movement, href, onNavigate }) {
     <a
       href={href}
       onClick={onNavigate}
+      tabIndex={tabIndex}
       title={`${name} — view all market movers`}
       className="flex min-w-0 flex-none items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
     >
@@ -3467,6 +3468,93 @@ function MoversTickerItemChip({ card, movement, href, onNavigate }) {
 
 function MarketMoversTicker({ items, status, error, viewAllHref, onNavigate }) {
   const hasItems = Array.isArray(items) && items.length > 0;
+  const viewportRef = useRef(null);
+  const sequenceRef = useRef(null);
+  // Marquee gating, all measured/observed client-side so SSR always renders
+  // the static strip:
+  // - only when the item sequence actually overflows the viewport (a strip
+  //   that fits has nothing to scroll);
+  // - never under prefers-reduced-motion (the static strip IS that state);
+  // - suspended while keyboard focus is anywhere inside the strip, so the
+  //   browser's native focus-scrolling works on the untransformed row
+  //   (hover-pause is pure CSS — see .index-ticker-viewport rules).
+  const [sequenceWidth, setSequenceWidth] = useState(0);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [isFocusPaused, setIsFocusPaused] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setPrefersReducedMotion(query.matches);
+    update();
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", update);
+      return () => query.removeEventListener("change", update);
+    }
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const sequence = sequenceRef.current;
+    if (!viewport || !sequence) {
+      setIsOverflowing(false);
+      return undefined;
+    }
+    const measure = () => {
+      const width = sequence.scrollWidth || 0;
+      setSequenceWidth(width);
+      setIsOverflowing(width > viewport.clientWidth + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    observer.observe(sequence);
+    return () => observer.disconnect();
+  }, [hasItems, items]);
+
+  const isMarqueeActive = hasItems && isOverflowing && !isFocusPaused && !prefersReducedMotion;
+  // Constant slow speed (~40px/s) regardless of how many/wide the items are;
+  // one full loop = one sequence width.
+  const marqueeDurationSeconds = Math.max(20, Math.round(sequenceWidth / 40));
+
+  const handleViewportFocus = () => setIsFocusPaused(true);
+  const handleViewportBlur = (event) => {
+    const nextTarget = event?.relatedTarget || null;
+    if (viewportRef.current && nextTarget && viewportRef.current.contains(nextTarget)) {
+      return;
+    }
+    setIsFocusPaused(false);
+    // Realign the static row so the resumed loop starts from its origin.
+    if (viewportRef.current) {
+      viewportRef.current.scrollLeft = 0;
+    }
+  };
+
+  const renderSequence = (ariaHidden) => (
+    <div
+      ref={ariaHidden ? undefined : sequenceRef}
+      aria-hidden={ariaHidden ? "true" : undefined}
+      className={`flex items-center gap-1 pr-1 ${ariaHidden ? "index-ticker-duplicate" : ""}`.trim()}
+    >
+      {items.map(({ card, movement }, index) => (
+        <MoversTickerItemChip
+          key={`movers-ticker${ariaHidden ? ":dup" : ""}:${card?.cardId || card?.id || card?.name || index}`}
+          card={card}
+          movement={movement}
+          href={viewAllHref}
+          onNavigate={onNavigate}
+          tabIndex={ariaHidden ? -1 : undefined}
+        />
+      ))}
+    </div>
+  );
 
   return (
     // Fixed strip height from first paint (h-12): loading, error, empty, and
@@ -3477,22 +3565,25 @@ function MarketMoversTicker({ items, status, error, viewAllHref, onNavigate }) {
         7D Movers
       </span>
       <div
+        ref={viewportRef}
         role="region"
         aria-label="7-day market movers"
         tabIndex={0}
-        className="index-ticker-viewport flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        onFocus={handleViewportFocus}
+        onBlur={handleViewportBlur}
+        className={`index-ticker-viewport flex h-full min-w-0 flex-1 items-center overflow-y-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+          isMarqueeActive ? "overflow-x-hidden" : "overflow-x-auto"
+        }`}
       >
         {hasItems ? (
-          <div className="flex w-max items-center gap-1">
-            {items.map(({ card, movement }, index) => (
-              <MoversTickerItemChip
-                key={`movers-ticker:${card?.cardId || card?.id || card?.name || index}`}
-                card={card}
-                movement={movement}
-                href={viewAllHref}
-                onNavigate={onNavigate}
-              />
-            ))}
+          <div
+            className={`flex w-max items-center ${isMarqueeActive ? "index-ticker-track" : ""}`.trim()}
+            style={isMarqueeActive ? { "--index-ticker-duration": `${marqueeDurationSeconds}s` } : undefined}
+          >
+            {renderSequence(false)}
+            {/* Seamless-loop duplicate: presentation only (aria-hidden,
+                unfocusable), removed entirely under prefers-reduced-motion. */}
+            {isMarqueeActive ? renderSequence(true) : null}
           </div>
         ) : status === "loading" ? (
           <div className="h-6 w-full max-w-[28rem] animate-pulse rounded-md bg-[rgba(148,163,184,0.10)]" aria-hidden="true" />

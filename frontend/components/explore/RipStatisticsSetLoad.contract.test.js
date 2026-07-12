@@ -1041,6 +1041,44 @@ test("Phase 5A: the 7D Movers ticker always renders on Overview, and the full mo
   assert.ok(tickerComponentSource.includes('status === "error"'), "the ticker must render an error state inside the strip");
 });
 
+test("7D Movers ticker motion: CSS transform marquee, hover/focus pause, reduced-motion static fallback", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const globalsCssPath = path.resolve(__dirname, "../../app/styles/globals.css");
+  const css = fs.readFileSync(globalsCssPath, "utf8");
+
+  // The loop is a CSS transform animation — no rAF-driven positioning, no
+  // marquee library. (rAF would also run in the scaffold's hidden duplicate
+  // mount; a display:none CSS animation costs nothing.)
+  assert.ok(css.includes("@keyframes index-ticker-marquee"), "the marquee keyframes must live in globals.css");
+  assert.ok(/index-ticker-marquee\s*\{[^}]*transform: translateX\(0\)/.test(css.replace(/\r\n/g, "\n").replace(/\n/g, " ")), "the loop must animate transform");
+  assert.ok(css.includes("translateX(-50%)"), "the loop must translate by -50% (two-copy seamless wrap)");
+
+  // WCAG 2.2.2: hover and focus-within must pause playback.
+  const cssFlat = css.replace(/\r\n/g, "\n");
+  assert.ok(
+    cssFlat.includes(".index-ticker-viewport:hover .index-ticker-track,\n.index-ticker-viewport:focus-within .index-ticker-track"),
+    "hover and focus-within must pause the marquee"
+  );
+  assert.ok(/:focus-within[^{]*\{\s*animation-play-state: paused/.test(cssFlat.replace(/\n/g, " ")), "pause must use animation-play-state");
+
+  // prefers-reduced-motion renders the identical static strip: animation
+  // removed and the presentation-only duplicate hidden.
+  const reducedMotionStart = cssFlat.indexOf("@media (prefers-reduced-motion: reduce)", cssFlat.indexOf("index-ticker-marquee"));
+  assert.ok(reducedMotionStart >= 0, "a reduced-motion block must cover the ticker");
+  const reducedMotionBlock = cssFlat.slice(reducedMotionStart, reducedMotionStart + 400);
+  assert.ok(reducedMotionBlock.includes(".index-ticker-track") && reducedMotionBlock.includes("animation: none"), "reduced motion must disable the loop");
+  assert.ok(reducedMotionBlock.includes(".index-ticker-duplicate") && reducedMotionBlock.includes("display: none"), "reduced motion must drop the duplicate copy");
+
+  // The component gates motion on real overflow, reduced-motion preference,
+  // and keyboard focus (focus suspends the transform entirely so native
+  // focus-scrolling works), and the duplicate copy is presentation-only.
+  assert.ok(source.includes('window.matchMedia("(prefers-reduced-motion: reduce)")'), "the component must mirror the reduced-motion preference");
+  assert.ok(source.includes("const isMarqueeActive = hasItems && isOverflowing && !isFocusPaused && !prefersReducedMotion"), "motion must require overflow and respect focus/reduced-motion pauses");
+  assert.ok(source.includes('tabIndex={ariaHidden ? -1 : undefined}'), "duplicate-copy links must be unfocusable");
+  assert.ok(source.includes('aria-hidden={ariaHidden ? "true" : undefined}'), "the duplicate copy must be aria-hidden");
+  assert.ok(source.includes('aria-label="7-day market movers"'), "the scrolling region must keep its aria-label");
+});
+
 test("Phase 5A: Overview does not require activeMarketDashboardDerivedState to render the Top Chase or Market Movers containers", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
