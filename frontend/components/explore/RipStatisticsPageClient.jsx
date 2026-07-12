@@ -3375,15 +3375,17 @@ function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "
             : `No reliable ${selectedWindow} gainers yet.`
         }
       />
-      <div className="mt-4 flex justify-end">
-        <button
-          type="button"
-          onClick={onViewAll}
-          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
-        >
-          View all movers
-        </button>
-      </div>
+      {onViewAll ? (
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
+          >
+            View all movers
+          </button>
+        </div>
+      ) : null}
     </SectionCard>
   );
 }
@@ -12271,8 +12273,12 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderOverviewData = setDetailTab === "overview";
-    if (!shouldRenderOverviewData) {
+    // Two consumers share this slim fetch: the Overview movers section and
+    // the Cards tab's dedicated Market Movers view (the "View all movers"
+    // destination). Any other tab/section leaves the last payload in place.
+    const isOverviewMoversConsumer = setDetailTab === "overview";
+    const isCardsMoversConsumer = setDetailTab === "cards" && cardsSection === "market-movers";
+    if (!isOverviewMoversConsumer && !isCardsMoversConsumer) {
       return undefined;
     }
 
@@ -12326,6 +12332,7 @@ export default function RipStatisticsPageClient({
   }, [
     setDetailMode,
     setDetailTab,
+    cardsSection,
     requestedTargetId,
     selectedTarget,
     resolvedSetResourceId,
@@ -12973,6 +12980,26 @@ export default function RipStatisticsPageClient({
 
                     {cardsSubTab === "checklist" ? (
                       <div className="min-w-0">
+                        {cardsSection === "market-movers" ? (
+                          <div id="set-detail-cards-market-movers" className="mb-5 min-w-0 scroll-mt-24 md:scroll-mt-28">
+                            {/* Dedicated Market Movers view — the "View all movers"
+                                destination. Same module (1D/7D/30D pills + the
+                                Heating/Cooling toggle) relocated from the Overview
+                                body; the checklist grid below keeps its movement
+                                sort/filter presets for row-level digging. No
+                                onViewAll here — this section is the destination. */}
+                            <SectionErrorBoundary sectionName="cards-market-movers" resetKeys={[resolvedSetResourceId]} title="Market Movers" minHeightClassName="min-h-[14rem]">
+                              <MarketMoversModule
+                                movers={marketMovers}
+                                moversByWindow={marketMoversByWindow}
+                                selectedWindow={marketMoversWindowKey}
+                                status={marketMoversStatus}
+                                error={activeMarketMoversState.error}
+                                onWindowChange={setMarketMoversWindowKey}
+                              />
+                            </SectionErrorBoundary>
+                          </div>
+                        ) : null}
                         <div className="mb-4">
                           <label className="block min-w-0 max-w-sm text-xs font-semibold text-[var(--text-secondary)]">
                             <span className="mb-1 block uppercase tracking-[0.08em]">Search</span>
