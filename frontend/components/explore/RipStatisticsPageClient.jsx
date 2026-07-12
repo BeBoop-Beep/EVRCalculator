@@ -58,7 +58,6 @@ import {
   formatMetricProbability,
   formatMetricRatio,
   formatMetricSignedPercent,
-  formatOddsFromPercent,
   getCoefficientOfVariationTag,
   getHhiConcentrationTag,
   shouldMergeLossFractionRows,
@@ -3993,33 +3992,6 @@ function SimMetricLine({ label, value, muted = false, infoText, tag = null }) {
   return <SimMetricRow label={label} value={value} muted={muted} tag={tag} infoText={infoText ?? SIMULATION_METRIC_INFO[label] ?? null} />;
 }
 
-// Tier 1 verdict card: small muted label, large value, one-line context
-// sub-label. `tone` (success/danger) tints only the EV/Cost card via the
-// global semantic tokens; the inline background wins over the shared surface
-// class so the tint composes with SIMULATION_CONTEXT_SURFACE_CLASS cleanly.
-const VERDICT_VALUE_TONE_CLASSES = {
-  success: "text-[var(--success)]",
-  danger: "text-[var(--danger)]",
-};
-
-function VerdictStatCard({ label, value, subLabel = null, tone = null, infoText = null }) {
-  return (
-    <div
-      className={`${SIMULATION_CONTEXT_SURFACE_CLASS} min-w-0 p-3.5`}
-      style={tone ? { backgroundColor: `color-mix(in srgb, var(--${tone}) 7%, rgba(2,6,23,0.24))` } : undefined}
-    >
-      <p className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
-        <span className="truncate">{label}</span>
-        {infoText ? <InfoPopover text={infoText} /> : null}
-      </p>
-      <p className={`mt-1 text-2xl font-semibold leading-tight tabular-nums ${VERDICT_VALUE_TONE_CLASSES[tone] || "text-[var(--text-primary)]"}`}>
-        {value}
-      </p>
-      {subLabel ? <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{subLabel}</p> : null}
-    </div>
-  );
-}
-
 // Tier 2: hand-rolled SVG log-scale strip replacing the 9-row percentile
 // table. Major markers (Min, P5, P50, P95, P99, Max) carry staggered labels;
 // P25/P75 (the IQR band edges) and P90 stay as hover/focus-only minor markers
@@ -4265,12 +4237,9 @@ function SimulationMetricsContent({
   const historyLatestDate = performanceHistoryLatestDate ?? getLatestRealPerformanceDate(historyTrend);
   const simulationAsOf = asOfDate || safeSummary.run_at || null;
 
-  // Tier 1 verdict values.
-  const evCostRatio = toNumber(safeSummary.mean_value_to_cost_ratio);
   const roiPercentValue = toNumber(safeSummary.roi_percent);
   const probProfitRaw = toNumber(safeSummary.prob_profit);
   const probProfitPercent = probProfitRaw === null ? null : Math.abs(probProfitRaw) <= 1 ? probProfitRaw * 100 : probProfitRaw;
-  const oddsPhrase = formatOddsFromPercent(probProfitPercent);
 
   // Tier 2 strip model + computed takeaway (both from live values only).
   const stripModel = buildPercentileStripModel({
@@ -4303,34 +4272,11 @@ function SimulationMetricsContent({
         <span className="font-semibold text-[var(--text-primary)]">&mdash;</span> are not available in the current snapshot.
       </p>
 
-      {/* Tier 1 — verdict row. */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <VerdictStatCard
-          label="Expected Value"
-          infoText={SIMULATION_METRIC_INFO["Expected Value"]}
-          value={money(safeSummary.mean_value)}
-          subLabel={packCost !== null ? `vs ${money(packCost)} cost` : null}
-        />
-        <VerdictStatCard
-          label="EV / Cost"
-          infoText={SIMULATION_METRIC_INFO["EV / Cost"]}
-          value={ratio(evCostRatio)}
-          tone={evCostRatio === null ? null : evCostRatio < 1 ? "danger" : "success"}
-          subLabel={roiPercentValue === null ? null : `${formatMetricSignedPercent(roiPercentValue)} ROI`}
-        />
-        <VerdictStatCard
-          label="Typical Pack"
-          infoText={SIMULATION_METRIC_INFO["Typical Pack"]}
-          value={money(p50)}
-          subLabel="median outcome"
-        />
-        <VerdictStatCard
-          label="Chance to Profit"
-          infoText={SIMULATION_METRIC_INFO["Chance to Beat Pack Cost"]}
-          value={probability(safeSummary.prob_profit)}
-          subLabel={oddsPhrase}
-        />
-      </div>
+      {/* The former Tier-1 verdict cards (Expected Value, EV/Cost, Typical
+          Pack, Chance to Profit) were removed — that data already leads the
+          Overview hero and the RIP Score Breakdown, and every figure remains
+          in the grouped rows below. The percentile strip is now the tab's
+          first element. */}
 
       {/* Tier 2 — percentile strip (replaces the 9-row percentile table). */}
       <SimulationContextSurface as="div" className="min-w-0 overflow-visible p-3.5">

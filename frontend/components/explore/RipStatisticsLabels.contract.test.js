@@ -143,21 +143,29 @@ test("Metrics tab drops Model Version and every metric row carries an info bubbl
   assert.ok(!panelSource.includes("SegmentedControl"), "Metrics must not add a category selector");
 });
 
-test("Metrics tab three-tier redesign: verdict row, log-scale percentile strip, question-grouped disclosures", () => {
+test("Metrics tab three-tier redesign: verdict row removed, log-scale percentile strip leads, question-grouped disclosures", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
   const panelStart = source.indexOf("function SimulationMetricsContent");
   const panelEnd = source.indexOf("function formatDriverScore", panelStart);
   const panelSource = source.slice(panelStart, panelEnd);
 
-  // Tier 1: four verdict cards; EV/Cost is the only semantically-toned card.
-  for (const label of ['label="Expected Value"', 'label="EV / Cost"', 'label="Typical Pack"', 'label="Chance to Profit"']) {
-    assert.ok(panelSource.includes(label), `verdict row must include ${label}`);
-  }
+  // The former Tier-1 verdict cards (Expected Value / EV/Cost / Typical Pack /
+  // Chance to Profit) are gone — that data leads the Overview hero and the RIP
+  // Score Breakdown, and each figure stays reachable in the grouped rows.
+  assert.ok(!source.includes("function VerdictStatCard("), "the verdict stat card component must be removed with its row");
+  assert.ok(!panelSource.includes("<VerdictStatCard"), "the Metrics panel must not render verdict stat cards");
   assert.ok(
-    panelSource.includes('tone={evCostRatio === null ? null : evCostRatio < 1 ? "danger" : "success"}'),
-    "EV/Cost carries the semantic tone; below 1.00x is the danger treatment"
+    panelSource.includes('label="EV / Cost"') && panelSource.includes('label="Chance to Beat Pack Cost"'),
+    "the removed verdict figures must stay reachable in the grouped rows"
   );
-  assert.ok(panelSource.includes("formatOddsFromPercent"), "Chance to Profit sub-label uses odds phrasing");
+  // The percentile strip is now the first content element after the tab's description line.
+  const descriptionIndex = panelSource.indexOf("Raw simulation outputs and the metrics derived from them.");
+  const stripIndex = panelSource.indexOf("Where Packs Land");
+  const disclosureIndex = panelSource.indexOf("<SimMetricDisclosureCard");
+  assert.ok(
+    descriptionIndex >= 0 && stripIndex > descriptionIndex && disclosureIndex > stripIndex,
+    "Metrics must read description → percentile strip → question cards"
+  );
 
   // Tier 2: hand-rolled SVG strip on a log scale, replacing the percentile table.
   assert.ok(source.includes("function PercentileStripChart("), "the percentile strip component must exist");
@@ -503,19 +511,14 @@ test("Simulation context boxes share one surface primitive and drop the older on
   assert.ok(rccSource.includes("<SimulationContextSurface as=\"div\""), "Total Simulated Value must render inside the shared surface");
   assert.ok(!rccSource.includes("bg-[var(--surface-page)]/55"), "Total Simulated Value must drop its one-off /55 surface");
 
-  // The Metrics tab's tiered cards all render on the shared surface class:
-  // verdict stat cards and disclosure cards compose SIMULATION_CONTEXT_SURFACE_CLASS
-  // directly (verdict cards tint it inline; details elements can't wrap the
-  // component), and the percentile strip card uses the component. The old flat
-  // SimMetricGroup wrapper is gone with the flat table layout.
+  // The Metrics tab's cards all render on the shared surface class: disclosure
+  // cards compose SIMULATION_CONTEXT_SURFACE_CLASS directly (details elements
+  // can't wrap the component), and the percentile strip card uses the
+  // component. The old flat SimMetricGroup wrapper is gone with the flat table
+  // layout, and the Tier-1 verdict cards were removed outright (their data
+  // lives in the Overview hero / RIP Score Breakdown / grouped rows).
   assert.ok(!source.includes("function SimMetricGroup("), "the old flat metric group wrapper is replaced by the tiered Metrics cards");
-  const verdictStart = source.indexOf("function VerdictStatCard(");
-  const verdictEnd = source.indexOf("\n}", verdictStart);
-  assert.ok(verdictStart >= 0 && verdictEnd > verdictStart, "VerdictStatCard must exist");
-  assert.ok(
-    source.slice(verdictStart, verdictEnd).includes("SIMULATION_CONTEXT_SURFACE_CLASS"),
-    "verdict cards must render on the shared context surface class"
-  );
+  assert.ok(!source.includes("function VerdictStatCard("), "the verdict stat cards were removed with the Metrics hero row");
   const disclosureStart = source.indexOf("function SimMetricDisclosureCard(");
   const disclosureEnd = source.indexOf("\n}", disclosureStart);
   assert.ok(disclosureStart >= 0 && disclosureEnd > disclosureStart, "SimMetricDisclosureCard must exist");
