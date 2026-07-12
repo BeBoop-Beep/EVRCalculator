@@ -70,12 +70,13 @@ test("Performance series labels expose a market quick-read variant and a technic
 test("Simulation Results card renames Opening Outcomes and lists all six sub-tabs", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes('title="Simulation Results"'));
+  // The card renders its own collapsible header (h2), no longer a SectionCard title prop.
+  assert.ok(source.includes(">Simulation Results</h2>"));
   assert.ok(!source.includes('title="Opening Outcomes"'), "the set-detail card title must be reframed as Simulation Results");
 
   for (const label of [
     'label: "Outcome Distribution"',
-    'label: "Opening Profit vs Cost"',
+    'label: "Opening Performance vs Cost"',
     'label: "Simulation Drivers"',
     'label: "Value Structure"',
     'label: "Pack Paths"',
@@ -83,8 +84,11 @@ test("Simulation Results card renames Opening Outcomes and lists all six sub-tab
   ]) {
     assert.ok(source.includes(label), `Simulation Results tabs must include ${label}`);
   }
-  // The abbreviated "Opening P vs C" user-facing label must be gone.
+  // The abbreviated "Opening P vs C" user-facing label must be gone, and the
+  // pre-rename "Opening Profit vs Cost" label must not resurface (unified as
+  // "Opening Performance vs Cost" across Overview + Insights).
   assert.ok(!source.includes('label: "Opening P vs C"'));
+  assert.ok(!source.includes("Opening Profit vs Cost</"), "no rendered text may still say Opening Profit vs Cost");
 
   // Opening Profit vs Cost reuses PackValueHistoryChart in the technical variant.
   assert.ok(source.includes('variant="simulation"'));
@@ -95,23 +99,27 @@ test("Simulation Results card renames Opening Outcomes and lists all six sub-tab
 test("Simulation Results card drops the changing subtitle, keeps a stable info bubble, and gives every sub-tab a section header", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  // The card keeps ONE stable info bubble (not the old per-tab titleInfoText ternary).
-  assert.ok(source.includes("titleInfoText={SIMULATION_RESULTS_INFO_TEXT}"));
+  // The card keeps ONE stable info bubble (not the old per-tab titleInfoText
+  // ternary) — now rendered directly in the collapsible header row.
+  assert.ok(source.includes("<InfoPopover text={SIMULATION_RESULTS_INFO_TEXT} />"));
   assert.ok(source.includes("const SIMULATION_RESULTS_INFO_TEXT ="));
 
-  // The changing sub-tab subtitles are gone.
+  // The changing sub-tab subtitles are gone; the header carries one static kicker.
   assert.ok(!source.includes("Simulated opening performance vs pack cost over time"));
   assert.ok(!source.includes("percentile-vs-cost ratios kept technical"));
-  // The Simulation Results SectionCard must not pass a subtitle prop anymore.
-  const cardStart = source.indexOf('title="Simulation Results"', source.indexOf("<SectionCard"));
+  const cardStart = source.indexOf(">Simulation Results</h2>");
   const cardTabs = source.indexOf("<SectionViewTabs", cardStart);
   assert.ok(cardStart >= 0 && cardTabs > cardStart);
-  assert.ok(!source.slice(cardStart, cardTabs).includes("subtitle="), "Simulation Results card must not render a subtitle");
+  assert.ok(!source.slice(cardStart, cardTabs).includes("subtitle="), "Simulation Results card must not render a per-tab subtitle");
+  assert.ok(
+    source.slice(cardStart, cardTabs).includes("The raw evidence — full simulation outputs behind the score."),
+    "Simulation Results header must carry its static kicker"
+  );
 
   // Per-tab section header (title + info bubble).
   assert.ok(source.includes("function SimulationSectionHeader"));
   assert.ok(source.includes("<SimulationSectionHeader"));
-  assert.ok(source.includes("const OPENING_PROFIT_VS_COST_INFO_TEXT ="));
+  assert.ok(source.includes("const OPENING_PERFORMANCE_VS_COST_INFO_TEXT ="));
   assert.ok(source.includes("const SIMULATION_METRICS_INFO_TEXT ="));
   // The Outcome Distribution child chart's duplicate internal title is suppressed.
   assert.ok(source.includes("showTitle={false}"));

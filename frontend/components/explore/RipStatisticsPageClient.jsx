@@ -8723,6 +8723,19 @@ export default function RipStatisticsPageClient({
   const p05ShortfallToCost = summary.p05_shortfall_to_cost ?? null;
 
   const [graphMode, setGraphMode] = useState("outcome-distribution");
+  // Simulation Results (Insights) collapse state. The section loads collapsed;
+  // deep links and left-nav clicks that target it expand it (see the
+  // searchParams sync effect and handleSetDetailNavSelect). Sub-tab switches
+  // inside the card never touch this state, so expansion persists while
+  // navigating sub-tabs, and the body is render-gated only — the /insights
+  // fetch lifecycle is unchanged, so expanding never re-fetches.
+  const [simulationResultsExpanded, setSimulationResultsExpanded] = useState(false);
+  useEffect(() => {
+    // A new set loads collapsed again. This runs before the searchParams sync
+    // effect below (declaration order), so a deep link into Simulation
+    // Results still ends expanded on first render of the new set.
+    setSimulationResultsExpanded(false);
+  }, [resolvedSetResourceId]);
   const [viewMode, setViewMode] = useState("simple");
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
@@ -9644,6 +9657,12 @@ export default function RipStatisticsPageClient({
       setActiveSection("outcome-distribution");
     }
 
+    // Any navigation that targets the Simulation Results card (or one of its
+    // sub-views) must reveal it — the card loads collapsed by default.
+    if (targetId === ANALYSIS_SECTION_ID) {
+      setSimulationResultsExpanded(true);
+    }
+
     pushSetDetailRouteState({ tab: nextTab, section });
 
     scrollToSetDetailElement(targetId || getSetDetailFallbackTargetId(nextTab));
@@ -9701,6 +9720,14 @@ export default function RipStatisticsPageClient({
     } else if (resolvedTab === "insights") {
       setGraphMode("outcome-distribution");
       setActiveSection("outcome-distribution");
+    }
+
+    // Deep links pointing into Simulation Results (its section aliases or any
+    // of its sub-views) must load the section expanded with the sub-tab above
+    // already applied. Expansion is one-way here — an unrelated URL change
+    // never re-collapses an open card.
+    if (sectionTarget?.targetId === ANALYSIS_SECTION_ID) {
+      setSimulationResultsExpanded(true);
     }
 
     if (!nextSection) {
@@ -10770,6 +10797,20 @@ export default function RipStatisticsPageClient({
       : activeInsightsGraphMode === "pack-breakdown"
       ? "Pack path data isn't available for this set yet."
       : "Outcome distribution data isn't available for this set yet.";
+  // Compact inline summary for the collapsed Simulation Results header. Built
+  // exclusively from already-fetched fields (set-page summary + the same as-of
+  // date the Metrics tab shows) with the existing formatters — no new reads.
+  const simulationResultsSummaryText = useMemo(() => {
+    const packsSimulated = toNumber(summary.simulation_count ?? summary.packs_simulated);
+    const expectedValue = toNumber(summary.mean_value);
+    const runDate = fallbackSetValueAsOf || summary.run_at || null;
+    const parts = [
+      packsSimulated === null ? null : `${formatMetricCount(packsSimulated)} packs simulated`,
+      expectedValue === null ? null : `EV ${formatCurrency(expectedValue)}`,
+      runDate ? `as of ${formatHistoryDate(runDate, { year: "numeric", month: "short", day: "numeric" }) || runDate}` : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }, [summary.simulation_count, summary.packs_simulated, summary.mean_value, summary.run_at, fallbackSetValueAsOf]);
   // Chart-sized min-heights apply only to views that render chart-sized
   // content with data. Metrics sizes itself; Opening P vs C only expands once
   // it has enough points to plot (otherwise its compact empty state shows).
@@ -13436,12 +13477,54 @@ export default function RipStatisticsPageClient({
                     secondary tier via insightsSectionsBlocked. */}
                 <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Simulation Results" minHeightClassName="min-h-[24rem]">
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
-                  <SectionCard
-                    title="Simulation Results"
-                    className={openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : ""}
-                    bodyClassName={openingOutcomesUsesExpandedLayout ? "min-h-[32rem]" : ""}
-                    titleInfoText={SIMULATION_RESULTS_INFO_TEXT}
+                  {/* Collapsible shell (same card treatment as SectionCard): the header
+                      row hosts the expand toggle, mirroring RIP Score Breakdown's
+                      Show/Hide Details pattern. Collapsed is the default; deep links
+                      and left-nav clicks into this section expand it via
+                      simulationResultsExpanded. The body is render-gated only — the
+                      /insights fetch lifecycle is untouched, so expanding never
+                      re-fetches already-loaded data. */}
+                  <article
+                    className={[
+                      "w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5",
+                      simulationResultsExpanded && openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : "",
+                    ].filter(Boolean).join(" ")}
                   >
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Simulation Results</h2>
+                          <InfoPopover text={SIMULATION_RESULTS_INFO_TEXT} />
+                        </div>
+                        <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">The raw evidence — full simulation outputs behind the score.</p>
+                        {!simulationResultsExpanded && simulationResultsSummaryText ? (
+                          <p className="mt-1 min-w-0 max-w-full text-xs tabular-nums text-[var(--text-secondary)]">{simulationResultsSummaryText}</p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSimulationResultsExpanded((current) => !current)}
+                        className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55"
+                        aria-expanded={simulationResultsExpanded}
+                        aria-controls="simulation-results-full"
+                      >
+                        {simulationResultsExpanded ? "Hide full results" : "Show full results"}
+                        <svg
+                          viewBox="0 0 20 20"
+                          aria-hidden="true"
+                          className={`h-3.5 w-3.5 opacity-70 transition-transform duration-200 ${simulationResultsExpanded ? "rotate-180" : ""}`}
+                          fill="currentColor"
+                        >
+                          <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {simulationResultsExpanded ? (
+                    <div
+                      id="simulation-results-full"
+                      className={["mt-4 min-w-0 max-w-full", openingOutcomesUsesExpandedLayout ? "min-h-[32rem]" : ""].filter(Boolean).join(" ")}
+                    >
                     <SectionViewTabs
                       className="mb-4"
                       value={activeInsightsGraphMode}
@@ -13598,13 +13681,15 @@ export default function RipStatisticsPageClient({
                       </div>
                     ) : (
                       // Outcome Distribution renders flush — no inner chart card,
-                      // matching Opening Profit vs Cost. The section header above
+                      // matching Opening Performance vs Cost. The section header above
                       // already shows the "Outcome Distribution" title.
                       <SimulationResultsPanel id="set-detail-outcome-distribution">
                         <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} showTitle={false} flush />
                       </SimulationResultsPanel>
                     )}
-                  </SectionCard>
+                    </div>
+                    ) : null}
+                  </article>
                 </section>
                 </SectionErrorBoundary>
               </section>
