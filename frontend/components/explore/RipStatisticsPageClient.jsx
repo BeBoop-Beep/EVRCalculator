@@ -932,7 +932,7 @@ const DESIRABILITY_FALLBACK_COPY = "Using a fallback Opening Desirability estima
 const DESIRABILITY_NOT_CALCULATED_COPY = "Not calculated yet.";
 const PERFORMANCE_VS_COST_INFO_TEXT = (
   <div className="space-y-2 text-left">
-    <p className="font-semibold text-[var(--text-primary)]">Performance vs Cost</p>
+    <p className="font-semibold text-[var(--text-primary)]">Opening Performance vs Cost</p>
     <p>Tracks how simulated opening outcomes compare against pack market price over time.</p>
     <ul className="space-y-1 pl-3">
       <li className="flex gap-2">
@@ -971,11 +971,11 @@ const SIMULATION_RESULTS_INFO_TEXT = (
   </div>
 );
 
-// Section header for the Opening Profit vs Cost sub-tab. Describes the technical
-// (simulation-variant) series names the chart actually renders.
-const OPENING_PROFIT_VS_COST_INFO_TEXT = (
+// Section header for the Opening Performance vs Cost sub-tab. Describes the
+// technical (simulation-variant) series names the chart actually renders.
+const OPENING_PERFORMANCE_VS_COST_INFO_TEXT = (
   <div className="space-y-2 text-left">
-    <p className="font-semibold text-[var(--text-primary)]">Opening Profit vs Cost</p>
+    <p className="font-semibold text-[var(--text-primary)]">Opening Performance vs Cost</p>
     <p>How simulated opening value compares with pack market price over time, kept technical for the simulation view.</p>
     <ul className="space-y-1 pl-3">
       <li className="flex gap-2">
@@ -3841,7 +3841,7 @@ function SimulationSectionHeader({ title, infoText, className = "mb-3" }) {
 // Flush body wrapper for the non-Metrics Simulation Results sub-tabs: no border,
 // no rounded panel, no background, and no internal scroll — the parent card is
 // the only large container, so every sub-tab reads as one premium canvas
-// (Opening Profit vs Cost is the visual reference). Metrics deliberately keeps
+// (Opening Performance vs Cost is the visual reference). Metrics deliberately keeps
 // its own scroll wrapper and does NOT use this.
 function SimulationResultsPanel({ id, children, className = "" }) {
   return (
@@ -8171,7 +8171,7 @@ function SetPageNavigationRail({
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
           { id: "desirability-evidence", label: "Desirability Evidence", tab: "insights", section: "desirability-proof", targetId: "set-detail-desirability-evidence", active: false },
           { id: "simulation-results", label: "Simulation Results", tab: "insights", section: "simulation-results", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
-          { id: "opening-performance-cost", label: "Opening Profit vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
+          { id: "opening-performance-cost", label: "Opening Performance vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
           { id: "value", label: "Value Structure", tab: "insights", section: "value", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
           { id: "pack-breakdown", label: "Pack Paths", tab: "insights", section: "pack-breakdown", graphMode: "pack-breakdown", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "pack-breakdown" },
@@ -12827,9 +12827,9 @@ export default function RipStatisticsPageClient({
                             has no internal status handling, so it gets an
                             explicit SectionBoundary keyed to the /overview
                             payload's own status. */}
-                        <SectionErrorBoundary sectionName="overview-performance-vs-cost" resetKeys={[resolvedSetResourceId]} title="Performance vs Cost" minHeightClassName="min-h-[16rem]">
+                        <SectionErrorBoundary sectionName="overview-performance-vs-cost" resetKeys={[resolvedSetResourceId]} title="Opening Performance vs Cost" minHeightClassName="min-h-[16rem]">
                           <SectionCard
-                            title="Performance vs Cost"
+                            title="Opening Performance vs Cost"
                             titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}
                             className="flex h-full flex-col"
                             bodyClassName="flex min-h-0 flex-1 flex-col"
@@ -12837,7 +12837,7 @@ export default function RipStatisticsPageClient({
                             <SectionBoundary
                               status={overviewPerformanceVsCostStatus}
                               error={activeOverviewState.error ? new Error(activeOverviewState.error) : null}
-                              title="Loading performance vs cost…"
+                              title="Loading opening performance vs cost…"
                               minHeightClassName="min-h-[14rem]"
                               className="h-full"
                             >
@@ -13476,7 +13476,7 @@ export default function RipStatisticsPageClient({
                       variant="secondary"
                       options={[
                         { value: "outcome-distribution", label: "Outcome Distribution" },
-                        { value: "historical-trend", label: "Opening Profit vs Cost" },
+                        { value: "historical-trend", label: "Opening Performance vs Cost" },
                         { value: "simulation-drivers", label: "Simulation Drivers" },
                         { value: "value-contribution", label: "Value Structure" },
                         { value: "pack-breakdown", label: "Pack Paths" },
@@ -13487,7 +13487,7 @@ export default function RipStatisticsPageClient({
                     <SimulationSectionHeader
                       title={
                         activeInsightsGraphMode === "historical-trend"
-                          ? "Opening Profit vs Cost"
+                          ? "Opening Performance vs Cost"
                           : activeInsightsGraphMode === "simulation-drivers"
                           ? "Simulation Drivers"
                           : activeInsightsGraphMode === "value-contribution"
@@ -13500,7 +13500,7 @@ export default function RipStatisticsPageClient({
                       }
                       infoText={
                         activeInsightsGraphMode === "historical-trend"
-                          ? OPENING_PROFIT_VS_COST_INFO_TEXT
+                          ? OPENING_PERFORMANCE_VS_COST_INFO_TEXT
                           : activeInsightsGraphMode === "simulation-drivers"
                           ? SIMULATION_DRIVERS_INFO_TEXT
                           : activeInsightsGraphMode === "value-contribution"
@@ -13587,7 +13587,7 @@ export default function RipStatisticsPageClient({
                         />
                       </SimulationResultsPanel>
                     ) : activeInsightsGraphMode === "historical-trend" ? (
-                      // Opening Profit vs Cost: the SAME performance history as
+                      // Opening Performance vs Cost: the SAME performance history as
                       // Overview, but rendered in the technical "simulation"
                       // variant so the series are named by raw percentile-vs-cost
                       // ratios. This is the flush visual reference for the card.
