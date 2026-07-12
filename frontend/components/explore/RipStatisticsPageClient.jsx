@@ -1033,7 +1033,9 @@ const METRIC_TREND_DIRECTIONS = {
   p99ValueToCostRatio: "higher",
   chaseDepth: "higher",
   effectiveChaseCount: "higher",
-  averageLoss: "lower",
+  // Average Loss is displayed as a signed value ≤ $0 (mean − cost), and its
+  // trend inputs use that same signed scale — so "higher" (toward $0) = good.
+  averageLoss: "higher",
   expectedLossPerPack: "lower",
   averageLossWhenYouMiss: "lower",
   expectedLossWhenLosing: "lower",
@@ -3586,6 +3588,21 @@ function getHistoryMetricTrend({ metricKey, currentValue, previousPoint, previou
   });
 }
 
+// Trend-arrow semantics — one shared rule for every stat tile/row:
+//   • the arrow GLYPH encodes the direction the displayed value moved
+//   • the arrow COLOR encodes whether that movement is favorable for the
+//     metric (green = improving, red = worsening, gray = no judgment)
+// Per-metric polarity (up = good / up = bad / neutral) is declared once in
+// METRIC_TREND_DIRECTIONS above and resolved into `trend.isImprovement` by
+// getMetricTrend — components never re-derive it. Hero stat card polarities
+// (task 1.5 audit):
+//   • Pack Market Price      — neutral (direction shown, no color judgment)
+//   • Expected Value         — up = good
+//   • Average Hit Value      — up = good
+//   • Average Loss           — displayed as a signed value ≤ $0, so up
+//                              (toward $0) = good — see trendByMetricKey
+//   • Chance to Beat Pack Cost — up = good
+//   • Chance at a Big Pull   — up = good
 function TrendIndicator({ trend, className = "" }) {
   if (!trend || trend.trend === "unknown") {
     return null;
@@ -3599,30 +3616,23 @@ function TrendIndicator({ trend, className = "" }) {
   const hasDirectionalMovement = trend.trend === "up" || trend.trend === "down";
   const iconClassName = isFlat ? "h-4 w-4" : "h-6 w-6";
   const wrapperClassName = isFlat ? "h-5 w-5" : "h-7 w-7";
-  const displayTrend =
-    trend.isImprovement === true
-      ? "up"
-      : trend.isImprovement === false
-      ? "down"
-      : hasDirectionalMovement
-      ? trend.trend
-      : "flat";
+  const displayTrend = hasDirectionalMovement ? trend.trend : "flat";
   const color =
     trend.isImprovement === true
       ? "var(--success,#10B981)"
       : trend.isImprovement === false
       ? "var(--danger,#EF4444)"
       : "var(--text-secondary)";
-  const label =
-    trend.isImprovement === true
-      ? "Improved from previous snapshot"
-      : trend.isImprovement === false
-      ? "Worsened from previous snapshot"
-      : isFlat
-      ? "Unchanged from previous snapshot"
-      : hasDirectionalMovement
-      ? `Moved ${trend.trend} from previous snapshot`
-      : "Neutral trend from previous snapshot";
+  const directionText = hasDirectionalMovement
+    ? trend.trend === "up"
+      ? "Up"
+      : "Down"
+    : isFlat
+    ? "Unchanged"
+    : "Neutral trend";
+  const judgmentText =
+    trend.isImprovement === true ? " (improving)" : trend.isImprovement === false ? " (worsening)" : "";
+  const label = `${directionText} from previous snapshot${judgmentText}`;
 
   return (
     <span
@@ -10409,8 +10419,12 @@ export default function RipStatisticsPageClient({
       previousPoint: previousTrendPoint,
     }),
     averageLoss: getMetricTrend({
-      currentValue: currentAverageLossAmount,
-      previousValue: previousAverageLossAmount,
+      // Average Loss renders as a signed value (mean − cost, clamped ≤ $0), so
+      // its trend is computed on the same signed scale: the arrow tracks the
+      // number the user sees, and "up" (toward $0) is the improvement. The
+      // magnitude-scale helper values would point the arrow the wrong way.
+      currentValue: currentAverageLossAmount === null ? null : -currentAverageLossAmount,
+      previousValue: previousAverageLossAmount === null ? null : -previousAverageLossAmount,
       metricKey: "averageLoss",
     }),
     chanceToBeatPackCost: getHistoryMetricTrend({
