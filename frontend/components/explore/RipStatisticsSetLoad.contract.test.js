@@ -476,7 +476,7 @@ test("Decision Signals selector returns stable rows from summary pillars while m
   });
 
   assert.equal(selected.rows.length, 2);
-  assert.equal(selected.rows[0].label, "Profitability");
+  assert.equal(selected.rows[0].label, "Profit");
   assert.equal(selected.sourceUsed, "summary+pillarSignals");
 });
 
@@ -3310,8 +3310,8 @@ test("Phase 11: Overview renders 5 priority-ordered sections, each independently
   const chaseIndex = renderSource.indexOf("<TopChaseCardsModule");
   const signalsIndex = renderSource.indexOf("<DecisionSignalsCard");
   assert.ok(
-    setValueIndex >= 0 && perfIndex > setValueIndex && moversIndex > perfIndex && chaseIndex > moversIndex && signalsIndex > chaseIndex,
-    "sections must render in priority order: Set Value, Performance vs Cost, Market Movers, Top Chase, Market Signals"
+    signalsIndex >= 0 && setValueIndex > signalsIndex && perfIndex > setValueIndex && moversIndex > perfIndex && chaseIndex > moversIndex,
+    "sections must render verdict-first: Decision Signals, then Set Value, Opening Performance vs Cost, Market Movers, Top Chase"
   );
 
   assert.ok(

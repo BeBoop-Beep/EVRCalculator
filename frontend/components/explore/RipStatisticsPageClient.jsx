@@ -5831,11 +5831,14 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
     [setIntelligenceMeta]
   );
 
-  const signals = useMemo(() => {
+  // Core RIP pillars and the supplementary opening lenses render as two
+  // display groups (grouping only — scores, ordering within each group, and
+  // row behavior are unchanged).
+  const { pillarRows, openingRows } = useMemo(() => {
     if (requestTimeout) {
-      return [];
+      return { pillarRows: [], openingRows: [] };
     }
-    const pillarRows = requestTimeout ? [] : selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
+    const pillarRows = selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
 
     const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
       const backendLens = backendLensByKey.get(lens.key) || null;
@@ -5875,8 +5878,10 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
       };
     }).filter(Boolean);
 
-    return [...pillarRows, ...openingRows].filter(Boolean);
+    return { pillarRows, openingRows };
   }, [backendLensByKey, pillarSignals, requestTimeout, summary]);
+
+  const signals = [...pillarRows, ...openingRows];
 
   if (signals.length === 0) {
     return requestTimeout ? (
@@ -5907,10 +5912,24 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
         ]}
       />
       <div className="grid gap-2">
-        {signals.map((signal) => (
+        {pillarRows.map((signal) => (
           <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} expanded={expanded} />
         ))}
       </div>
+      {openingRows.length > 0 ? (
+        <>
+          <div className="mt-4 mb-2 flex items-center gap-2">
+            <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Also tracked</span>
+            <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+          </div>
+          <div className="grid gap-2">
+            {openingRows.map((signal) => (
+              <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} expanded={expanded} />
+            ))}
+          </div>
+        </>
+      ) : null}
     </SectionCard>
   );
 }
@@ -8159,11 +8178,13 @@ function SetPageNavigationRail({
   const visibleSubLinks =
     activeTab === "overview"
       ? [
+          // Nav order mirrors the tab's render order: Decision Signals now
+          // leads the Overview page (verdict → evidence).
+          { id: "set-signals", label: "Decision Signals", tab: "overview", section: "set-signals", targetId: "set-detail-set-intelligence", active: activeGraphMode !== "historical-trend" },
           { id: "performance-vs-cost", label: "Market Snapshot", tab: "overview", section: "performance-vs-cost", graphMode: "historical-trend", targetId: "set-detail-overview-performance", active: activeGraphMode === "historical-trend" },
           ...(showTopMarketCards
             ? [{ id: "top-market-cards", label: "Top Chase Cards", tab: "overview", section: "top-market-cards", targetId: "set-detail-top-market-cards", active: false }]
             : []),
-          { id: "set-signals", label: "Decision Signals", tab: "overview", section: "set-signals", targetId: "set-detail-set-intelligence", active: activeGraphMode !== "historical-trend" },
         ]
       : activeTab === "cards"
       ? [
@@ -12817,6 +12838,22 @@ export default function RipStatisticsPageClient({
                   // as soon as its history settles even if Market Movers/Top
                   // Chase are still loading, and vice versa.
                   <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
+                    <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                      {/* Priority 1 (position): Decision Signals leads the tab so the page
+                          reads verdict → evidence. Derived purely from
+                          summary/interpretation, both already available from the SSR
+                          shell on this tab — no async gate needed, just
+                          render-exception isolation. */}
+                      <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
+                        <DecisionSignalsCard
+                          pillarSignals={overviewPillarSignals}
+                          summary={summary}
+                          setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                          requestTimeout={isTimeoutFallbackPayload}
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
                       <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         {/* Priority 2: Set Value. SetValueTrendCard already
@@ -12877,38 +12914,21 @@ export default function RipStatisticsPageClient({
                       </SectionErrorBoundary>
                     </div>
 
-                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)] lg:items-start">
-                      {shouldShowTopMarketCards ? (
-                        <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                          {/* Priority 5: Top Chase Cards — self-renders loading/error. */}
-                          <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
-                            <TopChaseCardsModule
-                              cards={topPricedCards}
-                              status={topPricedCardsStatus}
-                              error={activeTopMarketCardsState.error}
-                              infoText={topPricedCardsInfo}
-                              selectedWindowKey={topMarketCardsWindowKey}
-                              onWindowChange={setTopMarketCardsWindowKey}
-                            />
-                          </SectionErrorBoundary>
-                        </div>
-                      ) : null}
-
-                      <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                        {/* Priority 6: Market Signals. Derived purely from
-                            summary/interpretation, both already available
-                            from the SSR shell on this tab — no async gate
-                            needed, just render-exception isolation. */}
-                        <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
-                          <DecisionSignalsCard
-                            pillarSignals={overviewPillarSignals}
-                            summary={summary}
-                            setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                            requestTimeout={isTimeoutFallbackPayload}
+                    {shouldShowTopMarketCards ? (
+                      <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                        {/* Priority 5: Top Chase Cards — self-renders loading/error. */}
+                        <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
+                          <TopChaseCardsModule
+                            cards={topPricedCards}
+                            status={topPricedCardsStatus}
+                            error={activeTopMarketCardsState.error}
+                            infoText={topPricedCardsInfo}
+                            selectedWindowKey={topMarketCardsWindowKey}
+                            onWindowChange={setTopMarketCardsWindowKey}
                           />
                         </SectionErrorBoundary>
                       </div>
-                    </div>
+                    ) : null}
                   </section>
                 ) : null}
 

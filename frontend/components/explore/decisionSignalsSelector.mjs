@@ -9,8 +9,10 @@ function formatScore(score) {
   return parsed === null ? null : Math.round(parsed).toString();
 }
 
+// Label deliberately matches the Insights RIP Score Breakdown pillar name
+// ("Profit") so the same pillar never reads as two different signals.
 const PILLAR_ROWS = [
-  ["Profit", "Profitability", "Profit profile", "Compares Expected Value, upside, and pack cost pressure."],
+  ["Profit", "Profit", "Profit profile", "Compares Expected Value, upside, and pack cost pressure."],
   ["Safety", "Safety", "Miss protection", "Shows how well the set protects against rough openings and downside outcomes."],
   ["Desirability", "Desirability", "Collector demand", "Reflects collector appeal and chase-card strength for this set."],
   ["Stability", "Stability", "Value spread", "Shows whether value is broadly distributed or concentrated in a few cards."],
