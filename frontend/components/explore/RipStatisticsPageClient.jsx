@@ -5997,9 +5997,12 @@ function RipScoreBreakdownModule({
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
       <article className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
-            {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
+              {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
+            </div>
+            <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">The verdict — how this set scores and why.</p>
           </div>
           <button
             type="button"
@@ -7140,7 +7143,7 @@ function DesirabilityEvidenceCard({
       <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <SectionCard
         title="Desirability Evidence"
-        subtitle="Proof, set-level validation, and card-level market checks in one place."
+        subtitle="Does the market agree? Validation against demand and price data."
         titleInfoText="Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals."
         bodyClassName="space-y-4"
       >
