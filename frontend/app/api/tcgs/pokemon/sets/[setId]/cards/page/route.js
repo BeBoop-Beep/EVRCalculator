@@ -3,7 +3,7 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
-const FORWARDED_PARAMS = ["page", "page_size", "sort", "q", "rarity", "movement_filter", "movement_sort"];
+const FORWARDED_PARAMS = ["page", "page_size", "sort", "q", "rarity", "movement_filter", "movement_sort", "snapshot_contract"];
 
 export async function GET(request, { params }) {
   const resolvedParams = (await params) || {};

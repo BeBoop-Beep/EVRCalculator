@@ -13,6 +13,7 @@ from backend.scripts.pokemon_snapshot_builders import (
     add_target_set_args,
     build_cards_snapshot_row,
     get_client,
+    refresh_canonical_card_market_prices_for_set,
     resolve_target_sets,
     should_commit,
     upsert_row,
@@ -33,6 +34,11 @@ def main() -> None:
 
     for set_row in resolve_target_sets(client, args):
         logging.info("building cards snapshot set_id=%s name=%s", set_row.get("id"), set_row.get("name"))
+        refresh_canonical_card_market_prices_for_set(
+            client,
+            str(set_row["id"]),
+            commit=commit,
+        )
         row = build_cards_snapshot_row(set_row)
         upsert_row(
             client,

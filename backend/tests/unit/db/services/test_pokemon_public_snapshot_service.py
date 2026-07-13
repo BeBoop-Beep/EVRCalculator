@@ -1913,8 +1913,8 @@ def test_market_dashboard_snapshot_defaults_market_movers_by_window_to_30d_when_
     assert payload["market_movers_by_window"] == {"30D": thirty_day_movers}
 
 
-def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):
-    """The shell reader must never pull payload_json off pokemon_set_page_snapshot_latest."""
+def test_shell_snapshot_reader_does_not_select_whole_payload_json(monkeypatch):
+    """The shell may project exact JSON paths but must never pull the whole payload_json blob."""
     captured_queries = []
 
     def read_shell(query):
@@ -1942,7 +1942,8 @@ def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):
 
     assert len(captured_queries) == 1
     selected_fields = captured_queries[0].select_fields
-    assert "payload_json" not in selected_fields
+    assert "payload_json" not in {field.strip() for field in selected_fields.split(",")}
+    assert "payload_json->summary->relative_experience_score" in selected_fields
     assert "set_identity_json" in selected_fields
     assert "title_card_json" in selected_fields
 
@@ -1954,6 +1955,41 @@ def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):
     assert payload["summary"]["pack_tier"] == "A"
     assert payload["meta"]["snapshot"]["source"] == "pokemon_set_page_snapshot_latest"
     assert payload["meta"]["timings"]["snapshot_query_ms"] is not None
+
+
+def test_shell_snapshot_prefers_tracked_lens_values_projected_from_payload_summary(monkeypatch):
+    row = {
+        **_SHELL_ROW_FIXTURE,
+        "rip_summary_json": {
+            **_SHELL_ROW_FIXTURE["rip_summary_json"],
+            "relative_experience_score": 1,
+            "relative_biggest_upside_score": 2,
+        },
+        "tracked_lens_relative_experience_score": 66,
+        "tracked_lens_relative_chase_potential_score": 75.78,
+        "tracked_lens_relative_biggest_upside_score": 82.41462252449374,
+        "tracked_lens_relative_average_return_score": 74.99503475670308,
+        "tracked_lens_experience_rank": 8,
+        "tracked_lens_chase_potential_rank": 7,
+        "tracked_lens_biggest_upside_rank": 7,
+        "tracked_lens_mean_value_to_cost_rank": 6,
+    }
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _query: [row],
+            "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    assert payload["summary"]["relative_experience_score"] == 66
+    assert payload["summary"]["relative_chase_potential_score"] == 75.78
+    assert payload["summary"]["relative_biggest_upside_score"] == 82.41462252449374
+    assert payload["summary"]["relative_average_return_score"] == 74.99503475670308
+    assert payload["summary"]["experience_rank"] == 8
+    assert payload["summary"]["mean_value_to_cost_rank"] == 6
 
 
 def test_shell_snapshot_missing_row_returns_fallback(monkeypatch):
@@ -2765,10 +2801,10 @@ def test_slim_top_chase_hydrates_empty_histories_from_observations_without_dragg
     assert "topChaseCardPricesSyncedCount" not in payload["meta"]
 
 
-def test_slim_top_chase_keeps_stored_price_and_skips_observation_scan_when_histories_exist(monkeypatch):
+def test_slim_top_chase_aligns_current_price_and_skips_observation_scan_when_histories_exist(monkeypatch):
     """When stored histories already cover the cards, no raw-observation scan
     runs and the card's stored current price is served as-is — never
-    overwritten by the latest stored history point."""
+    aligned to the latest stored history point when it reaches latestMarketDate."""
     observation_calls = []
 
     def _fail_observation_scan(*_args, **_kwargs):
@@ -2796,16 +2832,14 @@ def test_slim_top_chase_keeps_stored_price_and_skips_observation_scan_when_histo
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
     assert observation_calls == []
-    # Stored current price (10.0) is served untouched — NOT dragged to the
-    # latest stored history point (41.0).
-    assert payload["topChaseCards"][0]["marketPrice"] == 10.0
+    assert payload["topChaseCards"][0]["marketPrice"] == 41.0
 
 
 def test_slim_top_chase_keeps_histories_separate(monkeypatch):
     """topChaseCardHistories stays the canonical history container — the sliced
     per-card price history must not be re-embedded onto each card (the slim
     endpoint strips priceHistory to stay under budget), and the card's stored
-    current price is not overwritten by the history."""
+    current price agrees with the terminal history point."""
     row = _top_chase_dashboard_row(
         top_chase_cards_json=[
             {"cardId": "card-1", "cardVariantId": "variant-1", "name": "Chase Card", "marketPrice": 99.0},
@@ -2820,9 +2854,7 @@ def test_slim_top_chase_keeps_histories_separate(monkeypatch):
     for card in payload["topChaseCards"]:
         assert "priceHistory" not in card, "slim endpoint must not re-embed priceHistory onto cards"
         assert "price_history" not in card
-    # Stored current price is preserved (not dragged to the stored history's
-    # latest point).
-    assert payload["topChaseCards"][0]["marketPrice"] == 99.0
+    assert payload["topChaseCards"][0]["marketPrice"] == 40.0
 
 
 # ---------------------------------------------------------------------------
@@ -3578,13 +3610,9 @@ def test_top_chase_payload_strips_redundant_embedded_card_price_history(monkeypa
     for redundant_key in ("priceHistory", "price_history", "historyDiagnostics", "history_diagnostics"):
         assert redundant_key not in card, f"{redundant_key} must be stripped from the response card"
     assert card["cardId"] == "card-1"
-    # The card's own stored marketPrice (42.5) is the current price the snapshot
-    # builder computed for this row — it must NOT be overwritten by the latest
-    # topChaseCardHistories point (5.0). History can be stale/carried-forward;
-    # dragging the price onto it makes the price column more stale, not less
-    # (the Ascended Heroes regression). Only the redundant embedded priceHistory
-    # is stripped; the current price is left untouched.
-    assert card["marketPrice"] == 42.5
+    # The served history reaches latestMarketDate, so current display and the
+    # terminal chart point must agree.
+    assert card["marketPrice"] == 5.0
     assert card["rank"] == 1
     assert payload["topChaseCardHistories"]["variant-1"] == [{"date": "2026-06-30", "marketPrice": 5.0}]
 

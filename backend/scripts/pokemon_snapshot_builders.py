@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 from uuid import UUID
 
 from dotenv import load_dotenv
+from postgrest.types import ReturnMethod
 
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.explore_page_service import (
@@ -18,7 +20,6 @@ from backend.db.services.explore_rip_statistics_service import get_rip_statistic
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_public_snapshot_service import (
     enrich_cards_payload_with_desirability,
-    enrich_cards_payload_with_movements,
 )
 from backend.db.services.pokemon_set_market_service import (
     SET_VALUE_SCOPES,
@@ -26,8 +27,13 @@ from backend.db.services.pokemon_set_market_service import (
     get_pokemon_set_top_market_cards_payload,
     get_pokemon_set_value_history_payload,
 )
-from backend.desirability.set_components import build_canonical_card_price_index
-from backend.desirability.set_validation import build_desirability_validation_payload, build_opening_set_audit, is_opening_set_row
+from backend.desirability.set_validation import (
+    build_desirability_validation_payload,
+    build_opening_set_audit,
+    is_complete_desirability_validation,
+    is_opening_set_row,
+)
+from backend.scripts.set_value_scope_invariants import validate_histories_by_scope
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +55,28 @@ RIP_DESIRABILITY_COMPARISON_FIELDS = (
     "desirability_component_score",
     "rip_desirability_impact_label",
     "rip_desirability_comparison_version",
+    "relative_rip_core_score",
+    "rip_core_rank",
+    "rip_core_tier",
+    "rip_core_interpretation",
+    "rip_core_interpretation_label",
+    "rip_core_interpretation_summary",
+    "rip_core_interpretation_severity",
+    "rip_presentation_normalization_version",
+    "relative_pack_score_normalization_version",
+    "relative_rip_core_score_normalization_version",
 )
 
 MARKET_MOVERS_WINDOWS_DAYS = {"1D": 1, "7D": 7, "30D": 30}
 MARKET_MOVERS_COMPATIBILITY_WINDOW = "30D"
+CARD_PRICE_OBSERVATION_CHUNK_SIZE = 50
+CARD_PRICE_OBSERVATION_PAGE_SIZE = 1000
+CARD_MOVEMENT_LOOKBACK_DAYS = 45
+CARD_MOVEMENT_MIN_SPAN_DAYS = {7: 3, 30: 14}
+CARD_MOVEMENT_MAX_SPAN_DAYS = {7: 10, 30: 45}
+CARD_MOVEMENT_MIN_CURRENT_PRICE = 1.0
+CARD_MOVEMENT_MIN_ABSOLUTE_CHANGE = 0.25
+CARD_MOVEMENT_MAX_ABSOLUTE_PERCENT = 300.0
 
 TOP_HITS_WARNING_PATTERNS = (
     "top hits",
@@ -201,6 +225,44 @@ def add_target_set_args(parser: argparse.ArgumentParser) -> None:
 
 def should_commit(args: argparse.Namespace) -> bool:
     return bool(args.commit)
+
+
+def refresh_canonical_card_market_prices_for_set(
+    client: Any,
+    set_id: str,
+    *,
+    commit: bool,
+) -> Optional[int]:
+    """Refresh the authoritative canonical selected-price layer for one set.
+
+    Snapshot builders must not infer checklist prices directly from raw
+    observations.  This RPC keeps the canonical selection layer in the
+    lineage before a Cards snapshot reads it.
+    """
+    if not commit:
+        logger.info(
+            "[dry-run] would refresh pokemon_canonical_card_market_prices_latest set_id=%s",
+            set_id,
+        )
+        return None
+    result = client.rpc(
+        "refresh_pokemon_canonical_card_market_prices_latest_for_set",
+        {"target_set_id": set_id},
+    ).execute()
+    data = getattr(result, "data", None)
+    if isinstance(data, list):
+        value = data[0] if data else 0
+        if isinstance(value, dict):
+            value = next(iter(value.values()), 0)
+    else:
+        value = data
+    refreshed_rows = int(value or 0)
+    logger.info(
+        "refreshed pokemon_canonical_card_market_prices_latest set_id=%s rows=%s",
+        set_id,
+        refreshed_rows,
+    )
+    return refreshed_rows
 
 
 def with_snapshot_meta(payload: Dict[str, Any], *, snapshot_type: str, built_at: str) -> Dict[str, Any]:
@@ -837,8 +899,10 @@ def _merge_last_known_good_snapshot_sections(
             reason="no valid card appeal market-price validation has been captured yet",
         )
 
-    new_desirability_valid = _valid_dict_section(next_payload, "desirabilityValidation", "desirability_validation")
-    old_desirability_valid = _valid_dict_section(old_payload, "desirabilityValidation", "desirability_validation")
+    new_desirability = next_payload.get("desirabilityValidation") or next_payload.get("desirability_validation")
+    old_desirability = old_payload.get("desirabilityValidation") or old_payload.get("desirability_validation")
+    new_desirability_valid = is_complete_desirability_validation(new_desirability)
+    old_desirability_valid = is_complete_desirability_validation(old_desirability)
     desirability_source = _section_source(next_payload, fallback="pokemon_explore_rankings_snapshot_latest")
     if new_desirability_valid:
         section_freshness["desirabilityValidation"] = _fresh_section_status(
@@ -856,14 +920,14 @@ def _merge_last_known_good_snapshot_sections(
             section_key="desirabilityValidation",
             attempted_at=built_at,
             source=_section_source(old_payload, fallback="pokemon_explore_rankings_snapshot_latest"),
-            reason="current snapshot build did not include desirability validation",
+            reason="current snapshot build did not include a complete canonical desirability comparison",
             old_row=existing_row,
         )
     else:
         section_freshness["desirabilityValidation"] = _missing_section_status(
             built_at=built_at,
             source=desirability_source,
-            reason="no valid desirability validation has been captured yet",
+            reason="no complete canonical desirability comparison has been captured yet",
         )
 
     meta["sectionFreshness"] = section_freshness
@@ -1293,6 +1357,7 @@ def _top_chase_histories_cover_source_window(
     *,
     variant_ids: List[str],
     source_window_days: int,
+    latest_date_key: Optional[str] = None,
 ) -> bool:
     if not variant_ids:
         return _has_top_chase_history_points(history_by_card)
@@ -1300,6 +1365,13 @@ def _top_chase_histories_cover_source_window(
         history = history_by_card.get(variant_id)
         if not isinstance(history, list) or len(history) < source_window_days:
             return False
+        if latest_date_key:
+            history_end = max(
+                (parse_date_key(point.get("date")) for point in history if isinstance(point, dict)),
+                default=None,
+            )
+            if history_end != latest_date_key:
+                return False
     return True
 
 
@@ -1357,6 +1429,11 @@ def _build_top_chase_canonical_history_context(
         if legacy_card_ids
         else []
     )
+    selected_price_rows = _query_table_rows(
+        client,
+        "pokemon_canonical_card_market_prices_latest",
+        lambda query: query.select("canonical_card_id,card_variant_id,condition_id").eq("set_id", set_id),
+    )
 
     canonical_by_id = {
         str(card["id"]): card
@@ -1401,6 +1478,16 @@ def _build_top_chase_canonical_history_context(
         if canonical_id in canonical_by_id:
             variant_to_canonical_id[variant_id] = canonical_id
 
+    selected_variant_to_canonical_id = {
+        str(row["card_variant_id"]): str(row["canonical_card_id"])
+        for row in selected_price_rows
+        if row.get("card_variant_id") is not None
+        and row.get("canonical_card_id") is not None
+        and str(row.get("canonical_card_id")) in canonical_by_id
+        and str(row.get("condition_id")) == TOP_CHASE_NEAR_MINT_CONDITION_ID
+    }
+    variant_to_canonical_id.update(selected_variant_to_canonical_id)
+
     display_key_to_canonical_id: Dict[str, str] = {}
     for card in cards:
         display_key = first_non_empty(card.get("cardVariantId"), card.get("card_variant_id"), card.get("cardId"), card.get("card_id"), card.get("id"))
@@ -1420,7 +1507,11 @@ def _build_top_chase_canonical_history_context(
         "display_key_to_canonical_id": display_key_to_canonical_id,
         "variant_ids": sorted(
             variant_id
-            for variant_id, canonical_id in variant_to_canonical_id.items()
+            for variant_id, canonical_id in (
+                selected_variant_to_canonical_id.items()
+                if selected_variant_to_canonical_id
+                else variant_to_canonical_id.items()
+            )
             if canonical_id in set(display_key_to_canonical_id.values())
         ),
     }
@@ -1642,6 +1733,69 @@ def _history_by_card(cards: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, An
     return history_by_card
 
 
+def _forward_fill_history_through_date(
+    history: List[Dict[str, Any]],
+    *,
+    end_date_key: Optional[str],
+) -> List[Dict[str, Any]]:
+    """Materialize each market day while preserving the last real source date."""
+    if not history or not end_date_key:
+        return list(history or [])
+    observed_by_date: Dict[str, Dict[str, Any]] = {}
+    for point in history:
+        date_key = parse_date_key(point.get("date") or point.get("capturedAt") or point.get("captured_at"))
+        price = to_optional_float(point.get("marketPrice") if "marketPrice" in point else point.get("market_price"))
+        if date_key and price is not None and date_key <= end_date_key:
+            observed_by_date[date_key] = dict(point)
+    if not observed_by_date:
+        return []
+    cursor = date.fromisoformat(min(observed_by_date))
+    end_date = date.fromisoformat(end_date_key)
+    last_point: Optional[Dict[str, Any]] = None
+    filled: List[Dict[str, Any]] = []
+    while cursor <= end_date:
+        date_key = cursor.isoformat()
+        observed = observed_by_date.get(date_key)
+        if observed is not None:
+            source_date = parse_date_key(observed.get("sourceDate") or observed.get("source_date")) or date_key
+            carried_forward = bool(
+                observed.get("isCarriedForward")
+                or observed.get("is_carried_forward")
+                or source_date < date_key
+            )
+            last_point = {
+                **observed,
+                "date": date_key,
+                "sourceDate": source_date,
+                "source_date": source_date,
+                "isObserved": not carried_forward,
+                "is_observed": not carried_forward,
+                "isCarriedForward": carried_forward,
+                "is_carried_forward": carried_forward,
+            }
+            filled.append(last_point)
+        elif last_point is not None:
+            price = to_optional_float(last_point.get("marketPrice") if "marketPrice" in last_point else last_point.get("market_price"))
+            source_date = parse_date_key(last_point.get("sourceDate") or last_point.get("source_date") or last_point.get("date"))
+            last_point = {
+                **last_point,
+                "date": date_key,
+                "marketPrice": round(price, 2) if price is not None else None,
+                "market_price": round(price, 2) if price is not None else None,
+                "sourceDate": source_date,
+                "source_date": source_date,
+                "dailyObservationCount": 0,
+                "daily_observation_count": 0,
+                "isObserved": False,
+                "is_observed": False,
+                "isCarriedForward": True,
+                "is_carried_forward": True,
+            }
+            filled.append(last_point)
+        cursor += timedelta(days=1)
+    return filled
+
+
 def _compact_top_chase_cards(cards: List[Dict[str, Any]], history_by_card: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
     compact_cards: List[Dict[str, Any]] = []
     for card in cards:
@@ -1652,12 +1806,7 @@ def _compact_top_chase_cards(cards: List[Dict[str, Any]], history_by_card: Dict[
             compact_card["priceHistory"] = compact_history
             compact_card["price_history"] = compact_history
             latest_price_point = next(
-                (
-                    point
-                    for point in reversed(compact_history)
-                    if to_optional_float(point.get("marketPrice") if "marketPrice" in point else point.get("market_price")) is not None
-                    and not bool(point.get("isCarriedForward") or point.get("is_carried_forward"))
-                ),
+                (point for point in reversed(compact_history) if to_optional_float(point.get("marketPrice") if "marketPrice" in point else point.get("market_price")) is not None),
                 None,
             )
             if latest_price_point:
@@ -1676,11 +1825,67 @@ def _compact_top_chase_cards(cards: List[Dict[str, Any]], history_by_card: Dict[
                 compact_card["priceUsed"] = latest_price
                 compact_card["price_used"] = latest_price
                 latest_date = first_non_empty(latest_price_point.get("date"), latest_price_point.get("sourceDate"), latest_price_point.get("source_date"))
+                source_date = first_non_empty(latest_price_point.get("sourceDate"), latest_price_point.get("source_date"), latest_date)
                 if latest_date:
                     compact_card["priceUpdatedAt"] = latest_date[:10]
                     compact_card["price_updated_at"] = latest_date[:10]
+                    compact_card["historyEndDate"] = latest_date[:10]
+                    compact_card["history_end_date"] = latest_date[:10]
+                if source_date:
+                    compact_card["priceSourceDate"] = source_date[:10]
+                    compact_card["price_source_date"] = source_date[:10]
+                compact_card["priceCarriedForward"] = bool(latest_date and source_date and source_date[:10] < latest_date[:10])
+                compact_card["price_carried_forward"] = compact_card["priceCarriedForward"]
         compact_cards.append(compact_card)
     return compact_cards
+
+
+def build_top_chase_history_rows(
+    *,
+    set_id: str,
+    top_cards: List[Dict[str, Any]],
+    histories: Dict[str, List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for rank, card in enumerate(top_cards, start=1):
+        history_key = first_non_empty(
+            card.get("cardVariantId"), card.get("card_variant_id"), card.get("cardId"), card.get("card_id")
+        )
+        card_history = histories.get(str(history_key)) if history_key else None
+        if not card_history:
+            card_history = card.get("priceHistory") if isinstance(card.get("priceHistory"), list) else card.get("price_history")
+        latest_point_date = first_non_empty(card.get("priceUpdatedAt"), card.get("price_updated_at"))
+        points = list(card_history or [])
+        if not points and latest_point_date:
+            points = [{
+                "date": latest_point_date[:10],
+                "marketPrice": card.get("marketPrice") or card.get("estimatedMarketPrice"),
+                "source": card.get("source") or card.get("provider"),
+                "sourceDate": latest_point_date[:10],
+            }]
+        for point in points:
+            snapshot_date = first_non_empty(point.get("date"), point.get("capturedAt"), point.get("captured_at"))
+            if not snapshot_date:
+                continue
+            rows.append({
+                "set_id": set_id,
+                "snapshot_date": snapshot_date[:10],
+                "card_id": first_non_empty(card.get("cardId"), card.get("card_id"), card.get("id")),
+                "card_variant_id": first_non_empty(
+                    point.get("sourceVariantId"), point.get("source_variant_id"),
+                    card.get("cardVariantId"), card.get("card_variant_id"),
+                ),
+                "rank": rank,
+                "name": first_non_empty(card.get("name")),
+                "rarity": first_non_empty(card.get("rarity")),
+                "image_url": first_non_empty(card.get("imageUrl"), card.get("image_url")),
+                "image_small_url": first_non_empty(card.get("imageSmallUrl"), card.get("image_small_url")),
+                "image_large_url": first_non_empty(card.get("imageLargeUrl"), card.get("image_large_url")),
+                "market_price": point.get("marketPrice") or point.get("market_price") or card.get("marketPrice"),
+                "source": first_non_empty(point.get("source"), point.get("provider"), card.get("source"), card.get("provider")),
+                "source_date": (first_non_empty(point.get("sourceDate"), point.get("source_date"), snapshot_date) or "")[:10],
+            })
+    return rows
 
 
 def build_market_dashboard_snapshot_rows(
@@ -1707,11 +1912,16 @@ def build_market_dashboard_snapshot_rows(
             if key:
                 available_scope_lookup[key] = entry
 
+    # Public snapshots must never materialize a subset scope that exceeds the
+    # same-date complete checklist, even if corrupt history already exists.
+    validate_histories_by_scope(histories_by_scope, set_id=set_id)
+
     perf_history = _load_simulation_performance_history(client, set_id)
     latest_performance_date = max(
         (p["date"] for p in perf_history if p.get("date")),
         default=None,
     )
+    latest_set_value_history_date = _latest_history_date(histories_by_scope)
 
     top_payload = get_pokemon_set_top_market_cards_payload(
         set_id=set_id,
@@ -1725,6 +1935,7 @@ def build_market_dashboard_snapshot_rows(
         top_chase_card_histories,
         variant_ids=variant_ids,
         source_window_days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+        latest_date_key=latest_set_value_history_date,
     ):
         if variant_ids:
             loaded_histories = _load_top_chase_histories_from_observations(
@@ -1732,11 +1943,15 @@ def build_market_dashboard_snapshot_rows(
                 set_id=set_id,
                 cards=top_cards,
                 variant_ids=variant_ids,
-                latest_date_key=_latest_history_date(histories_by_scope),
+                latest_date_key=latest_set_value_history_date,
                 days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
             )
             if loaded_histories:
                 top_chase_card_histories = {**top_chase_card_histories, **loaded_histories}
+    top_chase_card_histories = {
+        key: _forward_fill_history_through_date(history, end_date_key=latest_set_value_history_date)
+        for key, history in top_chase_card_histories.items()
+    }
     compact_top_cards = _compact_top_chase_cards(top_cards, top_chase_card_histories)
     top_chase_history_counts = _top_chase_history_counts(top_chase_card_histories)
     top_chase_observed_dates = [
@@ -1770,7 +1985,7 @@ def build_market_dashboard_snapshot_rows(
     }
     latest_set_value_history_date = max(
         (date for date in set_value_history_latest_date_by_scope.values() if date),
-        default=None,
+        default=latest_set_value_history_date,
     )
     latest_market_date = latest_set_value_history_date
     dashboard_payload = {
@@ -1841,49 +2056,11 @@ def build_market_dashboard_snapshot_rows(
         },
     }
 
-    history_rows: List[Dict[str, Any]] = []
-    for rank, card in enumerate(top_cards, start=1):
-        history_key = first_non_empty(
-            card.get("cardVariantId"),
-            card.get("card_variant_id"),
-            card.get("cardId"),
-            card.get("card_id"),
-        )
-        card_history = top_chase_card_histories.get(str(history_key)) if history_key else None
-        if not card_history:
-            card_history = card.get("priceHistory") if isinstance(card.get("priceHistory"), list) else card.get("price_history")
-        latest_point_date = first_non_empty(card.get("priceUpdatedAt"), card.get("price_updated_at"))
-        points = list(card_history or [])
-        if not points and latest_point_date:
-            points = [
-                {
-                    "date": latest_point_date[:10],
-                    "marketPrice": card.get("marketPrice") or card.get("estimatedMarketPrice"),
-                    "source": card.get("source") or card.get("provider"),
-                    "sourceDate": latest_point_date[:10],
-                }
-            ]
-        for point in points:
-            snapshot_date = first_non_empty(point.get("date"), point.get("capturedAt"), point.get("captured_at"))
-            if not snapshot_date:
-                continue
-            history_rows.append(
-                {
-                    "set_id": set_id,
-                    "snapshot_date": snapshot_date[:10],
-                    "card_id": first_non_empty(card.get("cardId"), card.get("card_id"), card.get("id")),
-                    "card_variant_id": first_non_empty(card.get("cardVariantId"), card.get("card_variant_id")),
-                    "rank": rank,
-                    "name": first_non_empty(card.get("name")),
-                    "rarity": first_non_empty(card.get("rarity")),
-                    "image_url": first_non_empty(card.get("imageUrl"), card.get("image_url")),
-                    "image_small_url": first_non_empty(card.get("imageSmallUrl"), card.get("image_small_url")),
-                    "image_large_url": first_non_empty(card.get("imageLargeUrl"), card.get("image_large_url")),
-                    "market_price": point.get("marketPrice") or point.get("market_price") or card.get("marketPrice"),
-                    "source": first_non_empty(point.get("source"), point.get("provider"), card.get("source"), card.get("provider")),
-                    "source_date": (first_non_empty(point.get("sourceDate"), point.get("source_date"), snapshot_date) or "")[:10],
-                }
-            )
+    history_rows = build_top_chase_history_rows(
+        set_id=set_id,
+        top_cards=top_cards,
+        histories=top_chase_card_histories,
+    )
 
     return (
         {
@@ -1907,66 +2084,364 @@ def _query_rows(client, table_name: str, configure_query) -> List[Dict[str, Any]
     return list(result.data or [])
 
 
+def _query_paginated_rows(
+    client: Any,
+    table_name: str,
+    configure_query,
+    *,
+    page_size: int = CARD_PRICE_OBSERVATION_PAGE_SIZE,
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    start = 0
+    safe_page_size = max(1, int(page_size))
+    while True:
+        query = configure_query(client.table(table_name))
+        result = query.range(start, start + safe_page_size - 1).execute()
+        page = list(result.data or [])
+        rows.extend(page)
+        if len(page) < safe_page_size:
+            return rows
+        start += safe_page_size
+
+
 def _build_card_appeal_price_index_for_set(
     *,
     set_id: str,
     canonical_cards: List[Dict[str, Any]],
 ) -> Dict[str, Dict[str, Any]]:
+    """Load the canonical pricing contract directly.
+
+    The previous implementation rebuilt canonical identity through the legacy
+    ``cards``/``card_variants`` tables.  Canonical-only checklist cards were
+    therefore absent even though the selected-price view had a valid row.
+    """
     try:
         client = get_client()
-        legacy_cards = _query_rows(
+        selected_rows = _query_rows(
             client,
-            "cards",
-            lambda query: query.select("id,set_id,name,rarity,card_number,pokemon_tcg_api_id").eq("set_id", set_id),
+            "pokemon_canonical_card_market_prices_latest",
+            lambda query: query.select(
+                "canonical_card_id,set_id,card_variant_id,condition_id,printing_type,market_price,"
+                "captured_at,source,price_selection_reason,refreshed_at"
+            ).eq("set_id", set_id),
         )
-        legacy_card_ids = [str(card["id"]) for card in legacy_cards if card.get("id") is not None]
-        if not legacy_card_ids:
-            return {}
-
-        variant_rows = _query_rows(
-            client,
-            "card_variants",
-            lambda query: query.select("id,card_id,pokemon_tcg_api_id").in_("card_id", legacy_card_ids),
-        )
-        variant_ids = [str(row["id"]) for row in variant_rows if row.get("id") is not None]
-        if not variant_ids:
-            return {}
-
-        condition_rows = _query_rows(
-            client,
-            "conditions",
-            lambda query: query.select("id,name").eq("name", "Near Mint").limit(1),
-        )
-        near_mint_condition_id = str(condition_rows[0]["id"]) if condition_rows and condition_rows[0].get("id") is not None else None
-        if not near_mint_condition_id:
-            return {}
-
-        latest_price_rows = _query_rows(
-            client,
-            "card_market_usd_latest_by_condition",
-            lambda query: query.select("variant_id,condition_id,market_price,source,captured_at")
-            .in_("variant_id", variant_ids)
-            .eq("condition_id", near_mint_condition_id),
-        )
-        return build_canonical_card_price_index(
-            canonical_cards=canonical_cards,
-            legacy_cards=legacy_cards,
-            variant_rows=variant_rows,
-            latest_price_rows=latest_price_rows,
-        )
+        canonical_ids = {str(card.get("id")) for card in canonical_cards if card.get("id") is not None}
+        return {
+            str(row["canonical_card_id"]): {
+                "market_price": to_optional_float(row.get("market_price")),
+                "variant_id": first_non_empty(row.get("card_variant_id")),
+                "condition_id": first_non_empty(row.get("condition_id")),
+                "printing_type": first_non_empty(row.get("printing_type")),
+                "captured_at": parse_date_key(row.get("captured_at")),
+                "source": first_non_empty(row.get("source")),
+                "price_selection_reason": first_non_empty(row.get("price_selection_reason")),
+                "refreshed_at": first_non_empty(row.get("refreshed_at")),
+            }
+            for row in selected_rows
+            if row.get("canonical_card_id") is not None
+            and str(row.get("canonical_card_id")) in canonical_ids
+            and to_optional_float(row.get("market_price")) is not None
+        }
     except Exception:
         logger.warning("[pokemon-snapshot] card appeal price index lookup failed", exc_info=True)
         return {}
 
 
+def _chunks(values: List[str], size: int) -> Iterable[List[str]]:
+    for index in range(0, len(values), size):
+        yield values[index : index + size]
+
+
+def _load_selected_price_observations(
+    client: Any,
+    *,
+    prices_by_card: Dict[str, Dict[str, Any]],
+    latest_market_date: str,
+) -> Dict[str, List[Dict[str, Any]]]:
+    variant_to_card = {
+        str(price["variant_id"]): card_id
+        for card_id, price in prices_by_card.items()
+        if price.get("variant_id") and price.get("condition_id")
+    }
+    condition_by_variant = {
+        str(price["variant_id"]): str(price["condition_id"])
+        for price in prices_by_card.values()
+        if price.get("variant_id") and price.get("condition_id")
+    }
+    if not variant_to_card:
+        return {}
+
+    end_date = date.fromisoformat(latest_market_date)
+    start_date = (end_date - timedelta(days=CARD_MOVEMENT_LOOKBACK_DAYS)).isoformat()
+    observations_by_card: Dict[str, List[Dict[str, Any]]] = {}
+    for variant_ids in _chunks(sorted(variant_to_card), CARD_PRICE_OBSERVATION_CHUNK_SIZE):
+        condition_ids = sorted({condition_by_variant[variant_id] for variant_id in variant_ids})
+        rows = _query_paginated_rows(
+            client,
+            "card_variant_price_observations",
+            lambda query: query.select("id,card_variant_id,condition_id,market_price,source,captured_at")
+            .in_("card_variant_id", variant_ids)
+            .in_("condition_id", condition_ids)
+            .gte("captured_at", start_date)
+            .lte("captured_at", latest_market_date)
+            .order("captured_at", desc=True)
+            .order("id", desc=True),
+        )
+        for row in rows:
+            variant_id = first_non_empty(row.get("card_variant_id"))
+            condition_id = first_non_empty(row.get("condition_id"))
+            price = to_optional_float(row.get("market_price"))
+            source_date = parse_date_key(row.get("captured_at"))
+            if (
+                not variant_id
+                or not source_date
+                or price is None
+                or condition_id != condition_by_variant.get(variant_id)
+            ):
+                continue
+            card_id = variant_to_card.get(variant_id)
+            if card_id:
+                observations_by_card.setdefault(card_id, []).append(
+                    {**row, "market_price": price, "source_date": source_date}
+                )
+    for rows in observations_by_card.values():
+        rows.sort(key=lambda row: (row["source_date"], first_non_empty(row.get("captured_at")) or ""))
+    return observations_by_card
+
+
+def _latest_market_date_for_set(client: Any, set_id: str) -> Optional[str]:
+    try:
+        rows = _query_rows(
+            client,
+            "pokemon_set_value_daily_history",
+            lambda query: query.select("snapshot_date")
+            .eq("set_id", set_id)
+            .order("snapshot_date", desc=True)
+            .limit(1),
+        )
+        return parse_date_key((rows[0] if rows else {}).get("snapshot_date"))
+    except Exception:
+        logger.warning("[pokemon-snapshot] latest market date lookup failed set_id=%s", set_id, exc_info=True)
+        return None
+
+
+def _last_observation_on_or_before(rows: List[Dict[str, Any]], boundary: str) -> Optional[Dict[str, Any]]:
+    matches = [row for row in rows if row.get("source_date") and row["source_date"] <= boundary]
+    return matches[-1] if matches else None
+
+
+def _movement_contract(
+    *,
+    price: Dict[str, Any],
+    observations: List[Dict[str, Any]],
+    latest_market_date: str,
+    window_days: int,
+) -> Dict[str, Any]:
+    end_date = date.fromisoformat(latest_market_date)
+    start_date = (end_date - timedelta(days=window_days)).isoformat()
+    start = _last_observation_on_or_before(observations, start_date)
+    end = _last_observation_on_or_before(observations, latest_market_date)
+
+    # The selected-price view is the authoritative current price.  Include it
+    # as the terminal candidate when the raw-observation query is truncated or
+    # no duplicate row was returned.
+    selected_source_date = parse_date_key(price.get("captured_at"))
+    selected_price = to_optional_float(price.get("market_price"))
+    if selected_source_date and selected_source_date <= latest_market_date and selected_price is not None:
+        selected_end = {
+            "market_price": selected_price,
+            "source_date": selected_source_date,
+            "source": price.get("source"),
+        }
+        if end is None or selected_source_date >= str(end.get("source_date") or ""):
+            end = selected_end
+
+    start_price = to_optional_float((start or {}).get("market_price"))
+    current_price = to_optional_float((end or {}).get("market_price"))
+    start_source_date = parse_date_key((start or {}).get("source_date"))
+    end_source_date = parse_date_key((end or {}).get("source_date"))
+    history_span_days = (
+        (date.fromisoformat(end_source_date) - date.fromisoformat(start_source_date)).days
+        if start_source_date and end_source_date
+        else 0
+    )
+    enough_history = bool(
+        start_price is not None
+        and current_price is not None
+        and history_span_days >= CARD_MOVEMENT_MIN_SPAN_DAYS[window_days]
+        and history_span_days <= CARD_MOVEMENT_MAX_SPAN_DAYS[window_days]
+    )
+    change_amount = round(current_price - start_price, 2) if start_price is not None and current_price is not None else None
+    change_percent = (
+        round((change_amount / start_price) * 100, 2)
+        if change_amount is not None and start_price
+        else None
+    )
+    reliable = bool(
+        enough_history
+        and current_price is not None
+        and current_price >= CARD_MOVEMENT_MIN_CURRENT_PRICE
+        and change_amount is not None
+        and abs(change_amount) >= CARD_MOVEMENT_MIN_ABSOLUTE_CHANGE
+        and change_percent is not None
+        and abs(change_percent) <= CARD_MOVEMENT_MAX_ABSOLUTE_PERCENT
+    )
+    return {
+        "window": f"{window_days}D",
+        "windowDays": window_days,
+        "startDate": start_date,
+        "endDate": latest_market_date,
+        "startingPrice": round(start_price, 2) if start_price is not None else None,
+        "currentPrice": round(current_price, 2) if current_price is not None else selected_price,
+        "changeAmount": change_amount,
+        "changePercent": change_percent,
+        "enoughHistory": enough_history,
+        "reliable": reliable,
+        "reliability": "reliable" if reliable else "insufficient_or_guardrailed",
+        "startSourceDate": start_source_date,
+        "endSourceDate": end_source_date or selected_source_date,
+        "startCarriedForward": bool(start_source_date and start_source_date < start_date),
+        "endCarriedForward": bool((end_source_date or selected_source_date) and (end_source_date or selected_source_date) < latest_market_date),
+        "cardVariantId": price.get("variant_id"),
+        "conditionId": price.get("condition_id"),
+        "source": first_non_empty((end or {}).get("source"), price.get("source")),
+        "historyPointCount": len(observations),
+    }
+
+
+def _enrich_cards_with_authoritative_prices_and_movements(
+    payload: Dict[str, Any],
+    *,
+    set_id: str,
+    prices_by_card: Dict[str, Dict[str, Any]],
+    client: Any,
+) -> Dict[str, Any]:
+    price_dates = [parse_date_key(price.get("captured_at")) for price in prices_by_card.values()]
+    latest_market_date = _latest_market_date_for_set(client, set_id) or max(
+        (date_key for date_key in price_dates if date_key),
+        default=None,
+    )
+    observations_by_card = (
+        _load_selected_price_observations(
+            client,
+            prices_by_card=prices_by_card,
+            latest_market_date=latest_market_date,
+        )
+        if latest_market_date
+        else {}
+    )
+    cards: List[Dict[str, Any]] = []
+    for card in payload.get("cards") or []:
+        enriched = dict(card)
+        card_id = first_non_empty(card.get("id"), card.get("cardId"), card.get("card_id"))
+        price = prices_by_card.get(card_id or "")
+        if price and to_optional_float(price.get("market_price")) is not None:
+            observations = observations_by_card.get(card_id or "", [])
+            latest_observation = (
+                _last_observation_on_or_before(observations, latest_market_date)
+                if latest_market_date
+                else None
+            )
+            effective_price = {
+                **price,
+                **(
+                    {
+                        "market_price": latest_observation.get("market_price"),
+                        "captured_at": latest_observation.get("source_date"),
+                        "source": latest_observation.get("source") or price.get("source"),
+                    }
+                    if latest_observation
+                    else {}
+                ),
+            }
+            market_price = round(to_optional_float(effective_price.get("market_price")) or 0, 2)
+            source_date = parse_date_key(effective_price.get("captured_at"))
+            enriched.update(
+                {
+                    "marketPrice": market_price,
+                    "market_price": market_price,
+                    "currentPrice": market_price,
+                    "current_price": market_price,
+                    "cardVariantId": price.get("variant_id"),
+                    "card_variant_id": price.get("variant_id"),
+                    "conditionId": price.get("condition_id"),
+                    "condition_id": price.get("condition_id"),
+                    "printingType": price.get("printing_type"),
+                    "printing_type": price.get("printing_type"),
+                    "priceUpdatedAt": source_date,
+                    "price_updated_at": source_date,
+                    "priceSourceDate": source_date,
+                    "price_source_date": source_date,
+                    "marketDate": latest_market_date,
+                    "market_date": latest_market_date,
+                    "priceCarriedForward": bool(source_date and latest_market_date and source_date < latest_market_date),
+                    "price_carried_forward": bool(source_date and latest_market_date and source_date < latest_market_date),
+                    "priceSource": effective_price.get("source"),
+                    "price_source": effective_price.get("source"),
+                    "priceSelectionReason": price.get("price_selection_reason"),
+                    "price_selection_reason": price.get("price_selection_reason"),
+                }
+            )
+            if latest_market_date:
+                for window_days in (7, 30):
+                    movement = _movement_contract(
+                        price=effective_price,
+                        observations=observations,
+                        latest_market_date=latest_market_date,
+                        window_days=window_days,
+                    )
+                    suffix = f"{window_days}d"
+                    enriched[f"movement{suffix}"] = movement
+                    enriched[f"movement_{suffix}"] = {
+                        "window": movement["window"],
+                        "window_days": movement["windowDays"],
+                        "start_date": movement["startDate"],
+                        "end_date": movement["endDate"],
+                        "starting_price": movement["startingPrice"],
+                        "current_price": movement["currentPrice"],
+                        "change_amount": movement["changeAmount"],
+                        "change_percent": movement["changePercent"],
+                        "enough_history": movement["enoughHistory"],
+                        "reliable": movement["reliable"],
+                        "reliability": movement["reliability"],
+                        "start_source_date": movement["startSourceDate"],
+                        "end_source_date": movement["endSourceDate"],
+                        "start_carried_forward": movement["startCarriedForward"],
+                        "end_carried_forward": movement["endCarriedForward"],
+                        "card_variant_id": movement["cardVariantId"],
+                        "condition_id": movement["conditionId"],
+                        "source": movement["source"],
+                        "history_point_count": movement["historyPointCount"],
+                    }
+                    enriched[f"change{suffix}Amount"] = movement["changeAmount"]
+                    enriched[f"change{suffix}Percent"] = movement["changePercent"]
+                    enriched[f"movement{suffix}Reliable"] = movement["reliable"]
+                    enriched[f"change_{suffix}_amount"] = movement["changeAmount"]
+                    enriched[f"change_{suffix}_percent"] = movement["changePercent"]
+                    enriched[f"movement_{suffix}_reliable"] = movement["reliable"]
+        cards.append(enriched)
+    meta = dict(payload.get("meta") or {})
+    meta["pricingContract"] = {
+        "source": "pokemon_canonical_card_market_prices_latest+card_variant_price_observations",
+        "latestMarketDate": latest_market_date,
+        "canonicalCardCount": len(cards),
+        "pricedCardCount": sum(1 for card in cards if to_optional_float(card.get("marketPrice")) is not None),
+    }
+    return {**payload, "cards": cards, "meta": meta}
+
+
 def build_cards_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
     set_id = str(set_row["id"])
     payload = get_pokemon_set_cards_payload(set_id)
-    movement_payload = build_pokemon_set_card_movement_payload(set_id=set_id)
-    payload = enrich_cards_payload_with_movements(payload, movement_payload)
     prices_by_card = _build_card_appeal_price_index_for_set(
         set_id=set_id,
         canonical_cards=list(payload.get("cards") or []),
+    )
+    payload = _enrich_cards_with_authoritative_prices_and_movements(
+        payload,
+        set_id=set_id,
+        prices_by_card=prices_by_card,
+        client=get_client(),
     )
     payload = enrich_cards_payload_with_desirability(payload, prices_by_card=prices_by_card)
     cards = list(payload.get("cards") or [])
@@ -2013,7 +2488,27 @@ def upsert_row(client: Any, table: str, row: Dict[str, Any], *, on_conflict: str
     if not commit:
         logger.info("[dry-run] would upsert %s conflict=%s keys=%s", table, on_conflict, sorted(row.keys()))
         return
-    client.table(table).upsert(row, on_conflict=on_conflict).execute()
+    for attempt in range(3):
+        try:
+            client.table(table).upsert(
+                row,
+                on_conflict=on_conflict,
+                returning=ReturnMethod.minimal,
+            ).execute()
+            break
+        except Exception as exc:
+            if "57014" not in str(exc) and "statement timeout" not in str(exc).lower():
+                raise
+            if attempt == 2:
+                raise
+            delay = 2 ** attempt
+            logger.warning(
+                "statement timeout upserting %s; retrying in %ss (%s/3)",
+                table,
+                delay,
+                attempt + 1,
+            )
+            time.sleep(delay)
     logger.info("upserted %s conflict=%s", table, on_conflict)
 
 

@@ -417,6 +417,8 @@ test("normalizeMarketMoversPayload normalizes a single-window /market/movers pay
   assert.equal(result.windowDays, 7);
   assert.equal(result.heatingUp.length, 1);
   assert.equal(result.heatingUp[0].name, "7D Gainer");
+  assert.equal(result.heatingUp[0].change7dPercent, 11.1);
+  assert.equal(result.heatingUp[0].changePercent, 11.1);
   assert.equal(result.coolingOff.length, 0);
 });
 
@@ -563,4 +565,20 @@ test("getPokemonSetValueHistory joins concurrent identical calls but keeps disti
   } finally {
     stub.restore();
   }
+});
+
+test("set value and overview requests carry the scoped cache contract version", async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return { ok: true, status: 200, json: async () => ({ set: { id: "set-cache" }, history: [], meta: {} }) };
+  };
+  try {
+    await getPokemonSetValueHistory("set-cache", { days: 365, scope: "hits" });
+    await getPokemonSetOverview("set-cache", { window: "365d" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.ok(urls.every((url) => url.includes("snapshot_contract=set-value-v2")));
 });

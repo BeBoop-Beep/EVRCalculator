@@ -205,7 +205,7 @@ def _movement_card_id_key(movement: Dict[str, Any]) -> Optional[str]:
     return _to_optional_str(movement.get("cardId")) or _to_optional_str(movement.get("card_id"))
 
 
-def _movement_fields(movement: Dict[str, Any]) -> Dict[str, Any]:
+def _movement_fields(movement: Dict[str, Any], window: str = "30D") -> Dict[str, Any]:
     current_price = movement.get("currentPrice", movement.get("current_price"))
     change_amount = movement.get("change30dAmount", movement.get("change_30d_amount"))
     change_percent = movement.get("change30dPercent", movement.get("change_30d_percent"))
@@ -213,6 +213,23 @@ def _movement_fields(movement: Dict[str, Any]) -> Dict[str, Any]:
     movement_label = movement.get("movementLabel", movement.get("movement_label"))
     enough_history = movement.get("enoughHistory", movement.get("enough_history"))
     confidence = movement.get("confidence")
+    normalized_window = str(window or "30D").upper()
+    window_suffix = normalized_window.lower()
+    window_fields = {
+        f"change{window_suffix}Amount": change_amount,
+        f"change{window_suffix}Percent": change_percent,
+        f"movement{window_suffix}": {
+            "currentPrice": current_price,
+            "changeAmount": change_amount,
+            "changePercent": change_percent,
+            "score": movement_score,
+            "label": movement_label,
+            "enoughHistory": enough_history,
+            "confidence": confidence,
+        },
+    }
+    if normalized_window != "30D":
+        return window_fields
     return {
         "currentPrice": current_price,
         "current_price": current_price,
@@ -252,6 +269,7 @@ def _movement_fields(movement: Dict[str, Any]) -> Dict[str, Any]:
 def enrich_cards_payload_with_movements(
     payload: Dict[str, Any],
     movement_payload: Dict[str, Any],
+    window: str = "30D",
 ) -> Dict[str, Any]:
     movements = list(movement_payload.get("movements") or [])
     if not movements:
@@ -268,7 +286,7 @@ def enrich_cards_payload_with_movements(
         card_payload = dict(card or {})
         movement = movement_by_card_id.get(_card_id_key(card_payload) or "")
         if movement:
-            card_payload.update(_movement_fields(movement))
+            card_payload.update(_movement_fields(movement, window=window))
         cards.append(card_payload)
 
     meta = dict(payload.get("meta") or {})
@@ -1422,10 +1440,29 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
     return _build_missing_set_page_snapshot_payload(set_row, elapsed_ms)
 
 
+_TRACKED_LENS_SUMMARY_FIELDS = (
+    "relative_experience_score",
+    "relative_chase_potential_score",
+    "relative_biggest_upside_score",
+    "relative_average_return_score",
+    "experience_rank",
+    "chase_potential_rank",
+    "biggest_upside_rank",
+    "mean_value_to_cost_rank",
+    "experience_tier",
+    "chase_potential_tier",
+    "biggest_upside_tier",
+    "mean_value_to_cost_tier",
+)
+_TRACKED_LENS_PAYLOAD_PREFIX = "tracked_lens_"
 _SHELL_SNAPSHOT_COLUMNS = (
     "set_id,set_identity_json,title_card_json,rip_summary_json,"
     "market_summary_json,risk_summary_json,concentration_json,"
-    "desirability_summary_json,set_intelligence_json,as_of,source_updated_at,updated_at"
+    "desirability_summary_json,set_intelligence_json,as_of,source_updated_at,updated_at,"
+    + ",".join(
+        f"{_TRACKED_LENS_PAYLOAD_PREFIX}{field}:payload_json->summary->{field}"
+        for field in _TRACKED_LENS_SUMMARY_FIELDS
+    )
 )
 
 
@@ -1462,6 +1499,16 @@ def _build_shell_payload_from_row(
     set_identity = row.get("set_identity_json") if isinstance(row.get("set_identity_json"), dict) else {}
     title_card = row.get("title_card_json") if isinstance(row.get("title_card_json"), dict) else {}
     rip_summary = row.get("rip_summary_json") if isinstance(row.get("rip_summary_json"), dict) else {}
+    # Older rows can have a rip_summary_json written before the supplementary
+    # lens fields were added to that split column, even though
+    # payload_json.summary already contains the authoritative values. The
+    # query projects only these exact JSON paths (not the multi-MB payload_json
+    # blob), and those persisted values win whenever they are present.
+    tracked_lens_summary = {
+        field: row.get(f"{_TRACKED_LENS_PAYLOAD_PREFIX}{field}")
+        for field in _TRACKED_LENS_SUMMARY_FIELDS
+        if row.get(f"{_TRACKED_LENS_PAYLOAD_PREFIX}{field}") is not None
+    }
     market_summary = row.get("market_summary_json") if isinstance(row.get("market_summary_json"), dict) else {}
     risk_summary = row.get("risk_summary_json") if isinstance(row.get("risk_summary_json"), dict) else {}
     concentration = row.get("concentration_json") if isinstance(row.get("concentration_json"), dict) else {}
@@ -1476,6 +1523,7 @@ def _build_shell_payload_from_row(
         **risk_summary,
         **market_summary,
         **rip_summary,
+        **tracked_lens_summary,
         **title_card,
     }
     histories_by_scope = set_value_histories_by_scope if isinstance(set_value_histories_by_scope, dict) else {}
@@ -1837,10 +1885,11 @@ CARDS_PAGE_SORT_OPTIONS = (
     "rarity",
     "market-price-desc",
     "market-price-asc",
+    "7d-movers",
     "30d-gainers",
     "30d-decliners",
 )
-CARDS_PAGE_MOVEMENT_SORTS = ("set-number", "30d-gainers", "30d-decliners")
+CARDS_PAGE_MOVEMENT_SORTS = ("7d-movers", "30d-gainers", "30d-decliners")
 CARDS_PAGE_MOVEMENT_FILTERS = ("all", "heating", "cooling")
 _CARD_NUMBER_PATTERN = re.compile(r"^(\d+)([a-zA-Z]*)$")
 _CARD_NUMBER_MIXED_PATTERN = re.compile(r"(\d+)")
@@ -1930,6 +1979,41 @@ def _cards_page_number_sort_key(card: Dict[str, Any]) -> tuple:
     return (3, name.lower(), "", "")
 
 
+def _cards_page_stable_tie_key(card: Dict[str, Any]) -> tuple:
+    return (
+        _cards_page_number_sort_key(card),
+        (_to_optional_str(card.get("id")) or _to_optional_str(card.get("cardId")) or "").lower(),
+        (_to_optional_str(card.get("name")) or "").lower(),
+    )
+
+
+def _cards_page_movement_sign_value(card: Dict[str, Any], percent_field: str, amount_field: str) -> float:
+    percent = _to_optional_float(card.get(percent_field))
+    if percent is not None:
+        return percent
+    return _to_optional_float(card.get(amount_field)) or 0
+
+
+def _cards_page_has_reliable_movement(card: Dict[str, Any], effective_sort: str) -> bool:
+    if effective_sort == "7d-movers":
+        movement = card.get("movement7d") if isinstance(card.get("movement7d"), dict) else {}
+        explicit = card.get("movement7dReliable")
+    else:
+        movement = card.get("movement30d") if isinstance(card.get("movement30d"), dict) else {}
+        explicit = card.get("movement30dReliable")
+    if explicit is not None:
+        return bool(explicit)
+    if movement.get("reliable") is not None:
+        return bool(movement.get("reliable"))
+    # Backward-compatible snapshots predate the reliability field. A finite
+    # percentage plus enoughHistory was their complete valid-movement signal.
+    enough_history = movement.get("enoughHistory", card.get("enoughHistory"))
+    if enough_history is not None:
+        return bool(enough_history)
+    percent_field = "change7dPercent" if effective_sort == "7d-movers" else "change30dPercent"
+    return _to_optional_float(card.get(percent_field)) is not None
+
+
 def _apply_cards_page_filters_and_sort(
     cards: List[Dict[str, Any]],
     *,
@@ -1949,12 +2033,22 @@ def _apply_cards_page_filters_and_sort(
         rarity_lower = rarity.strip().lower()
         filtered = [card for card in filtered if (_to_optional_str(card.get("rarity")) or "").strip().lower() == rarity_lower]
 
-    if movement_filter == "heating":
-        filtered = [card for card in filtered if (_to_optional_float(card.get("change30dAmount")) or 0) > 0]
-    elif movement_filter == "cooling":
-        filtered = [card for card in filtered if (_to_optional_float(card.get("change30dAmount")) or 0) < 0]
+    effective_sort = movement_sort if movement_sort in CARDS_PAGE_MOVEMENT_SORTS else sort
+    movement_percent_field = "change7dPercent" if effective_sort == "7d-movers" else "change30dPercent"
+    movement_amount_field = "change7dAmount" if effective_sort == "7d-movers" else "change30dAmount"
 
-    effective_sort = movement_sort if movement_sort in ("30d-gainers", "30d-decliners") else sort
+    if movement_filter == "heating":
+        filtered = [
+            card for card in filtered
+            if _cards_page_has_reliable_movement(card, effective_sort)
+            and _cards_page_movement_sign_value(card, movement_percent_field, movement_amount_field) > 0
+        ]
+    elif movement_filter == "cooling":
+        filtered = [
+            card for card in filtered
+            if _cards_page_has_reliable_movement(card, effective_sort)
+            and _cards_page_movement_sign_value(card, movement_percent_field, movement_amount_field) < 0
+        ]
 
     if effective_sort == "name":
         filtered.sort(key=lambda card: (_to_optional_str(card.get("name")) or "").lower())
@@ -1964,6 +2058,15 @@ def _apply_cards_page_filters_and_sort(
         filtered.sort(key=lambda card: (-(_to_optional_float(card.get("marketPrice")) if _to_optional_float(card.get("marketPrice")) is not None else -1.0), _cards_page_number_sort_key(card)))
     elif effective_sort == "market-price-asc":
         filtered.sort(key=lambda card: ((_to_optional_float(card.get("marketPrice")) if _to_optional_float(card.get("marketPrice")) is not None else float("inf")), _cards_page_number_sort_key(card)))
+    elif effective_sort == "7d-movers":
+        filtered.sort(
+            key=lambda card: (
+                not _cards_page_has_reliable_movement(card, effective_sort),
+                _to_optional_float(card.get("change7dPercent")) is None,
+                -abs(_to_optional_float(card.get("change7dPercent")) or 0),
+                _cards_page_stable_tie_key(card),
+            )
+        )
     elif effective_sort == "30d-gainers":
         filtered.sort(key=lambda card: (-(_to_optional_float(card.get("change30dAmount")) if _to_optional_float(card.get("change30dAmount")) is not None else float("-inf")), _cards_page_number_sort_key(card)))
     elif effective_sort == "30d-decliners":
@@ -2090,7 +2193,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
         "filters": {
             "availableRarities": available_rarities,
             "availableSorts": list(CARDS_PAGE_SORT_OPTIONS),
-            "movementWindow": "30D",
+            "movementWindow": "7D" if (movement_sort_value or sort_value) == "7d-movers" else "30D",
             "sort": sort_value,
             "movementSort": movement_sort_value,
             "movementFilter": movement_filter_value,
@@ -3965,6 +4068,33 @@ def get_pokemon_set_top_chase_snapshot_payload(
         ),
         default=None,
     )
+    latest_market_date = _parse_date_key(row.get("latest_market_date"))
+    histories_stale = bool(
+        latest_market_date
+        and top_chase_history_latest_observed_date != latest_market_date
+    )
+
+    # When the persisted history reaches the declared market date, make the
+    # displayed current price use that same terminal point. This is safe for a
+    # carried point because its sourceDate remains distinct in the history.
+    if not histories_stale and latest_market_date:
+        aligned_cards: List[Dict[str, Any]] = []
+        for card in top_chase_cards:
+            history = next(
+                (top_chase_card_histories.get(key) for key in _top_chase_card_history_keys(card) if top_chase_card_histories.get(key)),
+                None,
+            )
+            terminal = history[-1] if isinstance(history, list) and history else None
+            terminal_price = _to_optional_float((terminal or {}).get("marketPrice", (terminal or {}).get("market_price")))
+            aligned = dict(card)
+            if terminal_price is not None and _parse_date_key((terminal or {}).get("date")) == latest_market_date:
+                aligned["marketPrice"] = terminal_price
+                aligned["currentPrice"] = terminal_price
+                aligned["priceUpdatedAt"] = latest_market_date
+                aligned["historyEndDate"] = latest_market_date
+                aligned["priceSourceDate"] = _parse_date_key((terminal or {}).get("sourceDate") or (terminal or {}).get("source_date"))
+            aligned_cards.append(aligned)
+        top_chase_cards = aligned_cards
 
     history_point_counts = [len(history) for history in top_chase_card_histories.values()]
 
@@ -3984,6 +4114,11 @@ def get_pokemon_set_top_chase_snapshot_payload(
             "Top chase card price histories are missing in the stored snapshot and no raw price "
             "observations were found for these cards; served cards without price history."
         )
+    elif histories_stale:
+        warnings.append(
+            f"Top chase history is stale: latestMarketDate={latest_market_date}, "
+            f"historyEndDate={top_chase_history_latest_observed_date}."
+        )
     payload = {
         "set": set_identity,
         # Always echo the requested window back — the caller asked for 30D and
@@ -3991,7 +4126,7 @@ def get_pokemon_set_top_chase_snapshot_payload(
         "window": resolved_window,
         "topChaseCards": top_chase_cards,
         "topChaseCardHistories": top_chase_card_histories,
-        "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
+        "latestMarketDate": latest_market_date,
         "meta": {
             "limit": limit_value,
             "warnings": warnings,
@@ -4009,6 +4144,8 @@ def get_pokemon_set_top_chase_snapshot_payload(
             ),
             "topChaseHistoryHydratedFromObservations": hydrated_from_observations,
             "topChaseHistorySourceLatestObservedDate": top_chase_history_latest_observed_date,
+            "historyEndDate": top_chase_history_latest_observed_date,
+            "historiesStale": histories_stale,
             "topChaseHistoryMinPoints": min(history_point_counts) if history_point_counts else 0,
             "topChaseHistoryMaxPoints": max(history_point_counts) if history_point_counts else 0,
             "snapshot": {
@@ -4019,8 +4156,9 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 "usedFallbackWindow": used_fallback_window,
                 **({"fallbackReason": fallback_reason} if used_fallback_window and fallback_reason else {}),
                 "updatedAt": _to_optional_str(row.get("updated_at")),
-                "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
-                "isStaleFallback": True,
+                "latestMarketDate": latest_market_date,
+                "historyEndDate": top_chase_history_latest_observed_date,
+                "isStaleFallback": histories_stale,
             },
             "timings": timings,
         },

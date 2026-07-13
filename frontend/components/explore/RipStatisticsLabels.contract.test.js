@@ -9,6 +9,39 @@ const distributionChartPath = path.resolve(__dirname, "RipDistributionChart.jsx"
 const performanceFormattingPath = path.resolve(__dirname, "performanceVsCostFormatting.mjs");
 const rankingConfigPath = path.resolve(__dirname, "../../constants/exploreRankingConfig.js");
 
+test("Set Value and Opening Profit vs Cost use the requested user-facing copy", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes('summaryLabel: "Set Value"'));
+  assert.ok(source.includes('text="Set value from daily Near Mint card market observations."'));
+  assert.ok(source.includes("Set Value Trend"));
+  assert.ok(source.includes("Opening Profit vs Cost"));
+  assert.ok(!source.includes(">Opening Performance vs Cost<"));
+});
+
+test("hero exposes one accessible RIP Score and RIP Core segmented control with separate rank and tier", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes('function RipScoreModeToggle({ value, onChange, coreAvailable })'));
+  assert.ok(source.includes('aria-label="RIP score mode"'));
+  assert.ok(source.includes("aria-pressed={selected}"));
+  assert.ok(source.includes('<HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier}'));
+  assert.ok(source.includes("heroScoreSelection.interpretation.summary"));
+});
+
+test("7D mover price group includes the existing triangle icon before the percent badge", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const chipStart = source.indexOf("function MoversTickerItemChip");
+  const chipEnd = source.indexOf("function MarketMoversTicker", chipStart);
+  const chip = source.slice(chipStart, chipEnd);
+
+  assert.ok(chip.includes("getMoversTickerTrendValue(movement)"));
+  assert.ok(chip.includes("whitespace-nowrap"));
+  assert.ok(chip.indexOf("<DeltaTrendIcon") < chip.indexOf("{percent !== null ? ("));
+  assert.ok(chip.includes('"Price up over 7 days"'));
+  assert.ok(chip.includes('"Price down over 7 days"'));
+});
+
 test("Set Intelligence Biggest Upside wiring references relative-first score fields and both upside evidence labels", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
@@ -76,7 +109,7 @@ test("Simulation Results card renames Opening Outcomes and lists all six sub-tab
 
   for (const label of [
     'label: "Outcome Distribution"',
-    'label: "Opening Performance vs Cost"',
+    'label: "Opening Profit vs Cost"',
     'label: "Simulation Drivers"',
     'label: "Value Structure"',
     'label: "Pack Paths"',
@@ -84,11 +117,10 @@ test("Simulation Results card renames Opening Outcomes and lists all six sub-tab
   ]) {
     assert.ok(source.includes(label), `Simulation Results tabs must include ${label}`);
   }
-  // The abbreviated "Opening P vs C" user-facing label must be gone, and the
-  // pre-rename "Opening Profit vs Cost" label must not resurface (unified as
-  // "Opening Performance vs Cost" across Overview + Insights).
+  // The abbreviated "Opening P vs C" and old "Opening Performance vs Cost"
+  // user-facing labels must be gone.
   assert.ok(!source.includes('label: "Opening P vs C"'));
-  assert.ok(!source.includes("Opening Profit vs Cost</"), "no rendered text may still say Opening Profit vs Cost");
+  assert.ok(!source.includes("Opening Performance vs Cost</"), "no rendered text may still say Opening Performance vs Cost");
 
   // Opening Profit vs Cost reuses PackValueHistoryChart in the technical variant.
   assert.ok(source.includes('variant="simulation"'));

@@ -21,6 +21,8 @@ const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 // in-flight promise (same pattern as marketDashboardInflight above) removes
 // the duplicate network round trip without adding any persistent caching.
 const slimModuleInflight = new Map();
+const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v2";
+const SET_VALUE_SNAPSHOT_CONTRACT_VERSION = "set-value-v2";
 
 function joinSlimModuleRequest(key, factory) {
   if (slimModuleInflight.has(key)) {
@@ -359,10 +361,12 @@ function normalizeTopMarketCardsPayload(payload) {
   };
 }
 
-function normalizeMarketMoverCard(card) {
+function normalizeMarketMoverCard(card, window = "30D") {
   const currentPrice = toOptionalNumber(card?.currentPrice ?? card?.current_price ?? card?.marketPrice ?? card?.market_price);
   const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount);
   const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent);
+  const changeAmount = toOptionalNumber(card?.changeAmount ?? card?.change_amount ?? change30dAmount);
+  const changePercent = toOptionalNumber(card?.changePercent ?? card?.change_percent ?? change30dPercent);
   const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score);
   const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label);
 
@@ -382,6 +386,11 @@ function normalizeMarketMoverCard(card) {
     marketPrice: currentPrice,
     change30dAmount,
     change30dPercent,
+    changeAmount,
+    changePercent,
+    ...(String(window).toUpperCase() === "7D"
+      ? { change7dAmount: changeAmount, change7dPercent: changePercent, movement7d: { changeAmount, changePercent } }
+      : {}),
     movementScore,
     movementLabel,
     enoughHistory: Boolean(card?.enoughHistory ?? card?.enough_history),
@@ -405,12 +414,13 @@ function normalizeMarketMoversEntry(source, payload) {
     : [];
   const all = Array.isArray(source?.all) ? source.all : [...heating, ...cooling];
 
+  const window = toOptionalString(source?.window ?? payload?.window ?? payload?.window_key) || "30D";
   return {
-    window: toOptionalString(source?.window ?? payload?.window ?? payload?.window_key) || "30D",
+    window,
     windowDays: toOptionalNumber(source?.windowDays ?? source?.window_days ?? payload?.windowDays ?? payload?.window_days) ?? 30,
-    heatingUp: heating.map(normalizeMarketMoverCard).filter((card) => card.name),
-    coolingOff: cooling.map(normalizeMarketMoverCard).filter((card) => card.name),
-    all: all.map(normalizeMarketMoverCard).filter((card) => card.name),
+    heatingUp: heating.map((card) => normalizeMarketMoverCard(card, window)).filter((card) => card.name),
+    coolingOff: cooling.map((card) => normalizeMarketMoverCard(card, window)).filter((card) => card.name),
+    all: all.map((card) => normalizeMarketMoverCard(card, window)).filter((card) => card.name),
   };
 }
 
@@ -755,13 +765,14 @@ export function normalizeTopChasePayload(payload) {
   });
 }
 
-export async function getPokemonSetTopChase(setId, { window = "30D", limit = 10 } = {}) {
+export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10 } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", PRICING_SNAPSHOT_CONTRACT_VERSION);
   if (window) {
     params.set("window", String(window));
   }
@@ -791,6 +802,7 @@ export async function getPokemonSetValueHistory(setId, { days = 365, scope = "st
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", SET_VALUE_SNAPSHOT_CONTRACT_VERSION);
   if (days) {
     params.set("days", String(days));
   }
@@ -855,6 +867,7 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
 
   const normalizedWindow = normalizeMarketDashboardWindow(window);
   const params = new URLSearchParams();
+  params.set("snapshot_contract", SET_VALUE_SNAPSHOT_CONTRACT_VERSION);
   if (normalizedWindow) {
     params.set("window", normalizedWindow);
   }

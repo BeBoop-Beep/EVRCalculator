@@ -32,6 +32,9 @@ export function getSetValueTrendScopeLabel(scope) {
 }
 
 export function getSetValueTrendMetricLabel(scope) {
+  if (normalizeScopeKey(scope) === CANONICAL_SET_VALUE_SCOPE_KEY) {
+    return "Set Value";
+  }
   return `${getSetValueTrendScopeLabel(scope)} Set Value`;
 }
 

@@ -30,6 +30,7 @@ from backend.scripts.pokemon_snapshot_builders import (
     build_set_page_snapshot_row,
     get_client,
     list_pokemon_sets,
+    refresh_canonical_card_market_prices_for_set,
     resolve_set_row,
     upsert_row,
     upsert_rows,
@@ -243,6 +244,16 @@ def _variant_ids_for_set(client: Any, set_id: str) -> List[str]:
     return [str(row["id"]) for row in rows if row.get("id") is not None]
 
 
+def _canonical_selected_variant_ids(client: Any, set_id: str) -> List[str]:
+    rows, _error = _execute_query(
+        "pokemon_canonical_card_market_prices_latest.variant_ids",
+        client.table("pokemon_canonical_card_market_prices_latest")
+        .select("card_variant_id")
+        .eq("set_id", set_id),
+    )
+    return sorted({str(row["card_variant_id"]) for row in rows if row.get("card_variant_id") is not None})
+
+
 def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List[str]]:
     checks: List[str] = []
     timestamps: List[Optional[str]] = []
@@ -255,7 +266,7 @@ def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List
         timestamps.append(latest)
 
     legacy_card_ids = _legacy_card_ids(client, set_id)
-    variant_ids = _variant_ids_for_set(client, set_id)
+    variant_ids = sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))
     canonical_card_ids = _canonical_card_ids(client, set_id)
 
     latest, table_checks = _latest_timestamp(
@@ -310,7 +321,7 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
         client,
         table="card_variant_price_observations",
         timestamp_columns=("captured_at", "updated_at", "created_at"),
-        in_filters=(("card_variant_id", _variant_ids_for_set(client, set_id)),),
+        in_filters=(("card_variant_id", sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))),),
     )
     checks.extend(table_checks)
     timestamps.append(latest)
@@ -510,7 +521,7 @@ def _cards_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
     row = _read_snapshot_row(
         client,
         "pokemon_set_cards_snapshot_latest",
-        "set_id,payload_json,updated_at",
+        "set_id,cards_json,card_count,payload_json,updated_at",
         (("set_id", set_id),),
     )
     if not row:
@@ -522,6 +533,35 @@ def _cards_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
         dict,
     )
     snapshot_updated_at = _to_text(row.get("updated_at"))
+    cards = row.get("cards_json") if isinstance(row.get("cards_json"), list) else []
+    priced_count = sum(
+        1 for card in cards
+        if isinstance(card, dict)
+        and (card.get("marketPrice") is not None or card.get("market_price") is not None)
+    )
+    movement_contract_count = sum(
+        1 for card in cards
+        if isinstance(card, dict)
+        and isinstance(card.get("movement7d") or card.get("movement_7d"), dict)
+    )
+    selected_price_rows, selected_price_error = _execute_query(
+        "pokemon_canonical_card_market_prices_latest.coverage",
+        client.table("pokemon_canonical_card_market_prices_latest")
+        .select("canonical_card_id,market_price")
+        .eq("set_id", set_id),
+    )
+    if selected_price_error:
+        checks.append(f"pokemon_canonical_card_market_prices_latest.coverage: {selected_price_error}")
+    authoritative_priced_count = sum(1 for price_row in selected_price_rows if price_row.get("market_price") is not None)
+    if authoritative_priced_count and priced_count < authoritative_priced_count:
+        return FreshnessResult(
+            "cards", True, "snapshot priced-card coverage below canonical selected-price coverage",
+            snapshot_updated_at, dependency_updated_at, checks,
+        )
+    if priced_count and movement_contract_count < priced_count:
+        return FreshnessResult(
+            "cards", True, "priced cards missing 7D movement contracts", snapshot_updated_at, dependency_updated_at, checks
+        )
     if marker_missing:
         return FreshnessResult("cards", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
     if correlation_missing:
@@ -543,7 +583,7 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     row = _read_snapshot_row(
         client,
         "pokemon_set_market_dashboard_snapshot_latest",
-        "set_id,window_key,payload_json,set_value_histories_json,latest_market_date,updated_at",
+        "set_id,window_key,payload_json,set_value_histories_json,top_chase_card_histories_json,latest_market_date,updated_at",
         (("set_id", set_id), ("window_key", window)),
     )
     if not row:
@@ -552,6 +592,19 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     marker_missing = not isinstance((payload.get("meta") or {}).get("snapshot"), dict)
     snapshot_updated_at = _to_text(row.get("updated_at"))
     latest_market_date = _to_text(row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date"))
+    top_chase_histories = row.get("top_chase_card_histories_json")
+    top_chase_history_end = max(
+        (
+            _history_latest_date(history)
+            for history in (top_chase_histories.values() if isinstance(top_chase_histories, dict) else [])
+        ),
+        default=None,
+    )
+    if top_chase_histories and latest_market_date and top_chase_history_end != latest_market_date:
+        return FreshnessResult(
+            "market_dashboard", True, "top chase history end differs from latest_market_date",
+            snapshot_updated_at, dependency_updated_at, checks,
+        )
     dashboard_date_by_scope = _dashboard_set_value_latest_date_by_scope(row)
     if marker_missing:
         return FreshnessResult("market_dashboard", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
@@ -681,6 +734,11 @@ def _maybe_rebuild_cards(client: Any, plan: SetRefreshPlan, *, commit: bool, sum
         summary.skipped_sets["cards"].append(f"{canonical_key}: dry-run {plan.cards.reason}")
         return
     try:
+        refresh_canonical_card_market_prices_for_set(
+            client,
+            str(set_row["id"]),
+            commit=True,
+        )
         row = build_cards_snapshot_row(set_row)
         upsert_row(client, "pokemon_set_cards_snapshot_latest", row, on_conflict="set_id", commit=True)
         summary.rebuilt_sets["cards"].append(canonical_key)

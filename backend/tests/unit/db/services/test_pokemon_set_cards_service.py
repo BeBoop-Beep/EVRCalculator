@@ -289,6 +289,106 @@ def test_cards_page_payload_movement_sort_overrides_sort(monkeypatch):
     assert payload["filters"]["movementSort"] == "30d-decliners"
 
 
+def test_cards_page_payload_7d_movers_sort_is_global_and_paginated(monkeypatch):
+    cards = [
+        _make_card(index, change7dAmount=float(index), change7dPercent=float(index))
+        for index in range(12)
+    ]
+    row = _cards_row(12)
+    row["cards_json"] = cards
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    first = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", page=1, page_size=5
+    )
+    second = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", page=2, page_size=5
+    )
+
+    assert [card["change7dPercent"] for card in first["cards"]] == [11.0, 10.0, 9.0, 8.0, 7.0]
+    assert [card["change7dPercent"] for card in second["cards"]] == [6.0, 5.0, 4.0, 3.0, 2.0]
+    assert first["filters"]["movementWindow"] == "7D"
+
+
+def test_cards_page_payload_7d_movers_filters_sign_and_sorts_missing_last(monkeypatch):
+    cards = [
+        _make_card(0, change7dAmount=5.0, change7dPercent=50.0),
+        _make_card(1, change7dAmount=-4.0, change7dPercent=-40.0),
+        _make_card(2, change7dAmount=3.0, change7dPercent=30.0),
+        _make_card(3, change7dAmount=None, change7dPercent=None),
+    ]
+    row = _cards_row(4)
+    row["cards_json"] = cards
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    all_cards = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", page_size=20
+    )["cards"]
+    heating = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", movement_filter="heating", page_size=20
+    )["cards"]
+    cooling = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", movement_filter="cooling", page_size=20
+    )["cards"]
+
+    assert [card["id"] for card in all_cards] == ["card-0", "card-1", "card-2", "card-3"]
+    assert [card["id"] for card in heating] == ["card-0", "card-2"]
+    assert [card["id"] for card in cooling] == ["card-1"]
+
+
+def test_cards_page_payload_7d_movers_ties_are_deterministic(monkeypatch):
+    cards = [
+        _make_card(9, change7dAmount=-1.0, change7dPercent=-25.0),
+        _make_card(2, change7dAmount=1.0, change7dPercent=25.0),
+    ]
+    row = _cards_row(2)
+    row["cards_json"] = cards
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", page_size=20
+    )
+    assert [card["id"] for card in payload["cards"]] == ["card-2", "card-9"]
+
+
+def test_cards_snapshot_enrichment_keeps_7d_fields_distinct_from_30d():
+    payload = {"cards": [{"id": "card-1", "change30dPercent": 99.0}], "meta": {}}
+    movement_payload = {
+        "window": "7D",
+        "windowDays": 7,
+        "movements": [
+            {
+                "cardId": "card-1",
+                "currentPrice": 12.0,
+                "change30dAmount": 2.0,
+                "change30dPercent": 20.0,
+                "enoughHistory": True,
+            }
+        ],
+        "meta": {},
+    }
+
+    enriched = pokemon_public_snapshot_service.enrich_cards_payload_with_movements(
+        payload, movement_payload, window="7D"
+    )
+    card = enriched["cards"][0]
+    assert card["change7dAmount"] == 2.0
+    assert card["change7dPercent"] == 20.0
+    assert card["change30dPercent"] == 99.0
+
+
 def test_cards_page_payload_default_sort_is_set_number(monkeypatch):
     row = _cards_row(20)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})

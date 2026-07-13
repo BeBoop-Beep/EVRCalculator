@@ -6,7 +6,16 @@ import math
 from statistics import mean
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
-FORMULA_VERSION = "desirability_validation_v1"
+FORMULA_VERSION = "desirability_validation_v2"
+
+CANONICAL_COMPARISON_FIELDS = (
+    "rip_core_score_without_desirability",
+    "rip_core_rank_without_desirability",
+    "final_rip_score_with_desirability",
+    "final_rip_rank_with_desirability",
+    "desirability_score_delta",
+    "desirability_rank_delta",
+)
 
 ALIGNMENT_WEIGHTS = {
     "top_chase_value": 0.25,
@@ -146,13 +155,13 @@ def calculate_rip_core_score_without_desirability(row: Mapping[str, Any]) -> Opt
     )
     if direct is not None:
         return round(direct, 2)
-    component_scores = [
-        first_nested_numeric(row, ("profit_score", "profitScore", "relative_profit_score", "relativeProfitScore")),
-        first_nested_numeric(row, ("safety_score", "safetyScore", "relative_safety_score", "relativeSafetyScore")),
-        first_nested_numeric(row, ("stability_score", "stabilityScore", "relative_stability_score", "relativeStabilityScore")),
-    ]
-    available = [score for score in component_scores if score is not None]
-    return round(mean(available), 2) if available else None
+    return None
+
+
+def is_complete_desirability_validation(value: Any) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    return all(value.get(field) is not None for field in CANONICAL_COMPARISON_FIELDS)
 
 
 def normalize_set_id(row: Mapping[str, Any]) -> Optional[str]:
@@ -243,7 +252,14 @@ def _rank_values(
         for row in rows
         if to_optional_float(row.get(value_key)) is not None
     ]
-    sortable.sort(key=lambda item: to_optional_float(item.get(value_key)) or 0.0, reverse=descending)
+    sortable.sort(
+        key=lambda item: (
+            -(to_optional_float(item.get(value_key)) or 0.0)
+            if descending
+            else (to_optional_float(item.get(value_key)) or 0.0),
+            str(item.get("set_id") or ""),
+        )
+    )
     for index, row in enumerate(sortable, start=1):
         if preserve_existing and to_optional_int(row.get(rank_key)) is not None:
             continue
@@ -337,10 +353,6 @@ def _base_validation_row(row: Mapping[str, Any]) -> Dict[str, Any]:
                 "finalRipScoreWithDesirability",
                 "rip_score_with_desirability",
                 "ripScoreWithDesirability",
-                "relative_pack_score",
-                "relativePackScore",
-                "pack_score",
-                "packScore",
             ),
         ),
         "final_rip_rank_with_desirability": to_optional_int(
@@ -363,6 +375,15 @@ def _base_validation_row(row: Mapping[str, Any]) -> Dict[str, Any]:
         "p95_value": first_nested_numeric(row, ("p95_value", "p95Value", "p95_value_to_cost_ratio", "p95ValueToCostRatio")),
         "top_chase_value": first_nested_numeric(row, ("top_chase_value", "topChaseValue", "max_value", "maxValue", "best_pull", "bestPull")),
         "top_10_card_value": first_nested_numeric(row, ("top_10_card_value", "top10CardValue", "top10_set_value", "top10SetValue")),
+        "top_10_card_value_sample_size": to_optional_int(first_nested_numeric(row, ("top_10_card_value_sample_size", "top10CardValueSampleSize"))),
+        "top_10_card_value_priced_card_count": to_optional_int(first_nested_numeric(row, ("top_10_card_value_priced_card_count", "top10CardValuePricedCardCount"))),
+        "top_10_card_value_candidate_card_count": to_optional_int(first_nested_numeric(row, ("top_10_card_value_candidate_card_count", "top10CardValueCandidateCardCount"))),
+        "top_10_card_value_unavailable_price_count": to_optional_int(first_nested_numeric(row, ("top_10_card_value_unavailable_price_count", "top10CardValueUnavailablePriceCount"))),
+        "top_10_card_value_coverage": first_nested_numeric(row, ("top_10_card_value_coverage", "top10CardValueCoverage")),
+        "top_10_card_value_source": first_nested_value(row, ("top_10_card_value_source", "top10CardValueSource")),
+        "top_10_card_value_price_as_of": first_nested_value(row, ("top_10_card_value_price_as_of", "top10CardValuePriceAsOf")),
+        "desirability_score_delta": first_nested_numeric(row, ("rip_score_delta", "ripScoreDelta", "desirability_score_delta", "desirabilityScoreDelta")),
+        "desirability_rank_delta": to_optional_int(first_nested_numeric(row, ("rip_rank_delta", "ripRankDelta", "desirability_rank_delta", "desirabilityRankDelta"))),
         "avg_hit_value": first_nested_numeric(row, ("avg_hit_value", "avgHitValue", "average_hit_value", "averageHitValue", "big_hit_threshold", "bigHitThreshold")),
         "median_hit_value": first_nested_numeric(row, ("median_hit_value", "medianHitValue")),
         "_top_hit_prices": top_hit_prices,
@@ -385,8 +406,6 @@ def build_validation_rows(target_rows: Iterable[Mapping[str, Any]]) -> List[Dict
     for row in rows:
         if row.get("top_chase_value") is None and row["_top_hit_prices"]:
             row["top_chase_value"] = max(row["_top_hit_prices"])
-        if row.get("top_10_card_value") is None and row["_top_hit_prices"]:
-            row["top_10_card_value"] = round(sum(sorted(row["_top_hit_prices"], reverse=True)[:10]), 2)
         if row.get("avg_hit_value") is None and row["_top_hit_prices"]:
             row["avg_hit_value"] = round(mean(row["_top_hit_prices"]), 2)
         row.pop("_top_hit_prices", None)
@@ -434,12 +453,8 @@ def _signal_name(key: Optional[str]) -> Optional[str]:
 
 
 def finalize_validation_row(row: Dict[str, Any], *, total_ranked_sets: int) -> Dict[str, Any]:
-    final_score = to_optional_float(row.get("final_rip_score_with_desirability"))
-    core_score = to_optional_float(row.get("rip_core_score_without_desirability"))
-    score_delta = round(final_score - core_score, 2) if final_score is not None and core_score is not None else None
-    final_rank = to_optional_int(row.get("final_rip_rank_with_desirability"))
-    core_rank = to_optional_int(row.get("rip_core_rank_without_desirability"))
-    rank_delta = core_rank - final_rank if final_rank is not None and core_rank is not None else None
+    score_delta = to_optional_float(row.get("desirability_score_delta"))
+    rank_delta = to_optional_int(row.get("desirability_rank_delta"))
     band = impact_band(score_delta, rank_delta)
 
     alignment, alignment_scores = _weighted_alignment(row, "desirability_rank", total_ranked_sets)

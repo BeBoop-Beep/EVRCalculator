@@ -73,6 +73,13 @@ import {
 import { buildSetValueContract, selectSetValueTrendFromContract } from "./setValueContract.mjs";
 import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
+import { getCardMovement7d, getMoversTickerTrendValue, selectMoversTickerItems } from "./moversTickerSelector.mjs";
+import {
+  RIP_CORE_MODE,
+  RIP_SCORE_MODE,
+  hasRipCorePresentationContract,
+  selectRipHeroScoreMode,
+} from "./ripHeroScoreMode.mjs";
 import { selectDesirabilityValidation as selectSetDesirabilityValidation } from "@/components/pokemon/set-page/Insights/desirabilityValidationSelector.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
@@ -174,6 +181,7 @@ const CARD_BASE_SORT_OPTIONS = [
   { value: "set-number", label: "Set Number" },
 ];
 const CARD_MOVEMENT_SORT_OPTIONS = [
+  { value: "7d-movers", label: "Largest 7D Moves" },
   { value: "30d-gainers", label: "Biggest 30D Gainers" },
   { value: "30d-decliners", label: "Biggest 30D Decliners" },
 ];
@@ -193,15 +201,9 @@ const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
 // Fixed request window for the slim /market/top-chase fetch — unrelated to
 // topMarketCardsWindowKey, which only picks which already-fetched delta to
 // display client-side.
-const DEFAULT_TOP_CHASE_MARKET_WINDOW = "30D";
+const DEFAULT_TOP_CHASE_MARKET_WINDOW = "365d";
 // 3M/6M/1Y/Lifetime are intentionally not offered yet — the movement guardrails
 // and stored snapshot windows only cover 1D/7D/30D so far.
-const MARKET_MOVERS_WINDOW_OPTIONS = [
-  { key: "1D", label: "1D" },
-  { key: "7D", label: "7D" },
-  { key: "30D", label: "30D" },
-];
-const DEFAULT_MARKET_MOVERS_WINDOW = "30D";
 // The Overview 7D Movers ticker always requests the 7D window — deliberately
 // independent of every other time-range selector on the page — and shows the
 // merged heating+cooling rows ranked by |7D %|, capped at 10 items.
@@ -211,9 +213,6 @@ const MOVERS_TICKER_MAX_ITEMS = 10;
 // top 10 by |7D %| out, so one direction can fill the whole strip on a
 // one-sided market day.
 const MOVERS_TICKER_FETCH_LIMIT = 10;
-// Per-side limit for the Cards tab's dedicated Market Movers view (unchanged
-// from the retired Overview card).
-const MARKET_MOVERS_FETCH_LIMIT = 5;
 // Adjacent-set prefetching previously fired cards + dashboard + 3 value-history
 // requests per adjacent set on every navigation, saturating the browser's
 // per-origin connection limit and starving the actual destination fetch.
@@ -897,7 +896,7 @@ function getSetDetailFallbackTargetId(tab) {
   return "set-detail-insights";
 }
 
-function updateSetDetailQueryParams({ pathname, searchParams, tab, section }) {
+function updateSetDetailQueryParams({ pathname, searchParams, tab, section, cardSort, movementFilter }) {
   const nextParams = new URLSearchParams(searchParams?.toString() || "");
   const nextTab = normalizeSetDetailTab(tab);
   nextParams.set("tab", nextTab);
@@ -906,6 +905,17 @@ function updateSetDetailQueryParams({ pathname, searchParams, tab, section }) {
     nextParams.set("section", section);
   } else {
     nextParams.delete("section");
+  }
+
+  if (nextTab === "cards" && cardSort) {
+    nextParams.set("card_sort", cardSort);
+  } else if (nextTab !== "cards" || section !== "market-movers") {
+    nextParams.delete("card_sort");
+  }
+  if (nextTab === "cards" && movementFilter) {
+    nextParams.set("movement", movementFilter);
+  } else if (nextTab !== "cards" || section !== "market-movers") {
+    nextParams.delete("movement");
   }
 
   const query = nextParams.toString();
@@ -943,7 +953,7 @@ const DESIRABILITY_FALLBACK_COPY = "Using a fallback Opening Desirability estima
 const DESIRABILITY_NOT_CALCULATED_COPY = "Not calculated yet.";
 const PERFORMANCE_VS_COST_INFO_TEXT = (
   <div className="space-y-2 text-left">
-    <p className="font-semibold text-[var(--text-primary)]">Opening Performance vs Cost</p>
+    <p className="font-semibold text-[var(--text-primary)]">Opening Profit vs Cost</p>
     <p>Tracks how simulated opening outcomes compare against pack market price over time.</p>
     <ul className="space-y-1 pl-3">
       <li className="flex gap-2">
@@ -986,7 +996,7 @@ const SIMULATION_RESULTS_INFO_TEXT = (
 // technical (simulation-variant) series names the chart actually renders.
 const OPENING_PERFORMANCE_VS_COST_INFO_TEXT = (
   <div className="space-y-2 text-left">
-    <p className="font-semibold text-[var(--text-primary)]">Opening Performance vs Cost</p>
+    <p className="font-semibold text-[var(--text-primary)]">Opening Profit vs Cost</p>
     <p>How simulated opening value compares with pack market price over time, kept technical for the simulation view.</p>
     <ul className="space-y-1 pl-3">
       <li className="flex gap-2">
@@ -1090,7 +1100,7 @@ const DESIRABILITY_VALIDATION_METRICS = [
   {
     key: "setValue",
     label: "Set Value",
-    summaryLabel: "Checklist Set Value",
+    summaryLabel: "Set Value",
     sampleLabel: "opening sets with value data",
     description: "This is the cleanest market confirmation check. Higher desirability should generally align with stronger total checklist value.",
     resolver: getValidationSetValueMetric,
@@ -1721,7 +1731,7 @@ function getMarketReadSummary({ packCost, averagePackValue, returnRatio, setValu
   }
 
   if (setValue !== null) {
-    return `Market context is partially available for this set, with checklist set value at ${formatCurrency(setValue)}. ${concentration}, so the read is more useful for understanding where value sits than for judging pack price today.`;
+    return `Market context is partially available for this set, with set value at ${formatCurrency(setValue)}. ${concentration}, so the read is more useful for understanding where value sits than for judging pack price today.`;
   }
 
   return "Market context is limited for this set, so this read is based only on the modeled values currently available.";
@@ -1741,7 +1751,7 @@ function getCompactMarketRead({ packCost, averagePackValue, returnRatio, setValu
   }
 
   if (setValue !== null) {
-    return `Checklist set value is ${formatCurrency(setValue)}, with pack price context still limited for this set.`;
+    return `Set value is ${formatCurrency(setValue)}, with pack price context still limited for this set.`;
   }
 
   return "Market context is limited, so this view is based on currently available modeled set data.";
@@ -1825,16 +1835,6 @@ function getCardMovement30d(card) {
   return { amount, percent, score, label, enoughHistory };
 }
 
-function hasPositiveMovement(card) {
-  const movement = getCardMovement30d(card);
-  return (movement?.amount ?? movement?.score ?? 0) > 0;
-}
-
-function hasNegativeMovement(card) {
-  const movement = getCardMovement30d(card);
-  return (movement?.amount ?? movement?.score ?? 0) < 0;
-}
-
 // Card-shaped placeholder for the checklist grid's image slot: a faint
 // trading-card silhouette inside the tile's aspect-ratio box. `shimmer`
 // pulses while the remote image is still loading; the static variant with a
@@ -1861,7 +1861,7 @@ function CardImagePlaceholder({ shimmer = false, label = null }) {
   );
 }
 
-function ChecklistCardTile({ card }) {
+function ChecklistCardTile({ card, movementWindow = "30D" }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
   const name = card?.name || "Unknown card";
   const number = card?.printedNumber || card?.cardNumber || null;
@@ -1869,7 +1869,7 @@ function ChecklistCardTile({ card }) {
   const subtypeLabel = Array.isArray(card?.subtypes) && card.subtypes.length > 0 ? card.subtypes.join(" / ") : null;
   const marketPrice = getCardMarketPrice(card);
   // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
-  const marketDelta = getCardMovement30d(card) || getCardMarketDelta(card);
+  const marketDelta = (movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)) || getCardMarketDelta(card);
   const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
   const hasPriceData = marketPrice !== null;
   // Remote card art lands well after the tile's data (about a second on a
@@ -1989,35 +1989,6 @@ function getCardMarketPrice(card) {
   return price !== null && price > 0 ? price : null;
 }
 
-function getCardNumberSortValue(card) {
-  const raw = String(card?.cardNumber || card?.printedNumber || "").trim();
-  if (!raw) {
-    return { bucket: 9, number: Number.MAX_SAFE_INTEGER, suffix: "", raw: "" };
-  }
-  const front = raw.replace(/\s+/g, "").split("/", 1)[0];
-  const match = front.match(/^(\d+)([a-zA-Z]*)$/);
-  if (match) {
-    return { bucket: 0, number: Number(match[1]), suffix: match[2].toLowerCase(), raw: front.toLowerCase() };
-  }
-  const mixed = front.match(/(\d+)/);
-  if (mixed) {
-    return { bucket: 1, number: Number(mixed[1]), suffix: front.toLowerCase(), raw: front.toLowerCase() };
-  }
-  return { bucket: 2, number: Number.MAX_SAFE_INTEGER, suffix: front.toLowerCase(), raw: front.toLowerCase() };
-}
-
-function compareCardSetNumber(left, right) {
-  const leftValue = getCardNumberSortValue(left);
-  const rightValue = getCardNumberSortValue(right);
-  return (
-    leftValue.bucket - rightValue.bucket ||
-    leftValue.number - rightValue.number ||
-    leftValue.suffix.localeCompare(rightValue.suffix) ||
-    leftValue.raw.localeCompare(rightValue.raw) ||
-    String(left?.name || "").localeCompare(String(right?.name || ""))
-  );
-}
-
 // Same stable identity the checklist grid uses for React keys — appended
 // pages must never introduce a duplicate of a card that is already rendered.
 function getChecklistCardKey(card) {
@@ -2038,44 +2009,6 @@ function dedupeChecklistCards(cards) {
     result.push(card);
   }
   return result;
-}
-
-function getDisplayChecklistCards(cards, sortMode, movementFilter) {
-  let result = Array.isArray(cards) ? [...cards] : [];
-
-  if (movementFilter === "heating") {
-    result = result.filter(hasPositiveMovement);
-  } else if (movementFilter === "cooling") {
-    result = result.filter(hasNegativeMovement);
-  }
-
-  if (sortMode === "price-desc") {
-    result.sort((left, right) => (getCardMarketPrice(right) ?? -1) - (getCardMarketPrice(left) ?? -1) || compareCardSetNumber(left, right));
-  } else if (sortMode === "30d-gainers") {
-    result.sort((left, right) => {
-      const leftMovement = getCardMovement30d(left);
-      const rightMovement = getCardMovement30d(right);
-      return (rightMovement?.score ?? rightMovement?.amount ?? -Infinity) - (leftMovement?.score ?? leftMovement?.amount ?? -Infinity) || compareCardSetNumber(left, right);
-    });
-  } else if (sortMode === "30d-decliners") {
-    result.sort((left, right) => {
-      const leftMovement = getCardMovement30d(left);
-      const rightMovement = getCardMovement30d(right);
-      return (leftMovement?.score ?? leftMovement?.amount ?? Infinity) - (rightMovement?.score ?? rightMovement?.amount ?? Infinity) || compareCardSetNumber(left, right);
-    });
-  } else {
-    result.sort(compareCardSetNumber);
-  }
-
-  return result;
-}
-
-function getCardMovementDataCount(cards) {
-  return (Array.isArray(cards) ? cards : []).filter((card) => {
-    const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
-    const movement = getCardMovement30d(card);
-    return price !== null && movement && (movement.amount !== null || movement.percent !== null);
-  }).length;
 }
 
 function normalizeTopPricedCard(card, source) {
@@ -2998,8 +2931,11 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
       ? "positive"
       : "neutral";
 
+  // Fluid at lg+: the name column min dropped to 0 (it truncates) and the
+  // horizontal padding/gaps tightened so the 2/3-width Overview placement
+  // compresses padding before it ever shrinks the sparkline column.
   return (
-    <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-3 py-2.5 lg:grid-cols-[3.5rem_minmax(13.75rem,1fr)_minmax(11.25rem,14.5rem)_6.875rem_6rem] lg:items-center lg:gap-3.5 lg:px-4 lg:py-3">
+    <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-3 py-2.5 lg:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_6.5rem_6rem] lg:items-center lg:gap-3 lg:px-3 lg:py-3">
       <span className="self-start pt-1 text-xs font-semibold text-[var(--text-secondary)] lg:self-auto lg:pt-0">#{index + 1}</span>
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-[4.875rem] w-14 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] shadow-[0_10px_24px_rgba(2,6,23,0.24)]">
@@ -3116,7 +3052,7 @@ function TopMarketCardsContent({
         onChange={setSelectedWindowKey}
       />
       <div className="overflow-visible rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42">
-        <div className="hidden grid-cols-[3.5rem_minmax(13.75rem,1fr)_minmax(11.25rem,14.5rem)_6.875rem_6rem] items-center gap-3.5 border-b border-[var(--border-subtle)] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
+        <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_6.5rem_6rem] items-center gap-3 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
           <span>Rank</span>
           <span>Card</span>
           <span className="text-center">Trend</span>
@@ -3150,7 +3086,10 @@ function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
   const historyWindows = computeDeltaWindowsFromHistory(historyPoints, {
     dateKey: "date",
     valueKey: "value",
-    preferActualPointsForOneDay: true,
+    // Persisted Top Chase history now materializes the effective market-day
+    // endpoint (with sourceDate retained when carried). The 1D window must use
+    // those last two market dates, not skip carries to find older observations.
+    preferActualPointsForOneDay: false,
   });
   const selectedHistoryWindow = historyWindows.find((entry) => entry.key === selectedWindowKey);
   if (selectedHistoryWindow) {
@@ -3215,190 +3154,43 @@ function getTopCardPriceHistory(card) {
 }
 
 function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange }) {
+  // Default to a 6-row cap so the 2/3-width terminal row stays scannable;
+  // "View all chase cards" expands in place to the full fetched list (10 —
+  // see the /market/top-chase fetch's limit), reusing the View-all-movers
+  // button treatment. There is no dedicated chase-cards destination to link
+  // out to, so expand-in-place is the closest existing pattern.
+  const [showAllChaseCards, setShowAllChaseCards] = useState(false);
+  const totalRows = Array.isArray(cards) ? cards.length : 0;
+
   return (
     <SectionCard title="Top Chase Cards" titleInfoText={infoText}>
       <TopMarketCardsContent
         cards={cards}
         status={status}
         error={error}
-        maxRows={10}
+        maxRows={showAllChaseCards ? 10 : 6}
         selectedWindowKey={selectedWindowKey}
         onWindowChange={onWindowChange}
       />
+      {totalRows > 6 ? (
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowAllChaseCards((value) => !value)}
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
+          >
+            {showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
+          </button>
+        </div>
+      ) : null}
     </SectionCard>
   );
-}
-
-function MarketMoverRow({ card }) {
-  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
-  const name = card?.name || "Unknown card";
-  const rarity = card?.rarity || null;
-  const movement = getCardMovement30d(card);
-  const currentPrice = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
-  const tone = movement?.amount ?? movement?.percent ?? movement?.score ?? null;
-
-  return (
-    <div className="grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-2.5 py-2">
-      <div className="flex h-10 w-8 items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.45)]">
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt={name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-        ) : (
-          <span className="text-[9px] font-semibold text-[var(--text-secondary)]">{getCardInitials(name)}</span>
-        )}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-xs font-semibold text-[var(--text-primary)]">{name}</p>
-        <p className="truncate text-[10px] text-[var(--text-secondary)]">{rarity || "Rarity unavailable"}</p>
-      </div>
-      <div className="min-w-[4.5rem] text-right">
-        <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(currentPrice)}</p>
-        {movement ? (
-          <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight tabular-nums" style={getDeltaBadgeStyle(tone)}>
-            {movement.amount !== null ? <span>{formatSignedCurrency(movement.amount)}</span> : null}
-            {movement.percent !== null ? <span>{movement.percent > 0 ? "+" : ""}{movement.percent.toFixed(1)}%</span> : null}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function MarketMoverList({ side, cards, emptyLabel }) {
-  return (
-    <div className="min-w-0">
-      {cards.length > 0 ? (
-        <div className="space-y-2">
-          {cards.slice(0, 5).map((card, index) => (
-            <MarketMoverRow key={`market-mover:${side}:${card?.cardId || card?.id || card?.name || index}`} card={card} />
-          ))}
-        </div>
-      ) : (
-        <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3 text-sm text-[var(--text-secondary)]">{emptyLabel}</p>
-      )}
-    </div>
-  );
-}
-
-// Total absolute % movement across a mover side — used only to pick which side
-// the segmented toggle shows by default for the current time range.
-function getTotalAbsolutePercentMovement(cards) {
-  return (Array.isArray(cards) ? cards : []).reduce((total, card) => {
-    const percent = getCardMovement30d(card)?.percent;
-    return percent === null || percent === undefined ? total : total + Math.abs(percent);
-  }, 0);
 }
 
 function hasMarketMoverRows(entry) {
   return (
     (Array.isArray(entry?.heatingUp) && entry.heatingUp.length > 0) ||
     (Array.isArray(entry?.coolingOff) && entry.coolingOff.length > 0)
-  );
-}
-
-function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "success", error, onWindowChange, onViewAll }) {
-  // Which side ("heating" / "cooling") the user explicitly picked. null means
-  // "auto": default to the side with the larger total absolute % movement for
-  // the current time range (tie → heating). A window change resets to auto so
-  // the default rule re-applies to the new range.
-  const [userSelectedMoverSide, setUserSelectedMoverSide] = useState(null);
-  useEffect(() => {
-    setUserSelectedMoverSide(null);
-  }, [selectedWindow]);
-
-  const resolvedMoversByWindow = moversByWindow && typeof moversByWindow === "object" ? moversByWindow : {};
-
-  const hasAnyWindowMovers =
-    hasMarketMoverRows(movers) || Object.values(resolvedMoversByWindow).some(hasMarketMoverRows);
-
-  // The section container (and its title/subtitle) must always render — a
-  // still-loading or genuinely-empty /market/movers response must not hide
-  // the whole module, only its inner content. See MarketMoverColumn's own
-  // per-column emptyLabel below for the "fetched successfully, no movers
-  // this window" case.
-  if ((status === "loading" || status === "idle") && !hasAnyWindowMovers) {
-    return (
-      <SectionCard
-        title="Market Movers"
-        subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
-        titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
-      >
-        <InlinePanelSkeleton rows={4} />
-      </SectionCard>
-    );
-  }
-
-  if (status === "error" && !hasAnyWindowMovers) {
-    return (
-      <SectionCard
-        title="Market Movers"
-        subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
-        titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
-      >
-        <p className="text-sm text-red-300">{error || "Unable to load market movers for this set."}</p>
-      </SectionCard>
-    );
-  }
-
-  // `movers` is the live single-window /market/movers fetch result; it is
-  // preferred whenever it matches the currently selected window. Otherwise
-  // fall back to moversByWindow, the (possibly stale) all-windows data seeded
-  // from the market dashboard snapshot, until the live fetch for this window
-  // lands.
-  const liveMoversMatchSelection = hasMarketMoverRows(movers) && (!movers?.window || movers.window === selectedWindow);
-  const selectedMovers = liveMoversMatchSelection
-    ? movers
-    : resolvedMoversByWindow[selectedWindow] || { heatingUp: [], coolingOff: [], all: [] };
-  const heatingUp = Array.isArray(selectedMovers?.heatingUp) ? selectedMovers.heatingUp : [];
-  const coolingOff = Array.isArray(selectedMovers?.coolingOff) ? selectedMovers.coolingOff : [];
-  const defaultMoverSide =
-    getTotalAbsolutePercentMovement(coolingOff) > getTotalAbsolutePercentMovement(heatingUp) ? "cooling" : "heating";
-  const selectedMoverSide = userSelectedMoverSide || defaultMoverSide;
-  const selectedSideCards = selectedMoverSide === "cooling" ? coolingOff : heatingUp;
-
-  return (
-    <SectionCard
-      title="Market Movers"
-      subtitle={`${selectedWindow} card price movement with noise guardrails applied.`}
-      titleInfoText={`Ranks card-level ${selectedWindow} movement using current price, absolute dollar move, enough observed history, and outlier filtering.`}
-    >
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <MarketWindowSelector
-          windows={MARKET_MOVERS_WINDOW_OPTIONS}
-          value={selectedWindow}
-          onChange={onWindowChange}
-        />
-        <SegmentedControl
-          options={[
-            { value: "heating", label: `Heating up (${heatingUp.length})` },
-            { value: "cooling", label: `Cooling off (${coolingOff.length})` },
-          ]}
-          value={selectedMoverSide}
-          onChange={setUserSelectedMoverSide}
-          ariaLabel="Market mover direction"
-        />
-      </div>
-      <MarketMoverList
-        side={selectedMoverSide}
-        cards={selectedSideCards}
-        emptyLabel={
-          selectedMoverSide === "cooling"
-            ? `No reliable ${selectedWindow} decliners yet.`
-            : `No reliable ${selectedWindow} gainers yet.`
-        }
-      />
-      {onViewAll ? (
-        <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
-          >
-            View all movers
-          </button>
-        </div>
-      ) : null}
-    </SectionCard>
   );
 }
 
@@ -3411,32 +3203,13 @@ function MarketMoversModule({ movers, moversByWindow, selectedWindow, status = "
 // degrade back to exactly this markup.
 // ---------------------------------------------------------------------------
 
-// Merge both mover directions into the ticker's display list. Cards without a
-// usable % movement sink to the end (they still carry a $ move worth showing
-// if slots remain).
-function selectMoversTickerItems(entry) {
-  const heating = Array.isArray(entry?.heatingUp) ? entry.heatingUp : [];
-  const cooling = Array.isArray(entry?.coolingOff) ? entry.coolingOff : [];
-  const seen = new Set();
-  const unique = [];
-  for (const card of [...heating, ...cooling]) {
-    const key = card?.cardId || card?.id || (card?.name ? `${card.name}:${card?.setNumber || ""}` : null);
-    if (!key || seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    unique.push({ card, movement: getCardMovement30d(card) });
-  }
-  return unique
-    .sort((a, b) => Math.abs(b.movement?.percent ?? 0) - Math.abs(a.movement?.percent ?? 0))
-    .slice(0, MOVERS_TICKER_MAX_ITEMS);
-}
-
 function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
   const name = card?.name || "Unknown card";
   const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
   const percent = movement?.percent ?? null;
+  const trendValue = getMoversTickerTrendValue(movement);
+  const trendTitle = trendValue > 0 ? "Price up over 7 days" : trendValue < 0 ? "Price down over 7 days" : null;
 
   return (
     <a
@@ -3455,7 +3228,10 @@ function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
         )}
       </span>
       <span className="max-w-[9rem] truncate text-xs font-semibold text-[var(--text-primary)]">{name}</span>
-      <span className="text-xs font-semibold tabular-nums text-[var(--text-primary)]">{price === null ? "N/A" : formatCurrency(price)}</span>
+      <span className="inline-flex flex-none items-center gap-1 whitespace-nowrap text-xs font-semibold tabular-nums text-[var(--text-primary)]">
+        <span>{price === null ? "N/A" : formatCurrency(price)}</span>
+        <DeltaTrendIcon value={trendValue} size="sm" title={trendTitle} />
+      </span>
       {percent !== null ? (
         <span className="flex-none rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums" style={getDeltaBadgeStyle(percent)}>
           {percent > 0 ? "+" : ""}
@@ -5274,6 +5050,56 @@ function resolveLensScore(lens, summary) {
   };
 }
 
+function RipScoreModeToggle({ value, onChange, coreAvailable }) {
+  return (
+    <div
+      role="group"
+      aria-label="RIP score mode"
+      className="inline-flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-0.5 text-[10px] font-semibold tracking-normal"
+    >
+      {[
+        { value: RIP_SCORE_MODE, label: "RIP Score", disabled: false },
+        { value: RIP_CORE_MODE, label: "RIP Core", disabled: !coreAvailable },
+      ].map((option) => {
+        const selected = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            disabled={option.disabled}
+            onClick={() => onChange(option.value)}
+            className={`rounded-md px-2.5 py-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${
+              selected
+                ? "bg-[var(--surface-hover)] text-[var(--text-primary)]"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HeroScoreBadges({ rank, tier, size = "supporting" }) {
+  const numericRank = toNumber(rank);
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <span
+        className={`inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 font-semibold text-[var(--text-primary)] ${
+          size === "hero" ? "px-4 py-2 text-sm" : "px-3 py-1 text-xs"
+        }`}
+        title={numericRank === null ? "Rank unavailable" : `Rank #${Math.round(numericRank)}`}
+      >
+        {numericRank === null ? "Rank unavailable" : `Rank #${Math.round(numericRank)}`}
+      </span>
+      <RankBadge rank={tier} format="tier" size={size} />
+    </div>
+  );
+}
+
 function formatLensScore(value, format) {
   const parsed = toNumber(value);
   if (parsed === null) return "—";
@@ -5949,18 +5775,16 @@ function OpeningProfileSignalsCard({ summary, setIntelligenceMeta = [] }) {
   );
 }
 
-function DecisionSignalRow({ signal, expanded }) {
+function DecisionSignalRow({ signal }) {
   const parsedRank = toNumber(signal.rankValue);
-  const summaryText = expanded
-    ? signal.detailSummary || signal.summary
-    : signal.summary || signal.detailSummary;
+  const summaryText = signal.summary || signal.detailSummary;
 
   return (
     <article className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-3">
       <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem] sm:items-center">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{signal.label}</p>
-          <p className={`mt-1 text-xs leading-snug text-[var(--text-primary)] ${expanded ? "" : "line-clamp-2"}`}>
+          <p className="mt-1 line-clamp-2 text-xs leading-snug text-[var(--text-primary)]">
             {summaryText}
           </p>
         </div>
@@ -5986,8 +5810,6 @@ function DecisionSignalRow({ signal, expanded }) {
 }
 
 function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [], requestTimeout = false }) {
-  const [displayMode, setDisplayMode] = useState("compact");
-  const expanded = displayMode === "expanded";
   const backendLensByKey = useMemo(
     () => normalizeBackendSetIntelligence(setIntelligenceMeta),
     [setIntelligenceMeta]
@@ -6007,7 +5829,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
       const resolvedScore = resolveLensScore(lens, summary);
       const rankTier = toOptionalUpper(backendLens?.tier ?? summary[lens.tierField]);
       const rankValue = toNumber(summary[lens.rankField]);
-      const hasScore = resolvedScore.usedRawFallback || toNumber(resolvedScore.score) !== null;
+      const hasScore = toNumber(resolvedScore.score) !== null;
       const summaryText =
         backendLens?.short_summary ||
         (hasScore || rankTier || rankValue !== null ? getLensTagline(lens, summary, resolvedScore) : null);
@@ -6018,11 +5840,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
 
       return {
         label: backendLens?.label || lens.label,
-        scoreText: resolvedScore.usedRawFallback
-          ? resolvedScore.rawText || null
-          : hasScore
-          ? formatLensScore(resolvedScore.score, resolvedScore.format)
-          : null,
+        scoreText: hasScore ? formatLensScore(resolvedScore.score, resolvedScore.format) : null,
         scoreTrend: null,
         rankTier,
         rankValue,
@@ -6063,19 +5881,9 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
       title="Decision Signals"
       titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
     >
-      <SectionViewTabs
-        className="mb-4"
-        value={displayMode}
-        onChange={setDisplayMode}
-        variant="secondary"
-        options={[
-          { value: "compact", label: "Compact" },
-          { value: "expanded", label: "Expanded" },
-        ]}
-      />
       <div className="grid gap-2">
         {pillarRows.map((signal) => (
-          <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} expanded={expanded} />
+          <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
         ))}
       </div>
       {openingRows.length > 0 ? (
@@ -6087,7 +5895,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
           </div>
           <div className="grid gap-2">
             {openingRows.map((signal) => (
-              <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} expanded={expanded} />
+              <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
             ))}
           </div>
         </>
@@ -6358,10 +6166,13 @@ function getDesirabilityValidationPayload(explorePayload) {
   return payload && typeof payload === "object" ? payload : null;
 }
 
-function ProofMetric({ label, value }) {
+function ProofMetric({ label, value, infoText = null }) {
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
-      <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+      <div className="flex min-w-0 items-center gap-1">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+        {infoText ? <InfoPopover text={infoText} /> : null}
+      </div>
       <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{value}</p>
     </div>
   );
@@ -6443,6 +6254,17 @@ function DesirabilityProofContent({
   const rankDelta = toNumber(validation.desirability_rank_delta ?? validation.desirabilityRankDelta);
   const coreRank = validation.rip_core_rank_without_desirability ?? validation.ripCoreRankWithoutDesirability;
   const finalRank = validation.final_rip_rank_with_desirability ?? validation.finalRipRankWithDesirability;
+  const desirabilityScore = toNumber(validation.desirability_score ?? validation.desirabilityScore);
+  const comparisonUnavailableLabel = desirabilityScore === null ? "Awaiting desirability score" : "Awaiting canonical comparison";
+  const finalRankValue = toNumber(finalRank) === null ? comparisonUnavailableLabel : formatProofRank(finalRank);
+  const scoreDeltaValue =
+    toNumber(validation.desirability_score_delta ?? validation.desirabilityScoreDelta) === null
+      ? comparisonUnavailableLabel
+      : formatProofDelta(validation.desirability_score_delta ?? validation.desirabilityScoreDelta);
+  const rankDeltaValue = rankDelta === null ? comparisonUnavailableLabel : formatProofDelta(rankDelta, " ranks");
+  const top10CardValue = top10CardValueNotComputed
+    ? "Awaiting canonical card prices"
+    : formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank);
   const movementCopy =
     toNumber(coreRank) !== null && toNumber(finalRank) !== null && rankDelta !== null
       ? `Desirability moved this set from ${formatProofRank(coreRank)} to ${formatProofRank(finalRank)} (${formatProofDelta(rankDelta, " ranks")}).`
@@ -6459,10 +6281,10 @@ function DesirabilityProofContent({
             <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">{impactBand}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} />
-            <ProofMetric label="Final RIP Rank" value={formatProofRankOrNotComputed(finalRank)} />
-            <ProofMetric label="Score Delta" value={formatProofDeltaOrNotComputed(validation.desirability_score_delta ?? validation.desirabilityScoreDelta)} />
-            <ProofMetric label="Rank Delta" value={formatProofDeltaOrNotComputed(rankDelta, " ranks")} />
+            <ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} infoText="Rank before collector desirability is added." />
+            <ProofMetric label="Final RIP Score Rank" value={finalRankValue} infoText="Overall RIP Score rank after collector desirability is included." />
+            <ProofMetric label="Score Delta" value={scoreDeltaValue} infoText="Final RIP Score minus RIP Core score." />
+            <ProofMetric label="Rank Delta" value={rankDeltaValue} infoText="Positive means the set moved toward #1; negative means it moved down." />
           </div>
           <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">{validation.desirability_impact_summary || validation.desirabilityImpactSummary}</p>
         </div>
@@ -6479,7 +6301,7 @@ function DesirabilityProofContent({
             <ProofMetric label="Desirability" value={formatProofRank(validation.desirability_rank ?? validation.desirabilityRank)} />
             <ProofMetric label="Set Value" value={formatProofRank(validation.set_value_rank ?? validation.setValueRank)} />
             <ProofMetric label="Top Chase" value={formatProofRank(validation.top_chase_value_rank ?? validation.topChaseValueRank)} />
-            <ProofMetric label="Top 10 Cards" value={top10CardValueNotComputed ? PROOF_NOT_COMPUTED_LABEL : formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank)} />
+            <ProofMetric label="Top 10 Card Value" value={top10CardValue} infoText="Rank based on the combined current market value of the set’s ten highest-priced cards." />
             <ProofMetric label="P95" value={formatProofRank(validation.p95_rank ?? validation.p95Rank)} />
             <ProofMetric label="EV" value={formatProofRank(validation.expected_value_rank ?? validation.expectedValueRank)} />
           </div>
@@ -8343,13 +8165,14 @@ function SetPageNavigationRail({
   const visibleSubLinks =
     activeTab === "overview"
       ? [
-          // Nav order mirrors the tab's render order: Decision Signals now
-          // leads the Overview page (verdict → evidence).
-          { id: "set-signals", label: "Decision Signals", tab: "overview", section: "set-signals", targetId: "set-detail-set-intelligence", active: activeGraphMode !== "historical-trend" },
+          // Nav order mirrors the tab's render order: ticker (not a nav
+          // target), then the chart row, then Top Chase beside Decision
+          // Signals.
           { id: "performance-vs-cost", label: "Market Snapshot", tab: "overview", section: "performance-vs-cost", graphMode: "historical-trend", targetId: "set-detail-overview-performance", active: activeGraphMode === "historical-trend" },
           ...(showTopMarketCards
             ? [{ id: "top-market-cards", label: "Top Chase Cards", tab: "overview", section: "top-market-cards", targetId: "set-detail-top-market-cards", active: false }]
             : []),
+          { id: "set-signals", label: "Decision Signals", tab: "overview", section: "set-signals", targetId: "set-detail-set-intelligence", active: activeGraphMode !== "historical-trend" },
         ]
       : activeTab === "cards"
       ? [
@@ -8367,7 +8190,7 @@ function SetPageNavigationRail({
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
           { id: "desirability-evidence", label: "Desirability Evidence", tab: "insights", section: "desirability-proof", targetId: "set-detail-desirability-evidence", active: false },
           { id: "simulation-results", label: "Simulation Results", tab: "insights", section: "simulation-results", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
-          { id: "opening-performance-cost", label: "Opening Performance vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
+          { id: "opening-performance-cost", label: "Opening Profit vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
           { id: "value", label: "Value Structure", tab: "insights", section: "value", graphMode: "value-contribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "value-contribution" },
           { id: "pack-breakdown", label: "Pack Paths", tab: "insights", section: "pack-breakdown", graphMode: "pack-breakdown", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "pack-breakdown" },
@@ -8953,6 +8776,15 @@ export default function RipStatisticsPageClient({
     setSimulationResultsExpanded(false);
   }, [resolvedSetResourceId]);
   const [viewMode, setViewMode] = useState("simple");
+  const [heroScoreMode, setHeroScoreMode] = useState(RIP_SCORE_MODE);
+  const previousHeroScoreSetIdRef = useRef(resolvedSetResourceId);
+  useEffect(() => {
+    if (previousHeroScoreSetIdRef.current === resolvedSetResourceId) return;
+    previousHeroScoreSetIdRef.current = resolvedSetResourceId;
+    if (heroScoreMode === RIP_CORE_MODE && !hasRipCorePresentationContract(selectedTarget)) {
+      setHeroScoreMode(RIP_SCORE_MODE);
+    }
+  }, [heroScoreMode, resolvedSetResourceId, selectedTarget]);
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
   const [, setInsightsValueView] = useState("value-structure");
@@ -9012,7 +8844,9 @@ export default function RipStatisticsPageClient({
   // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
   // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
   const [pullRatesPendingTimeoutState, setPullRatesPendingTimeoutState] = useState({ setId: null, timedOut: false });
-  const [cardSortMode, setCardSortMode] = useState("set-number");
+  const [cardSortMode, setCardSortMode] = useState(() =>
+    getSetDetailSectionParam(searchParams) === "market-movers" ? "7d-movers" : "set-number"
+  );
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
   const [cardSearchQuery, setCardSearchQuery] = useState("");
   // Highest requested page for the current cards scope. Pages are appended
@@ -9159,14 +8993,13 @@ export default function RipStatisticsPageClient({
     },
     createMarketDashboardState
   );
-  const [marketMoversWindowKey, setMarketMoversWindowKey] = useState(DEFAULT_MARKET_MOVERS_WINDOW);
   const [marketMoversState, dispatchMarketMovers] = useReducer(
     marketDashboardReducer,
     {
       status: "idle",
       setId: resolvedSetResourceId,
       payload: null,
-      sourceWindow: DEFAULT_MARKET_MOVERS_WINDOW,
+      sourceWindow: MOVERS_TICKER_WINDOW,
     },
     createMarketDashboardState
   );
@@ -9813,6 +9646,8 @@ export default function RipStatisticsPageClient({
       searchParams,
       tab: tab || setDetailTab,
       section,
+      cardSort: section === "market-movers" ? "7d-movers" : undefined,
+      movementFilter: section === "market-movers" ? "all" : undefined,
     });
     startTabTransition(() => {
       router.push(nextHref, { scroll: false });
@@ -9847,7 +9682,7 @@ export default function RipStatisticsPageClient({
     }
     if (section === "market-movers") {
       setCardsSection("market-movers");
-      setCardSortMode("30d-gainers");
+      setCardSortMode("7d-movers");
       setCardMovementFilter("all");
     } else if (section === "all-cards") {
       // Entering All Cards restores the default checklist view so the
@@ -9909,7 +9744,12 @@ export default function RipStatisticsPageClient({
       setCardsSubTab(sectionTarget.cardsSubTab);
     }
     if (nextSection === "market-movers") {
-      setCardSortMode("30d-gainers");
+      const routeSort = String(searchParams?.get?.("card_sort") || "").trim().toLowerCase();
+      const routeMovement = String(searchParams?.get?.("movement") || "").trim().toLowerCase();
+      setCardSortMode(routeSort === "7d-movers" ? routeSort : "7d-movers");
+      setCardMovementFilter(CARD_MOVEMENT_FILTER_OPTIONS.some((option) => option.value === routeMovement) ? routeMovement : "all");
+    } else if (resolvedTab === "cards") {
+      setCardSortMode("set-number");
       setCardMovementFilter("all");
     }
     if (resolvedTab === "cards") {
@@ -10055,7 +9895,8 @@ export default function RipStatisticsPageClient({
     { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
-  const topScoreRaw = toNumber(summary.relative_pack_score) ?? toNumber(summary.pack_score);
+  const heroScoreSelection = selectRipHeroScoreMode({ mode: heroScoreMode, summary, target: selectedTarget });
+  const topScoreRaw = heroScoreSelection.score;
   const displayedTopScore = formatRawScore(topScoreRaw);
 
   const displayedProfitScore =
@@ -10080,9 +9921,15 @@ export default function RipStatisticsPageClient({
   const heroLogoUrl =
     selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
 
-  const recommendationSummary = packScoreMeta?.summary || interpretation?.packScore || null;
-  const recommendationBadge = packScoreMeta?.label || null;
-  const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: summary.pack_tier });
+  const recommendationSummary =
+    heroScoreSelection.mode === RIP_CORE_MODE
+      ? heroScoreSelection.interpretation.summary
+      : packScoreMeta?.summary || interpretation?.packScore || null;
+  const recommendationBadge =
+    heroScoreSelection.mode === RIP_CORE_MODE
+      ? heroScoreSelection.interpretation.label
+      : packScoreMeta?.label || null;
+  const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: heroScoreSelection.tier });
   const simpleAverageLossValue = getSimpleAverageLossValue(summary);
   const averageHitValue = getFirstNumericValue(summary, [
     "average_hit_value",
@@ -10760,7 +10607,7 @@ export default function RipStatisticsPageClient({
       rawValue: setValue,
       value: setValueDisplay,
       trend: trendByMetricKey.setValue,
-      infoText: "Checklist set value from daily Near Mint card market observations.",
+      infoText: "Set value from daily Near Mint card market observations.",
     },
     {
       label: "Pack Market Price",
@@ -10834,24 +10681,8 @@ export default function RipStatisticsPageClient({
     setDetailTab,
     topMarketCardsWindowKey,
   ]);
-  const marketMovers = activeTopMarketCardsState.marketMovers || { heatingUp: [], coolingOff: [], all: [], window: DEFAULT_TOP_MARKET_CARDS_WINDOW };
   const marketMoversByWindow = activeTopMarketCardsState.marketMoversByWindow || null;
-  const hasMarketMovers =
-    hasMarketMoverRows(marketMovers) ||
-    (marketMoversByWindow ? Object.values(marketMoversByWindow).some(hasMarketMoverRows) : false);
-  // Status for the slim /market/movers fetch itself (independent of the
-  // top-chase fetch's status bundled into activeTopMarketCardsState.status) —
-  // drives MarketMoversModule's loading/error/empty rendering so the section
-  // container never has to hide itself outright.
-  const marketMoversStatus = hasMarketMovers
-    ? "success"
-    : activeMarketMoversState.status === "loading" || activeMarketMoversState.status === "idle"
-    ? "loading"
-    : activeMarketMoversState.status === "error"
-    ? "error"
-    : "success";
-  // 7D Movers ticker source: only ever the 7D window, independent of the
-  // movers window selected on the Cards tab. Prefer the live slim fetch when
+  // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
   const moversTickerEntry =
@@ -10876,6 +10707,8 @@ export default function RipStatisticsPageClient({
     searchParams,
     tab: "cards",
     section: "market-movers",
+    cardSort: "7d-movers",
+    movementFilter: "all",
   });
   const handleMoversTickerNavigate = (event) => {
     if (event) {
@@ -11166,30 +10999,16 @@ export default function RipStatisticsPageClient({
       : cardsPageFallbackCards.length > 0
       ? "success_stale"
       : activeCardsPageState.status;
-  // Sourced from the currently loaded/fallback cards (not the full
-  // checklist), since Cards tab no longer loads the full card list — this is
-  // a known trade-off: if page 1 happens to have no movement data but a
-  // later page does, the movement sort/filter controls may not appear until
-  // that page loads.
-  const cardMovementDataCount = getCardMovementDataCount(effectiveCardsPageCards);
-  const hasCardMovementData = cardMovementDataCount >= 5;
-  const effectiveCardSortMode =
-    hasCardMovementData || !CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === cardSortMode)
-      ? cardSortMode
-      : "set-number";
-  const effectiveCardMovementFilter = hasCardMovementData ? cardMovementFilter : "all";
-  const cardSortOptions = hasCardMovementData
-    ? [...CARD_BASE_SORT_OPTIONS, ...CARD_MOVEMENT_SORT_OPTIONS]
-    : CARD_BASE_SORT_OPTIONS;
-  // getPokemonSetCardsPage already sorts/filters server-side using these same
-  // effective values, so this client-side pass is idempotent — it exists to
-  // reuse the exact same rendering pipeline the full-payload Cards tab used
-  // before, not to redo the work. The fallback branch (seeded full payload)
-  // still needs it, since that data hasn't been through the new endpoint.
-  const displayedChecklistCards = useMemo(
-    () => getDisplayChecklistCards(effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter),
-    [effectiveCardsPageCards, effectiveCardSortMode, effectiveCardMovementFilter]
-  );
+  // Capability comes from the completed endpoint contract. It deliberately
+  // defaults true while page one is cold so a route-selected 7D sort cannot
+  // be replaced before the first request is made.
+  const hasCardMovementData = activeCardsPageState.filters?.availableSorts?.includes("7d-movers") ?? true;
+  const effectiveCardSortMode = cardSortMode;
+  const effectiveCardMovementFilter = cardMovementFilter;
+  const cardSortOptions = [...CARD_BASE_SORT_OPTIONS, ...CARD_MOVEMENT_SORT_OPTIONS];
+  // Preserve endpoint order verbatim. Sorting only the accumulated browser
+  // pages would corrupt the global 7D ranking as infinite-scroll chunks append.
+  const displayedChecklistCards = effectiveCardsPageCards;
   // Infinite scroll (Phase 10): a sentinel below the grid advances cardsPage
   // instead of Previous/Next buttons. `loading_more` keeps every rendered
   // card in place and shows only the bottom brand loader.
@@ -11275,7 +11094,7 @@ export default function RipStatisticsPageClient({
     setSetDetailTab("cards");
     setCardsSubTab("checklist");
     setCardsSection("market-movers");
-    setCardSortMode("30d-gainers");
+    setCardSortMode("7d-movers");
     setCardMovementFilter("all");
     pushSetDetailRouteState({ tab: "cards", section: "market-movers" });
     scrollToSetDetailElement("set-detail-cards");
@@ -12513,16 +12332,11 @@ export default function RipStatisticsPageClient({
     }
 
     const setId = resolvedSetResourceId;
-    // Two consumers share this slim fetch: the Overview 7D Movers ticker
-    // (always the fixed 7D window) and the Cards tab's dedicated Market
-    // Movers view (the "View all movers" destination, selected-window). Any
-    // other tab/section leaves the last payload in place.
+    // The slim movers fetch serves the fixed Overview ticker only. The Cards
+    // preset uses the paginated cards endpoint instead.
     const isOverviewMoversConsumer = setDetailTab === "overview";
-    const isCardsMoversConsumer = setDetailTab === "cards" && cardsSection === "market-movers";
-    const moversSourceWindow = isOverviewMoversConsumer
-      ? MOVERS_TICKER_WINDOW
-      : marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW;
-    const moversFetchLimit = isOverviewMoversConsumer ? MOVERS_TICKER_FETCH_LIMIT : MARKET_MOVERS_FETCH_LIMIT;
+    const moversSourceWindow = MOVERS_TICKER_WINDOW;
+    const moversFetchLimit = MOVERS_TICKER_FETCH_LIMIT;
     if (!setId) {
       dispatchMarketMovers({ type: "reset", status: "empty", sourceWindow: moversSourceWindow });
       return undefined;
@@ -12537,7 +12351,7 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    if (!isOverviewMoversConsumer && !isCardsMoversConsumer) {
+    if (!isOverviewMoversConsumer) {
       return undefined;
     }
 
@@ -12591,12 +12405,10 @@ export default function RipStatisticsPageClient({
   }, [
     setDetailMode,
     setDetailTab,
-    cardsSection,
     requestedTargetId,
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
-    marketMoversWindowKey,
   ]);
 
   // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
@@ -12972,7 +12784,11 @@ export default function RipStatisticsPageClient({
                           </div>
 
                           <div className="space-y-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{RIP_COPY.scoreLabel}</p>
+                            <RipScoreModeToggle
+                              value={heroScoreSelection.mode}
+                              onChange={setHeroScoreMode}
+                              coreAvailable={heroScoreSelection.coreAvailable}
+                            />
                             <div className="flex items-end gap-2">
                               {titleCardMetricsPending && setHeaderSummary.score === null ? (
                                 <span
@@ -12981,32 +12797,20 @@ export default function RipStatisticsPageClient({
                                 />
                               ) : (
                                 <span className="inline-flex items-end gap-1.5 text-5xl font-semibold leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-6xl">
-                                  <span>{formatRawScore(setHeaderSummary.score)}</span>
+                                  <span>{displayedTopScore}</span>
                                   <span className="pb-1 text-xs font-medium tracking-normal text-[var(--text-secondary)]">/100</span>
-                                  <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-1 md:mb-1.5" />
+                                  {heroScoreSelection.mode === RIP_SCORE_MODE ? (
+                                    <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-1 md:mb-1.5" />
+                                  ) : null}
                                 </span>
                               )}
                             </div>
-                            <ScoreMeter score={setHeaderSummary.score} rankTier={setHeaderSummary.tier} />
-                            <div className="flex flex-wrap items-center gap-2">
-                              <RankBadge
-                                rank={setHeaderSummary.tier}
-                                label="Rank"
-                                size="supporting"
-                                title={
-                                  setHeaderSummary.rank === null || setHeaderSummary.rank === undefined
-                                    ? isTimeoutFallbackPayload
-                                      ? timeoutSnapshotRankTitle
-                                      : "Rank unavailable"
-                                    : `Rank #${setHeaderSummary.rank}`
-                                }
-                              />
-                              <RecommendationBadge label={setHeaderSummary.recommendationBadge} rankTier={setHeaderSummary.tier} />
-                            </div>
+                            <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
+                            <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} />
                             {/* Static qualifier — hardcoded copy, deliberately not wired to the
                                 interpretation/recommendation engine. */}
                             <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
-                              Measures the rip experience — not investment return.
+                              {heroScoreSelection.helper}
                             </p>
                             <button
                               type="button"
@@ -13025,7 +12829,7 @@ export default function RipStatisticsPageClient({
                             <div className="min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{setValueMetricLabel}</p>
-                                <InfoPopover text="Checklist set value from daily Near Mint card market observations. Falls back to the set page snapshot only while market history is unavailable." />
+                                <InfoPopover text="Set value from daily Near Mint card market observations." />
                               </div>
                               <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
                                 <span className="min-w-0 truncate">
@@ -13035,7 +12839,7 @@ export default function RipStatisticsPageClient({
                                       : "Coming soon"
                                     : formatCurrency(setHeaderSummary.setValue.current)}
                                 </span>
-                                <DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount} size="md" className="translate-y-px" title="30D checklist set value movement" />
+                                <DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount} size="md" className="translate-y-px" title="30D set value movement" />
                               </p>
                             </div>
                             <button
@@ -13085,10 +12889,10 @@ export default function RipStatisticsPageClient({
                       <div className="flex h-full flex-col justify-between gap-2.5">
                         <div
                           className="rounded-xl border-l-2 border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-4 py-3"
-                          style={getCalloutAccentStyle({ label: setHeaderSummary.recommendationBadge, rankTier: setHeaderSummary.tier })}
+                          style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: heroScoreSelection.tier })}
                         >
                           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
-                          <p className="mt-1.5 text-sm text-[var(--text-primary)]">{setHeaderSummary.recommendationSummary || "No interpretation summary is available for this set yet."}</p>
+                          <p className="mt-1.5 text-sm text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
                         </div>
 
                         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -13140,23 +12944,7 @@ export default function RipStatisticsPageClient({
                       </SectionErrorBoundary>
                     </div>
 
-                    <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                      {/* Priority 1 (position): Decision Signals leads the tab so the page
-                          reads verdict → evidence. Derived purely from
-                          summary/interpretation, both already available from the SSR
-                          shell on this tab — no async gate needed, just
-                          render-exception isolation. */}
-                      <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
-                        <DecisionSignalsCard
-                          pillarSignals={overviewPillarSignals}
-                          summary={summary}
-                          setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                          requestTimeout={isTimeoutFallbackPayload}
-                        />
-                      </SectionErrorBoundary>
-                    </div>
-
-                    <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-[minmax(20rem,1fr)_minmax(0,1.85fr)] lg:items-stretch md:scroll-mt-28">
+                    <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-2 lg:items-stretch md:scroll-mt-28">
                       <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         {/* Priority 2: Set Value. SetValueTrendCard already
                             self-renders loading/error from status/error, so
@@ -13180,9 +12968,9 @@ export default function RipStatisticsPageClient({
                             has no internal status handling, so it gets an
                             explicit SectionBoundary keyed to the /overview
                             payload's own status. */}
-                        <SectionErrorBoundary sectionName="overview-performance-vs-cost" resetKeys={[resolvedSetResourceId]} title="Opening Performance vs Cost" minHeightClassName="min-h-[16rem]">
+                        <SectionErrorBoundary sectionName="overview-performance-vs-cost" resetKeys={[resolvedSetResourceId]} title="Opening Profit vs Cost" minHeightClassName="min-h-[16rem]">
                           <SectionCard
-                            title="Opening Performance vs Cost"
+                            title="Opening Profit vs Cost"
                             titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}
                             className="flex h-full flex-col"
                             bodyClassName="flex min-h-0 flex-1 flex-col"
@@ -13190,7 +12978,7 @@ export default function RipStatisticsPageClient({
                             <SectionBoundary
                               status={overviewPerformanceVsCostStatus}
                               error={activeOverviewState.error ? new Error(activeOverviewState.error) : null}
-                              title="Loading opening performance vs cost…"
+                              title="Loading opening profit vs cost…"
                               minHeightClassName="min-h-[14rem]"
                               className="h-full"
                             >
@@ -13201,21 +12989,42 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    {shouldShowTopMarketCards ? (
-                      <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                        {/* Priority 5: Top Chase Cards — self-renders loading/error. */}
-                        <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
-                          <TopChaseCardsModule
-                            cards={topPricedCards}
-                            status={topPricedCardsStatus}
-                            error={activeTopMarketCardsState.error}
-                            infoText={topPricedCardsInfo}
-                            selectedWindowKey={topMarketCardsWindowKey}
-                            onWindowChange={setTopMarketCardsWindowKey}
+                    {/* Card-level detail + interpretation share one row: Top Chase
+                        Cards at 2/3 width, Decision Signals at 1/3. Below lg they
+                        stack, Top Chase first. */}
+                    <div className="grid gap-5 lg:grid-cols-3 lg:items-start">
+                      {shouldShowTopMarketCards ? (
+                        <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28 lg:col-span-2">
+                          {/* Top Chase Cards — self-renders loading/error. */}
+                          <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
+                            <TopChaseCardsModule
+                              cards={topPricedCards}
+                              status={topPricedCardsStatus}
+                              error={activeTopMarketCardsState.error}
+                              infoText={topPricedCardsInfo}
+                              selectedWindowKey={topMarketCardsWindowKey}
+                              onWindowChange={setTopMarketCardsWindowKey}
+                            />
+                          </SectionErrorBoundary>
+                        </div>
+                      ) : null}
+                      <div
+                        id="set-detail-set-intelligence"
+                        className={`min-w-0 scroll-mt-24 md:scroll-mt-28 ${shouldShowTopMarketCards ? "" : "lg:col-span-3"}`.trim()}
+                      >
+                        {/* Decision Signals — derived purely from summary/interpretation,
+                            both already available from the SSR shell on this tab — no
+                            async gate needed, just render-exception isolation. */}
+                        <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
+                          <DecisionSignalsCard
+                            pillarSignals={overviewPillarSignals}
+                            summary={summary}
+                            setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                            requestTimeout={isTimeoutFallbackPayload}
                           />
                         </SectionErrorBoundary>
                       </div>
-                    ) : null}
+                    </div>
                   </section>
                 ) : null}
 
@@ -13240,26 +13049,6 @@ export default function RipStatisticsPageClient({
 
                     {cardsSubTab === "checklist" ? (
                       <div className="min-w-0">
-                        {cardsSection === "market-movers" ? (
-                          <div id="set-detail-cards-market-movers" className="mb-5 min-w-0 scroll-mt-24 md:scroll-mt-28">
-                            {/* Dedicated Market Movers view — the "View all movers"
-                                destination. Same module (1D/7D/30D pills + the
-                                Heating/Cooling toggle) relocated from the Overview
-                                body; the checklist grid below keeps its movement
-                                sort/filter presets for row-level digging. No
-                                onViewAll here — this section is the destination. */}
-                            <SectionErrorBoundary sectionName="cards-market-movers" resetKeys={[resolvedSetResourceId]} title="Market Movers" minHeightClassName="min-h-[14rem]">
-                              <MarketMoversModule
-                                movers={marketMovers}
-                                moversByWindow={marketMoversByWindow}
-                                selectedWindow={marketMoversWindowKey}
-                                status={marketMoversStatus}
-                                error={activeMarketMoversState.error}
-                                onWindowChange={setMarketMoversWindowKey}
-                              />
-                            </SectionErrorBoundary>
-                          </div>
-                        ) : null}
                         <div className="mb-4">
                           <label className="block min-w-0 max-w-sm text-xs font-semibold text-[var(--text-secondary)]">
                             <span className="mb-1 block uppercase tracking-[0.08em]">Search</span>
@@ -13340,6 +13129,7 @@ export default function RipStatisticsPageClient({
                                   <ChecklistCardTile
                                     key={`${card.id || card.cardNumber || card.name}`}
                                     card={card}
+                                    movementWindow={effectiveCardSortMode === "7d-movers" ? "7D" : "30D"}
                                   />
                                 ))}
                               </div>
@@ -13508,11 +13298,13 @@ export default function RipStatisticsPageClient({
                   </div>
                   <div className="mt-4 flex w-full flex-col items-center text-center">
                       <div className="mt-1 flex w-full justify-center">
-                        <div className="relative inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                          <span>{RIP_COPY.scoreLabel}</span>
-                          <span className="absolute left-full top-1/2 ml-2 inline-flex -translate-y-1/2 items-center">
-                            <InfoPopover text={getFormattedTooltip("Pack Score")} />
-                          </span>
+                        <div className="inline-flex items-center gap-2">
+                          <RipScoreModeToggle
+                            value={heroScoreSelection.mode}
+                            onChange={setHeroScoreMode}
+                            coreAvailable={heroScoreSelection.coreAvailable}
+                          />
+                          <InfoPopover text={heroScoreSelection.helper} />
                         </div>
                       </div>
                       <div className="mt-3 flex w-full justify-center">
@@ -13521,37 +13313,28 @@ export default function RipStatisticsPageClient({
                             {displayedTopScore}
                           </span>
                           <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/100</span>
-                          <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-2 sm:mb-3" />
+                          {heroScoreSelection.mode === RIP_SCORE_MODE ? (
+                            <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-2 sm:mb-3" />
+                          ) : null}
                         </div>
                       </div>
                       <div className="mt-4 w-full max-w-lg">
-                        <ScoreMeter score={topScoreRaw} rankTier={summary.pack_tier} />
+                        <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
                       </div>
                       <div className="mt-4 flex w-full justify-center self-center">
-                        <RankBadge
-                          rank={summary.pack_tier}
-                          label="Rank"
-                          size="hero"
-                          title={
-                            summary.pack_rank === null || summary.pack_rank === undefined
-                              ? isTimeoutFallbackPayload
-                                ? timeoutSnapshotRankTitle
-                                : "Rank unavailable"
-                              : `Rank #${summary.pack_rank}`
-                          }
-                        />
+                        <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} size="hero" />
                       </div>
                     </div>
 
                     <div className="mx-auto mt-6 w-full max-w-2xl">
                       <div
                         className="border-l-2 px-4 py-3 text-left sm:px-5"
-                        style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: summary.pack_tier })}
+                        style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: heroScoreSelection.tier })}
                       >
                         <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                           <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: recommendationTone.dotColor }} />
                           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
-                          <RecommendationBadge label={recommendationBadge} rankTier={summary.pack_tier} />
+                          <RecommendationBadge label={recommendationBadge} rankTier={heroScoreSelection.tier} />
                         </div>
                         <p className="mt-2 text-sm leading-relaxed text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
                       </div>
@@ -13859,7 +13642,7 @@ export default function RipStatisticsPageClient({
                       variant="secondary"
                       options={[
                         { value: "outcome-distribution", label: "Outcome Distribution" },
-                        { value: "historical-trend", label: "Opening Performance vs Cost" },
+                        { value: "historical-trend", label: "Opening Profit vs Cost" },
                         { value: "simulation-drivers", label: "Simulation Drivers" },
                         { value: "value-contribution", label: "Value Structure" },
                         { value: "pack-breakdown", label: "Pack Paths" },
@@ -13870,7 +13653,7 @@ export default function RipStatisticsPageClient({
                     <SimulationSectionHeader
                       title={
                         activeInsightsGraphMode === "historical-trend"
-                          ? "Opening Performance vs Cost"
+                          ? "Opening Profit vs Cost"
                           : activeInsightsGraphMode === "simulation-drivers"
                           ? "Simulation Drivers"
                           : activeInsightsGraphMode === "value-contribution"

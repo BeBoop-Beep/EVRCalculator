@@ -1,4 +1,6 @@
 from backend.scripts import pokemon_snapshot_builders
+from backend.scripts.set_value_scope_invariants import SetValueScopeInvariantError
+import pytest
 
 
 class _Result:
@@ -16,6 +18,7 @@ class _Query:
         self.lte_filters = []
         self.gt_filters = []
         self.lt_filters = []
+        self.range_filter = None
 
     def select(self, _fields):
         return self
@@ -50,6 +53,10 @@ class _Query:
     def limit(self, _value):
         return self
 
+    def range(self, start, end):
+        self.range_filter = (start, end)
+        return self
+
     def execute(self):
         return _Result(self.handlers[self.table_name](self))
 
@@ -60,6 +67,95 @@ class _Client:
 
     def table(self, table_name):
         return _Query(table_name, self.handlers)
+
+
+class _RpcCall:
+    def __init__(self, data):
+        self.data = data
+
+    def execute(self):
+        return _Result(self.data)
+
+
+def _stub_market_dashboard_dependencies(monkeypatch, histories_by_scope):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": histories_by_scope[value_scope],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movement_payload",
+        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "_load_simulation_performance_history", lambda *_args: [])
+
+
+def test_market_dashboard_builder_rejects_corrupt_subset_history(monkeypatch):
+    histories = {
+        "standard": [{"date": "2026-06-16", "setValue": 1097.57}],
+        "hits": [{"date": "2026-06-16", "setValue": 118137.48}],
+        "top10": [{"date": "2026-06-16", "setValue": 941.79}],
+    }
+    _stub_market_dashboard_dependencies(monkeypatch, histories)
+
+    with pytest.raises(SetValueScopeInvariantError) as exc_info:
+        pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+            {"id": "chaos", "name": "Chaos Rising"},
+            client=_Client({"card_variant_price_observations": lambda _query: []}),
+        )
+
+    assert exc_info.value.details["scope"] == "hits"
+    assert exc_info.value.details["date"] == "2026-06-16"
+
+
+def test_market_dashboard_builder_emits_repaired_hits_in_all_history_contracts(monkeypatch):
+    histories = {
+        "standard": [{"date": "2026-06-16", "setValue": 1097.57}],
+        "hits": [{"date": "2026-06-16", "setValue": 968.34}],
+        "top10": [{"date": "2026-06-16", "setValue": 941.79}],
+    }
+    _stub_market_dashboard_dependencies(monkeypatch, histories)
+
+    dashboard_row, _ = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "chaos", "name": "Chaos Rising"},
+        client=_Client({"card_variant_price_observations": lambda _query: []}),
+    )
+
+    assert dashboard_row["set_value_histories_json"]["hits"][0]["setValue"] == 968.34
+    assert dashboard_row["payload_json"]["setValueHistoriesByScope"]["hits"][0]["setValue"] == 968.34
+    assert dashboard_row["payload_json"]["set_value_histories_by_scope"]["hits"][0]["setValue"] == 968.34
+
+
+def test_refresh_canonical_card_market_prices_for_set_calls_authoritative_rpc():
+    calls = []
+
+    class _RpcClient:
+        def rpc(self, name, params):
+            calls.append((name, params))
+            return _RpcCall(124)
+
+    refreshed = pokemon_snapshot_builders.refresh_canonical_card_market_prices_for_set(
+        _RpcClient(),
+        "set-1",
+        commit=True,
+    )
+
+    assert refreshed == 124
+    assert calls == [
+        (
+            "refresh_pokemon_canonical_card_market_prices_latest_for_set",
+            {"target_set_id": "set-1"},
+        )
+    ]
 
 
 def _daily_top_chase_rows(count, *, start_date="2025-06-03", variant_id="variant-1", start_price=10.0):
@@ -105,7 +201,7 @@ def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypat
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"movements": [], "meta": {}},
+        lambda set_id, **_kwargs: {"movements": [], "meta": {}},
     )
 
     def _enrich_with_validation(payload, **_kwargs):
@@ -178,9 +274,13 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
     ]
     latest_price_rows = [
         {
-            "variant_id": f"variant-{index}",
+            "canonical_card_id": f"card-{index}",
+            "card_variant_id": f"variant-{index}",
             "condition_id": "condition-nm",
             "market_price": 1.0 + index,
+            "captured_at": "2026-07-12",
+            "source": "tcgplayer",
+            "price_selection_reason": "selected_near_mint",
         }
         for index in range(1, 259)
     ]
@@ -213,17 +313,15 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"movements": [], "meta": {}},
+        lambda set_id, **_kwargs: {"movements": [], "meta": {}},
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_client",
         lambda: _Client(
             {
-                "cards": lambda _query: legacy_cards,
-                "card_variants": lambda _query: variant_rows,
-                "conditions": lambda _query: [{"id": "condition-nm", "name": "Near Mint"}],
-                "card_market_usd_latest_by_condition": lambda _query: latest_price_rows,
+                "pokemon_canonical_card_market_prices_latest": lambda _query: latest_price_rows,
+                "card_variant_price_observations": lambda _query: [],
             }
         ),
     )
@@ -260,6 +358,93 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
     assert sum(1 for row in correlation["plotRows"] if row["treatmentScore"] is not None) == 258
     assert correlation["metricDiagnostics"]["cardAppeal"]["includedCount"] == 209
     assert correlation["metricDiagnostics"]["treatmentScore"]["includedCount"] == 258
+
+
+def test_query_paginated_rows_reads_past_supabase_1000_row_cap():
+    source_rows = [{"id": index} for index in range(2505)]
+
+    def _handler(query):
+        start, end = query.range_filter
+        return source_rows[start : end + 1]
+
+    rows = pokemon_snapshot_builders._query_paginated_rows(
+        _Client({"observations": _handler}),
+        "observations",
+        lambda query: query.select("id").order("id"),
+    )
+
+    assert len(rows) == 2505
+    assert rows[0]["id"] == 0
+    assert rows[-1]["id"] == 2504
+
+
+def test_authoritative_card_enrichment_keeps_all_cards_and_uses_boundary_carry_forward():
+    payload = {
+        "cards": [{"id": "card-1"}, {"id": "card-2"}, {"id": "card-unpriced"}],
+        "meta": {},
+    }
+    prices = {
+        "card-1": {
+            "market_price": 12.0,
+            "variant_id": "variant-1",
+            "condition_id": "condition-nm",
+            "captured_at": "2026-07-12",
+            "source": "tcgplayer",
+            "price_selection_reason": "selected_near_mint",
+        },
+        "card-2": {
+            "market_price": 5.0,
+            "variant_id": "variant-2",
+            "condition_id": "condition-nm",
+            "captured_at": "2026-07-11",
+            "source": "tcgplayer",
+            "price_selection_reason": "selected_near_mint",
+        },
+    }
+    observations = [
+        {"card_variant_id": "variant-1", "condition_id": "condition-nm", "market_price": 10.0, "captured_at": "2026-07-05", "source": "tcgplayer"},
+        {"card_variant_id": "variant-1", "condition_id": "condition-nm", "market_price": 12.0, "captured_at": "2026-07-12", "source": "tcgplayer"},
+        {"card_variant_id": "variant-2", "condition_id": "condition-nm", "market_price": 4.0, "captured_at": "2026-07-04", "source": "tcgplayer"},
+        {"card_variant_id": "variant-2", "condition_id": "condition-nm", "market_price": 5.0, "captured_at": "2026-07-11", "source": "tcgplayer"},
+    ]
+    client = _Client({"card_variant_price_observations": lambda _query: observations})
+
+    enriched = pokemon_snapshot_builders._enrich_cards_with_authoritative_prices_and_movements(
+        payload,
+        set_id="set-1",
+        prices_by_card=prices,
+        client=client,
+    )
+
+    assert len(enriched["cards"]) == 3
+    first, carried, unavailable = enriched["cards"]
+    assert first["marketPrice"] == 12.0
+    assert first["movement7d"]["startDate"] == "2026-07-05"
+    assert first["movement7d"]["endDate"] == "2026-07-12"
+    assert first["movement7d"]["startingPrice"] == 10.0
+    assert first["change7dAmount"] == 2.0
+    assert first["change7dPercent"] == 20.0
+    assert carried["marketPrice"] == 5.0
+    assert carried["priceSourceDate"] == "2026-07-11"
+    assert carried["priceCarriedForward"] is True
+    assert carried["movement7d"]["endDate"] == "2026-07-12"
+    assert carried["movement7d"]["endSourceDate"] == "2026-07-11"
+    assert unavailable.get("marketPrice") is None
+
+
+def test_forward_fill_top_chase_history_is_idempotent_and_preserves_source_date():
+    history = [
+        {"date": "2026-07-10", "marketPrice": 20.0, "sourceDate": "2026-07-10"},
+        {"date": "2026-07-11", "marketPrice": 22.0, "sourceDate": "2026-07-11"},
+    ]
+    first = pokemon_snapshot_builders._forward_fill_history_through_date(history, end_date_key="2026-07-12")
+    second = pokemon_snapshot_builders._forward_fill_history_through_date(first, end_date_key="2026-07-12")
+
+    assert first == second
+    assert [point["date"] for point in first] == ["2026-07-10", "2026-07-11", "2026-07-12"]
+    assert first[-1]["marketPrice"] == 22.0
+    assert first[-1]["sourceDate"] == "2026-07-11"
+    assert first[-1]["isCarriedForward"] is True
 
 
 def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(monkeypatch):
@@ -312,20 +497,28 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     card = payload["topChaseCards"][0]
     histories = payload["topChaseCardHistories"]
     expected_history = [
-        {
-            "date": "2026-06-01",
+            {
+                "date": "2026-06-01",
             "marketPrice": 10.0,
             "market_price": 10.0,
-            "sourceDate": "2026-06-01",
-            "source_date": "2026-06-01",
-        },
+                "sourceDate": "2026-06-01",
+                "source_date": "2026-06-01",
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
         {
             "date": "2026-06-02",
             "marketPrice": 12.0,
             "market_price": 12.0,
-            "sourceDate": "2026-06-02",
-            "source_date": "2026-06-02",
-        },
+                "sourceDate": "2026-06-02",
+                "source_date": "2026-06-02",
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
     ]
 
     assert "priceHistory" in card
@@ -480,18 +673,22 @@ def test_build_market_dashboard_snapshot_row_hydrates_top_chase_history_from_raw
             "market_price": 10.0,
             "sourceDate": "2026-06-01",
             "source_date": "2026-06-01",
-            "isObserved": True,
-            "is_observed": True,
-        },
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
         {
             "date": "2026-06-02",
             "marketPrice": 12.0,
             "market_price": 12.0,
             "sourceDate": "2026-06-02",
             "source_date": "2026-06-02",
-            "isObserved": True,
-            "is_observed": True,
-        },
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
     ]
 
     payload = dashboard_row["payload_json"]
@@ -579,8 +776,8 @@ def test_build_market_dashboard_snapshot_row_uses_365d_top_chase_source_when_day
 def test_build_market_dashboard_snapshot_row_writes_set_value_freshness_metadata(monkeypatch):
     histories = {
         "standard": [
-            {"date": "2026-06-20", "setValue": 100.0},
-            {"date": "2026-06-24", "setValue": 104.0},
+            {"date": "2026-06-20", "setValue": 1000.0},
+            {"date": "2026-06-24", "setValue": 1040.0},
         ],
         "hits": [
             {"date": "2026-06-20", "setValue": 700.0},
@@ -766,7 +963,7 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
         assert row["rip_summary_json"][key] == expected
 
     validation = row["payload_json"]["desirabilityValidation"]
-    assert validation["formula_version"] == "desirability_validation_v1"
+    assert validation["formula_version"] == "desirability_validation_v2"
     assert validation["desirability_impact_band"] in {"lift", "drag", "neutral"}
     assert row["payload_json"]["desirability_validation"] == validation
 
@@ -1092,7 +1289,7 @@ def test_build_set_page_snapshot_row_preserves_previous_card_appeal_correlation_
     assert payload["meta"]["sectionFreshness"]["cardAppealValidation"]["status"] == "stale"
 
 
-def test_build_set_page_snapshot_row_preserves_previous_desirability_validation_when_current_build_lacks_it(monkeypatch):
+def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_validation_missing(monkeypatch):
     monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1136,9 +1333,9 @@ def test_build_set_page_snapshot_row_preserves_previous_desirability_validation_
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
     payload = row["payload_json"]
 
-    assert payload["desirabilityValidation"] == validation
-    assert payload["desirability_validation"] == validation
-    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "stale"
+    assert "desirabilityValidation" not in payload
+    assert "desirability_validation" not in payload
+    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "missing"
 
 
 def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapshot(monkeypatch):
@@ -1264,7 +1461,7 @@ def _sim_history_client(*, history_rows=None, summary_rows=None):
 
 def _value_history_stub(*, histories_by_scope=None):
     histories = histories_by_scope or {
-        "standard": [{"date": "2026-06-20", "setValue": 100.0}],
+        "standard": [{"date": "2026-06-20", "setValue": 1000.0}],
         "hits": [{"date": "2026-06-20", "setValue": 700.0}],
         "top10": [{"date": "2026-06-20", "setValue": 500.0}],
     }

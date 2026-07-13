@@ -69,8 +69,9 @@ test("getPokemonSetCardsPage does not join calls for a different set id, page, s
       getPokemonSetCardsPage("set-dedupe-cards-a", { page: 2, sort: "set-number" }),
       getPokemonSetCardsPage("set-dedupe-cards-a", { page: 1, sort: "market-value" }),
       getPokemonSetCardsPage("set-dedupe-cards-a", { page: 1, sort: "set-number", movementFilter: "risers" }),
+      getPokemonSetCardsPage("set-dedupe-cards-a", { page: 1, sort: "set-number", movementSort: "7d-movers" }),
     ]);
-    assert.equal(stub.getCallCount(), 5, "distinct set ids, pages, sorts, or movement filters must not be joined together");
+    assert.equal(stub.getCallCount(), 6, "distinct set ids, pages, sorts, movement filters, or movement sorts must not be joined together");
   } finally {
     stub.restore();
   }

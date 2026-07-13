@@ -5,6 +5,7 @@ function toOptionalString(value) {
 
 const CARD_SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
 const cardSnapshotCache = new Map();
+const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v2";
 const cardSnapshotInflight = new Map();
 const isDev = process.env.NODE_ENV !== "production";
 const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
@@ -171,6 +172,7 @@ function normalizeCardAppealMarketPriceCorrelation(payload) {
 }
 
 function normalizeSetCard(card, validation = {}) {
+  const movement7dSource = card?.movement7d ?? card?.movement_7d ?? {};
   const currentPrice = toOptionalNumber(
     card?.currentPrice ??
       card?.current_price ??
@@ -182,6 +184,8 @@ function normalizeSetCard(card, validation = {}) {
   );
   const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount ?? card?.movement30d?.changeAmount ?? card?.movement30d?.change_amount);
   const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent ?? card?.movement30d?.changePercent ?? card?.movement30d?.change_percent);
+  const change7dAmount = toOptionalNumber(card?.change7dAmount ?? card?.change_7d_amount ?? card?.movement7d?.changeAmount ?? card?.movement7d?.change_amount);
+  const change7dPercent = toOptionalNumber(card?.change7dPercent ?? card?.change_7d_percent ?? card?.movement7d?.changePercent ?? card?.movement7d?.change_percent);
   const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score ?? card?.movement30d?.movementScore ?? card?.movement30d?.score);
   const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label ?? card?.movement30d?.movementLabel ?? card?.movement30d?.label);
   const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? card?.movement30d?.enoughHistory ?? card?.movement30d?.enough_history);
@@ -210,6 +214,14 @@ function normalizeSetCard(card, validation = {}) {
     marketPrice: currentPrice ?? toOptionalNumber(card?.market_price ?? card?.estimated_market_price ?? card?.marketPrice),
     currentPrice,
     cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id ?? validation?.cardVariantId ?? validation?.card_variant_id),
+    conditionId: toOptionalString(card?.conditionId ?? card?.condition_id),
+    printingType: toOptionalString(card?.printingType ?? card?.printing_type),
+    priceUpdatedAt: toOptionalString(card?.priceUpdatedAt ?? card?.price_updated_at),
+    priceSourceDate: toOptionalString(card?.priceSourceDate ?? card?.price_source_date),
+    marketDate: toOptionalString(card?.marketDate ?? card?.market_date),
+    priceCarriedForward: toOptionalBoolean(card?.priceCarriedForward ?? card?.price_carried_forward),
+    priceSource: toOptionalString(card?.priceSource ?? card?.price_source),
+    priceSelectionReason: toOptionalString(card?.priceSelectionReason ?? card?.price_selection_reason),
     subjectDemandScore,
     cardDesirabilityScore: subjectDemandScore,
     pokemonDesirabilityScore: subjectDemandScore,
@@ -234,6 +246,29 @@ function normalizeSetCard(card, validation = {}) {
     isHitEligible: toOptionalBoolean(card?.isHitEligible ?? card?.is_hit_eligible ?? validation?.isHitEligible ?? validation?.is_hit_eligible),
     change30dAmount,
     change30dPercent,
+    change7dAmount,
+    change7dPercent,
+    movement7d: {
+      window: toOptionalString(movement7dSource?.window) || "7D",
+      windowDays: toOptionalNumber(movement7dSource?.windowDays ?? movement7dSource?.window_days) ?? 7,
+      startDate: toOptionalString(movement7dSource?.startDate ?? movement7dSource?.start_date),
+      endDate: toOptionalString(movement7dSource?.endDate ?? movement7dSource?.end_date),
+      startingPrice: toOptionalNumber(movement7dSource?.startingPrice ?? movement7dSource?.starting_price),
+      currentPrice: toOptionalNumber(movement7dSource?.currentPrice ?? movement7dSource?.current_price) ?? currentPrice,
+      changeAmount: change7dAmount,
+      changePercent: change7dPercent,
+      enoughHistory: toOptionalBoolean(movement7dSource?.enoughHistory ?? movement7dSource?.enough_history),
+      reliable: toOptionalBoolean(movement7dSource?.reliable ?? card?.movement7dReliable ?? card?.movement_7d_reliable),
+      reliability: toOptionalString(movement7dSource?.reliability),
+      startSourceDate: toOptionalString(movement7dSource?.startSourceDate ?? movement7dSource?.start_source_date),
+      endSourceDate: toOptionalString(movement7dSource?.endSourceDate ?? movement7dSource?.end_source_date),
+      startCarriedForward: toOptionalBoolean(movement7dSource?.startCarriedForward ?? movement7dSource?.start_carried_forward),
+      endCarriedForward: toOptionalBoolean(movement7dSource?.endCarriedForward ?? movement7dSource?.end_carried_forward),
+      cardVariantId: toOptionalString(movement7dSource?.cardVariantId ?? movement7dSource?.card_variant_id),
+      conditionId: toOptionalString(movement7dSource?.conditionId ?? movement7dSource?.condition_id),
+      source: toOptionalString(movement7dSource?.source),
+      historyPointCount: toOptionalNumber(movement7dSource?.historyPointCount ?? movement7dSource?.history_point_count),
+    },
     movementScore,
     movementLabel,
     enoughHistory,
@@ -541,6 +576,7 @@ export async function getPokemonSetCardsPage(
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", PRICING_SNAPSHOT_CONTRACT_VERSION);
   if (page) {
     params.set("page", String(page));
   }

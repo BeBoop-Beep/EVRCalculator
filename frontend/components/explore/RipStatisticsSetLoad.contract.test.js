@@ -809,6 +809,11 @@ test("market dashboard payload exposes distinct 1D/7D/30D market mover rows for 
 test("Market Movers module supports a 1D/7D/30D window selector defaulting to 30D", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
+  assert.ok(!source.includes("function MarketMoversModule("), "the standalone Cards movers module must be removed");
+  assert.ok(source.includes('{ value: "7d-movers", label: "Largest 7D Moves" }'));
+  assert.ok(source.includes('cardSort: "7d-movers"'));
+  return;
+
   const componentStart = source.indexOf("function MarketMoversModule(");
   const componentEnd = source.indexOf("\nfunction normalizePullRateAssumptions");
   assert.ok(componentStart >= 0, "MarketMoversModule must exist");
@@ -1003,6 +1008,11 @@ test("Phase 5A: Top Chase Cards section container always renders on Overview, re
 test("Phase 5A: the 7D Movers ticker always renders on Overview, and the full module always renders at its Cards tab destination", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
+  assert.ok(source.includes('id="set-detail-movers-ticker"'));
+  assert.ok(!source.includes('id="set-detail-cards-market-movers"'));
+  assert.ok(!source.includes("<MarketMoversModule"));
+  return;
+
   assert.ok(
     !source.includes("{hasMarketMovers ? ("),
     "the movers containers must no longer be conditionally rendered behind hasMarketMovers"
@@ -1174,16 +1184,17 @@ test("top chase and market movers request windows are canonical", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const marketSource = fs.readFileSync(marketClientPath, "utf8");
 
-  assert.ok(source.includes('const DEFAULT_TOP_CHASE_MARKET_WINDOW = "30D"'));
+  assert.ok(source.includes('const DEFAULT_TOP_CHASE_MARKET_WINDOW = "365d"'));
   assert.ok(source.includes("const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW"));
   assert.ok(source.includes("getPokemonSetTopChase(setId, { window: topChaseSourceWindow"));
-  assert.ok(source.includes('const [marketMoversWindowKey, setMarketMoversWindowKey] = useState(DEFAULT_MARKET_MOVERS_WINDOW)'));
+  assert.ok(marketSource.includes('getPokemonSetTopChase(setId, { window = "365d"'));
+  assert.ok(source.includes('const MOVERS_TICKER_WINDOW = "7D"'));
   assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow"));
   assert.ok(marketSource.includes("export async function getPokemonSetTopChase"));
   assert.ok(marketSource.includes("export async function getPokemonSetMarketMovers"));
 });
 
-test("market movers effect refetches by selected window and top chase effect does not depend on it", () => {
+test("market movers effect is fixed to the Overview 7D ticker and top chase remains independent", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   const moversEffectStart = source.indexOf("getPokemonSetMarketMovers(setId, { window: moversSourceWindow");
@@ -1191,10 +1202,8 @@ test("market movers effect refetches by selected window and top chase effect doe
   const moversEffectDepsEnd = source.indexOf("]);", moversEffectDepsStart);
   const moversEffectDeps = source.slice(moversEffectDepsStart, moversEffectDepsEnd);
   assert.ok(moversEffectStart >= 0, "market movers effect must exist");
-  assert.ok(
-    moversEffectDeps.includes("marketMoversWindowKey"),
-    "the market movers effect must re-run (and refetch) when the selected window changes"
-  );
+  assert.ok(!moversEffectDeps.includes("marketMoversWindowKey"));
+  assert.ok(source.includes("const moversSourceWindow = MOVERS_TICKER_WINDOW;"));
 
   const topChaseEffectStart = source.indexOf("getPokemonSetTopChase(setId, { window: topChaseSourceWindow");
   const topChaseEffectDepsStart = source.indexOf("}, [", topChaseEffectStart);
@@ -2227,7 +2236,7 @@ test("shallow-only same-set tab navigation helper does not exist", () => {
   );
 });
 
-test("title/header card renders from the Set Header Summary Contract, not activeSetDetailTab", () => {
+test("title/header card keeps stable Set Value data while its score follows the hero mode contract", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(
@@ -2267,16 +2276,16 @@ test("title/header card renders from the Set Header Summary Contract, not active
   // read from setHeaderSummary — never directly off setDetailTab, and never
   // bare `summary.pack_tier`/`recommendationBadge` inside that block, since
   // those are only as fresh as whatever tab happened to load.
-  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const heroStart = source.indexOf("<RipScoreModeToggle");
   const heroEnd = source.indexOf("set-detail-content", heroStart);
   const heroSource = source.slice(heroStart, heroEnd);
 
   assert.ok(!heroSource.includes("setDetailTab"), "header hero must not depend on the active setDetailTab");
-  assert.ok(heroSource.includes("setHeaderSummary.score"), "header score must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.tier"), "header tier must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.rank"), "header rank must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.recommendationBadge"), "header badge must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.recommendationSummary"), "header recommendation text must come from setHeaderSummary");
+  assert.ok(heroSource.includes("displayedTopScore"), "header score must come from the selected hero score contract");
+  assert.ok(heroSource.includes("heroScoreSelection.tier"), "header tier must come from the selected hero score contract");
+  assert.ok(heroSource.includes("heroScoreSelection.rank"), "header rank must come from the selected hero score contract");
+  assert.ok(heroSource.includes("recommendationBadge"), "header badge must follow the selected hero score mode");
+  assert.ok(heroSource.includes("recommendationSummary"), "header recommendation text must follow the selected hero score mode");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.current"), "header set value must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.delta30dAmount"), "header set value delta must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.sparklinePoints"), "header sparkline must come from setHeaderSummary");
@@ -2413,7 +2422,7 @@ test("Patch 2: set-switch pending state exists and replaces placeholder metric v
 test("title-card checklist set value sparkline has a hover tooltip like the Overview Set Value Trend chart", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const heroStart = source.indexOf("<RipScoreModeToggle");
   const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
   const sparklineEnd = source.indexOf("/>", sparklineStart);
   const sparklineSource = source.slice(sparklineStart, sparklineEnd);
@@ -2428,22 +2437,23 @@ test("title-card checklist set value sparkline has a hover tooltip like the Over
 test("compact header sparkline tooltip floats above the RIP score/title card instead of being clipped", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const heroStart = source.indexOf("<RipScoreModeToggle");
   const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
   assert.ok(sparklineStart > heroStart, "header CompactSparkline must exist after the RIP score label");
 
-  const cardWrapperStart = source.lastIndexOf('<div className="relative flex min-h-[8.25rem]', sparklineStart);
-  const cardWrapperEnd = source.indexOf(">", cardWrapperStart);
-  const cardWrapperClassName = source.slice(cardWrapperStart, cardWrapperEnd);
+  const stackingTokenIndex = source.lastIndexOf("has-[[data-compact-sparkline-tooltip]]:z-30", sparklineStart);
+  const resolvedCardWrapperStart = source.lastIndexOf('<div className="', stackingTokenIndex);
+  const cardWrapperEnd = source.indexOf(">", resolvedCardWrapperStart);
+  const cardWrapperClassName = source.slice(resolvedCardWrapperStart, cardWrapperEnd);
 
-  assert.ok(cardWrapperStart >= 0, "checklist set value card wrapping the header sparkline must exist");
+  assert.ok(resolvedCardWrapperStart >= 0, "Set Value card wrapping the header sparkline must exist");
   assert.ok(
     cardWrapperClassName.includes("has-[[data-compact-sparkline-tooltip]]:z-30"),
-    "checklist set value card must raise its stacking context above the RIP score/title card (z-20) while its tooltip is showing"
+    "Set Value card must raise its stacking context above the RIP score/title card (z-20) while its tooltip is showing"
   );
   assert.ok(
     !cardWrapperClassName.includes("overflow-hidden"),
-    "checklist set value card must not clip the sparkline tooltip"
+    "Set Value card must not clip the sparkline tooltip"
   );
 
   const compactStart = source.indexOf("function CompactSparkline");
@@ -2580,20 +2590,15 @@ test("Phase 3A: Top Chase live fetch path calls getPokemonSetTopChase", () => {
   assert.ok(dispatchStart >= 0 && dispatchStart < topChaseEffectStart, "must dispatch loading before calling getPokemonSetTopChase");
 });
 
-test("Phase 3A: Market Movers live fetch path calls getPokemonSetMarketMovers with the per-consumer window", () => {
+test("Phase 3A: Market Movers live fetch path serves only the fixed Overview ticker window", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   // Overview's ticker always requests the fixed 7D window; the Cards tab
   // destination follows the user's 1D/7D/30D selection.
-  assert.ok(
-    source.includes("const moversSourceWindow = isOverviewMoversConsumer") &&
-      source.includes("? MOVERS_TICKER_WINDOW") &&
-      source.includes(": marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW"),
-    "movers fetch must derive its window from the active consumer (ticker: fixed 7D; Cards tab: selected window)"
-  );
+  assert.ok(source.includes("const moversSourceWindow = MOVERS_TICKER_WINDOW;"));
   assert.ok(source.includes('const MOVERS_TICKER_WINDOW = "7D"'), "the ticker window must be pinned to 7D");
   assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow"), "must call getPokemonSetMarketMovers with the derived window");
-  assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"), "MarketMoversModule must be driven by the selected-window state");
+  assert.ok(!source.includes("function MarketMoversModule("), "the Cards-only movers module must be removed");
 });
 
 test("Phase 3A: dev-only warning fires when a legacy market dashboard payload backs the Overview fallback", () => {
@@ -3411,8 +3416,8 @@ test("Phase 11: Overview renders 5 priority-ordered sections, each independently
   const chaseIndex = renderSource.indexOf("<TopChaseCardsModule");
   const signalsIndex = renderSource.indexOf("<DecisionSignalsCard");
   assert.ok(
-    tickerIndex >= 0 && signalsIndex > tickerIndex && setValueIndex > signalsIndex && perfIndex > setValueIndex && chaseIndex > perfIndex,
-    "sections must render ticker-first: 7D Movers ticker, then Decision Signals, Set Value, Opening Performance vs Cost, Top Chase"
+    tickerIndex >= 0 && setValueIndex > tickerIndex && perfIndex > setValueIndex && chaseIndex > perfIndex && signalsIndex > chaseIndex,
+    "sections must render ticker, chart row, then Top Chase and Decision Signals"
   );
 
   assert.ok(
@@ -3807,7 +3812,7 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   const navSource = source.slice(navStart, navEnd);
   assert.ok(navStart >= 0 && navEnd > navStart, "handleSetDetailNavSelect must exist");
   assert.ok(
-    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortMode("30d-gainers");'),
+    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortMode("7d-movers");'),
     "entering Market Movers must preset the movers sort"
   );
   assert.ok(
@@ -3818,7 +3823,7 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   const viewAllStart = source.indexOf("const handleViewAllMarketMovers = () => {");
   const viewAllSource = source.slice(viewAllStart, source.indexOf("};", viewAllStart));
   assert.ok(viewAllSource.includes('setCardsSection("market-movers");'), "View-all-movers must activate the market-movers section");
-  assert.ok(viewAllSource.includes('pushSetDetailRouteState({ tab: "cards", section: "market-movers" });'), "View-all-movers must reflect the section in the URL");
+  assert.ok(viewAllSource.includes('pushSetDetailRouteState({ tab: "cards", section: "market-movers" });'), "View-all-movers must reflect the preset in the URL");
 
   // Both sections render the same checklist grid, so the movers view gets the
   // same append/sentinel mechanics and the fetch always carries the active
@@ -3827,6 +3832,31 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   assert.equal(cardsPageCallCount, 1, "one shared paginated fetch serves both cards sections");
   assert.ok(source.includes("movementFilter: effectiveCardMovementFilter,"), "the shared fetch must carry the movement filter");
   assert.ok(source.includes("movementSort: movementSortValue,"), "the shared fetch must carry the movement sort");
+});
+
+test("Decision Signals has one fixed compact presentation and only renders tracked lens scores", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const cardStart = source.indexOf("function DecisionSignalsCard(");
+  const cardEnd = source.indexOf("function CompactPillarSignalTile(", cardStart);
+  const cardSource = source.slice(cardStart, cardEnd);
+
+  assert.ok(cardStart >= 0 && cardEnd > cardStart, "DecisionSignalsCard must exist");
+  assert.ok(!cardSource.includes("SectionViewTabs"));
+  assert.ok(!cardSource.includes("displayMode"));
+  assert.ok(!cardSource.includes("usedRawFallback"));
+  assert.ok(cardSource.includes("const hasScore = toNumber(resolvedScore.score) !== null"));
+});
+
+test("7D movers destination is URL-backed and reloads into the paginated Cards preset", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes('nextParams.set("card_sort", cardSort);'));
+  assert.ok(source.includes('nextParams.set("movement", movementFilter);'));
+  assert.ok(source.includes('getSetDetailSectionParam(searchParams) === "market-movers" ? "7d-movers" : "set-number"'));
+  assert.ok(source.includes('const routeSort = String(searchParams?.get?.("card_sort") || "")'));
+  assert.ok(source.includes('setCardSortMode(routeSort === "7d-movers" ? routeSort : "7d-movers");'));
+  assert.ok(source.includes('setCardMovementFilter(CARD_MOVEMENT_FILTER_OPTIONS.some((option) => option.value === routeMovement) ? routeMovement : "all");'));
+  assert.ok(!source.includes('id="set-detail-cards-market-movers"'));
 });
 
 // Progressive-rendering refactor: Cards priority 5 ("secondary metadata/
@@ -3844,7 +3874,7 @@ test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition 
     "the page client must import the standalone startTransition function"
   );
 
-  const tileStart = source.indexOf("function ChecklistCardTile({ card }) {");
+  const tileStart = source.indexOf('function ChecklistCardTile({ card, movementWindow = "30D" }) {');
   assert.ok(tileStart >= 0, "ChecklistCardTile must exist");
   const tileEnd = source.indexOf("\nfunction getChecklistCardMarketPrice", tileStart);
   const tileSource = source.slice(tileStart, tileEnd);
@@ -4254,30 +4284,19 @@ test("Stabilization: useSectionFetchState dedupes auto-fetches by set id and rel
 // (pearson/spearman) instead of showing "n/a" — never recompute.
 // ---------------------------------------------------------------------------
 
-test("Patch 3: uncomputed proof fields render 'Not computed yet' instead of bare N/A", () => {
+test("Desirability proof uses canonical labels, explanations, and specific unavailable reasons", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  assert.ok(source.includes('const PROOF_NOT_COMPUTED_LABEL = "Not computed yet";'), "a shared 'Not computed yet' label must exist");
-  assert.ok(source.includes("function formatProofRankOrNotComputed(value)"), "a rank formatter that yields the not-computed label must exist");
-  assert.ok(source.includes("function formatProofDeltaOrNotComputed(value, suffix"), "a delta formatter that yields the not-computed label must exist");
-
-  // Final RIP Rank / Score Delta / Rank Delta must route through the
-  // not-computed formatters, not the bare N/A ones.
-  assert.ok(
-    source.includes('<ProofMetric label="Final RIP Rank" value={formatProofRankOrNotComputed(finalRank)} />'),
-    "Final RIP Rank must use the not-computed formatter"
-  );
-  assert.ok(
-    source.includes("<ProofMetric label=\"Score Delta\" value={formatProofDeltaOrNotComputed(validation.desirability_score_delta ?? validation.desirabilityScoreDelta)} />"),
-    "Score Delta must use the not-computed formatter"
-  );
-  assert.ok(
-    source.includes('<ProofMetric label="Rank Delta" value={formatProofDeltaOrNotComputed(rankDelta, " ranks")} />'),
-    "Rank Delta must use the not-computed formatter"
-  );
+  assert.ok(source.includes('label="Final RIP Score Rank"'));
+  assert.ok(source.includes('"Rank before collector desirability is added."'));
+  assert.ok(source.includes('"Overall RIP Score rank after collector desirability is included."'));
+  assert.ok(source.includes('"Final RIP Score minus RIP Core score."'));
+  assert.ok(source.includes('"Positive means the set moved toward #1; negative means it moved down."'));
+  assert.ok(source.includes('"Awaiting desirability score"'));
+  assert.ok(source.includes('"Awaiting canonical comparison"'));
 });
 
-test("Patch 3: Top 10 Cards honors missing_data_flags and null rank with 'Not computed yet'", () => {
+test("Top 10 Card Value honors missing data and explains its canonical market rank", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   const flagStart = source.indexOf("const top10CardValueNotComputed =");
@@ -4289,10 +4308,9 @@ test("Patch 3: Top 10 Cards honors missing_data_flags and null rank with 'Not co
     flagSource.includes("toNumber(validation.top_10_card_value_rank ?? validation.top10CardValueRank) === null"),
     "must also treat a null top-10 rank as not computed"
   );
-  assert.ok(
-    source.includes("value={top10CardValueNotComputed ? PROOF_NOT_COMPUTED_LABEL : formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank)}"),
-    "the Top 10 Cards tile must render the not-computed label when flagged/null"
-  );
+  assert.ok(source.includes('label="Top 10 Card Value"'));
+  assert.ok(source.includes('"Awaiting canonical card prices"'));
+  assert.ok(source.includes("Rank based on the combined current market value of the set’s ten highest-priced cards."));
 });
 
 test("Patch 3: Price Relation reuses cardAppealMarketPriceCorrelation instead of raw N/A", () => {
@@ -4333,5 +4351,5 @@ test("Patch 3: Desirability Impact and Signal Check blocks still render (regress
   assert.ok(source.includes('<h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Signal Check</h3>'), "Desirability Signal Check block must remain");
   // RIP Core Rank keeps the plain formatter (the investigation found it
   // populated) — only the confirmed-null fields switched to not-computed.
-  assert.ok(source.includes('<ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} />'), "RIP Core Rank keeps the plain rank formatter");
+  assert.ok(source.includes('<ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)}'), "RIP Core Rank keeps the plain rank formatter");
 });

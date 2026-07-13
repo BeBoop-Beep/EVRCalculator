@@ -36,7 +36,7 @@ test("selectedScope=checklist returns checklist label, value, series, and deltas
 
   assert.equal(selected.scope, "standard");
   assert.equal(selected.label, "Checklist");
-  assert.equal(selected.metricLabel, "Checklist Set Value");
+  assert.equal(selected.metricLabel, "Set Value");
   assert.equal(selected.currentValue, 110);
   assert.equal(selected.delta30d, 10);
   assert.equal(selected.delta30dPct, 10);

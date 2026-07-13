@@ -96,6 +96,8 @@ def test_validation_preserves_explicit_rip_comparison_fields_for_delta():
                 "rip_score_with_desirability": 21.13,
                 "rip_rank_without_desirability": 27,
                 "rip_rank_with_desirability": 20,
+                "rip_score_delta": 10.16,
+                "rip_rank_delta": 7,
             }
         },
         target_rows=[
@@ -106,6 +108,8 @@ def test_validation_preserves_explicit_rip_comparison_fields_for_delta():
                 "rip_score_with_desirability": 21.13,
                 "rip_rank_without_desirability": 27,
                 "rip_rank_with_desirability": 20,
+                "rip_score_delta": 10.16,
+                "rip_rank_delta": 7,
             },
             {
                 "id": "other-set",
@@ -126,7 +130,25 @@ def test_validation_preserves_explicit_rip_comparison_fields_for_delta():
     assert payload["desirability_rank_delta"] == 7
 
 
-def test_top_hits_current_near_mint_price_populates_top_10_card_value():
+def test_validation_does_not_recompute_missing_canonical_deltas():
+    payload = build_desirability_validation_payload(
+        set_id="set-1",
+        target_rows=[
+            {
+                "id": "set-1",
+                "rip_score_without_desirability": 10.0,
+                "rip_score_with_desirability": 99.0,
+                "rip_rank_without_desirability": 1,
+                "rip_rank_with_desirability": 9,
+            }
+        ],
+    )
+
+    assert payload["desirability_score_delta"] is None
+    assert payload["desirability_rank_delta"] is None
+
+
+def test_top_hits_do_not_populate_canonical_top_10_card_value():
     payload = build_desirability_validation_payload(
         set_id="set-1",
         set_payload={
@@ -138,8 +160,8 @@ def test_top_hits_current_near_mint_price_populates_top_10_card_value():
         },
     )
 
-    assert payload["top_10_card_value"] == 18.0
-    assert "top_10_card_value" not in payload["missing_data_flags"]
+    assert payload["top_10_card_value"] is None
+    assert "top_10_card_value" in payload["missing_data_flags"]
 
 
 def test_subset_rows_are_excluded_unless_mapped_to_opening_set():

@@ -25,6 +25,9 @@ function makeCamelCard(overrides = {}) {
     currentPrice: 42.5,
     change30dAmount: 5,
     change30dPercent: 11.1,
+    change7dAmount: -2,
+    change7dPercent: -4.7,
+    movement7d: { currentPrice: 42.5, changeAmount: -2, changePercent: -4.7 },
     movementScore: 5,
     movementLabel: "heating_up",
     enoughHistory: true,
@@ -92,6 +95,8 @@ test("normalizePokemonSetCardsPagePayload normalizes cards using the same shape 
   assert.equal(pageResult.cards[0].marketPrice, 42.5);
   assert.equal(pageResult.cards[0].treatmentScore, 1.2);
   assert.equal(pageResult.cards[0].change30dAmount, 5);
+  assert.equal(pageResult.cards[0].change7dAmount, -2);
+  assert.equal(pageResult.cards[0].change7dPercent, -4.7);
 });
 
 test("normalizePokemonSetCardsPagePayload normalizes pagination metadata", () => {
