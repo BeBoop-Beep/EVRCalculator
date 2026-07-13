@@ -3749,9 +3749,53 @@ test("Phase 10: changing set/sort/search/movement filter rewinds to the first ch
   const resetStart = source.indexOf("setCardsPage(1);");
   assert.ok(resetStart >= 0, "a scope-reset effect must rewind the page counter");
   const resetSource = source.slice(source.lastIndexOf("useEffect(() => {", resetStart), source.indexOf("]);", resetStart) + 3);
-  for (const dep of ["cardSortMode", "cardMovementFilter", "cardSearchQuery", "resolvedSetResourceId"]) {
+  for (const dep of ["cardSortMode", "cardMovementFilter", "cardSearchQuery", "cardRarityFilter", "resolvedSetResourceId"]) {
     assert.ok(resetSource.includes(dep), `the scope-reset effect must depend on ${dep}`);
   }
+});
+
+test("Cards request identity includes snapshot contract, rarity, and every movement/search dimension", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("// Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  for (const token of [
+    "setId",
+    "PRICING_SNAPSHOT_CONTRACT_VERSION",
+    "effectiveCardSortMode",
+    "cardSearchQuery.trim()",
+    'cardRarityFilter || ""',
+    "effectiveCardMovementFilter",
+    "movementSortValue",
+  ]) {
+    assert.ok(effectSource.includes(token), `request identity missing ${token}`);
+  }
+  assert.ok(effectSource.includes("rarity: cardRarityFilter"));
+});
+
+test("Cards page one clears and replaces while later matching pages append", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("// Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectSource.includes('status: "loading",'));
+  assert.ok(effectSource.includes("scopeKey: cardsPageScopeKey"));
+  assert.ok(effectSource.includes("cards: [],"), "a new request identity must clear pages from the prior identity");
+  assert.ok(effectSource.includes("requestedPage > 1 &&"));
+  assert.ok(effectSource.includes("previous.scopeKey === cardsPageScopeKey"));
+  assert.ok(effectSource.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"));
+  assert.ok(effectSource.includes(": payload.cards;"), "page one must replace rather than append");
+});
+
+test("Cards stale responses cannot overwrite a newer request identity", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  assert.ok(source.includes("const activeCardsPageRequestKeyRef = useRef(null);"));
+  assert.ok(source.includes("activeCardsPageRequestKeyRef.current = cardsPageRequestKey;"));
+  const staleGuardCount = (source.match(/activeCardsPageRequestKeyRef\.current !== cardsPageRequestKey/g) || []).length;
+  assert.ok(staleGuardCount >= 3, "success, state merge, and failure paths must all reject stale identities");
+  assert.ok(source.includes('debugSetPagePerf("cards_page.tab_fetch_stale_identity"'));
 });
 
 test("Phase 10: load-more failures keep the loaded cards, disable the sentinel, and offer an explicit Retry", () => {
@@ -3875,7 +3919,7 @@ test("7D movers destination is URL-backed and reloads into the paginated Cards p
 // when it pops in. Priority 3 (stable image placeholders) was already
 // implemented before this refactor (aspect-[3/4] box, absolutely-positioned
 // placeholder) and is asserted here too so a future edit can't regress it.
-test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition with a reserved-width skeleton", () => {
+test("Phase 11: ChecklistCardTile defers price/delta metadata via startTransition with reserved footer space", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
@@ -3894,13 +3938,16 @@ test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition 
     "the reveal must be scheduled via startTransition, not a synchronous state update"
   );
   assert.ok(
-    tileSource.includes('className="min-w-[7.5rem] shrink-0 text-right"'),
-    "the badge slot must reserve its width before content is revealed, so reveal never shifts the name/number column"
+    tileSource.includes('className="min-w-[4.75rem] shrink-0 text-right"'),
+    "the price slot must reserve its width before content is revealed, so reveal never shifts the metadata column"
   );
   assert.ok(
     tileSource.includes("animate-pulse rounded bg-[rgba(148,163,184,0.12)]"),
-    "an unrevealed badge slot must show a quiet skeleton, not blank space"
+    "an unrevealed price slot must show a quiet skeleton, not blank space"
   );
+  assert.ok(tileSource.includes('content="value"'), "the top-right slot must render only the shared current value");
+  assert.ok(tileSource.includes('content="change"'), "the full-width footer must render only the shared movement line");
+  assert.ok(tileSource.includes('className="flex min-h-[1.125rem] w-full min-w-0 items-center text-left"'));
 
   // Priority 3, pre-existing: the image box is a fixed aspect-ratio
   // container with an absolutely-positioned placeholder, so swapping in the

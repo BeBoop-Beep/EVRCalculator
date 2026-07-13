@@ -5,7 +5,7 @@ function toOptionalString(value) {
 
 const CARD_SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
 const cardSnapshotCache = new Map();
-const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v2";
+export const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v3";
 const cardSnapshotInflight = new Map();
 const isDev = process.env.NODE_ENV !== "production";
 const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
@@ -625,7 +625,13 @@ export async function getPokemonSetCardsPage(
     const startedAt = performance.now();
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/page${params.toString() ? `?${params}` : ""}`,
-      { method: "GET" }
+      {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      }
     );
 
     let payload = null;
@@ -644,6 +650,19 @@ export async function getPokemonSetCardsPage(
     }
 
     const normalized = normalizePokemonSetCardsPagePayload(payload);
+    const firstCard = normalized.cards[0] || null;
+    debugTiming("cards_page.snapshot_diagnostics", {
+      setId: resolvedSetId,
+      requestedPage: page,
+      snapshotUpdatedAt: normalized.meta?.snapshot?.updatedAt ?? null,
+      returnedCardCount: normalized.cards.length,
+      cardsWith30dDelta: normalized.cards.filter(
+        (card) => card?.change30dAmount !== null || card?.change30dPercent !== null
+      ).length,
+      firstCardName: firstCard?.name ?? null,
+      firstCardMarketPrice: firstCard?.marketPrice ?? null,
+      firstCardChange30dAmount: firstCard?.change30dAmount ?? null,
+    });
     debugTiming("cards_page.fetch_success", {
       setId: resolvedSetId,
       page,

@@ -98,6 +98,7 @@ import {
   getInterpretationTone,
 } from "@/lib/explore/interpretationTone";
 import {
+  PRICING_SNAPSHOT_CONTRACT_VERSION,
   getCachedPokemonSetCards,
   getPokemonSetCardsPage,
   getPokemonSetCardsValidation,
@@ -1859,8 +1860,8 @@ function getMovementAccessiblePeriod(movement) {
   }
   const coverageDays = toNumber(movement?.windowCoverageDays);
   return coverageDays === null
-    ? "since the first available price"
-    : `since the first available price, covering ${coverageDays} ${coverageDays === 1 ? "day" : "days"}`;
+    ? "since the first available observation"
+    : `since the first available observation, covering ${coverageDays} ${coverageDays === 1 ? "day" : "days"}`;
 }
 
 // Card-shaped placeholder for the checklist grid's image slot: a faint
@@ -1957,7 +1958,7 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
           <CardImagePlaceholder label="Image unavailable" />
         )}
       </div>
-      <div className="space-y-1 px-2.5 py-2.5">
+      <div className="space-y-1.5 px-2.5 py-2.5">
         <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
         <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0">
@@ -1966,24 +1967,43 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
             {subtypeLabel ? <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
           </div>
           {hasPriceData ? (
-            <div className="min-w-[7.5rem] shrink-0 text-right">
+            <div className="min-w-[4.75rem] shrink-0 text-right">
               {isMetaRevealed ? (
                 <MarketValueChange
                   value={marketPrice}
                   changeAmount={marketDelta?.amount}
                   changePercent={marketDelta?.percent}
                   windowLabel={movementWindow}
-                  showWindowLabel={false}
                   accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}
                   alignment="right"
                   variant="card-tile"
                   accessibleLabel={`${name} market price`}
+                  content="value"
                 />
               ) : (
                 <div className="ml-auto h-3.5 w-12 animate-pulse rounded bg-[rgba(148,163,184,0.12)]" aria-hidden="true" />
               )}
             </div>
           ) : null}
+        </div>
+        <div className="flex min-h-[1.125rem] w-full min-w-0 items-center text-left">
+          {isMetaRevealed || !hasPriceData ? (
+            <MarketValueChange
+              value={marketPrice}
+              changeAmount={marketDelta?.amount}
+              changePercent={marketDelta?.percent}
+              windowLabel={movementWindow}
+              showWindowLabel={false}
+              accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}
+              alignment="left"
+              variant="card-tile"
+              accessibleLabel={`${name} market price`}
+              content="change"
+              className="w-full"
+            />
+          ) : (
+            <div className="h-3 w-24 animate-pulse rounded bg-[rgba(148,163,184,0.10)]" aria-hidden="true" />
+          )}
         </div>
       </div>
     </article>
@@ -9063,6 +9083,7 @@ export default function RipStatisticsPageClient({
   );
   const [cardMovementFilter, setCardMovementFilter] = useState("all");
   const [cardSearchQuery, setCardSearchQuery] = useState("");
+  const cardRarityFilter = null;
   // Highest requested page for the current cards scope. Pages are appended
   // (infinite scroll) rather than swapped — the sentinel observer advances
   // this, and the scope-reset effect below rewinds it to 1.
@@ -9090,7 +9111,7 @@ export default function RipStatisticsPageClient({
   }));
   useEffect(() => {
     setCardsPage(1);
-  }, [cardSortMode, cardMovementFilter, cardSearchQuery, resolvedSetResourceId]);
+  }, [cardSortMode, cardMovementFilter, cardSearchQuery, cardRarityFilter, resolvedSetResourceId]);
   const initialSnapshotCards = initialSetPageDataSeed.cards;
   const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
     (scope) =>
@@ -9240,6 +9261,7 @@ export default function RipStatisticsPageClient({
   // changing) doesn't refetch the exact same page. Cleared on error so a
   // genuine retry isn't permanently blocked.
   const lastCardsPageRequestKeyRef = useRef(null);
+  const activeCardsPageRequestKeyRef = useRef(null);
   // Phase 6C: same request-key guard for the remaining per-tab module
   // fetches. Each ref holds the key of the request its effect last issued;
   // re-runs with an identical key (tab revisit, prop-identity churn after a
@@ -11861,8 +11883,10 @@ export default function RipStatisticsPageClient({
     // guard on top of the effect-cleanup cancellation below).
     const cardsPageScopeKey = [
       setId,
+      PRICING_SNAPSHOT_CONTRACT_VERSION,
       effectiveCardSortMode,
       cardSearchQuery.trim(),
+      cardRarityFilter || "",
       effectiveCardMovementFilter,
       movementSortValue,
     ].join("|");
@@ -11887,6 +11911,7 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
     lastCardsPageRequestKeyRef.current = cardsPageRequestKey;
+    activeCardsPageRequestKeyRef.current = cardsPageRequestKey;
 
     let isCancelled = false;
     let requestSettled = false;
@@ -11904,16 +11929,16 @@ export default function RipStatisticsPageClient({
         return { ...previous, status: "loading_more", error: null };
       }
       return {
-        // Scope change (or first load): keep the previous same-set cards
-        // visible (success_stale) until the new page 1 lands, instead of
-        // blanking the grid. `scopeKey` still describes the *rendered* cards.
-        status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "loading",
+        // Page one owns a complete request identity. Clear every page from
+        // the previous set/sort/search/rarity/movement scope immediately so
+        // stale prices or deltas cannot remain visible under fresh controls.
+        status: "loading",
         setId,
-        scopeKey: previous.setId === setId ? previous.scopeKey : null,
+        scopeKey: cardsPageScopeKey,
         page: requestedPage,
-        cards: previous.setId === setId ? previous.cards : [],
-        pagination: previous.setId === setId ? previous.pagination : null,
-        filters: previous.setId === setId ? previous.filters : null,
+        cards: [],
+        pagination: null,
+        filters: null,
         error: null,
       };
     });
@@ -11925,6 +11950,7 @@ export default function RipStatisticsPageClient({
       pageSize: CARDS_PAGE_SIZE,
       sort: effectiveCardSortMode,
       query: cardSearchQuery.trim() || null,
+      rarity: cardRarityFilter,
       movementFilter: effectiveCardMovementFilter,
       movementSort: movementSortValue,
     })
@@ -11933,11 +11959,18 @@ export default function RipStatisticsPageClient({
         if (isCancelled) {
           return;
         }
+        if (activeCardsPageRequestKeyRef.current !== cardsPageRequestKey) {
+          debugSetPagePerf("cards_page.tab_fetch_stale_identity", { setId, requestKey: cardsPageRequestKey });
+          return;
+        }
         if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
           debugSetPagePerf("cards_page.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
           return;
         }
         setCardsPageState((previous) => {
+          if (activeCardsPageRequestKeyRef.current !== cardsPageRequestKey) {
+            return previous;
+          }
           const shouldAppend =
             requestedPage > 1 &&
             previous.setId === setId &&
@@ -11988,6 +12021,9 @@ export default function RipStatisticsPageClient({
         if (isCancelled) {
           return;
         }
+        if (activeCardsPageRequestKeyRef.current !== cardsPageRequestKey) {
+          return;
+        }
         setCardsPageState((previous) => ({
           status: previous.setId === setId && previous.cards.length > 0 ? "success_stale" : "error",
           setId,
@@ -12022,6 +12058,7 @@ export default function RipStatisticsPageClient({
     effectiveCardSortMode,
     effectiveCardMovementFilter,
     cardSearchQuery,
+    cardRarityFilter,
   ]);
 
   // Pull Rates tab fetch effect (Phase 4A): slim, dedicated fetch

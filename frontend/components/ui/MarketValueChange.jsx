@@ -26,6 +26,7 @@ export default function MarketValueChange({
   accessibleLabel = "Market value",
   accessiblePeriodLabel = null,
   showWindowLabel = true,
+  content = "both",
   className = "",
 }) {
   const classes = VARIANT_CLASSES[variant] || VARIANT_CLASSES["table-row"];
@@ -40,6 +41,10 @@ export default function MarketValueChange({
     accessiblePeriodLabel,
   });
   const aligned = alignment === "right" ? "items-end text-right" : alignment === "center" ? "items-center text-center" : "items-start text-left";
+  const showValue = content !== "change";
+  const showChange = content !== "value";
+  const accessibleText = content === "value" ? model.accessibleValueText : content === "change" ? model.accessibleChangeText : model.accessibleText;
+  const changeGap = showValue ? classes.gap : "";
   const toneStyle =
     model.direction === "positive"
       ? { color: POSITIVE_VALUE_COLOR }
@@ -59,11 +64,11 @@ export default function MarketValueChange({
   return (
     <div
       className={["flex min-w-0 flex-col tabular-nums", aligned, className].filter(Boolean).join(" ")}
-      aria-label={model.accessibleText}
+      aria-label={accessibleText}
     >
-      <span className={["max-w-full whitespace-nowrap text-[var(--text-primary)]", classes.value].join(" ")}>{model.valueText}</span>
-      {model.hasReliableChange ? (
-        <span className={["inline-flex max-w-full items-center gap-x-1 whitespace-nowrap font-semibold", classes.gap, classes.change].join(" ")} style={toneStyle}>
+      {showValue ? <span className={["max-w-full whitespace-nowrap text-[var(--text-primary)]", classes.value].join(" ")}>{model.valueText}</span> : null}
+      {showChange && model.hasReliableChange ? (
+        <span className={["inline-flex max-w-full items-center gap-x-1 whitespace-nowrap font-semibold", changeGap, classes.change].join(" ")} style={toneStyle}>
           {model.direction === "neutral" ? (
             <span aria-hidden="true">{"\u2014"}</span>
           ) : (
@@ -83,9 +88,9 @@ export default function MarketValueChange({
           ) : null}
           {model.direction === "neutral" ? <span className="sr-only">No change</span> : null}
         </span>
-      ) : (
-        <span className={["font-medium text-[var(--text-secondary)]", classes.gap, classes.change].join(" ")}>{model.changeText}</span>
-      )}
+      ) : showChange ? (
+        <span className={["font-medium text-[var(--text-secondary)]", changeGap, classes.change].join(" ")}>{model.changeText}</span>
+      ) : null}
     </div>
   );
 }

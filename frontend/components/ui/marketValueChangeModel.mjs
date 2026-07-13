@@ -60,6 +60,8 @@ export function buildMarketValueChangeModel({
       changeText,
       direction: "unavailable",
       hasReliableChange: false,
+      accessibleValueText: `${accessibleLabel}: ${valueText}.`,
+      accessibleChangeText: `${accessibleLabel} change: ${changeText}.`,
       accessibleText: `${accessibleLabel}: ${valueText}. ${changeText}.`,
     };
   }
@@ -98,6 +100,8 @@ export function buildMarketValueChangeModel({
     direction: resolvedDirection,
     directionText,
     hasReliableChange: true,
+    accessibleValueText: `${accessibleLabel}: ${valueText}.`,
+    accessibleChangeText: `${accessibleLabel} change: ${directionText}, ${accessibleValues}${accessiblePeriod}.`,
     accessibleText: `${accessibleLabel}: ${valueText}. ${directionText}, ${accessibleValues}${accessiblePeriod}.`,
   };
 }

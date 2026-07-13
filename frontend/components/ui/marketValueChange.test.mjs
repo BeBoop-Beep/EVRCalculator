@@ -62,14 +62,24 @@ test("uses an explicit partial-history period without claiming a full window", (
     changeAmount: 4.2,
     changePercent: 3.5,
     windowLabel: "30D",
-    accessiblePeriodLabel: "since the first available price, covering 14 days",
+    accessiblePeriodLabel: "since the first available observation, covering 14 days",
   });
   assert.equal(
     model.accessibleText,
-    "Market value: $124.05. Positive change, +$4.20, +3.5% since the first available price, covering 14 days."
+    "Market value: $124.05. Positive change, +$4.20, +3.5% since the first available observation, covering 14 days."
   );
   assert.doesNotMatch(model.accessibleText, /over 30D/);
   assert.equal(model.windowLabel, "30D");
+  assert.equal(
+    model.accessibleChangeText,
+    "Market value change: Positive change, +$4.20, +3.5% since the first available observation, covering 14 days."
+  );
+});
+
+test("exposes separate accessible value and unavailable-change descriptions for composed layouts", () => {
+  const model = buildMarketValueChangeModel({ value: 0.19, windowLabel: "30D", accessibleLabel: "Caterpie market price" });
+  assert.equal(model.accessibleValueText, "Caterpie market price: $0.19.");
+  assert.equal(model.accessibleChangeText, "Caterpie market price change: 30D change unavailable.");
 });
 
 test("declares every supported visual size variant", () => {

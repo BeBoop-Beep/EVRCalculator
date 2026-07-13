@@ -31,6 +31,9 @@ test("shared component owns market formatting, direction icon, variants, and una
   assert.ok(component.includes('<span aria-hidden="true">{"\\u2014"}</span>'));
   assert.ok(component.includes('<span aria-hidden="true">{"\\u00b7"}</span>'));
   assert.ok(component.includes("showWindowLabel = true"));
+  assert.ok(component.includes('content = "both"'));
+  assert.ok(component.includes('content === "value"'));
+  assert.ok(component.includes('content === "change"'));
   assert.ok(component.includes("showWindowLabel && model.windowLabel"));
   assert.ok(component.includes('text-[var(--text-secondary)] opacity-80'));
   assert.ok(!component.includes("flex-wrap items-center gap-x-1 whitespace-nowrap"));
@@ -67,7 +70,7 @@ test("Top Chase combines Price and Change into the shared selected-window stack"
   assert.ok(!rows.includes("<DeltaTrendIcon"));
 });
 
-test("Cards tiles use one shared stack for All Cards, mover presets, and appended infinite-scroll rows", () => {
+test("Cards tiles compose shared price and change parts into separate aligned rows", () => {
   const source = read(pagePath);
   const tile = section(source, "function ChecklistCardTile", "function getChecklistCardMarketPrice");
   assert.ok(tile.includes("<MarketValueChange"));
@@ -76,11 +79,18 @@ test("Cards tiles use one shared stack for All Cards, mover presets, and appende
   assert.ok(tile.includes("windowLabel={movementWindow}"));
   assert.ok(tile.includes("showWindowLabel={false}"));
   assert.ok(tile.includes("accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}"));
+  assert.ok(tile.includes('content="value"'));
+  assert.ok(tile.includes('content="change"'));
+  assert.ok(tile.includes('alignment="right"'));
+  assert.ok(tile.includes('alignment="left"'));
+  assert.ok(tile.includes('className="flex min-h-[1.125rem] w-full min-w-0 items-center text-left"'));
+  assert.ok(tile.includes('className="w-full"'));
   assert.ok(tile.includes('movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)'));
   assert.ok(tile.includes('const cardMetaKey = `${getChecklistCardKey(card)}:${marketPrice ?? ""}:${marketDelta?.amount ?? ""}:${marketDelta?.percent ?? ""}:${movementWindow}`'));
   assert.ok(tile.includes("setIsMetaRevealed(false)"));
   assert.ok(tile.includes("[cardMetaKey, hasPriceData]"));
   assert.ok(!tile.includes("getDeltaBadgeStyle"));
+  assert.ok(!tile.includes('content="value"\n                  showWindowLabel={false}'), "the value-only price must not carry visual movement configuration");
   assert.ok(source.includes('movementWindow={effectiveCardSortMode === "7d-movers" ? "7D" : "30D"}'));
   assert.ok(source.includes("displayedChecklistCards.map((card)"), "all visible and appended rows must reuse ChecklistCardTile");
   assert.ok(source.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"));
@@ -119,7 +129,7 @@ test("compact contexts hide the visible suffix while keeping the selected window
     assert.ok(compactContext.includes("showWindowLabel={false}"));
     assert.ok(compactContext.includes("windowLabel="));
   }
-  assert.ok(source.includes("since the first available price"));
+  assert.ok(source.includes("since the first available observation"));
   assert.ok(source.includes("topCardDeltaWindow?.isSinceFirstAvailable"));
   assert.ok(source.includes('className="flex h-14 min-w-0 items-center gap-2'));
 });
