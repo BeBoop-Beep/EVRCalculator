@@ -33,7 +33,7 @@ import { useSectionTiming } from "@/hooks/useSectionTiming";
 import { useSectionFetchState } from "@/hooks/useSectionFetchState";
 import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming";
 import InfoPopover from "@/components/ui/InfoPopover";
-import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
+import MarketValueChange from "@/components/ui/MarketValueChange";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
@@ -43,6 +43,13 @@ import {
   resolvePreferredCardAppealCorrelation,
 } from "./cardAppealSampleDiagnostics.mjs";
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
+import {
+  buildLadderAriaLabel,
+  buildLadderLayout,
+  describeLadderSignal,
+  selectDesirabilityAlignmentLadder,
+  selectDesirabilityVerdict,
+} from "./desirabilityAlignment.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
@@ -73,7 +80,7 @@ import {
 import { buildSetValueContract, selectSetValueTrendFromContract } from "./setValueContract.mjs";
 import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
-import { getCardMovement7d, getMoversTickerTrendValue, selectMoversTickerItems } from "./moversTickerSelector.mjs";
+import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import {
   RIP_CORE_MODE,
   RIP_SCORE_MODE,
@@ -1870,7 +1877,6 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
   const marketPrice = getCardMarketPrice(card);
   // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
   const marketDelta = (movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)) || getCardMarketDelta(card);
-  const deltaTone = marketDelta?.amount ?? marketDelta?.percent ?? null;
   const hasPriceData = marketPrice !== null;
   // Remote card art lands well after the tile's data (about a second on a
   // cold cache), so the aspect-ratio box shows a shimmering card silhouette
@@ -1937,17 +1943,17 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
             {subtypeLabel ? <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
           </div>
           {hasPriceData ? (
-            <div className="min-w-[4.5rem] shrink-0 text-right">
+            <div className="min-w-[7.5rem] shrink-0 text-right">
               {isMetaRevealed ? (
-                <>
-                  <p className="text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(marketPrice)}</p>
-                  {marketDelta ? (
-                    <div className="mt-1 inline-flex flex-col rounded-md border px-1.5 py-1 text-[10px] font-semibold leading-tight" style={getDeltaBadgeStyle(deltaTone)}>
-                      {marketDelta.amount !== null ? <p>{formatSignedCurrency(marketDelta.amount)}</p> : null}
-                      {marketDelta.percent !== null ? <p>{marketDelta.percent > 0 ? "+" : ""}{marketDelta.percent.toFixed(1)}%</p> : null}
-                    </div>
-                  ) : null}
-                </>
+                <MarketValueChange
+                  value={marketPrice}
+                  changeAmount={marketDelta?.amount}
+                  changePercent={marketDelta?.percent}
+                  windowLabel={movementWindow}
+                  alignment="right"
+                  variant="card-tile"
+                  accessibleLabel={`${name} market price`}
+                />
               ) : (
                 <div className="ml-auto h-3.5 w-12 animate-pulse rounded bg-[rgba(148,163,184,0.12)]" aria-hidden="true" />
               )}
@@ -2159,44 +2165,6 @@ function getPriceDeltaAmount(currentValue, previousValue) {
   return current - previous;
 }
 
-function getPositiveValueStyle() {
-  return {
-    color: POSITIVE_VALUE_COLOR,
-  };
-}
-
-function getNegativeValueStyle() {
-  return getDangerValueStyle();
-}
-
-function getDeltaTextStyle(value) {
-  const parsed = toNumber(value);
-  if (parsed === null) {
-    return undefined;
-  }
-  return parsed < 0 ? getNegativeValueStyle() : parsed > 0 ? getPositiveValueStyle() : undefined;
-}
-
-function getDeltaBadgeStyle(value) {
-  const parsed = toNumber(value);
-  if (parsed === null || Math.abs(parsed) < 0.000001) {
-    return {
-      borderColor: "var(--border-subtle)",
-      backgroundColor: "rgba(255,255,255,0.035)",
-      color: "var(--text-secondary)",
-      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.025)",
-    };
-  }
-
-  const color = parsed < 0 ? NEGATIVE_VALUE_COLOR : POSITIVE_VALUE_COLOR;
-  return {
-    borderColor: withAlpha(color, 0.26),
-    backgroundColor: withAlpha(color, 0.075),
-    color,
-    boxShadow: `inset 0 0 0 1px ${withAlpha(color, 0.035)}`,
-  };
-}
-
 function MarketWindowSelector({ windows, value, onChange, className = "" }) {
   const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
   if (windowOptions.length <= 1) {
@@ -2321,16 +2289,14 @@ function SetValueCompactTooltipCard({
       style={style}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(date)}</p>
-      <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)] tabular-nums">
-        <span>{formatCurrency(value)}</span>
-        <DeltaTrendIcon value={normalizedDeltaAmount} size="md" />
-      </p>
-      {normalizedDeltaAmount !== null ? (
-        <p className="mt-0.5 text-[11px] font-semibold tabular-nums" style={getDeltaTextStyle(normalizedDeltaAmount)}>
-          {formatSignedCurrency(normalizedDeltaAmount)}
-          {normalizedDeltaPercent !== null ? <span> ({normalizedDeltaPercent > 0 ? "+" : ""}{normalizedDeltaPercent.toFixed(1)}%)</span> : null}
-        </p>
-      ) : null}
+      <MarketValueChange
+        className="mt-1"
+        value={value}
+        changeAmount={normalizedDeltaAmount}
+        changePercent={normalizedDeltaPercent}
+        variant="tooltip"
+        accessibleLabel="Market value at selected date"
+      />
       {isCarriedForward && sourceDate ? (
         <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(sourceDate)}</p>
       ) : null}
@@ -2790,7 +2756,14 @@ function SetValueTrendCard({
         <div className="space-y-3">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
-            <p className="mt-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</p>
+            <MarketValueChange
+              className="mt-1"
+              value={currentValue}
+              windowLabel={deltaWindowLabel}
+              unavailable
+              variant="chart-summary"
+              accessibleLabel={`Current ${selectedMetricLabel}`}
+            />
           </div>
           <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-3 py-3 text-sm text-[var(--text-secondary)]">
             {currentValue !== null
@@ -2803,29 +2776,18 @@ function SetValueTrendCard({
         </div>
       ) : (
         <div className="flex min-h-[26rem] flex-col space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <div className="min-w-0">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
-              <p className="mt-1 inline-flex min-w-0 items-center gap-1.5 text-2xl font-semibold leading-none text-[var(--text-primary)]">
-                <span className="truncate">{currentValue === null ? "N/A" : formatCurrency(currentValue)}</span>
-                <DeltaTrendIcon value={deltaAmount} size="md" />
-              </p>
-            </div>
-            <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
-              <div className="rounded-lg border px-3 py-2 text-right" style={getDeltaBadgeStyle(deltaAmount)}>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{deltaWindowLabel} Delta</p>
-                <p className="mt-1 text-sm font-semibold">
-                  {deltaAmount === null ? "N/A" : formatSignedCurrency(deltaAmount)}
-                </p>
-              </div>
-              <div className="rounded-lg border px-3 py-2 text-right" style={getDeltaBadgeStyle(deltaPercent)}>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                  {deltaWindowLabel} %
-                </p>
-                <p className="mt-1 text-sm font-semibold">
-                  {deltaPercent === null ? "N/A" : `${deltaPercent > 0 ? "+" : ""}${deltaPercent.toFixed(1)}%`}
-                </p>
-              </div>
+              <MarketValueChange
+                className="mt-1"
+                value={currentValue}
+                changeAmount={deltaAmount}
+                changePercent={deltaPercent}
+                windowLabel={deltaWindowLabel}
+                variant="chart-summary"
+                accessibleLabel={`Current ${selectedMetricLabel}`}
+              />
             </div>
           </div>
 
@@ -2935,7 +2897,7 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
   // horizontal padding/gaps tightened so the 2/3-width Overview placement
   // compresses padding before it ever shrinks the sparkline column.
   return (
-    <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-3 py-2.5 lg:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_6.5rem_6rem] lg:items-center lg:gap-3 lg:px-3 lg:py-3">
+    <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-3 py-2.5 lg:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] lg:items-center lg:gap-3 lg:px-3 lg:py-3">
       <span className="self-start pt-1 text-xs font-semibold text-[var(--text-secondary)] lg:self-auto lg:pt-0">#{index + 1}</span>
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-[4.875rem] w-14 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] shadow-[0_10px_24px_rgba(2,6,23,0.24)]">
@@ -2968,23 +2930,16 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
           </div>
         ) : null}
       </div>
-      <div className="col-span-2 flex min-w-0 items-end justify-between gap-3 lg:contents">
-        <p className="min-w-0 flex-1 text-left text-sm font-semibold text-[var(--text-primary)] lg:justify-self-stretch">
-          <span className="inline-grid min-w-0 grid-cols-[minmax(0,max-content)_0.75rem] items-center gap-1.5 tabular-nums lg:w-full lg:grid-cols-[minmax(0,1fr)_0.75rem]">
-            <span className="min-w-0 text-right">{price === null ? "N/A" : formatCurrency(price)}</span>
-            <span className="inline-flex w-3 justify-center">
-              {price !== null ? <DeltaTrendIcon value={displayDeltaAmount ?? displayDelta} size="sm" /> : null}
-            </span>
-          </span>
-        </p>
-        {displayDeltaAmount !== null || displayDelta !== null ? (
-          <div className="inline-flex min-w-[4.7rem] flex-none flex-col items-end gap-px justify-self-end rounded-md border px-1.5 py-1 text-right text-xs font-semibold leading-[1.12] tabular-nums" style={getDeltaBadgeStyle(displayDeltaAmount ?? displayDelta)}>
-            {displayDeltaAmount !== null ? <p>{formatSignedCurrency(displayDeltaAmount)}</p> : null}
-            {displayDelta !== null ? <p>{displayDelta > 0 ? "+" : ""}{displayDelta.toFixed(1)}%</p> : null}
-          </div>
-        ) : (
-          <p className="flex-none text-right text-[11px] text-[var(--text-secondary)]">Awaiting trend</p>
-        )}
+      <div className="col-span-2 min-w-0 lg:col-span-1 lg:justify-self-end">
+        <MarketValueChange
+          value={price}
+          changeAmount={displayDeltaAmount}
+          changePercent={displayDelta}
+          windowLabel={getDeltaWindowLabel(selectedWindowKey)}
+          alignment="right"
+          variant="table-row"
+          accessibleLabel={`${name} market price`}
+        />
       </div>
     </div>
   );
@@ -3052,15 +3007,11 @@ function TopMarketCardsContent({
         onChange={setSelectedWindowKey}
       />
       <div className="overflow-visible rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42">
-        <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_6.5rem_6rem] items-center gap-3 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
+        <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] items-center gap-3 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
           <span>Rank</span>
           <span>Card</span>
           <span className="text-center">Trend</span>
-          <span className="grid grid-cols-[minmax(0,1fr)_0.75rem] items-center gap-1.5">
-            <span className="text-right">Price</span>
-            <span aria-hidden="true"></span>
-          </span>
-          <span className="text-right">Change</span>
+          <span className="text-right">Price / Change</span>
         </div>
         <div className="divide-y divide-[var(--border-subtle)]">
           {cards.slice(0, maxRows).map((card, index) => (
@@ -3207,9 +3158,6 @@ function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
   const name = card?.name || "Unknown card";
   const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
-  const percent = movement?.percent ?? null;
-  const trendValue = getMoversTickerTrendValue(movement);
-  const trendTitle = trendValue > 0 ? "Price up over 7 days" : trendValue < 0 ? "Price down over 7 days" : null;
 
   return (
     <a
@@ -3227,17 +3175,17 @@ function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
           <span className="text-[8px] font-semibold text-[var(--text-secondary)]">{getCardInitials(name)}</span>
         )}
       </span>
-      <span className="max-w-[9rem] truncate text-xs font-semibold text-[var(--text-primary)]">{name}</span>
-      <span className="inline-flex flex-none items-center gap-1 whitespace-nowrap text-xs font-semibold tabular-nums text-[var(--text-primary)]">
-        <span>{price === null ? "N/A" : formatCurrency(price)}</span>
-        <DeltaTrendIcon value={trendValue} size="sm" title={trendTitle} />
+      <span className="min-w-0 max-w-[11rem]">
+        <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{name}</span>
+        <MarketValueChange
+          value={price}
+          changeAmount={movement?.amount}
+          changePercent={movement?.percent}
+          windowLabel="7D"
+          variant="ticker"
+          accessibleLabel={`${name} market price`}
+        />
       </span>
-      {percent !== null ? (
-        <span className="flex-none rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums" style={getDeltaBadgeStyle(percent)}>
-          {percent > 0 ? "+" : ""}
-          {percent.toFixed(1)}%
-        </span>
-      ) : null}
     </a>
   );
 }
@@ -5052,41 +5000,24 @@ function resolveLensScore(lens, summary) {
 
 function RipScoreModeToggle({ value, onChange, coreAvailable }) {
   return (
-    <div
-      role="group"
-      aria-label="RIP score mode"
-      className="inline-flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-0.5 text-[10px] font-semibold tracking-normal"
-    >
-      {[
+    <SegmentedControl
+      compact
+      ariaLabel="RIP score mode"
+      options={[
         { value: RIP_SCORE_MODE, label: "RIP Score", disabled: false },
         { value: RIP_CORE_MODE, label: "RIP Core", disabled: !coreAvailable },
-      ].map((option) => {
-        const selected = value === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={selected}
-            disabled={option.disabled}
-            onClick={() => onChange(option.value)}
-            className={`rounded-md px-2.5 py-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${
-              selected
-                ? "bg-[var(--surface-hover)] text-[var(--text-primary)]"
-                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
+      ]}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
-function HeroScoreBadges({ rank, tier, size = "supporting" }) {
+function HeroScoreBadges({ rank, tier, interpretation, size = "supporting" }) {
   const numericRank = toNumber(rank);
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
+      <RankBadge rank={tier} format="tier" size={size} />
       <span
         className={`inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 font-semibold text-[var(--text-primary)] ${
           size === "hero" ? "px-4 py-2 text-sm" : "px-3 py-1 text-xs"
@@ -5095,7 +5026,7 @@ function HeroScoreBadges({ rank, tier, size = "supporting" }) {
       >
         {numericRank === null ? "Rank unavailable" : `Rank #${Math.round(numericRank)}`}
       </span>
-      <RankBadge rank={tier} format="tier" size={size} />
+      <RecommendationBadge label={interpretation} rankTier={tier} />
     </div>
   );
 }
@@ -6022,6 +5953,7 @@ function RipScoreBreakdownModule({
       <article className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
+            <SectionEyebrow>01 · Verdict</SectionEyebrow>
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
               {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
@@ -6098,10 +6030,26 @@ function StatTile({ label, value, valueClassName = "text-lg", infoText = null, t
   );
 }
 
-function SectionCard({ title, subtitle, titleInfoText, children, className = "", bodyClassName = "" }) {
+// Small muted chapter marker above a section title ("01 · Verdict"), shared by
+// the three Insights sections so the page reads verdict → proof → raw evidence.
+function SectionEyebrow({ children }) {
+  if (!children) {
+    return null;
+  }
+  return <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{children}</p>;
+}
+
+// tone="plain" flattens the card (lighter surface tint, no inset highlight or
+// drop shadow) so neighbouring sections stop reading as identical clones.
+function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "" }) {
+  const toneClass =
+    tone === "plain"
+      ? "rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.5),rgba(2,6,23,0.36))] p-4 sm:p-5"
+      : "rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5";
   return (
-    <article className={["w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5", className].filter(Boolean).join(" ")}>
+    <article className={["w-full max-w-full min-w-0", toneClass, className].filter(Boolean).join(" ")}>
       <div>
+        <SectionEyebrow>{eyebrow}</SectionEyebrow>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
           {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
@@ -6127,55 +6075,9 @@ function formatProofDelta(value, suffix = "") {
   return `${sign}${Number.isInteger(parsed) ? parsed : parsed.toFixed(1)}${suffix}`;
 }
 
-// Some desirability proof fields (final RIP rank/score, score/rank deltas,
-// top-10 card value) are simply not computed yet for a set rather than
-// genuinely zero/absent — showing a bare "N/A" reads as broken. These wrap the
-// formatters above so an uncomputed value reads "Not computed yet" instead.
-const PROOF_NOT_COMPUTED_LABEL = "Not computed yet";
-
-function formatProofRankOrNotComputed(value) {
-  return toNumber(value) === null ? PROOF_NOT_COMPUTED_LABEL : formatProofRank(value);
-}
-
-function formatProofDeltaOrNotComputed(value, suffix = "") {
-  return toNumber(value) === null ? PROOF_NOT_COMPUTED_LABEL : formatProofDelta(value, suffix);
-}
-
-// Price Relation prefers the persisted desirabilityValidation correlation, but
-// that field is null across current snapshots even though the set page already
-// carries a computed cardAppealMarketPriceCorrelation (pearson/spearman). Fall
-// back to that existing value rather than showing "n/a" — never recompute.
-function resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation) {
-  const direct = toNumber(
-    validation?.card_appeal_vs_market_price_correlation ?? validation?.cardAppealVsMarketPriceCorrelation
-  );
-  if (direct !== null) {
-    return direct;
-  }
-  const correlation = cardAppealMarketPriceCorrelation || {};
-  return toNumber(correlation.pearson) ?? toNumber(correlation.spearman);
-}
-
-function formatProofBand(value) {
-  const text = String(value || "").trim();
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "Unavailable";
-}
-
 function getDesirabilityValidationPayload(explorePayload) {
   const payload = explorePayload?.desirabilityValidation || explorePayload?.desirability_validation;
   return payload && typeof payload === "object" ? payload : null;
-}
-
-function ProofMetric({ label, value, infoText = null }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
-      <div className="flex min-w-0 items-center gap-1">
-        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
-        {infoText ? <InfoPopover text={infoText} /> : null}
-      </div>
-      <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{value}</p>
-    </div>
-  );
 }
 
 // The /insights normalizer coerces a missing desirabilityValidation to `{}`
@@ -6209,13 +6111,262 @@ function hasDesirabilityProofSignal(validation) {
   });
 }
 
-function DesirabilityProofContent({
-  validation,
-  cardAppealMarketPriceCorrelation = null,
-  loading = false,
-  loadingTimedOut = false,
-  onSelectMode = null,
-}) {
+// ——— Desirability agreement (verdict + alignment ladder) ———
+// Rebuilt from the old rank-chip "Proof" grid: the verdict leads, the ladder
+// makes the rank comparison visual, and uncomputed fields are simply omitted
+// rather than rendered as equal-weight placeholder boxes. All agreement
+// determinations come from the backend validation payload untouched.
+
+const LADDER_STATE_FILL = {
+  confirms: "var(--success)",
+  conflicts: "var(--warning)",
+  neutral: "var(--neutral)",
+};
+
+const LADDER_STATE_TEXT = {
+  confirms: "Confirms",
+  conflicts: "Conflicts",
+  neutral: "Neutral",
+};
+
+function DesirabilityVerdictLine({ verdict }) {
+  if (!verdict) {
+    return null;
+  }
+  return (
+    <div className="min-w-0 space-y-1">
+      <p className="min-w-0 max-w-full text-sm leading-relaxed text-[var(--text-primary)]">
+        <span className="font-semibold">{verdict.label}</span>
+        {verdict.strongestLabel ? (
+          <>
+            {" — "}
+            <span className="font-semibold text-[var(--success)]">{verdict.strongestLabel}</span>
+            {" backs our desirability read most strongly"}
+            {verdict.conflictLabel ? (
+              <>
+                {", while "}
+                <span className="font-semibold text-[var(--warning)]">{verdict.conflictLabel}</span>
+                {" is the outlier"}
+              </>
+            ) : null}
+            {"."}
+          </>
+        ) : null}
+      </p>
+      {verdict.summary ? <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{verdict.summary}</p> : null}
+    </div>
+  );
+}
+
+function DesirabilityAlignmentLadder({ ladder }) {
+  const containerRef = useRef(null);
+  const [ladderWidth, setLadderWidth] = useState(0);
+  const [activePoint, setActivePoint] = useState(null);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return undefined;
+    }
+    const measure = () => setLadderWidth(element.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const layout = useMemo(() => buildLadderLayout(ladder, ladderWidth), [ladder, ladderWidth]);
+
+  if (!ladder) {
+    return null;
+  }
+
+  const hasConfirms = ladder.signals.some((signal) => signal.state === "confirms");
+  const hasConflicts = ladder.signals.some((signal) => signal.state === "conflicts");
+  const conflictPoint = layout?.points.find((point) => point.state === "conflicts") || null;
+  const anchorLabelAnchor = layout && layout.anchorX > layout.width * 0.72 ? "end" : "start";
+
+  return (
+    <div className="min-w-0">
+      <div ref={containerRef} className="relative min-w-0 overflow-visible">
+        {layout ? (
+          <>
+            <svg
+              role="img"
+              aria-label={buildLadderAriaLabel(ladder)}
+              width="100%"
+              height={layout.height}
+              className="block overflow-visible"
+            >
+              {/* Rank axis, best (#1) on the left. */}
+              <line
+                x1={layout.plotLeft}
+                x2={layout.plotRight}
+                y1={layout.baselineY}
+                y2={layout.baselineY}
+                stroke="color-mix(in srgb, var(--text-secondary) 35%, transparent)"
+                strokeWidth={1}
+              />
+              <text x={layout.plotLeft} y={layout.endLabelY} textAnchor="start" fontSize={10} fill="var(--text-secondary)">
+                #1 best
+              </text>
+              <text x={layout.plotRight} y={layout.endLabelY} textAnchor="end" fontSize={10} fill="var(--text-secondary)">
+                #{ladder.fieldSize}
+              </text>
+
+              {/* Disagreement gap: anchor → biggest conflicting signal. */}
+              {conflictPoint ? (
+                <line
+                  x1={layout.anchorX}
+                  x2={conflictPoint.x}
+                  y1={layout.baselineY}
+                  y2={layout.baselineY}
+                  stroke="var(--warning)"
+                  strokeOpacity={0.6}
+                  strokeWidth={2}
+                  strokeDasharray="3 3"
+                />
+              ) : null}
+
+              {/* Desirability anchor — the reference every dot is read against. */}
+              <line
+                x1={layout.anchorX}
+                x2={layout.anchorX}
+                y1={layout.headerY + 5}
+                y2={layout.endLabelY - 12}
+                stroke="var(--text-primary)"
+                strokeOpacity={0.85}
+                strokeWidth={1.25}
+                strokeDasharray="4 4"
+              />
+              <text
+                x={anchorLabelAnchor === "end" ? layout.anchorX - 6 : layout.anchorX + 6}
+                y={layout.headerY}
+                textAnchor={anchorLabelAnchor}
+                fontSize={11}
+                fontWeight={650}
+                fill="var(--text-primary)"
+              >
+                Desirability #{ladder.anchorRank}
+              </text>
+
+              {layout.points.map((point) => (
+                <g
+                  key={`ladder-signal:${point.key}`}
+                  tabIndex={0}
+                  aria-label={describeLadderSignal(point, ladder.fieldSize)}
+                  className="cursor-pointer focus:outline-none"
+                  onMouseEnter={() => setActivePoint(point)}
+                  onMouseLeave={() => setActivePoint(null)}
+                  onFocus={() => setActivePoint(point)}
+                  onBlur={() => setActivePoint(null)}
+                >
+                  {/* Hit target wider than the mark itself. */}
+                  <rect x={point.x - 10} y={point.dotY - 12} width={20} height={24} fill="transparent" />
+                  {Math.abs(point.labelX - point.x) > 12 ? (
+                    <line
+                      x1={point.x}
+                      x2={point.labelX}
+                      y1={point.side === "above" ? point.dotY - 7 : point.dotY + 7}
+                      y2={point.side === "above" ? point.labelY + 4 : point.labelY - 9}
+                      stroke="color-mix(in srgb, var(--text-secondary) 35%, transparent)"
+                      strokeWidth={1}
+                    />
+                  ) : null}
+                  <circle
+                    cx={point.x}
+                    cy={point.dotY}
+                    r={4.5}
+                    fill={LADDER_STATE_FILL[point.state]}
+                    stroke="var(--surface-page)"
+                    strokeWidth={2}
+                  />
+                  <text x={point.labelX} y={point.labelY} textAnchor="middle" fontSize={layout.labelFontSize}>
+                    <tspan fill="var(--text-primary)" fontWeight={650}>{point.label}</tspan>
+                    <tspan fill="var(--text-secondary)" dx={4}>#{point.rank}</tspan>
+                  </text>
+                </g>
+              ))}
+            </svg>
+
+            {activePoint ? (
+              <div
+                className="pointer-events-none absolute z-[9999]"
+                style={{
+                  left: Math.min(Math.max(activePoint.x - 60, 0), Math.max(layout.width - 160, 0)),
+                  top: -4,
+                }}
+              >
+                <SimulationChartTooltipFrame label={activePoint.label}>
+                  <p>
+                    <span className="font-semibold text-white">#{activePoint.rank}</span> of {ladder.fieldSize} sets
+                  </p>
+                  {activePoint.alignmentScore !== null && activePoint.alignmentScore !== undefined ? (
+                    <p>Alignment {Math.round(activePoint.alignmentScore)} / 100</p>
+                  ) : null}
+                  <p>{LADDER_STATE_TEXT[activePoint.state]}</p>
+                </SimulationChartTooltipFrame>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[var(--text-secondary)]">
+        {hasConfirms ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--success)" }} />
+            Confirms
+          </span>
+        ) : null}
+        {hasConflicts ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--warning)" }} />
+            Conflicts
+          </span>
+        ) : null}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--neutral)" }} />
+          Neutral
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-px w-5 border-t border-dashed border-[var(--text-primary)]/85" />
+          Desirability anchor
+        </span>
+      </div>
+
+      {/* Screen-reader equivalent of the ladder. */}
+      <ul className="sr-only">
+        <li>Desirability anchor: rank #{ladder.anchorRank} of {ladder.fieldSize} sets.</li>
+        {ladder.signals.map((signal) => (
+          <li key={`ladder-sr:${signal.key}`}>{describeLadderSignal(signal, ladder.fieldSize)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Subdued one-line impact note (core → final rank movement). When the
+// comparison fields aren't computed yet the line falls back to the backend's
+// impact summary, or disappears entirely — no placeholder boxes.
+function DesirabilityImpactNote({ validation }) {
+  const coreRank = toNumber(validation.rip_core_rank_without_desirability ?? validation.ripCoreRankWithoutDesirability);
+  const finalRank = toNumber(validation.final_rip_rank_with_desirability ?? validation.finalRipRankWithDesirability);
+  const rankDelta = toNumber(validation.desirability_rank_delta ?? validation.desirabilityRankDelta);
+  const movementCopy =
+    coreRank !== null && finalRank !== null && rankDelta !== null
+      ? `Desirability moved this set from ${formatProofRank(coreRank)} to ${formatProofRank(finalRank)} (${formatProofDelta(rankDelta, " ranks")}).`
+      : validation.desirability_impact_summary || validation.desirabilityImpactSummary || null;
+  if (!movementCopy) {
+    return null;
+  }
+  return <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{movementCopy}</p>;
+}
+
+function DesirabilityAgreementContent({ validation, loading = false, loadingTimedOut = false }) {
   if (!hasDesirabilityProofSignal(validation)) {
     // While the /insights payload is still in flight this section holds a
     // stable skeleton box (instead of mounting late as an afterthought); if
@@ -6242,91 +6393,83 @@ function DesirabilityProofContent({
     );
   }
 
-  const missingDataFlags = validation.missing_data_flags || validation.missingDataFlags || [];
-  const top10CardValueNotComputed =
-    (Array.isArray(missingDataFlags) && missingDataFlags.includes("top_10_card_value")) ||
-    toNumber(validation.top_10_card_value_rank ?? validation.top10CardValueRank) === null;
-  const priceRelationValue = resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation);
-  const impactBand = formatProofBand(validation.desirability_impact_band || validation.desirabilityImpactBand);
-  const alignmentBand = formatProofBand(validation.desirability_alignment_band || validation.desirabilityAlignmentBand);
-  const cardAppealScore = toNumber(validation.card_appeal_score ?? validation.cardAppealScore);
-  const cardAppealSummary = validation.card_appeal_summary || validation.cardAppealSummary || "Card appeal validation is not available for this set yet.";
-  const rankDelta = toNumber(validation.desirability_rank_delta ?? validation.desirabilityRankDelta);
-  const coreRank = validation.rip_core_rank_without_desirability ?? validation.ripCoreRankWithoutDesirability;
-  const finalRank = validation.final_rip_rank_with_desirability ?? validation.finalRipRankWithDesirability;
-  const desirabilityScore = toNumber(validation.desirability_score ?? validation.desirabilityScore);
-  const comparisonUnavailableLabel = desirabilityScore === null ? "Awaiting desirability score" : "Awaiting canonical comparison";
-  const finalRankValue = toNumber(finalRank) === null ? comparisonUnavailableLabel : formatProofRank(finalRank);
-  const scoreDeltaValue =
-    toNumber(validation.desirability_score_delta ?? validation.desirabilityScoreDelta) === null
-      ? comparisonUnavailableLabel
-      : formatProofDelta(validation.desirability_score_delta ?? validation.desirabilityScoreDelta);
-  const rankDeltaValue = rankDelta === null ? comparisonUnavailableLabel : formatProofDelta(rankDelta, " ranks");
-  const top10CardValue = top10CardValueNotComputed
-    ? "Awaiting canonical card prices"
-    : formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank);
-  const movementCopy =
-    toNumber(coreRank) !== null && toNumber(finalRank) !== null && rankDelta !== null
-      ? `Desirability moved this set from ${formatProofRank(coreRank)} to ${formatProofRank(finalRank)} (${formatProofDelta(rankDelta, " ranks")}).`
-      : validation.desirability_impact_summary || validation.desirabilityImpactSummary;
+  const verdict = selectDesirabilityVerdict(validation);
+  const ladder = selectDesirabilityAlignmentLadder(validation);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Impact</h3>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">{movementCopy}</p>
-            </div>
-            <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">{impactBand}</span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} infoText="Rank before collector desirability is added." />
-            <ProofMetric label="Final RIP Score Rank" value={finalRankValue} infoText="Overall RIP Score rank after collector desirability is included." />
-            <ProofMetric label="Score Delta" value={scoreDeltaValue} infoText="Final RIP Score minus RIP Core score." />
-            <ProofMetric label="Rank Delta" value={rankDeltaValue} infoText="Positive means the set moved toward #1; negative means it moved down." />
-          </div>
-          <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">{validation.desirability_impact_summary || validation.desirabilityImpactSummary}</p>
-        </div>
+    <div className="min-w-0 space-y-3">
+      <DesirabilityVerdictLine verdict={verdict} />
+      {ladder ? <DesirabilityAlignmentLadder ladder={ladder} /> : null}
+      <DesirabilityImpactNote validation={validation} />
+    </div>
+  );
+}
 
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Signal Check</h3>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">{validation.desirability_alignment_summary || validation.desirabilityAlignmentSummary}</p>
-            </div>
-            <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">{alignmentBand}</span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <ProofMetric label="Desirability" value={formatProofRank(validation.desirability_rank ?? validation.desirabilityRank)} />
-            <ProofMetric label="Set Value" value={formatProofRank(validation.set_value_rank ?? validation.setValueRank)} />
-            <ProofMetric label="Top Chase" value={formatProofRank(validation.top_chase_value_rank ?? validation.topChaseValueRank)} />
-            <ProofMetric label="Top 10 Card Value" value={top10CardValue} infoText="Rank based on the combined current market value of the set’s ten highest-priced cards." />
-            <ProofMetric label="P95" value={formatProofRank(validation.p95_rank ?? validation.p95Rank)} />
-            <ProofMetric label="EV" value={formatProofRank(validation.expected_value_rank ?? validation.expectedValueRank)} />
-          </div>
-          <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
-            <p><span className="font-semibold text-[var(--text-primary)]">Strongest:</span> {validation.strongest_supporting_signal || validation.strongestSupportingSignal || "N/A"}</p>
-            <p><span className="font-semibold text-[var(--text-primary)]">Conflict:</span> {validation.biggest_conflicting_signal || validation.biggestConflictingSignal || "N/A"}</p>
-          </div>
-          <div className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3 text-xs text-[var(--text-secondary)]">
-            {cardAppealScore !== null ? (
-              <div className="mb-2 grid gap-2 sm:grid-cols-3">
-                <ProofMetric label="Card Appeal" value={formatProofRank(validation.card_appeal_rank ?? validation.cardAppealRank)} />
-                <ProofMetric label="Appeal Check" value={formatProofBand(validation.card_appeal_alignment_band ?? validation.cardAppealAlignmentBand)} />
-                <ProofMetric label="Price Relation" value={priceRelationValue === null ? PROOF_NOT_COMPUTED_LABEL : formatCorrelationValue(priceRelationValue)} />
-              </div>
-            ) : null}
-            <p>{cardAppealSummary}</p>
-            <a
-              href="#set-detail-card-desirability-price"
-              onClick={() => onSelectMode?.("card-validation")}
-              className="mt-2 inline-flex text-xs font-semibold text-[var(--accent)] hover:text-[var(--text-primary)]"
-            >
-              View Card Appeal chart
-            </a>
-          </div>
+// Concrete anchor beside the proof charts: the chase card behind the set's
+// Top Chase market rank, reusing the Simulation Drivers thumbnail treatment.
+function selectTopChaseAnchorHit(topHits) {
+  const rows = Array.isArray(topHits) ? topHits : [];
+  let best = null;
+  let bestPrice = null;
+  for (const hit of rows) {
+    const name = hit?.card_name || null;
+    const imageSrc = hit?.image_url || hit?.image_small_url || hit?.image_large_url || null;
+    if (!name || !imageSrc) {
+      continue;
+    }
+    const price = getTopHitNearMintPrice(hit);
+    if (best === null || (price !== null && (bestPrice === null || price > bestPrice))) {
+      best = { name, imageSrc, price };
+      bestPrice = price;
+    }
+  }
+  return best;
+}
+
+function TopChaseAnchorCard({ hit, validation }) {
+  const [hasImageError, setHasImageError] = useState(false);
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [hit?.imageSrc]);
+
+  if (!hit) {
+    return null;
+  }
+  const rank = toNumber(validation?.top_chase_value_rank ?? validation?.topChaseValueRank);
+  const fieldSize = toNumber(validation?.total_ranked_sets ?? validation?.totalRankedSets);
+  const rankCaption =
+    rank === null
+      ? "Top chase"
+      : `Top chase · ${formatProofRank(rank)}${fieldSize !== null ? ` of ${Math.round(fieldSize)}` : " of field"}`;
+
+  return (
+    <div className="min-w-0 self-start rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{rankCaption}</p>
+      <div className="mt-2 flex min-w-0 items-center gap-3">
+        <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
+          {!hasImageError ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={hit.imageSrc}
+              alt={`${hit.name} card image`}
+              loading="lazy"
+              decoding="async"
+              onError={() => setHasImageError(true)}
+              className="h-full w-full rounded-[5px] object-contain"
+            />
+          ) : null}
         </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{hit.name}</p>
+          {hit.price !== null ? (
+            <p className="mt-0.5 text-xs tabular-nums text-[var(--text-secondary)]">{formatCurrency(hit.price)}</p>
+          ) : null}
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+        The real chase card behind this set&apos;s Top Chase market rank.
+      </p>
     </div>
   );
 }
@@ -7171,8 +7314,13 @@ function DesirabilityEvidenceCard({
   cardValidationFreshness = null,
   snapshotLoading = false,
   dataLoading = false,
+  topHits = [],
 }) {
-  const selectedMode = ["proof", "set-validation", "card-validation"].includes(mode) ? mode : "proof";
+  // The old "Proof" sub-tab folded into the always-visible verdict + alignment
+  // ladder above the charts, so only the two scatter views toggle now. Legacy
+  // deep links that request "proof" land on the primary Set Validation proof.
+  const selectedMode = mode === "card-validation" ? "card-validation" : "set-validation";
+  const topChaseAnchorHit = useMemo(() => selectTopChaseAnchorHit(topHits), [topHits]);
 
   return (
     <section id="set-detail-desirability-evidence" className="scroll-mt-24 md:scroll-mt-28">
@@ -7180,42 +7328,49 @@ function DesirabilityEvidenceCard({
       <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <SectionCard
+        eyebrow="02 · Proof"
+        tone="plain"
         title="Desirability Evidence"
         subtitle="Does the market agree? Validation against demand and price data."
         titleInfoText="Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals."
         bodyClassName="space-y-4"
       >
-        <SegmentedControl
-          options={[
-            { value: "proof", label: "Proof" },
-            { value: "set-validation", label: "Set Validation" },
-            { value: "card-validation", label: "Card Validation" },
-          ]}
-          value={selectedMode}
-          onChange={onModeChange}
-          ariaLabel="Desirability evidence mode"
+        <DesirabilityAgreementContent
+          validation={validation}
+          loading={proofLoading}
+          loadingTimedOut={proofLoadingTimedOut}
         />
 
-        {selectedMode === "proof" ? (
-          <DesirabilityProofContent
-            validation={validation}
-            cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}
-            loading={proofLoading}
-            loadingTimedOut={proofLoadingTimedOut}
-            onSelectMode={onModeChange}
-          />
-        ) : selectedMode === "set-validation" ? (
-          <DesirabilityValidationContent targets={targets} freshness={setValidationFreshness} />
-        ) : (
-          <CardDesirabilityMarketValidationContent
-            cards={cards}
-            cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}
-            diagnosticsContext={diagnosticsContext}
-            freshness={cardValidationFreshness}
-            snapshotLoading={snapshotLoading}
-            dataLoading={dataLoading}
-          />
-        )}
+        {/* Statistical proof, promoted out of the old sub-tabs: the primary
+            set-level correlation scatter renders without a click; the card
+            appeal scatter stays one compact toggle away. */}
+        <div className={topChaseAnchorHit ? "grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]" : "min-w-0"}>
+          <div className="min-w-0 space-y-3">
+            <SegmentedControl
+              options={[
+                { value: "set-validation", label: "Set Validation" },
+                { value: "card-validation", label: "Card Validation" },
+              ]}
+              value={selectedMode}
+              onChange={onModeChange}
+              ariaLabel="Desirability evidence mode"
+            />
+
+            {selectedMode === "set-validation" ? (
+              <DesirabilityValidationContent targets={targets} freshness={setValidationFreshness} />
+            ) : (
+              <CardDesirabilityMarketValidationContent
+                cards={cards}
+                cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}
+                diagnosticsContext={diagnosticsContext}
+                freshness={cardValidationFreshness}
+                snapshotLoading={snapshotLoading}
+                dataLoading={dataLoading}
+              />
+            )}
+          </div>
+          {topChaseAnchorHit ? <TopChaseAnchorCard hit={topChaseAnchorHit} validation={validation} /> : null}
+        </div>
       </SectionCard>
     </section>
   );
@@ -8762,19 +8917,6 @@ export default function RipStatisticsPageClient({
   const p05ShortfallToCost = summary.p05_shortfall_to_cost ?? null;
 
   const [graphMode, setGraphMode] = useState("outcome-distribution");
-  // Simulation Results (Insights) collapse state. The section loads collapsed;
-  // deep links and left-nav clicks that target it expand it (see the
-  // searchParams sync effect and handleSetDetailNavSelect). Sub-tab switches
-  // inside the card never touch this state, so expansion persists while
-  // navigating sub-tabs, and the body is render-gated only — the /insights
-  // fetch lifecycle is unchanged, so expanding never re-fetches.
-  const [simulationResultsExpanded, setSimulationResultsExpanded] = useState(false);
-  useEffect(() => {
-    // A new set loads collapsed again. This runs before the searchParams sync
-    // effect below (declaration order), so a deep link into Simulation
-    // Results still ends expanded on first render of the new set.
-    setSimulationResultsExpanded(false);
-  }, [resolvedSetResourceId]);
   const [viewMode, setViewMode] = useState("simple");
   const [heroScoreMode, setHeroScoreMode] = useState(RIP_SCORE_MODE);
   const previousHeroScoreSetIdRef = useRef(resolvedSetResourceId);
@@ -8788,7 +8930,7 @@ export default function RipStatisticsPageClient({
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
   const [, setInsightsValueView] = useState("value-structure");
-  const [selectedDesirabilityEvidenceMode, setSelectedDesirabilityEvidenceMode] = useState("proof");
+  const [selectedDesirabilityEvidenceMode, setSelectedDesirabilityEvidenceMode] = useState("set-validation");
   const effectiveViewMode = setDetailMode ? "expert" : viewMode;
   const isExpertMode = effectiveViewMode === "expert";
   const effectiveValueView = setDetailMode ? "value" : isExpertMode ? activeValueView : "cards";
@@ -9708,12 +9850,6 @@ export default function RipStatisticsPageClient({
       setActiveSection("outcome-distribution");
     }
 
-    // Any navigation that targets the Simulation Results card (or one of its
-    // sub-views) must reveal it — the card loads collapsed by default.
-    if (targetId === ANALYSIS_SECTION_ID) {
-      setSimulationResultsExpanded(true);
-    }
-
     pushSetDetailRouteState({ tab: nextTab, section });
 
     scrollToSetDetailElement(targetId || getSetDetailFallbackTargetId(nextTab));
@@ -9776,14 +9912,6 @@ export default function RipStatisticsPageClient({
     } else if (resolvedTab === "insights") {
       setGraphMode("outcome-distribution");
       setActiveSection("outcome-distribution");
-    }
-
-    // Deep links pointing into Simulation Results (its section aliases or any
-    // of its sub-views) must load the section expanded with the sub-tab above
-    // already applied. Expansion is one-way here — an unrelated URL change
-    // never re-collapses an open card.
-    if (sectionTarget?.targetId === ANALYSIS_SECTION_ID) {
-      setSimulationResultsExpanded(true);
     }
 
     if (!nextSection) {
@@ -10887,20 +11015,6 @@ export default function RipStatisticsPageClient({
       : activeInsightsGraphMode === "pack-breakdown"
       ? "Pack path data isn't available for this set yet."
       : "Outcome distribution data isn't available for this set yet.";
-  // Compact inline summary for the collapsed Simulation Results header. Built
-  // exclusively from already-fetched fields (set-page summary + the same as-of
-  // date the Metrics tab shows) with the existing formatters — no new reads.
-  const simulationResultsSummaryText = useMemo(() => {
-    const packsSimulated = toNumber(summary.simulation_count ?? summary.packs_simulated);
-    const expectedValue = toNumber(summary.mean_value);
-    const runDate = fallbackSetValueAsOf || summary.run_at || null;
-    const parts = [
-      packsSimulated === null ? null : `${formatMetricCount(packsSimulated)} packs simulated`,
-      expectedValue === null ? null : `EV ${formatCurrency(expectedValue)}`,
-      runDate ? `as of ${formatHistoryDate(runDate, { year: "numeric", month: "short", day: "numeric" }) || runDate}` : null,
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(" · ") : null;
-  }, [summary.simulation_count, summary.packs_simulated, summary.mean_value, summary.run_at, fallbackSetValueAsOf]);
   // Chart-sized min-heights apply only to views that render chart-sized
   // content with data. Metrics sizes itself; Opening P vs C only expands once
   // it has enough points to plot (otherwise its compact empty state shows).
@@ -12806,7 +12920,7 @@ export default function RipStatisticsPageClient({
                               )}
                             </div>
                             <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
-                            <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} />
+                            <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} interpretation={recommendationBadge} />
                             {/* Static qualifier — hardcoded copy, deliberately not wired to the
                                 interpretation/recommendation engine. */}
                             <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
@@ -12828,19 +12942,23 @@ export default function RipStatisticsPageClient({
                           <div className="flex min-w-0 flex-col justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">{setValueMetricLabel}</p>
-                                <InfoPopover text="Set value from daily Near Mint card market observations." />
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">Set Value Trend</p>
+                                <InfoPopover text="Tracks the selected set-value scope using daily Near Mint card market observations." />
                               </div>
-                              <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-xl font-bold text-[var(--text-primary)] [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]">
-                                <span className="min-w-0 truncate">
-                                  {setHeaderSummary.setValue.current === null
-                                    ? titleCardMetricsPending
-                                      ? titleMetricPendingPlaceholder
-                                      : "Coming soon"
-                                    : formatCurrency(setHeaderSummary.setValue.current)}
-                                </span>
-                                <DeltaTrendIcon value={setHeaderSummary.setValue.delta30dAmount} size="md" className="translate-y-px" title="30D set value movement" />
-                              </p>
+                              {setHeaderSummary.setValue.current === null && !titleCardMetricsPending ? (
+                                <p className="mt-2 text-xl font-bold text-[var(--text-primary)]">Coming soon</p>
+                              ) : (
+                                <MarketValueChange
+                                  className="mt-2 [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]"
+                                  value={setHeaderSummary.setValue.current}
+                                  changeAmount={setHeaderSummary.setValue.delta30dAmount}
+                                  changePercent={setHeaderSummary.setValue.delta30dPercent}
+                                  windowLabel="30D"
+                                  loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}
+                                  variant="hero"
+                                  accessibleLabel="Set Value Trend"
+                                />
+                              )}
                             </div>
                             <button
                               type="button"
@@ -12851,7 +12969,7 @@ export default function RipStatisticsPageClient({
                             </button>
                           </div>
 
-                          <div className="flex min-w-0 flex-col justify-between gap-2">
+                          <div className="flex min-w-0 flex-col justify-center gap-2">
                             <CompactSparkline
                               points={setHeaderSummary.setValue.sparklinePoints}
                               valueKey="setValue"
@@ -12867,20 +12985,6 @@ export default function RipStatisticsPageClient({
                               className="h-14 w-full"
                               emptyLabel="History pending"
                             />
-                            <div className="grid min-w-0 grid-cols-2 gap-2">
-                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setHeaderSummary.setValue.delta30dAmount)}>
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D Delta</p>
-                                <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                                  {setHeaderSummary.setValue.delta30dAmount === null ? "N/A" : formatSignedCurrency(setHeaderSummary.setValue.delta30dAmount)}
-                                </p>
-                              </div>
-                              <div className="rounded-lg border px-2.5 py-2 text-right" style={getDeltaBadgeStyle(setHeaderSummary.setValue.delta30dPercent)}>
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D %</p>
-                                <p className="mt-0.5 text-xs font-semibold tabular-nums">
-                                  {setHeaderSummary.setValue.delta30dPercent === null ? "N/A" : `${setHeaderSummary.setValue.delta30dPercent > 0 ? "+" : ""}${setHeaderSummary.setValue.delta30dPercent.toFixed(1)}%`}
-                                </p>
-                              </div>
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -13322,7 +13426,7 @@ export default function RipStatisticsPageClient({
                         <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
                       </div>
                       <div className="mt-4 flex w-full justify-center self-center">
-                        <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} size="hero" />
+                        <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} interpretation={recommendationBadge} size="hero" />
                       </div>
                     </div>
 
@@ -13544,7 +13648,7 @@ export default function RipStatisticsPageClient({
                 </SectionErrorBoundary>
 
                 {/* Priority 5: deep diagnostics. proofLoading/proofLoadingTimedOut
-                    reflect the secondary-tier fetch. DesirabilityProofContent
+                    reflect the secondary-tier fetch. DesirabilityAgreementContent
                     renders data whenever the proof signal exists, so a truthy
                     proofLoading can never hide loaded content — it only
                     upgrades the no-data state from a premature "isn't
@@ -13569,6 +13673,7 @@ export default function RipStatisticsPageClient({
                     cardValidationFreshness={sectionFreshness.cardAppealValidation}
                     snapshotLoading={isTimeoutFallbackPayload}
                     dataLoading={activeCardValidationData.status === "loading"}
+                    topHits={topHits}
                   />
                 </SectionErrorBoundary>
 
@@ -13577,52 +13682,29 @@ export default function RipStatisticsPageClient({
                     secondary tier via insightsSectionsBlocked. */}
                 <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Simulation Results" minHeightClassName="min-h-[24rem]">
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
-                  {/* Collapsible shell (same card treatment as SectionCard): the header
-                      row hosts the expand toggle, mirroring RIP Score Breakdown's
-                      Show/Hide Details pattern. Collapsed is the default; deep links
-                      and left-nav clicks into this section expand it via
-                      simulationResultsExpanded. The body is render-gated only — the
-                      /insights fetch lifecycle is untouched, so expanding never
-                      re-fetches already-loaded data. */}
+                  {/* Always-expanded card (same card treatment as SectionCard): the
+                      Insights page is the deep-dive destination, so the full
+                      sub-tab explorer renders on load. Deep links and left-nav
+                      clicks only pick the sub-tab and scroll — there is no
+                      collapse state to reveal. */}
                   <article
                     className={[
                       "w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5",
-                      simulationResultsExpanded && openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : "",
+                      openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : "",
                     ].filter(Boolean).join(" ")}
                   >
                     <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
+                        <SectionEyebrow>03 · Raw evidence</SectionEyebrow>
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Simulation Results</h2>
                           <InfoPopover text={SIMULATION_RESULTS_INFO_TEXT} />
                         </div>
                         <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">The raw evidence — full simulation outputs behind the score.</p>
-                        {!simulationResultsExpanded && simulationResultsSummaryText ? (
-                          <p className="mt-1 min-w-0 max-w-full text-xs tabular-nums text-[var(--text-secondary)]">{simulationResultsSummaryText}</p>
-                        ) : null}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setSimulationResultsExpanded((current) => !current)}
-                        className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55"
-                        aria-expanded={simulationResultsExpanded}
-                        aria-controls="simulation-results-full"
-                      >
-                        {simulationResultsExpanded ? "Hide full results" : "Show full results"}
-                        <svg
-                          viewBox="0 0 20 20"
-                          aria-hidden="true"
-                          className={`h-3.5 w-3.5 opacity-70 transition-transform duration-200 ${simulationResultsExpanded ? "rotate-180" : ""}`}
-                          fill="currentColor"
-                        >
-                          <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
-                        </svg>
-                      </button>
                     </div>
 
-                    {simulationResultsExpanded ? (
                     <div
-                      id="simulation-results-full"
                       className={["mt-4 min-w-0 max-w-full", openingOutcomesUsesExpandedLayout ? "min-h-[32rem]" : ""].filter(Boolean).join(" ")}
                     >
                     <SectionViewTabs
@@ -13788,7 +13870,6 @@ export default function RipStatisticsPageClient({
                       </SimulationResultsPanel>
                     )}
                     </div>
-                    ) : null}
                   </article>
                 </section>
                 </SectionErrorBoundary>

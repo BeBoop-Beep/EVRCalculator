@@ -8,38 +8,52 @@ const historyChartPath = path.resolve(__dirname, "PackValueHistoryChart.jsx");
 const distributionChartPath = path.resolve(__dirname, "RipDistributionChart.jsx");
 const performanceFormattingPath = path.resolve(__dirname, "performanceVsCostFormatting.mjs");
 const rankingConfigPath = path.resolve(__dirname, "../../constants/exploreRankingConfig.js");
+const segmentedControlPath = path.resolve(__dirname, "../ui/SegmentedControl.jsx");
 
 test("Set Value and Opening Profit vs Cost use the requested user-facing copy", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(source.includes('summaryLabel: "Set Value"'));
-  assert.ok(source.includes('text="Set value from daily Near Mint card market observations."'));
+  assert.ok(source.includes('Tracks the selected set-value scope using daily Near Mint card market observations.'));
   assert.ok(source.includes("Set Value Trend"));
+  assert.ok(!source.includes(">Checklist Set Value<"));
   assert.ok(source.includes("Opening Profit vs Cost"));
   assert.ok(!source.includes(">Opening Performance vs Cost<"));
 });
 
 test("hero exposes one accessible RIP Score and RIP Core segmented control with separate rank and tier", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const segmentedSource = fs.readFileSync(segmentedControlPath, "utf8");
+  const toggleSource = source.slice(source.indexOf("function RipScoreModeToggle"), source.indexOf("function HeroScoreBadges"));
 
   assert.ok(source.includes('function RipScoreModeToggle({ value, onChange, coreAvailable })'));
-  assert.ok(source.includes('aria-label="RIP score mode"'));
-  assert.ok(source.includes("aria-pressed={selected}"));
+  assert.ok(source.includes('ariaLabel="RIP score mode"'));
+  assert.ok(source.includes("<SegmentedControl"));
+  assert.ok(segmentedSource.includes('role="radiogroup"'));
+  assert.ok(segmentedSource.includes('aria-checked={isActive}'));
+  assert.ok(segmentedSource.includes('"ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"'));
   assert.ok(source.includes('<HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier}'));
+  assert.ok(source.includes('interpretation={recommendationBadge}'));
+  assert.ok(source.includes('<RecommendationBadge label={interpretation} rankTier={tier} />'));
   assert.ok(source.includes("heroScoreSelection.interpretation.summary"));
+  assert.ok(toggleSource.includes("onChange={onChange}"));
+  assert.ok(!toggleSource.includes("fetch("));
+  assert.ok(!toggleSource.includes("getPokemonSet"), "mode switching must remain local and never request set data");
 });
 
-test("7D mover price group includes the existing triangle icon before the percent badge", () => {
+test("7D mover price group uses the shared two-line market value presentation", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const chipStart = source.indexOf("function MoversTickerItemChip");
   const chipEnd = source.indexOf("function MarketMoversTicker", chipStart);
   const chip = source.slice(chipStart, chipEnd);
 
-  assert.ok(chip.includes("getMoversTickerTrendValue(movement)"));
-  assert.ok(chip.includes("whitespace-nowrap"));
-  assert.ok(chip.indexOf("<DeltaTrendIcon") < chip.indexOf("{percent !== null ? ("));
-  assert.ok(chip.includes('"Price up over 7 days"'));
-  assert.ok(chip.includes('"Price down over 7 days"'));
+  assert.ok(chip.includes("<MarketValueChange"));
+  assert.ok(chip.includes("changeAmount={movement?.amount}"));
+  assert.ok(chip.includes("changePercent={movement?.percent}"));
+  assert.ok(chip.includes('windowLabel="7D"'));
+  assert.ok(chip.includes('variant="ticker"'));
+  assert.ok(!chip.includes("<DeltaTrendIcon"));
+  assert.ok(!chip.includes("rounded-md border"));
 });
 
 test("Set Intelligence Biggest Upside wiring references relative-first score fields and both upside evidence labels", () => {

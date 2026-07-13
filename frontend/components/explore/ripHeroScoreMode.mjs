@@ -59,6 +59,12 @@ export function selectRipHeroScoreMode({ mode = RIP_SCORE_MODE, summary = {}, ta
     };
   }
 
+  const interpretation = firstValue(sources, [
+    "rip_score_interpretation",
+    "ripScoreInterpretation",
+    "pack_score_interpretation",
+    "packScoreInterpretation",
+  ]);
   return {
     mode: RIP_SCORE_MODE,
     label: "RIP Score",
@@ -66,7 +72,17 @@ export function selectRipHeroScoreMode({ mode = RIP_SCORE_MODE, summary = {}, ta
     score: firstNumber(sources, ["relative_pack_score", "relativePackScore", "pack_score", "packScore"]),
     rank: firstNumber(sources, ["rip_rank_with_desirability", "ripRankWithDesirability", "pack_rank", "packRank"]),
     tier: firstValue(sources, ["pack_tier", "packTier"]),
-    interpretation: { label: null, summary: null, severity: null },
+    interpretation: {
+      label:
+        (interpretation && interpretation.label) ||
+        firstValue(sources, ["rip_score_interpretation_label", "ripScoreInterpretationLabel", "pack_score_interpretation_label", "packScoreInterpretationLabel"]),
+      summary:
+        (interpretation && interpretation.summary) ||
+        firstValue(sources, ["rip_score_interpretation_summary", "ripScoreInterpretationSummary", "pack_score_interpretation_summary", "packScoreInterpretationSummary"]),
+      severity:
+        (interpretation && interpretation.severity) ||
+        firstValue(sources, ["rip_score_interpretation_severity", "ripScoreInterpretationSeverity", "pack_score_interpretation_severity", "packScoreInterpretationSeverity"]),
+    },
     coreAvailable,
   };
 }

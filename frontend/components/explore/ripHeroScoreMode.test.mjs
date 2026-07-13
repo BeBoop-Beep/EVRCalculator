@@ -11,6 +11,7 @@ const summary = {
   relative_pack_score: 72.4,
   pack_rank: 18,
   pack_tier: "D",
+  rip_score_interpretation: { label: "Elite but swingy", summary: "Final summary", severity: "positive" },
   rip_score_without_desirability: 18.55,
   relative_rip_core_score: 61.2,
   rip_core_rank: 15,
@@ -25,10 +26,15 @@ test("RIP Score and RIP Core switch score, rank, tier, helper, and interpretatio
   assert.equal(finalMode.score, 72.4);
   assert.equal(finalMode.rank, 18);
   assert.equal(finalMode.tier, "D");
+  assert.notEqual(String(finalMode.rank), finalMode.tier, "rank must remain numerical rather than displaying the tier letter");
+  assert.equal(finalMode.interpretation.label, "Elite but swingy");
+  assert.equal(finalMode.interpretation.summary, "Final summary");
   assert.match(finalMode.helper, /collector desirability/);
   assert.equal(coreMode.score, 61.2);
   assert.equal(coreMode.rank, 15);
   assert.equal(coreMode.tier, "C");
+  assert.notEqual(String(coreMode.rank), coreMode.tier, "core rank must remain numerical rather than displaying the tier letter");
+  assert.equal(coreMode.interpretation.label, "Financially mixed");
   assert.equal(coreMode.interpretation.summary, "Core summary");
   assert.match(coreMode.helper, /without collector desirability/);
 });

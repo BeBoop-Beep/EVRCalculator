@@ -1350,7 +1350,7 @@ test("compact sparkline tooltip is local to the sparkline wrapper", () => {
 
 test("header set value compact sparkline shows the simple date/value/delta hover tooltip", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const labelIndex = source.indexOf("{setValueMetricLabel}");
+  const labelIndex = source.indexOf(">Set Value Trend</p>");
   const sparklineStart = source.indexOf("<CompactSparkline", labelIndex);
   const sparklineEnd = source.indexOf("/>", sparklineStart);
   const setValueSparklineSource = source.slice(sparklineStart, sparklineEnd);
@@ -1588,22 +1588,31 @@ test("card validation bucket row keys include stable identity beyond card name",
   assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
 });
 
-test("desirability evidence proof content renders from set payload validation data", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
+test("desirability evidence renders verdict + alignment ladder from set payload validation data", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(source.includes("function DesirabilityEvidenceCard"));
-  assert.ok(source.includes("function DesirabilityProofContent"));
+  // The verdict line + alignment ladder replaced the old rank-chip "Proof"
+  // sub-tab; only the two scatter views toggle now.
+  assert.ok(source.includes("function DesirabilityAgreementContent"));
+  assert.ok(source.includes("function DesirabilityVerdictLine"));
+  assert.ok(source.includes("function DesirabilityAlignmentLadder"));
+  assert.ok(!source.includes("function DesirabilityProofContent"), "the old Proof grid component must be gone");
+  assert.ok(!source.includes('label: "Proof"'), "the Proof sub-tab must be retired");
   assert.ok(source.includes('title="Desirability Evidence"'));
-  assert.ok(source.includes('label: "Proof"'));
   assert.ok(source.includes('label: "Set Validation"'));
   assert.ok(source.includes('label: "Card Validation"'));
-  assert.ok(source.includes("Desirability Impact"));
-  assert.ok(source.includes("Desirability Signal Check"));
   assert.ok(source.includes("getDesirabilityValidationPayload(explorePayload)"));
   assert.ok(source.includes("desirabilityValidationPayload"));
-  assert.ok(source.includes("Card appeal validation is not available for this set yet."));
-  assert.ok(source.includes("View Card Appeal chart"));
-  assert.ok(source.includes("#set-detail-card-desirability-price"));
+  // Verdict + ladder display only what the backend agreement logic already
+  // computed — no frontend agreement math.
+  assert.ok(source.includes("selectDesirabilityVerdict(validation)"));
+  assert.ok(source.includes("selectDesirabilityAlignmentLadder(validation)"));
+  // The anchor spans stay so legacy deep links keep landing on the section.
+  assert.ok(source.includes("#set-detail-card-desirability-price") || source.includes('id="set-detail-card-desirability-price"'));
+  // The concrete top-chase anchor renders only when thumbnail data exists.
+  assert.ok(source.includes("selectTopChaseAnchorHit(topHits)"));
+  assert.ok(source.includes("topHits={topHits}"));
 });
 
 test("desirability validation selector uses metric-specific market checks", () => {
@@ -2414,8 +2423,8 @@ test("Patch 2: set-switch pending state exists and replaces placeholder metric v
     "the RIP score must render a pending skeleton instead of a placeholder score during a switch"
   );
   assert.ok(
-    source.includes("setHeaderSummary.setValue.current === null\n                                    ? titleCardMetricsPending\n                                      ? titleMetricPendingPlaceholder"),
-    "the set value must render the pending placeholder during a switch"
+    source.includes("loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}"),
+    "the shared set value stack must render its pending skeleton during a switch"
   );
 });
 
@@ -3885,7 +3894,7 @@ test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition 
     "the reveal must be scheduled via startTransition, not a synchronous state update"
   );
   assert.ok(
-    tileSource.includes('className="min-w-[4.5rem] shrink-0 text-right"'),
+    tileSource.includes('className="min-w-[7.5rem] shrink-0 text-right"'),
     "the badge slot must reserve its width before content is revealed, so reveal never shifts the name/number column"
   );
   assert.ok(
@@ -4277,79 +4286,69 @@ test("Stabilization: useSectionFetchState dedupes auto-fetches by set id and rel
 });
 
 // ---------------------------------------------------------------------------
-// Patch 3 — Desirability Evidence N/A handling. Uncomputed proof fields
-// (final RIP rank/score, score/rank deltas, top-10 card value) must read
-// "Not computed yet" rather than a bare "N/A" that looks broken, and Price
-// Relation must reuse the already-computed cardAppealMarketPriceCorrelation
-// (pearson/spearman) instead of showing "n/a" — never recompute.
+// Desirability Evidence redesign — the verdict leads, the alignment ladder
+// carries the ranks, and uncomputed fields (Score Delta, Final RIP Rank, Rank
+// Delta, Top 10 Cards) are omitted from the display instead of rendering as
+// equal-weight "Not computed yet" placeholder boxes. Display-only: none of the
+// underlying computations changed.
 // ---------------------------------------------------------------------------
 
-test("Desirability proof uses canonical labels, explanations, and specific unavailable reasons", () => {
+test("Desirability redesign: uncomputed proof fields are omitted, never placeholder boxes", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  assert.ok(source.includes('label="Final RIP Score Rank"'));
-  assert.ok(source.includes('"Rank before collector desirability is added."'));
-  assert.ok(source.includes('"Overall RIP Score rank after collector desirability is included."'));
-  assert.ok(source.includes('"Final RIP Score minus RIP Core score."'));
-  assert.ok(source.includes('"Positive means the set moved toward #1; negative means it moved down."'));
-  assert.ok(source.includes('"Awaiting desirability score"'));
-  assert.ok(source.includes('"Awaiting canonical comparison"'));
-});
+  assert.ok(!source.includes("Not computed yet"), "no 'Not computed yet' placeholder boxes may remain");
+  assert.ok(!source.includes('"Awaiting canonical comparison"'), "no awaiting-comparison placeholder boxes may remain");
+  assert.ok(!source.includes('"Awaiting canonical card prices"'), "no awaiting-prices placeholder boxes may remain");
+  assert.ok(!source.includes("<ProofMetric"), "the rank-chip grid must be gone from the main display");
 
-test("Top 10 Card Value honors missing data and explains its canonical market rank", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
-
-  const flagStart = source.indexOf("const top10CardValueNotComputed =");
-  assert.ok(flagStart >= 0, "a top10CardValueNotComputed flag must exist");
-  const flagEnd = source.indexOf(";", flagStart);
-  const flagSource = source.slice(flagStart, flagEnd);
-  assert.ok(flagSource.includes('missingDataFlags') && flagSource.includes('"top_10_card_value"'), "must consult missing_data_flags");
+  // The impact movement line renders only when every comparison field is
+  // computed, and otherwise falls back to the backend impact summary or
+  // disappears — no boxes.
+  const impactStart = source.indexOf("function DesirabilityImpactNote({ validation })");
+  assert.ok(impactStart >= 0, "the subdued impact note must exist");
+  const impactEnd = source.indexOf("\n}\n", impactStart);
+  const impactSource = source.slice(impactStart, impactEnd);
   assert.ok(
-    flagSource.includes("toNumber(validation.top_10_card_value_rank ?? validation.top10CardValueRank) === null"),
-    "must also treat a null top-10 rank as not computed"
-  );
-  assert.ok(source.includes('label="Top 10 Card Value"'));
-  assert.ok(source.includes('"Awaiting canonical card prices"'));
-  assert.ok(source.includes("Rank based on the combined current market value of the set’s ten highest-priced cards."));
-});
-
-test("Patch 3: Price Relation reuses cardAppealMarketPriceCorrelation instead of raw N/A", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
-
-  const resolverStart = source.indexOf("function resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation)");
-  assert.ok(resolverStart >= 0, "a Price Relation resolver must exist");
-  const resolverEnd = source.indexOf("\n}\n", resolverStart);
-  const resolverSource = source.slice(resolverStart, resolverEnd);
-  assert.ok(
-    resolverSource.includes("validation?.card_appeal_vs_market_price_correlation ?? validation?.cardAppealVsMarketPriceCorrelation"),
-    "must prefer the persisted desirabilityValidation correlation field first"
+    impactSource.includes("coreRank !== null && finalRank !== null && rankDelta !== null"),
+    "the movement sentence requires all comparison fields to be computed"
   );
   assert.ok(
-    resolverSource.includes("toNumber(correlation.pearson) ?? toNumber(correlation.spearman)"),
-    "must fall back to the existing cardAppealMarketPriceCorrelation pearson/spearman"
-  );
-
-  // The proof card must consume the resolver and pass the correlation down.
-  assert.ok(
-    source.includes("const priceRelationValue = resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation);"),
-    "the proof card must resolve Price Relation via the shared resolver"
-  );
-  assert.ok(
-    source.includes("value={priceRelationValue === null ? PROOF_NOT_COMPUTED_LABEL : formatCorrelationValue(priceRelationValue)}"),
-    "Price Relation must show the resolved correlation, or 'Not computed yet' only when truly absent"
-  );
-  assert.ok(
-    source.includes("cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}"),
-    "DesirabilityEvidenceCard must pass the correlation into DesirabilityProofContent"
+    impactSource.includes("validation.desirability_impact_summary || validation.desirabilityImpactSummary || null"),
+    "it must fall back to the backend impact summary, then to nothing"
   );
 });
 
-test("Patch 3: Desirability Impact and Signal Check blocks still render (regression guard)", () => {
+test("Desirability redesign: ladder colors come from the backend's named strongest/conflict signals", () => {
+  const alignmentSource = fs
+    .readFileSync(path.resolve(__dirname, "desirabilityAlignment.mjs"), "utf8")
+    .replace(/\r\n/g, "\n");
+
+  // Agreement state is read off the payload's named signals — never derived
+  // from new frontend math.
+  assert.ok(alignmentSource.includes("validation.strongest_supporting_signal ?? validation.strongestSupportingSignal"));
+  assert.ok(alignmentSource.includes("validation.biggest_conflicting_signal ?? validation.biggestConflictingSignal"));
+  assert.ok(alignmentSource.includes('isStrongest ? "confirms" : isConflict ? "conflicts" : "neutral"'));
+  assert.ok(alignmentSource.includes('["total_ranked_sets", "totalRankedSets"]'), "field size must come from the payload");
+
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  assert.ok(source.includes('confirms: "var(--success)"'), "confirming signal must use the success token");
+  assert.ok(source.includes('conflicts: "var(--warning)"'), "conflicting signal must use the warning token");
+  assert.ok(source.includes('neutral: "var(--neutral)"'), "other signals stay neutral");
+  assert.ok(source.includes("buildLadderAriaLabel(ladder)"), "the ladder SVG must carry a live aria-label");
+  assert.ok(source.includes('role="img"'), "the ladder must be exposed as an image");
+  assert.ok(source.includes("describeLadderSignal(signal, ladder.fieldSize)"), "a visually-hidden signal list must exist");
+});
+
+test("Simulation Results renders expanded by default with no collapse toggle", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  assert.ok(source.includes('<h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Impact</h3>'), "Desirability Impact block must remain");
-  assert.ok(source.includes('<h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Signal Check</h3>'), "Desirability Signal Check block must remain");
-  // RIP Core Rank keeps the plain formatter (the investigation found it
-  // populated) — only the confirmed-null fields switched to not-computed.
-  assert.ok(source.includes('<ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)}'), "RIP Core Rank keeps the plain rank formatter");
+  assert.ok(!source.includes("simulationResultsExpanded"), "the collapse state must be gone");
+  assert.ok(!source.includes("Show full results"), "the expand toggle must be gone");
+  assert.ok(!source.includes("Hide full results"), "the collapse toggle must be gone");
+  // The full sub-tab explorer still renders inside the card.
+  const cardStart = source.indexOf('<h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Simulation Results</h2>');
+  assert.ok(cardStart >= 0, "the Simulation Results card header must remain");
+  const cardEnd = source.indexOf("</article>", cardStart);
+  const cardSource = source.slice(cardStart, cardEnd);
+  assert.ok(cardSource.includes("<SectionViewTabs"), "the sub-tab strip must render unconditionally");
 });
