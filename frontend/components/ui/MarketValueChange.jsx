@@ -26,6 +26,7 @@ export default function MarketValueChange({
   accessibleLabel = "Market value",
   accessiblePeriodLabel = null,
   showWindowLabel = true,
+  windowLabelPlacement = "inline",
   content = "both",
   className = "",
 }) {
@@ -39,6 +40,7 @@ export default function MarketValueChange({
     unavailable,
     accessibleLabel,
     accessiblePeriodLabel,
+    windowLabelPlacement,
   });
   const aligned = alignment === "right" ? "items-end text-right" : alignment === "center" ? "items-center text-center" : "items-start text-left";
   const showValue = content !== "change";
@@ -80,7 +82,7 @@ export default function MarketValueChange({
           )}
           {model.amountText ? <span aria-hidden="true">{model.amountText}</span> : null}
           {model.percentText ? <span aria-hidden="true">{model.amountText ? `(${model.percentText})` : model.percentText}</span> : null}
-          {showWindowLabel && model.windowLabel ? (
+          {showWindowLabel && model.windowLabel && windowLabelPlacement === "inline" ? (
             <span className="inline-flex items-center gap-1 whitespace-nowrap text-[var(--text-secondary)] opacity-80">
               <span aria-hidden="true">{"\u00b7"}</span>
               <span>{model.windowLabel}</span>
@@ -90,6 +92,11 @@ export default function MarketValueChange({
         </span>
       ) : showChange ? (
         <span className={["font-medium text-[var(--text-secondary)]", changeGap, classes.change].join(" ")}>{model.changeText}</span>
+      ) : null}
+      {showChange && showWindowLabel && model.windowLabel && windowLabelPlacement === "below" ? (
+        <span className="mt-px whitespace-nowrap text-[9px] font-medium leading-tight text-[var(--text-secondary)] opacity-80">
+          {model.windowLabel}
+        </span>
       ) : null}
     </div>
   );

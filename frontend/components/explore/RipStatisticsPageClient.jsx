@@ -98,11 +98,11 @@ import {
   getInterpretationTone,
 } from "@/lib/explore/interpretationTone";
 import {
-  PRICING_SNAPSHOT_CONTRACT_VERSION,
   getCachedPokemonSetCards,
   getPokemonSetCardsPage,
   getPokemonSetCardsValidation,
 } from "@/lib/pokemon/pokemonSetCardsClient";
+import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
@@ -1897,7 +1897,6 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
   const rarity = card?.rarity || null;
   const subtypeLabel = Array.isArray(card?.subtypes) && card.subtypes.length > 0 ? card.subtypes.join(" / ") : null;
   const marketPrice = getCardMarketPrice(card);
-  // TODO: checklist-card deltas should use the shared market snapshot/delta system once wired into this payload.
   const marketDelta = (movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)) || getCardMarketDelta(card);
   const hasPriceData = marketPrice !== null;
   // Remote card art lands well after the tile's data (about a second on a
@@ -1934,7 +1933,7 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
   }, [cardMetaKey, hasPriceData]);
 
   return (
-    <article className="group overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
+    <article className="group h-full overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
       <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-[rgba(2,6,23,0.46)] p-1">
         {imageUrl && !hasImageFailed ? (
           <>
@@ -1958,7 +1957,7 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
           <CardImagePlaceholder label="Image unavailable" />
         )}
       </div>
-      <div className="space-y-1.5 px-2.5 py-2.5">
+      <div className="min-h-[7.25rem] space-y-1.5 px-2.5 py-2.5">
         <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
         <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0">
@@ -1966,44 +1965,28 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
             {rarity ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{rarity}</p> : null}
             {subtypeLabel ? <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
           </div>
-          {hasPriceData ? (
-            <div className="min-w-[4.75rem] shrink-0 text-right">
-              {isMetaRevealed ? (
-                <MarketValueChange
-                  value={marketPrice}
-                  changeAmount={marketDelta?.amount}
-                  changePercent={marketDelta?.percent}
-                  windowLabel={movementWindow}
-                  accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}
-                  alignment="right"
-                  variant="card-tile"
-                  accessibleLabel={`${name} market price`}
-                  content="value"
-                />
-              ) : (
-                <div className="ml-auto h-3.5 w-12 animate-pulse rounded bg-[rgba(148,163,184,0.12)]" aria-hidden="true" />
-              )}
-            </div>
-          ) : null}
-        </div>
-        <div className="flex min-h-[1.125rem] w-full min-w-0 items-center text-left">
-          {isMetaRevealed || !hasPriceData ? (
-            <MarketValueChange
-              value={marketPrice}
-              changeAmount={marketDelta?.amount}
-              changePercent={marketDelta?.percent}
-              windowLabel={movementWindow}
-              showWindowLabel={false}
-              accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}
-              alignment="left"
-              variant="card-tile"
-              accessibleLabel={`${name} market price`}
-              content="change"
-              className="w-full"
-            />
-          ) : (
-            <div className="h-3 w-24 animate-pulse rounded bg-[rgba(148,163,184,0.10)]" aria-hidden="true" />
-          )}
+          <div className="min-w-[7.5rem] shrink-0 text-right">
+            {isMetaRevealed || !hasPriceData ? (
+              <MarketValueChange
+                value={marketPrice}
+                changeAmount={marketDelta?.amount}
+                changePercent={marketDelta?.percent}
+                windowLabel={movementWindow}
+                windowLabelPlacement="below"
+                unavailable={!marketDelta}
+                accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}
+                alignment="right"
+                variant="card-tile"
+                accessibleLabel={`${name} market price`}
+              />
+            ) : (
+              <div className="ml-auto space-y-1" aria-hidden="true">
+                <div className="ml-auto h-3.5 w-12 animate-pulse rounded bg-[rgba(148,163,184,0.12)]" />
+                <div className="ml-auto h-3 w-24 animate-pulse rounded bg-[rgba(148,163,184,0.10)]" />
+                <div className="ml-auto h-2.5 w-6 animate-pulse rounded bg-[rgba(148,163,184,0.08)]" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </article>
@@ -3106,6 +3089,53 @@ function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
     preferActualPointsForOneDay: false,
   });
   const selectedHistoryWindow = historyWindows.find((entry) => entry.key === selectedWindowKey);
+  const storedWindows = card?.marketDeltaWindows && typeof card.marketDeltaWindows === "object"
+    ? card.marketDeltaWindows
+    : card?.market_delta_windows && typeof card.market_delta_windows === "object"
+    ? card.market_delta_windows
+    : null;
+  const storedMovement = ["1D", "7D", "30D"].includes(selectedWindowKey)
+    ? storedWindows?.[selectedWindowKey]
+    : null;
+  if (storedMovement) {
+    const storedWindow = {
+      ...storedMovement,
+      key: selectedWindowKey,
+      label: selectedWindowKey,
+      amount: toNumber(storedMovement?.changeAmount ?? storedMovement?.change_amount),
+      percent: toNumber(storedMovement?.changePercent ?? storedMovement?.change_percent),
+      startDate: getHistoryDateKey(storedMovement?.startDate ?? storedMovement?.start_date),
+      endDate: getHistoryDateKey(storedMovement?.endDate ?? storedMovement?.end_date),
+      targetStartDate: getHistoryDateKey(storedMovement?.targetStartDate ?? storedMovement?.target_start_date),
+      isSinceFirstAvailable: Boolean(storedMovement?.isPartialWindow ?? storedMovement?.is_partial_window),
+      source: "stored-canonical",
+    };
+    if (process.env.NODE_ENV !== "production") {
+      const latestChartPoint = [...(Array.isArray(historyPoints) ? historyPoints : [])]
+        .filter((point) => toNumber(point?.value) !== null)
+        .sort((a, b) => String(a?.date || "").localeCompare(String(b?.date || "")))
+        .at(-1);
+      const mismatches = [];
+      if (selectedHistoryWindow?.startDate && storedWindow.startDate !== selectedHistoryWindow.startDate) mismatches.push("startDate");
+      if (selectedHistoryWindow?.endDate && storedWindow.endDate !== selectedHistoryWindow.endDate) mismatches.push("endDate");
+      const storedCurrentPrice = toNumber(storedMovement?.currentPrice ?? storedMovement?.current_price);
+      if (storedCurrentPrice !== null && toNumber(latestChartPoint?.value) !== null && Math.abs(storedCurrentPrice - toNumber(latestChartPoint.value)) >= 0.005) mismatches.push("currentPrice");
+      const movementVariantId = storedMovement?.cardVariantId ?? storedMovement?.card_variant_id;
+      const movementConditionId = storedMovement?.conditionId ?? storedMovement?.condition_id;
+      if (movementVariantId && card?.cardVariantId && movementVariantId !== card.cardVariantId) mismatches.push("cardVariantId");
+      if (movementConditionId && card?.conditionId && movementConditionId !== card.conditionId) mismatches.push("conditionId");
+      if (mismatches.length > 0) {
+        console.warn("[pokemon-market-delta] Stored Top Chase movement disagrees with chart/identity", {
+          canonicalCardId: card?.canonicalCardId || card?.cardId || card?.id,
+          window: selectedWindowKey,
+          mismatches,
+          storedMovement,
+          selectedHistoryWindow,
+        });
+      }
+    }
+    return storedWindow;
+  }
   if (selectedHistoryWindow) {
     return selectedHistoryWindow;
   }
@@ -3230,10 +3260,10 @@ function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
       title={`${name} — view all market movers`}
       className="flex min-w-0 flex-none items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
     >
-      <span className="flex h-8 w-6 flex-none items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.45)]">
+      <span className="flex h-10 w-7 flex-none items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.45)]">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+          <img src={imageUrl} alt="" className="h-full w-full object-contain" loading="lazy" decoding="async" />
         ) : (
           <span className="text-[8px] font-semibold text-[var(--text-secondary)]">{getCardInitials(name)}</span>
         )}

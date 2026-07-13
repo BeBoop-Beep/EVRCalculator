@@ -19,6 +19,7 @@ import {
 
 function loadPokemonSetMarketClientForTests() {
   const source = readFileSync(new URL("../pokemon/pokemonSetMarketClient.js", import.meta.url), "utf8")
+    .replace(/import \{ PRICING_SNAPSHOT_CONTRACT_VERSION \} from "\.\/pricingSnapshotContract\.mjs";\s*/, 'const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v4";\n')
     .replace(/export\s+(async\s+function|function)\s+/g, "$1 ");
   const context = {
     console,

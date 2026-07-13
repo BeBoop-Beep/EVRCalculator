@@ -46,12 +46,12 @@ function stubFetchJson(responseFactory) {
   };
 }
 
-test("getPokemonSetCardsPage bypasses browser caches and requests pricing-v3", async () => {
+test("getPokemonSetCardsPage bypasses browser caches and requests pricing-v4", async () => {
   const stub = stubFetchJson(() => makeCardsPagePayload());
   try {
     await getPokemonSetCardsPage("set-cache-contract", { page: 1, sort: "set-number" });
     const [[url, options]] = stub.getCalls();
-    assert.match(url, /snapshot_contract=pricing-v3/);
+    assert.match(url, /snapshot_contract=pricing-v4/);
     assert.deepEqual(options, {
       method: "GET",
       cache: "no-store",

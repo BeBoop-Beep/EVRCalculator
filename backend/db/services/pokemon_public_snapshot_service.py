@@ -207,15 +207,23 @@ def _movement_card_id_key(movement: Dict[str, Any]) -> Optional[str]:
 
 def _movement_fields(movement: Dict[str, Any], window: str = "30D") -> Dict[str, Any]:
     current_price = movement.get("currentPrice", movement.get("current_price"))
-    change_amount = movement.get("change30dAmount", movement.get("change_30d_amount"))
-    change_percent = movement.get("change30dPercent", movement.get("change_30d_percent"))
+    normalized_window = str(window or "30D").upper()
+    window_suffix = normalized_window.lower()
+    change_amount = movement.get(
+        "changeAmount",
+        movement.get("change_amount", movement.get(f"change{window_suffix}Amount", movement.get("change30dAmount", movement.get("change_30d_amount")))),
+    )
+    change_percent = movement.get(
+        "changePercent",
+        movement.get("change_percent", movement.get(f"change{window_suffix}Percent", movement.get("change30dPercent", movement.get("change_30d_percent")))),
+    )
     movement_score = movement.get("movementScore", movement.get("movement_score"))
     movement_label = movement.get("movementLabel", movement.get("movement_label"))
     enough_history = movement.get("enoughHistory", movement.get("enough_history"))
     confidence = movement.get("confidence")
-    normalized_window = str(window or "30D").upper()
-    window_suffix = normalized_window.lower()
     window_fields = {
+        "changeAmount": change_amount,
+        "changePercent": change_percent,
         f"change{window_suffix}Amount": change_amount,
         f"change{window_suffix}Percent": change_percent,
         f"movement{window_suffix}": {
@@ -226,6 +234,12 @@ def _movement_fields(movement: Dict[str, Any], window: str = "30D") -> Dict[str,
             "label": movement_label,
             "enoughHistory": enough_history,
             "confidence": confidence,
+            "windowConvention": movement.get("windowConvention", movement.get("window_convention")),
+            "targetStartDate": movement.get("targetStartDate", movement.get("target_start_date")),
+            "startDate": movement.get("startDate", movement.get("start_date")),
+            "endDate": movement.get("endDate", movement.get("end_date")),
+            "fullWindowCoverage": movement.get("fullWindowCoverage", movement.get("full_window_coverage")),
+            "isPartialWindow": movement.get("isPartialWindow", movement.get("is_partial_window")),
         },
     }
     if normalized_window != "30D":
@@ -235,6 +249,8 @@ def _movement_fields(movement: Dict[str, Any], window: str = "30D") -> Dict[str,
         "current_price": current_price,
         "marketPrice": current_price,
         "market_price": current_price,
+        "changeAmount": change_amount,
+        "changePercent": change_percent,
         "change30dAmount": change_amount,
         "change_30d_amount": change_amount,
         "change30dPercent": change_percent,
@@ -262,6 +278,12 @@ def _movement_fields(movement: Dict[str, Any], window: str = "30D") -> Dict[str,
             "enoughHistory": enough_history,
             "enough_history": enough_history,
             "confidence": confidence,
+            "windowConvention": movement.get("windowConvention", movement.get("window_convention")),
+            "targetStartDate": movement.get("targetStartDate", movement.get("target_start_date")),
+            "startDate": movement.get("startDate", movement.get("start_date")),
+            "endDate": movement.get("endDate", movement.get("end_date")),
+            "fullWindowCoverage": movement.get("fullWindowCoverage", movement.get("full_window_coverage")),
+            "isPartialWindow": movement.get("isPartialWindow", movement.get("is_partial_window")),
         },
     }
 

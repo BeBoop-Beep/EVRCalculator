@@ -45,6 +45,7 @@ export function buildMarketValueChangeModel({
   unavailable = false,
   accessibleLabel = "Market value",
   accessiblePeriodLabel = null,
+  windowLabelPlacement = "inline",
 } = {}) {
   const amount = toMarketNumber(changeAmount);
   const percent = toMarketNumber(changePercent);
@@ -54,15 +55,23 @@ export function buildMarketValueChangeModel({
   const hasReliableChange = !unavailable && (amount !== null || percent !== null);
 
   if (!hasReliableChange) {
-    const changeText = normalizedWindow ? `${normalizedWindow} change unavailable` : "Change unavailable";
+    const below = windowLabelPlacement === "below";
+    const changeText = below || !normalizedWindow ? "Change unavailable" : `${normalizedWindow} change unavailable`;
+    const accessibleWindow = /^\d+D$/i.test(normalizedWindow)
+      ? `${Number.parseInt(normalizedWindow, 10)}-day`
+      : normalizedWindow;
+    const accessibleUnavailable = accessibleWindow
+      ? `${accessibleWindow} change unavailable`
+      : "Change unavailable";
     return {
       valueText,
       changeText,
+      windowLabel: normalizedWindow,
       direction: "unavailable",
       hasReliableChange: false,
       accessibleValueText: `${accessibleLabel}: ${valueText}.`,
-      accessibleChangeText: `${accessibleLabel} change: ${changeText}.`,
-      accessibleText: `${accessibleLabel}: ${valueText}. ${changeText}.`,
+      accessibleChangeText: `${accessibleLabel} change: ${accessibleUnavailable}.`,
+      accessibleText: `${accessibleLabel}: ${valueText}. ${accessibleUnavailable}.`,
     };
   }
 
@@ -77,7 +86,7 @@ export function buildMarketValueChangeModel({
     : Math.abs(percent) < 0.000001
     ? "0.0%"
     : `${percent < 0 ? "\u2212" : "+"}${Math.abs(percent).toFixed(1)}%`;
-  const suffix = normalizedWindow ? ` \u00b7 ${normalizedWindow}` : "";
+  const suffix = normalizedWindow && windowLabelPlacement !== "below" ? ` \u00b7 ${normalizedWindow}` : "";
   const visibleChangeText = amountText && percentText
     ? `${amountText} (${percentText})`
     : amountText || percentText;

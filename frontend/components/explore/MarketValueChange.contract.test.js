@@ -7,6 +7,8 @@ const pagePath = path.resolve(__dirname, "RipStatisticsPageClient.jsx");
 const componentPath = path.resolve(__dirname, "../ui/MarketValueChange.jsx");
 const cardClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCardsClient.js");
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
+const pricingContractPath = path.resolve(__dirname, "../../lib/pokemon/pricingSnapshotContract.mjs");
+const moversRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/market/movers/route.js");
 
 const read = (file) => fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n");
 const section = (source, startToken, endToken) => {
@@ -70,21 +72,31 @@ test("Top Chase combines Price and Change into the shared selected-window stack"
   assert.ok(!rows.includes("<DeltaTrendIcon"));
 });
 
-test("Cards tiles compose shared price and change parts into separate aligned rows", () => {
+test("Top Chase prefers stored canonical short-window deltas and warns on chart mismatches", () => {
+  const source = read(pagePath);
+  const delta = section(source, "function getTopCardDeltaWindow", "function getTopCardsAvailableDeltaWindows");
+  assert.ok(delta.includes('const storedMovement = ["1D", "7D", "30D"].includes(selectedWindowKey)'));
+  assert.ok(delta.indexOf("if (storedMovement)") < delta.indexOf("if (selectedHistoryWindow)"));
+  assert.ok(delta.includes('source: "stored-canonical"'));
+  assert.ok(delta.includes('console.warn("[pokemon-market-delta]'));
+  for (const token of ["startDate", "endDate", "currentPrice", "cardVariantId", "conditionId"]) {
+    assert.ok(delta.includes(token), `missing ${token} mismatch diagnostic`);
+  }
+});
+
+test("Cards tiles render one Price to Delta to Window market block", () => {
   const source = read(pagePath);
   const tile = section(source, "function ChecklistCardTile", "function getChecklistCardMarketPrice");
   assert.ok(tile.includes("<MarketValueChange"));
   assert.ok(tile.includes("changeAmount={marketDelta?.amount}"));
   assert.ok(tile.includes("changePercent={marketDelta?.percent}"));
   assert.ok(tile.includes("windowLabel={movementWindow}"));
-  assert.ok(tile.includes("showWindowLabel={false}"));
+  assert.ok(tile.includes('windowLabelPlacement="below"'));
   assert.ok(tile.includes("accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}"));
-  assert.ok(tile.includes('content="value"'));
-  assert.ok(tile.includes('content="change"'));
   assert.ok(tile.includes('alignment="right"'));
-  assert.ok(tile.includes('alignment="left"'));
-  assert.ok(tile.includes('className="flex min-h-[1.125rem] w-full min-w-0 items-center text-left"'));
-  assert.ok(tile.includes('className="w-full"'));
+  assert.ok(tile.includes('className="min-w-[7.5rem] shrink-0 text-right"'));
+  assert.ok(!tile.includes('content="value"'));
+  assert.ok(!tile.includes('content="change"'));
   assert.ok(tile.includes('movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)'));
   assert.ok(tile.includes('const cardMetaKey = `${getChecklistCardKey(card)}:${marketPrice ?? ""}:${marketDelta?.amount ?? ""}:${marketDelta?.percent ?? ""}:${movementWindow}`'));
   assert.ok(tile.includes("setIsMetaRevealed(false)"));
@@ -120,15 +132,17 @@ test("7D ticker and shared Set Value/Top Chase tooltip use the same stack withou
   assert.ok(!tooltip.includes("windowLabel="), "point-to-point tooltip change must not be mislabeled as a full window");
 });
 
-test("compact contexts hide the visible suffix while keeping the selected window semantic", () => {
+test("Top Chase and ticker hide the suffix while Cards place it below", () => {
   const source = read(pagePath);
   const topChase = section(source, "function TopMarketCardRow", "function InlinePanelSkeleton");
   const ticker = section(source, "function MoversTickerItemChip", "function MarketMoversTicker");
   const tile = section(source, "function ChecklistCardTile", "function getChecklistCardMarketPrice");
-  for (const compactContext of [topChase, ticker, tile]) {
+  for (const compactContext of [topChase, ticker]) {
     assert.ok(compactContext.includes("showWindowLabel={false}"));
     assert.ok(compactContext.includes("windowLabel="));
   }
+  assert.ok(tile.includes('windowLabelPlacement="below"'));
+  assert.ok(!tile.includes("showWindowLabel={false}"));
   assert.ok(source.includes("since the first available observation"));
   assert.ok(source.includes("topCardDeltaWindow?.isSinceFirstAvailable"));
   assert.ok(source.includes('className="flex h-14 min-w-0 items-center gap-2'));
@@ -142,6 +156,29 @@ test("normalizers retain authoritative 7D and 30D amount/percent pairs", () => {
   }
   assert.ok(market.includes("change7dAmount: changeAmount"));
   assert.ok(market.includes("change7dPercent: changePercent"));
+});
+
+test("Cards, Top Chase, and Market Movers share pricing-v4", () => {
+  const cards = read(cardClientPath);
+  const market = read(marketClientPath);
+  const shared = read(pricingContractPath);
+  assert.ok(cards.includes('from "./pricingSnapshotContract.mjs"'));
+  assert.ok(market.includes('from "./pricingSnapshotContract.mjs"'));
+  assert.ok(shared.includes('PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v4"'));
+  assert.ok(!cards.includes('= "pricing-v3"'));
+  assert.ok(!market.includes('= "pricing-v2"'));
+  const route = read(moversRoutePath);
+  assert.ok(route.includes('get("snapshot_contract")'));
+  assert.ok(route.includes('backendUrl.searchParams.set("snapshot_contract", snapshotContract)'));
+});
+
+test("ticker thumbnail fills the three-line text stack without cropping", () => {
+  const source = read(pagePath);
+  const ticker = section(source, "function MoversTickerItemChip", "function MarketMoversTicker");
+  assert.ok(ticker.includes("h-10 w-7"));
+  assert.ok(ticker.includes("object-contain"));
+  assert.ok(!ticker.includes("h-8 w-6"));
+  assert.ok(!ticker.includes("object-cover"));
 });
 
 test("legacy market-price delta presentation code is absent", () => {

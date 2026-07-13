@@ -1,3 +1,6 @@
+import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "./pricingSnapshotContract.mjs";
+export { PRICING_SNAPSHOT_CONTRACT_VERSION } from "./pricingSnapshotContract.mjs";
+
 function toOptionalString(value) {
   const text = String(value || "").trim();
   return text || null;
@@ -5,7 +8,6 @@ function toOptionalString(value) {
 
 const CARD_SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
 const cardSnapshotCache = new Map();
-export const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v3";
 const cardSnapshotInflight = new Map();
 const isDev = process.env.NODE_ENV !== "production";
 const RETRYABLE_SNAPSHOT_STATUSES = new Set([404, 500, 502, 503, 504]);
@@ -252,6 +254,8 @@ function normalizeSetCard(card, validation = {}) {
     movement7d: {
       window: toOptionalString(movement7dSource?.window) || "7D",
       windowDays: toOptionalNumber(movement7dSource?.windowDays ?? movement7dSource?.window_days) ?? 7,
+      windowConvention: toOptionalString(movement7dSource?.windowConvention ?? movement7dSource?.window_convention),
+      targetStartDate: toOptionalString(movement7dSource?.targetStartDate ?? movement7dSource?.target_start_date),
       startDate: toOptionalString(movement7dSource?.startDate ?? movement7dSource?.start_date),
       endDate: toOptionalString(movement7dSource?.endDate ?? movement7dSource?.end_date),
       startingPrice: toOptionalNumber(movement7dSource?.startingPrice ?? movement7dSource?.starting_price),
@@ -281,6 +285,8 @@ function normalizeSetCard(card, validation = {}) {
     movement30d: {
       window: toOptionalString(movement30dSource?.window) || "30D",
       windowDays: toOptionalNumber(movement30dSource?.windowDays ?? movement30dSource?.window_days) ?? 30,
+      windowConvention: toOptionalString(movement30dSource?.windowConvention ?? movement30dSource?.window_convention),
+      targetStartDate: toOptionalString(movement30dSource?.targetStartDate ?? movement30dSource?.target_start_date),
       startDate: toOptionalString(movement30dSource?.startDate ?? movement30dSource?.start_date),
       endDate: toOptionalString(movement30dSource?.endDate ?? movement30dSource?.end_date),
       startingPrice: toOptionalNumber(movement30dSource?.startingPrice ?? movement30dSource?.starting_price),

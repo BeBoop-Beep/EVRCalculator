@@ -7,6 +7,11 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.db.services.pokemon_card_market_delta_contract import (
+    WINDOW_CONVENTION,
+    calculate_pokemon_card_market_delta,
+    utc_date_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +50,10 @@ CARD_MOVERS_MAX_HISTORY_SPAN_DAYS_BY_WINDOW = {
 # the most recent rows before they're ever returned — exactly the rows movers need.
 # Keep this well under 10k even for variants with several observation sources/day
 # across the CARD_MOVERS_HISTORY_LOOKBACK_DAYS window.
-CARD_MOVERS_OBSERVATION_CHUNK_SIZE = 50
+# PostgREST caps each observations response at 1,000 rows. A selected variant
+# can carry roughly two observations per day, so eight variants keep the full
+# 45-day lookback safely below that cap without losing baseline dates.
+CARD_MOVERS_OBSERVATION_CHUNK_SIZE = 8
 _IN_CHUNK_SIZE = 500
 _DELTA_KEYS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 SET_VALUE_SCOPES = ("standard", "hits", "top10")
@@ -359,6 +367,22 @@ def _load_canonical_cards(set_id: str, sources: Dict[str, str]) -> List[Dict[str
     return rows
 
 
+def _load_selected_canonical_price_rows(set_id: str, sources: Dict[str, str]) -> List[Dict[str, Any]]:
+    """Load the authoritative public card identity/current-price layer."""
+    result = (
+        public_read_client.table("pokemon_canonical_card_market_prices_latest")
+        .select(
+            "canonical_card_id,set_id,card_variant_id,condition_id,printing_type,market_price,"
+            "captured_at,source,price_selection_reason,refreshed_at"
+        )
+        .eq("set_id", set_id)
+        .execute()
+    )
+    rows = list(result.data or [])
+    sources["pokemon_canonical_card_market_prices_latest"] = "OK"
+    return rows
+
+
 def _load_legacy_cards(set_id: str, sources: Dict[str, str]) -> List[Dict[str, Any]]:
     result = (
         public_read_client.table("cards")
@@ -552,6 +576,23 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
         for card in canonical_cards
         if card.get("id") is not None
     }
+    try:
+        selected_price_rows = _load_selected_canonical_price_rows(set_id, sources)
+    except Exception:
+        # Compatibility for old/local databases while snapshots are migrated.
+        # Production parity is only guaranteed when the canonical view exists.
+        selected_price_rows = []
+        sources["pokemon_canonical_card_market_prices_latest"] = "UNAVAILABLE"
+        warnings.append("Canonical selected card prices are unavailable; using the legacy mover path.")
+    selected_price_by_canonical_id = {
+        str(row["canonical_card_id"]): row
+        for row in selected_price_rows
+        if row.get("canonical_card_id") is not None
+        and str(row.get("canonical_card_id")) in canonical_by_id
+        and _to_optional_str(row.get("card_variant_id"))
+        and _to_optional_str(row.get("condition_id"))
+        and _to_optional_float(row.get("market_price")) is not None
+    }
     canonical_by_api_id = {
         str(card["pokemon_tcg_api_card_id"]): card
         for card in canonical_cards
@@ -613,6 +654,7 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
         "variant_rows_by_id": variant_rows_by_id,
         "variant_ids": sorted(variant_to_canonical_id.keys()),
         "condition_id": condition_id,
+        "selected_price_by_canonical_id": selected_price_by_canonical_id,
     }
 
 
@@ -733,7 +775,7 @@ def _public_card_movement(
     }
 
 
-def _build_card_movements_from_context(
+def _build_legacy_card_movements_from_context(
     context: Dict[str, Any],
     *,
     window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
@@ -866,6 +908,189 @@ def _build_card_movements_from_context(
     return list(best_by_canonical.values())
 
 
+def _canonical_public_card_movement(
+    *,
+    canonical_card: Dict[str, Any],
+    selected_price: Dict[str, Any],
+    delta: Dict[str, Any],
+) -> Dict[str, Any]:
+    amount = delta.get("changeAmount")
+    percent = delta.get("changePercent")
+    score = (
+        round((abs(amount) * 0.72) + (min(abs(percent), 100.0) * float(delta["currentPrice"]) * 0.0028), 4)
+        if amount is not None and percent is not None and delta.get("currentPrice") is not None
+        else 0.0
+    )
+    signed_score = score if (amount or 0) > 0 else -score if (amount or 0) < 0 else 0.0
+    window_key = str(delta["window"])
+    suffix = window_key.lower()
+    card_id = _to_optional_str(canonical_card.get("id"))
+    variant_id = _to_optional_str(selected_price.get("card_variant_id"))
+    condition_id = _to_optional_str(selected_price.get("condition_id"))
+    image_url = _to_optional_str(canonical_card.get("image_small_url")) or _to_optional_str(canonical_card.get("image_large_url"))
+    card_number = _to_optional_str(canonical_card.get("printed_number")) or _to_optional_str(canonical_card.get("number"))
+    movement = {
+        "cardId": card_id,
+        "card_id": card_id,
+        "canonicalCardId": card_id,
+        "canonical_card_id": card_id,
+        "cardVariantId": variant_id,
+        "card_variant_id": variant_id,
+        "conditionId": condition_id,
+        "condition_id": condition_id,
+        "conditionIdUsed": condition_id,
+        "condition_id_used": condition_id,
+        "printingType": _to_optional_str(selected_price.get("printing_type")),
+        "printing_type": _to_optional_str(selected_price.get("printing_type")),
+        "setId": _to_optional_str(canonical_card.get("set_id")),
+        "set_id": _to_optional_str(canonical_card.get("set_id")),
+        "name": _to_optional_str(canonical_card.get("name")),
+        "rarity": _to_optional_str(canonical_card.get("rarity")),
+        "setNumber": card_number,
+        "set_number": card_number,
+        "cardNumber": card_number,
+        "card_number": card_number,
+        "imageUrl": image_url,
+        "image_url": image_url,
+        "imageSmallUrl": _to_optional_str(canonical_card.get("image_small_url")),
+        "imageLargeUrl": _to_optional_str(canonical_card.get("image_large_url")),
+        "currentPrice": delta.get("currentPrice"),
+        "current_price": delta.get("currentPrice"),
+        "marketPrice": delta.get("currentPrice"),
+        "market_price": delta.get("currentPrice"),
+        "changeAmount": amount,
+        "change_amount": amount,
+        "changePercent": percent,
+        "change_percent": percent,
+        f"change{suffix}Amount": amount,
+        f"change_{suffix}_amount": amount,
+        f"change{suffix}Percent": percent,
+        f"change_{suffix}_percent": percent,
+        "movementScore": signed_score,
+        "movement_score": signed_score,
+        "movementLabel": _movement_label(amount),
+        "movement_label": _movement_label(amount),
+        "moverEligible": bool(delta.get("reliable")),
+        "mover_eligible": bool(delta.get("reliable")),
+        "window": window_key,
+        "windowDays": delta.get("windowDays"),
+        "window_days": delta.get("windowDays"),
+        "windowConvention": delta.get("windowConvention"),
+        "window_convention": delta.get("windowConvention"),
+        "targetStartDate": delta.get("targetStartDate"),
+        "target_start_date": delta.get("targetStartDate"),
+        "startDate": delta.get("startDate"),
+        "start_date": delta.get("startDate"),
+        "endDate": delta.get("endDate"),
+        "end_date": delta.get("endDate"),
+        "startingPrice": delta.get("startingPrice"),
+        "starting_price": delta.get("startingPrice"),
+        "fullWindowCoverage": bool(delta.get("fullWindowCoverage")),
+        "full_window_coverage": bool(delta.get("fullWindowCoverage")),
+        "isPartialWindow": bool(delta.get("isPartialWindow")),
+        "is_partial_window": bool(delta.get("isPartialWindow")),
+        "windowCoverageDays": delta.get("windowCoverageDays"),
+        "window_coverage_days": delta.get("windowCoverageDays"),
+        "requestedWindowDays": delta.get("requestedWindowDays"),
+        "requested_window_days": delta.get("requestedWindowDays"),
+        "enoughHistory": bool(delta.get("enoughHistory")),
+        "enough_history": bool(delta.get("enoughHistory")),
+        "reliable": bool(delta.get("reliable")),
+        "reliability": delta.get("reliability"),
+        "historyPointCount": delta.get("historyPointCount"),
+        "history_point_count": delta.get("historyPointCount"),
+        "historyStartDate": delta.get("startDate"),
+        "history_start_date": delta.get("startDate"),
+        "historyEndDate": delta.get("endDate"),
+        "history_end_date": delta.get("endDate"),
+        "startSourceDate": delta.get("startSourceDate"),
+        "endSourceDate": delta.get("endSourceDate"),
+        "source": _to_optional_str(selected_price.get("source")),
+        "provider": _to_optional_str(selected_price.get("source")),
+        "priceUpdatedAt": _to_optional_str(selected_price.get("captured_at")),
+        "price_updated_at": _to_optional_str(selected_price.get("captured_at")),
+    }
+    return movement
+
+
+def _build_card_movements_from_context(
+    context: Dict[str, Any],
+    *,
+    window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
+    warnings: Optional[List[str]] = None,
+    sources: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, Any]]:
+    selected_by_card = dict(context.get("selected_price_by_canonical_id") or {})
+    if not selected_by_card:
+        return _build_legacy_card_movements_from_context(
+            context,
+            window_days=window_days,
+            warnings=warnings,
+            sources=sources,
+        )
+
+    movement_sources = sources if sources is not None else {}
+    variant_ids = sorted(
+        str(row["card_variant_id"])
+        for row in selected_by_card.values()
+        if row.get("card_variant_id") and row.get("condition_id")
+    )
+    condition_by_variant = {
+        str(row["card_variant_id"]): str(row["condition_id"])
+        for row in selected_by_card.values()
+        if row.get("card_variant_id") and row.get("condition_id")
+    }
+    observation_rows = _load_conditioned_price_observation_rows(
+        variant_ids,
+        condition_by_variant,
+        max(window_days + 1, CARD_MOVERS_HISTORY_LOOKBACK_DAYS),
+        movement_sources,
+    )
+    observations_by_variant: Dict[str, List[Dict[str, Any]]] = {}
+    for row in observation_rows:
+        variant_id = _to_optional_str(row.get("card_variant_id"))
+        if variant_id and _to_optional_str(row.get("condition_id")) == condition_by_variant.get(variant_id):
+            observations_by_variant.setdefault(variant_id, []).append(row)
+
+    latest_market_date = max(
+        (
+            date_key
+            for row in selected_by_card.values()
+            if (date_key := utc_date_key(row.get("captured_at")))
+        ),
+        default=None,
+    )
+    if not latest_market_date:
+        return []
+
+    movements: List[Dict[str, Any]] = []
+    for canonical_id, selected_price in selected_by_card.items():
+        canonical_card = (context.get("canonical_by_id") or {}).get(canonical_id)
+        variant_id = _to_optional_str(selected_price.get("card_variant_id"))
+        condition_id = _to_optional_str(selected_price.get("condition_id"))
+        current_price = _to_optional_float(selected_price.get("market_price"))
+        if not canonical_card or not variant_id or not condition_id or current_price is None:
+            continue
+        delta = calculate_pokemon_card_market_delta(
+            observations=observations_by_variant.get(variant_id, []),
+            selected_current_price=current_price,
+            selected_variant_id=variant_id,
+            selected_condition_id=condition_id,
+            latest_market_date=latest_market_date,
+            requested_window_days=window_days,
+            selected_current_source_date=selected_price.get("captured_at"),
+            selected_current_source=selected_price.get("source"),
+        )
+        movements.append(
+            _canonical_public_card_movement(
+                canonical_card=canonical_card,
+                selected_price=selected_price,
+                delta=delta,
+            )
+        )
+    return movements
+
+
 def build_pokemon_set_card_movement_payload(
     set_id: str,
     *,
@@ -882,13 +1107,26 @@ def build_pokemon_set_card_movement_payload(
         warnings=warnings,
         sources=sources,
     )
+    window_suffix = f"{window_days}d"
+    for movement in movements:
+        legacy_amount = movement.get("change30dAmount")
+        legacy_percent = movement.get("change30dPercent")
+        movement.setdefault("changeAmount", legacy_amount)
+        movement.setdefault("changePercent", legacy_percent)
+        movement.setdefault(f"change{window_suffix}Amount", movement.get("changeAmount"))
+        movement.setdefault(f"change{window_suffix}Percent", movement.get("changePercent"))
+        movement.setdefault("window", f"{window_days}D")
+        movement.setdefault("windowDays", window_days)
+        movement.setdefault("windowConvention", WINDOW_CONVENTION)
+        movement.setdefault("moverEligible", True)
+    eligible_movements = [movement for movement in movements if movement.get("moverEligible")]
     heating = sorted(
-        [movement for movement in movements if movement.get("change30dAmount", 0) > 0],
+        [movement for movement in eligible_movements if (movement.get("changeAmount") or 0) > 0],
         key=lambda movement: movement.get("movementScore") or 0,
         reverse=True,
     )
     cooling = sorted(
-        [movement for movement in movements if movement.get("change30dAmount", 0) < 0],
+        [movement for movement in eligible_movements if (movement.get("changeAmount") or 0) < 0],
         key=lambda movement: movement.get("movementScore") or 0,
     )
 
@@ -906,14 +1144,14 @@ def build_pokemon_set_card_movement_payload(
             "heating_up": heating[:limit],
             "coolingOff": cooling[:limit],
             "cooling_off": cooling[:limit],
-            "all": movements,
+            "all": eligible_movements,
         },
         "market_movers": {
             "window": f"{window_days}D",
             "window_days": window_days,
             "heating_up": heating[:limit],
             "cooling_off": cooling[:limit],
-            "all": movements,
+            "all": eligible_movements,
         },
         "meta": {
             "limit": limit,
@@ -926,7 +1164,8 @@ def build_pokemon_set_card_movement_payload(
                 "maximumHistorySpanDays": _card_movers_max_history_span_days(window_days),
                 "maximumAbsolutePercentChange": CARD_MOVERS_MAX_ABS_PERCENT_CHANGE,
             },
-            "priceBasis": "Near Mint card_variant_price_observations and card_market_usd_latest_by_condition mapped to canonical Pokemon cards",
+            "windowConvention": WINDOW_CONVENTION,
+            "priceBasis": "pokemon_canonical_card_market_prices_latest plus matching card_variant_price_observations",
             "sources": sources,
             "warnings": warnings,
         },

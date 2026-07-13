@@ -1,3 +1,5 @@
+import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "./pricingSnapshotContract.mjs";
+
 function toOptionalString(value) {
   const text = String(value || "").trim();
   return text || null;
@@ -21,7 +23,6 @@ const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 // in-flight promise (same pattern as marketDashboardInflight above) removes
 // the duplicate network round trip without adding any persistent caching.
 const slimModuleInflight = new Map();
-const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v2";
 const SET_VALUE_SNAPSHOT_CONTRACT_VERSION = "set-value-v2";
 
 function joinSlimModuleRequest(key, factory) {
@@ -295,6 +296,33 @@ function normalizeDailySetValueHistory(history) {
   return Array.from(dailyPoints.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function normalizeStoredMarketDeltaWindows(source) {
+  if (!source || typeof source !== "object") return null;
+  const entries = Object.entries(source)
+    .filter(([key, movement]) => ["1D", "7D", "30D"].includes(String(key).toUpperCase()) && movement && typeof movement === "object")
+    .map(([key, movement]) => {
+      const normalizedKey = String(key).toUpperCase();
+      return [normalizedKey, {
+        ...movement,
+        window: toOptionalString(movement?.window) || normalizedKey,
+        windowDays: toOptionalNumber(movement?.windowDays ?? movement?.window_days),
+        windowConvention: toOptionalString(movement?.windowConvention ?? movement?.window_convention),
+        targetStartDate: toOptionalString(movement?.targetStartDate ?? movement?.target_start_date),
+        startDate: toOptionalString(movement?.startDate ?? movement?.start_date),
+        endDate: toOptionalString(movement?.endDate ?? movement?.end_date),
+        startingPrice: toOptionalNumber(movement?.startingPrice ?? movement?.starting_price),
+        currentPrice: toOptionalNumber(movement?.currentPrice ?? movement?.current_price),
+        changeAmount: toOptionalNumber(movement?.changeAmount ?? movement?.change_amount),
+        changePercent: toOptionalNumber(movement?.changePercent ?? movement?.change_percent),
+        cardVariantId: toOptionalString(movement?.cardVariantId ?? movement?.card_variant_id),
+        conditionId: toOptionalString(movement?.conditionId ?? movement?.condition_id),
+        fullWindowCoverage: Boolean(movement?.fullWindowCoverage ?? movement?.full_window_coverage),
+        isPartialWindow: Boolean(movement?.isPartialWindow ?? movement?.is_partial_window),
+      }];
+    });
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
 function normalizeTopMarketCardsPayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const topChaseCardHistories = normalizeTopChaseCardHistories(payload);
@@ -312,11 +340,16 @@ function normalizeTopMarketCardsPayload(payload) {
       const mappedHistory = getTopChaseHistoryForCard(card, topChaseCardHistories, index);
       const selectedHistory = chooseTopChaseHistory(embeddedHistory, mappedHistory);
       const priceHistory = selectedHistory.history;
+      const marketDeltaWindows = normalizeStoredMarketDeltaWindows(
+        card?.marketDeltaWindows ?? card?.market_delta_windows
+      );
 
       return {
         id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
         cardId: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
         cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id),
+        canonicalCardId: toOptionalString(card?.canonicalCardId ?? card?.canonical_card_id ?? card?.cardId ?? card?.card_id ?? card?.id),
+        conditionId: toOptionalString(card?.conditionId ?? card?.condition_id ?? card?.conditionIdUsed ?? card?.condition_id_used),
         setId: toOptionalString(card?.setId ?? card?.set_id),
         name: toOptionalString(card?.name),
         imageUrl: toOptionalString(card?.imageUrl ?? card?.image_url),
@@ -327,6 +360,10 @@ function normalizeTopMarketCardsPayload(payload) {
         cardNumber: toOptionalString(card?.setNumber ?? card?.set_number),
         estimatedMarketPrice: toOptionalNumber(card?.estimatedMarketPrice ?? card?.estimated_market_price),
         marketPrice: toOptionalNumber(card?.marketPrice ?? card?.estimatedMarketPrice ?? card?.estimated_market_price),
+        marketDate: toOptionalString(card?.marketDate ?? card?.market_date),
+        windowConvention: toOptionalString(card?.windowConvention ?? card?.window_convention),
+        marketDeltaWindows,
+        market_delta_windows: marketDeltaWindows,
         priceUpdatedAt: toOptionalString(card?.priceUpdatedAt ?? card?.price_updated_at),
         source: toOptionalString(card?.source ?? card?.provider),
         provider: toOptionalString(card?.provider ?? card?.source),
@@ -369,11 +406,14 @@ function normalizeMarketMoverCard(card, window = "30D") {
   const changePercent = toOptionalNumber(card?.changePercent ?? card?.change_percent ?? change30dPercent);
   const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score);
   const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label);
+  const normalizedWindow = String(window || card?.window || "30D").toUpperCase();
 
   return {
     id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
     cardId: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
+    canonicalCardId: toOptionalString(card?.canonicalCardId ?? card?.canonical_card_id ?? card?.cardId ?? card?.card_id ?? card?.id),
     cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id),
+    conditionId: toOptionalString(card?.conditionId ?? card?.condition_id ?? card?.conditionIdUsed ?? card?.condition_id_used),
     setId: toOptionalString(card?.setId ?? card?.set_id),
     name: toOptionalString(card?.name),
     imageUrl: toOptionalString(card?.imageUrl ?? card?.image_url),
@@ -384,13 +424,19 @@ function normalizeMarketMoverCard(card, window = "30D") {
     cardNumber: toOptionalString(card?.cardNumber ?? card?.card_number ?? card?.setNumber ?? card?.set_number),
     currentPrice,
     marketPrice: currentPrice,
-    change30dAmount,
-    change30dPercent,
     changeAmount,
     changePercent,
-    ...(String(window).toUpperCase() === "7D"
-      ? { change7dAmount: changeAmount, change7dPercent: changePercent, movement7d: { changeAmount, changePercent } }
-      : {}),
+    ...(normalizedWindow === "1D" ? { change1dAmount: changeAmount, change1dPercent: changePercent } : {}),
+    ...(normalizedWindow === "7D" ? { change7dAmount: changeAmount, change7dPercent: changePercent, movement7d: { changeAmount, changePercent } } : {}),
+    ...(normalizedWindow === "30D" ? { change30dAmount: changeAmount, change30dPercent: changePercent } : {}),
+    window: normalizedWindow,
+    windowDays: toOptionalNumber(card?.windowDays ?? card?.window_days),
+    windowConvention: toOptionalString(card?.windowConvention ?? card?.window_convention),
+    targetStartDate: toOptionalString(card?.targetStartDate ?? card?.target_start_date),
+    startDate: toOptionalString(card?.startDate ?? card?.start_date ?? card?.historyStartDate ?? card?.history_start_date),
+    endDate: toOptionalString(card?.endDate ?? card?.end_date ?? card?.historyEndDate ?? card?.history_end_date),
+    fullWindowCoverage: Boolean(card?.fullWindowCoverage ?? card?.full_window_coverage),
+    isPartialWindow: Boolean(card?.isPartialWindow ?? card?.is_partial_window),
     movementScore,
     movementLabel,
     enoughHistory: Boolean(card?.enoughHistory ?? card?.enough_history),
@@ -894,6 +940,7 @@ export async function getPokemonSetMarketMovers(setId, { window = "30D", limit =
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", PRICING_SNAPSHOT_CONTRACT_VERSION);
   if (window) {
     params.set("window", String(window));
   }

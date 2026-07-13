@@ -3919,7 +3919,7 @@ test("7D movers destination is URL-backed and reloads into the paginated Cards p
 // when it pops in. Priority 3 (stable image placeholders) was already
 // implemented before this refactor (aspect-[3/4] box, absolutely-positioned
 // placeholder) and is asserted here too so a future edit can't regress it.
-test("Phase 11: ChecklistCardTile defers price/delta metadata via startTransition with reserved footer space", () => {
+test("Phase 11: ChecklistCardTile defers one stacked market block with reserved width", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
@@ -3938,16 +3938,16 @@ test("Phase 11: ChecklistCardTile defers price/delta metadata via startTransitio
     "the reveal must be scheduled via startTransition, not a synchronous state update"
   );
   assert.ok(
-    tileSource.includes('className="min-w-[4.75rem] shrink-0 text-right"'),
+    tileSource.includes('className="min-w-[7.5rem] shrink-0 text-right"'),
     "the price slot must reserve its width before content is revealed, so reveal never shifts the metadata column"
   );
   assert.ok(
     tileSource.includes("animate-pulse rounded bg-[rgba(148,163,184,0.12)]"),
     "an unrevealed price slot must show a quiet skeleton, not blank space"
   );
-  assert.ok(tileSource.includes('content="value"'), "the top-right slot must render only the shared current value");
-  assert.ok(tileSource.includes('content="change"'), "the full-width footer must render only the shared movement line");
-  assert.ok(tileSource.includes('className="flex min-h-[1.125rem] w-full min-w-0 items-center text-left"'));
+  assert.ok(tileSource.includes('windowLabelPlacement="below"'), "the shared block must place the neutral period below the delta");
+  assert.ok(!tileSource.includes('content="value"'), "the price must not be split into a separate MarketValueChange instance");
+  assert.ok(!tileSource.includes('content="change"'), "the detached full-width footer must be removed");
 
   // Priority 3, pre-existing: the image box is a fixed aspect-ratio
   // container with an absolutely-positioned placeholder, so swapping in the
