@@ -5,10 +5,12 @@ import logging
 import math
 import re
 import time
+from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -51,6 +53,7 @@ MAX_RANKINGS_LIMIT = 200
 MIN_LIMIT = 1
 RANKINGS_STALE_THRESHOLD_SECONDS = 300
 RANKINGS_STALE_WARNING = "rankings snapshot is stale relative to set page snapshot"
+_LAST_SUCCESSFUL_RANKINGS_PAYLOADS: Dict[int, Dict[str, Any]] = {}
 
 
 def _to_optional_str(value: Any) -> Optional[str]:
@@ -1692,8 +1695,29 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             .execute()
         )
         row = _first_row(result)
-    except Exception:
+    except Exception as exc:
         logger.exception("[pokemon-snapshot] explore rankings snapshot read failed")
+        if is_transient_data_service_error(exc):
+            cached = _LAST_SUCCESSFUL_RANKINGS_PAYLOADS.get(clamped_limit)
+            if cached:
+                fallback = deepcopy(cached)
+                meta = dict(fallback.get("meta") or {})
+                snapshot = dict(meta.get("snapshot") or {})
+                snapshot.update(
+                    {
+                        "isStaleFallback": True,
+                        "fallbackReason": "transient_data_service_failure",
+                    }
+                )
+                meta["snapshot"] = snapshot
+                fallback["meta"] = meta
+                return fallback
+            raise ExploreRipStatisticsTargetsError(
+                status_code=503,
+                message="RIP Statistics targets are temporarily unavailable",
+                code="RIP_STATISTICS_TARGETS_TEMPORARILY_UNAVAILABLE",
+                retry_after_seconds=15,
+            ) from exc
         raise ExploreRipStatisticsTargetsError(
             status_code=500,
             message="Failed to read RIP Statistics targets snapshot",
@@ -1740,12 +1764,14 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         meta["snapshot"] = snapshot
         meta["openingSetAudit"] = opening_set_audit
         meta["opening_set_audit"] = opening_set_audit
-        return {
+        resolved_payload = {
             **payload,
             "targets": targets,
             "default_target": payload.get("default_target") or row.get("default_target_json") or None,
             "meta": meta,
         }
+        _LAST_SUCCESSFUL_RANKINGS_PAYLOADS[clamped_limit] = deepcopy(resolved_payload)
+        return resolved_payload
 
     logger.warning("[pokemon-snapshot] missing explore rankings snapshot; falling back to live target assembly")
     payload = _enrich_rankings_payload_with_checklist_set_values(get_rip_statistics_targets_payload(limit=clamped_limit))
@@ -1758,7 +1784,9 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         "updatedAt": datetime.now(timezone.utc).isoformat(),
         "isStaleFallback": False,
     }
-    return {**payload, "meta": meta}
+    resolved_payload = {**payload, "meta": meta}
+    _LAST_SUCCESSFUL_RANKINGS_PAYLOADS[clamped_limit] = deepcopy(resolved_payload)
+    return resolved_payload
 
 
 def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:

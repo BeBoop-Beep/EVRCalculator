@@ -1,3 +1,6 @@
+import pytest
+from postgrest.exceptions import APIError
+
 from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service
 
 
@@ -1065,6 +1068,62 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
     )
     assert payload["meta"]["sources"]["checklist_set_value_enrichment"] == "FAILED_OPTIONAL"
     assert payload["meta"]["snapshot"]["source"] == "pokemon_explore_rankings_snapshot_latest"
+
+
+def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeypatch):
+    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+
+    def fail(_query):
+        raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
+    )
+
+    with pytest.raises(pokemon_public_snapshot_service.ExploreRipStatisticsTargetsError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert raised.value.status_code == 503
+    assert raised.value.code == "RIP_STATISTICS_TARGETS_TEMPORARILY_UNAVAILABLE"
+    assert raised.value.retry_after_seconds == 15
+
+
+def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(monkeypatch):
+    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    state = {"fail": False}
+
+    def rows(_query):
+        if state["fail"]:
+            raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+        return [{
+            "updated_at": "2026-07-13T00:00:00Z",
+            "ranking_payload_json": {
+                "targets": [{"id": "set-1", "target_id": "set-1", "target_type": "set", "is_opening_set": True}],
+                "meta": {},
+            },
+            "default_target_json": {"target_id": "set-1", "target_type": "set"},
+        }]
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_explore_rankings_snapshot_latest": rows}),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_enrich_rankings_payload_with_checklist_set_values",
+        lambda payload: payload,
+    )
+
+    fresh = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+    state["fail"] = True
+    fallback = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert fallback["targets"] == fresh["targets"]
+    assert fallback["meta"]["snapshot"]["isStaleFallback"] is True
+    assert fallback["meta"]["snapshot"]["fallbackReason"] == "transient_data_service_failure"
 
 
 def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(monkeypatch):

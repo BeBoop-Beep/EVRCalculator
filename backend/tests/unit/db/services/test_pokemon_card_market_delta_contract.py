@@ -67,7 +67,7 @@ def test_missing_pre_boundary_history_is_partial_but_displayable():
 def test_selected_variant_cannot_be_replaced_by_more_volatile_printing(monkeypatch):
     requested_variants = []
 
-    def observations(variant_ids, condition_by_variant, _days, _sources):
+    def observations(variant_ids, condition_by_variant, _days, _sources, **_kwargs):
         requested_variants.extend(variant_ids)
         assert condition_by_variant == {VARIANT_ID: CONDITION_ID}
         return [{**row, "card_variant_id": VARIANT_ID, "condition_id": CONDITION_ID} for row in OBSERVATIONS]
@@ -169,3 +169,120 @@ def test_parity_audit_detects_intentional_amount_mismatch():
         set_id="journeyTogether",
     )
     assert any(row["type"] == "amount mismatch" for row in mismatches)
+
+
+def test_multi_window_builder_loads_context_and_observations_once(monkeypatch):
+    calls = {"resolve": 0, "context": 0, "observations": 0}
+    selected_price = {
+        "canonical_card_id": CARD_ID,
+        "card_variant_id": VARIANT_ID,
+        "condition_id": CONDITION_ID,
+        "market_price": 127.13,
+        "captured_at": "2026-07-13T23:00:00Z",
+        "source": "fixture",
+    }
+    context = {
+        "set": {"id": "set-1", "name": "Journey Together"},
+        "canonical_by_id": {
+            CARD_ID: {"id": CARD_ID, "set_id": "set-1", "name": "Lillie's Clefairy ex", "number": "184"}
+        },
+        "selected_price_by_canonical_id": {CARD_ID: selected_price},
+    }
+
+    def resolve(set_id, *, client=None):
+        calls["resolve"] += 1
+        return {"id": "set-1", "name": "Journey Together"}
+
+    def build_context(*_args, **_kwargs):
+        calls["context"] += 1
+        return context
+
+    def load_observations(_variants, _conditions, _days, _sources, *, diagnostics=None, **_kwargs):
+        calls["observations"] += 1
+        if diagnostics is not None:
+            diagnostics["observationQueryCount"] += 1
+            diagnostics["observationPageCount"] += 1
+            diagnostics["observationRowsLoaded"] = len(OBSERVATIONS)
+        return [{**row, "id": f"obs-{index}", "card_variant_id": VARIANT_ID, "condition_id": CONDITION_ID}
+                for index, row in enumerate(OBSERVATIONS)]
+
+    monkeypatch.setattr(pokemon_set_market_service, "resolve_pokemon_set_identifier", resolve)
+    monkeypatch.setattr(pokemon_set_market_service, "_build_market_context", build_context)
+    monkeypatch.setattr(pokemon_set_market_service, "_load_conditioned_price_observation_rows", load_observations)
+
+    payload = pokemon_set_market_service.build_pokemon_set_card_movements_by_window_payload(
+        "set-1",
+        client=object(),
+    )
+
+    assert calls == {"resolve": 1, "context": 1, "observations": 1}
+    assert payload["meta"] == {
+        "observationQueryCount": 1,
+        "observationRowsLoaded": 5,
+        "selectedVariantCount": 1,
+        "observationPageCount": 1,
+        "windowsCalculated": 3,
+        "sources": {},
+        "warnings": [],
+    }
+    seven = payload["payloadsByWindow"]["7D"]["movements"][0]
+    thirty = payload["payloadsByWindow"]["30D"]["movements"][0]
+    assert (seven["changeAmount"], seven["changePercent"]) == (1.49, 1.19)
+    assert (thirty["changeAmount"], thirty["changePercent"]) == (-2.11, -1.63)
+
+
+def test_observation_query_paginates_and_deduplicates_exact_rows():
+    rows = [
+        {
+            "id": f"obs-{index}",
+            "card_variant_id": VARIANT_ID,
+            "condition_id": CONDITION_ID,
+            "market_price": observation["market_price"],
+            "source": "fixture",
+            "captured_at": observation["captured_at"],
+        }
+        for index, observation in enumerate(OBSERVATIONS)
+    ]
+    rows.insert(3, dict(rows[2]))
+
+    class Result:
+        def __init__(self, data):
+            self.data = data
+
+    class Query:
+        def __init__(self):
+            self.range_value = None
+
+        def select(self, *_args, **_kwargs): return self
+        def in_(self, *_args, **_kwargs): return self
+        def gte(self, *_args, **_kwargs): return self
+        def order(self, *_args, **_kwargs): return self
+        def range(self, start, end):
+            self.range_value = (start, end)
+            return self
+        def execute(self):
+            start, end = self.range_value
+            return Result(rows[start:end + 1])
+
+    class Client:
+        def table(self, _name): return Query()
+
+    diagnostics = {}
+    loaded = pokemon_set_market_service._load_conditioned_price_observation_rows(
+        [VARIANT_ID],
+        {VARIANT_ID: CONDITION_ID},
+        45,
+        {},
+        client=Client(),
+        diagnostics=diagnostics,
+        page_size=2,
+    )
+
+    assert [row["id"] for row in loaded] == [f"obs-{index}" for index in range(5)]
+    assert diagnostics == {
+        "observationQueryCount": 4,
+        "observationPageCount": 4,
+        "observationRowsLoaded": 5,
+    }
+    deduped_delta = _delta(30, observations=loaded)
+    assert (deduped_delta["changeAmount"], deduped_delta["changePercent"]) == (-2.11, -1.63)

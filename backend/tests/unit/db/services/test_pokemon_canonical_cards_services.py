@@ -1,3 +1,6 @@
+import pytest
+from postgrest.exceptions import APIError
+
 from backend.db.services import pokemon_set_cards_service
 from backend.db.services import pokemon_set_market_service
 from backend.db.services import pokemon_sets_catalog_service
@@ -27,6 +30,10 @@ class _Query:
         return self
 
     def eq(self, field, value):
+        self.eq_filters.append((field, value))
+        return self
+
+    def ilike(self, field, value):
         self.eq_filters.append((field, value))
         return self
 
@@ -114,6 +121,36 @@ def test_sets_catalog_card_count_comes_from_canonical_cards(monkeypatch):
     counts_by_id = {row["id"]: row["card_count"] for row in payload["sets"]}
     assert counts_by_id == {"set-1": 2, "set-2": 0}
     assert payload["meta"]["sources"]["pokemon_canonical_cards"] == "OK"
+
+
+def test_sets_catalog_transient_tcg_lookup_returns_503_without_variant_fanout(monkeypatch):
+    calls = []
+
+    def fail(query):
+        calls.append(query)
+        raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+
+    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", _Client({"tcgs": fail}))
+
+    with pytest.raises(pokemon_sets_catalog_service.PokemonSetsCatalogError) as raised:
+        pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
+
+    assert raised.value.status_code == 503
+    assert raised.value.code == "POKEMON_CATALOG_TEMPORARILY_UNAVAILABLE"
+    assert raised.value.retry_after_seconds == 30
+    assert len(calls) == 1
+
+
+def test_sets_catalog_successful_empty_tcg_lookup_remains_404(monkeypatch):
+    client = _Client({"tcgs": lambda _query: []})
+    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", client)
+
+    with pytest.raises(pokemon_sets_catalog_service.PokemonSetsCatalogError) as raised:
+        pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
+
+    assert raised.value.status_code == 404
+    assert raised.value.code == "POKEMON_TCG_NOT_FOUND"
+    assert len(client.calls) == 3
 
 
 def test_set_cards_payload_reads_canonical_checklist_rows(monkeypatch):
@@ -298,6 +335,7 @@ def test_top_market_cards_prefer_latest_simulation_input_prices(monkeypatch):
                 "pokemon_api_set_id": "sv-market",
             }
         ],
+        "pokemon_canonical_cards": lambda _query: [],
         "calculation_runs": lambda _query: [
             {
                 "id": "run-1",

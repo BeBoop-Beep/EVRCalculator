@@ -74,6 +74,14 @@ def create_service_role_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+def create_public_read_client():
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY,
+        options=ClientOptions(postgrest_client_timeout=_PUBLIC_READ_TIMEOUT_SECONDS),
+    )
+
+
 def reset_service_role_auth():
     auth_header = f"Bearer {SUPABASE_KEY}"
     # If auth is already the service-role key, skip tearing down the PostgREST

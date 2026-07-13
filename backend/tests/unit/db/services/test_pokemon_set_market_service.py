@@ -18,6 +18,7 @@ class _Query:
         self.gte_filters = []
         self.order_fields = []
         self.limit_value = None
+        self.range_value = None
 
     def select(self, fields):
         self.select_fields = fields
@@ -41,6 +42,10 @@ class _Query:
 
     def limit(self, value):
         self.limit_value = value
+        return self
+
+    def range(self, start, end):
+        self.range_value = (start, end)
         return self
 
     def execute(self):

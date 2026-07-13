@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -16,37 +17,92 @@ from backend.scripts.pokemon_snapshot_builders import (
     refresh_canonical_card_market_prices_for_set,
     resolve_target_sets,
     should_commit,
+    snapshot_service_client_scope,
     upsert_row,
 )
+from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build Pokemon set cards checklist snapshots")
     add_target_set_args(parser)
+    parser.add_argument(
+        "--delay-seconds",
+        type=float,
+        default=0.35,
+        help="Delay between sets for --all builds; use 0 to disable pacing",
+    )
+    parser.add_argument(
+        "--max-consecutive-transient-failures",
+        type=int,
+        default=3,
+        help="Stop an --all build after this many consecutive exhausted transient failures",
+    )
     return parser
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args()
-    client = get_client()
     commit = should_commit(args)
+    built_count = 0
+    failed_count = 0
+    target_sets = run_snapshot_operation_with_retry(
+        lambda fresh_client: resolve_target_sets(fresh_client, args),
+        operation_name="resolve cards snapshot targets",
+        client_factory=get_client,
+    )
+    consecutive_transient_failures = 0
+    transient_threshold = max(1, int(args.max_consecutive_transient_failures))
 
-    for set_row in resolve_target_sets(client, args):
+    for index, set_row in enumerate(target_sets):
         logging.info("building cards snapshot set_id=%s name=%s", set_row.get("id"), set_row.get("name"))
-        refresh_canonical_card_market_prices_for_set(
-            client,
-            str(set_row["id"]),
-            commit=commit,
-        )
-        row = build_cards_snapshot_row(set_row)
-        upsert_row(
-            client,
-            "pokemon_set_cards_snapshot_latest",
-            row,
-            on_conflict="set_id",
-            commit=commit,
-        )
+        try:
+            def build_and_write(fresh_client):
+                with snapshot_service_client_scope(fresh_client):
+                    refresh_canonical_card_market_prices_for_set(
+                        fresh_client,
+                        str(set_row["id"]),
+                        commit=commit,
+                    )
+                    row = build_cards_snapshot_row(set_row)
+                    upsert_row(
+                        fresh_client,
+                        "pokemon_set_cards_snapshot_latest",
+                        row,
+                        on_conflict="set_id",
+                        commit=commit,
+                    )
+
+            run_snapshot_operation_with_retry(
+                build_and_write,
+                operation_name="build cards snapshot",
+                set_id=str(set_row.get("id") or ""),
+                client_factory=get_client,
+            )
+            built_count += 1
+            consecutive_transient_failures = 0
+        except Exception as exc:
+            failed_count += 1
+            logging.exception("failed cards snapshot set_id=%s", set_row.get("id"))
+            if is_transient_data_service_error(exc):
+                consecutive_transient_failures += 1
+                if args.all and consecutive_transient_failures >= transient_threshold:
+                    logging.error(
+                        "stopping all-set cards build after %s consecutive transient failures",
+                        consecutive_transient_failures,
+                    )
+                    break
+            else:
+                consecutive_transient_failures = 0
+
+        if args.all and index < len(target_sets) - 1 and args.delay_seconds > 0:
+            time.sleep(max(0.0, float(args.delay_seconds)))
+
+    summary = f"cards snapshot summary built={built_count} failed={failed_count}"
+    logging.info(summary)
+    print(summary)
 
 
 if __name__ == "__main__":

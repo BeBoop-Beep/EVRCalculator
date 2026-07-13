@@ -30,10 +30,18 @@ _CANONICAL_PRICE_PAGE_SIZE = 1000
 class ExploreRipStatisticsTargetsError(Exception):
     """Structured error for RIP Statistics target discovery."""
 
-    def __init__(self, status_code: int, message: str, code: str):
+    def __init__(
+        self,
+        status_code: int,
+        message: str,
+        code: str,
+        *,
+        retry_after_seconds: Optional[int] = None,
+    ):
         self.status_code = status_code
         self.message = message
         self.code = code
+        self.retry_after_seconds = retry_after_seconds
         super().__init__(message)
 
 

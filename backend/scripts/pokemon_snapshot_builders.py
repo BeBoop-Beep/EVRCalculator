@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import time
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -23,12 +24,13 @@ from backend.db.services.pokemon_card_market_delta_contract import (
     calculate_pokemon_card_market_delta,
     utc_date_key,
 )
+from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.pokemon_public_snapshot_service import (
     enrich_cards_payload_with_desirability,
 )
 from backend.db.services.pokemon_set_market_service import (
     SET_VALUE_SCOPES,
-    build_pokemon_set_card_movement_payload,
+    build_pokemon_set_card_movements_by_window_payload,
     get_pokemon_set_top_market_cards_payload,
     get_pokemon_set_value_history_payload,
 )
@@ -190,7 +192,9 @@ def resolve_set_row(client: Any, set_identifier: str) -> Dict[str, Any]:
     for column in lookup_columns:
         try:
             result = client.table("sets").select(selected_columns).eq(column, resolved).limit(1).execute()
-        except Exception:
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             logger.exception("set lookup failed field=%s value=%s", column, resolved)
             continue
         rows = list(result.data or [])
@@ -207,7 +211,9 @@ def list_pokemon_sets(client: Any) -> List[Dict[str, Any]]:
     )
     try:
         result = client.table("sets").select(columns).order("release_date", desc=True).execute()
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("ordered Pokemon set listing failed; retrying without server-side sort", exc_info=True)
         result = client.table("sets").select(columns).execute()
     return [row for row in (result.data or []) if row.get("id")]
@@ -530,7 +536,9 @@ def _enrich_snapshot_top_hits_with_images(client: Any, top_hits: List[Dict[str, 
             if all_card_ids
             else []
         )
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("top hits snapshot completion image enrichment failed", exc_info=True)
         return top_hits
 
@@ -581,7 +589,9 @@ def _complete_snapshot_top_hits(
     view_failure_detail: Optional[str] = None
     try:
         top_hits = _load_top_hits_from_view(resolved_client, run_id=run_id, limit=limit)
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("top hits snapshot completion view query failed set_id=%s run_id=%s", set_id, run_id, exc_info=True)
         view_failure_detail = "simulation_input_cards_with_near_mint_price query failed during snapshot completion"
         top_hits = []
@@ -590,7 +600,9 @@ def _complete_snapshot_top_hits(
         source = "simulation_input_cards"
         try:
             top_hits = _load_top_hits_from_input_cards(resolved_client, run_id=run_id, limit=limit)
-        except Exception:
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             logger.warning("top hits snapshot completion input query failed set_id=%s run_id=%s", set_id, run_id, exc_info=True)
             top_hits = []
 
@@ -615,7 +627,9 @@ def _complete_snapshot_top_hits(
 def _first_row(client: Any, table_name: str, configure_query) -> Optional[Dict[str, Any]]:
     try:
         result = configure_query(client.table(table_name)).limit(1).execute()
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("snapshot diagnostic query failed table=%s", table_name, exc_info=True)
         return None
     rows = list(result.data or [])
@@ -625,7 +639,9 @@ def _first_row(client: Any, table_name: str, configure_query) -> Optional[Dict[s
 def _count_rows(client: Any, table_name: str, *, field: str, value: str) -> Optional[int]:
     try:
         result = client.table(table_name).select(field).eq(field, value).execute()
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("snapshot diagnostic count failed table=%s field=%s", table_name, field, exc_info=True)
         return None
     return len(list(result.data or []))
@@ -1116,7 +1132,9 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         )
         payload["desirabilityValidation"] = desirability_validation
         payload["desirability_validation"] = desirability_validation
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("desirability validation build failed set_id=%s", set_id, exc_info=True)
         meta = dict(payload.get("meta") or {})
         warnings = list(meta.get("warnings") or [])
@@ -1260,7 +1278,9 @@ def _load_simulation_performance_history(client: Any, set_id: str) -> List[Dict[
             .execute()
         )
         rows = list(result.data or [])
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("simulation performance history load failed set_id=%s", set_id, exc_info=True)
         return []
 
@@ -1278,7 +1298,9 @@ def _load_simulation_performance_history(client: Any, set_id: str) -> List[Dict[
                 run_id_key = first_non_empty(summary_row.get("calculation_run_id"))
                 if run_id_key:
                     summary_lookup[run_id_key] = summary_row
-        except Exception:
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             logger.warning("simulation run summary join failed set_id=%s", set_id, exc_info=True)
 
     points: List[Dict[str, Any]] = []
@@ -1617,7 +1639,9 @@ def _load_top_chase_histories_from_observations(
             )
             latest_rows = list(latest_result.data or [])
             resolved_latest_date_key = parse_date_key((latest_rows[0] if latest_rows else {}).get("captured_at"))
-        except Exception:
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             logger.warning("top chase observation history latest lookup failed set_id=%s", set_id, exc_info=True)
             return {}
 
@@ -1635,7 +1659,9 @@ def _load_top_chase_histories_from_observations(
             set_id=set_id,
             cards=list(cards or []),
         )
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("[pokemon-snapshot] canonical top chase history context failed set_id=%s", set_id, exc_info=True)
         canonical_context = {}
 
@@ -1686,7 +1712,9 @@ def _load_top_chase_histories_from_observations(
                     len(canonical_variant_ids),
                 )
                 return histories
-        except Exception:
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             logger.warning("canonical top chase observation history load failed set_id=%s", set_id, exc_info=True)
 
     try:
@@ -1701,7 +1729,9 @@ def _load_top_chase_histories_from_observations(
             .order("captured_at", desc=False)
             .execute()
         )
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("top chase observation history load failed set_id=%s", set_id, exc_info=True)
         return {}
 
@@ -2048,7 +2078,9 @@ def build_market_dashboard_snapshot_rows(
             set_id=set_id,
             cards=top_cards,
         )
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("[pokemon-snapshot] top chase canonical delta context failed set_id=%s", set_id, exc_info=True)
     selected_market_dates = [
         utc_date_key(row.get("captured_at"))
@@ -2108,18 +2140,13 @@ def build_market_dashboard_snapshot_rows(
         for point in history
         if parse_date_key(point.get("date"))
     ]
-    movement_payloads_by_window = {
-        window_key: build_pokemon_set_card_movement_payload(set_id=set_id, window_days=window_days)
-        for window_key, window_days in MARKET_MOVERS_WINDOWS_DAYS.items()
-    }
-    market_movers_by_window = {
-        window_key: payload.get("marketMovers") or {}
-        for window_key, payload in movement_payloads_by_window.items()
-    }
-    market_movers_by_window_snake = {
-        window_key: payload.get("market_movers") or {}
-        for window_key, payload in movement_payloads_by_window.items()
-    }
+    movement_windows_payload = build_pokemon_set_card_movements_by_window_payload(
+        set_id=set_id,
+        window_days=tuple(MARKET_MOVERS_WINDOWS_DAYS.values()),
+        client=client,
+    )
+    market_movers_by_window = movement_windows_payload.get("marketMoversByWindow") or {}
+    market_movers_by_window_snake = movement_windows_payload.get("market_movers_by_window") or {}
     market_movers = market_movers_by_window[MARKET_MOVERS_COMPATIBILITY_WINDOW]
     market_movers_snake = market_movers_by_window_snake[MARKET_MOVERS_COMPATIBILITY_WINDOW]
     set_value_history_latest_date_by_scope = {
@@ -2196,6 +2223,7 @@ def build_market_dashboard_snapshot_rows(
             "topChaseHistoryLatestObservedDate": max(top_chase_observed_dates) if top_chase_observed_dates else None,
             "topChaseHistoryHydratedFromDailyTable": False,
             "windowConvention": WINDOW_CONVENTION,
+            "movementQueryDiagnostics": movement_windows_payload.get("meta") or {},
             "topChaseIdentityDiagnostics": top_chase_identity_diagnostics,
             "snapshot": {
                 "type": "pokemon_set_market_dashboard",
@@ -2291,7 +2319,9 @@ def _build_card_appeal_price_index_for_set(
             and str(row.get("canonical_card_id")) in canonical_ids
             and to_optional_float(row.get("market_price")) is not None
         }
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("[pokemon-snapshot] card appeal price index lookup failed", exc_info=True)
         return {}
 
@@ -2369,7 +2399,9 @@ def _latest_market_date_for_set(client: Any, set_id: str) -> Optional[str]:
             .limit(1),
         )
         return parse_date_key((rows[0] if rows else {}).get("snapshot_date"))
-    except Exception:
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         logger.warning("[pokemon-snapshot] latest market date lookup failed set_id=%s", set_id, exc_info=True)
         return None
 
@@ -2406,10 +2438,12 @@ def _enrich_cards_with_authoritative_prices_and_movements(
     client: Any,
 ) -> Dict[str, Any]:
     price_dates = [utc_date_key(price.get("captured_at")) for price in prices_by_card.values()]
-    latest_market_date = max(
-        (date_key for date_key in price_dates if date_key),
-        default=_latest_market_date_for_set(client, set_id),
-    )
+    available_price_dates = [date_key for date_key in price_dates if date_key]
+    latest_market_date = None
+    if available_price_dates:
+        latest_market_date = max(available_price_dates)
+    elif prices_by_card:
+        latest_market_date = _latest_market_date_for_set(client, set_id)
     observations_by_card = (
         _load_selected_price_observations(
             client,
@@ -2687,3 +2721,34 @@ def upsert_rows(
 def get_client() -> Any:
     load_backend_env()
     return create_service_role_client()
+
+
+@contextmanager
+def snapshot_service_client_scope(client: Any):
+    """Route offline service reads through the fresh client for this attempt."""
+
+    from backend.db.services import explore_page_service
+    from backend.db.services import explore_rip_statistics_service
+    from backend.db.services import pokemon_public_snapshot_service
+    from backend.db.services import pokemon_set_cards_service
+    from backend.db.services import pokemon_set_market_service
+    from backend.db.services import set_desirability_service
+
+    modules = (
+        explore_page_service,
+        explore_rip_statistics_service,
+        pokemon_public_snapshot_service,
+        pokemon_set_cards_service,
+        pokemon_set_market_service,
+        set_desirability_service,
+    )
+    previous = [(module, getattr(module, "public_read_client", None)) for module in modules]
+    try:
+        for module, _old_client in previous:
+            if hasattr(module, "public_read_client"):
+                module.public_read_client = client
+        yield
+    finally:
+        for module, old_client in previous:
+            if hasattr(module, "public_read_client"):
+                module.public_read_client = old_client

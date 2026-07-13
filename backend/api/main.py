@@ -431,9 +431,15 @@ def get_explore_rip_statistics_targets(
     try:
         return get_pokemon_explore_rankings_snapshot_payload(limit=limit)
     except ExploreRipStatisticsTargetsError as exc:
+        headers = (
+            {"Retry-After": str(exc.retry_after_seconds)}
+            if getattr(exc, "retry_after_seconds", None)
+            else None
+        )
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
             status_code=exc.status_code,
+            headers=headers,
         )
     except Exception:
         logger.exception("/explore/rip-statistics/targets unexpected error")
@@ -599,9 +605,15 @@ def get_pokemon_sets_catalog():
     try:
         return get_pokemon_sets_catalog_payload()
     except PokemonSetsCatalogError as exc:
+        headers = (
+            {"Retry-After": str(exc.retry_after_seconds)}
+            if getattr(exc, "retry_after_seconds", None)
+            else None
+        )
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
             status_code=exc.status_code,
+            headers=headers,
         )
     except Exception:
         logger.exception("/tcgs/pokemon/sets unexpected error")
