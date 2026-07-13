@@ -30,7 +30,9 @@ test("shared component owns market formatting, direction icon, variants, and una
   assert.ok(!component.includes(">\\u2014"), "neutral dash escape must not be emitted as a raw JSX text node");
   assert.ok(component.includes('<span aria-hidden="true">{"\\u2014"}</span>'));
   assert.ok(component.includes('<span aria-hidden="true">{"\\u00b7"}</span>'));
-  assert.ok(component.includes('<span className="whitespace-nowrap">{model.windowLabel}</span>'));
+  assert.ok(component.includes("showWindowLabel = true"));
+  assert.ok(component.includes("showWindowLabel && model.windowLabel"));
+  assert.ok(component.includes('text-[var(--text-secondary)] opacity-80'));
   assert.ok(!component.includes("flex-wrap items-center gap-x-1 whitespace-nowrap"));
 });
 
@@ -72,6 +74,8 @@ test("Cards tiles use one shared stack for All Cards, mover presets, and appende
   assert.ok(tile.includes("changeAmount={marketDelta?.amount}"));
   assert.ok(tile.includes("changePercent={marketDelta?.percent}"));
   assert.ok(tile.includes("windowLabel={movementWindow}"));
+  assert.ok(tile.includes("showWindowLabel={false}"));
+  assert.ok(tile.includes("accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}"));
   assert.ok(tile.includes('movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)'));
   assert.ok(tile.includes('const cardMetaKey = `${getChecklistCardKey(card)}:${marketPrice ?? ""}:${marketDelta?.amount ?? ""}:${marketDelta?.percent ?? ""}:${movementWindow}`'));
   assert.ok(tile.includes("setIsMetaRevealed(false)"));
@@ -96,6 +100,7 @@ test("7D ticker and shared Set Value/Top Chase tooltip use the same stack withou
   const ticker = section(source, "function MoversTickerItemChip", "function MarketMoversTicker");
   assert.ok(ticker.includes("<MarketValueChange"));
   assert.ok(ticker.includes('windowLabel="7D"'));
+  assert.ok(ticker.includes("showWindowLabel={false}"));
   assert.ok(!ticker.includes("<DeltaTrendIcon"));
   assert.ok(!ticker.includes("rounded-md border"));
 
@@ -103,6 +108,20 @@ test("7D ticker and shared Set Value/Top Chase tooltip use the same stack withou
   assert.ok(tooltip.includes("<MarketValueChange"));
   assert.ok(tooltip.includes('variant="tooltip"'));
   assert.ok(!tooltip.includes("windowLabel="), "point-to-point tooltip change must not be mislabeled as a full window");
+});
+
+test("compact contexts hide the visible suffix while keeping the selected window semantic", () => {
+  const source = read(pagePath);
+  const topChase = section(source, "function TopMarketCardRow", "function InlinePanelSkeleton");
+  const ticker = section(source, "function MoversTickerItemChip", "function MarketMoversTicker");
+  const tile = section(source, "function ChecklistCardTile", "function getChecklistCardMarketPrice");
+  for (const compactContext of [topChase, ticker, tile]) {
+    assert.ok(compactContext.includes("showWindowLabel={false}"));
+    assert.ok(compactContext.includes("windowLabel="));
+  }
+  assert.ok(source.includes("since the first available price"));
+  assert.ok(source.includes("topCardDeltaWindow?.isSinceFirstAvailable"));
+  assert.ok(source.includes('className="flex h-14 min-w-0 items-center gap-2'));
 });
 
 test("normalizers retain authoritative 7D and 30D amount/percent pairs", () => {

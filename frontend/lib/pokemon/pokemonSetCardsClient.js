@@ -173,6 +173,7 @@ function normalizeCardAppealMarketPriceCorrelation(payload) {
 
 function normalizeSetCard(card, validation = {}) {
   const movement7dSource = card?.movement7d ?? card?.movement_7d ?? {};
+  const movement30dSource = card?.movement30d ?? card?.movement_30d ?? {};
   const currentPrice = toOptionalNumber(
     card?.currentPrice ??
       card?.current_price ??
@@ -260,6 +261,10 @@ function normalizeSetCard(card, validation = {}) {
       enoughHistory: toOptionalBoolean(movement7dSource?.enoughHistory ?? movement7dSource?.enough_history),
       reliable: toOptionalBoolean(movement7dSource?.reliable ?? card?.movement7dReliable ?? card?.movement_7d_reliable),
       reliability: toOptionalString(movement7dSource?.reliability),
+      fullWindowCoverage: toOptionalBoolean(movement7dSource?.fullWindowCoverage ?? movement7dSource?.full_window_coverage),
+      isPartialWindow: toOptionalBoolean(movement7dSource?.isPartialWindow ?? movement7dSource?.is_partial_window),
+      windowCoverageDays: toOptionalNumber(movement7dSource?.windowCoverageDays ?? movement7dSource?.window_coverage_days),
+      requestedWindowDays: toOptionalNumber(movement7dSource?.requestedWindowDays ?? movement7dSource?.requested_window_days) ?? 7,
       startSourceDate: toOptionalString(movement7dSource?.startSourceDate ?? movement7dSource?.start_source_date),
       endSourceDate: toOptionalString(movement7dSource?.endSourceDate ?? movement7dSource?.end_source_date),
       startCarriedForward: toOptionalBoolean(movement7dSource?.startCarriedForward ?? movement7dSource?.start_carried_forward),
@@ -274,12 +279,28 @@ function normalizeSetCard(card, validation = {}) {
     enoughHistory,
     confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
     movement30d: {
+      window: toOptionalString(movement30dSource?.window) || "30D",
+      windowDays: toOptionalNumber(movement30dSource?.windowDays ?? movement30dSource?.window_days) ?? 30,
+      startDate: toOptionalString(movement30dSource?.startDate ?? movement30dSource?.start_date),
+      endDate: toOptionalString(movement30dSource?.endDate ?? movement30dSource?.end_date),
+      startingPrice: toOptionalNumber(movement30dSource?.startingPrice ?? movement30dSource?.starting_price),
       currentPrice,
       changeAmount: change30dAmount,
       changePercent: change30dPercent,
       score: movementScore,
       label: movementLabel,
       enoughHistory,
+      reliable: toOptionalBoolean(movement30dSource?.reliable ?? card?.movement30dReliable ?? card?.movement_30d_reliable),
+      reliability: toOptionalString(movement30dSource?.reliability),
+      fullWindowCoverage: toOptionalBoolean(movement30dSource?.fullWindowCoverage ?? movement30dSource?.full_window_coverage),
+      isPartialWindow: toOptionalBoolean(movement30dSource?.isPartialWindow ?? movement30dSource?.is_partial_window),
+      windowCoverageDays: toOptionalNumber(movement30dSource?.windowCoverageDays ?? movement30dSource?.window_coverage_days),
+      requestedWindowDays: toOptionalNumber(movement30dSource?.requestedWindowDays ?? movement30dSource?.requested_window_days) ?? 30,
+      startSourceDate: toOptionalString(movement30dSource?.startSourceDate ?? movement30dSource?.start_source_date),
+      endSourceDate: toOptionalString(movement30dSource?.endSourceDate ?? movement30dSource?.end_source_date),
+      startCarriedForward: toOptionalBoolean(movement30dSource?.startCarriedForward ?? movement30dSource?.start_carried_forward),
+      endCarriedForward: toOptionalBoolean(movement30dSource?.endCarriedForward ?? movement30dSource?.end_carried_forward),
+      historyPointCount: toOptionalNumber(movement30dSource?.historyPointCount ?? movement30dSource?.history_point_count),
       confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
     },
     tcgplayerProductId: toOptionalString(card?.tcgplayer_product_id ?? card?.tcgplayerProductId),

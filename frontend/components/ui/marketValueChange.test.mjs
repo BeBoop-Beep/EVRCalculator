@@ -56,6 +56,22 @@ test("explicit unavailable state overrides populated movement fields", () => {
   assert.match(model.accessibleText, /30D change unavailable/);
 });
 
+test("uses an explicit partial-history period without claiming a full window", () => {
+  const model = buildMarketValueChangeModel({
+    value: 124.05,
+    changeAmount: 4.2,
+    changePercent: 3.5,
+    windowLabel: "30D",
+    accessiblePeriodLabel: "since the first available price, covering 14 days",
+  });
+  assert.equal(
+    model.accessibleText,
+    "Market value: $124.05. Positive change, +$4.20, +3.5% since the first available price, covering 14 days."
+  );
+  assert.doesNotMatch(model.accessibleText, /over 30D/);
+  assert.equal(model.windowLabel, "30D");
+});
+
 test("declares every supported visual size variant", () => {
   assert.deepEqual(MARKET_VALUE_CHANGE_VARIANTS, ["hero", "chart-summary", "table-row", "card-tile", "ticker", "tooltip"]);
 });

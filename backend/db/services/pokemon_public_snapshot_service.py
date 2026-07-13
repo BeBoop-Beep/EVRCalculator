@@ -2014,6 +2014,15 @@ def _cards_page_has_reliable_movement(card: Dict[str, Any], effective_sort: str)
     return _to_optional_float(card.get(percent_field)) is not None
 
 
+def _cards_page_has_full_window_movement(card: Dict[str, Any], effective_sort: str) -> bool:
+    movement_key = "movement7d" if effective_sort == "7d-movers" else "movement30d"
+    movement = card.get(movement_key) if isinstance(card.get(movement_key), dict) else {}
+    full_window_coverage = movement.get("fullWindowCoverage")
+    if full_window_coverage is not None:
+        return bool(full_window_coverage)
+    return _cards_page_has_reliable_movement(card, effective_sort)
+
+
 def _apply_cards_page_filters_and_sort(
     cards: List[Dict[str, Any]],
     *,
@@ -2068,9 +2077,31 @@ def _apply_cards_page_filters_and_sort(
             )
         )
     elif effective_sort == "30d-gainers":
-        filtered.sort(key=lambda card: (-(_to_optional_float(card.get("change30dAmount")) if _to_optional_float(card.get("change30dAmount")) is not None else float("-inf")), _cards_page_number_sort_key(card)))
+        filtered.sort(
+            key=lambda card: (
+                not _cards_page_has_reliable_movement(card, effective_sort),
+                not _cards_page_has_full_window_movement(card, effective_sort),
+                -(
+                    _to_optional_float(card.get("change30dAmount"))
+                    if _to_optional_float(card.get("change30dAmount")) is not None
+                    else float("-inf")
+                ),
+                _cards_page_stable_tie_key(card),
+            )
+        )
     elif effective_sort == "30d-decliners":
-        filtered.sort(key=lambda card: ((_to_optional_float(card.get("change30dAmount")) if _to_optional_float(card.get("change30dAmount")) is not None else float("inf")), _cards_page_number_sort_key(card)))
+        filtered.sort(
+            key=lambda card: (
+                not _cards_page_has_reliable_movement(card, effective_sort),
+                not _cards_page_has_full_window_movement(card, effective_sort),
+                (
+                    _to_optional_float(card.get("change30dAmount"))
+                    if _to_optional_float(card.get("change30dAmount")) is not None
+                    else float("inf")
+                ),
+                _cards_page_stable_tie_key(card),
+            )
+        )
     else:
         filtered.sort(key=_cards_page_number_sort_key)
 

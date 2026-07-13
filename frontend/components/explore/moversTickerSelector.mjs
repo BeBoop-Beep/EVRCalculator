@@ -46,7 +46,14 @@ export function getCardMovement7d(card) {
     getDeltaMapValue(card, ["changeAmount", "change_amount", "amount"]);
 
   if (percent === null) return null;
-  return { amount, percent };
+  return {
+    amount,
+    percent,
+    fullWindowCoverage: Boolean(nested?.fullWindowCoverage ?? nested?.full_window_coverage),
+    isPartialWindow: Boolean(nested?.isPartialWindow ?? nested?.is_partial_window),
+    windowCoverageDays: toFiniteNumber(nested?.windowCoverageDays ?? nested?.window_coverage_days),
+    requestedWindowDays: toFiniteNumber(nested?.requestedWindowDays ?? nested?.requested_window_days) ?? 7,
+  };
 }
 
 export function getMoversTickerTrendValue(movement) {

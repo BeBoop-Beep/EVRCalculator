@@ -27,7 +27,15 @@ function makeCamelCard(overrides = {}) {
     change30dPercent: 11.1,
     change7dAmount: -2,
     change7dPercent: -4.7,
-    movement7d: { currentPrice: 42.5, changeAmount: -2, changePercent: -4.7 },
+    movement7d: {
+      currentPrice: 42.5,
+      changeAmount: -2,
+      changePercent: -4.7,
+      fullWindowCoverage: true,
+      isPartialWindow: false,
+      windowCoverageDays: 7,
+      requestedWindowDays: 7,
+    },
     movementScore: 5,
     movementLabel: "heating_up",
     enoughHistory: true,
@@ -52,6 +60,10 @@ function makeCamelCard(overrides = {}) {
       score: 5,
       label: "heating_up",
       enoughHistory: true,
+      fullWindowCoverage: false,
+      isPartialWindow: true,
+      windowCoverageDays: 16,
+      requestedWindowDays: 30,
       confidence: "medium",
     },
     ...overrides,
@@ -97,6 +109,10 @@ test("normalizePokemonSetCardsPagePayload normalizes cards using the same shape 
   assert.equal(pageResult.cards[0].change30dAmount, 5);
   assert.equal(pageResult.cards[0].change7dAmount, -2);
   assert.equal(pageResult.cards[0].change7dPercent, -4.7);
+  assert.equal(pageResult.cards[0].movement7d.fullWindowCoverage, true);
+  assert.equal(pageResult.cards[0].movement30d.isPartialWindow, true);
+  assert.equal(pageResult.cards[0].movement30d.windowCoverageDays, 16);
+  assert.equal(pageResult.cards[0].movement30d.requestedWindowDays, 30);
 });
 
 test("normalizePokemonSetCardsPagePayload normalizes pagination metadata", () => {

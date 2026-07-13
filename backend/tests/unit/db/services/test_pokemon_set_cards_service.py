@@ -289,6 +289,40 @@ def test_cards_page_payload_movement_sort_overrides_sort(monkeypatch):
     assert payload["filters"]["movementSort"] == "30d-decliners"
 
 
+def test_cards_page_30d_sorts_reliable_full_windows_before_partial_deltas(monkeypatch):
+    reliable = _make_card(
+        1,
+        change30dAmount=1.0,
+        change30dPercent=5.0,
+        movement30d={"reliable": True, "fullWindowCoverage": True, "changeAmount": 1.0, "changePercent": 5.0},
+    )
+    partial = _make_card(
+        2,
+        change30dAmount=20.0,
+        change30dPercent=100.0,
+        movement30d={"reliable": False, "fullWindowCoverage": False, "isPartialWindow": True, "changeAmount": 20.0, "changePercent": 100.0},
+    )
+    row = _cards_row(2)
+    row["cards_json"] = [partial, reliable]
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    gainers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="30d-gainers", page_size=20
+    )["cards"]
+    heating = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="30d-gainers", movement_filter="heating", page_size=20
+    )["cards"]
+
+    assert [card["id"] for card in gainers] == [reliable["id"], partial["id"]]
+    assert gainers[1]["movement30d"]["isPartialWindow"] is True
+    assert gainers[1]["movement30d"]["fullWindowCoverage"] is False
+    assert [card["id"] for card in heating] == [reliable["id"]]
+
+
 def test_cards_page_payload_7d_movers_sort_is_global_and_paginated(monkeypatch):
     cards = [
         _make_card(index, change7dAmount=float(index), change7dPercent=float(index))

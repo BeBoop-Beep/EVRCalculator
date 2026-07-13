@@ -2239,7 +2239,19 @@ def _movement_contract(
 ) -> Dict[str, Any]:
     end_date = date.fromisoformat(latest_market_date)
     start_date = (end_date - timedelta(days=window_days)).isoformat()
-    start = _last_observation_on_or_before(observations, start_date)
+    full_window_start = _last_observation_on_or_before(observations, start_date)
+    start = full_window_start
+    if start is None:
+        start = next(
+            (
+                row
+                for row in observations
+                if row.get("source_date")
+                and start_date < row["source_date"] <= latest_market_date
+                and to_optional_float(row.get("market_price")) is not None
+            ),
+            None,
+        )
     end = _last_observation_on_or_before(observations, latest_market_date)
 
     # The selected-price view is the authoritative current price.  Include it
@@ -2265,13 +2277,23 @@ def _movement_contract(
         if start_source_date and end_source_date
         else 0
     )
-    enough_history = bool(
+    has_usable_pair = bool(
         start_price is not None
         and current_price is not None
+        and start_source_date
+        and end_source_date
+        and history_span_days > 0
+    )
+    full_window_coverage = bool(full_window_start is not None and current_price is not None)
+    is_partial_window = bool(not full_window_coverage and has_usable_pair)
+    enough_history = bool(
+        full_window_coverage
+        and not is_partial_window
+        and has_usable_pair
         and history_span_days >= CARD_MOVEMENT_MIN_SPAN_DAYS[window_days]
         and history_span_days <= CARD_MOVEMENT_MAX_SPAN_DAYS[window_days]
     )
-    change_amount = round(current_price - start_price, 2) if start_price is not None and current_price is not None else None
+    change_amount = round(current_price - start_price, 2) if has_usable_pair else None
     change_percent = (
         round((change_amount / start_price) * 100, 2)
         if change_amount is not None and start_price
@@ -2286,6 +2308,16 @@ def _movement_contract(
         and change_percent is not None
         and abs(change_percent) <= CARD_MOVEMENT_MAX_ABSOLUTE_PERCENT
     )
+    if reliable:
+        reliability = "reliable"
+    elif is_partial_window:
+        reliability = "partial_window"
+    elif current_price is None or change_amount is None:
+        reliability = "unavailable"
+    elif not enough_history:
+        reliability = "insufficient_history"
+    else:
+        reliability = "guardrailed"
     return {
         "window": f"{window_days}D",
         "windowDays": window_days,
@@ -2297,7 +2329,11 @@ def _movement_contract(
         "changePercent": change_percent,
         "enoughHistory": enough_history,
         "reliable": reliable,
-        "reliability": "reliable" if reliable else "insufficient_or_guardrailed",
+        "reliability": reliability,
+        "fullWindowCoverage": full_window_coverage,
+        "isPartialWindow": is_partial_window,
+        "windowCoverageDays": history_span_days if start_source_date and end_source_date else None,
+        "requestedWindowDays": window_days,
         "startSourceDate": start_source_date,
         "endSourceDate": end_source_date or selected_source_date,
         "startCarriedForward": bool(start_source_date and start_source_date < start_date),
@@ -2404,6 +2440,10 @@ def _enrich_cards_with_authoritative_prices_and_movements(
                         "enough_history": movement["enoughHistory"],
                         "reliable": movement["reliable"],
                         "reliability": movement["reliability"],
+                        "full_window_coverage": movement["fullWindowCoverage"],
+                        "is_partial_window": movement["isPartialWindow"],
+                        "window_coverage_days": movement["windowCoverageDays"],
+                        "requested_window_days": movement["requestedWindowDays"],
                         "start_source_date": movement["startSourceDate"],
                         "end_source_date": movement["endSourceDate"],
                         "start_carried_forward": movement["startCarriedForward"],
@@ -2424,9 +2464,69 @@ def _enrich_cards_with_authoritative_prices_and_movements(
     meta["pricingContract"] = {
         "source": "pokemon_canonical_card_market_prices_latest+card_variant_price_observations",
         "latestMarketDate": latest_market_date,
-        "canonicalCardCount": len(cards),
-        "pricedCardCount": sum(1 for card in cards if to_optional_float(card.get("marketPrice")) is not None),
     }
+    return {**payload, "cards": cards, "meta": meta}
+
+
+def _with_cards_pricing_contract_diagnostics(payload: Dict[str, Any]) -> Dict[str, Any]:
+    cards = list(payload.get("cards") or [])
+
+    def has_delta(card: Dict[str, Any], suffix: str) -> bool:
+        return bool(
+            to_optional_float(card.get(f"change{suffix}Amount")) is not None
+            or to_optional_float(card.get(f"change{suffix}Percent")) is not None
+        )
+
+    priced_cards = [card for card in cards if to_optional_float(card.get("marketPrice")) is not None]
+    cards_with_7d_delta = sum(1 for card in priced_cards if has_delta(card, "7d"))
+    cards_with_30d_delta = sum(1 for card in priced_cards if has_delta(card, "30d"))
+    full_7d = sum(
+        1
+        for card in priced_cards
+        if has_delta(card, "7d") and bool((card.get("movement7d") or {}).get("fullWindowCoverage"))
+    )
+    full_30d = sum(
+        1
+        for card in priced_cards
+        if has_delta(card, "30d") and bool((card.get("movement30d") or {}).get("fullWindowCoverage"))
+    )
+    partial_7d = sum(
+        1
+        for card in priced_cards
+        if has_delta(card, "7d") and bool((card.get("movement7d") or {}).get("isPartialWindow"))
+    )
+    partial_30d = sum(
+        1
+        for card in priced_cards
+        if has_delta(card, "30d") and bool((card.get("movement30d") or {}).get("isPartialWindow"))
+    )
+    meta = dict(payload.get("meta") or {})
+    contract = dict(meta.get("pricingContract") or {})
+    contract.update(
+        {
+            "canonicalCardCount": len(cards),
+            "pricedCardCount": len(priced_cards),
+            "cardsWith7dDelta": cards_with_7d_delta,
+            "cardsWith30dDelta": cards_with_30d_delta,
+            "cardsWithFull7dCoverage": full_7d,
+            "cardsWithFull30dCoverage": full_30d,
+            "cardsWithPartial7dDelta": partial_7d,
+            "cardsWithPartial30dDelta": partial_30d,
+            "cardsMissingUsableHistory": len(priced_cards) - cards_with_30d_delta,
+        }
+    )
+    meta["pricingContract"] = contract
+    if priced_cards and cards_with_30d_delta == 0:
+        warning = "Priced cards are present but no usable 30D card deltas were produced."
+        warnings = list(meta.get("warnings") or [])
+        if warning not in warnings:
+            warnings.append(warning)
+        meta["warnings"] = warnings
+        logger.warning(
+            "[pokemon-snapshot] priced cards without usable 30D deltas priced=%s canonical=%s",
+            len(priced_cards),
+            len(cards),
+        )
     return {**payload, "cards": cards, "meta": meta}
 
 
@@ -2444,6 +2544,7 @@ def build_cards_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
         client=get_client(),
     )
     payload = enrich_cards_payload_with_desirability(payload, prices_by_card=prices_by_card)
+    payload = _with_cards_pricing_contract_diagnostics(payload)
     cards = list(payload.get("cards") or [])
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_cards", built_at=utc_now_iso())
     return {

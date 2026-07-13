@@ -44,6 +44,7 @@ export function buildMarketValueChangeModel({
   direction = null,
   unavailable = false,
   accessibleLabel = "Market value",
+  accessiblePeriodLabel = null,
 } = {}) {
   const amount = toMarketNumber(changeAmount);
   const percent = toMarketNumber(changePercent);
@@ -81,6 +82,12 @@ export function buildMarketValueChangeModel({
   const changeText = `${iconText} ${visibleChangeText}${suffix}`;
   const directionText = resolvedDirection === "positive" ? "Positive change" : resolvedDirection === "negative" ? "Negative change" : "No change";
   const accessibleValues = [amountText, percentText].filter(Boolean).join(", ");
+  const normalizedAccessiblePeriod = String(accessiblePeriodLabel || "").trim();
+  const accessiblePeriod = normalizedAccessiblePeriod
+    ? ` ${normalizedAccessiblePeriod}`
+    : normalizedWindow
+    ? ` over ${normalizedWindow}`
+    : "";
 
   return {
     valueText,
@@ -91,6 +98,6 @@ export function buildMarketValueChangeModel({
     direction: resolvedDirection,
     directionText,
     hasReliableChange: true,
-    accessibleText: `${accessibleLabel}: ${valueText}. ${directionText}, ${accessibleValues}${normalizedWindow ? ` over ${normalizedWindow}` : ""}.`,
+    accessibleText: `${accessibleLabel}: ${valueText}. ${directionText}, ${accessibleValues}${accessiblePeriod}.`,
   };
 }

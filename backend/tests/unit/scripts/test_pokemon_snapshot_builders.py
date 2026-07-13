@@ -424,12 +424,157 @@ def test_authoritative_card_enrichment_keeps_all_cards_and_uses_boundary_carry_f
     assert first["movement7d"]["startingPrice"] == 10.0
     assert first["change7dAmount"] == 2.0
     assert first["change7dPercent"] == 20.0
+    assert first["movement30d"]["isPartialWindow"] is True
+    assert first["movement30d"]["fullWindowCoverage"] is False
+    assert first["movement30d"]["windowCoverageDays"] == 7
+    assert first["movement30d"]["requestedWindowDays"] == 30
+    assert first["movement30d"]["reliability"] == "partial_window"
+    assert first["movement_30d"]["is_partial_window"] is True
+    assert first["movement_30d"]["window_coverage_days"] == 7
     assert carried["marketPrice"] == 5.0
     assert carried["priceSourceDate"] == "2026-07-11"
     assert carried["priceCarriedForward"] is True
     assert carried["movement7d"]["endDate"] == "2026-07-12"
     assert carried["movement7d"]["endSourceDate"] == "2026-07-11"
     assert unavailable.get("marketPrice") is None
+
+
+def test_movement_contract_prefers_full_boundary_then_falls_back_to_partial_history():
+    price = {"market_price": 12.0, "captured_at": "2026-07-12", "source": "tcgplayer"}
+    full = pokemon_snapshot_builders._movement_contract(
+        price=price,
+        observations=[
+            {"market_price": 10.0, "source_date": "2026-06-10", "source": "tcgplayer"},
+            {"market_price": 11.0, "source_date": "2026-06-25", "source": "tcgplayer"},
+            {"market_price": 12.0, "source_date": "2026-07-12", "source": "tcgplayer"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+    partial = pokemon_snapshot_builders._movement_contract(
+        price=price,
+        observations=[
+            {"market_price": 11.0, "source_date": "2026-06-25", "source": "tcgplayer"},
+            {"market_price": 12.0, "source_date": "2026-07-12", "source": "tcgplayer"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert full["startingPrice"] == 10.0
+    assert full["fullWindowCoverage"] is True
+    assert full["isPartialWindow"] is False
+    assert full["reliability"] == "reliable"
+    assert partial["startingPrice"] == 11.0
+    assert partial["changeAmount"] == 1.0
+    assert partial["changePercent"] == 9.09
+    assert partial["fullWindowCoverage"] is False
+    assert partial["isPartialWindow"] is True
+    assert partial["windowCoverageDays"] == 17
+    assert partial["requestedWindowDays"] == 30
+    assert partial["enoughHistory"] is False
+    assert partial["reliable"] is False
+    assert partial["reliability"] == "partial_window"
+
+
+def test_movement_contract_reliability_reasons_are_specific():
+    guardrailed = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 10.1, "captured_at": "2026-07-12"},
+        observations=[
+            {"market_price": 10.0, "source_date": "2026-06-12"},
+            {"market_price": 10.1, "source_date": "2026-07-12"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+    insufficient = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 10.0, "captured_at": "2026-07-12"},
+        observations=[
+            {"market_price": 8.0, "source_date": "2026-07-01"},
+            {"market_price": 10.0, "source_date": "2026-07-12"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=7,
+    )
+    unavailable = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": None, "captured_at": "2026-07-12"},
+        observations=[],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert guardrailed["reliability"] == "guardrailed"
+    assert guardrailed["changeAmount"] == 0.1
+    assert guardrailed["changePercent"] == 1.0
+    assert guardrailed["reliable"] is False
+    assert insufficient["reliability"] == "insufficient_history"
+    assert unavailable["reliability"] == "unavailable"
+
+
+def test_movement_contract_does_not_invent_delta_from_one_observation():
+    movement = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 10.0, "captured_at": "2026-07-12"},
+        observations=[{"market_price": 10.0, "source_date": "2026-07-12"}],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert movement["changeAmount"] is None
+    assert movement["changePercent"] is None
+    assert movement["isPartialWindow"] is False
+    assert movement["reliable"] is False
+    assert movement["reliability"] == "unavailable"
+
+
+@pytest.mark.parametrize("set_key", ["journeyTogether", "chaosRising"])
+def test_recent_set_partial_history_fixture_produces_display_delta(set_key):
+    movement = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 12.0, "captured_at": "2026-07-12", "source": set_key},
+        observations=[
+            {"market_price": 9.0, "source_date": "2026-06-27", "source": set_key},
+            {"market_price": 12.0, "source_date": "2026-07-12", "source": set_key},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert movement["changeAmount"] == 3.0
+    assert movement["changePercent"] == 33.33
+    assert movement["windowCoverageDays"] == 15
+    assert movement["isPartialWindow"] is True
+    assert movement["reliable"] is False
+
+
+def test_pricing_contract_diagnostics_are_computed_from_final_cards():
+    payload = pokemon_snapshot_builders._with_cards_pricing_contract_diagnostics(
+        {
+            "cards": [
+                {
+                    "marketPrice": 12.0,
+                    "change7dAmount": 1.0,
+                    "change30dAmount": 2.0,
+                    "movement7d": {"fullWindowCoverage": True},
+                    "movement30d": {"isPartialWindow": True},
+                },
+                {"marketPrice": 8.0, "movement7d": {}, "movement30d": {}},
+                {"marketPrice": None},
+            ],
+            "meta": {"pricingContract": {"source": "test"}},
+        }
+    )
+    contract = payload["meta"]["pricingContract"]
+    assert contract == {
+        "source": "test",
+        "canonicalCardCount": 3,
+        "pricedCardCount": 2,
+        "cardsWith7dDelta": 1,
+        "cardsWith30dDelta": 1,
+        "cardsWithFull7dCoverage": 1,
+        "cardsWithFull30dCoverage": 0,
+        "cardsWithPartial7dDelta": 0,
+        "cardsWithPartial30dDelta": 1,
+        "cardsMissingUsableHistory": 1,
+    }
 
 
 def test_forward_fill_top_chase_history_is_idempotent_and_preserves_source_date():

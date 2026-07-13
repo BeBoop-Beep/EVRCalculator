@@ -1813,33 +1813,54 @@ function getCardMarketDelta(card) {
 }
 
 function getCardMovement30d(card) {
+  const nested = card?.movement30d ?? card?.movement_30d ?? {};
   const amount = (
     toNumber(card?.change30dAmount) ??
     toNumber(card?.change_30d_amount) ??
-    toNumber(card?.movement30d?.changeAmount) ??
-    toNumber(card?.movement30d?.change_amount) ??
+    toNumber(nested?.changeAmount) ??
+    toNumber(nested?.change_amount) ??
     null
   );
   const percent = (
     toNumber(card?.change30dPercent) ??
     toNumber(card?.change_30d_percent) ??
-    toNumber(card?.movement30d?.changePercent) ??
-    toNumber(card?.movement30d?.change_percent) ??
+    toNumber(nested?.changePercent) ??
+    toNumber(nested?.change_percent) ??
     null
   );
   const score = (
     toNumber(card?.movementScore) ??
     toNumber(card?.movement_score) ??
-    toNumber(card?.movement30d?.score) ??
-    toNumber(card?.movement30d?.movementScore) ??
+    toNumber(nested?.score) ??
+    toNumber(nested?.movementScore) ??
     null
   );
-  const label = card?.movementLabel || card?.movement_label || card?.movement30d?.label || null;
-  const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? card?.movement30d?.enoughHistory ?? card?.movement30d?.enough_history);
+  const label = card?.movementLabel || card?.movement_label || nested?.label || null;
+  const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? nested?.enoughHistory ?? nested?.enough_history);
   if (amount === null && percent === null && score === null) {
     return null;
   }
-  return { amount, percent, score, label, enoughHistory };
+  return {
+    amount,
+    percent,
+    score,
+    label,
+    enoughHistory,
+    fullWindowCoverage: Boolean(nested?.fullWindowCoverage ?? nested?.full_window_coverage),
+    isPartialWindow: Boolean(nested?.isPartialWindow ?? nested?.is_partial_window),
+    windowCoverageDays: toNumber(nested?.windowCoverageDays ?? nested?.window_coverage_days),
+    requestedWindowDays: toNumber(nested?.requestedWindowDays ?? nested?.requested_window_days) ?? 30,
+  };
+}
+
+function getMovementAccessiblePeriod(movement) {
+  if (!movement?.isPartialWindow) {
+    return null;
+  }
+  const coverageDays = toNumber(movement?.windowCoverageDays);
+  return coverageDays === null
+    ? "since the first available price"
+    : `since the first available price, covering ${coverageDays} ${coverageDays === 1 ? "day" : "days"}`;
 }
 
 // Card-shaped placeholder for the checklist grid's image slot: a faint
@@ -1952,6 +1973,8 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
                   changeAmount={marketDelta?.amount}
                   changePercent={marketDelta?.percent}
                   windowLabel={movementWindow}
+                  showWindowLabel={false}
+                  accessiblePeriodLabel={getMovementAccessiblePeriod(marketDelta)}
                   alignment="right"
                   variant="card-tile"
                   accessibleLabel={`${name} market price`}
@@ -2938,6 +2961,15 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
           changeAmount={displayDeltaAmount}
           changePercent={displayDelta}
           windowLabel={getDeltaWindowLabel(selectedWindowKey)}
+          showWindowLabel={false}
+          accessiblePeriodLabel={
+            topCardDeltaWindow?.isSinceFirstAvailable
+              ? getMovementAccessiblePeriod({
+                  isPartialWindow: true,
+                  windowCoverageDays: getDateSpanDays(topCardDeltaWindow.startDate, topCardDeltaWindow.endDate),
+                })
+              : null
+          }
           alignment="right"
           variant="table-row"
           accessibleLabel={`${name} market price`}
@@ -3033,6 +3065,15 @@ function TopMarketCardsContent({
 function getTopCardDeltaEntries(card) {
   const deltas = card?.deltas && typeof card.deltas === "object" ? card.deltas : {};
   return extractDeltaWindows({ deltas }).map((entry) => ({ label: entry.label, value: entry.percent, key: entry.key }));
+}
+
+function getDateSpanDays(startDate, endDate) {
+  const start = Date.parse(`${String(startDate || "").slice(0, 10)}T00:00:00Z`);
+  const end = Date.parse(`${String(endDate || "").slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return null;
+  }
+  return Math.round((end - start) / 86400000);
 }
 
 function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
@@ -3184,6 +3225,7 @@ function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
           changeAmount={movement?.amount}
           changePercent={movement?.percent}
           windowLabel="7D"
+          showWindowLabel={false}
           variant="ticker"
           accessibleLabel={`${name} market price`}
         />
@@ -3283,10 +3325,10 @@ function MarketMoversTicker({ items, status, error, viewAllHref, onNavigate }) {
   );
 
   return (
-    // Fixed strip height from first paint (h-12): loading, error, empty, and
+    // Fixed strip height from first paint (h-14): loading, error, empty, and
     // populated states all render inside the same box, so the ticker never
     // shifts the Overview content below it.
-    <div className="flex h-12 min-w-0 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] py-1 pl-3 pr-2">
+    <div className="flex h-14 min-w-0 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] py-1 pl-3 pr-2">
       <span className="flex-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
         7D Movers
       </span>

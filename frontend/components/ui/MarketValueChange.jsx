@@ -24,6 +24,8 @@ export default function MarketValueChange({
   alignment = "left",
   variant = "table-row",
   accessibleLabel = "Market value",
+  accessiblePeriodLabel = null,
+  showWindowLabel = true,
   className = "",
 }) {
   const classes = VARIANT_CLASSES[variant] || VARIANT_CLASSES["table-row"];
@@ -35,6 +37,7 @@ export default function MarketValueChange({
     direction,
     unavailable,
     accessibleLabel,
+    accessiblePeriodLabel,
   });
   const aligned = alignment === "right" ? "items-end text-right" : alignment === "center" ? "items-center text-center" : "items-start text-left";
   const toneStyle =
@@ -72,11 +75,11 @@ export default function MarketValueChange({
           )}
           {model.amountText ? <span aria-hidden="true">{model.amountText}</span> : null}
           {model.percentText ? <span aria-hidden="true">{model.amountText ? `(${model.percentText})` : model.percentText}</span> : null}
-          {model.windowLabel ? (
-            <>
+          {showWindowLabel && model.windowLabel ? (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap text-[var(--text-secondary)] opacity-80">
               <span aria-hidden="true">{"\u00b7"}</span>
-              <span className="whitespace-nowrap">{model.windowLabel}</span>
-            </>
+              <span>{model.windowLabel}</span>
+            </span>
           ) : null}
           {model.direction === "neutral" ? <span className="sr-only">No change</span> : null}
         </span>
