@@ -60,9 +60,9 @@ export default function MarketValueChange({
     >
       <span className={["max-w-full whitespace-nowrap text-[var(--text-primary)]", classes.value].join(" ")}>{model.valueText}</span>
       {model.hasReliableChange ? (
-        <span className={["inline-flex max-w-full flex-wrap items-center gap-x-1 whitespace-nowrap font-semibold", classes.gap, classes.change].join(" ")} style={toneStyle}>
+        <span className={["inline-flex max-w-full items-center gap-x-1 whitespace-nowrap font-semibold", classes.gap, classes.change].join(" ")} style={toneStyle}>
           {model.direction === "neutral" ? (
-            <span aria-hidden="true">\u2014</span>
+            <span aria-hidden="true">{"\u2014"}</span>
           ) : (
             <DeltaTrendIcon
               direction={model.direction === "positive" ? "up" : "down"}
@@ -70,8 +70,14 @@ export default function MarketValueChange({
               title={model.directionText}
             />
           )}
-          <span aria-hidden="true">{model.amountText} ({model.percentText})</span>
-          {model.windowLabel ? <span aria-hidden="true" className="whitespace-nowrap">\u00b7 {model.windowLabel}</span> : null}
+          {model.amountText ? <span aria-hidden="true">{model.amountText}</span> : null}
+          {model.percentText ? <span aria-hidden="true">{model.amountText ? `(${model.percentText})` : model.percentText}</span> : null}
+          {model.windowLabel ? (
+            <>
+              <span aria-hidden="true">{"\u00b7"}</span>
+              <span className="whitespace-nowrap">{model.windowLabel}</span>
+            </>
+          ) : null}
           {model.direction === "neutral" ? <span className="sr-only">No change</span> : null}
         </span>
       ) : (

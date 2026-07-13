@@ -26,6 +26,12 @@ test("shared component owns market formatting, direction icon, variants, and una
   }
   assert.ok(component.includes("model.hasReliableChange"));
   assert.ok(!component.includes("rounded-md border"));
+  assert.ok(!component.includes(">\\u00b7"), "separator escape must not be emitted as a raw JSX text node");
+  assert.ok(!component.includes(">\\u2014"), "neutral dash escape must not be emitted as a raw JSX text node");
+  assert.ok(component.includes('<span aria-hidden="true">{"\\u2014"}</span>'));
+  assert.ok(component.includes('<span aria-hidden="true">{"\\u00b7"}</span>'));
+  assert.ok(component.includes('<span className="whitespace-nowrap">{model.windowLabel}</span>'));
+  assert.ok(!component.includes("flex-wrap items-center gap-x-1 whitespace-nowrap"));
 });
 
 test("Set Value title card and full chart use the shared stack with matching amount, percent, and windows", () => {
@@ -66,10 +72,23 @@ test("Cards tiles use one shared stack for All Cards, mover presets, and appende
   assert.ok(tile.includes("changeAmount={marketDelta?.amount}"));
   assert.ok(tile.includes("changePercent={marketDelta?.percent}"));
   assert.ok(tile.includes("windowLabel={movementWindow}"));
+  assert.ok(tile.includes('movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)'));
+  assert.ok(tile.includes('const cardMetaKey = `${getChecklistCardKey(card)}:${marketPrice ?? ""}:${marketDelta?.amount ?? ""}:${marketDelta?.percent ?? ""}:${movementWindow}`'));
+  assert.ok(tile.includes("setIsMetaRevealed(false)"));
+  assert.ok(tile.includes("[cardMetaKey, hasPriceData]"));
   assert.ok(!tile.includes("getDeltaBadgeStyle"));
   assert.ok(source.includes('movementWindow={effectiveCardSortMode === "7d-movers" ? "7D" : "30D"}'));
   assert.ok(source.includes("displayedChecklistCards.map((card)"), "all visible and appended rows must reuse ChecklistCardTile");
   assert.ok(source.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"));
+});
+
+test("Set Value cards reserve enough height for the shared price/change stack", () => {
+  const source = read(pagePath);
+  const fullChart = section(source, "function SetValueTrendCard", "function OverviewMetricTile");
+  assert.ok(fullChart.includes("min-h-[29rem]"));
+  assert.ok(source.includes("min-h-[9.5rem]"));
+  assert.ok(!source.includes("min-h-[8.25rem]"));
+  assert.ok(!fullChart.includes("min-h-[26rem]"));
 });
 
 test("7D ticker and shared Set Value/Top Chase tooltip use the same stack without legacy pills", () => {

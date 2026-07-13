@@ -26,10 +26,34 @@ test("formats zero movement neutrally without a triangle", () => {
   assert.match(model.accessibleText, /No change/);
 });
 
-test("marks movement unavailable unless both amount and percentage are reliable", () => {
+test("formats an amount-only change without fabricating a percentage", () => {
+  const model = buildMarketValueChangeModel({ value: 124.05, changeAmount: 4.2, changePercent: null, windowLabel: "30D", accessibleLabel: "Card market price" });
+  assert.equal(model.changeText, "\u25b2 +$4.20 \u00b7 30D");
+  assert.equal(model.amountText, "+$4.20");
+  assert.equal(model.percentText, null);
+  assert.equal(model.accessibleText, "Card market price: $124.05. Positive change, +$4.20 over 30D.");
+});
+
+test("formats a percentage-only change and derives direction from percentage", () => {
   const model = buildMarketValueChangeModel({ value: 124.05, changeAmount: null, changePercent: 4.7, windowLabel: "7D" });
+  assert.equal(model.changeText, "\u25b2 +4.7% \u00b7 7D");
+  assert.equal(model.amountText, null);
+  assert.equal(model.percentText, "+4.7%");
+  assert.equal(model.direction, "positive");
+  assert.equal(model.accessibleText, "Market value: $124.05. Positive change, +4.7% over 7D.");
+});
+
+test("marks movement unavailable when neither delta value exists", () => {
+  const model = buildMarketValueChangeModel({ value: 124.05, changeAmount: null, changePercent: null, windowLabel: "7D" });
   assert.equal(model.changeText, "7D change unavailable");
   assert.equal(model.hasReliableChange, false);
+});
+
+test("explicit unavailable state overrides populated movement fields", () => {
+  const model = buildMarketValueChangeModel({ value: 124.05, changeAmount: 4.2, changePercent: 3.5, windowLabel: "30D", unavailable: true });
+  assert.equal(model.changeText, "30D change unavailable");
+  assert.equal(model.direction, "unavailable");
+  assert.match(model.accessibleText, /30D change unavailable/);
 });
 
 test("declares every supported visual size variant", () => {

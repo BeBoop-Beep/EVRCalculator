@@ -21,7 +21,7 @@ test("Set Value and Opening Profit vs Cost use the requested user-facing copy", 
   assert.ok(!source.includes(">Opening Performance vs Cost<"));
 });
 
-test("hero exposes one accessible RIP Score and RIP Core segmented control with separate rank and tier", () => {
+test("hero exposes one accessible RIP mode control and one unified Tier, Interpretation, Rank pill", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const segmentedSource = fs.readFileSync(segmentedControlPath, "utf8");
   const toggleSource = source.slice(source.indexOf("function RipScoreModeToggle"), source.indexOf("function HeroScoreBadges"));
@@ -34,11 +34,21 @@ test("hero exposes one accessible RIP Score and RIP Core segmented control with 
   assert.ok(segmentedSource.includes('"ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"'));
   assert.ok(source.includes('<HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier}'));
   assert.ok(source.includes('interpretation={recommendationBadge}'));
-  assert.ok(source.includes('<RecommendationBadge label={interpretation} rankTier={tier} />'));
   assert.ok(source.includes("heroScoreSelection.interpretation.summary"));
   assert.ok(toggleSource.includes("onChange={onChange}"));
   assert.ok(!toggleSource.includes("fetch("));
   assert.ok(!toggleSource.includes("getPokemonSet"), "mode switching must remain local and never request set data");
+
+  const pillSource = source.slice(source.indexOf("function HeroScoreBadges"), source.indexOf("function formatLensScore"));
+  assert.equal((pillSource.match(/data-rip-summary-pill/g) || []).length, 1, "HeroScoreBadges must render one outer pill");
+  assert.ok(!pillSource.includes("<RankBadge"));
+  assert.ok(!pillSource.includes("<RecommendationBadge"));
+  assert.ok(pillSource.indexOf('key: "tier"') < pillSource.indexOf('key: "interpretation"'));
+  assert.ok(pillSource.indexOf('key: "interpretation"') < pillSource.indexOf('key: "rank"'));
+  assert.ok(pillSource.includes('label: `Rank #${roundedRank}`'));
+  assert.ok(pillSource.includes("index > 0 ? <span data-rip-summary-divider"), "only present segments may receive a divider");
+  assert.ok(pillSource.includes("Rank number ${roundedRank}"));
+  assert.equal((source.match(/<HeroScoreBadges/g) || []).length, 2, "RIP Score and RIP Core surfaces must share HeroScoreBadges");
 });
 
 test("7D mover price group uses the shared two-line market value presentation", () => {

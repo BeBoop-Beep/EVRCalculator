@@ -1899,15 +1899,17 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
   // badge slot's width is reserved from the tile's first commit either way,
   // so this reveal never shifts the surrounding layout.
   const [isMetaRevealed, setIsMetaRevealed] = useState(false);
+  const cardMetaKey = `${getChecklistCardKey(card)}:${marketPrice ?? ""}:${marketDelta?.amount ?? ""}:${marketDelta?.percent ?? ""}:${movementWindow}`;
 
   useEffect(() => {
+    setIsMetaRevealed(false);
     if (!hasPriceData) {
       return;
     }
     startTransition(() => {
       setIsMetaRevealed(true);
     });
-  }, [hasPriceData]);
+  }, [cardMetaKey, hasPriceData]);
 
   return (
     <article className="group overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
@@ -2775,7 +2777,7 @@ function SetValueTrendCard({
           </div>
         </div>
       ) : (
-        <div className="flex min-h-[26rem] flex-col space-y-4">
+        <div className="flex min-h-[29rem] flex-col space-y-4">
           <div className="min-w-0">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
@@ -5015,19 +5017,47 @@ function RipScoreModeToggle({ value, onChange, coreAvailable }) {
 
 function HeroScoreBadges({ rank, tier, interpretation, size = "supporting" }) {
   const numericRank = toNumber(rank);
+  const normalizedTier = String(tier || "").trim().replace(/\s+tier$/i, "").toUpperCase();
+  const interpretationLabel = String(interpretation || "").trim();
+  const roundedRank = numericRank === null ? null : Math.round(numericRank);
+  const segments = [
+    normalizedTier ? { key: "tier", label: `${normalizedTier} Tier`, className: "font-bold" } : null,
+    interpretationLabel ? { key: "interpretation", label: interpretationLabel, className: "font-medium" } : null,
+    roundedRank !== null ? { key: "rank", label: `Rank #${roundedRank}`, className: "font-medium opacity-[0.68]" } : null,
+  ].filter(Boolean);
+  const tone = getInterpretationTone({ label: interpretationLabel, rankTier: normalizedTier });
+
+  if (segments.length === 0) {
+    return null;
+  }
+
+  const accessibleLabel = [
+    normalizedTier ? `${normalizedTier} Tier` : null,
+    interpretationLabel || null,
+    roundedRank !== null ? `Rank number ${roundedRank}` : null,
+  ].filter(Boolean).join(", ");
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      <RankBadge rank={tier} format="tier" size={size} />
-      <span
-        className={`inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 font-semibold text-[var(--text-primary)] ${
-          size === "hero" ? "px-4 py-2 text-sm" : "px-3 py-1 text-xs"
-        }`}
-        title={numericRank === null ? "Rank unavailable" : `Rank #${Math.round(numericRank)}`}
-      >
-        {numericRank === null ? "Rank unavailable" : `Rank #${Math.round(numericRank)}`}
-      </span>
-      <RecommendationBadge label={interpretation} rankTier={tier} />
-    </div>
+    <span
+      data-rip-summary-pill
+      className={`inline-flex max-w-full items-center justify-center rounded-full border whitespace-nowrap ${
+        size === "hero" ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-xs"
+      }`}
+      style={{
+        background: tone.badgeBackground,
+        borderColor: tone.badgeBorderColor,
+        color: tone.badgeTextColor,
+        boxShadow: tone.panelShadow,
+      }}
+      aria-label={accessibleLabel}
+    >
+      {segments.map((segment, index) => (
+        <span key={segment.key} className="inline-flex items-center">
+          {index > 0 ? <span data-rip-summary-divider aria-hidden="true" className="mx-2 h-3.5 w-px bg-current opacity-25" /> : null}
+          <span data-rip-summary-segment={segment.key} className={segment.className}>{segment.label}</span>
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -12937,7 +12967,7 @@ export default function RipStatisticsPageClient({
                         </div>
                       </div>
 
-                      <div className="relative flex min-h-[8.25rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px] has-[[data-compact-sparkline-tooltip]]:z-30">
+                      <div className="relative flex min-h-[9.5rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px] has-[[data-compact-sparkline-tooltip]]:z-30">
                         <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[minmax(0,0.95fr)_minmax(9rem,1fr)] sm:items-stretch">
                           <div className="flex min-w-0 flex-col justify-between gap-3">
                             <div className="min-w-0">

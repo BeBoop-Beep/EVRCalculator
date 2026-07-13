@@ -50,7 +50,7 @@ export function buildMarketValueChangeModel({
   const normalizedWindow = String(windowLabel || "").trim();
   const resolvedDirection = getMarketChangeDirection(amount, percent, direction);
   const valueText = formatMarketValue(value);
-  const hasReliableChange = !unavailable && amount !== null && percent !== null;
+  const hasReliableChange = !unavailable && (amount !== null || percent !== null);
 
   if (!hasReliableChange) {
     const changeText = normalizedWindow ? `${normalizedWindow} change unavailable` : "Change unavailable";
@@ -63,14 +63,24 @@ export function buildMarketValueChangeModel({
     };
   }
 
-  const isZero = resolvedDirection === "neutral";
-  const sign = resolvedDirection === "positive" ? "+" : resolvedDirection === "negative" ? "\u2212" : "";
   const iconText = resolvedDirection === "positive" ? "\u25b2" : resolvedDirection === "negative" ? "\u25bc" : "\u2014";
-  const amountText = isZero ? currencyFormatter.format(0) : `${sign}${currencyFormatter.format(Math.abs(amount))}`;
-  const percentText = isZero ? "0.0%" : `${sign}${Math.abs(percent).toFixed(1)}%`;
+  const amountText = amount === null
+    ? null
+    : Math.abs(amount) < 0.005
+    ? currencyFormatter.format(0)
+    : `${amount < 0 ? "\u2212" : "+"}${currencyFormatter.format(Math.abs(amount))}`;
+  const percentText = percent === null
+    ? null
+    : Math.abs(percent) < 0.000001
+    ? "0.0%"
+    : `${percent < 0 ? "\u2212" : "+"}${Math.abs(percent).toFixed(1)}%`;
   const suffix = normalizedWindow ? ` \u00b7 ${normalizedWindow}` : "";
-  const changeText = `${iconText} ${amountText} (${percentText})${suffix}`;
+  const visibleChangeText = amountText && percentText
+    ? `${amountText} (${percentText})`
+    : amountText || percentText;
+  const changeText = `${iconText} ${visibleChangeText}${suffix}`;
   const directionText = resolvedDirection === "positive" ? "Positive change" : resolvedDirection === "negative" ? "Negative change" : "No change";
+  const accessibleValues = [amountText, percentText].filter(Boolean).join(", ");
 
   return {
     valueText,
@@ -81,6 +91,6 @@ export function buildMarketValueChangeModel({
     direction: resolvedDirection,
     directionText,
     hasReliableChange: true,
-    accessibleText: `${accessibleLabel}: ${valueText}. ${directionText}, ${amountText}, ${percentText}${normalizedWindow ? ` over ${normalizedWindow}` : ""}.`,
+    accessibleText: `${accessibleLabel}: ${valueText}. ${directionText}, ${accessibleValues}${normalizedWindow ? ` over ${normalizedWindow}` : ""}.`,
   };
 }
