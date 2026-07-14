@@ -5,6 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const ripPageClientPath = path.resolve(__dirname, "RipStatisticsPageClient.jsx");
+const moversTickerViewportPath = path.resolve(__dirname, "MoversTickerViewport.jsx");
 const marketDashboardStatePath = path.resolve(__dirname, "marketDashboardState.mjs");
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const cardsClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCardsClient.js");
@@ -1046,13 +1047,14 @@ test("Phase 5A: the 7D Movers ticker always renders on Overview, and the full mo
   const tickerComponentStart = source.indexOf("function MarketMoversTicker(");
   assert.ok(tickerComponentStart >= 0, "MarketMoversTicker must exist");
   const tickerComponentSource = source.slice(tickerComponentStart, componentEnd);
-  assert.ok(tickerComponentSource.includes("h-12"), "the ticker strip must reserve a fixed height from first paint");
+  assert.ok(tickerComponentSource.includes("h-14"), "the ticker strip must reserve a fixed height from first paint");
   assert.ok(tickerComponentSource.includes('status === "loading"'), "the ticker must render a loading state inside the strip");
   assert.ok(tickerComponentSource.includes('status === "error"'), "the ticker must render an error state inside the strip");
 });
 
 test("7D Movers ticker motion: CSS transform marquee, hover/focus pause, reduced-motion static fallback", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const viewportSource = fs.readFileSync(moversTickerViewportPath, "utf8");
   const globalsCssPath = path.resolve(__dirname, "../../app/styles/globals.css");
   const css = fs.readFileSync(globalsCssPath, "utf8");
 
@@ -1079,14 +1081,27 @@ test("7D Movers ticker motion: CSS transform marquee, hover/focus pause, reduced
   assert.ok(reducedMotionBlock.includes(".index-ticker-track") && reducedMotionBlock.includes("animation: none"), "reduced motion must disable the loop");
   assert.ok(reducedMotionBlock.includes(".index-ticker-duplicate") && reducedMotionBlock.includes("display: none"), "reduced motion must drop the duplicate copy");
 
-  // The component gates motion on real overflow, reduced-motion preference,
-  // and keyboard focus (focus suspends the transform entirely so native
-  // focus-scrolling works), and the duplicate copy is presentation-only.
-  assert.ok(source.includes('window.matchMedia("(prefers-reduced-motion: reduce)")'), "the component must mirror the reduced-motion preference");
-  assert.ok(source.includes("const isMarqueeActive = hasItems && isOverflowing && !isFocusPaused && !prefersReducedMotion"), "motion must require overflow and respect focus/reduced-motion pauses");
+  // Overflow/reduced-motion determine structure. Focus can only pause the
+  // mounted track, so pointer-down focus cannot remove the duplicate anchor
+  // before click dispatch.
+  assert.ok(viewportSource.includes('window.matchMedia("(prefers-reduced-motion: reduce)")'), "the component must mirror the reduced-motion preference");
+  assert.ok(
+    viewportSource.includes("const shouldRenderMarquee = hasItems && isOverflowing && !prefersReducedMotion"),
+    "marquee structure must depend only on items, overflow, and reduced motion"
+  );
+  assert.ok(viewportSource.includes("const isMarqueePaused = isFocusWithin"), "focus must be represented only as playback pause state");
+  assert.ok(viewportSource.includes('animationPlayState: "paused"'), "focus pause must use animation-play-state");
+  assert.ok(viewportSource.includes("onFocusCapture") && viewportSource.includes("onBlurCapture"), "real child focus must pause through capture handlers");
+  assert.ok(!viewportSource.includes("tabIndex={0}"), "the viewport must not add an extra tab stop");
+  assert.ok(!viewportSource.includes("scrollLeft"), "focus changes must never reset horizontal position");
   assert.ok(source.includes('tabIndex={ariaHidden ? -1 : undefined}'), "duplicate-copy links must be unfocusable");
   assert.ok(source.includes('aria-hidden={ariaHidden ? "true" : undefined}'), "the duplicate copy must be aria-hidden");
-  assert.ok(source.includes('aria-label="7-day market movers"'), "the scrolling region must keep its aria-label");
+  assert.ok(viewportSource.includes('aria-label="7-day market movers"'), "the scrolling region must keep its aria-label");
+  const tickerStart = source.indexOf("function MoversTickerItemChip");
+  const tickerEnd = source.indexOf("function normalizePullRateAssumptions", tickerStart);
+  const tickerSource = source.slice(tickerStart, tickerEnd);
+  assert.equal((tickerSource.match(/href=\{viewAllHref\}/g) || []).length, 2, "card chips and View all movers must share one real href");
+  assert.ok(!tickerSource.includes("onClick="), "ticker links must not intercept native clicks");
 });
 
 test("Phase 5A: Overview does not require activeMarketDashboardDerivedState to render the Top Chase or Market Movers containers", () => {
@@ -3886,10 +3901,11 @@ test("Phase 10: entering a cards section applies its preset and routes through t
     "entering All Cards must restore the default checklist view"
   );
 
-  const viewAllStart = source.indexOf("const handleViewAllMarketMovers = () => {");
-  const viewAllSource = source.slice(viewAllStart, source.indexOf("};", viewAllStart));
-  assert.ok(viewAllSource.includes('setCardsSection("market-movers");'), "View-all-movers must activate the market-movers section");
-  assert.ok(viewAllSource.includes('pushSetDetailRouteState({ tab: "cards", section: "market-movers" });'), "View-all-movers must reflect the preset in the URL");
+  const tickerHrefStart = source.indexOf("const moversTickerHref = updateSetDetailQueryParams({");
+  const tickerHrefSource = source.slice(tickerHrefStart, source.indexOf("});", tickerHrefStart));
+  assert.ok(tickerHrefStart >= 0, "View-all-movers must have a stable destination URL");
+  assert.ok(tickerHrefSource.includes('tab: "cards"') && tickerHrefSource.includes('section: "market-movers"'), "View-all-movers must activate the URL-backed market-movers section");
+  assert.ok(tickerHrefSource.includes('cardSort: "7d-movers"') && tickerHrefSource.includes('movementFilter: "all"'), "the URL must carry the movers preset");
 
   // Both sections render the same checklist grid, so the movers view gets the
   // same append/sentinel mechanics and the fetch always carries the active

@@ -34,6 +34,7 @@ import { useSectionFetchState } from "@/hooks/useSectionFetchState";
 import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming";
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketValueChange from "@/components/ui/MarketValueChange";
+import MoversTickerViewport from "@/components/explore/MoversTickerViewport";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
@@ -214,12 +215,10 @@ const DEFAULT_TOP_CHASE_MARKET_WINDOW = "365d";
 // and stored snapshot windows only cover 1D/7D/30D so far.
 // The Overview 7D Movers ticker always requests the 7D window — deliberately
 // independent of every other time-range selector on the page — and shows the
-// merged heating+cooling rows ranked by |7D %|, capped at 10 items.
+// complete eligible movement list ranked by |7D %|, capped at 10 items.
 const MOVERS_TICKER_WINDOW = "7D";
-const MOVERS_TICKER_MAX_ITEMS = 10;
-// Per-side request limit for the ticker's fetch: 10 heating + 10 cooling in,
-// top 10 by |7D %| out, so one direction can fill the whole strip on a
-// one-sided market day.
+// This endpoint limit caps its directional summary arrays; the payload's
+// complete eligible `all` collection remains the ticker's membership source.
 const MOVERS_TICKER_FETCH_LIMIT = 10;
 // Adjacent-set prefetching previously fired cards + dashboard + 3 value-history
 // requests per adjacent set on every navigation, saturating the browser's
@@ -3246,21 +3245,25 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
 
 function hasMarketMoverRows(entry) {
   return (
+    (Array.isArray(entry?.all) && entry.all.length > 0) ||
+    (Array.isArray(entry?.movements) && entry.movements.length > 0) ||
     (Array.isArray(entry?.heatingUp) && entry.heatingUp.length > 0) ||
-    (Array.isArray(entry?.coolingOff) && entry.coolingOff.length > 0)
+    (Array.isArray(entry?.heating_up) && entry.heating_up.length > 0) ||
+    (Array.isArray(entry?.coolingOff) && entry.coolingOff.length > 0) ||
+    (Array.isArray(entry?.cooling_off) && entry.cooling_off.length > 0)
   );
 }
 
 // ---------------------------------------------------------------------------
 // 7D Movers ticker — Overview's slim replacement for the Market Movers card.
-// Heating and cooling merged, ranked by |7D %| descending, capped at
-// MOVERS_TICKER_MAX_ITEMS. Fixed 7D window regardless of any other time-range
+// Eligible movements ranked by |7D %| descending, capped at ten. Fixed 7D
+// window regardless of any other time-range
 // state on the page. This static strip IS the prefers-reduced-motion
 // presentation; the auto-scroll loop layers on top separately and must
 // degrade back to exactly this markup.
 // ---------------------------------------------------------------------------
 
-function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
+function MoversTickerItemChip({ card, movement, href, tabIndex }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
   const name = card?.name || "Unknown card";
   const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
@@ -3268,7 +3271,6 @@ function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
   return (
     <a
       href={href}
-      onClick={onNavigate}
       tabIndex={tabIndex}
       title={`${name} — view all market movers`}
       className="flex min-w-0 flex-none items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -3297,80 +3299,13 @@ function MoversTickerItemChip({ card, movement, href, onNavigate, tabIndex }) {
   );
 }
 
-function MarketMoversTicker({ items, status, error, viewAllHref, onNavigate }) {
+function MarketMoversTicker({ items, status, error, viewAllHref }) {
   const hasItems = Array.isArray(items) && items.length > 0;
-  const viewportRef = useRef(null);
-  const sequenceRef = useRef(null);
-  // Marquee gating, all measured/observed client-side so SSR always renders
-  // the static strip:
-  // - only when the item sequence actually overflows the viewport (a strip
-  //   that fits has nothing to scroll);
-  // - never under prefers-reduced-motion (the static strip IS that state);
-  // - suspended while keyboard focus is anywhere inside the strip, so the
-  //   browser's native focus-scrolling works on the untransformed row
-  //   (hover-pause is pure CSS — see .index-ticker-viewport rules).
-  const [sequenceWidth, setSequenceWidth] = useState(0);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-  const [isFocusPaused, setIsFocusPaused] = useState(false);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      return undefined;
-    }
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setPrefersReducedMotion(query.matches);
-    update();
-    if (typeof query.addEventListener === "function") {
-      query.addEventListener("change", update);
-      return () => query.removeEventListener("change", update);
-    }
-    return undefined;
-  }, []);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    const sequence = sequenceRef.current;
-    if (!viewport || !sequence) {
-      setIsOverflowing(false);
-      return undefined;
-    }
-    const measure = () => {
-      const width = sequence.scrollWidth || 0;
-      setSequenceWidth(width);
-      setIsOverflowing(width > viewport.clientWidth + 1);
-    };
-    measure();
-    if (typeof ResizeObserver === "undefined") {
-      return undefined;
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(viewport);
-    observer.observe(sequence);
-    return () => observer.disconnect();
-  }, [hasItems, items]);
-
-  const isMarqueeActive = hasItems && isOverflowing && !isFocusPaused && !prefersReducedMotion;
-  // Constant slow speed (~40px/s) regardless of how many/wide the items are;
-  // one full loop = one sequence width.
-  const marqueeDurationSeconds = Math.max(20, Math.round(sequenceWidth / 40));
-
-  const handleViewportFocus = () => setIsFocusPaused(true);
-  const handleViewportBlur = (event) => {
-    const nextTarget = event?.relatedTarget || null;
-    if (viewportRef.current && nextTarget && viewportRef.current.contains(nextTarget)) {
-      return;
-    }
-    setIsFocusPaused(false);
-    // Realign the static row so the resumed loop starts from its origin.
-    if (viewportRef.current) {
-      viewportRef.current.scrollLeft = 0;
-    }
-  };
-
-  const renderSequence = (ariaHidden) => (
+  // Overflow/reduced-motion choose the marquee structure. Focus and hover
+  // only pause that existing structure, so neither can remount a clicked link.
+  const renderSequence = (ariaHidden, sequenceRef) => (
     <div
-      ref={ariaHidden ? undefined : sequenceRef}
+      ref={sequenceRef}
       aria-hidden={ariaHidden ? "true" : undefined}
       className={`flex items-center gap-1 pr-1 ${ariaHidden ? "index-ticker-duplicate" : ""}`.trim()}
     >
@@ -3380,7 +3315,6 @@ function MarketMoversTicker({ items, status, error, viewAllHref, onNavigate }) {
           card={card}
           movement={movement}
           href={viewAllHref}
-          onNavigate={onNavigate}
           tabIndex={ariaHidden ? -1 : undefined}
         />
       ))}
@@ -3395,38 +3329,20 @@ function MarketMoversTicker({ items, status, error, viewAllHref, onNavigate }) {
       <span className="flex-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
         7D Movers
       </span>
-      <div
-        ref={viewportRef}
-        role="region"
-        aria-label="7-day market movers"
-        tabIndex={0}
-        onFocus={handleViewportFocus}
-        onBlur={handleViewportBlur}
-        className={`index-ticker-viewport flex h-full min-w-0 flex-1 items-center overflow-y-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-          isMarqueeActive ? "overflow-x-hidden" : "overflow-x-auto"
-        }`}
-      >
-        {hasItems ? (
-          <div
-            className={`flex w-max items-center ${isMarqueeActive ? "index-ticker-track" : ""}`.trim()}
-            style={isMarqueeActive ? { "--index-ticker-duration": `${marqueeDurationSeconds}s` } : undefined}
-          >
-            {renderSequence(false)}
-            {/* Seamless-loop duplicate: presentation only (aria-hidden,
-                unfocusable), removed entirely under prefers-reduced-motion. */}
-            {isMarqueeActive ? renderSequence(true) : null}
-          </div>
-        ) : status === "loading" ? (
+      <MoversTickerViewport
+        hasItems={hasItems}
+        items={items}
+        renderSequence={renderSequence}
+        fallback={status === "loading" ? (
           <div className="h-6 w-full max-w-[28rem] animate-pulse rounded-md bg-[rgba(148,163,184,0.10)]" aria-hidden="true" />
         ) : status === "error" ? (
           <p className="truncate text-xs text-red-300">{error || "Unable to load 7D movers for this set."}</p>
         ) : (
           <p className="truncate text-xs text-[var(--text-secondary)]">No reliable 7D movers yet.</p>
         )}
-      </div>
+      />
       <a
         href={viewAllHref}
-        onClick={onNavigate}
         className="flex-none whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
       >
         View all movers →
@@ -10833,7 +10749,7 @@ export default function RipStatisticsPageClient({
   // Stable href for the ticker's links — every ticker item and the trailing
   // affordance navigate to the same "View all movers" destination (the Cards
   // tab's dedicated Market Movers view). Real anchors for keyboard/AT
-  // semantics; click is intercepted to reuse the router.push tab navigation.
+  // semantics and native modified-click/new-tab behavior.
   const moversTickerHref = updateSetDetailQueryParams({
     pathname,
     searchParams,
@@ -10842,16 +10758,6 @@ export default function RipStatisticsPageClient({
     cardSort: "7d-movers",
     movementFilter: "all",
   });
-  const handleMoversTickerNavigate = (event) => {
-    if (event) {
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button === 1) {
-        // Let the browser handle new-tab/new-window clicks on the real href.
-        return;
-      }
-      event.preventDefault();
-    }
-    handleViewAllMarketMovers();
-  };
   // Progressive rendering (replaces the old Phase 9B whole-tab cohesive
   // skeleton): each Overview section gates independently on its own fetch's
   // status instead of waiting for every critical asset to settle together.
@@ -11208,16 +11114,6 @@ export default function RipStatisticsPageClient({
     // the prefetch margin (IntersectionObserver only reports crossings, so a
     // fast scroller would otherwise stall after one chunk).
   }, [setDetailMode, setDetailTab, cardsSubTab, resolvedSetResourceId, effectiveCardsPageCards.length]);
-  const handleViewAllMarketMovers = () => {
-    setSetDetailTab("cards");
-    setCardsSubTab("checklist");
-    setCardsSection("market-movers");
-    setCardSortMode("7d-movers");
-    setCardMovementFilter("all");
-    pushSetDetailRouteState({ tab: "cards", section: "market-movers" });
-    scrollToSetDetailElement("set-detail-cards");
-  };
-
   const decisionMetrics = [
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatCurrency(summary.pack_cost), trend: trendByMetricKey.packCost },
     { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatCurrency(summary.mean_value), trend: trendByMetricKey.averagePackValue },
@@ -13062,7 +12958,6 @@ export default function RipStatisticsPageClient({
                           status={moversTickerStatus}
                           error={activeMarketMoversState.error}
                           viewAllHref={moversTickerHref}
-                          onNavigate={handleMoversTickerNavigate}
                         />
                       </SectionErrorBoundary>
                     </div>

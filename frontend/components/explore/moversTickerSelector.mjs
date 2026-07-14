@@ -64,7 +64,11 @@ export function getMoversTickerTrendValue(movement) {
 
 function stableCardIdentity(card) {
   return String(
-    card?.cardId ??
+    card?.canonicalCardId ??
+      card?.canonical_card_id ??
+      card?.pokemonCanonicalCardId ??
+      card?.pokemon_canonical_card_id ??
+      card?.cardId ??
       card?.card_id ??
       card?.id ??
       card?.pokemonTcgApiCardId ??
@@ -73,41 +77,41 @@ function stableCardIdentity(card) {
   );
 }
 
-function rankedSide(cards, direction) {
-  return (Array.isArray(cards) ? cards : [])
+function getCandidateCards(entry) {
+  if (Array.isArray(entry?.all) && entry.all.length > 0) return entry.all;
+  if (Array.isArray(entry?.movements) && entry.movements.length > 0) return entry.movements;
+  return [
+    ...(Array.isArray(entry?.heatingUp) ? entry.heatingUp : Array.isArray(entry?.heating_up) ? entry.heating_up : []),
+    ...(Array.isArray(entry?.coolingOff) ? entry.coolingOff : Array.isArray(entry?.cooling_off) ? entry.cooling_off : []),
+  ];
+}
+
+function absoluteAmount(movement) {
+  const amount = toFiniteNumber(movement?.amount);
+  return amount === null ? Number.NEGATIVE_INFINITY : Math.abs(amount);
+}
+
+export const MOVERS_TICKER_MAX_ITEMS = 10;
+
+export function selectMoversTickerItems(entry, { maxItems = MOVERS_TICKER_MAX_ITEMS } = {}) {
+  const ranked = getCandidateCards(entry)
     .map((card) => ({ card, movement: getCardMovement7d(card), identity: stableCardIdentity(card) }))
-    .filter(({ movement }) => movement && (direction === "gainer" ? movement.percent > 0 : movement.percent < 0))
+    .filter(({ movement }) => movement && Number.isFinite(movement.percent) && movement.percent !== 0)
     .sort(
       (left, right) =>
         Math.abs(right.movement.percent) - Math.abs(left.movement.percent) ||
+        absoluteAmount(right.movement) - absoluteAmount(left.movement) ||
         left.identity.localeCompare(right.identity)
     );
-}
-
-export function selectMoversTickerItems(entry, { perSide = 5, maxItems = 10 } = {}) {
-  const gainers = rankedSide(entry?.heatingUp ?? entry?.heating_up, "gainer");
-  const decliners = rankedSide(entry?.coolingOff ?? entry?.cooling_off, "decliner");
   const selected = [];
   const seen = new Set();
 
-  const add = (item) => {
-    if (!item || seen.has(item.identity) || selected.length >= maxItems) return;
+  for (const item of ranked) {
+    if (seen.has(item.identity)) continue;
     seen.add(item.identity);
     selected.push({ card: item.card, movement: item.movement });
-  };
-
-  gainers.slice(0, perSide).forEach(add);
-  decliners.slice(0, perSide).forEach(add);
-
-  if (selected.length < maxItems) {
-    [...gainers.slice(perSide), ...decliners.slice(perSide)]
-      .sort(
-        (left, right) =>
-          Math.abs(right.movement.percent) - Math.abs(left.movement.percent) ||
-          left.identity.localeCompare(right.identity)
-      )
-      .forEach(add);
+    if (selected.length >= maxItems) break;
   }
 
-  return selected.slice(0, maxItems);
+  return selected;
 }
