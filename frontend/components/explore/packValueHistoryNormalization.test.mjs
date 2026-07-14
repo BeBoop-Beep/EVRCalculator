@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  forwardFillDailyHistoryThroughToday,
+  forwardFillDailyHistoryThroughDate,
   normalizeHistoryTrendPoint,
   patchLatestHistoryRowWithSummaryRatios,
   shouldUseSummaryRatioFallback,
@@ -101,13 +101,13 @@ test("formatHistoryDate keeps date-only snapshots on their calendar day", () => 
   );
 });
 
-test("forwardFillDailyHistoryThroughToday appends local today from latest actual point", () => {
-  const points = forwardFillDailyHistoryThroughToday(
+test("forwardFillDailyHistoryThroughDate fills through the explicit end date from the latest actual point", () => {
+  const points = forwardFillDailyHistoryThroughDate(
     [
       { date: "2026-06-16", value: 100 },
       { date: "2026-06-17", value: 123.45 },
     ],
-    { todayDateKey: "2026-06-18" }
+    { endDateKey: "2026-06-18" }
   );
 
   assert.equal(points.length, 3);
@@ -118,13 +118,13 @@ test("forwardFillDailyHistoryThroughToday appends local today from latest actual
   assert.equal(points[2].sourceDate, "2026-06-17");
 });
 
-test("forwardFillDailyHistoryThroughToday leaves real current-day data in place", () => {
-  const points = forwardFillDailyHistoryThroughToday(
+test("forwardFillDailyHistoryThroughDate leaves real end-date data in place", () => {
+  const points = forwardFillDailyHistoryThroughDate(
     [
       { date: "2026-06-17", value: 123.45 },
       { date: "2026-06-18", value: 130 },
     ],
-    { todayDateKey: "2026-06-18" }
+    { endDateKey: "2026-06-18" }
   );
 
   assert.equal(points.length, 2);
@@ -134,14 +134,14 @@ test("forwardFillDailyHistoryThroughToday leaves real current-day data in place"
   assert.equal(points[1].sourceDate, null);
 });
 
-test("forwardFillDailyHistoryThroughToday fills every missing calendar day", () => {
-  const points = forwardFillDailyHistoryThroughToday(
+test("forwardFillDailyHistoryThroughDate fills every missing calendar day", () => {
+  const points = forwardFillDailyHistoryThroughDate(
     [
       { date: "2026-06-20", value: 701.73 },
       { date: "2026-06-23", value: 707.56 },
       { date: "2026-06-24", value: 701.77 },
     ],
-    { todayDateKey: "2026-06-26" }
+    { endDateKey: "2026-06-26" }
   );
 
   assert.deepEqual(points.map((point) => point.date), [
@@ -163,14 +163,14 @@ test("forwardFillDailyHistoryThroughToday fills every missing calendar day", () 
   assert.equal(points[6].sourceDate, "2026-06-24");
 });
 
-test("forwardFillDailyHistoryThroughToday does not overwrite observed rows", () => {
-  const points = forwardFillDailyHistoryThroughToday(
+test("forwardFillDailyHistoryThroughDate does not overwrite observed rows", () => {
+  const points = forwardFillDailyHistoryThroughDate(
     [
       { date: "2026-06-20", value: 701.73 },
       { date: "2026-06-21", value: 702.11 },
       { date: "2026-06-23", value: 707.56 },
     ],
-    { todayDateKey: "2026-06-23" }
+    { endDateKey: "2026-06-23" }
   );
 
   assert.deepEqual(points.map((point) => [point.date, point.value, point.isCarriedForward]), [
@@ -181,17 +181,71 @@ test("forwardFillDailyHistoryThroughToday does not overwrite observed rows", () 
   ]);
 });
 
-test("forwardFillDailyHistoryThroughToday never carries before the first actual value", () => {
-  const points = forwardFillDailyHistoryThroughToday(
+test("forwardFillDailyHistoryThroughDate never carries before the first actual value", () => {
+  const points = forwardFillDailyHistoryThroughDate(
     [
       { date: "2026-06-17", value: null },
     ],
-    { todayDateKey: "2026-06-18" }
+    { endDateKey: "2026-06-18" }
   );
 
   assert.equal(points.length, 1);
   assert.equal(points[0].date, "2026-06-17");
   assert.equal(points[0].isCarriedForward, false);
+});
+
+test("forwardFillDailyHistoryThroughDate never synthesizes a point past marketAsOfDate", () => {
+  // Server UTC "today" is 2026-07-14 but the canonical market date is
+  // 2026-07-13: the series must end July 13 with no July 14 point invented.
+  const points = forwardFillDailyHistoryThroughDate(
+    [
+      { date: "2026-07-11", value: 100 },
+      { date: "2026-07-13", value: 105 },
+    ],
+    { endDateKey: "2026-07-13" }
+  );
+
+  assert.deepEqual(points.map((point) => point.date), ["2026-07-11", "2026-07-12", "2026-07-13"]);
+  assert.equal(points.at(-1).isCarriedForward, false);
+});
+
+test("forwardFillDailyHistoryThroughDate drops points dated after marketAsOfDate", () => {
+  const points = forwardFillDailyHistoryThroughDate(
+    [
+      { date: "2026-07-12", value: 100 },
+      { date: "2026-07-13", value: 101 },
+      { date: "2026-07-14", value: 999 },
+    ],
+    { endDateKey: "2026-07-13" }
+  );
+
+  assert.deepEqual(points.map((point) => point.date), ["2026-07-12", "2026-07-13"]);
+  assert.equal(points.at(-1).value, 101);
+});
+
+test("forwardFillDailyHistoryThroughDate without an end date stops at the latest real observation, never runtime today", () => {
+  const points = forwardFillDailyHistoryThroughDate([
+    { date: "2026-07-10", value: 100 },
+    { date: "2026-07-13", value: 105 },
+  ]);
+
+  assert.deepEqual(points.map((point) => point.date), [
+    "2026-07-10",
+    "2026-07-11",
+    "2026-07-12",
+    "2026-07-13",
+  ]);
+  assert.equal(points.at(-1).isCarriedForward, false);
+});
+
+test("forwardFillDailyHistoryThroughDate does not mutate the input array", () => {
+  const input = [
+    { date: "2026-07-12", value: 100 },
+    { date: "2026-07-14", value: 999 },
+  ];
+  const snapshot = JSON.stringify(input);
+  forwardFillDailyHistoryThroughDate(input, { endDateKey: "2026-07-13" });
+  assert.equal(JSON.stringify(input), snapshot);
 });
 
 test("performance line-end labels can render ratio with dollar value", () => {

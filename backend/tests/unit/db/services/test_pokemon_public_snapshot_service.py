@@ -3404,7 +3404,10 @@ def test_market_movers_snapshot_never_returns_full_dashboard_fields(monkeypatch)
         "payload_json",
     ):
         assert forbidden_key not in payload
-    assert set(payload.keys()) == {"set", "window", "windowDays", "marketMovers", "meta"}
+    # latestMarketDate joined the slim contract with the canonical
+    # marketAsOfDate work — every market surface exposes its authoritative
+    # market date.
+    assert set(payload.keys()) == {"set", "window", "windowDays", "latestMarketDate", "marketMovers", "meta"}
 
 
 def test_full_market_dashboard_still_preserves_all_field(monkeypatch):

@@ -45,10 +45,16 @@ export function getCardMovement7d(card) {
     toFiniteNumber(card?.change_amount) ??
     getDeltaMapValue(card, ["changeAmount", "change_amount", "amount"]);
 
-  if (percent === null) return null;
+  // hasValidMovement: a finite amount OR percentage is enough — a card must
+  // not be dropped just because one of the two fields is missing.
+  if (percent === null && amount === null) return null;
   return {
     amount,
     percent,
+    // Reliability/coverage stay as metadata for badges/tooltips — they never
+    // decide ticker membership.
+    reliable: nested?.reliable === undefined || nested?.reliable === null ? null : Boolean(nested.reliable),
+    reliability: nested?.reliability ?? null,
     fullWindowCoverage: Boolean(nested?.fullWindowCoverage ?? nested?.full_window_coverage),
     isPartialWindow: Boolean(nested?.isPartialWindow ?? nested?.is_partial_window),
     windowCoverageDays: toFiniteNumber(nested?.windowCoverageDays ?? nested?.window_coverage_days),
@@ -90,34 +96,39 @@ function getCandidateCards(entry) {
   ], authoritativeOrder: false };
 }
 
-function absoluteAmount(movement) {
-  const amount = toFiniteNumber(movement?.amount);
-  return amount === null ? Number.NEGATIVE_INFINITY : Math.abs(amount);
+function absoluteMovementValue(value) {
+  const parsed = toFiniteNumber(value);
+  return parsed === null ? 0 : Math.abs(parsed);
+}
+
+function hasNonzeroMovement(movement) {
+  if (!movement) return false;
+  const amount = toFiniteNumber(movement.amount);
+  if (amount !== null && Math.abs(amount) > 0) return true;
+  const percent = toFiniteNumber(movement.percent);
+  return percent !== null && Math.abs(percent) > 0;
 }
 
 export const MOVERS_TICKER_MAX_ITEMS = 10;
 
 export function selectMoversTickerItems(entry, { maxItems = MOVERS_TICKER_MAX_ITEMS } = {}) {
   const candidates = getCandidateCards(entry);
+  // Membership is hasValidMovement + nonzero movement — an honest valid
+  // movement always qualifies. Reliability / mover-eligibility / partial
+  // window flags are metadata only and must never exclude a card here.
   const eligible = candidates.cards
     .map((card) => ({ card, movement: getCardMovement7d(card), identity: stableCardIdentity(card) }))
-    .filter(({ card, movement }) => (
-      card?.reliable !== false
-      && card?.movementReliable !== false
-      && card?.movement_reliable !== false
-      && card?.moverEligible !== false
-      && card?.mover_eligible !== false
-      && movement?.reliable !== false
-      && movement
-      && Number.isFinite(movement.percent)
-      && movement.percent !== 0
-    ));
+    .filter(({ movement }) => hasNonzeroMovement(movement));
+  // Canonical ranking (matches Cards → Market Movers → Largest 7D Moves):
+  // absolute dollar change desc, then absolute percent desc, then stable
+  // canonical identity. Only used when the entry does not already carry the
+  // authoritative canonical order (`all` from the canonical cards filter).
   const ranked = candidates.authoritativeOrder
     ? eligible
     : eligible.sort(
         (left, right) =>
-          Math.abs(right.movement.percent) - Math.abs(left.movement.percent) ||
-          absoluteAmount(right.movement) - absoluteAmount(left.movement) ||
+          absoluteMovementValue(right.movement.amount) - absoluteMovementValue(left.movement.amount) ||
+          absoluteMovementValue(right.movement.percent) - absoluteMovementValue(left.movement.percent) ||
           left.identity.localeCompare(right.identity)
       );
   const selected = [];

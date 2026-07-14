@@ -20,7 +20,7 @@ import {
   getSelectedDeltaWindowFromHistory,
 } from "@/lib/explore/marketDeltaWindows.mjs";
 import {
-  forwardFillDailyHistoryThroughToday,
+  forwardFillDailyHistoryThroughDate,
   normalizeHistoryTrendPoint,
   patchLatestHistoryRowWithSummaryRatios,
 } from "./packValueHistoryNormalization.mjs";
@@ -330,7 +330,14 @@ function MarketWindowSelector({ windows, value, onChange }) {
   );
 }
 
-export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null, flush = false, variant = "market" }) {
+export default function PackValueHistoryChart({
+  historyTrend = [],
+  packCost = null,
+  summary = null,
+  flush = false,
+  variant = "market",
+  marketAsOfDate = null,
+}) {
   const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
   const [showP95Line,    setShowP95Line]    = useState(true);
@@ -376,12 +383,15 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         (row) => row.snapshotDate && (row.meanCostRatio !== null || row.medianCostRatio !== null)
       );
 
-      return forwardFillDailyHistoryThroughToday(rows, {
+      // Clamped/filled through the canonical marketAsOfDate; when absent the
+      // helper stops at the latest real observation — never runtime today.
+      return forwardFillDailyHistoryThroughDate(rows, {
         dateField: "snapshotDate",
         valueKeys: ["meanCostRatio", "medianCostRatio", "p95CostRatio"],
+        endDateKey: marketAsOfDate,
       });
     },
-    [historyTrend, packCost, summary]
+    [historyTrend, packCost, summary, marketAsOfDate]
   );
 
   const {

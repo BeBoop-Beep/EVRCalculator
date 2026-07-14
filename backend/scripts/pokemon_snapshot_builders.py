@@ -300,6 +300,10 @@ def with_snapshot_meta(
                 "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
                 "windowConvention": WINDOW_CONVENTION,
                 "movementAsOfDate": movement_as_of_date,
+                # Canonical market as-of date for every market-driven surface
+                # served from this generation. Same value as movementAsOfDate;
+                # exposed under the explicit shared-contract name.
+                "marketAsOfDate": movement_as_of_date,
                 "generationId": generation_id,
             }
         )
@@ -2229,6 +2233,7 @@ def build_market_dashboard_snapshot_rows(
             "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
             "windowConvention": WINDOW_CONVENTION,
             "movementAsOfDate": canonical_market_date,
+            "marketAsOfDate": canonical_market_date,
             "generationId": generation_id,
             "builtAt": built_at,
         },
@@ -2389,6 +2394,7 @@ def build_market_dashboard_snapshot_rows(
                 "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
                 "windowConvention": WINDOW_CONVENTION,
                 "movementAsOfDate": latest_market_date,
+                "marketAsOfDate": latest_market_date,
                 "generationId": generation_id,
             },
         },
@@ -2810,6 +2816,7 @@ def build_cards_snapshot_row(
         "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
         "windowConvention": WINDOW_CONVENTION,
         "movementAsOfDate": movement_as_of_date,
+        "marketAsOfDate": movement_as_of_date,
         "generationId": generation_id,
         "builtAt": built_at,
     }

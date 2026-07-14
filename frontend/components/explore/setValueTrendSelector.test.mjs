@@ -31,6 +31,14 @@ function select(scope, overrides = {}) {
   });
 }
 
+// The series now carries interior carried-forward continuity points between
+// real observations (forwardFillDailyHistoryThroughDate); the observed values
+// remain exactly the fixture's, and the series never extends past the latest
+// real observation when no marketAsOfDate is provided.
+function observedValues(series) {
+  return series.filter((point) => !point.isCarriedForward).map((point) => point.setValue);
+}
+
 test("selectedScope=checklist returns checklist label, value, series, and deltas", () => {
   const selected = select("standard");
 
@@ -40,7 +48,8 @@ test("selectedScope=checklist returns checklist label, value, series, and deltas
   assert.equal(selected.currentValue, 110);
   assert.equal(selected.delta30d, 10);
   assert.equal(selected.delta30dPct, 10);
-  assert.deepEqual(selected.series.map((point) => point.setValue), [100, 105, 110]);
+  assert.deepEqual(observedValues(selected.series), [100, 105, 110]);
+  assert.equal(selected.series.at(-1)?.date, "2099-01-31");
   assert.equal(selected.diagnostics.source, "setValueHistoriesByScope.standard");
 });
 
@@ -53,7 +62,7 @@ test("selectedScope=hits returns hits label, value, series, and deltas", () => {
   assert.equal(selected.currentValue, 80);
   assert.equal(selected.delta30d, 30);
   assert.equal(selected.delta30dPct, 60);
-  assert.deepEqual(selected.series.map((point) => point.setValue), [50, 65, 80]);
+  assert.deepEqual(observedValues(selected.series), [50, 65, 80]);
   assert.equal(selected.diagnostics.source, "setValueHistoriesByScope.hits");
 });
 
@@ -66,8 +75,47 @@ test("selectedScope=top10 returns top10 label, value, series, and deltas", () =>
   assert.equal(selected.currentValue, 40);
   assert.equal(selected.delta30d, 15);
   assert.equal(selected.delta30dPct, 60);
-  assert.deepEqual(selected.series.map((point) => point.setValue), [25, 30, 40]);
+  assert.deepEqual(observedValues(selected.series), [25, 30, 40]);
   assert.equal(selected.diagnostics.source, "setValueHistoriesByScope.top10");
+});
+
+test("marketAsOfDate clamps the series and never lets a point exceed the canonical date", () => {
+  const selected = selectOverviewSetValueTrendByScope({
+    historiesByScope: {
+      standard: [
+        { date: "2026-07-11", setValue: 100 },
+        { date: "2026-07-13", setValue: 105 },
+        { date: "2026-07-14", setValue: 999 },
+      ],
+    },
+    selectedScope: "standard",
+    selectedWindowKey: "30D",
+    marketAsOfDate: "2026-07-13",
+  });
+
+  assert.equal(selected.points.at(-1)?.date, "2026-07-13");
+  assert.ok(selected.points.every((point) => point.date <= "2026-07-13"));
+  assert.equal(selected.currentValue, 105);
+});
+
+test("switching windows does not change the canonical end date", () => {
+  const historiesByScope = {
+    standard: [
+      { date: "2026-01-15", setValue: 90 },
+      { date: "2026-07-06", setValue: 95 },
+      { date: "2026-07-12", setValue: 100 },
+      { date: "2026-07-13", setValue: 105 },
+    ],
+  };
+  for (const windowKey of ["1D", "7D", "30D", "3M", "6M"]) {
+    const selected = selectOverviewSetValueTrendByScope({
+      historiesByScope,
+      selectedScope: "standard",
+      selectedWindowKey: windowKey,
+      marketAsOfDate: "2026-07-13",
+    });
+    assert.equal(selected.points.at(-1)?.date, "2026-07-13", `window ${windowKey} must end on marketAsOfDate`);
+  }
 });
 
 test("active pill scope and selected chart data use the same requested scope", () => {
@@ -118,6 +166,10 @@ test("set value trend deltas use latest observed point instead of carried-forwar
     },
     selectedScope: "hits",
     selectedWindowKey: "1D",
+    // The generation that emitted the carried rows declared June 26 as its
+    // market date — without it, the series would trim back to June 24 (the
+    // latest real observation), never extend to runtime today.
+    marketAsOfDate: "2026-06-26",
   });
   const selected7D = selectOverviewSetValueTrendByScope({
     historiesByScope: {
@@ -125,6 +177,7 @@ test("set value trend deltas use latest observed point instead of carried-forwar
     },
     selectedScope: "hits",
     selectedWindowKey: "7D",
+    marketAsOfDate: "2026-06-26",
   });
 
   assert.equal(selected1D.currentValue, 734.52);

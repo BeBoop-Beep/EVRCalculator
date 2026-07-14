@@ -92,12 +92,25 @@ test("deduplicates canonical card identities after ranking", () => {
   assert.deepEqual(result.map((item) => item.card.id), ["variant-a", "other"]);
 });
 
-test("excludes zero, null, and non-finite movement percentages", () => {
+test("excludes zero, null, and non-finite movements", () => {
   const result = selectMoversTickerItems({
-    all: [card("zero", 0), card("null", null), card("nan", "not-a-number"), card("valid", -4, -1)],
+    all: [
+      card("zero", 0, 0),
+      card("null", null, null),
+      card("nan", "not-a-number", "not-a-number"),
+      card("valid", -4, -1),
+    ],
   });
 
   assert.deepEqual(result.map((item) => item.card.id), ["valid"]);
+});
+
+test("includes a card with a finite amount even when the percentage is missing", () => {
+  const result = selectMoversTickerItems({
+    all: [card("amount-only", null, 12.5), card("valid", 3, 1)],
+  });
+
+  assert.deepEqual(result.map((item) => item.card.id), ["amount-only", "valid"]);
 });
 
 test("does not re-sort the persisted all list", () => {
@@ -113,18 +126,57 @@ test("does not re-sort the persisted all list", () => {
   assert.deepEqual(result.map((item) => item.card.id), ["percent-first", "amount-last", "identity-c", "identity-a"]);
 });
 
-test("excludes explicitly unreliable and ineligible persisted candidates without filling from side arrays", () => {
+test("keeps explicitly unreliable and mover-ineligible candidates: reliability is metadata, not membership", () => {
+  // Product contract: an honest valid nonzero movement always appears.
+  // reliable=false / moverEligible=false may drive badges or tooltips but
+  // must never silently exclude a card from the movers preview.
   const result = selectMoversTickerItems({
     all: [
       card("reliable-1", 9, 3, { reliable: true }),
-      card("unreliable", 100, 30, { reliable: false }),
+      card("unreliable", 100, 30, { reliable: false, movement7d: { changePercent: 100, changeAmount: 30, reliable: false } }),
       card("ineligible", -80, -20, { moverEligible: false }),
       card("reliable-2", -7, -2, { reliable: true }),
     ],
     heatingUp: [card("side-array-only", 200, 50)],
   });
 
-  assert.deepEqual(result.map((item) => item.card.id), ["reliable-1", "reliable-2"]);
+  assert.deepEqual(result.map((item) => item.card.id), ["reliable-1", "unreliable", "ineligible", "reliable-2"]);
+  // Reliability metadata rides along untouched for badges/tooltips.
+  assert.equal(result[1].movement.reliable, false);
+});
+
+test("without an authoritative order, ranks by absolute dollar move first, percent second, identity third", () => {
+  // -$12.00 outranks +$8.00; +$8.00 outranks -$3.00; a $0.30 +100% move
+  // never outranks a $20 +25% move.
+  const result = selectMoversTickerItems({
+    heatingUp: [
+      card("small-percent-spike", 100, 0.3),
+      card("big-dollar", 25, 20),
+      card("gain-8", 4, 8),
+    ],
+    coolingOff: [card("drop-12", -6, -12), card("drop-3", -2, -3)],
+  });
+
+  assert.deepEqual(result.map((item) => item.card.id), [
+    "big-dollar",
+    "drop-12",
+    "gain-8",
+    "drop-3",
+    "small-percent-spike",
+  ]);
+});
+
+test("percent breaks absolute-dollar ties, then canonical identity provides deterministic order", () => {
+  const result = selectMoversTickerItems({
+    heatingUp: [
+      card("tie-b", 10, 5, { canonicalCardId: "b" }),
+      card("tie-a", 10, 5, { canonicalCardId: "a" }),
+      card("tie-higher-percent", 12, 5, { canonicalCardId: "z" }),
+    ],
+    coolingOff: [],
+  });
+
+  assert.deepEqual(result.map((item) => item.card.id), ["tie-higher-percent", "tie-a", "tie-b"]);
 });
 
 test("banner identities exactly match the first ten authoritative Cards 7D Movers identities", () => {

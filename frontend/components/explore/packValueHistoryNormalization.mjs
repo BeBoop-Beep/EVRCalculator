@@ -1,4 +1,4 @@
-import { getHistoryDateKey, getLocalHistoryDateKey } from "./historyDateFormatting.mjs";
+import { getHistoryDateKey } from "./historyDateFormatting.mjs";
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -175,15 +175,29 @@ function addDaysToDateKey(dateKey, days) {
   return `${year}-${month}-${day}`;
 }
 
-export function forwardFillDailyHistoryThroughToday(
+/**
+ * Forward-fill a daily history series through an explicit end date.
+ *
+ * Replaces the former forwardFillDailyHistoryThroughToday: the fill boundary
+ * is never derived from the runtime's current date (browser local "today",
+ * server UTC "today", request time...). It must be the canonical
+ * marketAsOfDate of the snapshot generation that produced the series.
+ *
+ * - Never fills past `endDateKey`; points dated after it are dropped so no
+ *   surface can render a point beyond the canonical market date.
+ * - When `endDateKey` is missing, falls back to the latest real (observed,
+ *   non-carried-forward) point — never runtime today.
+ * - Interior gaps between real observations are still carried forward.
+ * - The input array is never mutated; every returned row is a copy.
+ */
+export function forwardFillDailyHistoryThroughDate(
   points,
   {
     dateField = "date",
     valueKeys = ["value"],
-    todayDateKey = getLocalHistoryDateKey(),
+    endDateKey = null,
   } = {}
 ) {
-  const today = getHistoryDateKey(todayDateKey);
   const dailyPointMap = new Map();
 
   (Array.isArray(points) ? points : []).forEach((point) => {
@@ -209,23 +223,38 @@ export function forwardFillDailyHistoryThroughToday(
     }
   });
 
+  const latestRealObservationDate = Array.from(dailyPointMap.values())
+    .filter((point) => !point?.isCarriedForward && hasForwardFillValue(point, valueKeys))
+    .map((point) => point?.[dateField])
+    .sort()
+    .at(-1) || null;
+  const endDate = getHistoryDateKey(endDateKey) || latestRealObservationDate;
+
+  if (endDate) {
+    for (const date of Array.from(dailyPointMap.keys())) {
+      if (date > endDate) {
+        dailyPointMap.delete(date);
+      }
+    }
+  }
+
   const rows = Array.from(dailyPointMap.values()).sort((a, b) =>
     String(a?.[dateField] || "").localeCompare(String(b?.[dateField] || ""))
   );
-  if (!today || rows.length === 0) {
+  if (!endDate || rows.length === 0) {
     return rows;
   }
 
   const firstActualPoint = rows.find((point) => !point?.isCarriedForward && hasForwardFillValue(point, valueKeys));
   const firstDate = firstActualPoint?.[dateField] || null;
-  if (!firstActualPoint || !firstDate || firstDate > today) {
+  if (!firstActualPoint || !firstDate || firstDate > endDate) {
     return rows;
   }
 
   let carryPoint = null;
   let carryDate = null;
   let cursor = firstDate;
-  while (cursor && cursor <= today) {
+  while (cursor && cursor <= endDate) {
     const existing = dailyPointMap.get(cursor);
     if (existing && !existing.isCarriedForward && hasForwardFillValue(existing, valueKeys)) {
       carryPoint = existing;

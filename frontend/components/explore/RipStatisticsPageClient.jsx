@@ -135,7 +135,17 @@ import {
   getVisibleHistoryWindowMetrics,
 } from "@/lib/explore/marketDeltaWindows.mjs";
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
-import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
+import { forwardFillDailyHistoryThroughDate, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
+import {
+  getMarketDateSourceFromPayload,
+  resolveMarketAsOfDate,
+  warnOnMixedMarketDates,
+} from "./marketAsOfDate.mjs";
+import {
+  buildSetPageMarketDiagnostics,
+  getHistoryPointsEndDate,
+  reportSetPageMarketDiagnostics,
+} from "./setPageMarketDiagnostics.mjs";
 import {
   getTopCardPreferredHistoryEndDate,
   resolveTopCardWindowState,
@@ -2483,7 +2493,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
   );
 }
 
-function normalizeSetValueHistoryPoints(points) {
+function normalizeSetValueHistoryPoints(points, { marketAsOfDate = null } = {}) {
   const dailyPointMap = new Map();
   (Array.isArray(points) ? points : []).forEach((point) => {
     const date = getHistoryDateKey(point?.date);
@@ -2500,11 +2510,14 @@ function normalizeSetValueHistoryPoints(points) {
     });
   });
 
-  return forwardFillDailyHistoryThroughToday(
+  return forwardFillDailyHistoryThroughDate(
     Array.from(dailyPointMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
     {
       dateField: "date",
       valueKeys: ["setValue"],
+      // Canonical end date from the snapshot generation; when absent the fill
+      // stops at the latest real observation — never the runtime's today.
+      endDateKey: marketAsOfDate,
     }
   );
 }
@@ -2516,8 +2529,8 @@ function getSetValueHistoryForScope({ history, historiesByScope, scope = CANONIC
   return scope === CANONICAL_SET_VALUE_SCOPE ? history : [];
 }
 
-function getSetValueHistoryMetrics(rawHistory, { preferredWindowKey = "30D" } = {}) {
-  const points = normalizeSetValueHistoryPoints(rawHistory);
+function getSetValueHistoryMetrics(rawHistory, { preferredWindowKey = "30D", marketAsOfDate = null } = {}) {
+  const points = normalizeSetValueHistoryPoints(rawHistory, { marketAsOfDate });
   const valuedPoints = points.filter((point) => toNumber(point?.setValue) !== null);
   const { effectiveKey, selectedWindow } = getSelectedDeltaWindowFromHistory(valuedPoints, {
     selectedKey: preferredWindowKey,
@@ -2557,10 +2570,11 @@ function getCanonicalChecklistSetValueMetrics({
   fallbackMetric,
   fallbackAsOf,
   sourcePrefix = "market_dashboard",
+  marketAsOfDate = null,
 }) {
   const marketMetrics = getSetValueHistoryMetrics(
     getSetValueHistoryForScope({ history, historiesByScope, scope: CANONICAL_SET_VALUE_SCOPE }),
-    { preferredWindowKey: "30D" }
+    { preferredWindowKey: "30D", marketAsOfDate }
   );
 
   if (marketMetrics.currentValue !== null) {
@@ -2699,6 +2713,7 @@ function SetValueTrendCard({
   error,
   selectedScope = CANONICAL_SET_VALUE_SCOPE,
   onSelectedScopeChange,
+  marketAsOfDate = null,
 }) {
   const [selectedWindowKey, setSelectedWindowKey] = useState(null);
   const scopeOptions = useMemo(() => {
@@ -2734,8 +2749,9 @@ function SetValueTrendCard({
             selectedScope,
             selectedWindowKey,
             preferredWindowKey: "30D",
+            marketAsOfDate,
           }),
-    [historiesByScope, history, selectedScope, selectedWindowKey, setValueContract]
+    [historiesByScope, history, marketAsOfDate, selectedScope, selectedWindowKey, setValueContract]
   );
   const selectedScopeLabel = selectedTrend.label;
   const selectedMetricLabel = selectedTrend.metricLabel;
@@ -2895,12 +2911,12 @@ function OverviewReadPanel({ metrics, compactRead, detailRead }) {
   );
 }
 
-function TopMarketCardRow({ card, index, selectedWindowKey }) {
+function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = null }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
   const name = card?.name || "Unknown card";
   const rarity = card?.rarity || null;
   const price = getChecklistCardMarketPrice(card);
-  const historyPoints = getTopCardPriceHistory(card, selectedWindowKey);
+  const historyPoints = getTopCardPriceHistory(card, selectedWindowKey, marketAsOfDate);
   const windowState = resolveTopCardWindowState({ card, historyPoints, selectedWindowKey });
   warnForTopCardWindowState(windowState, card, selectedWindowKey);
   const sparklinePoints = windowState.chartWindow
@@ -3007,6 +3023,7 @@ function TopMarketCardsContent({
   maxRows = 10,
   selectedWindowKey: controlledSelectedWindowKey = null,
   onWindowChange = null,
+  marketAsOfDate = null,
 }) {
   const [localSelectedWindowKey, setLocalSelectedWindowKey] = useState(null);
   const selectedWindowKey = controlledSelectedWindowKey ?? localSelectedWindowKey;
@@ -3062,6 +3079,7 @@ function TopMarketCardsContent({
               card={card}
               index={index}
               selectedWindowKey={effectiveWindowKey}
+              marketAsOfDate={marketAsOfDate}
             />
           ))}
         </div>
@@ -3088,7 +3106,7 @@ function getTopCardsAvailableDeltaWindows(cards) {
   return Array.isArray(cards) && cards.length > 0 ? getStandardDeltaWindowDefinitions() : [];
 }
 
-function getTopCardPriceHistory(card, selectedWindowKey) {
+function getTopCardPriceHistory(card, selectedWindowKey, marketAsOfDate = null) {
   const history = Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [];
   const points = history
     .map((point) => ({
@@ -3101,18 +3119,27 @@ function getTopCardPriceHistory(card, selectedWindowKey) {
     .filter((point) => point.date);
 
   const preferredEndDate = getTopCardPreferredHistoryEndDate(card, selectedWindowKey, points);
-  const boundedPoints = preferredEndDate
-    ? points.filter((point) => point.date <= preferredEndDate)
+  const canonicalEndDate = getHistoryDateKey(marketAsOfDate);
+  // The canonical marketAsOfDate caps every Top Chase series; the per-card
+  // preferred end (stored window end / snapshot market date) may pull it in
+  // further but can never extend past the shared cutoff. No point may ever be
+  // synthesized for a date after marketAsOfDate.
+  const effectiveEndDate =
+    preferredEndDate && canonicalEndDate
+      ? (preferredEndDate < canonicalEndDate ? preferredEndDate : canonicalEndDate)
+      : preferredEndDate || canonicalEndDate;
+  const boundedPoints = effectiveEndDate
+    ? points.filter((point) => point.date <= effectiveEndDate)
     : points;
 
-  return forwardFillDailyHistoryThroughToday(boundedPoints, {
+  return forwardFillDailyHistoryThroughDate(boundedPoints, {
     dateField: "date",
     valueKeys: ["value"],
-    todayDateKey: preferredEndDate,
+    endDateKey: effectiveEndDate,
   });
 }
 
-function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange }) {
+function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange, marketAsOfDate = null }) {
   // Default to a 6-row cap so the 2/3-width terminal row stays scannable;
   // "View all chase cards" expands in place to the full fetched list (10 —
   // see the /market/top-chase fetch's limit), reusing the View-all-movers
@@ -3130,6 +3157,7 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         maxRows={showAllChaseCards ? 10 : 6}
         selectedWindowKey={selectedWindowKey}
         onWindowChange={onWindowChange}
+        marketAsOfDate={marketAsOfDate}
       />
       {totalRows > 6 ? (
         <div className="mt-4 flex justify-end">
@@ -4944,10 +4972,15 @@ function HeroScoreBadges({ rank, tier, interpretation, size = "supporting" }) {
   const normalizedTier = String(tier || "").trim().replace(/\s+tier$/i, "").toUpperCase();
   const interpretationLabel = String(interpretation || "").trim();
   const roundedRank = numericRank === null ? null : Math.round(numericRank);
+  // Uniform metadata row: tier, interpretation, rank label/number, and the
+  // separators all share ONE semantic tier color applied on the parent pill
+  // (color: inherit + opacity: 1 on every child). No segment may be dimmer,
+  // lighter, or smaller than its siblings — the row must not fade from left
+  // to right in either RIP Score or RIP Core mode, in any tier theme.
   const segments = [
-    normalizedTier ? { key: "tier", label: `${normalizedTier} Tier`, className: "font-bold" } : null,
-    interpretationLabel ? { key: "interpretation", label: interpretationLabel, className: "font-medium" } : null,
-    roundedRank !== null ? { key: "rank", label: `Rank #${roundedRank}`, className: "font-medium opacity-[0.68]" } : null,
+    normalizedTier ? { key: "tier", label: `${normalizedTier} Tier` } : null,
+    interpretationLabel ? { key: "interpretation", label: interpretationLabel } : null,
+    roundedRank !== null ? { key: "rank", label: `Rank #${roundedRank}` } : null,
   ].filter(Boolean);
   const tone = getInterpretationTone({ label: interpretationLabel, rankTier: normalizedTier });
 
@@ -4964,7 +4997,7 @@ function HeroScoreBadges({ rank, tier, interpretation, size = "supporting" }) {
   return (
     <span
       data-rip-summary-pill
-      className={`inline-flex max-w-full items-center justify-center rounded-full border whitespace-nowrap ${
+      className={`inline-flex max-w-full items-center justify-center rounded-full border font-medium whitespace-nowrap ${
         size === "hero" ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-xs"
       }`}
       style={{
@@ -4976,9 +5009,9 @@ function HeroScoreBadges({ rank, tier, interpretation, size = "supporting" }) {
       aria-label={accessibleLabel}
     >
       {segments.map((segment, index) => (
-        <span key={segment.key} className="inline-flex items-center">
-          {index > 0 ? <span data-rip-summary-divider aria-hidden="true" className="mx-2 h-3.5 w-px bg-current opacity-25" /> : null}
-          <span data-rip-summary-segment={segment.key} className={segment.className}>{segment.label}</span>
+        <span key={segment.key} className="inline-flex items-center" style={{ color: "inherit", opacity: 1 }}>
+          {index > 0 ? <span data-rip-summary-divider aria-hidden="true" className="mx-2 select-none" style={{ color: "inherit", opacity: 1 }}>|</span> : null}
+          <span data-rip-summary-segment={segment.key} style={{ color: "inherit", opacity: 1 }}>{segment.label}</span>
         </span>
       ))}
     </span>
@@ -8836,11 +8869,12 @@ export default function RipStatisticsPageClient({
     cards: [],
     pagination: null,
     filters: null,
+    meta: null,
     error: null,
   }));
   useEffect(() => {
     setCardsPage(1);
-  }, [cardSortMode, cardMovementFilter, cardSearchQuery, cardRarityFilter, resolvedSetResourceId]);
+  }, [cardSortMode, cardMovementFilter, cardSearchQuery, cardRarityFilter, cardsSection, resolvedSetResourceId]);
   const initialSnapshotCards = initialSetPageDataSeed.cards;
   const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
     (scope) =>
@@ -10123,6 +10157,34 @@ export default function RipStatisticsPageClient({
   // fetched) dashboard fallback.
   const marketMoversLive = activeMarketMoversState.payload || null;
   const marketMoversLiveHasRows = hasMarketMoverRows(marketMoversLive);
+  // ── Canonical market as-of date ─────────────────────────────────────────
+  // One shared cutoff for every market-driven surface on this page, resolved
+  // from the loaded snapshot generations' own metadata (marketAsOfDate /
+  // movementAsOfDate / latestMarketDate). When mixed generations are
+  // temporarily loaded, the minimum authoritative date wins so no section can
+  // display a day its siblings do not have. Never derived from the browser's
+  // or server's current date.
+  const overviewPayloadForMarketDate = activeOverviewState.payload || null;
+  const topChasePayloadForMarketDate = activeTopChaseState.payload || null;
+  const cardsPageMetaForMarketDate =
+    cardsPageState.setId === resolvedSetResourceId ? cardsPageState.meta || null : null;
+  const marketDateResolution = useMemo(
+    () =>
+      resolveMarketAsOfDate([
+        getMarketDateSourceFromPayload("overview", overviewPayloadForMarketDate),
+        getMarketDateSourceFromPayload("topChase", topChasePayloadForMarketDate),
+        getMarketDateSourceFromPayload("marketMovers", marketMoversLive),
+        getMarketDateSourceFromPayload("cards", cardsPageMetaForMarketDate ? { meta: cardsPageMetaForMarketDate } : null),
+      ]),
+    [overviewPayloadForMarketDate, topChasePayloadForMarketDate, marketMoversLive, cardsPageMetaForMarketDate]
+  );
+  const marketAsOfDate = marketDateResolution.marketAsOfDate;
+  useEffect(() => {
+    if (!setDetailMode) {
+      return;
+    }
+    warnOnMixedMarketDates(resolvedSetResourceId, marketDateResolution);
+  }, [setDetailMode, resolvedSetResourceId, marketDateResolution]);
   const activeTopMarketCardsState = {
     status: topChaseStatus,
     setId: activeTopChaseState.setId || activeMarketDashboardState.setId || resolvedSetResourceId,
@@ -10156,6 +10218,7 @@ export default function RipStatisticsPageClient({
         availableScopes: activeSetValueHistory.availableScopes,
         status: activeSetValueHistory.status,
         error: activeSetValueHistory.error,
+        marketAsOfDate,
       }),
     [
       activeSetValueHistory.availableScopes,
@@ -10164,6 +10227,7 @@ export default function RipStatisticsPageClient({
       activeSetValueHistory.history,
       activeSetValueHistory.status,
       fallbackSetValueAsOf,
+      marketAsOfDate,
       resolvedSetResourceId,
       setValueSummaryKey,
       setValueSummaryValue,
@@ -10189,12 +10253,14 @@ export default function RipStatisticsPageClient({
         fallbackMetric: { key: setValueSummaryKey, value: setValueSummaryValue },
         fallbackAsOf: fallbackSetValueAsOf,
         sourcePrefix: "direct_set_value_history",
+        marketAsOfDate,
       }),
     [
       heroSetValueHistory.history,
       heroSetValueHistory.historiesByScope,
       heroSetValueHistory.meta,
       fallbackSetValueAsOf,
+      marketAsOfDate,
       setValueSummaryKey,
       setValueSummaryValue,
     ]
@@ -10918,7 +10984,7 @@ export default function RipStatisticsPageClient({
   const activeCardsPageState =
     cardsPageState.setId === resolvedSetResourceId
       ? cardsPageState
-      : { status: "idle", setId: resolvedSetResourceId, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, error: null };
+      : { status: "idle", setId: resolvedSetResourceId, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, meta: null, error: null };
   const effectiveCardsPageCards = activeCardsPageState.cards.length > 0 ? activeCardsPageState.cards : cardsPageFallbackCards;
   const effectiveCardsPageStatus =
     activeCardsPageState.cards.length > 0
@@ -10936,6 +11002,95 @@ export default function RipStatisticsPageClient({
   // Preserve endpoint order verbatim. Sorting only the accumulated browser
   // pages would corrupt the global 7D ranking as infinite-scroll chunks append.
   const displayedChecklistCards = effectiveCardsPageCards;
+  // Development-only market diagnostics: one object per set-page load
+  // summarizing marketAsOfDate, every surface's end date, canonical mover
+  // totals, and banner↔Cards parity — with warnings on any disagreement.
+  // Slim values only; never logs card payloads or price histories.
+  const activeCardsPageStateForDiagnostics = activeCardsPageState;
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !setDetailMode || !resolvedSetResourceId) {
+      return;
+    }
+    const moversMeta = marketMoversLive?.meta || null;
+    const moversTotals = moversMeta?.movementTotals || null;
+    const cardsTotals = cardsPageMetaForMarketDate?.movementTotals || null;
+    const openingProfitRawEnd = (Array.isArray(historyTrend) ? historyTrend : []).reduce((latest, row) => {
+      const date = getHistoryDateKey(row?.snapshotDate ?? row?.snapshot_date ?? row?.date);
+      return date && (!latest || date > latest) ? date : latest;
+    }, null);
+    const openingProfitHasPointInRange =
+      !marketAsOfDate ||
+      (Array.isArray(historyTrend) &&
+        historyTrend.some((row) => {
+          const date = getHistoryDateKey(row?.snapshotDate ?? row?.snapshot_date ?? row?.date);
+          return date && date <= marketAsOfDate;
+        }));
+    const topChaseEndDate = (Array.isArray(topPricedCards) ? topPricedCards : []).reduce((latest, card) => {
+      const date = getHistoryPointsEndDate(getTopCardPriceHistory(card, topMarketCardsWindowKey, marketAsOfDate));
+      return date && (!latest || date > latest) ? date : latest;
+    }, null);
+    const loadedMoversViewCards = activeCardsPageStateForDiagnostics.cards;
+    const isCanonicalMoversCardsView =
+      cardsSection === "market-movers" &&
+      cardSortMode === "7d-movers" &&
+      cardMovementFilter === "all" &&
+      loadedMoversViewCards.length > 0;
+    const usedLegacyMoverList =
+      moversMeta?.snapshot?.usedLegacyMoverList === true ||
+      (Boolean(moversTickerEntry) && !marketMoversLiveHasRows);
+    const report = buildSetPageMarketDiagnostics({
+      setId: resolvedSetResourceId,
+      generationId: marketDateResolution.sources.find((source) => source.generationId)?.generationId || null,
+      marketAsOfDate,
+      titleCardEndDate: getHistoryPointsEndDate(setValueSparklinePoints),
+      setValueEndDate: activeChartSetValueMetrics.lastPoint?.date || null,
+      // The rendered chart clamps to marketAsOfDate and forward-fills up to
+      // it, so its visible end is the cutoff whenever any point is in range.
+      openingProfitEndDate:
+        marketAsOfDate && openingProfitHasPointInRange && openingProfitRawEnd
+          ? marketAsOfDate
+          : openingProfitRawEnd,
+      topChaseEndDate,
+      cardsSnapshotEndDate:
+        cardsPageMetaForMarketDate?.snapshot?.marketAsOfDate ||
+        cardsPageMetaForMarketDate?.snapshot?.movementAsOfDate ||
+        null,
+      totalCards: moversTotals?.checklistCardCount ?? cardsTotals?.checklistCardCount ?? null,
+      cardsWith7dMovement: moversTotals?.cardsWithCalculableMovement ?? cardsTotals?.cardsWithCalculableMovement ?? null,
+      nonzero7dMovers: moversTotals?.nonzeroMovementCount ?? cardsTotals?.nonzeroMovementCount ?? null,
+      marketMoversFilteredTotal: moversTotals?.filteredTotal ?? null,
+      bannerCount: moversTickerItems.length,
+      bannerFirstTenIds: moversTickerItems.map(
+        (item) => item?.card?.canonicalCardId || item?.card?.cardId || item?.card?.id || null
+      ),
+      cardsFirstTenIds: isCanonicalMoversCardsView
+        ? loadedMoversViewCards.slice(0, 10).map((card) => card?.canonicalCardId || card?.id || null)
+        : null,
+      usedLegacyMoverList,
+      isMixedGenerations: marketDateResolution.isMixedGenerations || marketDateResolution.isMixedDates,
+      moversMovementFilter: "all",
+    });
+    reportSetPageMarketDiagnostics(report);
+  }, [
+    setDetailMode,
+    resolvedSetResourceId,
+    marketAsOfDate,
+    marketDateResolution,
+    marketMoversLive,
+    marketMoversLiveHasRows,
+    moversTickerEntry,
+    moversTickerItems,
+    setValueSparklinePoints,
+    activeChartSetValueMetrics.lastPoint,
+    historyTrend,
+    topPricedCards,
+    topMarketCardsWindowKey,
+    cardsPageMetaForMarketDate,
+    cardsSection,
+    cardSortMode,
+    cardMovementFilter,
+    activeCardsPageStateForDiagnostics,
+  ]);
   // Infinite scroll (Phase 10): a sentinel below the grid advances cardsPage
   // instead of Previous/Next buttons. `loading_more` keeps every rendered
   // card in place and shows only the bottom brand loader.
@@ -11559,7 +11714,7 @@ export default function RipStatisticsPageClient({
 
     const setId = resolvedSetResourceId;
     if (!setId) {
-      setCardsPageState({ status: "empty", setId: null, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, error: null });
+      setCardsPageState({ status: "empty", setId: null, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, meta: null, error: null });
       return undefined;
     }
     if (!canFetchSetDetailModules) {
@@ -11571,6 +11726,7 @@ export default function RipStatisticsPageClient({
         cards: previous.setId === setId ? previous.cards : [],
         pagination: previous.setId === setId ? previous.pagination : null,
         filters: previous.setId === setId ? previous.filters : null,
+        meta: previous.setId === setId ? previous.meta : null,
         error: null,
       }));
       return undefined;
@@ -11585,6 +11741,11 @@ export default function RipStatisticsPageClient({
     const movementSortValue = CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === effectiveCardSortMode)
       ? effectiveCardSortMode
       : null;
+    // Market Movers is the SAME canonical Cards dataset with mover-membership
+    // filtering applied server-side (section=market-movers); All Cards keeps
+    // the complete checklist. Same snapshot, same normalization, same
+    // movement values — only the query mode differs.
+    const cardsSectionValue = cardsSection === "market-movers" ? "market-movers" : "all-cards";
 
     // Everything except the page number — `cardsPageState.scopeKey` records
     // which scope the accumulated cards belong to, so a late response can
@@ -11593,6 +11754,7 @@ export default function RipStatisticsPageClient({
     const cardsPageScopeKey = [
       setId,
       PRICING_SNAPSHOT_CONTRACT_VERSION,
+      cardsSectionValue,
       effectiveCardSortMode,
       cardSearchQuery.trim(),
       cardRarityFilter || "",
@@ -11648,6 +11810,7 @@ export default function RipStatisticsPageClient({
         cards: [],
         pagination: null,
         filters: null,
+        meta: null,
         error: null,
       };
     });
@@ -11662,6 +11825,7 @@ export default function RipStatisticsPageClient({
       rarity: cardRarityFilter,
       movementFilter: effectiveCardMovementFilter,
       movementSort: movementSortValue,
+      section: cardsSectionValue,
     })
       .then((payload) => {
         requestSettled = true;
@@ -11696,6 +11860,7 @@ export default function RipStatisticsPageClient({
             cards: mergedCards,
             pagination: payload.pagination,
             filters: payload.filters,
+            meta: payload.meta || null,
             error: null,
           };
         });
@@ -11741,6 +11906,7 @@ export default function RipStatisticsPageClient({
           cards: previous.setId === setId ? previous.cards : [],
           pagination: previous.setId === setId ? previous.pagination : null,
           filters: previous.setId === setId ? previous.filters : null,
+          meta: previous.setId === setId ? previous.meta : null,
           error: error?.message || "Unable to load cards for this set.",
         }));
       });
@@ -11764,6 +11930,7 @@ export default function RipStatisticsPageClient({
     canFetchSetDetailModules,
     cardsPage,
     cardsPageRetryNonce,
+    cardsSection,
     effectiveCardSortMode,
     effectiveCardMovementFilter,
     cardSearchQuery,
@@ -12881,6 +13048,7 @@ export default function RipStatisticsPageClient({
                             error={activeSetValueHistory.error}
                             selectedScope={setValueTrendScope}
                             onSelectedScopeChange={setSetValueTrendScope}
+                            marketAsOfDate={marketAsOfDate}
                           />
                         </SectionErrorBoundary>
                       </div>
@@ -12903,7 +13071,7 @@ export default function RipStatisticsPageClient({
                               minHeightClassName="min-h-[14rem]"
                               className="h-full"
                             >
-                              <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} flush />
+                              <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} marketAsOfDate={marketAsOfDate} flush />
                             </SectionBoundary>
                           </SectionCard>
                         </SectionErrorBoundary>
@@ -12925,6 +13093,7 @@ export default function RipStatisticsPageClient({
                               infoText={topPricedCardsInfo}
                               selectedWindowKey={topMarketCardsWindowKey}
                               onWindowChange={setTopMarketCardsWindowKey}
+                              marketAsOfDate={marketAsOfDate}
                             />
                           </SectionErrorBoundary>
                         </div>
@@ -13662,6 +13831,7 @@ export default function RipStatisticsPageClient({
                           packCost={summary.pack_cost}
                           summary={summary}
                           variant="simulation"
+                          marketAsOfDate={marketAsOfDate}
                           flush
                         />
                       </SimulationResultsPanel>
@@ -13878,7 +14048,7 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {activeInsightsGraphMode === "historical-trend" ? (
-                  <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} />
+                  <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} marketAsOfDate={marketAsOfDate} />
                 ) : activeInsightsGraphMode === "pack-breakdown" ? (
                   <div className="grid gap-5 md:grid-cols-2">
                     <div>

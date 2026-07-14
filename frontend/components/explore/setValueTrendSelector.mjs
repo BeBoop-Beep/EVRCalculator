@@ -3,7 +3,7 @@ import {
   getVisibleHistoryWindowMetrics,
 } from "../../lib/explore/marketDeltaWindows.mjs";
 import { getHistoryDateKey } from "./historyDateFormatting.mjs";
-import { forwardFillDailyHistoryThroughToday } from "./packValueHistoryNormalization.mjs";
+import { forwardFillDailyHistoryThroughDate } from "./packValueHistoryNormalization.mjs";
 
 export const CANONICAL_SET_VALUE_SCOPE_KEY = "standard";
 
@@ -38,7 +38,7 @@ export function getSetValueTrendMetricLabel(scope) {
   return `${getSetValueTrendScopeLabel(scope)} Set Value`;
 }
 
-export function normalizeSetValueTrendPoints(points) {
+export function normalizeSetValueTrendPoints(points, { marketAsOfDate = null } = {}) {
   const dailyPointMap = new Map();
 
   (Array.isArray(points) ? points : []).forEach((point) => {
@@ -56,11 +56,14 @@ export function normalizeSetValueTrendPoints(points) {
     });
   });
 
-  return forwardFillDailyHistoryThroughToday(
+  return forwardFillDailyHistoryThroughDate(
     Array.from(dailyPointMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
     {
       dateField: "date",
       valueKeys: ["setValue"],
+      // Canonical end date from the snapshot generation. When absent, the
+      // fill helper stops at the latest real observation — never runtime today.
+      endDateKey: marketAsOfDate,
     }
   );
 }
@@ -102,10 +105,11 @@ export function selectOverviewSetValueTrendByScope(input = {}) {
     selectedScope = CANONICAL_SET_VALUE_SCOPE_KEY,
     selectedWindowKey = null,
     preferredWindowKey = "30D",
+    marketAsOfDate = null,
   } = safeInput;
   const scope = normalizeScopeKey(selectedScope);
   const selectedHistory = getSetValueTrendHistoryForScope({ history, historiesByScope, scope });
-  const points = normalizeSetValueTrendPoints(selectedHistory.history);
+  const points = normalizeSetValueTrendPoints(selectedHistory.history, { marketAsOfDate });
   const valuedPoints = points.filter((point) => toNumber(point?.setValue) !== null);
   const {
     windows: availableDeltaWindows,

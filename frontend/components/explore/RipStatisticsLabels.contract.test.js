@@ -51,6 +51,34 @@ test("hero exposes one accessible RIP mode control and one unified Tier, Interpr
   assert.equal((source.match(/<HeroScoreBadges/g) || []).length, 2, "RIP Score and RIP Core surfaces must share HeroScoreBadges");
 });
 
+test("RIP metadata row: tier, interpretation, rank, and separators share one uniform color, opacity, size, and weight", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const pillSource = source.slice(source.indexOf("function HeroScoreBadges"), source.indexOf("function formatLensScore"));
+
+  // One semantic tier color on the parent; every child inherits it at full
+  // opacity — the row must not fade from left to right.
+  assert.ok(pillSource.includes("color: tone.badgeTextColor"), "the parent pill carries the single semantic tier color");
+  const segmentSpans = pillSource.match(/style=\{\{ color: "inherit", opacity: 1 \}\}/g) || [];
+  assert.ok(segmentSpans.length >= 3, "segment wrapper, divider, and label spans must all inherit color at opacity 1");
+
+  // No child metadata span may reduce opacity or use a muted/dim class.
+  assert.ok(!pillSource.includes("opacity-["), "no child may use a reduced arbitrary opacity class");
+  assert.ok(!/className="[^"]*opacity-\d/.test(pillSource), "no child may use a reduced opacity utility class");
+  assert.ok(!pillSource.includes("text-muted"), "no child may use a muted text class");
+  assert.ok(!pillSource.includes("bg-current"), "the divider must be inherited text, not a dimmed tinted rule");
+
+  // One typography token for the whole row: the pill sets the size
+  // (text-xs / text-sm by placement) and one shared weight; segments carry
+  // no per-segment font size or weight overrides.
+  assert.ok(/rounded-full border font-medium whitespace-nowrap/.test(pillSource), "the pill carries the single shared font weight");
+  assert.ok(!pillSource.includes("font-bold"), "the tier segment must not be bolder than its siblings");
+  assert.ok(!/data-rip-summary-segment=\{segment.key\} className=/.test(pillSource), "segments must not carry their own typography classes");
+
+  // Same component in both modes (RIP Score hero + RIP Core supporting), so
+  // the uniform styling applies to every tier theme and both modes.
+  assert.equal((source.match(/<HeroScoreBadges/g) || []).length, 2);
+});
+
 test("7D mover price group uses the shared two-line market value presentation", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const chipStart = source.indexOf("function MoversTickerItemChip");

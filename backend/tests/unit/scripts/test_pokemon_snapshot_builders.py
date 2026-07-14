@@ -273,6 +273,9 @@ def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypat
         "movementContractVersion": "pokemon_card_movement_v1",
         "windowConvention": "inclusive_calendar_dates_v1",
         "movementAsOfDate": None,
+        # Canonical shared-contract alias of movementAsOfDate — one market
+        # as-of date for every surface served from this generation.
+        "marketAsOfDate": None,
         "generationId": "11111111-1111-4111-8111-111111111111",
     }
     assert row["cards_json"][0]["movementMetadata"]["generationId"] == snapshot_meta["generationId"]

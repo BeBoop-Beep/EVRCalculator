@@ -516,7 +516,31 @@ export function normalizeMarketMoversPayload(payload) {
       : payload?.market_movers && typeof payload.market_movers === "object"
       ? payload.market_movers
       : {};
-  return normalizeMarketMoversEntry(source, payload);
+  const entry = normalizeMarketMoversEntry(source, payload);
+  const meta = payload?.meta && typeof payload.meta === "object" ? payload.meta : { warnings: [] };
+  if (
+    process.env.NODE_ENV !== "production" &&
+    meta?.snapshot?.usedLegacyMoverList === true
+  ) {
+    console.warn("[pokemon-market-delta] Market movers response used a legacy mover list (not the canonical Cards filter)", {
+      setId: toOptionalString(payload?.set?.id),
+      source: toOptionalString(meta?.snapshot?.source),
+      window: entry.window,
+    });
+  }
+  return {
+    ...entry,
+    set: {
+      id: toOptionalString(payload?.set?.id),
+      name: toOptionalString(payload?.set?.name),
+      slug: toOptionalString(payload?.set?.slug),
+    },
+    latestMarketDate: toOptionalString(payload?.latestMarketDate ?? payload?.latest_market_date),
+    // meta carries the canonical query/totals/snapshot metadata
+    // (marketAsOfDate, generationId, movementTotals, usedLegacyMoverList)
+    // used by the shared market-date resolution and dev diagnostics.
+    meta,
+  };
 }
 
 function normalizeMarketMoversByWindowPayload(payload) {
@@ -973,7 +997,7 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
   });
 }
 
-export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10 } = {}) {
+export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10, movement = "all" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
@@ -987,8 +1011,13 @@ export async function getPokemonSetMarketMovers(setId, { window = "30D", limit =
   if (limit) {
     params.set("limit", String(limit));
   }
+  // Shared canonical Cards query contract: section=market-movers,
+  // movement=all|heating|cooling, sort=largest-dollar-move (backend-implied).
+  if (movement) {
+    params.set("movement", String(movement));
+  }
 
-  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}`;
+  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}:${movement || ""}`;
   return joinSlimModuleRequest(cacheKey, async () => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,

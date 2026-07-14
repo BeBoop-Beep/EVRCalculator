@@ -200,6 +200,7 @@ function normalizeSetCard(card, validation = {}) {
 
   return {
     id: toOptionalString(card?.id),
+    canonicalCardId: toOptionalString(card?.canonicalCardId ?? card?.canonical_card_id ?? card?.id),
     name: toOptionalString(card?.name),
     setId: toOptionalString(card?.set_id ?? card?.setId),
     setName: toOptionalString(card?.set_name ?? card?.setName),
@@ -495,6 +496,7 @@ export function normalizePokemonSetCardsPagePayload(payload) {
       sort: toOptionalString(filters?.sort),
       movementSort: toOptionalString(filters?.movementSort),
       movementFilter: toOptionalString(filters?.movementFilter),
+      section: toOptionalString(filters?.section),
       query: toOptionalString(filters?.query),
       rarity: toOptionalString(filters?.rarity),
     },
@@ -604,7 +606,7 @@ export async function getPokemonSetCardsValidation(setId, { maxCards = null, inc
 
 export async function getPokemonSetCardsPage(
   setId,
-  { page = 1, pageSize = 60, sort = "set-number", query = null, rarity = null, movementFilter = null, movementSort = null } = {}
+  { page = 1, pageSize = 60, sort = "set-number", query = null, rarity = null, movementFilter = null, movementSort = null, section = null } = {}
 ) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -633,6 +635,12 @@ export async function getPokemonSetCardsPage(
   }
   if (movementSort) {
     params.set("movement_sort", String(movementSort));
+  }
+  // Market Movers is a query mode over the same canonical Cards dataset —
+  // section=market-movers narrows membership server-side (valid nonzero
+  // movement); All Cards omits it and keeps the complete checklist.
+  if (section) {
+    params.set("section", String(section));
   }
 
   const cacheKey = `cards-page:${resolvedSetId}:${params.toString()}`;
