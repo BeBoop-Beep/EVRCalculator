@@ -1985,11 +1985,7 @@ def _enrich_top_chase_cards_with_canonical_deltas(
                 "simulationConditionId": original_condition_id,
                 "canonicalConditionId": selected_condition_id,
             })
-        history = (
-            histories.get(selected_variant_id)
-            or histories.get(display_key or "")
-            or list(card.get("priceHistory") or card.get("price_history") or [])
-        )
+        history = histories.get(display_key or "") or histories.get(selected_variant_id) or []
         calculated_movements = {
             window_key: calculate_pokemon_card_market_delta(
                 observations=history,
@@ -2050,6 +2046,34 @@ def _enrich_top_chase_cards_with_canonical_deltas(
         })
         enriched_cards.append(enriched)
     return enriched_cards, diagnostics
+
+
+def _top_chase_raw_movement_histories(
+    histories: Dict[str, List[Dict[str, Any]]],
+    *,
+    latest_market_date: Optional[str],
+) -> Dict[str, List[Dict[str, Any]]]:
+    end_date_key = parse_date_key(latest_market_date)
+    if not end_date_key:
+        return {}
+    cutoff = (date.fromisoformat(end_date_key) - timedelta(days=CARD_MOVEMENT_LOOKBACK_DAYS)).isoformat()
+    result: Dict[str, List[Dict[str, Any]]] = {}
+    for key, points in histories.items():
+        usable = []
+        for point in points if isinstance(points, list) else []:
+            point_date = parse_date_key(
+                first_non_empty(point.get("date"), point.get("captured_at"), point.get("capturedAt"))
+            )
+            if not point_date or point_date < cutoff or point_date > end_date_key:
+                continue
+            if point.get("isObserved") is False or point.get("is_observed") is False:
+                continue
+            if point.get("isCarriedForward") is True or point.get("is_carried_forward") is True:
+                continue
+            usable.append(point)
+        if usable:
+            result[key] = usable
+    return result
 
 
 def build_top_chase_history_rows(
@@ -2187,6 +2211,10 @@ def build_market_dashboard_snapshot_rows(
             )
             if loaded_histories:
                 top_chase_card_histories = {**top_chase_card_histories, **loaded_histories}
+    top_chase_movement_histories = _top_chase_raw_movement_histories(
+        top_chase_card_histories,
+        latest_market_date=canonical_market_date,
+    )
     top_chase_card_histories = {
         key: _forward_fill_history_through_date(history, end_date_key=canonical_market_date)
         for key, history in top_chase_card_histories.items()
@@ -2194,7 +2222,7 @@ def build_market_dashboard_snapshot_rows(
     compact_top_cards = _compact_top_chase_cards(top_cards, top_chase_card_histories)
     compact_top_cards, top_chase_identity_diagnostics = _enrich_top_chase_cards_with_canonical_deltas(
         compact_top_cards,
-        histories=top_chase_card_histories,
+        histories=top_chase_movement_histories,
         canonical_context=top_chase_canonical_context,
         latest_market_date=canonical_market_date,
         movement_metadata={

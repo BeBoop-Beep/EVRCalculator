@@ -628,6 +628,25 @@ def test_forward_fill_top_chase_history_is_idempotent_and_preserves_source_date(
     assert first[-1]["isCarriedForward"] is True
 
 
+def test_top_chase_movement_history_uses_raw_45_day_context_and_excludes_carries():
+    histories = {
+        "variant-1": [
+            {"date": "2026-05-20", "marketPrice": 5.0, "isObserved": True},
+            {"date": "2026-06-01", "marketPrice": 10.0, "isObserved": True},
+            {"date": "2026-06-15", "marketPrice": 10.0, "isObserved": False, "isCarriedForward": True},
+            {"date": "2026-07-13", "marketPrice": 12.0, "isObserved": True},
+            {"date": "2026-07-15", "marketPrice": 99.0, "isObserved": True},
+        ]
+    }
+
+    result = pokemon_snapshot_builders._top_chase_raw_movement_histories(
+        histories,
+        latest_market_date="2026-07-14",
+    )
+
+    assert [point["date"] for point in result["variant-1"]] == ["2026-06-01", "2026-07-13"]
+
+
 def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(monkeypatch):
     history = [
         {"date": "2026-06-01", "marketPrice": 10.0, "sourceDate": "2026-06-01", "isCarriedForward": False},
