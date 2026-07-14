@@ -572,6 +572,27 @@ test("getPokemonSetValueHistory joins concurrent identical calls but keeps disti
   }
 });
 
+test("normalizeTopChasePayload only marks history fallback as allowed for explicit legacy snapshots", () => {
+  const result = normalizeTopChasePayload(makeTopChasePayload({
+    meta: {
+      snapshot: {
+        isLegacyMovementSnapshot: true,
+        allowsLegacyHistoryFallback: true,
+      },
+      movementGeneration: {
+        cardsGenerationId: null,
+        marketDashboardGenerationId: null,
+        matches: null,
+        status: "legacy",
+      },
+    },
+  }));
+
+  assert.equal(result.cards[0].movementSnapshotLegacy, true);
+  assert.equal(result.cards[0].allowLegacyMovementHistoryFallback, true);
+  assert.equal(result.cards[0].movementGeneration.status, "legacy");
+});
+
 test("set value and overview requests carry the scoped cache contract version", async () => {
   const originalFetch = globalThis.fetch;
   const urls = [];

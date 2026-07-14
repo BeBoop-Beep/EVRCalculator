@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
-    build_market_dashboard_snapshot_rows,
+    build_coordinated_set_market_snapshot_rows,
     get_client,
     resolve_set_row,
     upsert_row,
@@ -136,11 +136,18 @@ def rebuild_existing_dashboards(client: Any, set_row: Dict[str, Any], *, force: 
         except (TypeError, ValueError):
             digits = "".join(character for character in window if character.isdigit())
             days = int(digits) if digits else DEFAULT_DASHBOARD_DAYS
-        dashboard_row, top_chase_history_rows = build_market_dashboard_snapshot_rows(
+        cards_row, dashboard_row, top_chase_history_rows = build_coordinated_set_market_snapshot_rows(
             set_row,
             days=days,
             window=window,
             client=client,
+        )
+        upsert_row(
+            client,
+            "pokemon_set_cards_snapshot_latest",
+            cards_row,
+            on_conflict="set_id",
+            commit=commit,
         )
         upsert_rows(
             client,

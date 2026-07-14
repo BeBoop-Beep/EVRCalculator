@@ -1,9 +1,13 @@
-// Desirability alignment ladder: pure selection + layout helpers for the
-// Desirability Evidence section's rank-comparison strip. Everything here only
+// Desirability agreement view: pure selection helpers for the Desirability
+// Evidence section's diverging confirm/conflict chart. Everything here only
 // *displays* what the backend desirability validation payload already computed
-// (see backend/desirability/set_validation.py) — ranks, total_ranked_sets, the
-// named strongest/conflicting signals, and per-signal alignment scores. No new
-// agreement math is derived on the frontend.
+// (see backend/desirability/set_validation.py) — per-signal alignment scores
+// (0–100, where 100 means the signal's market rank matches the desirability
+// rank exactly and 0 means it sits at the opposite end of the field), the
+// named strongest/conflicting signals, ranks, and total_ranked_sets. No new
+// agreement math is derived on the frontend; the diverging geometry below is
+// an affine display transform of the engine's own 0–100 scale around its
+// midpoint, and the engine score is always surfaced verbatim next to the bar.
 
 function toFiniteNumber(value) {
   const parsed = typeof value === "string" ? Number(value) : value;
@@ -29,18 +33,14 @@ function normalizeSignalName(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLowerCase() || null;
 }
 
-// One entry per market signal the ladder can plot. `signalName` mirrors the
-// backend's _signal_name output ("Expected Value", "Top Chase Value", ...) so
+// One entry per market signal the backend scores against the desirability
+// rank (the ALIGNMENT_WEIGHTS set). `signalName` mirrors the backend's
+// _signal_name output ("Expected Value", "Top Chase Value", ...) so
 // strongest/conflict matching stays a plain string comparison against what the
-// payload names. `alignmentKeys` point at desirability_alignment_details.
-export const DESIRABILITY_LADDER_SIGNALS = [
-  {
-    key: "rip_core",
-    label: "RIP Core",
-    signalName: null,
-    rankKeys: ["rip_core_rank_without_desirability", "ripCoreRankWithoutDesirability"],
-    alignmentKeys: [],
-  },
+// payload names. `alignmentKeys` point at desirability_alignment_details —
+// the engine's per-signal agreement magnitude. Signals the engine does not
+// score (RIP Core, Card Appeal) have no honest bar length and are not listed.
+export const DESIRABILITY_AGREEMENT_SIGNALS = [
   {
     key: "set_value",
     label: "Set value",
@@ -83,13 +83,6 @@ export const DESIRABILITY_LADDER_SIGNALS = [
     rankKeys: ["expected_value_rank", "expectedValueRank"],
     alignmentKeys: ["expected_value_alignment", "expectedValueAlignment"],
   },
-  {
-    key: "card_appeal",
-    label: "Card appeal",
-    signalName: "Card Appeal",
-    rankKeys: ["card_appeal_rank", "cardAppealRank"],
-    alignmentKeys: [],
-  },
 ];
 
 const VERDICT_LABEL_BY_BAND = {
@@ -103,7 +96,7 @@ function displayLabelForSignalName(name) {
   if (!normalized) {
     return null;
   }
-  const match = DESIRABILITY_LADDER_SIGNALS.find(
+  const match = DESIRABILITY_AGREEMENT_SIGNALS.find(
     (signal) => normalizeSignalName(signal.signalName) === normalized
   );
   return match ? match.label : String(name).trim();
@@ -139,17 +132,13 @@ export function selectDesirabilityVerdict(validation) {
   };
 }
 
-// Selects the plottable ladder: the desirability anchor rank, the field size,
-// and every market signal with a usable rank. State coloring is driven solely
-// by the payload's named strongest/conflicting signals — every other signal is
-// neutral (the payload's per-signal alignment scores ride along for
-// tooltips/screen readers only).
-export function selectDesirabilityAlignmentLadder(validation) {
+// Selects the plottable agreement rows: every market signal the engine scored
+// (a signal without an engine alignment magnitude gets no bar — lengths are
+// never fabricated from ranks or anything else). State naming mirrors the
+// payload's strongest/conflicting signals; ranks ride along as supporting
+// labels only.
+export function selectDesirabilityAgreement(validation) {
   if (!validation || typeof validation !== "object") {
-    return null;
-  }
-  const anchorRank = readRank(validation, ["desirability_rank", "desirabilityRank"]);
-  if (anchorRank === null) {
     return null;
   }
   const details =
@@ -164,9 +153,9 @@ export function selectDesirabilityAlignmentLadder(validation) {
   );
 
   const signals = [];
-  for (const signal of DESIRABILITY_LADDER_SIGNALS) {
-    const rank = readRank(validation, signal.rankKeys);
-    if (rank === null) {
+  for (const signal of DESIRABILITY_AGREEMENT_SIGNALS) {
+    const alignmentScore = readNumber(details, signal.alignmentKeys);
+    if (alignmentScore === null) {
       continue;
     }
     const normalizedName = normalizeSignalName(signal.signalName);
@@ -175,156 +164,80 @@ export function selectDesirabilityAlignmentLadder(validation) {
     signals.push({
       key: signal.key,
       label: signal.label,
-      rank,
+      rank: readRank(validation, signal.rankKeys),
+      alignmentScore,
       state: isStrongest ? "confirms" : isConflict ? "conflicts" : "neutral",
-      alignmentScore: readNumber(details, signal.alignmentKeys),
     });
   }
   if (signals.length === 0) {
     return null;
   }
 
-  const observedMaxRank = Math.max(anchorRank, ...signals.map((signal) => signal.rank));
-  const declaredFieldSize = readRank(validation, ["total_ranked_sets", "totalRankedSets"]);
-  // Ranks can exceed a stale declared field size; the axis must always contain
-  // every plotted rank.
-  const fieldSize = Math.max(declaredFieldSize ?? observedMaxRank, observedMaxRank);
-  if (fieldSize < 2) {
-    return null;
-  }
+  // Strongest agreement first, so the confirming cluster leads the read.
+  signals.sort((a, b) => b.alignmentScore - a.alignmentScore);
 
   return {
-    anchorRank,
-    fieldSize,
+    anchorRank: readRank(validation, ["desirability_rank", "desirabilityRank"]),
+    fieldSize: readRank(validation, ["total_ranked_sets", "totalRankedSets"]),
     signals,
     strongest: signals.find((signal) => signal.state === "confirms") || null,
     conflict: signals.find((signal) => signal.state === "conflicts") || null,
   };
 }
 
-const LADDER_LANE_HEIGHT = 15;
-const LADDER_LABEL_FONT_SIZE = 10.5;
-// Rough glyph width for the 10.5px UI font; only used to reserve horizontal
-// room per label so lanes never collide.
-const LADDER_LABEL_CHAR_WIDTH = 6.1;
-const LADDER_LABEL_GAP = 6;
-const LADDER_PLOT_PADDING = 16;
-const LADDER_HEADER_HEIGHT = 18;
-
-export function estimateLadderLabelWidth(text) {
-  return String(text || "").length * LADDER_LABEL_CHAR_WIDTH + 4;
-}
-
-function assignLanes(entries, width) {
-  // entries sorted by x. Greedy first-fit per side: place each label in the
-  // lowest lane whose previous label leaves enough horizontal room.
-  const laneEnds = [];
-  for (const entry of entries) {
-    const halfWidth = entry.labelWidth / 2;
-    const labelX = Math.min(Math.max(entry.x, halfWidth), Math.max(width - halfWidth, halfWidth));
-    const start = labelX - halfWidth;
-    let lane = 0;
-    while (lane < laneEnds.length && start < laneEnds[lane] + LADDER_LABEL_GAP) {
-      lane += 1;
-    }
-    laneEnds[lane] = labelX + halfWidth;
-    entry.lane = lane;
-    entry.labelX = labelX;
-  }
-  return laneEnds.length;
-}
-
-// Pure geometry for the ladder SVG at a concrete pixel width: dot positions,
-// staggered label lanes (above/below the axis, extra lanes only when labels
-// would otherwise overlap), overlapping-rank dot offsets, and total height.
-export function buildLadderLayout(ladder, width) {
-  const plotWidth = Math.max(0, width - LADDER_PLOT_PADDING * 2);
-  if (!ladder || plotWidth <= 0) {
+// Display-only geometry for the diverging bars. The engine's alignment scale
+// is 0–100 with 100 = full agreement and 0 = full disagreement; its midpoint
+// (50) is the neutral center line, scores above it extend right (confirms)
+// and scores below it extend left (conflicts). `extentPercent` is the bar
+// length as a percentage of ONE half-axis: |score − 50| × 2. This is a pure
+// rescale of the engine's number — no agreement value is computed here, and
+// the untouched engine score is kept on every row for the end label.
+export function buildDivergingAgreementModel(agreement) {
+  if (!agreement || !Array.isArray(agreement.signals) || agreement.signals.length === 0) {
     return null;
   }
-  const { anchorRank, fieldSize, signals } = ladder;
-  const xForRank = (rank) =>
-    LADDER_PLOT_PADDING + ((Math.min(Math.max(rank, 1), fieldSize) - 1) / (fieldSize - 1)) * plotWidth;
-
-  const points = signals
-    .map((signal) => ({
-      ...signal,
-      x: xForRank(signal.rank),
-      labelText: `${signal.label} #${signal.rank}`,
-    }))
-    .sort((a, b) => a.x - b.x || a.rank - b.rank);
-  points.forEach((point) => {
-    point.labelWidth = estimateLadderLabelWidth(point.labelText);
-  });
-
-  // Alternate label sides along the axis so neighbours separate vertically
-  // first; the lane pass below only adds lanes when a side still collides.
-  const above = [];
-  const below = [];
-  points.forEach((point, index) => {
-    point.side = index % 2 === 0 ? "above" : "below";
-    (point.side === "above" ? above : below).push(point);
-  });
-  const lanesAbove = Math.max(1, assignLanes(above, width));
-  const lanesBelow = Math.max(1, assignLanes(below, width));
-
-  const baselineY = LADDER_HEADER_HEIGHT + 8 + lanesAbove * LADDER_LANE_HEIGHT + 12;
-  const belowLabelsBottom = baselineY + 16 + lanesBelow * LADDER_LANE_HEIGHT;
-  const height = belowLabelsBottom + 16;
-
-  // Coincident ranks: fan the dots vertically so each stays visible/hittable.
-  const byRank = new Map();
-  for (const point of points) {
-    const group = byRank.get(point.rank) || [];
-    group.push(point);
-    byRank.set(point.rank, group);
-  }
-  for (const group of byRank.values()) {
-    group.forEach((point, index) => {
-      point.dotY = baselineY + (index - (group.length - 1) / 2) * 9;
-    });
-  }
-
-  for (const point of points) {
-    point.labelY =
-      point.side === "above"
-        ? baselineY - 18 - point.lane * LADDER_LANE_HEIGHT
-        : baselineY + 26 + point.lane * LADDER_LANE_HEIGHT;
-  }
-
+  const rows = agreement.signals.map((signal) => ({
+    ...signal,
+    side: signal.alignmentScore >= 50 ? "confirms" : "conflicts",
+    extentPercent: Math.min(100, Math.abs(signal.alignmentScore - 50) * 2),
+  }));
   return {
-    width,
-    height,
-    baselineY,
-    plotLeft: LADDER_PLOT_PADDING,
-    plotRight: LADDER_PLOT_PADDING + plotWidth,
-    anchorX: xForRank(anchorRank),
-    labelFontSize: LADDER_LABEL_FONT_SIZE,
-    headerY: LADDER_HEADER_HEIGHT - 5,
-    endLabelY: height - 4,
-    points,
+    anchorRank: agreement.anchorRank,
+    fieldSize: agreement.fieldSize,
+    rows,
+    strongest: agreement.strongest,
+    conflict: agreement.conflict,
   };
 }
 
 // Accessible-text equivalents shared by the aria-label and the sr-only list.
-export function describeLadderSignal(signal, fieldSize) {
+export function describeAgreementSignal(row, fieldSize) {
   const stateText =
-    signal.state === "confirms"
+    row.state === "confirms"
       ? " (strongest confirming signal)"
-      : signal.state === "conflicts"
+      : row.state === "conflicts"
       ? " (biggest conflicting signal)"
       : "";
-  const alignmentText =
-    signal.alignmentScore === null || signal.alignmentScore === undefined
+  const sideText = row.side === "confirms" ? "confirms the desirability read" : "conflicts with the desirability read";
+  const rankText =
+    row.rank === null || row.rank === undefined
       ? ""
-      : `, alignment ${Math.round(signal.alignmentScore)} of 100`;
-  return `${signal.label} rank #${signal.rank} of ${fieldSize}${alignmentText}${stateText}`;
+      : fieldSize
+      ? `, rank #${row.rank} of ${fieldSize}`
+      : `, rank #${row.rank}`;
+  return `${row.label}: agreement ${Math.round(row.alignmentScore)} of 100, ${sideText}${rankText}${stateText}`;
 }
 
-export function buildLadderAriaLabel(ladder) {
-  if (!ladder) {
+export function buildAgreementAriaLabel(model) {
+  if (!model || !Array.isArray(model.rows) || model.rows.length === 0) {
     return "";
   }
-  const signalText = ladder.signals.map((signal) => describeLadderSignal(signal, ladder.fieldSize)).join("; ");
-  return `Market signal ranks compared against the desirability anchor at rank #${ladder.anchorRank} of ${ladder.fieldSize}. ${signalText}.`;
+  const anchorText =
+    model.anchorRank !== null && model.anchorRank !== undefined
+      ? model.fieldSize
+        ? ` against this set's desirability rank #${model.anchorRank} of ${model.fieldSize}`
+        : ` against this set's desirability rank #${model.anchorRank}`
+      : "";
+  const signalText = model.rows.map((row) => describeAgreementSignal(row, model.fieldSize)).join("; ");
+  return `Market signal agreement${anchorText}. Bars right of center confirm the desirability read, bars left of center conflict with it. ${signalText}.`;
 }

@@ -457,6 +457,15 @@ export function normalizePokemonSetCardsPagePayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const pagination = payload?.pagination || {};
   const filters = payload?.filters || {};
+  const movementGeneration = payload?.meta?.movementGeneration;
+
+  if (process.env.NODE_ENV !== "production" && movementGeneration?.matches === false) {
+    console.warn("[pokemon-market-delta] Cards and Market Dashboard snapshot generations differ", {
+      cardsGenerationId: movementGeneration?.cardsGenerationId ?? null,
+      marketDashboardGenerationId: movementGeneration?.marketDashboardGenerationId ?? null,
+      status: movementGeneration?.status ?? null,
+    });
+  }
 
   return {
     set: {

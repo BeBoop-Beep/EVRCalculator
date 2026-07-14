@@ -12,13 +12,14 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.scripts.pokemon_snapshot_builders import (
     add_target_set_args,
-    build_cards_snapshot_row,
+    build_coordinated_set_market_snapshot_rows,
     get_client,
     refresh_canonical_card_market_prices_for_set,
     resolve_target_sets,
     should_commit,
     snapshot_service_client_scope,
     upsert_row,
+    upsert_rows,
 )
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
@@ -66,12 +67,29 @@ def main() -> None:
                         str(set_row["id"]),
                         commit=commit,
                     )
-                    row = build_cards_snapshot_row(set_row)
+                    cards_row, dashboard_row, history_rows = build_coordinated_set_market_snapshot_rows(
+                        set_row,
+                        client=fresh_client,
+                    )
                     upsert_row(
                         fresh_client,
                         "pokemon_set_cards_snapshot_latest",
-                        row,
+                        cards_row,
                         on_conflict="set_id",
+                        commit=commit,
+                    )
+                    upsert_rows(
+                        fresh_client,
+                        "pokemon_set_top_chase_card_daily_history",
+                        history_rows,
+                        on_conflict="set_id,snapshot_date,rank",
+                        commit=commit,
+                    )
+                    upsert_row(
+                        fresh_client,
+                        "pokemon_set_market_dashboard_snapshot_latest",
+                        dashboard_row,
+                        on_conflict="set_id,window_key",
                         commit=commit,
                     )
 

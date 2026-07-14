@@ -1588,15 +1588,19 @@ test("card validation bucket row keys include stable identity beyond card name",
   assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
 });
 
-test("desirability evidence renders verdict + alignment ladder from set payload validation data", () => {
+test("desirability evidence renders verdict + diverging agreement view from set payload validation data", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(source.includes("function DesirabilityEvidenceCard"));
-  // The verdict line + alignment ladder replaced the old rank-chip "Proof"
-  // sub-tab; only the two scatter views toggle now.
+  // The verdict line + diverging confirm/conflict view replaced the old
+  // rank-ladder (which conflated rank-of-field and agreement on one axis);
+  // only the two scatter views toggle now.
   assert.ok(source.includes("function DesirabilityAgreementContent"));
   assert.ok(source.includes("function DesirabilityVerdictLine"));
-  assert.ok(source.includes("function DesirabilityAlignmentLadder"));
+  assert.ok(source.includes("function DesirabilityAgreementDiverging"));
+  assert.ok(!source.includes("function DesirabilityAlignmentLadder"), "the old rank-ladder component must be gone");
+  assert.ok(!source.includes("buildLadderLayout"), "the ladder geometry helpers must be gone");
+  assert.ok(!source.includes("Desirability #"), "the rank-anchor label must be gone");
   assert.ok(!source.includes("function DesirabilityProofContent"), "the old Proof grid component must be gone");
   assert.ok(!source.includes('label: "Proof"'), "the Proof sub-tab must be retired");
   assert.ok(source.includes('title="Desirability Evidence"'));
@@ -1604,10 +1608,19 @@ test("desirability evidence renders verdict + alignment ladder from set payload 
   assert.ok(source.includes('label: "Card Validation"'));
   assert.ok(source.includes("getDesirabilityValidationPayload(explorePayload)"));
   assert.ok(source.includes("desirabilityValidationPayload"));
-  // Verdict + ladder display only what the backend agreement logic already
-  // computed — no frontend agreement math.
+  // Verdict + diverging view display only what the backend agreement logic
+  // already computed — no frontend agreement math.
   assert.ok(source.includes("selectDesirabilityVerdict(validation)"));
-  assert.ok(source.includes("selectDesirabilityAlignmentLadder(validation)"));
+  assert.ok(source.includes("selectDesirabilityAgreement(validation)"));
+  assert.ok(source.includes("buildDivergingAgreementModel(agreement)"));
+  // Exactly ONE lead line: the verdict sentence. The backend restatement moved
+  // into the section info tooltip.
+  const verdictStart = source.indexOf("function DesirabilityVerdictLine");
+  const verdictEnd = source.indexOf("function DesirabilityAgreementDiverging", verdictStart);
+  assert.ok(verdictStart >= 0 && verdictEnd > verdictStart);
+  assert.ok(!source.slice(verdictStart, verdictEnd).includes("verdict.summary"), "the gray restatement sentence must not render in the lead");
+  assert.ok(source.includes("const sectionInfoText = ["), "the section tooltip must absorb the moved prose");
+  assert.ok(source.includes("titleInfoText={sectionInfoText}"));
   // The anchor spans stay so legacy deep links keep landing on the section.
   assert.ok(source.includes("#set-detail-card-desirability-price") || source.includes('id="set-detail-card-desirability-price"'));
   // The concrete top-chase anchor renders only when thumbnail data exists.
@@ -4349,41 +4362,53 @@ test("Desirability redesign: uncomputed proof fields are omitted, never placehol
   assert.ok(!source.includes("<ProofMetric"), "the rank-chip grid must be gone from the main display");
 
   // The impact movement line renders only when every comparison field is
-  // computed, and otherwise falls back to the backend impact summary or
-  // disappears — no boxes.
+  // computed AND the movement is real: a no-op "#1 to #1 (0 ranks)" or a
+  // not-yet-computed state renders nothing at all — no fallback sentence.
   const impactStart = source.indexOf("function DesirabilityImpactNote({ validation })");
   assert.ok(impactStart >= 0, "the subdued impact note must exist");
   const impactEnd = source.indexOf("\n}\n", impactStart);
   const impactSource = source.slice(impactStart, impactEnd);
   assert.ok(
-    impactSource.includes("coreRank !== null && finalRank !== null && rankDelta !== null"),
-    "the movement sentence requires all comparison fields to be computed"
+    impactSource.includes(
+      "coreRank !== null && finalRank !== null && rankDelta !== null && rankDelta !== 0 && coreRank !== finalRank"
+    ),
+    "the movement sentence requires computed fields and a real (nonzero) movement"
   );
   assert.ok(
-    impactSource.includes("validation.desirability_impact_summary || validation.desirabilityImpactSummary || null"),
-    "it must fall back to the backend impact summary, then to nothing"
+    !impactSource.includes("desirability_impact_summary"),
+    "the not-yet-computed fallback sentence must be gone"
   );
 });
 
-test("Desirability redesign: ladder colors come from the backend's named strongest/conflict signals", () => {
+test("Desirability redesign: diverging view consumes engine output only, with polarity captions and a11y equivalents", () => {
   const alignmentSource = fs
     .readFileSync(path.resolve(__dirname, "desirabilityAlignment.mjs"), "utf8")
     .replace(/\r\n/g, "\n");
 
-  // Agreement state is read off the payload's named signals — never derived
-  // from new frontend math.
+  // Agreement state is read off the payload's named signals, and bar geometry
+  // off the payload's per-signal alignment score — never derived from new
+  // frontend math (see also the inconsistent-payload behavioral guard in
+  // desirabilityAlignment.test.mjs).
   assert.ok(alignmentSource.includes("validation.strongest_supporting_signal ?? validation.strongestSupportingSignal"));
   assert.ok(alignmentSource.includes("validation.biggest_conflicting_signal ?? validation.biggestConflictingSignal"));
   assert.ok(alignmentSource.includes('isStrongest ? "confirms" : isConflict ? "conflicts" : "neutral"'));
   assert.ok(alignmentSource.includes('["total_ranked_sets", "totalRankedSets"]'), "field size must come from the payload");
+  assert.ok(alignmentSource.includes("desirability_alignment_details"), "bar rows must come from the engine's per-signal magnitudes");
+  assert.ok(
+    alignmentSource.includes("Math.abs(signal.alignmentScore - 50) * 2"),
+    "bar extent must be a pure rescale of the engine score, nothing else"
+  );
+  assert.ok(!alignmentSource.includes("buildLadderLayout"), "the rank-ladder geometry must be gone");
+  assert.ok(!alignmentSource.includes("anchorX"), "the rank-anchor plotting must be gone");
 
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
-  assert.ok(source.includes('confirms: "var(--success)"'), "confirming signal must use the success token");
-  assert.ok(source.includes('conflicts: "var(--warning)"'), "conflicting signal must use the warning token");
-  assert.ok(source.includes('neutral: "var(--neutral)"'), "other signals stay neutral");
-  assert.ok(source.includes("buildLadderAriaLabel(ladder)"), "the ladder SVG must carry a live aria-label");
-  assert.ok(source.includes('role="img"'), "the ladder must be exposed as an image");
-  assert.ok(source.includes("describeLadderSignal(signal, ladder.fieldSize)"), "a visually-hidden signal list must exist");
+  assert.ok(source.includes('confirms: "var(--success)"'), "the confirm side must use the success token");
+  assert.ok(source.includes('conflicts: "var(--warning)"'), "the conflict side must use the warning token");
+  assert.ok(source.includes("conflicts with read"), "the left axis caption must name the conflict side");
+  assert.ok(source.includes("confirms read"), "the right axis caption must name the confirm side");
+  assert.ok(source.includes("buildAgreementAriaLabel(model)"), "the diverging plot must carry a live aria-label");
+  assert.ok(source.includes('role="img"'), "the diverging plot must be exposed as an image");
+  assert.ok(source.includes("describeAgreementSignal(row, model.fieldSize)"), "a visually-hidden signal list must exist");
 });
 
 test("Simulation Results renders expanded by default with no collapse toggle", () => {

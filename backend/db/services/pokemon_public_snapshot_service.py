@@ -9,8 +9,9 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import create_public_read_client, public_read_client
 from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -1683,18 +1684,27 @@ def get_pokemon_set_shell_snapshot_payload(set_id: str) -> Dict[str, Any]:
     return _build_missing_shell_snapshot_payload(set_row, elapsed_ms)
 
 
+def _load_pokemon_explore_rankings_snapshot_row(client: Any) -> Optional[Dict[str, Any]]:
+    result = (
+        client.table("pokemon_explore_rankings_snapshot_latest")
+        .select("tcg,scope,ranking_payload_json,default_target_json,updated_at")
+        .eq("tcg", "pokemon")
+        .eq("scope", DEFAULT_RANKINGS_SCOPE)
+        .limit(1)
+        .execute()
+    )
+    return _first_row(result)
+
+
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
     try:
-        result = (
-            public_read_client.table("pokemon_explore_rankings_snapshot_latest")
-            .select("tcg,scope,ranking_payload_json,default_target_json,updated_at")
-            .eq("tcg", "pokemon")
-            .eq("scope", DEFAULT_RANKINGS_SCOPE)
-            .limit(1)
-            .execute()
+        row = run_public_read_with_retry(
+            _load_pokemon_explore_rankings_snapshot_row,
+            operation_name="pokemon_explore_rankings_snapshot",
+            initial_client=public_read_client,
+            client_factory=create_public_read_client,
         )
-        row = _first_row(result)
     except Exception as exc:
         logger.exception("[pokemon-snapshot] explore rankings snapshot read failed")
         if is_transient_data_service_error(exc):
@@ -1757,9 +1767,10 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             {
                 "source": "pokemon_explore_rankings_snapshot_latest",
                 "updatedAt": _to_optional_str(row.get("updated_at")),
-                "isStaleFallback": True,
+                "isStaleFallback": False,
             }
         )
+        snapshot.pop("fallbackReason", None)
         meta["request"] = request
         meta["snapshot"] = snapshot
         meta["openingSetAudit"] = opening_set_audit
@@ -1866,6 +1877,10 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
                 }
             )
             meta["snapshot"] = snapshot
+            meta["movementGeneration"] = _movement_generation_metadata(
+                resolved_set_id,
+                cards_snapshot=snapshot,
+            )
             if correlation:
                 meta["cardAppealMarketPriceCorrelation"] = correlation
                 meta["card_appeal_market_price_correlation"] = correlation
@@ -1943,6 +1958,96 @@ CARDS_PAGE_MOVEMENT_SORTS = ("7d-movers", "30d-gainers", "30d-decliners")
 CARDS_PAGE_MOVEMENT_FILTERS = ("all", "heating", "cooling")
 _CARD_NUMBER_PATTERN = re.compile(r"^(\d+)([a-zA-Z]*)$")
 _CARD_NUMBER_MIXED_PATTERN = re.compile(r"(\d+)")
+
+
+def _movement_snapshot_meta(value: Any) -> Dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    if isinstance(value.get("snapshot_meta"), dict):
+        return dict(value["snapshot_meta"])
+    for cards_key in ("cards_json", "top_chase_cards_json"):
+        cards = value.get(cards_key)
+        if isinstance(cards, list) and cards:
+            first_card = cards[0] if isinstance(cards[0], dict) else {}
+            movement_meta = first_card.get("movementMetadata") or first_card.get("movement_metadata")
+            if isinstance(movement_meta, dict):
+                return dict(movement_meta)
+    payload = value.get("payload_json") if isinstance(value.get("payload_json"), dict) else value
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    snapshot = meta.get("snapshot") if isinstance(meta.get("snapshot"), dict) else {}
+    return dict(snapshot)
+
+
+def _read_peer_movement_snapshot_meta(
+    set_id: str,
+    *,
+    surface: str,
+) -> tuple[Dict[str, Any], bool]:
+    try:
+        if surface == "cards":
+            query = (
+                public_read_client.table("pokemon_set_cards_snapshot_latest")
+                .select("snapshot_meta:payload_json->meta->snapshot")
+                .eq("set_id", set_id)
+            )
+        else:
+            query = (
+                public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+                .select("snapshot_meta:payload_json->meta->snapshot")
+                .eq("set_id", set_id)
+                .eq("window_key", DEFAULT_DASHBOARD_WINDOW)
+            )
+        row = _first_row(query.limit(1).execute())
+        return _movement_snapshot_meta(row or {}), bool(row)
+    except Exception:
+        logger.warning(
+            "[pokemon-snapshot] movement generation peer read failed set_id=%s surface=%s",
+            set_id,
+            surface,
+            exc_info=True,
+        )
+        return {}, False
+
+
+def _movement_generation_metadata(
+    set_id: str,
+    *,
+    cards_snapshot: Optional[Dict[str, Any]] = None,
+    dashboard_snapshot: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    cards_known = cards_snapshot is not None
+    dashboard_known = dashboard_snapshot is not None
+    cards_meta = dict(cards_snapshot or {})
+    dashboard_meta = dict(dashboard_snapshot or {})
+    cards_exists = cards_known
+    dashboard_exists = dashboard_known
+    if not cards_known:
+        cards_meta, cards_exists = _read_peer_movement_snapshot_meta(set_id, surface="cards")
+    if not dashboard_known:
+        dashboard_meta, dashboard_exists = _read_peer_movement_snapshot_meta(set_id, surface="dashboard")
+
+    cards_generation = _to_optional_str(cards_meta.get("generationId"))
+    dashboard_generation = _to_optional_str(dashboard_meta.get("generationId"))
+    if cards_generation and dashboard_generation:
+        matches: Optional[bool] = cards_generation == dashboard_generation
+        status = "match" if matches else "mismatch"
+    elif (cards_generation and dashboard_exists) or (dashboard_generation and cards_exists):
+        matches = False
+        status = "mixed_generation_and_legacy"
+    else:
+        matches = None
+        status = "legacy" if cards_exists and dashboard_exists else "unknown"
+
+    return {
+        "cardsGenerationId": cards_generation,
+        "marketDashboardGenerationId": dashboard_generation,
+        "matches": matches,
+        "status": status,
+        "cardsMovementContractVersion": _to_optional_str(cards_meta.get("movementContractVersion")),
+        "marketDashboardMovementContractVersion": _to_optional_str(
+            dashboard_meta.get("movementContractVersion")
+        ),
+    }
 
 
 def _snake_to_camel(key: str) -> str:
@@ -2284,12 +2389,17 @@ def get_pokemon_set_cards_page_snapshot_payload(
         "meta": {
             "warnings": warnings,
             "snapshot": {
+                **_movement_snapshot_meta(row or {}),
                 "source": "pokemon_set_cards_snapshot_latest.cards_json"
                 if row
                 else "empty_fallback_missing_pokemon_set_cards_snapshot_latest",
                 "updatedAt": _to_optional_str((row or {}).get("updated_at")),
                 "isStaleFallback": bool(row),
             },
+            "movementGeneration": _movement_generation_metadata(
+                resolved_set_id,
+                cards_snapshot=_movement_snapshot_meta(row or {}) if row else None,
+            ),
             "timings": timings,
         },
     }
@@ -3185,6 +3295,7 @@ def _build_market_dashboard_payload_from_row(
     latest_market_date = _parse_date_key(row.get("latest_market_date"))
 
     stored_payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
+    stored_meta = dict(stored_payload.get("meta") or {})
     market_movers = stored_payload.get("marketMovers")
     if not isinstance(market_movers, dict):
         market_movers = stored_payload.get("market_movers")
@@ -3217,7 +3328,7 @@ def _build_market_dashboard_payload_from_row(
         "available_scopes": available_scopes,
         "latestMarketDate": latest_market_date,
         "latest_market_date": latest_market_date,
-        "meta": {"warnings": []},
+        "meta": {**stored_meta, "warnings": list(stored_meta.get("warnings") or [])},
     }
 
 
@@ -3294,6 +3405,10 @@ def _read_market_dashboard_snapshot(
     timings["hydration_ms"] = hydrate_ms
     timings["snapshot_read_ms"] = round((time.perf_counter() - t0) * 1000, 3)
     meta["snapshot"] = snapshot
+    meta["movementGeneration"] = _movement_generation_metadata(
+        set_id,
+        dashboard_snapshot=snapshot,
+    )
     meta["timings"] = timings
     logger.info(
         "[pokemon-snapshot] market dashboard snapshot read complete set_id=%s window=%s query_ms=%s hydrate_ms=%s total_ms=%s",
@@ -4179,6 +4294,19 @@ def get_pokemon_set_top_chase_snapshot_payload(
 
     history_point_counts = [len(history) for history in top_chase_card_histories.values()]
 
+    served_movement_snapshot = _movement_snapshot_meta(row)
+    movement_generation = _movement_generation_metadata(
+        resolved_row_set_id,
+        dashboard_snapshot=served_movement_snapshot,
+    )
+    is_legacy_movement_snapshot = not bool(
+        _to_optional_str(served_movement_snapshot.get("movementContractVersion"))
+        and _to_optional_str(served_movement_snapshot.get("generationId"))
+    )
+    allows_legacy_history_fallback = bool(
+        is_legacy_movement_snapshot and movement_generation.get("status") == "legacy"
+    )
+
     timings = {
         "snapshotQueryMs": query_ms,
         "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
@@ -4230,6 +4358,7 @@ def get_pokemon_set_top_chase_snapshot_payload(
             "topChaseHistoryMinPoints": min(history_point_counts) if history_point_counts else 0,
             "topChaseHistoryMaxPoints": max(history_point_counts) if history_point_counts else 0,
             "snapshot": {
+                **served_movement_snapshot,
                 "source": "pokemon_set_market_dashboard_snapshot_latest",
                 "window": row.get("window_key"),
                 "requestedWindow": resolved_window,
@@ -4240,7 +4369,10 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 "latestMarketDate": latest_market_date,
                 "historyEndDate": top_chase_history_latest_observed_date,
                 "isStaleFallback": histories_stale,
+                "isLegacyMovementSnapshot": is_legacy_movement_snapshot,
+                "allowsLegacyHistoryFallback": allows_legacy_history_fallback,
             },
+            "movementGeneration": movement_generation,
             "timings": timings,
         },
     }

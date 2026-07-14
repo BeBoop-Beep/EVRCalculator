@@ -24,9 +24,8 @@ from backend.scripts.build_pokemon_desirability_validation_snapshots import (
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
     DEFAULT_DASHBOARD_WINDOW,
-    build_cards_snapshot_row,
+    build_coordinated_set_market_snapshot_rows,
     build_explore_rankings_snapshot_row,
-    build_market_dashboard_snapshot_rows,
     build_set_page_snapshot_row,
     get_client,
     list_pokemon_sets,
@@ -527,7 +526,16 @@ def _cards_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
     if not row:
         return FreshnessResult("cards", True, "snapshot row missing", None, dependency_updated_at, checks)
     payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    marker_missing = not isinstance((payload.get("meta") or {}).get("snapshot"), dict)
+    snapshot_meta = (payload.get("meta") or {}).get("snapshot")
+    marker_missing = not isinstance(snapshot_meta, dict)
+    movement_marker_missing = not bool(
+        isinstance(snapshot_meta, dict)
+        and snapshot_meta.get("movementContractVersion")
+        and snapshot_meta.get("generationId")
+        and snapshot_meta.get("windowConvention")
+        and "movementAsOfDate" in snapshot_meta
+        and snapshot_meta.get("builtAt")
+    )
     correlation_missing = not isinstance(
         payload.get("cardAppealMarketPriceCorrelation") or payload.get("card_appeal_market_price_correlation"),
         dict,
@@ -564,6 +572,8 @@ def _cards_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
         )
     if marker_missing:
         return FreshnessResult("cards", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
+    if movement_marker_missing:
+        return FreshnessResult("cards", True, "movement generation marker missing", snapshot_updated_at, dependency_updated_at, checks)
     if correlation_missing:
         return FreshnessResult("cards", True, "card appeal validation payload missing", snapshot_updated_at, dependency_updated_at, checks)
     if _is_newer(dependency_updated_at, snapshot_updated_at):
@@ -589,7 +599,16 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     if not row:
         return FreshnessResult("market_dashboard", True, "snapshot row missing", None, dependency_updated_at, checks)
     payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    marker_missing = not isinstance((payload.get("meta") or {}).get("snapshot"), dict)
+    snapshot_meta = (payload.get("meta") or {}).get("snapshot")
+    marker_missing = not isinstance(snapshot_meta, dict)
+    movement_marker_missing = not bool(
+        isinstance(snapshot_meta, dict)
+        and snapshot_meta.get("movementContractVersion")
+        and snapshot_meta.get("generationId")
+        and snapshot_meta.get("windowConvention")
+        and "movementAsOfDate" in snapshot_meta
+        and snapshot_meta.get("builtAt")
+    )
     snapshot_updated_at = _to_text(row.get("updated_at"))
     latest_market_date = _to_text(row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date"))
     top_chase_histories = row.get("top_chase_card_histories_json")
@@ -624,6 +643,25 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
             )
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult("market_dashboard", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
+    if movement_marker_missing:
+        return FreshnessResult("market_dashboard", True, "movement generation marker missing", snapshot_updated_at, dependency_updated_at, checks)
+    cards_row = _read_snapshot_row(
+        client,
+        "pokemon_set_cards_snapshot_latest",
+        "set_id,payload_json",
+        (("set_id", set_id),),
+    )
+    cards_payload = (cards_row or {}).get("payload_json") if isinstance((cards_row or {}).get("payload_json"), dict) else {}
+    cards_snapshot_meta = (cards_payload.get("meta") or {}).get("snapshot") or {}
+    if cards_snapshot_meta.get("generationId") != snapshot_meta.get("generationId"):
+        return FreshnessResult(
+            "market_dashboard",
+            True,
+            "cards and market dashboard generation IDs differ",
+            snapshot_updated_at,
+            dependency_updated_at,
+            checks,
+        )
     return FreshnessResult("market_dashboard", False, "fresh", snapshot_updated_at, dependency_updated_at, checks)
 
 
@@ -725,38 +763,39 @@ def _record_stale(summary: RefreshSummary, result: FreshnessResult) -> None:
         summary.stale_snapshot_families.add(result.family)
 
 
-def _maybe_rebuild_cards(client: Any, plan: SetRefreshPlan, *, commit: bool, summary: RefreshSummary) -> None:
-    if not plan.cards.stale:
+def _maybe_rebuild_coordinated_market(
+    client: Any,
+    plan: SetRefreshPlan,
+    *,
+    commit: bool,
+    days: int,
+    window: str,
+    summary: RefreshSummary,
+) -> None:
+    if not plan.cards.stale and not plan.market_dashboard.stale:
         return
     set_row = plan.set_row
     canonical_key = str(set_row.get("canonical_key") or set_row.get("id"))
     if not commit:
-        summary.skipped_sets["cards"].append(f"{canonical_key}: dry-run {plan.cards.reason}")
+        reason = f"cards={plan.cards.reason}; market_dashboard={plan.market_dashboard.reason}"
+        summary.skipped_sets["cards"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
+        summary.skipped_sets["market_dashboard"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
         return
     try:
-        refresh_canonical_card_market_prices_for_set(
+        refresh_canonical_card_market_prices_for_set(client, str(set_row["id"]), commit=True)
+        cards_row, dashboard_row, history_rows = build_coordinated_set_market_snapshot_rows(
+            set_row,
+            days=days,
+            window=window,
+            client=client,
+        )
+        upsert_row(
             client,
-            str(set_row["id"]),
+            "pokemon_set_cards_snapshot_latest",
+            cards_row,
+            on_conflict="set_id",
             commit=True,
         )
-        row = build_cards_snapshot_row(set_row)
-        upsert_row(client, "pokemon_set_cards_snapshot_latest", row, on_conflict="set_id", commit=True)
-        summary.rebuilt_sets["cards"].append(canonical_key)
-    except Exception as exc:
-        logger.exception("failed cards snapshot refresh %s", _set_label(set_row))
-        summary.failed_sets["cards"].append(f"{canonical_key}: {exc}")
-
-
-def _maybe_rebuild_market(client: Any, plan: SetRefreshPlan, *, commit: bool, days: int, window: str, summary: RefreshSummary) -> None:
-    if not plan.market_dashboard.stale:
-        return
-    set_row = plan.set_row
-    canonical_key = str(set_row.get("canonical_key") or set_row.get("id"))
-    if not commit:
-        summary.skipped_sets["market_dashboard"].append(f"{canonical_key}: dry-run {plan.market_dashboard.reason}")
-        return
-    try:
-        dashboard_row, history_rows = build_market_dashboard_snapshot_rows(set_row, days=days, window=window, client=client)
         upsert_rows(
             client,
             "pokemon_set_top_chase_card_daily_history",
@@ -771,9 +810,11 @@ def _maybe_rebuild_market(client: Any, plan: SetRefreshPlan, *, commit: bool, da
             on_conflict="set_id,window_key",
             commit=True,
         )
+        summary.rebuilt_sets["cards"].append(canonical_key)
         summary.rebuilt_sets["market_dashboard"].append(canonical_key)
     except Exception as exc:
-        logger.exception("failed market dashboard snapshot refresh %s", _set_label(set_row))
+        logger.exception("failed coordinated cards/market snapshot refresh %s", _set_label(set_row))
+        summary.failed_sets["cards"].append(f"{canonical_key}: {exc}")
         summary.failed_sets["market_dashboard"].append(f"{canonical_key}: {exc}")
 
 
@@ -1063,11 +1104,16 @@ def main() -> None:
         _record_stale(summary, plan.set_page)
     _record_stale(summary, rankings)
 
-    # Rebuild order: set cards, market dashboards, explore rankings, set pages, desirability validation.
+    # Rebuild order: coordinated Cards + Market Dashboard, rankings, set pages, validation.
     for plan in plans:
-        _maybe_rebuild_cards(client, plan, commit=commit, summary=summary)
-    for plan in plans:
-        _maybe_rebuild_market(client, plan, commit=commit, days=args.days, window=args.window, summary=summary)
+        _maybe_rebuild_coordinated_market(
+            client,
+            plan,
+            commit=commit,
+            days=args.days,
+            window=args.window,
+            summary=summary,
+        )
 
     rankings_needed = rankings.stale
     if rankings_needed:

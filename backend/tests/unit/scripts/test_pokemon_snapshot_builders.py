@@ -253,13 +253,29 @@ def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypat
         lambda **_kwargs: {},
     )
 
-    row = pokemon_snapshot_builders.build_cards_snapshot_row({"id": "set-1"})
+    row = pokemon_snapshot_builders.build_cards_snapshot_row(
+        {"id": "set-1"},
+        client=object(),
+        generation_id="11111111-1111-4111-8111-111111111111",
+        built_at="2026-07-13T23:59:00+00:00",
+    )
 
     validation_rows = row["payload_json"]["cardDesirabilityValidation"]["cards"]
     assert row["card_count"] == 1
     assert validation_rows[0]["pokemonDesirabilityScore"] == 92.0
     assert validation_rows[0]["adjustedCardAppealScore"] == 93.0
     assert row["payload_json"]["cards"][0]["adjustedCardAppealScore"] == 93.0
+    snapshot_meta = row["payload_json"]["meta"]["snapshot"]
+    assert snapshot_meta == {
+        "type": "pokemon_set_cards",
+        "builtAt": "2026-07-13T23:59:00+00:00",
+        "source": "pokemon_snapshot_builders",
+        "movementContractVersion": "pokemon_card_movement_v1",
+        "windowConvention": "inclusive_calendar_dates_v1",
+        "movementAsOfDate": None,
+        "generationId": "11111111-1111-4111-8111-111111111111",
+    }
+    assert row["cards_json"][0]["movementMetadata"]["generationId"] == snapshot_meta["generationId"]
 
 
 def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_correlation(monkeypatch):
@@ -717,7 +733,7 @@ def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(
 
     movement_calls = []
 
-    def fake_movement_payload(*, set_id, window_days=(1, 7, 30), limit=5, client=None):
+    def fake_movement_payload(*, set_id, window_days=(1, 7, 30), limit=5, client=None, **_kwargs):
         movement_calls.append(tuple(window_days))
         camel = {
             f"{days}D": {
@@ -769,6 +785,12 @@ def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(
     assert movement_calls == [(1, 7, 30)]
 
     payload = dashboard_row["payload_json"]
+    dashboard_snapshot = payload["meta"]["snapshot"]
+    assert dashboard_snapshot["movementContractVersion"] == "pokemon_card_movement_v1"
+    assert dashboard_snapshot["windowConvention"] == "inclusive_calendar_dates_v1"
+    assert dashboard_snapshot["movementAsOfDate"] == "2026-06-02"
+    assert dashboard_snapshot["generationId"]
+    assert dashboard_snapshot["builtAt"]
     by_window = payload["marketMoversByWindow"]
     by_window_snake = payload["market_movers_by_window"]
     assert set(by_window.keys()) == {"1D", "7D", "30D"}

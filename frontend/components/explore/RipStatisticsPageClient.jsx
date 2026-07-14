@@ -44,10 +44,10 @@ import {
 } from "./cardAppealSampleDiagnostics.mjs";
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import {
-  buildLadderAriaLabel,
-  buildLadderLayout,
-  describeLadderSignal,
-  selectDesirabilityAlignmentLadder,
+  buildAgreementAriaLabel,
+  buildDivergingAgreementModel,
+  describeAgreementSignal,
+  selectDesirabilityAgreement,
   selectDesirabilityVerdict,
 } from "./desirabilityAlignment.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
@@ -3135,6 +3135,19 @@ function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
       }
     }
     return storedWindow;
+  }
+  if (
+    ["1D", "7D", "30D"].includes(selectedWindowKey)
+    && card?.allowLegacyMovementHistoryFallback !== true
+  ) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[pokemon-market-delta] Refusing implicit Top Chase history fallback", {
+        canonicalCardId: card?.canonicalCardId || card?.cardId || card?.id,
+        window: selectedWindowKey,
+        movementGeneration: card?.movementGeneration || null,
+      });
+    }
+    return null;
   }
   if (selectedHistoryWindow) {
     return selectedHistoryWindow;
@@ -6233,259 +6246,146 @@ function hasDesirabilityProofSignal(validation) {
   });
 }
 
-// ——— Desirability agreement (verdict + alignment ladder) ———
-// Rebuilt from the old rank-chip "Proof" grid: the verdict leads, the ladder
-// makes the rank comparison visual, and uncomputed fields are simply omitted
-// rather than rendered as equal-weight placeholder boxes. All agreement
-// determinations come from the backend validation payload untouched.
+// ——— Desirability agreement (verdict + diverging confirm/conflict view) ———
+// Rebuilt from the old rank-ladder: the verdict leads, and each market signal
+// renders as a diverging bar around a neutral center — right = the signal
+// confirms the desirability read, left = it conflicts. Bar geometry is a pure
+// rescale of the engine's own 0–100 per-signal alignment score (surfaced
+// verbatim as each row's end label); all agreement determinations come from
+// the backend validation payload untouched.
 
-const LADDER_STATE_FILL = {
+const AGREEMENT_STATE_FILL = {
   confirms: "var(--success)",
   conflicts: "var(--warning)",
-  neutral: "var(--neutral)",
 };
 
-const LADDER_STATE_TEXT = {
-  confirms: "Confirms",
-  conflicts: "Conflicts",
-  neutral: "Neutral",
-};
-
+// Exactly ONE lead line: the colored verdict sentence. The backend's gray
+// restatement (verdict.summary) moved into the section's info tooltip.
 function DesirabilityVerdictLine({ verdict }) {
   if (!verdict) {
     return null;
   }
   return (
-    <div className="min-w-0 space-y-1">
-      <p className="min-w-0 max-w-full text-sm leading-relaxed text-[var(--text-primary)]">
-        <span className="font-semibold">{verdict.label}</span>
-        {verdict.strongestLabel ? (
-          <>
-            {" — "}
-            <span className="font-semibold text-[var(--success)]">{verdict.strongestLabel}</span>
-            {" backs our desirability read most strongly"}
-            {verdict.conflictLabel ? (
-              <>
-                {", while "}
-                <span className="font-semibold text-[var(--warning)]">{verdict.conflictLabel}</span>
-                {" is the outlier"}
-              </>
-            ) : null}
-            {"."}
-          </>
-        ) : null}
-      </p>
-      {verdict.summary ? <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{verdict.summary}</p> : null}
-    </div>
+    <p className="min-w-0 max-w-full text-sm leading-relaxed text-[var(--text-primary)]">
+      <span className="font-semibold">{verdict.label}</span>
+      {verdict.strongestLabel ? (
+        <>
+          {" — "}
+          <span className="font-semibold text-[var(--success)]">{verdict.strongestLabel}</span>
+          {" backs our desirability read most strongly"}
+          {verdict.conflictLabel ? (
+            <>
+              {", while "}
+              <span className="font-semibold text-[var(--warning)]">{verdict.conflictLabel}</span>
+              {" is the outlier"}
+            </>
+          ) : null}
+          {"."}
+        </>
+      ) : null}
+    </p>
   );
 }
 
-function DesirabilityAlignmentLadder({ ladder }) {
-  const containerRef = useRef(null);
-  const [ladderWidth, setLadderWidth] = useState(0);
-  const [activePoint, setActivePoint] = useState(null);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) {
-      return undefined;
-    }
-    const measure = () => setLadderWidth(element.getBoundingClientRect().width);
-    measure();
-    if (typeof ResizeObserver === "undefined") {
-      return undefined;
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  const layout = useMemo(() => buildLadderLayout(ladder, ladderWidth), [ladder, ladderWidth]);
-
-  if (!ladder) {
+function DesirabilityAgreementDiverging({ agreement }) {
+  const model = buildDivergingAgreementModel(agreement);
+  if (!model) {
     return null;
   }
 
-  const hasConfirms = ladder.signals.some((signal) => signal.state === "confirms");
-  const hasConflicts = ladder.signals.some((signal) => signal.state === "conflicts");
-  const conflictPoint = layout?.points.find((point) => point.state === "conflicts") || null;
-  const anchorLabelAnchor = layout && layout.anchorX > layout.width * 0.72 ? "end" : "start";
+  const rowGridClass = "grid grid-cols-[6.5rem_minmax(0,1fr)_3rem] items-center gap-x-2 sm:grid-cols-[8rem_minmax(0,1fr)_3.25rem]";
 
   return (
     <div className="min-w-0">
-      <div ref={containerRef} className="relative min-w-0 overflow-visible">
-        {layout ? (
-          <>
-            <svg
-              role="img"
-              aria-label={buildLadderAriaLabel(ladder)}
-              width="100%"
-              height={layout.height}
-              className="block overflow-visible"
-            >
-              {/* Rank axis, best (#1) on the left. */}
-              <line
-                x1={layout.plotLeft}
-                x2={layout.plotRight}
-                y1={layout.baselineY}
-                y2={layout.baselineY}
-                stroke="color-mix(in srgb, var(--text-secondary) 35%, transparent)"
-                strokeWidth={1}
-              />
-              <text x={layout.plotLeft} y={layout.endLabelY} textAnchor="start" fontSize={10} fill="var(--text-secondary)">
-                #1 best
-              </text>
-              <text x={layout.plotRight} y={layout.endLabelY} textAnchor="end" fontSize={10} fill="var(--text-secondary)">
-                #{ladder.fieldSize}
-              </text>
+      {/* Polarity captions for the whole plot. */}
+      <div className={rowGridClass} aria-hidden="true">
+        <span />
+        <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+          <span>{"←"} conflicts with read</span>
+          <span>confirms read {"→"}</span>
+        </div>
+        <span />
+      </div>
 
-              {/* Disagreement gap: anchor → biggest conflicting signal. */}
-              {conflictPoint ? (
-                <line
-                  x1={layout.anchorX}
-                  x2={conflictPoint.x}
-                  y1={layout.baselineY}
-                  y2={layout.baselineY}
-                  stroke="var(--warning)"
-                  strokeOpacity={0.6}
-                  strokeWidth={2}
-                  strokeDasharray="3 3"
+      <div role="img" aria-label={buildAgreementAriaLabel(model)} className="mt-1.5 space-y-1.5">
+        {model.rows.map((row) => (
+          <div key={`agreement-signal:${row.key}`} className={rowGridClass}>
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <span className="truncate text-[11px] font-semibold text-[var(--text-primary)]">{row.label}</span>
+              {row.rank !== null ? (
+                <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-secondary)] opacity-80">#{row.rank}</span>
+              ) : null}
+            </div>
+            <div className="relative h-4 min-w-0">
+              {/* Neutral center line: the engine scale's own midpoint. */}
+              <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[color:color-mix(in_srgb,var(--text-secondary)_45%,transparent)]" />
+              {row.extentPercent > 0 ? (
+                <span
+                  className={`absolute top-1/2 h-2.5 -translate-y-1/2 ${
+                    row.side === "confirms" ? "left-1/2 rounded-r-[4px]" : "right-1/2 rounded-l-[4px]"
+                  }`}
+                  style={{
+                    width: `${row.extentPercent / 2}%`,
+                    backgroundColor: AGREEMENT_STATE_FILL[row.side],
+                    // Deeper stop = stronger: depth follows the engine score's
+                    // distance from the midpoint (display-only rescale).
+                    opacity: 0.38 + 0.55 * (row.extentPercent / 100),
+                  }}
                 />
               ) : null}
-
-              {/* Desirability anchor — the reference every dot is read against. */}
-              <line
-                x1={layout.anchorX}
-                x2={layout.anchorX}
-                y1={layout.headerY + 5}
-                y2={layout.endLabelY - 12}
-                stroke="var(--text-primary)"
-                strokeOpacity={0.85}
-                strokeWidth={1.25}
-                strokeDasharray="4 4"
-              />
-              <text
-                x={anchorLabelAnchor === "end" ? layout.anchorX - 6 : layout.anchorX + 6}
-                y={layout.headerY}
-                textAnchor={anchorLabelAnchor}
-                fontSize={11}
-                fontWeight={650}
-                fill="var(--text-primary)"
-              >
-                Desirability #{ladder.anchorRank}
-              </text>
-
-              {layout.points.map((point) => (
-                <g
-                  key={`ladder-signal:${point.key}`}
-                  tabIndex={0}
-                  aria-label={describeLadderSignal(point, ladder.fieldSize)}
-                  className="cursor-pointer focus:outline-none"
-                  onMouseEnter={() => setActivePoint(point)}
-                  onMouseLeave={() => setActivePoint(null)}
-                  onFocus={() => setActivePoint(point)}
-                  onBlur={() => setActivePoint(null)}
-                >
-                  {/* Hit target wider than the mark itself. */}
-                  <rect x={point.x - 10} y={point.dotY - 12} width={20} height={24} fill="transparent" />
-                  {Math.abs(point.labelX - point.x) > 12 ? (
-                    <line
-                      x1={point.x}
-                      x2={point.labelX}
-                      y1={point.side === "above" ? point.dotY - 7 : point.dotY + 7}
-                      y2={point.side === "above" ? point.labelY + 4 : point.labelY - 9}
-                      stroke="color-mix(in srgb, var(--text-secondary) 35%, transparent)"
-                      strokeWidth={1}
-                    />
-                  ) : null}
-                  <circle
-                    cx={point.x}
-                    cy={point.dotY}
-                    r={4.5}
-                    fill={LADDER_STATE_FILL[point.state]}
-                    stroke="var(--surface-page)"
-                    strokeWidth={2}
-                  />
-                  <text x={point.labelX} y={point.labelY} textAnchor="middle" fontSize={layout.labelFontSize}>
-                    <tspan fill="var(--text-primary)" fontWeight={650}>{point.label}</tspan>
-                    <tspan fill="var(--text-secondary)" dx={4}>#{point.rank}</tspan>
-                  </text>
-                </g>
-              ))}
-            </svg>
-
-            {activePoint ? (
-              <div
-                className="pointer-events-none absolute z-[9999]"
-                style={{
-                  left: Math.min(Math.max(activePoint.x - 60, 0), Math.max(layout.width - 160, 0)),
-                  top: -4,
-                }}
-              >
-                <SimulationChartTooltipFrame label={activePoint.label}>
-                  <p>
-                    <span className="font-semibold text-white">#{activePoint.rank}</span> of {ladder.fieldSize} sets
-                  </p>
-                  {activePoint.alignmentScore !== null && activePoint.alignmentScore !== undefined ? (
-                    <p>Alignment {Math.round(activePoint.alignmentScore)} / 100</p>
-                  ) : null}
-                  <p>{LADDER_STATE_TEXT[activePoint.state]}</p>
-                </SimulationChartTooltipFrame>
-              </div>
-            ) : null}
-          </>
-        ) : null}
+            </div>
+            <span className="text-right text-[10px] font-medium tabular-nums text-[var(--text-secondary)]">
+              {Math.round(row.alignmentScore)}/100
+            </span>
+          </div>
+        ))}
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[var(--text-secondary)]">
-        {hasConfirms ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--success)" }} />
-            Confirms
-          </span>
-        ) : null}
-        {hasConflicts ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--warning)" }} />
-            Conflicts
-          </span>
-        ) : null}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--neutral)" }} />
-          Neutral
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-px w-5 border-t border-dashed border-[var(--text-primary)]/85" />
-          Desirability anchor
-        </span>
-      </div>
+      {/* The engine's own named callouts, only when present. */}
+      {model.strongest || model.conflict ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[var(--text-secondary)]" aria-hidden="true">
+          {model.strongest ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: AGREEMENT_STATE_FILL.confirms }} />
+              Strongest confirm: {model.strongest.label}
+            </span>
+          ) : null}
+          {model.conflict ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: AGREEMENT_STATE_FILL.conflicts }} />
+              Biggest conflict: {model.conflict.label}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
-      {/* Screen-reader equivalent of the ladder. */}
+      {/* Screen-reader equivalent of the diverging plot. */}
       <ul className="sr-only">
-        <li>Desirability anchor: rank #{ladder.anchorRank} of {ladder.fieldSize} sets.</li>
-        {ladder.signals.map((signal) => (
-          <li key={`ladder-sr:${signal.key}`}>{describeLadderSignal(signal, ladder.fieldSize)}</li>
+        {model.rows.map((row) => (
+          <li key={`agreement-sr:${row.key}`}>{describeAgreementSignal(row, model.fieldSize)}</li>
         ))}
       </ul>
     </div>
   );
 }
 
-// Subdued one-line impact note (core → final rank movement). When the
-// comparison fields aren't computed yet the line falls back to the backend's
-// impact summary, or disappears entirely — no placeholder boxes.
+// Subdued one-line impact note (core → final rank movement). It renders only
+// when every comparison field is computed AND the movement is real — a no-op
+// "#1 to #1 (0 ranks)" or a not-yet-computed state renders nothing at all.
 function DesirabilityImpactNote({ validation }) {
   const coreRank = toNumber(validation.rip_core_rank_without_desirability ?? validation.ripCoreRankWithoutDesirability);
   const finalRank = toNumber(validation.final_rip_rank_with_desirability ?? validation.finalRipRankWithDesirability);
   const rankDelta = toNumber(validation.desirability_rank_delta ?? validation.desirabilityRankDelta);
-  const movementCopy =
-    coreRank !== null && finalRank !== null && rankDelta !== null
-      ? `Desirability moved this set from ${formatProofRank(coreRank)} to ${formatProofRank(finalRank)} (${formatProofDelta(rankDelta, " ranks")}).`
-      : validation.desirability_impact_summary || validation.desirabilityImpactSummary || null;
-  if (!movementCopy) {
+  const hasRealMovement =
+    coreRank !== null && finalRank !== null && rankDelta !== null && rankDelta !== 0 && coreRank !== finalRank;
+  if (!hasRealMovement) {
     return null;
   }
-  return <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{movementCopy}</p>;
+  return (
+    <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+      {`Desirability moved this set from ${formatProofRank(coreRank)} to ${formatProofRank(finalRank)} (${formatProofDelta(rankDelta, " ranks")}).`}
+    </p>
+  );
 }
 
 function DesirabilityAgreementContent({ validation, loading = false, loadingTimedOut = false }) {
@@ -6516,12 +6416,12 @@ function DesirabilityAgreementContent({ validation, loading = false, loadingTime
   }
 
   const verdict = selectDesirabilityVerdict(validation);
-  const ladder = selectDesirabilityAlignmentLadder(validation);
+  const agreement = selectDesirabilityAgreement(validation);
 
   return (
     <div className="min-w-0 space-y-3">
       <DesirabilityVerdictLine verdict={verdict} />
-      {ladder ? <DesirabilityAlignmentLadder ladder={ladder} /> : null}
+      {agreement ? <DesirabilityAgreementDiverging agreement={agreement} /> : null}
       <DesirabilityImpactNote validation={validation} />
     </div>
   );
@@ -6713,50 +6613,37 @@ function DesirabilityValidationContent({ targets, freshness = null }) {
     }
   }, [points, rows, selectedMetric, validationContract.diagnostics]);
 
-  return (
-    <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Set Validation</h3>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
-            Compare set desirability against market and simulation outcomes.
-            {formatSectionFreshnessInfo(freshness)}
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="grid min-w-0 grid-cols-3 gap-2 sm:max-w-md">
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pearson r</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(pearson)}</p>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Spearman rho</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(spearman)}</p>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Sample</p>
-              <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{sampleLabel}</p>
-            </div>
-          </div>
+  // The scatter is the primary element: correlation renders as a compact
+  // caption on the chart, and the metric explanation + freshness live in the
+  // title's info tooltip instead of stacked stat boxes and paragraphs.
+  const setValidationInfoText = [
+    "Compare set desirability against market and simulation outcomes.",
+    selectedMetric.description || null,
+    formatSectionFreshnessInfo(freshness).trim() || null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const correlationCaption = `r = ${formatCorrelationValue(pearson)} · ρ = ${formatCorrelationValue(spearman)} · ${sampleLabel} · ${relationshipLabel}`;
 
-          <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
-            <span className="inline-flex max-w-full items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-              <span className="truncate">{relationshipLabel}</span>
-            </span>
-            <SegmentedControl
-              options={metricOptions.map((metric) => ({ value: metric.key, label: metric.label }))}
-              value={selectedMetric.key}
-              onChange={setSelectedMetricKey}
-              ariaLabel="Desirability validation metric"
-            />
+  return (
+    <div className="space-y-3">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability vs {selectedMetric.summaryLabel}</h3>
+            <InfoPopover text={setValidationInfoText} />
           </div>
+          <SegmentedControl
+            options={metricOptions.map((metric) => ({ value: metric.key, label: metric.label }))}
+            value={selectedMetric.key}
+            onChange={setSelectedMetricKey}
+            ariaLabel="Desirability validation metric"
+          />
         </div>
-        {selectedMetric.description ? (
-          <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{selectedMetric.description}</p>
-        ) : null}
 
         {hasEnoughPoints ? (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">
+              <span className="tabular-nums">{correlationCaption}</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[rgba(45,212,191,0.84)]" />Dots = Sets</span>
               {regressionLinePoints.length === 2 ? (
                 <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
@@ -7266,49 +7153,29 @@ function CardDesirabilityMarketValidationContent({
     }
   }, [diagnosticsContext, points, rawPoints, rows, selectedMetric, selectedScope]);
 
+  // The scatter is the primary element: correlation renders as a compact
+  // caption on the chart, and the Card Appeal caveat (non-Pokémon exclusion),
+  // sample-source detail, and freshness live in the title's info tooltip.
+  const cardValidationInfoText = [
+    isCardAppealMetric
+      ? CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT
+      : selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set.",
+    isCardAppealMetric ? cardAppealInfoText : null,
+    !isCardAppealMetric && sampleSourceLabel ? `Sample: ${sampleSourceLabel}; ${points.length} plotted.` : null,
+    !isCardAppealMetric ? formatSectionFreshnessInfo(freshness).trim() || null : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const correlationCaption = `r = ${formatCorrelationValue(pearson)} · ρ = ${formatCorrelationValue(spearman)} · ${sampleCountLabel} · ${relationshipLabel}`;
+
   return (
-    <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">{selectedMetric.label} vs Market Price</h3>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
-            {isCardAppealMetric ? CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT : selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set."}
-          </p>
-          {isCardAppealMetric ? (
-            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{cardAppealInfoText}</p>
-          ) : null}
-        </div>
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="grid min-w-0 grid-cols-3 gap-2 sm:max-w-md">
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Pearson r</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(pearson)}</p>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Spearman rho</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{formatCorrelationValue(spearman)}</p>
-            </div>
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Sample</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{sampleCountLabel}</p>
-              {isCardAppealMetric && excludedNonPokemonLabel ? (
-                <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">{excludedNonPokemonLabel}</p>
-              ) : sampleSourceLabel || sampleCount !== points.length ? (
-                <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">
-                  {sampleSourceLabel || "display sample"}
-                  {sampleSourceLabel ? `; ${points.length} plotted` : sampleCount !== points.length ? `; ${points.length} plotted` : ""}
-                </p>
-              ) : null}
-            </div>
+    <div className="space-y-3">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{selectedMetric.label} vs Market Price</h3>
+            <InfoPopover text={cardValidationInfoText} />
           </div>
           <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
-            <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
-              <span className="inline-flex max-w-full items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                <span className="truncate">{relationshipLabel}</span>
-              </span>
-              <span className="inline-flex max-w-full items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                <span className="truncate">{selectedScope.label}</span>
-              </span>
-            </div>
             <SegmentedControl
               options={metricOptions.map((metric) => ({ value: metric.key, label: metric.label, title: metric.description }))}
               value={selectedMetric.key}
@@ -7327,6 +7194,7 @@ function CardDesirabilityMarketValidationContent({
         {hasEnoughPoints ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">
+              <span className="tabular-nums">{correlationCaption}</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[rgba(125,211,252,0.84)]" />Dots = Cards</span>
               {regressionLinePoints.length === 2 ? (
                 <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
@@ -7438,11 +7306,23 @@ function DesirabilityEvidenceCard({
   dataLoading = false,
   topHits = [],
 }) {
-  // The old "Proof" sub-tab folded into the always-visible verdict + alignment
-  // ladder above the charts, so only the two scatter views toggle now. Legacy
-  // deep links that request "proof" land on the primary Set Validation proof.
+  // The old "Proof" sub-tab folded into the always-visible verdict + diverging
+  // agreement view above the charts, so only the two scatter views toggle now.
+  // Legacy deep links that request "proof" land on the primary Set Validation
+  // proof.
   const selectedMode = mode === "card-validation" ? "card-validation" : "set-validation";
   const topChaseAnchorHit = useMemo(() => selectTopChaseAnchorHit(topHits), [topHits]);
+  // One verdict line stays visible; the backend's restatement sentence and the
+  // methodology copy live here in the section's info tooltip instead.
+  const verdictSummary = selectDesirabilityVerdict(validation)?.summary || null;
+  const sectionInfoText = [
+    "Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals.",
+    verdictSummary,
+    "Each market signal is ranked across all sets; the engine scores how closely that signal's rank agrees with this set's desirability rank (100 = same rank, 0 = opposite end of the field). Bars right of center confirm the read, bars left of center conflict with it.",
+    "Set Validation is the cleanest market confirmation check: higher desirability should generally align with stronger total checklist value.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <section id="set-detail-desirability-evidence" className="scroll-mt-24 md:scroll-mt-28">
@@ -7454,7 +7334,7 @@ function DesirabilityEvidenceCard({
         tone="plain"
         title="Desirability Evidence"
         subtitle="Does the market agree? Validation against demand and price data."
-        titleInfoText="Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals."
+        titleInfoText={sectionInfoText}
         bodyClassName="space-y-4"
       >
         <DesirabilityAgreementContent

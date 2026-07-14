@@ -98,6 +98,11 @@ test("Cards tiles render one Price to Delta to Window market block", () => {
   assert.ok(!tile.includes('content="value"'));
   assert.ok(!tile.includes('content="change"'));
   assert.ok(tile.includes('movementWindow === "7D" ? getCardMovement7d(card) : getCardMovement30d(card)'));
+  // Partial 30D deltas must keep their movement object: the selector may only
+  // bail when amount, percent, AND score are all missing, so a percent-only or
+  // amount-only card still shows its populated half next to the price.
+  const movement30d = section(source, "function getCardMovement30d", "function getMovementAccessiblePeriod");
+  assert.ok(movement30d.includes("if (amount === null && percent === null && score === null)"));
   assert.ok(tile.includes('const cardMetaKey = `${getChecklistCardKey(card)}:${marketPrice ?? ""}:${marketDelta?.amount ?? ""}:${marketDelta?.percent ?? ""}:${movementWindow}`'));
   assert.ok(tile.includes("setIsMetaRevealed(false)"));
   assert.ok(tile.includes("[cardMetaKey, hasPriceData]"));

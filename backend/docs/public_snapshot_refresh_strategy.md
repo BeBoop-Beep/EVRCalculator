@@ -49,15 +49,33 @@ The daily simulation job (`infra/local/run_simulations_task.bat` → `infra/loca
 
 Running `refresh_stale_public_snapshots.py --commit` additionally (e.g. hourly) remains safe and idempotent: overnight scrapes, later simulations, and future sources such as additional price vendors, graded pricing, sealed pricing, or other TCG imports can land whenever they finish. The refresh job will rebuild only the stale snapshot families and sets it detects.
 
+## Coordinated Movement Snapshots
+
+Cards and Market Dashboard are one movement snapshot family. Rebuilding either
+one rebuilds both from a single captured
+`pokemon_canonical_card_market_prices_latest` context, UUID `generationId`, and
+`builtAt` timestamp. Before any Market Dashboard write, the builder compares
+all overlapping Cards, Market Movers, and Top Chase movement contracts and
+aborts the write if identity, price, date, amount, percentage, coverage, or
+window convention differs.
+
+To rebuild one set explicitly:
+
+```powershell
+python backend/scripts/build_pokemon_set_market_snapshots.py --set-id ascendedHeroes --commit
+```
+
+The legacy `build_pokemon_market_dashboard_snapshots.py` entrypoint uses the
+same coordinated implementation.
+
 ## Refresh Order
 
 The dependency order is:
 
-1. Set cards snapshots
-2. Market dashboard snapshots
-3. Explore rankings snapshot
-4. Set page snapshots
-5. Desirability validation snapshot
+1. Coordinated Cards + Market Dashboard snapshots
+2. Explore rankings snapshot
+3. Set page snapshots
+4. Desirability validation snapshot
 
 Set page snapshots are built after rankings, cards, and market dashboards so they can embed fresh rank context, Simulation Drivers, card appeal validation payloads, and snapshot-completeness diagnostics.
 

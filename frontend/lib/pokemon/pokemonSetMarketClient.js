@@ -326,6 +326,22 @@ function normalizeStoredMarketDeltaWindows(source) {
 function normalizeTopMarketCardsPayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const topChaseCardHistories = normalizeTopChaseCardHistories(payload);
+  const snapshotMeta = payload?.meta?.snapshot && typeof payload.meta.snapshot === "object"
+    ? payload.meta.snapshot
+    : {};
+  const movementGeneration = payload?.meta?.movementGeneration && typeof payload.meta.movementGeneration === "object"
+    ? payload.meta.movementGeneration
+    : {};
+  const isLegacyMovementSnapshot = snapshotMeta?.isLegacyMovementSnapshot === true;
+  const allowsLegacyHistoryFallback = snapshotMeta?.allowsLegacyHistoryFallback === true;
+
+  if (process.env.NODE_ENV !== "production" && movementGeneration?.matches === false) {
+    console.warn("[pokemon-market-delta] Cards and Market Dashboard snapshot generations differ", {
+      cardsGenerationId: movementGeneration?.cardsGenerationId ?? null,
+      marketDashboardGenerationId: movementGeneration?.marketDashboardGenerationId ?? null,
+      status: movementGeneration?.status ?? null,
+    });
+  }
 
   return {
     set: {
@@ -364,6 +380,9 @@ function normalizeTopMarketCardsPayload(payload) {
         windowConvention: toOptionalString(card?.windowConvention ?? card?.window_convention),
         marketDeltaWindows,
         market_delta_windows: marketDeltaWindows,
+        movementSnapshotLegacy: isLegacyMovementSnapshot,
+        allowLegacyMovementHistoryFallback: allowsLegacyHistoryFallback,
+        movementGeneration,
         priceUpdatedAt: toOptionalString(card?.priceUpdatedAt ?? card?.price_updated_at),
         source: toOptionalString(card?.source ?? card?.provider),
         provider: toOptionalString(card?.provider ?? card?.source),

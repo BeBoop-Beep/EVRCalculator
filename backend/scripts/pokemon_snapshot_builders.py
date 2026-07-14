@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from dotenv import load_dotenv
 from postgrest.types import ReturnMethod
@@ -76,6 +76,7 @@ RIP_DESIRABILITY_COMPARISON_FIELDS = (
 
 MARKET_MOVERS_WINDOWS_DAYS = {"1D": 1, "7D": 7, "30D": 30}
 MARKET_MOVERS_COMPATIBILITY_WINDOW = "30D"
+MOVEMENT_CONTRACT_VERSION = "pokemon_card_movement_v1"
 CARD_PRICE_OBSERVATION_CHUNK_SIZE = 50
 CARD_PRICE_OBSERVATION_PAGE_SIZE = 1000
 CARD_MOVEMENT_LOOKBACK_DAYS = 45
@@ -276,7 +277,14 @@ def refresh_canonical_card_market_prices_for_set(
     return refreshed_rows
 
 
-def with_snapshot_meta(payload: Dict[str, Any], *, snapshot_type: str, built_at: str) -> Dict[str, Any]:
+def with_snapshot_meta(
+    payload: Dict[str, Any],
+    *,
+    snapshot_type: str,
+    built_at: str,
+    generation_id: Optional[str] = None,
+    movement_as_of_date: Optional[str] = None,
+) -> Dict[str, Any]:
     meta = dict(payload.get("meta") or {})
     snapshot_meta = dict(meta.get("snapshot") or {})
     snapshot_meta.update(
@@ -286,6 +294,15 @@ def with_snapshot_meta(payload: Dict[str, Any], *, snapshot_type: str, built_at:
             "source": "pokemon_snapshot_builders",
         }
     )
+    if generation_id:
+        snapshot_meta.update(
+            {
+                "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
+                "windowConvention": WINDOW_CONVENTION,
+                "movementAsOfDate": movement_as_of_date,
+                "generationId": generation_id,
+            }
+        )
     meta["snapshot"] = snapshot_meta
     return {**payload, "meta": meta}
 
@@ -1435,6 +1452,7 @@ def _build_top_chase_canonical_history_context(
     *,
     set_id: str,
     cards: List[Dict[str, Any]],
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     canonical_cards = _query_table_rows(
         client,
@@ -1456,13 +1474,16 @@ def _build_top_chase_canonical_history_context(
         if legacy_card_ids
         else []
     )
-    selected_price_rows = _query_table_rows(
-        client,
-        "pokemon_canonical_card_market_prices_latest",
-        lambda query: query.select(
-            "canonical_card_id,card_variant_id,condition_id,printing_type,market_price,captured_at,source"
-        ).eq("set_id", set_id),
-    )
+    if selected_price_rows is None:
+        selected_price_rows = _query_table_rows(
+            client,
+            "pokemon_canonical_card_market_prices_latest",
+            lambda query: query.select(
+                "canonical_card_id,card_variant_id,condition_id,printing_type,market_price,captured_at,source"
+            ).eq("set_id", set_id),
+        )
+    else:
+        selected_price_rows = list(selected_price_rows)
 
     canonical_by_id = {
         str(card["id"]): card
@@ -1905,6 +1926,7 @@ def _enrich_top_chase_cards_with_canonical_deltas(
     histories: Dict[str, List[Dict[str, Any]]],
     canonical_context: Dict[str, Any],
     latest_market_date: Optional[str],
+    movement_metadata: Optional[Dict[str, Any]] = None,
 ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     diagnostics: List[Dict[str, Any]] = []
     enriched_cards: List[Dict[str, Any]] = []
@@ -1953,6 +1975,11 @@ def _enrich_top_chase_cards_with_canonical_deltas(
             )
             for window_key, window_days in MARKET_MOVERS_WINDOWS_DAYS.items()
         }
+        if movement_metadata:
+            movements = {
+                window_key: {**movement, **movement_metadata}
+                for window_key, movement in movements.items()
+            }
         current_price = round(to_optional_float(selected.get("market_price")) or 0, 2)
         enriched.update({
             "id": canonical_id,
@@ -1977,6 +2004,8 @@ def _enrich_top_chase_cards_with_canonical_deltas(
             "window_convention": WINDOW_CONVENTION,
             "marketDeltaWindows": movements,
             "market_delta_windows": movements,
+            "movementMetadata": dict(movement_metadata or {}),
+            "movement_metadata": dict(movement_metadata or {}),
         })
         enriched_cards.append(enriched)
     return enriched_cards, diagnostics
@@ -2036,8 +2065,12 @@ def build_market_dashboard_snapshot_rows(
     days: int = DEFAULT_DASHBOARD_DAYS,
     window: str = DEFAULT_DASHBOARD_WINDOW,
     client: Any = None,
+    generation_id: Optional[str] = None,
+    built_at: Optional[str] = None,
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
-    built_at = utc_now_iso()
+    built_at = built_at or utc_now_iso()
+    generation_id = generation_id or str(uuid4())
     set_id = str(set_row["id"])
     histories_by_scope: Dict[str, List[Dict[str, Any]]] = {}
     available_scope_lookup: Dict[str, Dict[str, Any]] = {}
@@ -2077,6 +2110,7 @@ def build_market_dashboard_snapshot_rows(
             client or get_client(),
             set_id=set_id,
             cards=top_cards,
+            selected_price_rows=selected_price_rows,
         )
     except Exception as exc:
         if is_transient_data_service_error(exc):
@@ -2122,6 +2156,13 @@ def build_market_dashboard_snapshot_rows(
         histories=top_chase_card_histories,
         canonical_context=top_chase_canonical_context,
         latest_market_date=canonical_market_date,
+        movement_metadata={
+            "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
+            "windowConvention": WINDOW_CONVENTION,
+            "movementAsOfDate": canonical_market_date,
+            "generationId": generation_id,
+            "builtAt": built_at,
+        },
     )
     # Re-key the canonical selected-variant histories as aliases so the slim
     # Top Chase reader and frontend can resolve history after the public card
@@ -2144,6 +2185,7 @@ def build_market_dashboard_snapshot_rows(
         set_id=set_id,
         window_days=tuple(MARKET_MOVERS_WINDOWS_DAYS.values()),
         client=client,
+        selected_price_rows=selected_price_rows,
     )
     market_movers_by_window = movement_windows_payload.get("marketMoversByWindow") or {}
     market_movers_by_window_snake = movement_windows_payload.get("market_movers_by_window") or {}
@@ -2229,6 +2271,10 @@ def build_market_dashboard_snapshot_rows(
                 "type": "pokemon_set_market_dashboard",
                 "builtAt": built_at,
                 "source": "pokemon_snapshot_builders",
+                "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
+                "windowConvention": WINDOW_CONVENTION,
+                "movementAsOfDate": latest_market_date,
+                "generationId": generation_id,
             },
         },
     }
@@ -2285,6 +2331,8 @@ def _build_card_appeal_price_index_for_set(
     *,
     set_id: str,
     canonical_cards: List[Dict[str, Any]],
+    client: Any = None,
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Load the canonical pricing contract directly.
 
@@ -2293,8 +2341,8 @@ def _build_card_appeal_price_index_for_set(
     therefore absent even though the selected-price view had a valid row.
     """
     try:
-        client = get_client()
-        selected_rows = _query_rows(
+        client = client or get_client()
+        selected_rows = list(selected_price_rows) if selected_price_rows is not None else _query_rows(
             client,
             "pokemon_canonical_card_market_prices_latest",
             lambda query: query.select(
@@ -2606,29 +2654,147 @@ def _with_cards_pricing_contract_diagnostics(payload: Dict[str, Any]) -> Dict[st
     return {**payload, "cards": cards, "meta": meta}
 
 
-def build_cards_snapshot_row(set_row: Dict[str, Any]) -> Dict[str, Any]:
+def build_cards_snapshot_row(
+    set_row: Dict[str, Any],
+    *,
+    client: Any = None,
+    generation_id: Optional[str] = None,
+    built_at: Optional[str] = None,
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     set_id = str(set_row["id"])
+    client = client or get_client()
+    generation_id = generation_id or str(uuid4())
+    built_at = built_at or utc_now_iso()
     payload = get_pokemon_set_cards_payload(set_id)
     prices_by_card = _build_card_appeal_price_index_for_set(
         set_id=set_id,
         canonical_cards=list(payload.get("cards") or []),
+        client=client,
+        selected_price_rows=selected_price_rows,
     )
     payload = _enrich_cards_with_authoritative_prices_and_movements(
         payload,
         set_id=set_id,
         prices_by_card=prices_by_card,
-        client=get_client(),
+        client=client,
     )
     payload = enrich_cards_payload_with_desirability(payload, prices_by_card=prices_by_card)
     payload = _with_cards_pricing_contract_diagnostics(payload)
-    cards = list(payload.get("cards") or [])
-    payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_cards", built_at=utc_now_iso())
+    selected_market_dates = [
+        date_key
+        for price in prices_by_card.values()
+        if (date_key := utc_date_key(price.get("captured_at")))
+    ]
+    pricing_contract = (payload.get("meta") or {}).get("pricingContract") or {}
+    movement_as_of_date = first_non_empty(
+        pricing_contract.get("latestMarketDate"),
+        max(selected_market_dates, default=None),
+    )
+    movement_metadata = {
+        "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
+        "windowConvention": WINDOW_CONVENTION,
+        "movementAsOfDate": movement_as_of_date,
+        "generationId": generation_id,
+        "builtAt": built_at,
+    }
+    cards = [
+        {
+            **card,
+            "movementMetadata": movement_metadata,
+            "movement_metadata": movement_metadata,
+        }
+        for card in list(payload.get("cards") or [])
+    ]
+    payload = {**payload, "cards": cards}
+    payload = with_snapshot_meta(
+        payload,
+        snapshot_type="pokemon_set_cards",
+        built_at=built_at,
+        generation_id=generation_id,
+        movement_as_of_date=movement_as_of_date,
+    )
     return {
         "set_id": set_id,
         "cards_json": cards,
         "payload_json": payload,
         "card_count": len(cards),
     }
+
+
+class PokemonSnapshotMovementParityError(RuntimeError):
+    """Raised before writes when coordinated movement contracts disagree."""
+
+    def __init__(self, set_id: str, mismatches: List[Dict[str, Any]]):
+        self.set_id = set_id
+        self.mismatches = mismatches
+        super().__init__(
+            f"Pokemon movement parity failed for set_id={set_id}: "
+            f"{len(mismatches)} mismatch(es)"
+        )
+
+
+def validate_coordinated_movement_parity(
+    cards_row: Dict[str, Any],
+    dashboard_row: Dict[str, Any],
+) -> None:
+    """Reject a dashboard snapshot when any overlapping movement differs."""
+    from backend.scripts.audit_pokemon_card_delta_parity import audit_payloads
+
+    set_id = str(cards_row.get("set_id") or dashboard_row.get("set_id") or "")
+    mismatches = audit_payloads(
+        cards_row.get("cards_json") or [],
+        dashboard_row.get("payload_json") or {},
+        set_id=set_id,
+    )
+    if mismatches:
+        logger.error(
+            "[pokemon-snapshot] coordinated movement parity failed set_id=%s mismatches=%s sample=%s",
+            set_id,
+            len(mismatches),
+            mismatches[:5],
+        )
+        raise PokemonSnapshotMovementParityError(set_id, mismatches)
+
+
+def build_coordinated_set_market_snapshot_rows(
+    set_row: Dict[str, Any],
+    *,
+    days: int = DEFAULT_DASHBOARD_DAYS,
+    window: str = DEFAULT_DASHBOARD_WINDOW,
+    client: Any = None,
+) -> tuple[Dict[str, Any], Dict[str, Any], List[Dict[str, Any]]]:
+    """Build Cards and Dashboard from one refreshed client/generation boundary."""
+    client = client or get_client()
+    generation_id = str(uuid4())
+    built_at = utc_now_iso()
+    set_id = str(set_row["id"])
+    selected_price_rows = _query_rows(
+        client,
+        "pokemon_canonical_card_market_prices_latest",
+        lambda query: query.select(
+            "canonical_card_id,set_id,card_variant_id,condition_id,printing_type,market_price,"
+            "captured_at,source,price_selection_reason,refreshed_at"
+        ).eq("set_id", set_id),
+    )
+    cards_row = build_cards_snapshot_row(
+        set_row,
+        client=client,
+        generation_id=generation_id,
+        built_at=built_at,
+        selected_price_rows=selected_price_rows,
+    )
+    dashboard_row, top_chase_history_rows = build_market_dashboard_snapshot_rows(
+        set_row,
+        days=days,
+        window=window,
+        client=client,
+        generation_id=generation_id,
+        built_at=built_at,
+        selected_price_rows=selected_price_rows,
+    )
+    validate_coordinated_movement_parity(cards_row, dashboard_row)
+    return cards_row, dashboard_row, top_chase_history_rows
 
 
 def build_explore_rankings_snapshot_row(*, limit: int = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:

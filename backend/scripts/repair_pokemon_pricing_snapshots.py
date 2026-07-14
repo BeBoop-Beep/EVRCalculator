@@ -15,12 +15,13 @@ from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
     DEFAULT_DASHBOARD_WINDOW,
     add_target_set_args,
-    build_cards_snapshot_row,
+    build_coordinated_set_market_snapshot_rows,
     get_client,
     refresh_canonical_card_market_prices_for_set,
     resolve_target_sets,
     should_commit,
     upsert_row,
+    upsert_rows,
 )
 
 
@@ -193,7 +194,16 @@ def main() -> None:
             else:
                 pricing_after_refresh = before["pricing"]
             cards_need_rebuild = _cards_need_rebuild(before["cards"], pricing_after_refresh)
-            cards_row = build_cards_snapshot_row(set_row) if cards_need_rebuild else None
+            cards_row = None
+            dashboard_row = None
+            history_rows = []
+            if cards_need_rebuild:
+                cards_row, dashboard_row, history_rows = build_coordinated_set_market_snapshot_rows(
+                    set_row,
+                    days=args.days,
+                    window=args.window,
+                    client=client,
+                )
             after = {
                 "cards": _card_stats(cards_row.get("cards_json")) if cards_row else before["cards"],
                 "pricing": pricing_after_refresh,
@@ -223,6 +233,20 @@ def main() -> None:
                         "pokemon_set_cards_snapshot_latest",
                         cards_row,
                         on_conflict="set_id",
+                        commit=True,
+                    )
+                    upsert_rows(
+                        client,
+                        "pokemon_set_top_chase_card_daily_history",
+                        history_rows,
+                        on_conflict="set_id,snapshot_date,rank",
+                        commit=True,
+                    )
+                    upsert_row(
+                        client,
+                        "pokemon_set_market_dashboard_snapshot_latest",
+                        dashboard_row,
+                        on_conflict="set_id,window_key",
                         commit=True,
                     )
         except Exception as exc:

@@ -38,16 +38,21 @@ def test_one_bad_set_does_not_stop_later_dashboard_sets(monkeypatch, capsys):
                     "checklistValue": 100,
                 }
             )
-        return ({"set_id": "good-set", "window_key": "365d"}, [])
+        return (
+            {"set_id": "good-set"},
+            {"set_id": "good-set", "window_key": "365d"},
+            [],
+        )
 
-    monkeypatch.setattr(command, "build_market_dashboard_snapshot_rows", build)
+    monkeypatch.setattr(command, "build_coordinated_set_market_snapshot_rows", build)
+    monkeypatch.setattr(command, "refresh_canonical_card_market_prices_for_set", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(command, "upsert_rows", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(command, "upsert_row", lambda _client, _table, row, **_kwargs: upserted.append(row["set_id"]))
 
     command.main()
 
     assert built == ["bad-set", "good-set"]
-    assert upserted == ["good-set"]
+    assert upserted == ["good-set", "good-set"]
     assert "built=1 skipped=0 failed=1" in capsys.readouterr().out
 
 
@@ -94,7 +99,8 @@ def test_consecutive_transient_retry_exhaustion_stops_all_set_build(monkeypatch,
         attempted.append(set_row["id"])
         raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
 
-    monkeypatch.setattr(command, "build_market_dashboard_snapshot_rows", fail_build)
+    monkeypatch.setattr(command, "build_coordinated_set_market_snapshot_rows", fail_build)
+    monkeypatch.setattr(command, "refresh_canonical_card_market_prices_for_set", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(command, "upsert_rows", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(command, "upsert_row", lambda *_args, **_kwargs: None)
 

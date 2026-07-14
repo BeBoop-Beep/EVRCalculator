@@ -627,6 +627,7 @@ def _build_market_context(
     *,
     client: Any = None,
     include_legacy: bool = True,
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     set_id = _to_optional_str(set_row.get("id")) or ""
     canonical_cards = _load_canonical_cards(set_id, sources, client=client)
@@ -636,16 +637,20 @@ def _build_market_context(
         for card in canonical_cards
         if card.get("id") is not None
     }
-    try:
-        selected_price_rows = _load_selected_canonical_price_rows(set_id, sources, client=client)
-    except Exception as exc:
-        if is_transient_data_service_error(exc):
-            raise
-        # Compatibility for old/local databases while snapshots are migrated.
-        # Production parity is only guaranteed when the canonical view exists.
-        selected_price_rows = []
-        sources["pokemon_canonical_card_market_prices_latest"] = "UNAVAILABLE"
-        warnings.append("Canonical selected card prices are unavailable; using the legacy mover path.")
+    if selected_price_rows is None:
+        try:
+            selected_price_rows = _load_selected_canonical_price_rows(set_id, sources, client=client)
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
+            # Compatibility for old/local databases while snapshots are migrated.
+            # Production parity is only guaranteed when the canonical view exists.
+            selected_price_rows = []
+            sources["pokemon_canonical_card_market_prices_latest"] = "UNAVAILABLE"
+            warnings.append("Canonical selected card prices are unavailable; using the legacy mover path.")
+    else:
+        selected_price_rows = list(selected_price_rows)
+        sources["pokemon_canonical_card_market_prices_latest"] = "COORDINATED_CONTEXT"
     selected_price_by_canonical_id = {
         str(row["canonical_card_id"]): row
         for row in selected_price_rows
@@ -1282,6 +1287,7 @@ def build_pokemon_set_card_movements_by_window_payload(
     window_days: Sequence[int] = (1, 7, 30),
     limit: int = DEFAULT_CARD_MOVERS_LIMIT,
     client: Any = None,
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Build every requested mover window from one canonical market context."""
 
@@ -1305,6 +1311,7 @@ def build_pokemon_set_card_movements_by_window_payload(
         sources,
         client=active_client,
         include_legacy=False,
+        selected_price_rows=selected_price_rows,
     )
     selected_by_card = dict(context.get("selected_price_by_canonical_id") or {})
     payloads_by_window: Dict[str, Dict[str, Any]] = {}

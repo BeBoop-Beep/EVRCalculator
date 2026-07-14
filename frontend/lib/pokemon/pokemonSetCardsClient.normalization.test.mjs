@@ -115,6 +115,46 @@ test("normalizePokemonSetCardsPagePayload normalizes cards using the same shape 
   assert.equal(pageResult.cards[0].movement30d.requestedWindowDays, 30);
 });
 
+test("a percent-only 30d delta survives normalization alongside the price", () => {
+  const result = normalizePokemonSetCardsPagePayload(
+    makeCardsPagePayload({
+      cards: [
+        makeCamelCard({
+          change30dAmount: null,
+          change30dPercent: 11.1,
+          movement30d: { currentPrice: 42.5, changeAmount: null, changePercent: 11.1 },
+        }),
+      ],
+    })
+  );
+
+  assert.equal(result.cards[0].marketPrice, 42.5);
+  assert.equal(result.cards[0].change30dAmount, null);
+  assert.equal(result.cards[0].change30dPercent, 11.1);
+  assert.equal(result.cards[0].movement30d.changeAmount, null);
+  assert.equal(result.cards[0].movement30d.changePercent, 11.1);
+});
+
+test("an amount-only 30d delta survives normalization alongside the price", () => {
+  const result = normalizePokemonSetCardsPagePayload(
+    makeCardsPagePayload({
+      cards: [
+        makeCamelCard({
+          change30dAmount: 5,
+          change30dPercent: null,
+          movement30d: { currentPrice: 42.5, changeAmount: 5, changePercent: null },
+        }),
+      ],
+    })
+  );
+
+  assert.equal(result.cards[0].marketPrice, 42.5);
+  assert.equal(result.cards[0].change30dAmount, 5);
+  assert.equal(result.cards[0].change30dPercent, null);
+  assert.equal(result.cards[0].movement30d.changeAmount, 5);
+  assert.equal(result.cards[0].movement30d.changePercent, null);
+});
+
 test("normalizePokemonSetCardsPagePayload normalizes pagination metadata", () => {
   const result = normalizePokemonSetCardsPagePayload(makeCardsPagePayload());
 

@@ -53,7 +53,7 @@ test("explicit unavailable state overrides populated movement fields", () => {
   const model = buildMarketValueChangeModel({ value: 124.05, changeAmount: 4.2, changePercent: 3.5, windowLabel: "30D", unavailable: true });
   assert.equal(model.changeText, "30D change unavailable");
   assert.equal(model.direction, "unavailable");
-  assert.match(model.accessibleText, /30D change unavailable/);
+  assert.match(model.accessibleText, /30-day change unavailable/);
 });
 
 test("uses an explicit partial-history period without claiming a full window", () => {
@@ -79,7 +79,7 @@ test("uses an explicit partial-history period without claiming a full window", (
 test("exposes separate accessible value and unavailable-change descriptions for composed layouts", () => {
   const model = buildMarketValueChangeModel({ value: 0.19, windowLabel: "30D", accessibleLabel: "Caterpie market price" });
   assert.equal(model.accessibleValueText, "Caterpie market price: $0.19.");
-  assert.equal(model.accessibleChangeText, "Caterpie market price change: 30D change unavailable.");
+  assert.equal(model.accessibleChangeText, "Caterpie market price change: 30-day change unavailable.");
 });
 
 test("declares every supported visual size variant", () => {

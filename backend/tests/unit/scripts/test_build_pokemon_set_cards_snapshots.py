@@ -65,8 +65,9 @@ def test_cards_build_stops_after_consecutive_transient_retry_exhaustion(monkeypa
         )
 
     monkeypatch.setattr(command, "refresh_canonical_card_market_prices_for_set", fail_refresh)
-    monkeypatch.setattr(command, "build_cards_snapshot_row", lambda _set_row: {})
+    monkeypatch.setattr(command, "build_coordinated_set_market_snapshot_rows", lambda _set_row, **_kwargs: ({}, {}, []))
     monkeypatch.setattr(command, "upsert_row", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(command, "upsert_rows", lambda *_args, **_kwargs: None)
 
     command.main()
 

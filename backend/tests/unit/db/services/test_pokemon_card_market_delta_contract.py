@@ -46,6 +46,109 @@ def test_inclusive_7d_and_30d_journey_together_regression():
     assert thirty["changePercent"] == -1.63
 
 
+def test_ascended_heroes_pikachu_276_uses_correct_inclusive_7d_baseline_on_every_surface():
+    canonical_card_id = "301185dd-2bde-4699-80bd-8b2a3cfd8f7f"
+    variant_id = "ascended-heroes-pikachu-276-variant"
+    condition_id = "near-mint"
+    observations = [
+        {"captured_at": "2026-07-06T23:00:00Z", "market_price": 1301.08},
+        {"captured_at": "2026-07-07T23:00:00Z", "market_price": 1237.84},
+        {"captured_at": "2026-07-13T23:00:00Z", "market_price": 1284.32},
+    ]
+    selected_price = {
+        "card_variant_id": variant_id,
+        "condition_id": condition_id,
+        "market_price": 1284.32,
+        "captured_at": "2026-07-13T23:00:00Z",
+    }
+    delta = calculate_pokemon_card_market_delta(
+        observations=observations,
+        selected_current_price=1284.32,
+        selected_variant_id=variant_id,
+        selected_condition_id=condition_id,
+        latest_market_date="2026-07-13",
+        requested_window_days=7,
+        selected_current_source_date="2026-07-13T23:00:00Z",
+    )
+
+    # The stale dashboard used 2026-07-06 and produced -$16.76.  The unchanged
+    # inclusive contract must target 2026-07-07 and produce +$46.48.
+    assert round(1284.32 - 1301.08, 2) == -16.76
+    assert delta["targetStartDate"] == "2026-07-07"
+    assert delta["startDate"] == "2026-07-07"
+    assert delta["endDate"] == "2026-07-13"
+    assert delta["currentPrice"] == 1284.32
+    assert delta["changeAmount"] == 46.48
+    assert delta["changePercent"] == 3.75
+
+    cards_movement = pokemon_snapshot_builders._movement_contract(
+        price={
+            "market_price": 1284.32,
+            "captured_at": "2026-07-13T23:00:00Z",
+            "variant_id": variant_id,
+            "condition_id": condition_id,
+        },
+        observations=[
+            {"source_date": row["captured_at"][:10], "market_price": row["market_price"]}
+            for row in observations
+        ],
+        latest_market_date="2026-07-13",
+        window_days=7,
+    )
+    mover = pokemon_set_market_service._canonical_public_card_movement(
+        canonical_card={"id": canonical_card_id, "set_id": "ascended-heroes", "name": "Pikachu ex"},
+        selected_price=selected_price,
+        delta=delta,
+    )
+    top_cards, diagnostics = pokemon_snapshot_builders._enrich_top_chase_cards_with_canonical_deltas(
+        [{"cardId": canonical_card_id, "cardVariantId": variant_id, "name": "Pikachu ex"}],
+        histories={
+            variant_id: [
+                {"date": row["captured_at"][:10], "marketPrice": row["market_price"]}
+                for row in observations
+            ]
+        },
+        canonical_context={
+            "display_key_to_canonical_id": {variant_id: canonical_card_id},
+            "selected_price_by_canonical_id": {canonical_card_id: selected_price},
+        },
+        latest_market_date="2026-07-13",
+        movement_metadata={
+            "movementContractVersion": "pokemon_card_movement_v1",
+            "windowConvention": WINDOW_CONVENTION,
+            "movementAsOfDate": "2026-07-13",
+            "generationId": "11111111-1111-4111-8111-111111111111",
+            "builtAt": "2026-07-13T23:59:00+00:00",
+        },
+    )
+    top_movement = top_cards[0]["marketDeltaWindows"]["7D"]
+    assert diagnostics == []
+    assert set(top_cards[0]["marketDeltaWindows"]) == {"1D", "7D", "30D"}
+    assert top_cards[0]["movementMetadata"]["generationId"] == "11111111-1111-4111-8111-111111111111"
+    assert all(
+        movement["generationId"] == "11111111-1111-4111-8111-111111111111"
+        for movement in top_cards[0]["marketDeltaWindows"].values()
+    )
+    for field in (
+        "cardVariantId", "conditionId", "currentPrice", "targetStartDate",
+        "startDate", "endDate", "changeAmount", "changePercent",
+        "fullWindowCoverage", "windowConvention",
+    ):
+        assert cards_movement[field] == mover[field] == top_movement[field]
+
+    assert audit_payloads(
+        [{"id": canonical_card_id, "movement7d": cards_movement}],
+        {
+            "marketMoversByWindow": {"7D": {"all": [mover]}},
+            "topChaseCards": [{
+                "canonicalCardId": canonical_card_id,
+                "marketDeltaWindows": {"7D": top_movement},
+            }],
+        },
+        set_id="ascended-heroes",
+    ) == []
+
+
 def test_1d_uses_previous_distinct_utc_market_date():
     movement = _delta(1)
     assert movement["targetStartDate"] == "2026-07-07"

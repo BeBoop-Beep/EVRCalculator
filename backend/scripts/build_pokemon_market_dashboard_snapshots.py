@@ -17,8 +17,9 @@ from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
     DEFAULT_DASHBOARD_WINDOW,
     add_target_set_args,
-    build_market_dashboard_snapshot_rows,
+    build_coordinated_set_market_snapshot_rows,
     get_client,
+    refresh_canonical_card_market_prices_for_set,
     resolve_target_sets,
     should_commit,
     snapshot_service_client_scope,
@@ -28,7 +29,9 @@ from backend.scripts.pokemon_snapshot_builders import (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Build Pokemon set market dashboard snapshots")
+    parser = argparse.ArgumentParser(
+        description="Build coordinated Pokemon Cards and Market Dashboard snapshots"
+    )
     add_target_set_args(parser)
     parser.add_argument("--days", type=int, default=DEFAULT_DASHBOARD_DAYS, help="History days to include")
     parser.add_argument("--window", default=DEFAULT_DASHBOARD_WINDOW, help="Snapshot window key")
@@ -90,11 +93,23 @@ def main() -> None:
         try:
             def build_and_write(fresh_client):
                 with snapshot_service_client_scope(fresh_client):
-                    dashboard_row, top_chase_history_rows = build_market_dashboard_snapshot_rows(
+                    refresh_canonical_card_market_prices_for_set(
+                        fresh_client,
+                        str(set_row["id"]),
+                        commit=commit,
+                    )
+                    cards_row, dashboard_row, top_chase_history_rows = build_coordinated_set_market_snapshot_rows(
                         set_row,
                         days=args.days,
                         window=args.window,
                         client=fresh_client,
+                    )
+                    upsert_row(
+                        fresh_client,
+                        "pokemon_set_cards_snapshot_latest",
+                        cards_row,
+                        on_conflict="set_id",
+                        commit=commit,
                     )
                     upsert_rows(
                         fresh_client,

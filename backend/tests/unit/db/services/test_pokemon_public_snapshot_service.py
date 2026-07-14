@@ -1,7 +1,7 @@
 import pytest
 from postgrest.exceptions import APIError
 
-from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service
+from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service, public_read_retry
 
 
 class _Result:
@@ -66,6 +66,13 @@ class _Client:
 
     def table(self, table_name):
         return _Query(table_name, self.handlers)
+
+
+@pytest.fixture(autouse=True)
+def reset_public_read_circuit():
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+    yield
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
 
 
 def _daily_top_chase_rows(count, *, start_date="2025-06-25", variant_id="variant-1", start_price=10.0):
@@ -1038,7 +1045,10 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
                                 "is_opening_set": True,
                             }
                         ],
-                        "meta": {"warnings": ["existing warning"]},
+                        "meta": {
+                            "warnings": ["existing warning"],
+                            "snapshot": {"fallbackReason": "older_failure"},
+                        },
                     },
                     "default_target_json": {"target_id": "set-1", "target_type": "set"},
                 }
@@ -1046,6 +1056,11 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
         }
     )
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: (_ for _ in ()).throw(AssertionError("fresh client should not be created")),
+    )
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "_enrich_rankings_payload_with_checklist_set_values",
@@ -1068,6 +1083,60 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
     )
     assert payload["meta"]["sources"]["checklist_set_value_enrichment"] == "FAILED_OPTIONAL"
     assert payload["meta"]["snapshot"]["source"] == "pokemon_explore_rankings_snapshot_latest"
+    assert payload["meta"]["snapshot"]["isStaleFallback"] is False
+    assert "fallbackReason" not in payload["meta"]["snapshot"]
+
+
+def test_rankings_snapshot_retries_with_fresh_client_and_returns_normal_data(monkeypatch):
+    def fail(_query):
+        raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+
+    initial_client = _Client({"pokemon_explore_rankings_snapshot_latest": fail})
+    fresh_client = _Client(
+        {
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [
+                {
+                    "updated_at": "2026-07-13T00:00:00Z",
+                    "ranking_payload_json": {
+                        "targets": [
+                            {
+                                "id": "set-1",
+                                "target_id": "set-1",
+                                "target_type": "set",
+                                "is_opening_set": True,
+                            }
+                        ],
+                        "meta": {
+                            "snapshot": {
+                                "isStaleFallback": True,
+                                "fallbackReason": "older_failure",
+                            }
+                        },
+                    },
+                    "default_target_json": {"target_id": "set-1", "target_type": "set"},
+                }
+            ]
+        }
+    )
+    factories = []
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", initial_client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: factories.append(fresh_client) or fresh_client,
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_enrich_rankings_payload_with_checklist_set_values",
+        lambda payload: payload,
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert payload["targets"][0]["id"] == "set-1"
+    assert payload["meta"]["snapshot"]["isStaleFallback"] is False
+    assert "fallbackReason" not in payload["meta"]["snapshot"]
+    assert factories == [fresh_client]
 
 
 def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeypatch):
@@ -1081,6 +1150,11 @@ def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeyp
         "public_read_client",
         _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
     )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
+    )
 
     with pytest.raises(pokemon_public_snapshot_service.ExploreRipStatisticsTargetsError) as raised:
         pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
@@ -1092,9 +1166,10 @@ def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeyp
 
 def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(monkeypatch):
     pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
-    state = {"fail": False}
+    state = {"fail": False, "calls": 0}
 
     def rows(_query):
+        state["calls"] += 1
         if state["fail"]:
             raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
         return [{
@@ -1113,6 +1188,11 @@ def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(m
     )
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: _Client({"pokemon_explore_rankings_snapshot_latest": rows}),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
         "_enrich_rankings_payload_with_checklist_set_values",
         lambda payload: payload,
     )
@@ -1124,6 +1204,34 @@ def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(m
     assert fallback["targets"] == fresh["targets"]
     assert fallback["meta"]["snapshot"]["isStaleFallback"] is True
     assert fallback["meta"]["snapshot"]["fallbackReason"] == "transient_data_service_failure"
+    assert state["calls"] == 3
+    authoritative = pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS[10]
+    assert authoritative["meta"]["snapshot"]["isStaleFallback"] is False
+    assert "fallbackReason" not in authoritative["meta"]["snapshot"]
+
+
+def test_rankings_snapshot_non_transient_failure_remains_500(monkeypatch):
+    def fail(_query):
+        raise APIError({"message": "missing column", "code": "42703", "hint": None, "details": None})
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
+    )
+    factories = []
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: factories.append(object()) or object(),
+    )
+
+    with pytest.raises(pokemon_public_snapshot_service.ExploreRipStatisticsTargetsError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert raised.value.status_code == 500
+    assert raised.value.code == "RIP_STATISTICS_TARGETS_SNAPSHOT_FAILED"
+    assert factories == []
 
 
 def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(monkeypatch):
@@ -4811,3 +4919,49 @@ def test_insights_payload_selectors_can_derive_rip_breakdown_drivers_and_trend_i
     # Decision Signals (Overview tab) ultimately reads its pillar rows from
     # the same RIP breakdown inputs above, via ripScoreBreakdown.rows — no
     # additional payload fields are required beyond `summary`.
+# Movement generation diagnostics -------------------------------------------------
+
+
+def test_movement_generation_metadata_reports_matching_cards_and_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_read_peer_movement_snapshot_meta",
+        lambda _set_id, *, surface: (
+            {
+                "generationId": "11111111-1111-4111-8111-111111111111",
+                "movementContractVersion": "pokemon_card_movement_v1",
+            },
+            True,
+        ),
+    )
+
+    result = pokemon_public_snapshot_service._movement_generation_metadata(
+        _TEST_UUID,
+        cards_snapshot={
+            "generationId": "11111111-1111-4111-8111-111111111111",
+            "movementContractVersion": "pokemon_card_movement_v1",
+        },
+    )
+
+    assert result["matches"] is True
+    assert result["status"] == "match"
+    assert result["cardsGenerationId"] == result["marketDashboardGenerationId"]
+
+
+def test_movement_generation_metadata_flags_new_cards_with_legacy_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_read_peer_movement_snapshot_meta",
+        lambda _set_id, *, surface: ({}, True),
+    )
+
+    result = pokemon_public_snapshot_service._movement_generation_metadata(
+        _TEST_UUID,
+        cards_snapshot={
+            "generationId": "11111111-1111-4111-8111-111111111111",
+            "movementContractVersion": "pokemon_card_movement_v1",
+        },
+    )
+
+    assert result["matches"] is False
+    assert result["status"] == "mixed_generation_and_legacy"
