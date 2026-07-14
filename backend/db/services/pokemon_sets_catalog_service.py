@@ -6,7 +6,9 @@ import time
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import create_public_read_client, public_read_client
+from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.db.services.public_read_retry import run_public_read_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +16,19 @@ TCG_NAME_CANDIDATES = ("Pokemon", "Pok\u00e9mon")
 
 
 class PokemonSetsCatalogError(Exception):
-    def __init__(self, status_code: int, message: str, code: str) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        message: str,
+        code: str,
+        *,
+        retry_after_seconds: Optional[int] = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.message = message
         self.code = code
+        self.retry_after_seconds = retry_after_seconds
 
 
 def _to_optional_str(value: Any) -> Optional[str]:
@@ -44,11 +54,12 @@ def _slugify(value: str) -> str:
     return lowered.strip("-")
 
 
-def _resolve_pokemon_tcg_id() -> Optional[str]:
+def _resolve_pokemon_tcg_id(client: Any) -> Optional[str]:
+    lookup_failed = False
     for candidate in TCG_NAME_CANDIDATES:
         try:
             result = (
-                public_read_client.table("tcgs")
+                client.table("tcgs")
                 .select("id,name")
                 .eq("name", candidate)
                 .limit(1)
@@ -61,10 +72,13 @@ def _resolve_pokemon_tcg_id() -> Optional[str]:
                     return resolved
         except Exception as exc:
             logger.warning("[pokemon-sets-catalog] tcg lookup failed for candidate=%s error=%s", candidate, exc)
+            if is_transient_data_service_error(exc):
+                raise
+            lookup_failed = True
 
     try:
         fallback_result = (
-            public_read_client.table("tcgs")
+            client.table("tcgs")
             .select("id,name")
             .ilike("name", "pokemon")
             .limit(1)
@@ -75,6 +89,16 @@ def _resolve_pokemon_tcg_id() -> Optional[str]:
             return _to_optional_str(fallback_rows[0].get("id"))
     except Exception as exc:
         logger.warning("[pokemon-sets-catalog] tcg fallback lookup failed error=%s", exc)
+        if is_transient_data_service_error(exc):
+            raise
+        lookup_failed = True
+
+    if lookup_failed:
+        raise PokemonSetsCatalogError(
+            status_code=500,
+            message="Failed to resolve Pokemon TCG",
+            code="POKEMON_TCG_LOOKUP_FAILED",
+        )
 
     return None
 
@@ -118,13 +142,46 @@ def _load_canonical_card_counts(set_ids: List[str]) -> Dict[str, int]:
     return dict(counts)
 
 
+def _load_primary_sets(client: Any, tcg_id: str) -> List[Dict[str, Any]]:
+    result = (
+        client.table("sets")
+        .select("*")
+        .eq("tcg_id", tcg_id)
+        .order("release_date", desc=True)
+        .order("name")
+        .execute()
+    )
+    return list(result.data or [])
+
+
 def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
     total_started = time.perf_counter()
     warnings: List[str] = []
     sources: Dict[str, str] = {}
 
     tcg_id_started = time.perf_counter()
-    tcg_id = _resolve_pokemon_tcg_id()
+    try:
+        tcg_id = run_public_read_with_retry(
+            _resolve_pokemon_tcg_id,
+            operation_name="pokemon_sets_catalog_tcg_lookup",
+            initial_client=public_read_client,
+            client_factory=create_public_read_client,
+        )
+    except PokemonSetsCatalogError:
+        raise
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise PokemonSetsCatalogError(
+                status_code=503,
+                message="Pokemon catalog is temporarily unavailable",
+                code="POKEMON_CATALOG_TEMPORARILY_UNAVAILABLE",
+                retry_after_seconds=30,
+            ) from exc
+        raise PokemonSetsCatalogError(
+            status_code=500,
+            message="Failed to resolve Pokemon TCG",
+            code="POKEMON_TCG_LOOKUP_FAILED",
+        ) from exc
     tcg_id_ms = (time.perf_counter() - tcg_id_started) * 1000
 
     if not tcg_id:
@@ -136,18 +193,22 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
 
     sets_started = time.perf_counter()
     try:
-        sets_result = (
-            public_read_client.table("sets")
-            .select("*")
-            .eq("tcg_id", tcg_id)
-            .order("release_date", desc=True)
-            .order("name")
-            .execute()
+        raw_sets = run_public_read_with_retry(
+            lambda client: _load_primary_sets(client, tcg_id),
+            operation_name="pokemon_sets_catalog_primary_sets",
+            initial_client=public_read_client,
+            client_factory=create_public_read_client,
         )
-        raw_sets = list(sets_result.data or [])
         sources["sets"] = "OK"
-    except Exception:
+    except Exception as exc:
         logger.exception("[pokemon-sets-catalog] sets query failed tcg_id=%s", tcg_id)
+        if is_transient_data_service_error(exc):
+            raise PokemonSetsCatalogError(
+                status_code=503,
+                message="Pokemon catalog is temporarily unavailable",
+                code="POKEMON_CATALOG_TEMPORARILY_UNAVAILABLE",
+                retry_after_seconds=30,
+            ) from exc
         raise PokemonSetsCatalogError(
             status_code=500,
             message="Failed to load Pokemon sets",

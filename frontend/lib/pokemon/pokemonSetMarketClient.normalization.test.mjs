@@ -417,6 +417,8 @@ test("normalizeMarketMoversPayload normalizes a single-window /market/movers pay
   assert.equal(result.windowDays, 7);
   assert.equal(result.heatingUp.length, 1);
   assert.equal(result.heatingUp[0].name, "7D Gainer");
+  assert.equal(result.heatingUp[0].change7dPercent, 11.1);
+  assert.equal(result.heatingUp[0].changePercent, 11.1);
   assert.equal(result.coolingOff.length, 0);
 });
 
@@ -475,8 +477,10 @@ test("normalizeMarketMoversPayload synthesizes `all` from heatingUp/coolingOff w
 function stubFetchJson(responseFactory) {
   const originalFetch = globalThis.fetch;
   let callCount = 0;
+  const urls = [];
   globalThis.fetch = async (...args) => {
     callCount += 1;
+    urls.push(String(args[0]));
     const body = responseFactory(callCount, ...args);
     return {
       ok: true,
@@ -486,6 +490,7 @@ function stubFetchJson(responseFactory) {
   };
   return {
     getCallCount: () => callCount,
+    getUrls: () => [...urls],
     restore: () => {
       globalThis.fetch = originalFetch;
     },
@@ -501,6 +506,7 @@ test("getPokemonSetMarketMovers joins concurrent identical calls into a single f
     ]);
     assert.equal(stub.getCallCount(), 1, "two concurrent identical calls must issue exactly one network fetch");
     assert.deepEqual(first, second);
+    assert.match(stub.getUrls()[0], /snapshot_contract=pricing-v4/);
 
     await getPokemonSetMarketMovers("set-dedupe-1", { window: "30D", limit: 5 });
     assert.equal(stub.getCallCount(), 2, "a call after the first resolves must fetch again, not reuse a stale in-flight entry");
@@ -544,6 +550,7 @@ test("getPokemonSetTopChase joins concurrent identical calls into a single fetch
       getPokemonSetTopChase("set-dedupe-topchase", { window: "30D", limit: 10 }),
     ]);
     assert.equal(stub.getCallCount(), 1, "two concurrent identical top-chase calls must issue exactly one network fetch");
+    assert.match(stub.getUrls()[0], /snapshot_contract=pricing-v4/);
   } finally {
     stub.restore();
   }
@@ -563,4 +570,41 @@ test("getPokemonSetValueHistory joins concurrent identical calls but keeps disti
   } finally {
     stub.restore();
   }
+});
+
+test("normalizeTopChasePayload only marks history fallback as allowed for explicit legacy snapshots", () => {
+  const result = normalizeTopChasePayload(makeTopChasePayload({
+    meta: {
+      snapshot: {
+        isLegacyMovementSnapshot: true,
+        allowsLegacyHistoryFallback: true,
+      },
+      movementGeneration: {
+        cardsGenerationId: null,
+        marketDashboardGenerationId: null,
+        matches: null,
+        status: "legacy",
+      },
+    },
+  }));
+
+  assert.equal(result.cards[0].movementSnapshotLegacy, true);
+  assert.equal(result.cards[0].allowLegacyMovementHistoryFallback, true);
+  assert.equal(result.cards[0].movementGeneration.status, "legacy");
+});
+
+test("set value and overview requests carry the scoped cache contract version", async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return { ok: true, status: 200, json: async () => ({ set: { id: "set-cache" }, history: [], meta: {} }) };
+  };
+  try {
+    await getPokemonSetValueHistory("set-cache", { days: 365, scope: "hits" });
+    await getPokemonSetOverview("set-cache", { window: "365d" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.ok(urls.every((url) => url.includes("snapshot_contract=set-value-v2")));
 });

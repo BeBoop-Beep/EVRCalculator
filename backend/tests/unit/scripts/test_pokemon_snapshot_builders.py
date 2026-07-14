@@ -1,4 +1,21 @@
 from backend.scripts import pokemon_snapshot_builders
+from backend.scripts.set_value_scope_invariants import SetValueScopeInvariantError
+import pytest
+
+
+def _empty_movement_windows_payload():
+    empty = {key: {} for key in ("1D", "7D", "30D")}
+    return {
+        "marketMoversByWindow": empty,
+        "market_movers_by_window": dict(empty),
+        "meta": {
+            "observationQueryCount": 1,
+            "observationRowsLoaded": 0,
+            "selectedVariantCount": 0,
+            "observationPageCount": 1,
+            "windowsCalculated": 3,
+        },
+    }
 
 
 class _Result:
@@ -16,6 +33,7 @@ class _Query:
         self.lte_filters = []
         self.gt_filters = []
         self.lt_filters = []
+        self.range_filter = None
 
     def select(self, _fields):
         return self
@@ -50,6 +68,10 @@ class _Query:
     def limit(self, _value):
         return self
 
+    def range(self, start, end):
+        self.range_filter = (start, end)
+        return self
+
     def execute(self):
         return _Result(self.handlers[self.table_name](self))
 
@@ -60,6 +82,95 @@ class _Client:
 
     def table(self, table_name):
         return _Query(table_name, self.handlers)
+
+
+class _RpcCall:
+    def __init__(self, data):
+        self.data = data
+
+    def execute(self):
+        return _Result(self.data)
+
+
+def _stub_market_dashboard_dependencies(monkeypatch, histories_by_scope):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": histories_by_scope[value_scope],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "_load_simulation_performance_history", lambda *_args: [])
+
+
+def test_market_dashboard_builder_rejects_corrupt_subset_history(monkeypatch):
+    histories = {
+        "standard": [{"date": "2026-06-16", "setValue": 1097.57}],
+        "hits": [{"date": "2026-06-16", "setValue": 118137.48}],
+        "top10": [{"date": "2026-06-16", "setValue": 941.79}],
+    }
+    _stub_market_dashboard_dependencies(monkeypatch, histories)
+
+    with pytest.raises(SetValueScopeInvariantError) as exc_info:
+        pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+            {"id": "chaos", "name": "Chaos Rising"},
+            client=_Client({"card_variant_price_observations": lambda _query: []}),
+        )
+
+    assert exc_info.value.details["scope"] == "hits"
+    assert exc_info.value.details["date"] == "2026-06-16"
+
+
+def test_market_dashboard_builder_emits_repaired_hits_in_all_history_contracts(monkeypatch):
+    histories = {
+        "standard": [{"date": "2026-06-16", "setValue": 1097.57}],
+        "hits": [{"date": "2026-06-16", "setValue": 968.34}],
+        "top10": [{"date": "2026-06-16", "setValue": 941.79}],
+    }
+    _stub_market_dashboard_dependencies(monkeypatch, histories)
+
+    dashboard_row, _ = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "chaos", "name": "Chaos Rising"},
+        client=_Client({"card_variant_price_observations": lambda _query: []}),
+    )
+
+    assert dashboard_row["set_value_histories_json"]["hits"][0]["setValue"] == 968.34
+    assert dashboard_row["payload_json"]["setValueHistoriesByScope"]["hits"][0]["setValue"] == 968.34
+    assert dashboard_row["payload_json"]["set_value_histories_by_scope"]["hits"][0]["setValue"] == 968.34
+
+
+def test_refresh_canonical_card_market_prices_for_set_calls_authoritative_rpc():
+    calls = []
+
+    class _RpcClient:
+        def rpc(self, name, params):
+            calls.append((name, params))
+            return _RpcCall(124)
+
+    refreshed = pokemon_snapshot_builders.refresh_canonical_card_market_prices_for_set(
+        _RpcClient(),
+        "set-1",
+        commit=True,
+    )
+
+    assert refreshed == 124
+    assert calls == [
+        (
+            "refresh_pokemon_canonical_card_market_prices_latest_for_set",
+            {"target_set_id": "set-1"},
+        )
+    ]
 
 
 def _daily_top_chase_rows(count, *, start_date="2025-06-03", variant_id="variant-1", start_price=10.0):
@@ -104,8 +215,8 @@ def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypat
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"movements": [], "meta": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: {"movements": [], "meta": {}},
     )
 
     def _enrich_with_validation(payload, **_kwargs):
@@ -136,14 +247,38 @@ def test_build_cards_snapshot_row_includes_precomputed_card_validation(monkeypat
         }
 
     monkeypatch.setattr(pokemon_snapshot_builders, "enrich_cards_payload_with_desirability", _enrich_with_validation)
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "_build_card_appeal_price_index_for_set",
+        lambda **_kwargs: {},
+    )
 
-    row = pokemon_snapshot_builders.build_cards_snapshot_row({"id": "set-1"})
+    row = pokemon_snapshot_builders.build_cards_snapshot_row(
+        {"id": "set-1"},
+        client=object(),
+        generation_id="11111111-1111-4111-8111-111111111111",
+        built_at="2026-07-13T23:59:00+00:00",
+    )
 
     validation_rows = row["payload_json"]["cardDesirabilityValidation"]["cards"]
     assert row["card_count"] == 1
     assert validation_rows[0]["pokemonDesirabilityScore"] == 92.0
     assert validation_rows[0]["adjustedCardAppealScore"] == 93.0
     assert row["payload_json"]["cards"][0]["adjustedCardAppealScore"] == 93.0
+    snapshot_meta = row["payload_json"]["meta"]["snapshot"]
+    assert snapshot_meta == {
+        "type": "pokemon_set_cards",
+        "builtAt": "2026-07-13T23:59:00+00:00",
+        "source": "pokemon_snapshot_builders",
+        "movementContractVersion": "pokemon_card_movement_v1",
+        "windowConvention": "inclusive_calendar_dates_v1",
+        "movementAsOfDate": None,
+        # Canonical shared-contract alias of movementAsOfDate — one market
+        # as-of date for every surface served from this generation.
+        "marketAsOfDate": None,
+        "generationId": "11111111-1111-4111-8111-111111111111",
+    }
+    assert row["cards_json"][0]["movementMetadata"]["generationId"] == snapshot_meta["generationId"]
 
 
 def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_correlation(monkeypatch):
@@ -178,9 +313,13 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
     ]
     latest_price_rows = [
         {
-            "variant_id": f"variant-{index}",
+            "canonical_card_id": f"card-{index}",
+            "card_variant_id": f"variant-{index}",
             "condition_id": "condition-nm",
             "market_price": 1.0 + index,
+            "captured_at": "2026-07-12",
+            "source": "tcgplayer",
+            "price_selection_reason": "selected_near_mint",
         }
         for index in range(1, 259)
     ]
@@ -212,18 +351,16 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id: {"movements": [], "meta": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: {"movements": [], "meta": {}},
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_client",
         lambda: _Client(
             {
-                "cards": lambda _query: legacy_cards,
-                "card_variants": lambda _query: variant_rows,
-                "conditions": lambda _query: [{"id": "condition-nm", "name": "Near Mint"}],
-                "card_market_usd_latest_by_condition": lambda _query: latest_price_rows,
+                "pokemon_canonical_card_market_prices_latest": lambda _query: latest_price_rows,
+                "card_variant_price_observations": lambda _query: [],
             }
         ),
     )
@@ -262,6 +399,257 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
     assert correlation["metricDiagnostics"]["treatmentScore"]["includedCount"] == 258
 
 
+def test_query_paginated_rows_reads_past_supabase_1000_row_cap():
+    source_rows = [{"id": index} for index in range(2505)]
+
+    def _handler(query):
+        start, end = query.range_filter
+        return source_rows[start : end + 1]
+
+    rows = pokemon_snapshot_builders._query_paginated_rows(
+        _Client({"observations": _handler}),
+        "observations",
+        lambda query: query.select("id").order("id"),
+    )
+
+    assert len(rows) == 2505
+    assert rows[0]["id"] == 0
+    assert rows[-1]["id"] == 2504
+
+
+def test_authoritative_card_enrichment_keeps_all_cards_and_uses_boundary_carry_forward():
+    payload = {
+        "cards": [{"id": "card-1"}, {"id": "card-2"}, {"id": "card-unpriced"}],
+        "meta": {},
+    }
+    prices = {
+        "card-1": {
+            "market_price": 12.0,
+            "variant_id": "variant-1",
+            "condition_id": "condition-nm",
+            "captured_at": "2026-07-12",
+            "source": "tcgplayer",
+            "price_selection_reason": "selected_near_mint",
+        },
+        "card-2": {
+            "market_price": 5.0,
+            "variant_id": "variant-2",
+            "condition_id": "condition-nm",
+            "captured_at": "2026-07-11",
+            "source": "tcgplayer",
+            "price_selection_reason": "selected_near_mint",
+        },
+    }
+    observations = [
+        {"card_variant_id": "variant-1", "condition_id": "condition-nm", "market_price": 10.0, "captured_at": "2026-07-05", "source": "tcgplayer"},
+        {"card_variant_id": "variant-1", "condition_id": "condition-nm", "market_price": 12.0, "captured_at": "2026-07-12", "source": "tcgplayer"},
+        {"card_variant_id": "variant-2", "condition_id": "condition-nm", "market_price": 4.0, "captured_at": "2026-07-04", "source": "tcgplayer"},
+        {"card_variant_id": "variant-2", "condition_id": "condition-nm", "market_price": 5.0, "captured_at": "2026-07-11", "source": "tcgplayer"},
+    ]
+    client = _Client({"card_variant_price_observations": lambda _query: observations})
+
+    enriched = pokemon_snapshot_builders._enrich_cards_with_authoritative_prices_and_movements(
+        payload,
+        set_id="set-1",
+        prices_by_card=prices,
+        client=client,
+    )
+
+    assert len(enriched["cards"]) == 3
+    first, carried, unavailable = enriched["cards"]
+    assert first["marketPrice"] == 12.0
+    assert first["movement7d"]["startDate"] == "2026-07-05"
+    assert first["movement7d"]["endDate"] == "2026-07-12"
+    assert first["movement7d"]["startingPrice"] == 10.0
+    assert first["change7dAmount"] == 2.0
+    assert first["change7dPercent"] == 20.0
+    assert first["movement30d"]["isPartialWindow"] is True
+    assert first["movement30d"]["fullWindowCoverage"] is False
+    assert first["movement30d"]["windowCoverageDays"] == 7
+    assert first["movement30d"]["requestedWindowDays"] == 30
+    assert first["movement30d"]["reliability"] == "partial_window"
+    assert first["movement_30d"]["is_partial_window"] is True
+    assert first["movement_30d"]["window_coverage_days"] == 7
+    assert carried["marketPrice"] == 5.0
+    assert carried["priceSourceDate"] == "2026-07-11"
+    assert carried["priceCarriedForward"] is True
+    assert carried["movement7d"]["endDate"] == "2026-07-12"
+    assert carried["movement7d"]["endSourceDate"] == "2026-07-11"
+    assert unavailable.get("marketPrice") is None
+
+
+def test_movement_contract_prefers_full_boundary_then_falls_back_to_partial_history():
+    price = {"market_price": 12.0, "captured_at": "2026-07-12", "source": "tcgplayer"}
+    full = pokemon_snapshot_builders._movement_contract(
+        price=price,
+        observations=[
+            {"market_price": 10.0, "source_date": "2026-06-10", "source": "tcgplayer"},
+            {"market_price": 11.0, "source_date": "2026-06-25", "source": "tcgplayer"},
+            {"market_price": 12.0, "source_date": "2026-07-12", "source": "tcgplayer"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+    partial = pokemon_snapshot_builders._movement_contract(
+        price=price,
+        observations=[
+            {"market_price": 11.0, "source_date": "2026-06-25", "source": "tcgplayer"},
+            {"market_price": 12.0, "source_date": "2026-07-12", "source": "tcgplayer"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert full["startingPrice"] == 10.0
+    assert full["fullWindowCoverage"] is True
+    assert full["isPartialWindow"] is False
+    assert full["reliability"] == "reliable"
+    assert partial["startingPrice"] == 11.0
+    assert partial["changeAmount"] == 1.0
+    assert partial["changePercent"] == 9.09
+    assert partial["fullWindowCoverage"] is False
+    assert partial["isPartialWindow"] is True
+    assert partial["windowCoverageDays"] == 17
+    assert partial["requestedWindowDays"] == 30
+    assert partial["enoughHistory"] is False
+    assert partial["reliable"] is False
+    assert partial["reliability"] == "partial_window"
+
+
+def test_movement_contract_reliability_reasons_are_specific():
+    guardrailed = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 10.1, "captured_at": "2026-07-12"},
+        observations=[
+            {"market_price": 10.0, "source_date": "2026-06-12"},
+            {"market_price": 10.1, "source_date": "2026-07-12"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+    insufficient = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 10.0, "captured_at": "2026-07-12"},
+        observations=[
+            {"market_price": 8.0, "source_date": "2026-07-01"},
+            {"market_price": 10.0, "source_date": "2026-07-12"},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=7,
+    )
+    unavailable = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": None, "captured_at": "2026-07-12"},
+        observations=[],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert guardrailed["reliability"] == "guardrailed"
+    assert guardrailed["changeAmount"] == 0.1
+    assert guardrailed["changePercent"] == 1.0
+    assert guardrailed["reliable"] is False
+    assert insufficient["reliability"] == "insufficient_history"
+    assert unavailable["reliability"] == "unavailable"
+
+
+def test_movement_contract_does_not_invent_delta_from_one_observation():
+    movement = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 10.0, "captured_at": "2026-07-12"},
+        observations=[{"market_price": 10.0, "source_date": "2026-07-12"}],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert movement["changeAmount"] is None
+    assert movement["changePercent"] is None
+    assert movement["isPartialWindow"] is False
+    assert movement["reliable"] is False
+    assert movement["reliability"] == "unavailable"
+
+
+@pytest.mark.parametrize("set_key", ["journeyTogether", "chaosRising"])
+def test_recent_set_partial_history_fixture_produces_display_delta(set_key):
+    movement = pokemon_snapshot_builders._movement_contract(
+        price={"market_price": 12.0, "captured_at": "2026-07-12", "source": set_key},
+        observations=[
+            {"market_price": 9.0, "source_date": "2026-06-27", "source": set_key},
+            {"market_price": 12.0, "source_date": "2026-07-12", "source": set_key},
+        ],
+        latest_market_date="2026-07-12",
+        window_days=30,
+    )
+
+    assert movement["changeAmount"] == 3.0
+    assert movement["changePercent"] == 33.33
+    assert movement["windowCoverageDays"] == 15
+    assert movement["isPartialWindow"] is True
+    assert movement["reliable"] is False
+
+
+def test_pricing_contract_diagnostics_are_computed_from_final_cards():
+    payload = pokemon_snapshot_builders._with_cards_pricing_contract_diagnostics(
+        {
+            "cards": [
+                {
+                    "marketPrice": 12.0,
+                    "change7dAmount": 1.0,
+                    "change30dAmount": 2.0,
+                    "movement7d": {"fullWindowCoverage": True},
+                    "movement30d": {"isPartialWindow": True},
+                },
+                {"marketPrice": 8.0, "movement7d": {}, "movement30d": {}},
+                {"marketPrice": None},
+            ],
+            "meta": {"pricingContract": {"source": "test"}},
+        }
+    )
+    contract = payload["meta"]["pricingContract"]
+    assert contract == {
+        "source": "test",
+        "canonicalCardCount": 3,
+        "pricedCardCount": 2,
+        "cardsWith7dDelta": 1,
+        "cardsWith30dDelta": 1,
+        "cardsWithFull7dCoverage": 1,
+        "cardsWithFull30dCoverage": 0,
+        "cardsWithPartial7dDelta": 0,
+        "cardsWithPartial30dDelta": 1,
+        "cardsMissingUsableHistory": 1,
+    }
+
+
+def test_forward_fill_top_chase_history_is_idempotent_and_preserves_source_date():
+    history = [
+        {"date": "2026-07-10", "marketPrice": 20.0, "sourceDate": "2026-07-10"},
+        {"date": "2026-07-11", "marketPrice": 22.0, "sourceDate": "2026-07-11"},
+    ]
+    first = pokemon_snapshot_builders._forward_fill_history_through_date(history, end_date_key="2026-07-12")
+    second = pokemon_snapshot_builders._forward_fill_history_through_date(first, end_date_key="2026-07-12")
+
+    assert first == second
+    assert [point["date"] for point in first] == ["2026-07-10", "2026-07-11", "2026-07-12"]
+    assert first[-1]["marketPrice"] == 22.0
+    assert first[-1]["sourceDate"] == "2026-07-11"
+    assert first[-1]["isCarriedForward"] is True
+
+
+def test_top_chase_movement_history_uses_raw_45_day_context_and_excludes_carries():
+    histories = {
+        "variant-1": [
+            {"date": "2026-05-20", "marketPrice": 5.0, "isObserved": True},
+            {"date": "2026-06-01", "marketPrice": 10.0, "isObserved": True},
+            {"date": "2026-06-15", "marketPrice": 10.0, "isObserved": False, "isCarriedForward": True},
+            {"date": "2026-07-13", "marketPrice": 12.0, "isObserved": True},
+            {"date": "2026-07-15", "marketPrice": 99.0, "isObserved": True},
+        ]
+    }
+
+    result = pokemon_snapshot_builders._top_chase_raw_movement_histories(
+        histories,
+        latest_market_date="2026-07-14",
+    )
+
+    assert [point["date"] for point in result["variant-1"]] == ["2026-06-01", "2026-07-13"]
+
+
 def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(monkeypatch):
     history = [
         {"date": "2026-06-01", "marketPrice": 10.0, "sourceDate": "2026-06-01", "isCarriedForward": False},
@@ -297,8 +685,8 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     dashboard_row, history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -312,20 +700,28 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     card = payload["topChaseCards"][0]
     histories = payload["topChaseCardHistories"]
     expected_history = [
-        {
-            "date": "2026-06-01",
+            {
+                "date": "2026-06-01",
             "marketPrice": 10.0,
             "market_price": 10.0,
-            "sourceDate": "2026-06-01",
-            "source_date": "2026-06-01",
-        },
+                "sourceDate": "2026-06-01",
+                "source_date": "2026-06-01",
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
         {
             "date": "2026-06-02",
             "marketPrice": 12.0,
             "market_price": 12.0,
-            "sourceDate": "2026-06-02",
-            "source_date": "2026-06-02",
-        },
+                "sourceDate": "2026-06-02",
+                "source_date": "2026-06-02",
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
     ]
 
     assert "priceHistory" in card
@@ -337,6 +733,18 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     assert payload["meta"]["topChaseHistoryMinPoints"] == 2
     assert payload["meta"]["topChaseHistoryMaxPoints"] == 2
     assert payload["meta"]["topChaseHistoryHydratedFromDailyTable"] is False
+    assert payload["meta"]["topChaseCardCount"] == 1
+    assert payload["meta"]["topChaseMovementCountByWindow"] == {"1D": 0, "7D": 0, "30D": 0}
+    assert payload["meta"]["topChaseMissingCanonicalIdentityCount"] == 1
+    assert payload["meta"]["topChaseMissingSelectedVariantCount"] == 0
+    assert payload["meta"]["topChasePartialCardCount"] == 0
+    assert payload["meta"]["topChaseCardsWith1dMovement"] == 0
+    assert payload["meta"]["topChaseCardsWith7dMovement"] == 0
+    assert payload["meta"]["topChaseCardsWith30dMovement"] == 0
+    assert payload["meta"]["topChaseCardsMissingCanonicalIdentity"] == 1
+    assert payload["meta"]["topChaseCardsMissingSelectedVariant"] == 0
+    assert payload["meta"]["topChaseCardsUsingPartialWindow"] == 0
+    assert any("priced cards but no usable" in warning for warning in payload["meta"]["warnings"])
     assert history_rows[0]["card_variant_id"] == "variant-1"
     assert history_rows[0]["market_price"] == 10.0
 
@@ -359,30 +767,45 @@ def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(
 
     movement_calls = []
 
-    def fake_movement_payload(*, set_id, window_days=30, limit=5):
-        movement_calls.append(window_days)
-        return {
-            "marketMovers": {
-                "window": f"{window_days}D",
-                "windowDays": window_days,
-                "heatingUp": [{"cardId": f"card-{window_days}"}],
-                "heating_up": [{"cardId": f"card-{window_days}"}],
+    def fake_movement_payload(*, set_id, window_days=(1, 7, 30), limit=5, client=None, **_kwargs):
+        movement_calls.append(tuple(window_days))
+        camel = {
+            f"{days}D": {
+                "window": f"{days}D",
+                "windowDays": days,
+                "heatingUp": [{"cardId": f"card-{days}"}],
+                "heating_up": [{"cardId": f"card-{days}"}],
                 "coolingOff": [],
                 "cooling_off": [],
-                "all": [{"cardId": f"card-{window_days}"}],
-            },
-            "market_movers": {
-                "window": f"{window_days}D",
-                "window_days": window_days,
-                "heating_up": [{"cardId": f"card-{window_days}"}],
+                "all": [{"cardId": f"card-{days}"}],
+            }
+            for days in window_days
+        }
+        snake = {
+            f"{days}D": {
+                "window": f"{days}D",
+                "window_days": days,
+                "heating_up": [{"cardId": f"card-{days}"}],
                 "cooling_off": [],
-                "all": [{"cardId": f"card-{window_days}"}],
+                "all": [{"cardId": f"card-{days}"}],
+            }
+            for days in window_days
+        }
+        return {
+            "marketMoversByWindow": camel,
+            "market_movers_by_window": snake,
+            "meta": {
+                "observationQueryCount": 1,
+                "observationRowsLoaded": 5,
+                "selectedVariantCount": 5,
+                "observationPageCount": 1,
+                "windowsCalculated": 3,
             },
         }
 
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
+        "build_pokemon_set_card_movements_by_window_payload",
         fake_movement_payload,
     )
 
@@ -393,9 +816,15 @@ def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(
         client=_Client({"card_variant_price_observations": lambda _query: []}),
     )
 
-    assert sorted(movement_calls) == [1, 7, 30]
+    assert movement_calls == [(1, 7, 30)]
 
     payload = dashboard_row["payload_json"]
+    dashboard_snapshot = payload["meta"]["snapshot"]
+    assert dashboard_snapshot["movementContractVersion"] == "pokemon_card_movement_v1"
+    assert dashboard_snapshot["windowConvention"] == "inclusive_calendar_dates_v1"
+    assert dashboard_snapshot["movementAsOfDate"] == "2026-06-02"
+    assert dashboard_snapshot["generationId"]
+    assert dashboard_snapshot["builtAt"]
     by_window = payload["marketMoversByWindow"]
     by_window_snake = payload["market_movers_by_window"]
     assert set(by_window.keys()) == {"1D", "7D", "30D"}
@@ -408,6 +837,7 @@ def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(
     # Backward compatibility: marketMovers/market_movers must still be the 30D entry.
     assert payload["marketMovers"] == by_window["30D"]
     assert payload["market_movers"] == by_window_snake["30D"]
+    assert payload["meta"]["movementQueryDiagnostics"]["windowsCalculated"] == 3
 
 
 def test_build_market_dashboard_snapshot_row_hydrates_top_chase_history_from_raw_observations(monkeypatch):
@@ -442,8 +872,8 @@ def test_build_market_dashboard_snapshot_row_hydrates_top_chase_history_from_raw
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     def read_history(query):
@@ -480,18 +910,22 @@ def test_build_market_dashboard_snapshot_row_hydrates_top_chase_history_from_raw
             "market_price": 10.0,
             "sourceDate": "2026-06-01",
             "source_date": "2026-06-01",
-            "isObserved": True,
-            "is_observed": True,
-        },
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
         {
             "date": "2026-06-02",
             "marketPrice": 12.0,
             "market_price": 12.0,
             "sourceDate": "2026-06-02",
             "source_date": "2026-06-02",
-            "isObserved": True,
-            "is_observed": True,
-        },
+                "isObserved": True,
+                "is_observed": True,
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+            },
     ]
 
     payload = dashboard_row["payload_json"]
@@ -550,8 +984,8 @@ def test_build_market_dashboard_snapshot_row_uses_365d_top_chase_source_when_day
     monkeypatch.setattr(pokemon_snapshot_builders, "get_pokemon_set_top_market_cards_payload", top_payload)
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     def read_history(query):
@@ -579,8 +1013,8 @@ def test_build_market_dashboard_snapshot_row_uses_365d_top_chase_source_when_day
 def test_build_market_dashboard_snapshot_row_writes_set_value_freshness_metadata(monkeypatch):
     histories = {
         "standard": [
-            {"date": "2026-06-20", "setValue": 100.0},
-            {"date": "2026-06-24", "setValue": 104.0},
+            {"date": "2026-06-20", "setValue": 1000.0},
+            {"date": "2026-06-24", "setValue": 1040.0},
         ],
         "hits": [
             {"date": "2026-06-20", "setValue": 700.0},
@@ -610,8 +1044,8 @@ def test_build_market_dashboard_snapshot_row_writes_set_value_freshness_metadata
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -664,8 +1098,8 @@ def test_market_dashboard_snapshot_uses_corrected_local_set_value_history_date(m
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -766,7 +1200,7 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
         assert row["rip_summary_json"][key] == expected
 
     validation = row["payload_json"]["desirabilityValidation"]
-    assert validation["formula_version"] == "desirability_validation_v1"
+    assert validation["formula_version"] == "desirability_validation_v2"
     assert validation["desirability_impact_band"] in {"lift", "drag", "neutral"}
     assert row["payload_json"]["desirability_validation"] == validation
 
@@ -1092,7 +1526,7 @@ def test_build_set_page_snapshot_row_preserves_previous_card_appeal_correlation_
     assert payload["meta"]["sectionFreshness"]["cardAppealValidation"]["status"] == "stale"
 
 
-def test_build_set_page_snapshot_row_preserves_previous_desirability_validation_when_current_build_lacks_it(monkeypatch):
+def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_validation_missing(monkeypatch):
     monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1136,9 +1570,9 @@ def test_build_set_page_snapshot_row_preserves_previous_desirability_validation_
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
     payload = row["payload_json"]
 
-    assert payload["desirabilityValidation"] == validation
-    assert payload["desirability_validation"] == validation
-    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "stale"
+    assert "desirabilityValidation" not in payload
+    assert "desirability_validation" not in payload
+    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "missing"
 
 
 def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapshot(monkeypatch):
@@ -1264,7 +1698,7 @@ def _sim_history_client(*, history_rows=None, summary_rows=None):
 
 def _value_history_stub(*, histories_by_scope=None):
     histories = histories_by_scope or {
-        "standard": [{"date": "2026-06-20", "setValue": 100.0}],
+        "standard": [{"date": "2026-06-20", "setValue": 1000.0}],
         "hits": [{"date": "2026-06-20", "setValue": 700.0}],
         "top10": [{"date": "2026-06-20", "setValue": 500.0}],
     }
@@ -1303,8 +1737,8 @@ def test_build_market_dashboard_performance_history_comes_from_simulation_not_se
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -1363,8 +1797,8 @@ def test_build_market_dashboard_set_value_history_stays_in_scope_not_performance
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -1396,8 +1830,8 @@ def test_build_market_dashboard_sources_meta_identifies_simulation_history_sourc
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
-        "build_pokemon_set_card_movement_payload",
-        lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
     )
 
     dashboard_row, _history_rows = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
@@ -1455,8 +1889,8 @@ def test_build_market_dashboard_performance_history_updates_when_simulation_chan
         )
         monkeypatch.setattr(
             pokemon_snapshot_builders,
-            "build_pokemon_set_card_movement_payload",
-            lambda set_id, **_kwargs: {"marketMovers": {}, "market_movers": {}},
+            "build_pokemon_set_card_movements_by_window_payload",
+            lambda set_id, **_kwargs: _empty_movement_windows_payload(),
         )
         dashboard_row, _ = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
             {"id": "set-1"},

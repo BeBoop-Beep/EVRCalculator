@@ -120,6 +120,19 @@ def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str,
             exc,
         )
 
+    try:
+        refresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        refresh_client.rpc(
+            "refresh_pokemon_canonical_card_market_prices_latest_for_variants",
+            {"p_card_variant_ids": variant_ids},
+        ).execute()
+    except Exception as exc:
+        logger.warning(
+            "Unable to refresh canonical Pokemon selected prices for %s changed card variant price row(s): %s",
+            len(changed_rows),
+            exc,
+        )
+
 
 def _fetch_existing_same_day_observations(
     normalized_rows: List[Dict[str, Any]],

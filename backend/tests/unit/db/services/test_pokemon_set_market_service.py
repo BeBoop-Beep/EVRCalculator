@@ -3,6 +3,31 @@ import pytest
 from backend.db.services import pokemon_set_market_service
 
 
+def test_market_movers_all_ranks_signed_moves_by_absolute_percent_then_amount():
+    movements = [
+        {"canonicalCardId": "positive", "changePercent": 9.0, "changeAmount": 9.0, "moverEligible": True},
+        {"canonicalCardId": "negative-largest", "changePercent": -30.0, "changeAmount": -1.0, "moverEligible": True},
+        {"canonicalCardId": "negative-middle", "changePercent": -15.0, "changeAmount": -8.0, "moverEligible": True},
+        {"canonicalCardId": "unreliable", "changePercent": -99.0, "changeAmount": -99.0, "moverEligible": False},
+    ]
+
+    payload = pokemon_set_market_service._movement_payload_for_window(
+        context={"set": {"id": "set-1"}},
+        movements=movements,
+        window_days=7,
+        limit=5,
+        warnings=[],
+        sources={},
+        diagnostics={},
+    )
+
+    assert [row["canonicalCardId"] for row in payload["marketMovers"]["all"]] == [
+        "negative-largest",
+        "negative-middle",
+        "positive",
+    ]
+
+
 class _Result:
     def __init__(self, data):
         self.data = data
@@ -18,6 +43,7 @@ class _Query:
         self.gte_filters = []
         self.order_fields = []
         self.limit_value = None
+        self.range_value = None
 
     def select(self, fields):
         self.select_fields = fields
@@ -41,6 +67,10 @@ class _Query:
 
     def limit(self, value):
         self.limit_value = value
+        return self
+
+    def range(self, start, end):
+        self.range_value = (start, end)
         return self
 
     def execute(self):

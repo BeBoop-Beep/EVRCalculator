@@ -10,7 +10,7 @@ export const DESIRABILITY_VALIDATION_METRICS = [
   {
     key: "setValue",
     label: "Set Value",
-    summaryLabel: "Checklist Set Value",
+    summaryLabel: "Set Value",
     sampleLabel: "opening sets with value data",
     valueKeys: [],
   },

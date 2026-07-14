@@ -40,11 +40,24 @@ def _first_text(*values: Any) -> Optional[str]:
 
 
 def _read_page_snapshots(client: Any, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    query = client.table("pokemon_set_page_snapshot_latest").select("set_id,payload_json,updated_at")
-    if limit:
-        query = query.limit(limit)
-    result = query.execute()
-    return [row for row in result.data or [] if isinstance(row.get("payload_json"), dict)]
+    rows: List[Dict[str, Any]] = []
+    page_size = 20
+    offset = 0
+    while limit is None or len(rows) < limit:
+        requested = min(page_size, limit - len(rows)) if limit is not None else page_size
+        result = (
+            client.table("pokemon_set_page_snapshot_latest")
+            .select("set_id,payload_json,updated_at")
+            .order("set_id")
+            .range(offset, offset + requested - 1)
+            .execute()
+        )
+        page = list(result.data or [])
+        rows.extend(row for row in page if isinstance(row.get("payload_json"), dict))
+        if len(page) < requested:
+            break
+        offset += requested
+    return rows[:limit] if limit is not None else rows
 
 
 def _read_cards_snapshot(client: Any, set_id: str) -> Optional[Dict[str, Any]]:

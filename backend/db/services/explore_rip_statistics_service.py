@@ -24,15 +24,24 @@ _BIGGEST_UPSIDE_P99_WEIGHT = 0.30
 _SET_VALUE_HISTORY_SCOPE = "standard"
 _SET_VALUE_HISTORY_CHUNK_SIZE = 50
 _SET_VALUE_HISTORY_DAYS_PER_SET_LIMIT = 45
+_CANONICAL_PRICE_PAGE_SIZE = 1000
 
 
 class ExploreRipStatisticsTargetsError(Exception):
     """Structured error for RIP Statistics target discovery."""
 
-    def __init__(self, status_code: int, message: str, code: str):
+    def __init__(
+        self,
+        status_code: int,
+        message: str,
+        code: str,
+        *,
+        retry_after_seconds: Optional[int] = None,
+    ):
         self.status_code = status_code
         self.message = message
         self.code = code
+        self.retry_after_seconds = retry_after_seconds
         super().__init__(message)
 
 
@@ -66,6 +75,162 @@ def _to_optional_str(value: Any) -> Optional[str]:
 def _chunks(values: List[str], size: int) -> Iterable[List[str]]:
     for index in range(0, len(values), size):
         yield values[index:index + size]
+
+
+def _load_opening_desirability_lookup(
+    set_ids: List[str],
+    *,
+    sources: Dict[str, str],
+    warnings: List[str],
+) -> Dict[str, Dict[str, Any]]:
+    unique_set_ids = sorted({_to_optional_str(set_id) for set_id in set_ids if _to_optional_str(set_id)})
+    if not unique_set_ids:
+        sources["pokemon_set_opening_desirability_latest"] = "SKIPPED"
+        return {}
+    try:
+        result = (
+            public_read_client.table("pokemon_set_opening_desirability_latest")
+            .select(
+                "set_id,set_name,set_canonical_key,opening_desirability_score,opening_desirability_rank,"
+                "collector_appeal_score,collector_appeal_rank,opening_desirability_display_status,"
+                "opening_desirability_summary,source_v2_component_row_id,source_rip_calculation_run_id,"
+                "scoring_version,built_at"
+            )
+            .in_("set_id", unique_set_ids)
+            .eq("opening_desirability_display_status", "scored")
+            .execute()
+        )
+        lookup = {
+            str(row["set_id"]): row
+            for row in (result.data or [])
+            if row.get("set_id") and _to_optional_float(row.get("opening_desirability_score")) is not None
+        }
+        sources["pokemon_set_opening_desirability_latest"] = "OK"
+        return lookup
+    except Exception as exc:
+        logger.warning("[rip-statistics-targets] opening desirability enrichment failed: %s", exc)
+        warnings.append("Failed to load opening desirability for one or more RIP targets")
+        sources["pokemon_set_opening_desirability_latest"] = "FAILED"
+        return {}
+
+
+def _load_top_10_card_value_lookup(
+    set_ids: List[str],
+    *,
+    sources: Dict[str, str],
+    warnings: List[str],
+) -> Dict[str, Dict[str, Any]]:
+    unique_set_ids = sorted({_to_optional_str(set_id) for set_id in set_ids if _to_optional_str(set_id)})
+    if not unique_set_ids:
+        sources["pokemon_canonical_card_market_prices_latest"] = "SKIPPED"
+        return {}
+
+    rows_by_set: Dict[str, List[Dict[str, Any]]] = {set_id: [] for set_id in unique_set_ids}
+    try:
+        for chunk in _chunks(unique_set_ids, _SET_VALUE_HISTORY_CHUNK_SIZE):
+            start = 0
+            while True:
+                result = (
+                    public_read_client.table("pokemon_canonical_card_market_prices_latest")
+                    .select("set_id,canonical_card_id,market_price,captured_at,source,price_selection_reason")
+                    .in_("set_id", chunk)
+                    .order("set_id", desc=False)
+                    .order("market_price", desc=True)
+                    .order("canonical_card_id", desc=False)
+                    .range(start, start + _CANONICAL_PRICE_PAGE_SIZE - 1)
+                    .execute()
+                )
+                page = list(result.data or [])
+                for row in page:
+                    set_id = _to_optional_str(row.get("set_id"))
+                    if set_id in rows_by_set:
+                        rows_by_set[set_id].append(row)
+                if len(page) < _CANONICAL_PRICE_PAGE_SIZE:
+                    break
+                start += _CANONICAL_PRICE_PAGE_SIZE
+
+        lookup: Dict[str, Dict[str, Any]] = {}
+        for set_id, rows in rows_by_set.items():
+            priced_rows = [
+                row
+                for row in rows
+                if _to_optional_float(row.get("market_price")) is not None
+                and _to_optional_float(row.get("market_price")) >= 0
+            ]
+            priced_rows.sort(
+                key=lambda row: (
+                    -(_to_optional_float(row.get("market_price")) or 0.0),
+                    str(row.get("canonical_card_id") or ""),
+                )
+            )
+            selected = priced_rows[:10]
+            lookup[set_id] = {
+                "top_10_card_value": round(
+                    sum(_to_optional_float(row.get("market_price")) or 0.0 for row in selected),
+                    2,
+                ) if selected else None,
+                "top_10_card_value_sample_size": len(selected),
+                "top_10_card_value_priced_card_count": len(priced_rows),
+                "top_10_card_value_candidate_card_count": len(rows),
+                "top_10_card_value_unavailable_price_count": len(rows) - len(priced_rows),
+                "top_10_card_value_coverage": round(min(len(selected), 10) / 10.0, 2),
+                "top_10_card_value_source": "pokemon_canonical_card_market_prices_latest",
+                "top_10_card_value_price_as_of": max(
+                    (str(row.get("captured_at")) for row in selected if row.get("captured_at")),
+                    default=None,
+                ),
+            }
+        sources["pokemon_canonical_card_market_prices_latest"] = "OK"
+        return lookup
+    except Exception as exc:
+        logger.warning("[rip-statistics-targets] Top 10 Card Value enrichment failed: %s", exc)
+        warnings.append("Failed to load canonical card prices for one or more RIP targets")
+        sources["pokemon_canonical_card_market_prices_latest"] = "FAILED"
+        return {}
+
+
+def _rank_top_10_card_values(targets: List[Dict[str, Any]]) -> None:
+    sortable = [
+        target
+        for target in targets
+        if _to_optional_float(target.get("top_10_card_value")) is not None
+    ]
+    sortable.sort(
+        key=lambda target: (
+            -(_to_optional_float(target.get("top_10_card_value")) or 0.0),
+            str(target.get("target_id") or ""),
+        )
+    )
+    for rank, target in enumerate(sortable, start=1):
+        target["top_10_card_value_rank"] = rank
+
+
+def _build_rip_core_interpretation(target: Dict[str, Any]) -> Dict[str, Any]:
+    core_summary = dict(target)
+    core_summary.update(
+        {
+            "pack_score": target.get("rip_score_without_desirability"),
+            "relative_pack_score": target.get("relative_rip_core_score"),
+            "pack_rank": target.get("rip_rank_without_desirability"),
+            "pack_tier": target.get("rip_core_tier"),
+            "desirability_score": None,
+            "relative_desirability_score": None,
+            "desirability_rank": None,
+            "desirability_tier": None,
+        }
+    )
+    try:
+        interpretation = build_rip_interpretation({"summary": core_summary})
+        pack_meta = ((interpretation or {}).get("meta") or {}).get("packScore") or {}
+        return {
+            "label": _to_optional_str(pack_meta.get("label")),
+            "summary": _to_optional_str(pack_meta.get("summary")) or _to_optional_str(interpretation.get("packScore")),
+            "severity": _to_optional_str(pack_meta.get("severity")),
+            "reason_code": _to_optional_str(pack_meta.get("reason_code")),
+        }
+    except Exception:
+        logger.warning("[rip-statistics-targets] failed to build RIP Core interpretation target=%s", target.get("target_id"))
+        return {"label": None, "summary": None, "severity": None, "reason_code": None}
 
 
 def _load_current_checklist_set_value_lookup(
@@ -399,6 +564,22 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     )
     set_value_ms = (time.perf_counter() - set_value_started) * 1000
 
+    desirability_started = time.perf_counter()
+    opening_desirability_lookup = _load_opening_desirability_lookup(
+        set_value_lookup_ids,
+        sources=sources,
+        warnings=warnings,
+    )
+    desirability_ms = (time.perf_counter() - desirability_started) * 1000
+
+    top_10_started = time.perf_counter()
+    top_10_card_value_lookup = _load_top_10_card_value_lookup(
+        set_value_lookup_ids,
+        sources=sources,
+        warnings=warnings,
+    )
+    top_10_ms = (time.perf_counter() - top_10_started) * 1000
+
     era_ids = sorted(
         {
             str(row.get("era_id"))
@@ -493,6 +674,23 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             or {}
         )
         checklist_set_value = _to_optional_float(checklist_set_value_row.get("set_value"))
+        opening_desirability_row = (
+            opening_desirability_lookup.get(resolved_set_id)
+            or opening_desirability_lookup.get(target_id)
+            or {}
+        )
+        top_10_card_value_row = (
+            top_10_card_value_lookup.get(resolved_set_id)
+            or top_10_card_value_lookup.get(target_id)
+            or {}
+        )
+        embedded_desirability_score = _to_optional_float(row.get("desirability_score"))
+        joined_desirability_score = _to_optional_float(opening_desirability_row.get("opening_desirability_score"))
+        canonical_desirability_score = (
+            embedded_desirability_score
+            if embedded_desirability_score is not None
+            else joined_desirability_score
+        )
         
         targets.append(
             {
@@ -528,15 +726,20 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "stability_rank": row.get("stability_rank"),
                 "stability_tier": row.get("stability_tier"),
                 "relative_desirability_score": row.get("relative_desirability_score"),
-                "desirability_score": row.get("desirability_score"),
+                "desirability_score": canonical_desirability_score,
                 "desirability_rank": row.get("desirability_rank"),
                 "desirability_tier": row.get("desirability_tier"),
-                "desirability_scoring_version": row.get("desirability_scoring_version"),
-                "desirability_source_summary_id": row.get("desirability_source_summary_id"),
-                "desirability_source_table": row.get("desirability_source_table"),
-                "desirability_source_metric": row.get("desirability_source_metric"),
-                "desirability_is_fallback": row.get("desirability_is_fallback"),
+                "desirability_scoring_version": row.get("desirability_scoring_version") or opening_desirability_row.get("scoring_version"),
+                "desirability_source_summary_id": row.get("desirability_source_summary_id") or opening_desirability_row.get("source_v2_component_row_id"),
+                "desirability_source_table": row.get("desirability_source_table") or ("pokemon_set_opening_desirability_latest" if joined_desirability_score is not None else None),
+                "desirability_source_metric": row.get("desirability_source_metric") or ("opening_desirability_score" if joined_desirability_score is not None else None),
+                "desirability_is_fallback": row.get("desirability_is_fallback") if row.get("desirability_is_fallback") is not None else False,
                 "desirability_fallback_reason": row.get("desirability_fallback_reason"),
+                "opening_desirability_score": joined_desirability_score,
+                "opening_desirability_rank": opening_desirability_row.get("opening_desirability_rank"),
+                "collector_appeal_score": opening_desirability_row.get("collector_appeal_score"),
+                "collector_appeal_rank": opening_desirability_row.get("collector_appeal_rank"),
+                "opening_desirability_summary": opening_desirability_row.get("opening_desirability_summary"),
                 "relative_experience_score": row.get("relative_experience_score"),
                 "experience_score": row.get("experience_score"),
                 "experience_rank": row.get("experience_rank"),
@@ -571,6 +774,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "checklistSetValuePricedCardCount": checklist_set_value_row.get("priced_card_count"),
                 "checklist_set_value_total_card_count": checklist_set_value_row.get("total_card_count"),
                 "checklistSetValueTotalCardCount": checklist_set_value_row.get("total_card_count"),
+                **top_10_card_value_row,
                 "roi_percent": row.get("roi_percent"),
                 "prob_profit": row.get("prob_profit"),
                 "prob_big_hit": row.get("prob_big_hit"),
@@ -590,17 +794,14 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     for target in targets:
         target_id = str(target.get("target_id"))
         rank_payload = desirability_ranks.get(target_id, {})
-        if target.get("relative_desirability_score") is None:
-            relative_desirability = desirability_relatives.get(target_id)
-            target["relative_desirability_score"] = (
-                round(relative_desirability, 2)
-                if relative_desirability is not None
-                else None
-            )
-        if target.get("desirability_rank") is None:
-            target["desirability_rank"] = rank_payload.get("rank")
-        if target.get("desirability_tier") is None:
-            target["desirability_tier"] = rank_payload.get("tier")
+        relative_desirability = desirability_relatives.get(target_id)
+        target["relative_desirability_score"] = (
+            round(relative_desirability, 2)
+            if relative_desirability is not None
+            else None
+        )
+        target["desirability_rank"] = rank_payload.get("rank")
+        target["desirability_tier"] = rank_payload.get("tier")
 
     # Blend Biggest Upside lens from P95 (Big Hit Upside) + P99 (God Pull Upside).
     blended_rows = [
@@ -676,9 +877,17 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         target["p99_value_to_cost_rank"] = p99_rank_payload.get("rank")
         target["p99_value_to_cost_tier"] = p99_rank_payload.get("tier")
 
+    _rank_top_10_card_values(targets)
+
     comparison_payload = build_rip_desirability_comparison_payload(targets)
     targets = comparison_payload["rows"]
     comparison_diagnostics = comparison_payload["diagnostics"]
+    for target in targets:
+        core_interpretation = _build_rip_core_interpretation(target)
+        target["rip_core_interpretation"] = core_interpretation
+        target["rip_core_interpretation_label"] = core_interpretation.get("label")
+        target["rip_core_interpretation_summary"] = core_interpretation.get("summary")
+        target["rip_core_interpretation_severity"] = core_interpretation.get("severity")
     logger.info(
         "[rip-statistics-targets] RIP desirability comparison valid=%s/%s missing_desirability=%s "
         "raises_rank=%s lowers_rank=%s minimal=%s",
@@ -711,6 +920,8 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "targets_query_ms": round(query_ms, 2),
                 "set_enrichment_ms": round(set_ms, 2),
                 "set_value_enrichment_ms": round(set_value_ms, 2),
+                "opening_desirability_enrichment_ms": round(desirability_ms, 2),
+                "top_10_card_value_enrichment_ms": round(top_10_ms, 2),
                 "era_enrichment_ms": round(era_ms, 2),
                 "total_backend_ms": round(total_ms, 2),
             },

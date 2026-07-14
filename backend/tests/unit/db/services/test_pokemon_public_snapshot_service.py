@@ -1,4 +1,7 @@
-from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service
+import pytest
+from postgrest.exceptions import APIError
+
+from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service, public_read_retry
 
 
 class _Result:
@@ -63,6 +66,13 @@ class _Client:
 
     def table(self, table_name):
         return _Query(table_name, self.handlers)
+
+
+@pytest.fixture(autouse=True)
+def reset_public_read_circuit():
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+    yield
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
 
 
 def _daily_top_chase_rows(count, *, start_date="2025-06-25", variant_id="variant-1", start_price=10.0):
@@ -1035,7 +1045,10 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
                                 "is_opening_set": True,
                             }
                         ],
-                        "meta": {"warnings": ["existing warning"]},
+                        "meta": {
+                            "warnings": ["existing warning"],
+                            "snapshot": {"fallbackReason": "older_failure"},
+                        },
                     },
                     "default_target_json": {"target_id": "set-1", "target_type": "set"},
                 }
@@ -1043,6 +1056,11 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
         }
     )
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: (_ for _ in ()).throw(AssertionError("fresh client should not be created")),
+    )
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "_enrich_rankings_payload_with_checklist_set_values",
@@ -1065,6 +1083,155 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
     )
     assert payload["meta"]["sources"]["checklist_set_value_enrichment"] == "FAILED_OPTIONAL"
     assert payload["meta"]["snapshot"]["source"] == "pokemon_explore_rankings_snapshot_latest"
+    assert payload["meta"]["snapshot"]["isStaleFallback"] is False
+    assert "fallbackReason" not in payload["meta"]["snapshot"]
+
+
+def test_rankings_snapshot_retries_with_fresh_client_and_returns_normal_data(monkeypatch):
+    def fail(_query):
+        raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+
+    initial_client = _Client({"pokemon_explore_rankings_snapshot_latest": fail})
+    fresh_client = _Client(
+        {
+            "pokemon_explore_rankings_snapshot_latest": lambda _query: [
+                {
+                    "updated_at": "2026-07-13T00:00:00Z",
+                    "ranking_payload_json": {
+                        "targets": [
+                            {
+                                "id": "set-1",
+                                "target_id": "set-1",
+                                "target_type": "set",
+                                "is_opening_set": True,
+                            }
+                        ],
+                        "meta": {
+                            "snapshot": {
+                                "isStaleFallback": True,
+                                "fallbackReason": "older_failure",
+                            }
+                        },
+                    },
+                    "default_target_json": {"target_id": "set-1", "target_type": "set"},
+                }
+            ]
+        }
+    )
+    factories = []
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", initial_client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: factories.append(fresh_client) or fresh_client,
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_enrich_rankings_payload_with_checklist_set_values",
+        lambda payload: payload,
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert payload["targets"][0]["id"] == "set-1"
+    assert payload["meta"]["snapshot"]["isStaleFallback"] is False
+    assert "fallbackReason" not in payload["meta"]["snapshot"]
+    assert factories == [fresh_client]
+
+
+def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeypatch):
+    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+
+    def fail(_query):
+        raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
+    )
+
+    with pytest.raises(pokemon_public_snapshot_service.ExploreRipStatisticsTargetsError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert raised.value.status_code == 503
+    assert raised.value.code == "RIP_STATISTICS_TARGETS_TEMPORARILY_UNAVAILABLE"
+    assert raised.value.retry_after_seconds == 15
+
+
+def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(monkeypatch):
+    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    state = {"fail": False, "calls": 0}
+
+    def rows(_query):
+        state["calls"] += 1
+        if state["fail"]:
+            raise APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+        return [{
+            "updated_at": "2026-07-13T00:00:00Z",
+            "ranking_payload_json": {
+                "targets": [{"id": "set-1", "target_id": "set-1", "target_type": "set", "is_opening_set": True}],
+                "meta": {},
+            },
+            "default_target_json": {"target_id": "set-1", "target_type": "set"},
+        }]
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_explore_rankings_snapshot_latest": rows}),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: _Client({"pokemon_explore_rankings_snapshot_latest": rows}),
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_enrich_rankings_payload_with_checklist_set_values",
+        lambda payload: payload,
+    )
+
+    fresh = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+    state["fail"] = True
+    fallback = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert fallback["targets"] == fresh["targets"]
+    assert fallback["meta"]["snapshot"]["isStaleFallback"] is True
+    assert fallback["meta"]["snapshot"]["fallbackReason"] == "transient_data_service_failure"
+    assert state["calls"] == 3
+    authoritative = pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS[10]
+    assert authoritative["meta"]["snapshot"]["isStaleFallback"] is False
+    assert "fallbackReason" not in authoritative["meta"]["snapshot"]
+
+
+def test_rankings_snapshot_non_transient_failure_remains_500(monkeypatch):
+    def fail(_query):
+        raise APIError({"message": "missing column", "code": "42703", "hint": None, "details": None})
+
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
+    )
+    factories = []
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "create_public_read_client",
+        lambda: factories.append(object()) or object(),
+    )
+
+    with pytest.raises(pokemon_public_snapshot_service.ExploreRipStatisticsTargetsError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert raised.value.status_code == 500
+    assert raised.value.code == "RIP_STATISTICS_TARGETS_SNAPSHOT_FAILED"
+    assert factories == []
 
 
 def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(monkeypatch):
@@ -1913,8 +2080,8 @@ def test_market_dashboard_snapshot_defaults_market_movers_by_window_to_30d_when_
     assert payload["market_movers_by_window"] == {"30D": thirty_day_movers}
 
 
-def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):
-    """The shell reader must never pull payload_json off pokemon_set_page_snapshot_latest."""
+def test_shell_snapshot_reader_does_not_select_whole_payload_json(monkeypatch):
+    """The shell may project exact JSON paths but must never pull the whole payload_json blob."""
     captured_queries = []
 
     def read_shell(query):
@@ -1942,7 +2109,8 @@ def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):
 
     assert len(captured_queries) == 1
     selected_fields = captured_queries[0].select_fields
-    assert "payload_json" not in selected_fields
+    assert "payload_json" not in {field.strip() for field in selected_fields.split(",")}
+    assert "payload_json->summary->relative_experience_score" in selected_fields
     assert "set_identity_json" in selected_fields
     assert "title_card_json" in selected_fields
 
@@ -1954,6 +2122,41 @@ def test_shell_snapshot_reader_does_not_select_payload_json(monkeypatch):
     assert payload["summary"]["pack_tier"] == "A"
     assert payload["meta"]["snapshot"]["source"] == "pokemon_set_page_snapshot_latest"
     assert payload["meta"]["timings"]["snapshot_query_ms"] is not None
+
+
+def test_shell_snapshot_prefers_tracked_lens_values_projected_from_payload_summary(monkeypatch):
+    row = {
+        **_SHELL_ROW_FIXTURE,
+        "rip_summary_json": {
+            **_SHELL_ROW_FIXTURE["rip_summary_json"],
+            "relative_experience_score": 1,
+            "relative_biggest_upside_score": 2,
+        },
+        "tracked_lens_relative_experience_score": 66,
+        "tracked_lens_relative_chase_potential_score": 75.78,
+        "tracked_lens_relative_biggest_upside_score": 82.41462252449374,
+        "tracked_lens_relative_average_return_score": 74.99503475670308,
+        "tracked_lens_experience_rank": 8,
+        "tracked_lens_chase_potential_rank": 7,
+        "tracked_lens_biggest_upside_rank": 7,
+        "tracked_lens_mean_value_to_cost_rank": 6,
+    }
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _query: [row],
+            "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
+
+    assert payload["summary"]["relative_experience_score"] == 66
+    assert payload["summary"]["relative_chase_potential_score"] == 75.78
+    assert payload["summary"]["relative_biggest_upside_score"] == 82.41462252449374
+    assert payload["summary"]["relative_average_return_score"] == 74.99503475670308
+    assert payload["summary"]["experience_rank"] == 8
+    assert payload["summary"]["mean_value_to_cost_rank"] == 6
 
 
 def test_shell_snapshot_missing_row_returns_fallback(monkeypatch):
@@ -2765,10 +2968,10 @@ def test_slim_top_chase_hydrates_empty_histories_from_observations_without_dragg
     assert "topChaseCardPricesSyncedCount" not in payload["meta"]
 
 
-def test_slim_top_chase_keeps_stored_price_and_skips_observation_scan_when_histories_exist(monkeypatch):
+def test_slim_top_chase_aligns_current_price_and_skips_observation_scan_when_histories_exist(monkeypatch):
     """When stored histories already cover the cards, no raw-observation scan
     runs and the card's stored current price is served as-is — never
-    overwritten by the latest stored history point."""
+    aligned to the latest stored history point when it reaches latestMarketDate."""
     observation_calls = []
 
     def _fail_observation_scan(*_args, **_kwargs):
@@ -2796,16 +2999,14 @@ def test_slim_top_chase_keeps_stored_price_and_skips_observation_scan_when_histo
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
     assert observation_calls == []
-    # Stored current price (10.0) is served untouched — NOT dragged to the
-    # latest stored history point (41.0).
-    assert payload["topChaseCards"][0]["marketPrice"] == 10.0
+    assert payload["topChaseCards"][0]["marketPrice"] == 41.0
 
 
 def test_slim_top_chase_keeps_histories_separate(monkeypatch):
     """topChaseCardHistories stays the canonical history container — the sliced
     per-card price history must not be re-embedded onto each card (the slim
     endpoint strips priceHistory to stay under budget), and the card's stored
-    current price is not overwritten by the history."""
+    current price agrees with the terminal history point."""
     row = _top_chase_dashboard_row(
         top_chase_cards_json=[
             {"cardId": "card-1", "cardVariantId": "variant-1", "name": "Chase Card", "marketPrice": 99.0},
@@ -2820,9 +3021,7 @@ def test_slim_top_chase_keeps_histories_separate(monkeypatch):
     for card in payload["topChaseCards"]:
         assert "priceHistory" not in card, "slim endpoint must not re-embed priceHistory onto cards"
         assert "price_history" not in card
-    # Stored current price is preserved (not dragged to the stored history's
-    # latest point).
-    assert payload["topChaseCards"][0]["marketPrice"] == 99.0
+    assert payload["topChaseCards"][0]["marketPrice"] == 40.0
 
 
 # ---------------------------------------------------------------------------
@@ -2906,6 +3105,10 @@ def _make_movers_handler(rows_by_window_key, *, calls=None):
         result_row = {key: value for key, value in row.items() if not key.startswith("_")}
         result_row["heating"] = (entry or {}).get("heatingUp") if entry is not None else None
         result_row["cooling"] = (entry or {}).get("coolingOff") if entry is not None else None
+        result_row["all_items"] = (entry or {}).get("all") if entry is not None else None
+        result_row["heating_snake"] = (entry or {}).get("heating_up") if entry is not None else None
+        result_row["cooling_snake"] = (entry or {}).get("cooling_off") if entry is not None else None
+        result_row["all_items_snake"] = (entry or {}).get("all") if entry is not None else None
         return [result_row]
 
     return handler
@@ -2930,7 +3133,7 @@ def test_market_movers_snapshot_reads_from_read_model(monkeypatch):
     assert len(calls) == 1, "must read the snapshot row in a single query"
     assert payload["meta"]["snapshot"]["usedReadModel"] is True
     assert payload["meta"]["snapshot"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
-    assert payload["meta"]["snapshot"]["sourceField"] == "payload_json.marketMoversByWindow.heatingUp/coolingOff"
+    assert payload["meta"]["snapshot"]["sourceField"] == "payload_json.marketMoversByWindow.all/heatingUp/coolingOff"
 
 
 def test_market_movers_snapshot_preserves_heating_cooling_order(monkeypatch):
@@ -2950,6 +3153,78 @@ def test_market_movers_snapshot_preserves_heating_cooling_order(monkeypatch):
 
     assert [c["cardId"] for c in payload["marketMovers"]["heatingUp"]] == ["h1", "h2", "h3"]
     assert [c["cardId"] for c in payload["marketMovers"]["coolingOff"]] == ["c1", "c2"]
+
+
+def test_market_movers_snapshot_returns_first_limit_from_complete_ranked_all(monkeypatch):
+    ranked_all = [_mover_card(f"rank-{index:02d}", score=100 - index) for index in range(23)]
+    movers = _market_movers_by_window()
+    movers["7D"]["all"] = ranked_all
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": movers,
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+        _TEST_UUID, window="7D", limit=10
+    )
+
+    assert [card["cardId"] for card in payload["marketMovers"]["all"]] == [
+        f"rank-{index:02d}" for index in range(10)
+    ]
+    assert payload["meta"]["snapshot"]["usedLegacyAllFallback"] is False
+
+
+def test_market_movers_snapshot_caps_complete_all_at_requested_limit(monkeypatch):
+    ranked_all = [_mover_card(f"rank-{index:02d}") for index in range(49)]
+    movers = _market_movers_by_window()
+    movers["30D"]["all"] = ranked_all
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": movers,
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+        _TEST_UUID, window="30D", limit=10
+    )
+
+    assert len(payload["marketMovers"]["all"]) == 10
+    assert [card["cardId"] for card in payload["marketMovers"]["all"]] == [
+        f"rank-{index:02d}" for index in range(10)
+    ]
+    assert len(payload["marketMovers"]["heatingUp"]) <= 10
+    assert len(payload["marketMovers"]["coolingOff"]) <= 10
+
+
+def test_market_movers_snapshot_diagnoses_legacy_all_fallback(monkeypatch):
+    movers = _market_movers_by_window()
+    movers["7D"].pop("all")
+    row = {
+        "set_id": _TEST_UUID,
+        "window_key": "365d",
+        "latest_market_date": "2026-06-30",
+        "updated_at": "2026-06-30T00:00:00+00:00",
+        "_market_movers_by_window": movers,
+    }
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+        _TEST_UUID, window="7D", limit=10
+    )
+
+    assert payload["marketMovers"]["all"]
+    assert payload["meta"]["snapshot"]["usedLegacyAllFallback"] is True
+    assert any("Legacy market movers snapshot" in warning for warning in payload["meta"]["warnings"])
 
 
 def test_market_movers_snapshot_preserves_scores_labels_and_deltas(monkeypatch):
@@ -2984,7 +3259,7 @@ def test_market_movers_snapshot_safe_empty_when_snapshot_missing(monkeypatch):
 
     assert payload["marketMovers"]["heatingUp"] == []
     assert payload["marketMovers"]["coolingOff"] == []
-    assert "all" not in payload["marketMovers"], "the slim contract no longer serves the unused 'all' field"
+    assert payload["marketMovers"]["all"] == []
     assert payload["meta"]["snapshot"]["usedReadModel"] is False
     assert "missing" in payload["meta"]["snapshot"]["source"]
 
@@ -3097,7 +3372,7 @@ def test_market_movers_snapshot_response_shape_matches_frontend_normalizer_contr
 
     market_movers = payload["marketMovers"]
     assert set(["window", "windowDays", "heatingUp", "coolingOff"]).issubset(market_movers.keys())
-    assert "all" not in market_movers, "the slim contract must not serve the unused 'all' field"
+    assert isinstance(market_movers["all"], list)
     assert isinstance(market_movers["heatingUp"], list)
     assert isinstance(market_movers["coolingOff"], list)
     first_card = market_movers["heatingUp"][0]
@@ -3129,7 +3404,10 @@ def test_market_movers_snapshot_never_returns_full_dashboard_fields(monkeypatch)
         "payload_json",
     ):
         assert forbidden_key not in payload
-    assert set(payload.keys()) == {"set", "window", "windowDays", "marketMovers", "meta"}
+    # latestMarketDate joined the slim contract with the canonical
+    # marketAsOfDate work — every market surface exposes its authoritative
+    # market date.
+    assert set(payload.keys()) == {"set", "window", "windowDays", "latestMarketDate", "marketMovers", "meta"}
 
 
 def test_full_market_dashboard_still_preserves_all_field(monkeypatch):
@@ -3182,8 +3460,9 @@ def test_market_movers_snapshot_query_selects_only_narrow_json_path(monkeypatch)
     select_fields = calls[0].select_fields
     assert "marketMoversByWindow->7D->heatingUp" in select_fields
     assert "marketMoversByWindow->7D->coolingOff" in select_fields
-    assert "marketMoversByWindow->7D->all" not in select_fields, "must never select the unused 'all' sub-path"
-    assert select_fields.count("payload_json") == 2, "must select exactly two narrow JSON paths off payload_json, not the whole column"
+    assert "marketMoversByWindow->7D->all" in select_fields
+    assert "market_movers_by_window->7D->all" in select_fields
+    assert select_fields.count("payload_json") == 6, "must select six narrow JSON paths off payload_json, not the whole column"
     assert not select_fields.rstrip(",").endswith("payload_json"), "must not select the bare payload_json column"
 
 
@@ -3578,13 +3857,9 @@ def test_top_chase_payload_strips_redundant_embedded_card_price_history(monkeypa
     for redundant_key in ("priceHistory", "price_history", "historyDiagnostics", "history_diagnostics"):
         assert redundant_key not in card, f"{redundant_key} must be stripped from the response card"
     assert card["cardId"] == "card-1"
-    # The card's own stored marketPrice (42.5) is the current price the snapshot
-    # builder computed for this row — it must NOT be overwritten by the latest
-    # topChaseCardHistories point (5.0). History can be stale/carried-forward;
-    # dragging the price onto it makes the price column more stale, not less
-    # (the Ascended Heroes regression). Only the redundant embedded priceHistory
-    # is stripped; the current price is left untouched.
-    assert card["marketPrice"] == 42.5
+    # The served history reaches latestMarketDate, so current display and the
+    # terminal chart point must agree.
+    assert card["marketPrice"] == 5.0
     assert card["rank"] == 1
     assert payload["topChaseCardHistories"]["variant-1"] == [{"date": "2026-06-30", "marketPrice": 5.0}]
 
@@ -4724,3 +4999,49 @@ def test_insights_payload_selectors_can_derive_rip_breakdown_drivers_and_trend_i
     # Decision Signals (Overview tab) ultimately reads its pillar rows from
     # the same RIP breakdown inputs above, via ripScoreBreakdown.rows — no
     # additional payload fields are required beyond `summary`.
+# Movement generation diagnostics -------------------------------------------------
+
+
+def test_movement_generation_metadata_reports_matching_cards_and_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_read_peer_movement_snapshot_meta",
+        lambda _set_id, *, surface: (
+            {
+                "generationId": "11111111-1111-4111-8111-111111111111",
+                "movementContractVersion": "pokemon_card_movement_v1",
+            },
+            True,
+        ),
+    )
+
+    result = pokemon_public_snapshot_service._movement_generation_metadata(
+        _TEST_UUID,
+        cards_snapshot={
+            "generationId": "11111111-1111-4111-8111-111111111111",
+            "movementContractVersion": "pokemon_card_movement_v1",
+        },
+    )
+
+    assert result["matches"] is True
+    assert result["status"] == "match"
+    assert result["cardsGenerationId"] == result["marketDashboardGenerationId"]
+
+
+def test_movement_generation_metadata_flags_new_cards_with_legacy_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_read_peer_movement_snapshot_meta",
+        lambda _set_id, *, surface: ({}, True),
+    )
+
+    result = pokemon_public_snapshot_service._movement_generation_metadata(
+        _TEST_UUID,
+        cards_snapshot={
+            "generationId": "11111111-1111-4111-8111-111111111111",
+            "movementContractVersion": "pokemon_card_movement_v1",
+        },
+    )
+
+    assert result["matches"] is False
+    assert result["status"] == "mixed_generation_and_legacy"

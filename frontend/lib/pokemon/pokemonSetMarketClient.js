@@ -1,3 +1,5 @@
+import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "./pricingSnapshotContract.mjs";
+
 function toOptionalString(value) {
   const text = String(value || "").trim();
   return text || null;
@@ -21,6 +23,7 @@ const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 // in-flight promise (same pattern as marketDashboardInflight above) removes
 // the duplicate network round trip without adding any persistent caching.
 const slimModuleInflight = new Map();
+const SET_VALUE_SNAPSHOT_CONTRACT_VERSION = "set-value-v2";
 
 function joinSlimModuleRequest(key, factory) {
   if (slimModuleInflight.has(key)) {
@@ -293,9 +296,55 @@ function normalizeDailySetValueHistory(history) {
   return Array.from(dailyPoints.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function normalizeStoredMarketDeltaWindows(source) {
+  if (!source || typeof source !== "object") return null;
+  const entries = Object.entries(source)
+    .filter(([key, movement]) => ["1D", "7D", "30D"].includes(String(key).toUpperCase()) && movement && typeof movement === "object")
+    .map(([key, movement]) => {
+      const normalizedKey = String(key).toUpperCase();
+      return [normalizedKey, {
+        ...movement,
+        window: toOptionalString(movement?.window) || normalizedKey,
+        windowDays: toOptionalNumber(movement?.windowDays ?? movement?.window_days),
+        windowConvention: toOptionalString(movement?.windowConvention ?? movement?.window_convention),
+        targetStartDate: toOptionalString(movement?.targetStartDate ?? movement?.target_start_date),
+        startDate: toOptionalString(movement?.startDate ?? movement?.start_date),
+        endDate: toOptionalString(movement?.endDate ?? movement?.end_date),
+        startingPrice: toOptionalNumber(movement?.startingPrice ?? movement?.starting_price),
+        currentPrice: toOptionalNumber(movement?.currentPrice ?? movement?.current_price),
+        changeAmount: toOptionalNumber(movement?.changeAmount ?? movement?.change_amount),
+        changePercent: toOptionalNumber(movement?.changePercent ?? movement?.change_percent),
+        cardVariantId: toOptionalString(movement?.cardVariantId ?? movement?.card_variant_id),
+        conditionId: toOptionalString(movement?.conditionId ?? movement?.condition_id),
+        fullWindowCoverage: Boolean(movement?.fullWindowCoverage ?? movement?.full_window_coverage),
+        isPartialWindow: Boolean(movement?.isPartialWindow ?? movement?.is_partial_window),
+      }];
+    });
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
 function normalizeTopMarketCardsPayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const topChaseCardHistories = normalizeTopChaseCardHistories(payload);
+  const snapshotMeta = payload?.meta?.snapshot && typeof payload.meta.snapshot === "object"
+    ? payload.meta.snapshot
+    : {};
+  const movementGeneration = payload?.meta?.movementGeneration && typeof payload.meta.movementGeneration === "object"
+    ? payload.meta.movementGeneration
+    : {};
+  const isLegacyMovementSnapshot = snapshotMeta?.isLegacyMovementSnapshot === true;
+  const allowsLegacyHistoryFallback = snapshotMeta?.allowsLegacyHistoryFallback === true;
+  const dashboardLatestMarketDate = toOptionalString(
+    payload?.latestMarketDate ?? payload?.latest_market_date ?? snapshotMeta?.latestMarketDate
+  );
+
+  if (process.env.NODE_ENV !== "production" && movementGeneration?.matches === false) {
+    console.warn("[pokemon-market-delta] Cards and Market Dashboard snapshot generations differ", {
+      cardsGenerationId: movementGeneration?.cardsGenerationId ?? null,
+      marketDashboardGenerationId: movementGeneration?.marketDashboardGenerationId ?? null,
+      status: movementGeneration?.status ?? null,
+    });
+  }
 
   return {
     set: {
@@ -310,11 +359,16 @@ function normalizeTopMarketCardsPayload(payload) {
       const mappedHistory = getTopChaseHistoryForCard(card, topChaseCardHistories, index);
       const selectedHistory = chooseTopChaseHistory(embeddedHistory, mappedHistory);
       const priceHistory = selectedHistory.history;
+      const marketDeltaWindows = normalizeStoredMarketDeltaWindows(
+        card?.marketDeltaWindows ?? card?.market_delta_windows
+      );
 
       return {
         id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
         cardId: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
         cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id),
+        canonicalCardId: toOptionalString(card?.canonicalCardId ?? card?.canonical_card_id ?? card?.cardId ?? card?.card_id ?? card?.id),
+        conditionId: toOptionalString(card?.conditionId ?? card?.condition_id ?? card?.conditionIdUsed ?? card?.condition_id_used),
         setId: toOptionalString(card?.setId ?? card?.set_id),
         name: toOptionalString(card?.name),
         imageUrl: toOptionalString(card?.imageUrl ?? card?.image_url),
@@ -325,6 +379,14 @@ function normalizeTopMarketCardsPayload(payload) {
         cardNumber: toOptionalString(card?.setNumber ?? card?.set_number),
         estimatedMarketPrice: toOptionalNumber(card?.estimatedMarketPrice ?? card?.estimated_market_price),
         marketPrice: toOptionalNumber(card?.marketPrice ?? card?.estimatedMarketPrice ?? card?.estimated_market_price),
+        marketDate: toOptionalString(card?.marketDate ?? card?.market_date),
+        dashboardLatestMarketDate,
+        windowConvention: toOptionalString(card?.windowConvention ?? card?.window_convention),
+        marketDeltaWindows,
+        market_delta_windows: marketDeltaWindows,
+        movementSnapshotLegacy: isLegacyMovementSnapshot,
+        allowLegacyMovementHistoryFallback: allowsLegacyHistoryFallback,
+        movementGeneration,
         priceUpdatedAt: toOptionalString(card?.priceUpdatedAt ?? card?.price_updated_at),
         source: toOptionalString(card?.source ?? card?.provider),
         provider: toOptionalString(card?.provider ?? card?.source),
@@ -359,17 +421,24 @@ function normalizeTopMarketCardsPayload(payload) {
   };
 }
 
-function normalizeMarketMoverCard(card) {
+function normalizeMarketMoverCard(card, window = "30D") {
   const currentPrice = toOptionalNumber(card?.currentPrice ?? card?.current_price ?? card?.marketPrice ?? card?.market_price);
   const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount);
   const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent);
+  const changeAmount = toOptionalNumber(card?.changeAmount ?? card?.change_amount ?? change30dAmount);
+  const changePercent = toOptionalNumber(card?.changePercent ?? card?.change_percent ?? change30dPercent);
   const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score);
   const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label);
+  const normalizedWindow = String(window || card?.window || "30D").toUpperCase();
+  const reliable = card?.reliable ?? card?.movementReliable ?? card?.movement_reliable;
+  const reliability = toOptionalString(card?.reliability);
 
   return {
     id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
     cardId: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
+    canonicalCardId: toOptionalString(card?.canonicalCardId ?? card?.canonical_card_id ?? card?.cardId ?? card?.card_id ?? card?.id),
     cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id),
+    conditionId: toOptionalString(card?.conditionId ?? card?.condition_id ?? card?.conditionIdUsed ?? card?.condition_id_used),
     setId: toOptionalString(card?.setId ?? card?.set_id),
     name: toOptionalString(card?.name),
     imageUrl: toOptionalString(card?.imageUrl ?? card?.image_url),
@@ -380,10 +449,35 @@ function normalizeMarketMoverCard(card) {
     cardNumber: toOptionalString(card?.cardNumber ?? card?.card_number ?? card?.setNumber ?? card?.set_number),
     currentPrice,
     marketPrice: currentPrice,
-    change30dAmount,
-    change30dPercent,
+    changeAmount,
+    changePercent,
+    ...(normalizedWindow === "1D" ? { change1dAmount: changeAmount, change1dPercent: changePercent } : {}),
+    ...(normalizedWindow === "7D" ? {
+      change7dAmount: changeAmount,
+      change7dPercent: changePercent,
+      movement7d: {
+        changeAmount,
+        changePercent,
+        reliable: reliable === undefined ? null : Boolean(reliable),
+        reliability,
+        fullWindowCoverage: Boolean(card?.fullWindowCoverage ?? card?.full_window_coverage),
+        isPartialWindow: Boolean(card?.isPartialWindow ?? card?.is_partial_window),
+      },
+    } : {}),
+    ...(normalizedWindow === "30D" ? { change30dAmount: changeAmount, change30dPercent: changePercent } : {}),
+    window: normalizedWindow,
+    windowDays: toOptionalNumber(card?.windowDays ?? card?.window_days),
+    windowConvention: toOptionalString(card?.windowConvention ?? card?.window_convention),
+    targetStartDate: toOptionalString(card?.targetStartDate ?? card?.target_start_date),
+    startDate: toOptionalString(card?.startDate ?? card?.start_date ?? card?.historyStartDate ?? card?.history_start_date),
+    endDate: toOptionalString(card?.endDate ?? card?.end_date ?? card?.historyEndDate ?? card?.history_end_date),
+    fullWindowCoverage: Boolean(card?.fullWindowCoverage ?? card?.full_window_coverage),
+    isPartialWindow: Boolean(card?.isPartialWindow ?? card?.is_partial_window),
     movementScore,
     movementLabel,
+    moverEligible: card?.moverEligible ?? card?.mover_eligible,
+    reliable: reliable === undefined ? null : Boolean(reliable),
+    reliability,
     enoughHistory: Boolean(card?.enoughHistory ?? card?.enough_history),
     confidence: toOptionalString(card?.confidence),
     historyPointCount: toOptionalNumber(card?.historyPointCount ?? card?.history_point_count),
@@ -405,12 +499,13 @@ function normalizeMarketMoversEntry(source, payload) {
     : [];
   const all = Array.isArray(source?.all) ? source.all : [...heating, ...cooling];
 
+  const window = toOptionalString(source?.window ?? payload?.window ?? payload?.window_key) || "30D";
   return {
-    window: toOptionalString(source?.window ?? payload?.window ?? payload?.window_key) || "30D",
+    window,
     windowDays: toOptionalNumber(source?.windowDays ?? source?.window_days ?? payload?.windowDays ?? payload?.window_days) ?? 30,
-    heatingUp: heating.map(normalizeMarketMoverCard).filter((card) => card.name),
-    coolingOff: cooling.map(normalizeMarketMoverCard).filter((card) => card.name),
-    all: all.map(normalizeMarketMoverCard).filter((card) => card.name),
+    heatingUp: heating.map((card) => normalizeMarketMoverCard(card, window)).filter((card) => card.name),
+    coolingOff: cooling.map((card) => normalizeMarketMoverCard(card, window)).filter((card) => card.name),
+    all: all.map((card) => normalizeMarketMoverCard(card, window)).filter((card) => card.name),
   };
 }
 
@@ -421,7 +516,31 @@ export function normalizeMarketMoversPayload(payload) {
       : payload?.market_movers && typeof payload.market_movers === "object"
       ? payload.market_movers
       : {};
-  return normalizeMarketMoversEntry(source, payload);
+  const entry = normalizeMarketMoversEntry(source, payload);
+  const meta = payload?.meta && typeof payload.meta === "object" ? payload.meta : { warnings: [] };
+  if (
+    process.env.NODE_ENV !== "production" &&
+    meta?.snapshot?.usedLegacyMoverList === true
+  ) {
+    console.warn("[pokemon-market-delta] Market movers response used a legacy mover list (not the canonical Cards filter)", {
+      setId: toOptionalString(payload?.set?.id),
+      source: toOptionalString(meta?.snapshot?.source),
+      window: entry.window,
+    });
+  }
+  return {
+    ...entry,
+    set: {
+      id: toOptionalString(payload?.set?.id),
+      name: toOptionalString(payload?.set?.name),
+      slug: toOptionalString(payload?.set?.slug),
+    },
+    latestMarketDate: toOptionalString(payload?.latestMarketDate ?? payload?.latest_market_date),
+    // meta carries the canonical query/totals/snapshot metadata
+    // (marketAsOfDate, generationId, movementTotals, usedLegacyMoverList)
+    // used by the shared market-date resolution and dev diagnostics.
+    meta,
+  };
 }
 
 function normalizeMarketMoversByWindowPayload(payload) {
@@ -751,17 +870,19 @@ export function normalizeTopChasePayload(payload) {
     cards: payload?.topChaseCards || payload?.top_chase_cards || [],
     topChaseCardHistories: payload?.topChaseCardHistories,
     top_chase_card_histories: payload?.top_chase_card_histories,
+    latestMarketDate: payload?.latestMarketDate ?? payload?.latest_market_date,
     meta: payload?.meta,
   });
 }
 
-export async function getPokemonSetTopChase(setId, { window = "30D", limit = 10 } = {}) {
+export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10 } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", PRICING_SNAPSHOT_CONTRACT_VERSION);
   if (window) {
     params.set("window", String(window));
   }
@@ -791,6 +912,7 @@ export async function getPokemonSetValueHistory(setId, { days = 365, scope = "st
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", SET_VALUE_SNAPSHOT_CONTRACT_VERSION);
   if (days) {
     params.set("days", String(days));
   }
@@ -855,6 +977,7 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
 
   const normalizedWindow = normalizeMarketDashboardWindow(window);
   const params = new URLSearchParams();
+  params.set("snapshot_contract", SET_VALUE_SNAPSHOT_CONTRACT_VERSION);
   if (normalizedWindow) {
     params.set("window", normalizedWindow);
   }
@@ -874,21 +997,27 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
   });
 }
 
-export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 5 } = {}) {
+export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10, movement = "all" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", PRICING_SNAPSHOT_CONTRACT_VERSION);
   if (window) {
     params.set("window", String(window));
   }
   if (limit) {
     params.set("limit", String(limit));
   }
+  // Shared canonical Cards query contract: section=market-movers,
+  // movement=all|heating|cooling, sort=largest-dollar-move (backend-implied).
+  if (movement) {
+    params.set("movement", String(movement));
+  }
 
-  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}`;
+  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}:${movement || ""}`;
   return joinSlimModuleRequest(cacheKey, async () => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,

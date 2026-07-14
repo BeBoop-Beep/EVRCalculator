@@ -101,7 +101,7 @@ def test_missing_desirability_keeps_financial_score_but_no_with_score_or_delta()
     assert payload["diagnostics"]["missing_desirability_count"] == 1
 
 
-def test_existing_rip_score_fields_are_not_mutated():
+def test_canonical_comparison_replaces_enriched_hero_fields_without_mutating_input():
     rows = [
         {
             "target_id": "set-1",
@@ -121,6 +121,21 @@ def test_existing_rip_score_fields_are_not_mutated():
     assert rows[0]["relative_pack_score"] == 91.2
     assert rows[0]["pack_rank"] == 4
     enriched = payload["rows"][0]
-    assert enriched["pack_score"] == 88.8
-    assert enriched["relative_pack_score"] == 91.2
-    assert enriched["pack_rank"] == 4
+    assert enriched["pack_score"] == enriched["rip_score_with_desirability"] == 74.75
+    assert enriched["relative_pack_score"] == 50.0
+    assert enriched["pack_rank"] == enriched["rip_rank_with_desirability"] == 1
+    assert enriched["relative_rip_core_score"] == 50.0
+    assert enriched["relative_pack_score_normalization_version"] == enriched["relative_rip_core_score_normalization_version"]
+
+
+def test_tied_scores_use_target_id_as_deterministic_tiebreaker():
+    payload = build_rip_desirability_comparison_payload(
+        [
+            {"target_id": "set-b", "profit_score": 50, "safety_score": 50, "stability_score": 50, "desirability_score": 50},
+            {"target_id": "set-a", "profit_score": 50, "safety_score": 50, "stability_score": 50, "desirability_score": 50},
+        ]
+    )
+
+    rows = {row["target_id"]: row for row in payload["rows"]}
+    assert rows["set-a"]["rip_rank_with_desirability"] == 1
+    assert rows["set-b"]["rip_rank_with_desirability"] == 2

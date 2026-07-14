@@ -64,7 +64,9 @@ export function buildSetValueContract(input = {}) {
     availableScopes = SET_VALUE_CONTRACT_SCOPES,
     status = "idle",
     error = null,
+    marketAsOfDate = null,
   } = safeInput;
+  const canonicalMarketAsOfDate = toOptionalString(marketAsOfDate);
   const normalizedHistoriesByScope = Object.fromEntries(
     SET_VALUE_CONTRACT_SCOPES.map((scope) => [
       scope.key,
@@ -88,6 +90,7 @@ export function buildSetValueContract(input = {}) {
         scope: scope.key,
         historiesByScope: normalizedHistoriesByScope,
         fallback,
+        marketAsOfDate: canonicalMarketAsOfDate,
       });
       return [
         scope.key,
@@ -120,6 +123,7 @@ export function buildSetValueContract(input = {}) {
 
   return {
     setId: toOptionalString(setId),
+    marketAsOfDate: canonicalMarketAsOfDate,
     current: {
       scope: "standard",
       label: "Checklist",
@@ -146,12 +150,13 @@ export function buildSetValueContract(input = {}) {
 
 function selectSetValueTrendFromContractShape(input = {}) {
   const safeInput = toObject(input);
-  const { scope, historiesByScope, fallback, selectedWindowKey = null } = safeInput;
+  const { scope, historiesByScope, fallback, selectedWindowKey = null, marketAsOfDate = null } = safeInput;
   const selected = selectOverviewSetValueTrendByScope({
     historiesByScope,
     selectedScope: scope,
     selectedWindowKey,
     preferredWindowKey: "30D",
+    marketAsOfDate,
   });
   const currentValue = selected.currentValue ?? fallback?.value ?? null;
   const hasHistory = Array.isArray(historiesByScope?.[scope]) && historiesByScope[scope].length > 0;
@@ -191,5 +196,6 @@ export function selectSetValueTrendFromContract(input = {}) {
     historiesByScope: contract?.historiesByScope || {},
     fallback,
     selectedWindowKey,
+    marketAsOfDate: contract?.marketAsOfDate || null,
   });
 }

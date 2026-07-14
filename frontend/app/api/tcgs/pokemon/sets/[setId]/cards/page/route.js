@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
-const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
-const FORWARDED_PARAMS = ["page", "page_size", "sort", "q", "rarity", "movement_filter", "movement_sort"];
+const CARDS_PAGE_CACHE_CONTROL = "no-store";
+const FORWARDED_PARAMS = ["page", "page_size", "sort", "q", "rarity", "movement_filter", "movement_sort", "snapshot_contract"];
 
 export async function GET(request, { params }) {
   const resolvedParams = (await params) || {};
@@ -36,13 +35,12 @@ export async function GET(request, { params }) {
 
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
-  const cacheControl = proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL;
 
   return new NextResponse(payload, {
     status: proxyResponse.status,
     headers: {
       "content-type": contentType,
-      "Cache-Control": cacheControl,
+      "Cache-Control": CARDS_PAGE_CACHE_CONTROL,
     },
   });
 }
