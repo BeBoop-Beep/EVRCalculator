@@ -6,28 +6,16 @@ const path = require("node:path");
 const routePath = path.resolve(__dirname, "route.js");
 const source = fs.readFileSync(routePath, "utf8");
 
-test("cards page route defines FAILED_ANALYTICS_CACHE_CONTROL as no-store", () => {
+test("cards page route defines one no-store cache policy for every response", () => {
   assert.ok(
-    source.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'),
-    "must define FAILED_ANALYTICS_CACHE_CONTROL = \"no-store\""
+    source.includes('const CARDS_PAGE_CACHE_CONTROL = "no-store"'),
+    "must define CARDS_PAGE_CACHE_CONTROL = \"no-store\""
   );
-});
-
-test("cards page route selects FAILED_ANALYTICS_CACHE_CONTROL when the backend response is not ok", () => {
-  assert.ok(
-    source.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
-    "cache-control selection must be conditional on proxyResponse.ok"
-  );
-});
-
-test("cards page route does not hardcode public cache-control unconditionally", () => {
   const headersBlockStart = source.indexOf("return new NextResponse(payload,");
   const headersBlock = source.slice(headersBlockStart);
-  assert.ok(
-    !headersBlock.includes('"Cache-Control": PUBLIC_ANALYTICS_CACHE_CONTROL,'),
-    "the response headers must use the conditional cacheControl variable, not a hardcoded public value"
-  );
-  assert.ok(headersBlock.includes('"Cache-Control": cacheControl,'), "response headers must use the cacheControl variable");
+  assert.ok(headersBlock.includes('"Cache-Control": CARDS_PAGE_CACHE_CONTROL,'));
+  assert.ok(!source.includes("s-maxage"), "successful cards-page responses must not retain a shared-cache path");
+  assert.ok(!source.includes("stale-while-revalidate"));
 });
 
 test("cards page route fetch does not use Next's fetch-level cache (would cache a failed backend response for 300s)", () => {

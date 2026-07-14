@@ -1,0 +1,103 @@
+"use client";
+
+import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+import { buildMarketValueChangeModel } from "./marketValueChangeModel.mjs";
+
+const VARIANT_CLASSES = {
+  hero: { value: "text-xl font-bold sm:text-2xl", change: "text-xs sm:text-sm", gap: "mt-1" },
+  "chart-summary": { value: "text-2xl font-semibold leading-none", change: "text-xs sm:text-sm", gap: "mt-1.5" },
+  "table-row": { value: "text-sm font-semibold", change: "text-[11px]", gap: "mt-0.5" },
+  "card-tile": { value: "text-xs font-semibold", change: "text-[10px]", gap: "mt-0.5" },
+  ticker: { value: "text-xs font-semibold", change: "text-[10px]", gap: "mt-px" },
+  tooltip: { value: "text-sm font-semibold", change: "text-[11px]", gap: "mt-0.5" },
+};
+
+export default function MarketValueChange({
+  value,
+  changeAmount,
+  changePercent,
+  windowLabel,
+  direction = null,
+  unavailable = false,
+  loading = false,
+  alignment = "left",
+  variant = "table-row",
+  accessibleLabel = "Market value",
+  accessiblePeriodLabel = null,
+  showWindowLabel = true,
+  windowLabelPlacement = "inline",
+  content = "both",
+  className = "",
+}) {
+  const classes = VARIANT_CLASSES[variant] || VARIANT_CLASSES["table-row"];
+  const model = buildMarketValueChangeModel({
+    value,
+    changeAmount,
+    changePercent,
+    windowLabel,
+    direction,
+    unavailable,
+    accessibleLabel,
+    accessiblePeriodLabel,
+    windowLabelPlacement,
+  });
+  const aligned = alignment === "right" ? "items-end text-right" : alignment === "center" ? "items-center text-center" : "items-start text-left";
+  const showValue = content !== "change";
+  const showChange = content !== "value";
+  const accessibleText = content === "value" ? model.accessibleValueText : content === "change" ? model.accessibleChangeText : model.accessibleText;
+  const changeGap = showValue ? classes.gap : "";
+  const toneStyle =
+    model.direction === "positive"
+      ? { color: POSITIVE_VALUE_COLOR }
+      : model.direction === "negative"
+      ? { color: NEGATIVE_VALUE_COLOR }
+      : { color: "var(--text-secondary)" };
+
+  if (loading) {
+    return (
+      <div className={["flex animate-pulse flex-col gap-1", aligned, className].filter(Boolean).join(" ")} aria-label={`Loading ${accessibleLabel}`}>
+        <span className="h-4 w-16 rounded bg-[rgba(148,163,184,0.12)]" />
+        <span className="h-3 w-28 rounded bg-[rgba(148,163,184,0.09)]" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={["flex min-w-0 flex-col tabular-nums", aligned, className].filter(Boolean).join(" ")}
+      aria-label={accessibleText}
+    >
+      {showValue ? <span className={["max-w-full whitespace-nowrap text-[var(--text-primary)]", classes.value].join(" ")}>{model.valueText}</span> : null}
+      {showChange && model.hasReliableChange ? (
+        <span className={["inline-flex max-w-full items-center gap-x-1 whitespace-nowrap font-semibold", changeGap, classes.change].join(" ")} style={toneStyle}>
+          {model.direction === "neutral" ? (
+            <span aria-hidden="true">{"\u2014"}</span>
+          ) : (
+            <DeltaTrendIcon
+              direction={model.direction === "positive" ? "up" : "down"}
+              size={variant === "hero" || variant === "chart-summary" ? "md" : "sm"}
+              title={model.directionText}
+            />
+          )}
+          {model.amountText ? <span aria-hidden="true">{model.amountText}</span> : null}
+          {model.percentText ? <span aria-hidden="true">{model.amountText ? `(${model.percentText})` : model.percentText}</span> : null}
+          {showWindowLabel && model.windowLabel && windowLabelPlacement === "inline" ? (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap text-[var(--text-secondary)] opacity-80">
+              <span aria-hidden="true">{"\u00b7"}</span>
+              <span>{model.windowLabel}</span>
+            </span>
+          ) : null}
+          {model.direction === "neutral" ? <span className="sr-only">No change</span> : null}
+        </span>
+      ) : showChange ? (
+        <span className={["font-medium text-[var(--text-secondary)]", changeGap, classes.change].join(" ")}>{model.changeText}</span>
+      ) : null}
+      {showChange && showWindowLabel && model.windowLabel && windowLabelPlacement === "below" ? (
+        <span className="mt-px whitespace-nowrap text-[9px] font-medium leading-tight text-[var(--text-secondary)] opacity-80">
+          {model.windowLabel}
+        </span>
+      ) : null}
+    </div>
+  );
+}

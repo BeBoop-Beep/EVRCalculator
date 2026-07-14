@@ -31,13 +31,9 @@ def main() -> None:
     mode_flag = "--commit" if args.commit else "--dry-run"
 
     _run_step(
-        "set cards",
-        ["backend/scripts/build_pokemon_set_cards_snapshots.py", "--all", mode_flag],
-    )
-    _run_step(
-        "market dashboards",
+        "coordinated set cards and market dashboards",
         [
-            "backend/scripts/build_pokemon_market_dashboard_snapshots.py",
+            "backend/scripts/build_pokemon_set_market_snapshots.py",
             "--all",
             mode_flag,
             "--days",

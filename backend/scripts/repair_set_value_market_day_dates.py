@@ -15,7 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
     DEFAULT_DASHBOARD_WINDOW,
-    build_market_dashboard_snapshot_rows,
+    build_coordinated_set_market_snapshot_rows,
     get_client,
     list_pokemon_sets,
     resolve_set_row,
@@ -241,11 +241,18 @@ def refresh_set_value_history(client: Any, set_id: str, start_date: Optional[str
 
 
 def rebuild_market_dashboard(client: Any, set_row: Dict[str, Any], *, days: int, window: str, commit: bool) -> str:
-    dashboard_row, top_chase_history_rows = build_market_dashboard_snapshot_rows(
+    cards_row, dashboard_row, top_chase_history_rows = build_coordinated_set_market_snapshot_rows(
         set_row,
         days=days,
         window=window,
         client=client,
+    )
+    upsert_row(
+        client,
+        "pokemon_set_cards_snapshot_latest",
+        cards_row,
+        on_conflict="set_id",
+        commit=commit,
     )
     upsert_rows(
         client,

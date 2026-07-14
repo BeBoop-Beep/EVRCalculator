@@ -20,7 +20,7 @@ import {
   getSelectedDeltaWindowFromHistory,
 } from "@/lib/explore/marketDeltaWindows.mjs";
 import {
-  forwardFillDailyHistoryThroughToday,
+  forwardFillDailyHistoryThroughDate,
   normalizeHistoryTrendPoint,
   patchLatestHistoryRowWithSummaryRatios,
 } from "./packValueHistoryNormalization.mjs";
@@ -29,6 +29,7 @@ import {
   formatPerformanceCurrency,
   formatPerformanceRatio,
   formatReturnMultiple,
+  getPerformanceSeriesLabels,
 } from "./performanceVsCostFormatting.mjs";
 import { formatHistoryDate } from "./historyDateFormatting.mjs";
 
@@ -193,7 +194,7 @@ const TOOLTIP_ROW_COLORS = {
   typical: HISTORICAL_TREND_COLORS.medianToCost,
 };
 
-function TrendTooltip({ active, payload, packCost }) {
+function TrendTooltip({ active, payload, packCost, variant = "market" }) {
   if (!active || !payload?.length) {
     return null;
   }
@@ -203,7 +204,7 @@ function TrendTooltip({ active, payload, packCost }) {
     return null;
   }
 
-  const tooltipRows = buildPerformanceTooltipRows(row, packCost);
+  const tooltipRows = buildPerformanceTooltipRows(row, packCost, variant);
   const primaryRows = tooltipRows.filter((entry) => TOOLTIP_ROW_COLORS[entry.key]);
   const referenceRows = tooltipRows.filter((entry) => !TOOLTIP_ROW_COLORS[entry.key]);
 
@@ -329,11 +330,22 @@ function MarketWindowSelector({ windows, value, onChange }) {
   );
 }
 
-export default function PackValueHistoryChart({ historyTrend = [], packCost = null, summary = null, flush = false }) {
+export default function PackValueHistoryChart({
+  historyTrend = [],
+  packCost = null,
+  summary = null,
+  flush = false,
+  variant = "market",
+  marketAsOfDate = null,
+}) {
   const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
   const [showP95Line,    setShowP95Line]    = useState(true);
   const [selectedWindowKey, setSelectedWindowKey] = useState(null);
+
+  // "simulation" keeps the labels technical (…vs Cost / 50th / 95th percentile)
+  // for the Simulation Results view; "market" is Overview's simplified reader copy.
+  const seriesLabels = getPerformanceSeriesLabels(variant);
 
   const fullChartData = useMemo(
     () => {
@@ -371,12 +383,15 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
         (row) => row.snapshotDate && (row.meanCostRatio !== null || row.medianCostRatio !== null)
       );
 
-      return forwardFillDailyHistoryThroughToday(rows, {
+      // Clamped/filled through the canonical marketAsOfDate; when absent the
+      // helper stops at the latest real observation — never runtime today.
+      return forwardFillDailyHistoryThroughDate(rows, {
         dateField: "snapshotDate",
         valueKeys: ["meanCostRatio", "medianCostRatio", "p95CostRatio"],
+        endDateKey: marketAsOfDate,
       });
     },
-    [historyTrend, packCost, summary]
+    [historyTrend, packCost, summary, marketAsOfDate]
   );
 
   const {
@@ -447,14 +462,14 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
             onToggle={() => setShowMeanLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.meanToCost}
             inactiveColor="rgba(45,212,191,0.25)"
-            label="Expected Value"
+            label={seriesLabels.mean}
           />
           <LegendToggle
             active={showMedianLine}
             onToggle={() => setShowMedianLine((c) => !c)}
             activeColor={HISTORICAL_TREND_COLORS.medianToCost}
             inactiveColor="rgba(99,130,191,0.25)"
-            label="Typical Return"
+            label={seriesLabels.median}
           />
           {hasP95Data && (
             <LegendToggle
@@ -462,7 +477,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               onToggle={() => setShowP95Line((c) => !c)}
               activeColor={HISTORICAL_TREND_COLORS.p95ToCost}
               inactiveColor="rgba(34,211,238,0.20)"
-              label="Big Hit Upside"
+              label={seriesLabels.p95}
             />
           )}
         </div>
@@ -495,7 +510,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               width={60}
             />
 
-            <Tooltip content={<TrendTooltip packCost={packCost} />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
+            <Tooltip content={<TrendTooltip packCost={packCost} variant={variant} />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
 
             <ReferenceLine
               y={1}
@@ -515,7 +530,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               <Line
                 type="monotone"
                 dataKey="p95CostRatio"
-                name="Big Hit Upside"
+                name={seriesLabels.p95}
                 stroke={HISTORICAL_TREND_COLORS.p95ToCost}
                 strokeWidth={2.5}
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.p95ToCost, strokeWidth: 0 }}
@@ -534,7 +549,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               <Line
                 type="monotone"
                 dataKey="meanCostRatio"
-                name="Expected Value"
+                name={seriesLabels.mean}
                 stroke={HISTORICAL_TREND_COLORS.meanToCost}
                 strokeWidth={2.5}
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.meanToCost, strokeWidth: 0 }}
@@ -553,7 +568,7 @@ export default function PackValueHistoryChart({ historyTrend = [], packCost = nu
               <Line
                 type="monotone"
                 dataKey="medianCostRatio"
-                name="Typical Return"
+                name={seriesLabels.median}
                 stroke={HISTORICAL_TREND_COLORS.medianToCost}
                 strokeWidth={2}
                 dot={{ r: 2, fill: HISTORICAL_TREND_COLORS.medianToCost, strokeWidth: 0 }}

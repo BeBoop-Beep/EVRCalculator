@@ -431,9 +431,15 @@ def get_explore_rip_statistics_targets(
     try:
         return get_pokemon_explore_rankings_snapshot_payload(limit=limit)
     except ExploreRipStatisticsTargetsError as exc:
+        headers = (
+            {"Retry-After": str(exc.retry_after_seconds)}
+            if getattr(exc, "retry_after_seconds", None)
+            else None
+        )
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
             status_code=exc.status_code,
+            headers=headers,
         )
     except Exception:
         logger.exception("/explore/rip-statistics/targets unexpected error")
@@ -599,9 +605,15 @@ def get_pokemon_sets_catalog():
     try:
         return get_pokemon_sets_catalog_payload()
     except PokemonSetsCatalogError as exc:
+        headers = (
+            {"Retry-After": str(exc.retry_after_seconds)}
+            if getattr(exc, "retry_after_seconds", None)
+            else None
+        )
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
             status_code=exc.status_code,
+            headers=headers,
         )
     except Exception:
         logger.exception("/tcgs/pokemon/sets unexpected error")
@@ -639,6 +651,7 @@ def get_pokemon_set_cards_page(
     rarity: Optional[str] = Query(default=None),
     movement_filter: Optional[str] = Query(default=None),
     movement_sort: Optional[str] = Query(default=None),
+    section: Optional[str] = Query(default=None),
 ):
     """Return a single paginated slice of checklist cards for a Pokemon set."""
     try:
@@ -651,6 +664,7 @@ def get_pokemon_set_cards_page(
             rarity=rarity,
             movement_filter=movement_filter,
             movement_sort=movement_sort,
+            section=section,
         )
     except (PokemonSetCardsError, PokemonSetMarketError) as exc:
         return JSONResponse(
@@ -888,10 +902,17 @@ def get_pokemon_set_market_movers(
     set_id: str,
     window: Optional[str] = Query(default=None),
     limit: Optional[str] = Query(default=None),
+    movement: Optional[str] = Query(default=None),
 ):
-    """Return market movers for a single requested window for a Pokemon set."""
+    """Return market movers for a single requested window for a Pokemon set.
+
+    Shares the canonical Cards filter/sort contract:
+    section=market-movers, movement=all|heating|cooling, sort=largest-dollar-move.
+    """
     try:
-        return get_pokemon_set_market_movers_snapshot_payload(set_id=set_id, window=window or "30D", limit=limit)
+        return get_pokemon_set_market_movers_snapshot_payload(
+            set_id=set_id, window=window or "30D", limit=limit, movement=movement
+        )
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},

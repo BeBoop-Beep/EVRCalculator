@@ -70,3 +70,38 @@ def test_get_latest_prices_for_variants_normalizes_and_drops_empty(monkeypatch):
     eq_payloads = [payload for kind, payload in calls if kind == "eq"]
     assert eq_payloads == ["cond"]
     assert len(rows) == 2
+
+
+def test_price_ingest_refreshes_value_history_and_canonical_selection(monkeypatch):
+    calls = []
+
+    class _Rpc:
+        def execute(self):
+            return SimpleNamespace(data=[])
+
+    class _RefreshClient:
+        def rpc(self, name, params):
+            calls.append((name, params))
+            return _Rpc()
+
+    monkeypatch.setattr(repo, "create_client", lambda _url, _key: _RefreshClient())
+
+    repo._refresh_pokemon_set_value_history_for_price_rows(
+        [
+            {
+                "card_variant_id": "variant-1",
+                "captured_at": "2026-07-12T12:00:00+00:00",
+            }
+        ]
+    )
+
+    assert calls == [
+        (
+            "refresh_pokemon_set_value_daily_history_for_variants",
+            {"p_card_variant_ids": ["variant-1"], "p_start_date": "2026-07-12"},
+        ),
+        (
+            "refresh_pokemon_canonical_card_market_prices_latest_for_variants",
+            {"p_card_variant_ids": ["variant-1"]},
+        ),
+    ]

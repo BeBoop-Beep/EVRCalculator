@@ -5,10 +5,13 @@ import logging
 import math
 import re
 import time
+from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import create_public_read_client, public_read_client
+from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -51,6 +54,7 @@ MAX_RANKINGS_LIMIT = 200
 MIN_LIMIT = 1
 RANKINGS_STALE_THRESHOLD_SECONDS = 300
 RANKINGS_STALE_WARNING = "rankings snapshot is stale relative to set page snapshot"
+_LAST_SUCCESSFUL_RANKINGS_PAYLOADS: Dict[int, Dict[str, Any]] = {}
 
 
 def _to_optional_str(value: Any) -> Optional[str]:
@@ -83,6 +87,13 @@ def _to_optional_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return parsed if math.isfinite(parsed) else None
+
+
+def _to_optional_int(value: Any) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 _UUID_RE = re.compile(
@@ -205,19 +216,52 @@ def _movement_card_id_key(movement: Dict[str, Any]) -> Optional[str]:
     return _to_optional_str(movement.get("cardId")) or _to_optional_str(movement.get("card_id"))
 
 
-def _movement_fields(movement: Dict[str, Any]) -> Dict[str, Any]:
+def _movement_fields(movement: Dict[str, Any], window: str = "30D") -> Dict[str, Any]:
     current_price = movement.get("currentPrice", movement.get("current_price"))
-    change_amount = movement.get("change30dAmount", movement.get("change_30d_amount"))
-    change_percent = movement.get("change30dPercent", movement.get("change_30d_percent"))
+    normalized_window = str(window or "30D").upper()
+    window_suffix = normalized_window.lower()
+    change_amount = movement.get(
+        "changeAmount",
+        movement.get("change_amount", movement.get(f"change{window_suffix}Amount", movement.get("change30dAmount", movement.get("change_30d_amount")))),
+    )
+    change_percent = movement.get(
+        "changePercent",
+        movement.get("change_percent", movement.get(f"change{window_suffix}Percent", movement.get("change30dPercent", movement.get("change_30d_percent")))),
+    )
     movement_score = movement.get("movementScore", movement.get("movement_score"))
     movement_label = movement.get("movementLabel", movement.get("movement_label"))
     enough_history = movement.get("enoughHistory", movement.get("enough_history"))
     confidence = movement.get("confidence")
+    window_fields = {
+        "changeAmount": change_amount,
+        "changePercent": change_percent,
+        f"change{window_suffix}Amount": change_amount,
+        f"change{window_suffix}Percent": change_percent,
+        f"movement{window_suffix}": {
+            "currentPrice": current_price,
+            "changeAmount": change_amount,
+            "changePercent": change_percent,
+            "score": movement_score,
+            "label": movement_label,
+            "enoughHistory": enough_history,
+            "confidence": confidence,
+            "windowConvention": movement.get("windowConvention", movement.get("window_convention")),
+            "targetStartDate": movement.get("targetStartDate", movement.get("target_start_date")),
+            "startDate": movement.get("startDate", movement.get("start_date")),
+            "endDate": movement.get("endDate", movement.get("end_date")),
+            "fullWindowCoverage": movement.get("fullWindowCoverage", movement.get("full_window_coverage")),
+            "isPartialWindow": movement.get("isPartialWindow", movement.get("is_partial_window")),
+        },
+    }
+    if normalized_window != "30D":
+        return window_fields
     return {
         "currentPrice": current_price,
         "current_price": current_price,
         "marketPrice": current_price,
         "market_price": current_price,
+        "changeAmount": change_amount,
+        "changePercent": change_percent,
         "change30dAmount": change_amount,
         "change_30d_amount": change_amount,
         "change30dPercent": change_percent,
@@ -245,6 +289,12 @@ def _movement_fields(movement: Dict[str, Any]) -> Dict[str, Any]:
             "enoughHistory": enough_history,
             "enough_history": enough_history,
             "confidence": confidence,
+            "windowConvention": movement.get("windowConvention", movement.get("window_convention")),
+            "targetStartDate": movement.get("targetStartDate", movement.get("target_start_date")),
+            "startDate": movement.get("startDate", movement.get("start_date")),
+            "endDate": movement.get("endDate", movement.get("end_date")),
+            "fullWindowCoverage": movement.get("fullWindowCoverage", movement.get("full_window_coverage")),
+            "isPartialWindow": movement.get("isPartialWindow", movement.get("is_partial_window")),
         },
     }
 
@@ -252,6 +302,7 @@ def _movement_fields(movement: Dict[str, Any]) -> Dict[str, Any]:
 def enrich_cards_payload_with_movements(
     payload: Dict[str, Any],
     movement_payload: Dict[str, Any],
+    window: str = "30D",
 ) -> Dict[str, Any]:
     movements = list(movement_payload.get("movements") or [])
     if not movements:
@@ -268,7 +319,7 @@ def enrich_cards_payload_with_movements(
         card_payload = dict(card or {})
         movement = movement_by_card_id.get(_card_id_key(card_payload) or "")
         if movement:
-            card_payload.update(_movement_fields(movement))
+            card_payload.update(_movement_fields(movement, window=window))
         cards.append(card_payload)
 
     meta = dict(payload.get("meta") or {})
@@ -1422,10 +1473,29 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
     return _build_missing_set_page_snapshot_payload(set_row, elapsed_ms)
 
 
+_TRACKED_LENS_SUMMARY_FIELDS = (
+    "relative_experience_score",
+    "relative_chase_potential_score",
+    "relative_biggest_upside_score",
+    "relative_average_return_score",
+    "experience_rank",
+    "chase_potential_rank",
+    "biggest_upside_rank",
+    "mean_value_to_cost_rank",
+    "experience_tier",
+    "chase_potential_tier",
+    "biggest_upside_tier",
+    "mean_value_to_cost_tier",
+)
+_TRACKED_LENS_PAYLOAD_PREFIX = "tracked_lens_"
 _SHELL_SNAPSHOT_COLUMNS = (
     "set_id,set_identity_json,title_card_json,rip_summary_json,"
     "market_summary_json,risk_summary_json,concentration_json,"
-    "desirability_summary_json,set_intelligence_json,as_of,source_updated_at,updated_at"
+    "desirability_summary_json,set_intelligence_json,as_of,source_updated_at,updated_at,"
+    + ",".join(
+        f"{_TRACKED_LENS_PAYLOAD_PREFIX}{field}:payload_json->summary->{field}"
+        for field in _TRACKED_LENS_SUMMARY_FIELDS
+    )
 )
 
 
@@ -1462,6 +1532,16 @@ def _build_shell_payload_from_row(
     set_identity = row.get("set_identity_json") if isinstance(row.get("set_identity_json"), dict) else {}
     title_card = row.get("title_card_json") if isinstance(row.get("title_card_json"), dict) else {}
     rip_summary = row.get("rip_summary_json") if isinstance(row.get("rip_summary_json"), dict) else {}
+    # Older rows can have a rip_summary_json written before the supplementary
+    # lens fields were added to that split column, even though
+    # payload_json.summary already contains the authoritative values. The
+    # query projects only these exact JSON paths (not the multi-MB payload_json
+    # blob), and those persisted values win whenever they are present.
+    tracked_lens_summary = {
+        field: row.get(f"{_TRACKED_LENS_PAYLOAD_PREFIX}{field}")
+        for field in _TRACKED_LENS_SUMMARY_FIELDS
+        if row.get(f"{_TRACKED_LENS_PAYLOAD_PREFIX}{field}") is not None
+    }
     market_summary = row.get("market_summary_json") if isinstance(row.get("market_summary_json"), dict) else {}
     risk_summary = row.get("risk_summary_json") if isinstance(row.get("risk_summary_json"), dict) else {}
     concentration = row.get("concentration_json") if isinstance(row.get("concentration_json"), dict) else {}
@@ -1476,6 +1556,7 @@ def _build_shell_payload_from_row(
         **risk_summary,
         **market_summary,
         **rip_summary,
+        **tracked_lens_summary,
         **title_card,
     }
     histories_by_scope = set_value_histories_by_scope if isinstance(set_value_histories_by_scope, dict) else {}
@@ -1610,20 +1691,50 @@ def get_pokemon_set_shell_snapshot_payload(set_id: str) -> Dict[str, Any]:
     return _build_missing_shell_snapshot_payload(set_row, elapsed_ms)
 
 
+def _load_pokemon_explore_rankings_snapshot_row(client: Any) -> Optional[Dict[str, Any]]:
+    result = (
+        client.table("pokemon_explore_rankings_snapshot_latest")
+        .select("tcg,scope,ranking_payload_json,default_target_json,updated_at")
+        .eq("tcg", "pokemon")
+        .eq("scope", DEFAULT_RANKINGS_SCOPE)
+        .limit(1)
+        .execute()
+    )
+    return _first_row(result)
+
+
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
     try:
-        result = (
-            public_read_client.table("pokemon_explore_rankings_snapshot_latest")
-            .select("tcg,scope,ranking_payload_json,default_target_json,updated_at")
-            .eq("tcg", "pokemon")
-            .eq("scope", DEFAULT_RANKINGS_SCOPE)
-            .limit(1)
-            .execute()
+        row = run_public_read_with_retry(
+            _load_pokemon_explore_rankings_snapshot_row,
+            operation_name="pokemon_explore_rankings_snapshot",
+            initial_client=public_read_client,
+            client_factory=create_public_read_client,
         )
-        row = _first_row(result)
-    except Exception:
+    except Exception as exc:
         logger.exception("[pokemon-snapshot] explore rankings snapshot read failed")
+        if is_transient_data_service_error(exc):
+            cached = _LAST_SUCCESSFUL_RANKINGS_PAYLOADS.get(clamped_limit)
+            if cached:
+                fallback = deepcopy(cached)
+                meta = dict(fallback.get("meta") or {})
+                snapshot = dict(meta.get("snapshot") or {})
+                snapshot.update(
+                    {
+                        "isStaleFallback": True,
+                        "fallbackReason": "transient_data_service_failure",
+                    }
+                )
+                meta["snapshot"] = snapshot
+                fallback["meta"] = meta
+                return fallback
+            raise ExploreRipStatisticsTargetsError(
+                status_code=503,
+                message="RIP Statistics targets are temporarily unavailable",
+                code="RIP_STATISTICS_TARGETS_TEMPORARILY_UNAVAILABLE",
+                retry_after_seconds=15,
+            ) from exc
         raise ExploreRipStatisticsTargetsError(
             status_code=500,
             message="Failed to read RIP Statistics targets snapshot",
@@ -1663,19 +1774,22 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             {
                 "source": "pokemon_explore_rankings_snapshot_latest",
                 "updatedAt": _to_optional_str(row.get("updated_at")),
-                "isStaleFallback": True,
+                "isStaleFallback": False,
             }
         )
+        snapshot.pop("fallbackReason", None)
         meta["request"] = request
         meta["snapshot"] = snapshot
         meta["openingSetAudit"] = opening_set_audit
         meta["opening_set_audit"] = opening_set_audit
-        return {
+        resolved_payload = {
             **payload,
             "targets": targets,
             "default_target": payload.get("default_target") or row.get("default_target_json") or None,
             "meta": meta,
         }
+        _LAST_SUCCESSFUL_RANKINGS_PAYLOADS[clamped_limit] = deepcopy(resolved_payload)
+        return resolved_payload
 
     logger.warning("[pokemon-snapshot] missing explore rankings snapshot; falling back to live target assembly")
     payload = _enrich_rankings_payload_with_checklist_set_values(get_rip_statistics_targets_payload(limit=clamped_limit))
@@ -1688,7 +1802,9 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         "updatedAt": datetime.now(timezone.utc).isoformat(),
         "isStaleFallback": False,
     }
-    return {**payload, "meta": meta}
+    resolved_payload = {**payload, "meta": meta}
+    _LAST_SUCCESSFUL_RANKINGS_PAYLOADS[clamped_limit] = deepcopy(resolved_payload)
+    return resolved_payload
 
 
 def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
@@ -1768,6 +1884,10 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
                 }
             )
             meta["snapshot"] = snapshot
+            meta["movementGeneration"] = _movement_generation_metadata(
+                resolved_set_id,
+                cards_snapshot=snapshot,
+            )
             if correlation:
                 meta["cardAppealMarketPriceCorrelation"] = correlation
                 meta["card_appeal_market_price_correlation"] = correlation
@@ -1837,13 +1957,108 @@ CARDS_PAGE_SORT_OPTIONS = (
     "rarity",
     "market-price-desc",
     "market-price-asc",
+    "7d-movers",
     "30d-gainers",
     "30d-decliners",
 )
-CARDS_PAGE_MOVEMENT_SORTS = ("set-number", "30d-gainers", "30d-decliners")
+CARDS_PAGE_MOVEMENT_SORTS = ("7d-movers", "30d-gainers", "30d-decliners")
 CARDS_PAGE_MOVEMENT_FILTERS = ("all", "heating", "cooling")
+CARDS_PAGE_SECTIONS = ("all-cards", "market-movers")
+# Movement magnitudes at or below this epsilon count as "exactly zero" for
+# Market Movers membership (zero-movement cards stay in All Cards only).
+_MOVEMENT_ZERO_EPSILON = 1e-9
 _CARD_NUMBER_PATTERN = re.compile(r"^(\d+)([a-zA-Z]*)$")
 _CARD_NUMBER_MIXED_PATTERN = re.compile(r"(\d+)")
+
+
+def _movement_snapshot_meta(value: Any) -> Dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    if isinstance(value.get("snapshot_meta"), dict):
+        return dict(value["snapshot_meta"])
+    for cards_key in ("cards_json", "top_chase_cards_json"):
+        cards = value.get(cards_key)
+        if isinstance(cards, list) and cards:
+            first_card = cards[0] if isinstance(cards[0], dict) else {}
+            movement_meta = first_card.get("movementMetadata") or first_card.get("movement_metadata")
+            if isinstance(movement_meta, dict):
+                return dict(movement_meta)
+    payload = value.get("payload_json") if isinstance(value.get("payload_json"), dict) else value
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    snapshot = meta.get("snapshot") if isinstance(meta.get("snapshot"), dict) else {}
+    return dict(snapshot)
+
+
+def _read_peer_movement_snapshot_meta(
+    set_id: str,
+    *,
+    surface: str,
+) -> tuple[Dict[str, Any], bool]:
+    try:
+        if surface == "cards":
+            query = (
+                public_read_client.table("pokemon_set_cards_snapshot_latest")
+                .select("snapshot_meta:payload_json->meta->snapshot")
+                .eq("set_id", set_id)
+            )
+        else:
+            query = (
+                public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+                .select("snapshot_meta:payload_json->meta->snapshot")
+                .eq("set_id", set_id)
+                .eq("window_key", DEFAULT_DASHBOARD_WINDOW)
+            )
+        row = _first_row(query.limit(1).execute())
+        return _movement_snapshot_meta(row or {}), bool(row)
+    except Exception:
+        logger.warning(
+            "[pokemon-snapshot] movement generation peer read failed set_id=%s surface=%s",
+            set_id,
+            surface,
+            exc_info=True,
+        )
+        return {}, False
+
+
+def _movement_generation_metadata(
+    set_id: str,
+    *,
+    cards_snapshot: Optional[Dict[str, Any]] = None,
+    dashboard_snapshot: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    cards_known = cards_snapshot is not None
+    dashboard_known = dashboard_snapshot is not None
+    cards_meta = dict(cards_snapshot or {})
+    dashboard_meta = dict(dashboard_snapshot or {})
+    cards_exists = cards_known
+    dashboard_exists = dashboard_known
+    if not cards_known:
+        cards_meta, cards_exists = _read_peer_movement_snapshot_meta(set_id, surface="cards")
+    if not dashboard_known:
+        dashboard_meta, dashboard_exists = _read_peer_movement_snapshot_meta(set_id, surface="dashboard")
+
+    cards_generation = _to_optional_str(cards_meta.get("generationId"))
+    dashboard_generation = _to_optional_str(dashboard_meta.get("generationId"))
+    if cards_generation and dashboard_generation:
+        matches: Optional[bool] = cards_generation == dashboard_generation
+        status = "match" if matches else "mismatch"
+    elif (cards_generation and dashboard_exists) or (dashboard_generation and cards_exists):
+        matches = False
+        status = "mixed_generation_and_legacy"
+    else:
+        matches = None
+        status = "legacy" if cards_exists and dashboard_exists else "unknown"
+
+    return {
+        "cardsGenerationId": cards_generation,
+        "marketDashboardGenerationId": dashboard_generation,
+        "matches": matches,
+        "status": status,
+        "cardsMovementContractVersion": _to_optional_str(cards_meta.get("movementContractVersion")),
+        "marketDashboardMovementContractVersion": _to_optional_str(
+            dashboard_meta.get("movementContractVersion")
+        ),
+    }
 
 
 def _snake_to_camel(key: str) -> str:
@@ -1913,6 +2128,11 @@ def _sanitize_cards_movement_filter(value: Any) -> str:
     return normalized if normalized in CARDS_PAGE_MOVEMENT_FILTERS else "all"
 
 
+def _sanitize_cards_section(value: Any) -> str:
+    normalized = (_to_optional_str(value) or "all-cards").strip().lower()
+    return normalized if normalized in CARDS_PAGE_SECTIONS else "all-cards"
+
+
 def _cards_page_number_sort_key(card: Dict[str, Any]) -> tuple:
     number = _to_optional_str(card.get("cardNumber")) or _to_optional_str(card.get("printedNumber"))
     if number:
@@ -1930,6 +2150,174 @@ def _cards_page_number_sort_key(card: Dict[str, Any]) -> tuple:
     return (3, name.lower(), "", "")
 
 
+def _cards_page_stable_tie_key(card: Dict[str, Any]) -> tuple:
+    return (
+        _cards_page_number_sort_key(card),
+        (_to_optional_str(card.get("id")) or _to_optional_str(card.get("cardId")) or "").lower(),
+        (_to_optional_str(card.get("name")) or "").lower(),
+    )
+
+
+def _cards_page_mover_tie_key(card: Dict[str, Any]) -> tuple:
+    return (
+        (_to_optional_str(card.get("canonicalCardId")) or _to_optional_str(card.get("id")) or _to_optional_str(card.get("cardId")) or "").lower(),
+        (_to_optional_str(card.get("cardVariantId")) or "").lower(),
+        (_to_optional_str(card.get("conditionId")) or "").lower(),
+    )
+
+
+def _cards_page_movement_sign_value(card: Dict[str, Any], percent_field: str, amount_field: str) -> float:
+    # Dollar amount owns direction; percentage is only the fallback when no
+    # amount exists (matching the Market Movers absolute-dollar contract).
+    amount = _to_optional_float(card.get(amount_field))
+    if amount is not None and abs(amount) > _MOVEMENT_ZERO_EPSILON:
+        return amount
+    percent = _to_optional_float(card.get(percent_field))
+    if percent is not None:
+        return percent
+    return amount or 0
+
+
+def _cards_page_movement_suffix(window_key: str) -> str:
+    return "7d" if str(window_key or "").strip().upper() in {"7D", "7"} else "30d"
+
+
+def _cards_page_movement_dict(card: Dict[str, Any], suffix: str) -> Dict[str, Any]:
+    movement = card.get(f"movement{suffix}")
+    return movement if isinstance(movement, dict) else {}
+
+
+def _cards_page_movement_values(card: Dict[str, Any], suffix: str) -> Tuple[Optional[float], Optional[float]]:
+    movement = _cards_page_movement_dict(card, suffix)
+    amount = _to_optional_float(card.get(f"change{suffix}Amount"))
+    if amount is None:
+        amount = _to_optional_float(movement.get("changeAmount"))
+    percent = _to_optional_float(card.get(f"change{suffix}Percent"))
+    if percent is None:
+        percent = _to_optional_float(movement.get("changePercent"))
+    return amount, percent
+
+
+def _cards_page_has_valid_movement(card: Dict[str, Any], window_key: str) -> bool:
+    """hasValidMovement: a finite movement amount or percentage computed from
+    at least two usable price points. Deliberately independent of the
+    reliability/mover-eligibility guardrails — those stay as metadata only."""
+    suffix = _cards_page_movement_suffix(window_key)
+    amount, percent = _cards_page_movement_values(card, suffix)
+    if amount is None and percent is None:
+        return False
+    movement = _cards_page_movement_dict(card, suffix)
+    point_count = _to_optional_int(movement.get("historyPointCount"))
+    if point_count is not None and point_count < 2:
+        return False
+    return True
+
+
+def _cards_page_has_nonzero_movement(card: Dict[str, Any], window_key: str) -> bool:
+    suffix = _cards_page_movement_suffix(window_key)
+    amount, percent = _cards_page_movement_values(card, suffix)
+    if amount is not None and abs(amount) > _MOVEMENT_ZERO_EPSILON:
+        return True
+    return percent is not None and abs(percent) > _MOVEMENT_ZERO_EPSILON
+
+
+def _cards_page_movement_direction(card: Dict[str, Any], window_key: str) -> float:
+    suffix = _cards_page_movement_suffix(window_key)
+    amount, percent = _cards_page_movement_values(card, suffix)
+    if amount is not None and abs(amount) > _MOVEMENT_ZERO_EPSILON:
+        return amount
+    if percent is not None and abs(percent) > _MOVEMENT_ZERO_EPSILON:
+        return percent
+    return 0.0
+
+
+def _cards_page_is_market_mover(card: Dict[str, Any], window_key: str) -> bool:
+    return _cards_page_has_valid_movement(card, window_key) and _cards_page_has_nonzero_movement(card, window_key)
+
+
+def _largest_dollar_move_sort_key(card: Dict[str, Any], window_key: str) -> tuple:
+    """Canonical Market Movers ranking: absolute dollar change descending,
+    then absolute percentage change descending, then stable canonical card
+    identity ascending. Direction never affects rank."""
+    suffix = _cards_page_movement_suffix(window_key)
+    amount, percent = _cards_page_movement_values(card, suffix)
+    return (
+        amount is None and percent is None,
+        -abs(amount if amount is not None else 0.0),
+        -abs(percent if percent is not None else 0.0),
+        _cards_page_mover_tie_key(card),
+    )
+
+
+def _sort_cards_by_largest_dollar_move(cards: List[Dict[str, Any]], window_key: str) -> List[Dict[str, Any]]:
+    return sorted(cards, key=lambda card: _largest_dollar_move_sort_key(card, window_key))
+
+
+def _cards_page_has_reliable_movement(card: Dict[str, Any], effective_sort: str) -> bool:
+    if effective_sort == "7d-movers":
+        movement = card.get("movement7d") if isinstance(card.get("movement7d"), dict) else {}
+        explicit = card.get("movement7dReliable")
+    else:
+        movement = card.get("movement30d") if isinstance(card.get("movement30d"), dict) else {}
+        explicit = card.get("movement30dReliable")
+    if explicit is not None:
+        return bool(explicit)
+    if movement.get("reliable") is not None:
+        return bool(movement.get("reliable"))
+    # Backward-compatible snapshots predate the reliability field. A finite
+    # percentage plus enoughHistory was their complete valid-movement signal.
+    enough_history = movement.get("enoughHistory", card.get("enoughHistory"))
+    if enough_history is not None:
+        return bool(enough_history)
+    percent_field = "change7dPercent" if effective_sort == "7d-movers" else "change30dPercent"
+    return _to_optional_float(card.get(percent_field)) is not None
+
+
+def _cards_page_has_full_window_movement(card: Dict[str, Any], effective_sort: str) -> bool:
+    movement_key = "movement7d" if effective_sort == "7d-movers" else "movement30d"
+    movement = card.get(movement_key) if isinstance(card.get(movement_key), dict) else {}
+    full_window_coverage = movement.get("fullWindowCoverage")
+    if full_window_coverage is not None:
+        return bool(full_window_coverage)
+    return _cards_page_has_reliable_movement(card, effective_sort)
+
+
+def _market_as_of_date_from_snapshot_meta(snapshot_meta: Dict[str, Any], *, fallback: Any = None) -> Optional[str]:
+    """Canonical market as-of date for a served snapshot payload.
+
+    Comes from the snapshot generation's own movement metadata (the latest
+    authoritative market observation date the coordinated builder used) —
+    never from request time or "today"."""
+    meta = snapshot_meta if isinstance(snapshot_meta, dict) else {}
+    return _parse_date_key(
+        meta.get("marketAsOfDate")
+        or meta.get("movementAsOfDate")
+        or meta.get("latestMarketDate")
+        or fallback
+    )
+
+
+def _cards_movement_totals(
+    cards: List[Dict[str, Any]],
+    *,
+    filtered_cards: List[Dict[str, Any]],
+    page_cards: List[Dict[str, Any]],
+    window_key: str,
+) -> Dict[str, Any]:
+    """Movement totals for the canonical Cards dataset (spec: Market Movers
+    totals must reflect the filtered Cards query, not a legacy mover array)."""
+    cards_with_movement = sum(1 for card in cards if _cards_page_has_valid_movement(card, window_key))
+    nonzero_movers = sum(1 for card in cards if _cards_page_is_market_mover(card, window_key))
+    return {
+        "window": window_key,
+        "checklistCardCount": len(cards),
+        "cardsWithCalculableMovement": cards_with_movement,
+        "nonzeroMovementCount": nonzero_movers,
+        "filteredTotal": len(filtered_cards),
+        "pageCount": len(page_cards),
+    }
+
+
 def _apply_cards_page_filters_and_sort(
     cards: List[Dict[str, Any]],
     *,
@@ -1938,7 +2326,17 @@ def _apply_cards_page_filters_and_sort(
     movement_filter: str,
     sort: str,
     movement_sort: Optional[str],
+    section: str = "all-cards",
 ) -> List[Dict[str, Any]]:
+    """Shared canonical Cards query used by /cards/page and /market/movers.
+
+    Market Movers is a query mode over the complete Cards dataset:
+    ``section="market-movers"`` narrows membership to cards with a valid
+    nonzero movement in the effective window (hasValidMovement + nonzero) and
+    never consults the reliability/mover-eligibility guardrails — those stay
+    on the records as metadata only. ``section="all-cards"`` keeps every
+    checklist card, including zero-movement and no-movement rows.
+    """
     filtered = list(cards)
 
     if query:
@@ -1949,12 +2347,24 @@ def _apply_cards_page_filters_and_sort(
         rarity_lower = rarity.strip().lower()
         filtered = [card for card in filtered if (_to_optional_str(card.get("rarity")) or "").strip().lower() == rarity_lower]
 
-    if movement_filter == "heating":
-        filtered = [card for card in filtered if (_to_optional_float(card.get("change30dAmount")) or 0) > 0]
-    elif movement_filter == "cooling":
-        filtered = [card for card in filtered if (_to_optional_float(card.get("change30dAmount")) or 0) < 0]
+    effective_sort = movement_sort if movement_sort in CARDS_PAGE_MOVEMENT_SORTS else sort
+    movement_window_key = "7D" if effective_sort == "7d-movers" else "30D"
 
-    effective_sort = movement_sort if movement_sort in ("30d-gainers", "30d-decliners") else sort
+    if section == "market-movers":
+        filtered = [card for card in filtered if _cards_page_is_market_mover(card, movement_window_key)]
+
+    if movement_filter == "heating":
+        filtered = [
+            card for card in filtered
+            if _cards_page_is_market_mover(card, movement_window_key)
+            and _cards_page_movement_direction(card, movement_window_key) > 0
+        ]
+    elif movement_filter == "cooling":
+        filtered = [
+            card for card in filtered
+            if _cards_page_is_market_mover(card, movement_window_key)
+            and _cards_page_movement_direction(card, movement_window_key) < 0
+        ]
 
     if effective_sort == "name":
         filtered.sort(key=lambda card: (_to_optional_str(card.get("name")) or "").lower())
@@ -1964,10 +2374,34 @@ def _apply_cards_page_filters_and_sort(
         filtered.sort(key=lambda card: (-(_to_optional_float(card.get("marketPrice")) if _to_optional_float(card.get("marketPrice")) is not None else -1.0), _cards_page_number_sort_key(card)))
     elif effective_sort == "market-price-asc":
         filtered.sort(key=lambda card: ((_to_optional_float(card.get("marketPrice")) if _to_optional_float(card.get("marketPrice")) is not None else float("inf")), _cards_page_number_sort_key(card)))
+    elif effective_sort == "7d-movers":
+        filtered.sort(key=lambda card: _largest_dollar_move_sort_key(card, "7D"))
     elif effective_sort == "30d-gainers":
-        filtered.sort(key=lambda card: (-(_to_optional_float(card.get("change30dAmount")) if _to_optional_float(card.get("change30dAmount")) is not None else float("-inf")), _cards_page_number_sort_key(card)))
+        filtered.sort(
+            key=lambda card: (
+                not _cards_page_has_reliable_movement(card, effective_sort),
+                not _cards_page_has_full_window_movement(card, effective_sort),
+                -(
+                    _to_optional_float(card.get("change30dAmount"))
+                    if _to_optional_float(card.get("change30dAmount")) is not None
+                    else float("-inf")
+                ),
+                _cards_page_stable_tie_key(card),
+            )
+        )
     elif effective_sort == "30d-decliners":
-        filtered.sort(key=lambda card: ((_to_optional_float(card.get("change30dAmount")) if _to_optional_float(card.get("change30dAmount")) is not None else float("inf")), _cards_page_number_sort_key(card)))
+        filtered.sort(
+            key=lambda card: (
+                not _cards_page_has_reliable_movement(card, effective_sort),
+                not _cards_page_has_full_window_movement(card, effective_sort),
+                (
+                    _to_optional_float(card.get("change30dAmount"))
+                    if _to_optional_float(card.get("change30dAmount")) is not None
+                    else float("inf")
+                ),
+                _cards_page_stable_tie_key(card),
+            )
+        )
     else:
         filtered.sort(key=_cards_page_number_sort_key)
 
@@ -1983,6 +2417,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
     rarity: Any = None,
     movement_filter: Any = None,
     movement_sort: Any = None,
+    section: Any = None,
 ) -> Dict[str, Any]:
     """Return a single paginated slice of a Pokemon set's checklist cards
     (camelCase only, no duplicate snake_case aliases).
@@ -2014,6 +2449,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
     sort_value = _sanitize_cards_sort(sort)
     movement_sort_value = _sanitize_cards_movement_sort(movement_sort)
     movement_filter_value = _sanitize_cards_movement_filter(movement_filter)
+    section_value = _sanitize_cards_section(section)
     query_value = _to_optional_str(query)
     rarity_value = _to_optional_str(rarity)
 
@@ -2060,6 +2496,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
         movement_filter=movement_filter_value,
         sort=sort_value,
         movement_sort=movement_sort_value,
+        section=section_value,
     )
 
     total_cards = len(filtered_cards)
@@ -2068,10 +2505,19 @@ def get_pokemon_set_cards_page_snapshot_payload(
     start_index = (clamped_page - 1) * page_size_value
     page_cards = filtered_cards[start_index : start_index + page_size_value]
 
+    movement_window_key = "7D" if (movement_sort_value or sort_value) == "7d-movers" else "30D"
+    movement_totals = _cards_movement_totals(
+        camel_cards,
+        filtered_cards=filtered_cards,
+        page_cards=page_cards,
+        window_key=movement_window_key,
+    )
+
     warnings: List[str] = []
     if not row:
         warnings.append("Pokemon set cards page snapshot is missing; served empty fallback payload.")
 
+    snapshot_meta = _movement_snapshot_meta(row or {})
     timings = {
         "snapshotQueryMs": query_ms,
         "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
@@ -2090,22 +2536,30 @@ def get_pokemon_set_cards_page_snapshot_payload(
         "filters": {
             "availableRarities": available_rarities,
             "availableSorts": list(CARDS_PAGE_SORT_OPTIONS),
-            "movementWindow": "30D",
+            "movementWindow": movement_window_key,
             "sort": sort_value,
             "movementSort": movement_sort_value,
             "movementFilter": movement_filter_value,
+            "section": section_value,
             "query": query_value,
             "rarity": rarity_value,
         },
         "meta": {
             "warnings": warnings,
+            "movementTotals": movement_totals,
             "snapshot": {
+                **snapshot_meta,
+                "marketAsOfDate": _market_as_of_date_from_snapshot_meta(snapshot_meta),
                 "source": "pokemon_set_cards_snapshot_latest.cards_json"
                 if row
                 else "empty_fallback_missing_pokemon_set_cards_snapshot_latest",
                 "updatedAt": _to_optional_str((row or {}).get("updated_at")),
                 "isStaleFallback": bool(row),
             },
+            "movementGeneration": _movement_generation_metadata(
+                resolved_set_id,
+                cards_snapshot=_movement_snapshot_meta(row or {}) if row else None,
+            ),
             "timings": timings,
         },
     }
@@ -3001,6 +3455,7 @@ def _build_market_dashboard_payload_from_row(
     latest_market_date = _parse_date_key(row.get("latest_market_date"))
 
     stored_payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
+    stored_meta = dict(stored_payload.get("meta") or {})
     market_movers = stored_payload.get("marketMovers")
     if not isinstance(market_movers, dict):
         market_movers = stored_payload.get("market_movers")
@@ -3033,7 +3488,7 @@ def _build_market_dashboard_payload_from_row(
         "available_scopes": available_scopes,
         "latestMarketDate": latest_market_date,
         "latest_market_date": latest_market_date,
-        "meta": {"warnings": []},
+        "meta": {**stored_meta, "warnings": list(stored_meta.get("warnings") or [])},
     }
 
 
@@ -3110,6 +3565,10 @@ def _read_market_dashboard_snapshot(
     timings["hydration_ms"] = hydrate_ms
     timings["snapshot_read_ms"] = round((time.perf_counter() - t0) * 1000, 3)
     meta["snapshot"] = snapshot
+    meta["movementGeneration"] = _movement_generation_metadata(
+        set_id,
+        dashboard_snapshot=snapshot,
+    )
     meta["timings"] = timings
     logger.info(
         "[pokemon-snapshot] market dashboard snapshot read complete set_id=%s window=%s query_ms=%s hydrate_ms=%s total_ms=%s",
@@ -3505,14 +3964,23 @@ def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[D
     if not isinstance(available_scopes, list):
         available_scopes = []
 
+    market_as_of_date = _parse_date_key(row.get("latest_market_date"))
     return {
         "set": set_identity,
         "window": _to_optional_str(row.get("window_key")),
         "setValueHistoriesByScope": histories_by_scope,
         "performanceVsCostHistory": performance_vs_cost_history,
         "availableScopes": available_scopes,
-        "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
-        "meta": {"warnings": []},
+        "latestMarketDate": market_as_of_date,
+        "meta": {
+            "warnings": [],
+            "snapshot": {
+                "source": "pokemon_set_market_dashboard_snapshot_latest",
+                "marketAsOfDate": market_as_of_date,
+                "latestMarketDate": market_as_of_date,
+                "updatedAt": _to_optional_str(row.get("updated_at")),
+            },
+        },
     }
 
 
@@ -3965,8 +4433,48 @@ def get_pokemon_set_top_chase_snapshot_payload(
         ),
         default=None,
     )
+    latest_market_date = _parse_date_key(row.get("latest_market_date"))
+    histories_stale = bool(
+        latest_market_date
+        and top_chase_history_latest_observed_date != latest_market_date
+    )
+
+    # When the persisted history reaches the declared market date, make the
+    # displayed current price use that same terminal point. This is safe for a
+    # carried point because its sourceDate remains distinct in the history.
+    if not histories_stale and latest_market_date:
+        aligned_cards: List[Dict[str, Any]] = []
+        for card in top_chase_cards:
+            history = next(
+                (top_chase_card_histories.get(key) for key in _top_chase_card_history_keys(card) if top_chase_card_histories.get(key)),
+                None,
+            )
+            terminal = history[-1] if isinstance(history, list) and history else None
+            terminal_price = _to_optional_float((terminal or {}).get("marketPrice", (terminal or {}).get("market_price")))
+            aligned = dict(card)
+            if terminal_price is not None and _parse_date_key((terminal or {}).get("date")) == latest_market_date:
+                aligned["marketPrice"] = terminal_price
+                aligned["currentPrice"] = terminal_price
+                aligned["priceUpdatedAt"] = latest_market_date
+                aligned["historyEndDate"] = latest_market_date
+                aligned["priceSourceDate"] = _parse_date_key((terminal or {}).get("sourceDate") or (terminal or {}).get("source_date"))
+            aligned_cards.append(aligned)
+        top_chase_cards = aligned_cards
 
     history_point_counts = [len(history) for history in top_chase_card_histories.values()]
+
+    served_movement_snapshot = _movement_snapshot_meta(row)
+    movement_generation = _movement_generation_metadata(
+        resolved_row_set_id,
+        dashboard_snapshot=served_movement_snapshot,
+    )
+    is_legacy_movement_snapshot = not bool(
+        _to_optional_str(served_movement_snapshot.get("movementContractVersion"))
+        and _to_optional_str(served_movement_snapshot.get("generationId"))
+    )
+    allows_legacy_history_fallback = bool(
+        is_legacy_movement_snapshot and movement_generation.get("status") == "legacy"
+    )
 
     timings = {
         "snapshotQueryMs": query_ms,
@@ -3984,6 +4492,11 @@ def get_pokemon_set_top_chase_snapshot_payload(
             "Top chase card price histories are missing in the stored snapshot and no raw price "
             "observations were found for these cards; served cards without price history."
         )
+    elif histories_stale:
+        warnings.append(
+            f"Top chase history is stale: latestMarketDate={latest_market_date}, "
+            f"historyEndDate={top_chase_history_latest_observed_date}."
+        )
     payload = {
         "set": set_identity,
         # Always echo the requested window back — the caller asked for 30D and
@@ -3991,7 +4504,7 @@ def get_pokemon_set_top_chase_snapshot_payload(
         "window": resolved_window,
         "topChaseCards": top_chase_cards,
         "topChaseCardHistories": top_chase_card_histories,
-        "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
+        "latestMarketDate": latest_market_date,
         "meta": {
             "limit": limit_value,
             "warnings": warnings,
@@ -4009,9 +4522,12 @@ def get_pokemon_set_top_chase_snapshot_payload(
             ),
             "topChaseHistoryHydratedFromObservations": hydrated_from_observations,
             "topChaseHistorySourceLatestObservedDate": top_chase_history_latest_observed_date,
+            "historyEndDate": top_chase_history_latest_observed_date,
+            "historiesStale": histories_stale,
             "topChaseHistoryMinPoints": min(history_point_counts) if history_point_counts else 0,
             "topChaseHistoryMaxPoints": max(history_point_counts) if history_point_counts else 0,
             "snapshot": {
+                **served_movement_snapshot,
                 "source": "pokemon_set_market_dashboard_snapshot_latest",
                 "window": row.get("window_key"),
                 "requestedWindow": resolved_window,
@@ -4019,9 +4535,16 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 "usedFallbackWindow": used_fallback_window,
                 **({"fallbackReason": fallback_reason} if used_fallback_window and fallback_reason else {}),
                 "updatedAt": _to_optional_str(row.get("updated_at")),
-                "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
-                "isStaleFallback": True,
+                "marketAsOfDate": _market_as_of_date_from_snapshot_meta(
+                    served_movement_snapshot, fallback=latest_market_date
+                ),
+                "latestMarketDate": latest_market_date,
+                "historyEndDate": top_chase_history_latest_observed_date,
+                "isStaleFallback": histories_stale,
+                "isLegacyMovementSnapshot": is_legacy_movement_snapshot,
+                "allowsLegacyHistoryFallback": allows_legacy_history_fallback,
             },
+            "movementGeneration": movement_generation,
             "timings": timings,
         },
     }
@@ -4042,6 +4565,7 @@ def _empty_market_movers_payload(
     window_days: int,
     warnings: Optional[List[str]] = None,
     fallback_source: str,
+    limit: int = DEFAULT_CARD_MOVERS_LIMIT,
 ) -> Dict[str, Any]:
     return {
         "set": {
@@ -4057,15 +4581,18 @@ def _empty_market_movers_payload(
             "windowDays": window_days,
             "heatingUp": [],
             "coolingOff": [],
+            "all": [],
         },
         "meta": {
-            "limit": DEFAULT_CARD_MOVERS_LIMIT,
+            "limit": limit,
             "warnings": list(warnings or []),
             "snapshot": {
                 "source": fallback_source,
                 "sourceField": None,
                 "window": window,
                 "usedReadModel": False,
+                "usedLegacyMoverList": True,
+                "marketAsOfDate": None,
                 "updatedAt": datetime.now(timezone.utc).isoformat(),
                 "isStaleFallback": False,
             },
@@ -4073,43 +4600,89 @@ def _empty_market_movers_payload(
     }
 
 
+_MOVERS_CARDS_SNAPSHOT_COLUMNS = "set_id,cards_json,card_count,updated_at"
+
+
+def _slim_market_mover_card(card: Dict[str, Any], window_key: str) -> Dict[str, Any]:
+    """Slim projection of a canonical Cards record for the Market Movers /
+    Overview banner responses. Carries the full identity + movement +
+    reliability metadata contract (reliability is metadata, not membership)
+    while dropping the heavy checklist fields (histories, desirability,
+    linked Pokemon, subtypes...)."""
+    suffix = _cards_page_movement_suffix(window_key)
+    movement = _cards_page_movement_dict(card, suffix)
+    amount, percent = _cards_page_movement_values(card, suffix)
+    price = _to_optional_float(card.get("marketPrice"))
+    if price is None:
+        price = _to_optional_float(card.get("currentPrice"))
+    canonical_id = _to_optional_str(card.get("canonicalCardId")) or _to_optional_str(card.get("id")) or _to_optional_str(card.get("cardId"))
+    slim: Dict[str, Any] = {
+        "id": canonical_id,
+        "cardId": canonical_id,
+        "canonicalCardId": canonical_id,
+        "cardVariantId": _to_optional_str(card.get("cardVariantId")) or _to_optional_str(movement.get("cardVariantId")),
+        "conditionId": _to_optional_str(card.get("conditionId")) or _to_optional_str(movement.get("conditionId")),
+        "setId": _to_optional_str(card.get("setId")),
+        "name": _to_optional_str(card.get("name")),
+        "rarity": _to_optional_str(card.get("rarity")),
+        "cardNumber": _to_optional_str(card.get("cardNumber")) or _to_optional_str(card.get("printedNumber")),
+        "imageSmallUrl": _to_optional_str(card.get("imageSmallUrl")),
+        "imageLargeUrl": _to_optional_str(card.get("imageLargeUrl")),
+        "currentPrice": price,
+        "marketPrice": price,
+        "changeAmount": amount,
+        "changePercent": percent,
+        f"change{suffix}Amount": amount,
+        f"change{suffix}Percent": percent,
+        f"movement{suffix}": movement or None,
+        "window": window_key,
+        "windowDays": _MARKET_MOVERS_WINDOW_DAYS_BY_KEY.get(window_key),
+        "targetStartDate": _parse_date_key(movement.get("targetStartDate")),
+        "startDate": _parse_date_key(movement.get("startDate")),
+        "endDate": _parse_date_key(movement.get("endDate")),
+        "reliable": movement.get("reliable"),
+        "reliability": _to_optional_str(movement.get("reliability")),
+        "fullWindowCoverage": movement.get("fullWindowCoverage"),
+        "isPartialWindow": movement.get("isPartialWindow"),
+        "windowCoverageDays": _to_optional_float(movement.get("windowCoverageDays")),
+        "requestedWindowDays": _to_optional_float(movement.get("requestedWindowDays")),
+        "historyPointCount": _to_optional_int(movement.get("historyPointCount")),
+        "priceCarriedForward": card.get("priceCarriedForward"),
+        "priceSourceDate": _parse_date_key(card.get("priceSourceDate")),
+        "marketDate": _parse_date_key(card.get("marketDate")),
+    }
+    return slim
+
+
 def get_pokemon_set_market_movers_snapshot_payload(
     set_id: str,
     window: str = DEFAULT_MARKET_MOVERS_WINDOW,
     limit: Any = None,
+    movement: Any = None,
 ) -> Dict[str, Any]:
-    """Return the slim Market Movers snapshot (camelCase only) for a Pokemon set.
+    """Return the slim Market Movers payload for a Pokemon set.
 
-    Reads only set_id, window_key, latest_market_date, updated_at, and the
-    heatingUp/coolingOff sub-arrays of the single requested mover window out
-    of payload_json->marketMoversByWindow (via two PostgREST JSON-path
-    selects), so neither the ~3MB monolithic payload_json blob nor the
-    unused "all" movements list (Phase 5.8 Gate 4: never read by
-    MarketMoversModule/hasMarketMoverRows, only ever passed through as a
-    default-empty shape field) is pulled over the wire — only the exact
-    heatingUp/coolingOff cards this endpoint serves. The stored snapshot
-    payload itself is untouched; this only narrows what this one reader
-    selects out of it. The full /market/dashboard contract still serves
-    "all" unchanged (get_pokemon_set_market_dashboard_snapshot_payload reads
-    payload_json directly, a separate code path).
+    Canonical contract: Market Movers is a filtered/sorted view of the
+    complete canonical Cards dataset. This reads the same
+    pokemon_set_cards_snapshot_latest.cards_json the Cards tab pages
+    through and runs the exact same shared query implementation
+    (_apply_cards_page_filters_and_sort with section="market-movers"):
 
-    marketMoversByWindow is precomputed by
-    scripts/pokemon_snapshot_builders.py (build_market_dashboard_snapshot_rows)
-    from the exact same build_pokemon_set_card_movement_payload used by the
-    live /market/movers read path — same scores, labels, thresholds, order —
-    just computed once at snapshot-build time instead of on every request.
-    Never falls back to that live aggregation: a missing snapshot serves a
-    safe empty payload, matching the sibling slim endpoints
-    (get_pokemon_set_top_chase_snapshot_payload,
-    get_pokemon_set_overview_snapshot_payload) instead of recomputing.
+        section=market-movers, window=<1D|7D|30D>, movement=all|heating|cooling,
+        sort=largest-dollar-move, limit=N
 
-    The dashboard snapshot's own window_key column (e.g. "365d"/"30d")
-    identifies which dashboard build variant a row is, independent of the
-    1D/7D/30D mover window requested here — every row's
-    marketMoversByWindow already contains all three mover windows together.
-    The "365d" row is the one the builder keeps fully populated in practice,
-    so it's tried first; "30d" is a fallback for sets that only have an
-    older/partial row under that key.
+    Membership is hasValidMovement + nonzero movement; the legacy
+    reliability/mover-eligibility guardrails are carried through as metadata
+    on each record but never decide membership. The response's
+    marketMovers.all is therefore the exact first-N of Cards → Market Movers
+    → Movement filter → Largest Moves — the Overview banner is a slim
+    projection of those records, not a separately ranked list.
+
+    Legacy dashboard marketMoversByWindow rows are only used as a diagnosed
+    fallback when the cards snapshot is missing or the requested window has
+    no movement contract in it (1D); those responses set
+    meta.snapshot.source to the legacy source and usedLegacyMoverList=True
+    so the UI can warn in development.
     """
     started = time.perf_counter()
     resolved = _to_optional_str(set_id)
@@ -4120,6 +4693,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
     resolved_window = _sanitize_market_movers_window_key(window)
     window_days = _MARKET_MOVERS_WINDOW_DAYS_BY_KEY[resolved_window]
     limit_value = _sanitize_market_movers_limit(limit)
+    movement_filter = _sanitize_cards_movement_filter(movement)
 
     set_row: Optional[Dict[str, Any]] = None
     if is_uuid:
@@ -4128,10 +4702,170 @@ def get_pokemon_set_market_movers_snapshot_payload(
         set_row = resolve_pokemon_set_identifier(resolved, client=public_read_client)
         resolved_set_id = str(set_row["id"])
 
+    # The Cards snapshot only carries 7D/30D movement contracts; 1D requests
+    # stay on the legacy dashboard read model until 1D joins the coordinated
+    # cards contract.
+    if resolved_window in ("7D", "30D"):
+        try:
+            result = (
+                public_read_client.table("pokemon_set_cards_snapshot_latest")
+                .select(_MOVERS_CARDS_SNAPSHOT_COLUMNS)
+                .eq("set_id", resolved_set_id)
+                .limit(1)
+                .execute()
+            )
+            cards_row = _first_row(result)
+        except Exception as exc:
+            logger.warning(
+                "[pokemon-snapshot] market movers canonical cards read failed set_id=%s window=%s exc=%s",
+                resolved_set_id,
+                resolved_window,
+                exc,
+                exc_info=True,
+            )
+            cards_row = None
+
+        raw_cards = cards_row.get("cards_json") if cards_row and isinstance(cards_row.get("cards_json"), list) else []
+        if raw_cards:
+            camel_cards = [_to_camel_case_only(card) for card in raw_cards if isinstance(card, dict)]
+            filtered_cards = _apply_cards_page_filters_and_sort(
+                camel_cards,
+                query=None,
+                rarity=None,
+                movement_filter=movement_filter,
+                sort="set-number",
+                movement_sort="7d-movers" if resolved_window == "7D" else None,
+                section="market-movers",
+            )
+            if resolved_window != "7D":
+                filtered_cards = _sort_cards_by_largest_dollar_move(filtered_cards, resolved_window)
+
+            served_cards = [_slim_market_mover_card(card, resolved_window) for card in filtered_cards[:limit_value]]
+            heating_up = [
+                card
+                for card in served_cards
+                if _cards_page_movement_direction(card, resolved_window) > 0
+            ]
+            cooling_off = [
+                card
+                for card in served_cards
+                if _cards_page_movement_direction(card, resolved_window) < 0
+            ]
+            movement_totals = _cards_movement_totals(
+                camel_cards,
+                filtered_cards=filtered_cards,
+                page_cards=served_cards,
+                window_key=resolved_window,
+            )
+            snapshot_meta = _movement_snapshot_meta(cards_row or {})
+            market_as_of_date = _market_as_of_date_from_snapshot_meta(snapshot_meta)
+
+            resolved_row_set_id = _to_optional_str((cards_row or {}).get("set_id")) or resolved_set_id
+            identity_row = set_row or {"id": resolved_row_set_id}
+            payload = {
+                "set": {
+                    "id": _to_optional_str(identity_row.get("id")) or resolved_row_set_id,
+                    "name": _to_optional_str(identity_row.get("name")),
+                    "slug": _to_optional_str(identity_row.get("canonical_key")),
+                    "pokemon_api_set_id": _to_optional_str(identity_row.get("pokemon_api_set_id")),
+                },
+                "window": resolved_window,
+                "windowDays": window_days,
+                "latestMarketDate": market_as_of_date,
+                "marketMovers": {
+                    "window": resolved_window,
+                    "windowDays": window_days,
+                    "all": served_cards,
+                    # Directional arrays are derived views of the SAME
+                    # canonical ranked list (backward compatibility only) —
+                    # never independently ranked or capped 5/5.
+                    "heatingUp": heating_up,
+                    "coolingOff": cooling_off,
+                },
+                "meta": {
+                    "limit": limit_value,
+                    "warnings": [],
+                    "movementTotals": movement_totals,
+                    "priceBasis": "pokemon_set_cards_snapshot_latest.cards_json",
+                    "query": {
+                        "section": "market-movers",
+                        "window": resolved_window,
+                        "movement": movement_filter,
+                        "sort": "largest-dollar-move",
+                        "limit": limit_value,
+                    },
+                    "snapshot": {
+                        **snapshot_meta,
+                        "source": "canonical_cards_filter",
+                        "sourceTable": "pokemon_set_cards_snapshot_latest",
+                        "sourceField": "cards_json",
+                        "marketAsOfDate": market_as_of_date,
+                        "latestMarketDate": market_as_of_date,
+                        "window": resolved_window,
+                        "usedReadModel": True,
+                        "usedLegacyMoverList": False,
+                        "updatedAt": _to_optional_str((cards_row or {}).get("updated_at")),
+                        "isStaleFallback": False,
+                    },
+                    "timings": {
+                        "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
+                    },
+                },
+            }
+            logger.info(
+                "[pokemon-snapshot] market movers canonical cards filter served set_id=%s window=%s movement=%s "
+                "checklist=%s movers=%s served=%s total_ms=%s",
+                resolved_set_id,
+                resolved_window,
+                movement_filter,
+                movement_totals["checklistCardCount"],
+                movement_totals["nonzeroMovementCount"],
+                len(served_cards),
+                payload["meta"]["timings"]["snapshotReadMs"],
+            )
+            return payload
+
+        logger.warning(
+            "[pokemon-snapshot] market movers cards snapshot missing; falling back to legacy mover list set_id=%s window=%s",
+            resolved_set_id,
+            resolved_window,
+        )
+
+    return _legacy_market_movers_snapshot_payload(
+        resolved_set_id=resolved_set_id,
+        set_row=set_row,
+        resolved_window=resolved_window,
+        window_days=window_days,
+        limit_value=limit_value,
+        started=started,
+    )
+
+
+def _legacy_market_movers_snapshot_payload(
+    *,
+    resolved_set_id: str,
+    set_row: Optional[Dict[str, Any]],
+    resolved_window: str,
+    window_days: int,
+    limit_value: int,
+    started: float,
+) -> Dict[str, Any]:
+    """Legacy Market Movers read model (payload_json.marketMoversByWindow).
+
+    Kept only as a compatibility fallback for 1D requests and for sets whose
+    coordinated cards snapshot is missing. Responses mark
+    meta.snapshot.usedLegacyMoverList=True so the UI can warn in development;
+    this list must never be treated as the authoritative Market Movers
+    membership again.
+    """
     select_fields = (
         f"set_id,window_key,latest_market_date,updated_at,"
         f"heating:payload_json->marketMoversByWindow->{resolved_window}->heatingUp,"
-        f"cooling:payload_json->marketMoversByWindow->{resolved_window}->coolingOff"
+        f"cooling:payload_json->marketMoversByWindow->{resolved_window}->coolingOff,"
+        f"all_items:payload_json->marketMoversByWindow->{resolved_window}->all,"
+        f"heating_snake:payload_json->market_movers_by_window->{resolved_window}->heating_up,"
+        f"cooling_snake:payload_json->market_movers_by_window->{resolved_window}->cooling_off,"
+        f"all_items_snake:payload_json->market_movers_by_window->{resolved_window}->all"
     )
 
     def _read_movers_row(window_key: str) -> Optional[Dict[str, Any]]:
@@ -4149,7 +4883,10 @@ def get_pokemon_set_market_movers_snapshot_payload(
         # legitimately empty side (e.g. no cards met the heating-up
         # guardrails this window) still resolves that side to `[]`, not
         # None — so either key being present is enough to call this "found".
-        if row and (row.get("heating") is not None or row.get("cooling") is not None):
+        if row and any(
+            row.get(key) is not None
+            for key in ("heating", "cooling", "all_items", "heating_snake", "cooling_snake", "all_items_snake")
+        ):
             return row
         return None
 
@@ -4186,6 +4923,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
             window_days=window_days,
             warnings=["Pokemon market movers snapshot is missing; served empty fallback payload."],
             fallback_source="empty_fallback_missing_pokemon_set_market_dashboard_snapshot_latest",
+            limit=limit_value,
         )
 
     if used_fallback_window:
@@ -4205,29 +4943,63 @@ def get_pokemon_set_market_movers_snapshot_payload(
         "pokemon_api_set_id": _to_optional_str(identity_row.get("pokemon_api_set_id")),
     }
 
-    heating_up = row.get("heating") if isinstance(row.get("heating"), list) else []
-    cooling_off = row.get("cooling") if isinstance(row.get("cooling"), list) else []
+    heating_up = row.get("heating") if isinstance(row.get("heating"), list) else row.get("heating_snake")
+    cooling_off = row.get("cooling") if isinstance(row.get("cooling"), list) else row.get("cooling_snake")
+    heating_up = heating_up if isinstance(heating_up, list) else []
+    cooling_off = cooling_off if isinstance(cooling_off, list) else []
+    persisted_all = row.get("all_items") if isinstance(row.get("all_items"), list) else row.get("all_items_snake")
+    used_legacy_all_fallback = not isinstance(persisted_all, list)
+    if used_legacy_all_fallback:
+        def _legacy_overall_rank(card: Dict[str, Any]) -> tuple:
+            percent = _to_optional_float(
+                card.get("changePercent")
+                if card.get("changePercent") is not None
+                else card.get("change7dPercent")
+                if resolved_window == "7D"
+                else card.get("change30dPercent")
+            ) or 0
+            amount = _to_optional_float(
+                card.get("changeAmount")
+                if card.get("changeAmount") is not None
+                else card.get("change7dAmount")
+                if resolved_window == "7D"
+                else card.get("change30dAmount")
+            ) or 0
+            identity = _to_optional_str(card.get("canonicalCardId")) or _to_optional_str(card.get("cardId")) or ""
+            return (-abs(percent), -abs(amount), identity.lower())
+
+        persisted_all = sorted([*heating_up, *cooling_off], key=_legacy_overall_rank)
 
     timings = {
         "snapshotQueryMs": query_ms,
         "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3),
     }
-    warnings: List[str] = []
+    warnings: List[str] = [
+        "Market movers served from the legacy marketMoversByWindow read model; "
+        "the canonical Cards snapshot was unavailable for this window."
+    ]
     if used_fallback_window:
         warnings.append(
             f"Market movers snapshot row for window_key {DEFAULT_DASHBOARD_WINDOW} is missing; served the "
             f"{DEFAULT_TOP_CHASE_DASHBOARD_WINDOW} row's stored movers instead."
         )
+    if used_legacy_all_fallback:
+        warnings.append(
+            "Legacy market movers snapshot has no persisted overall ranking; synthesized all from directional arrays."
+        )
 
+    legacy_market_as_of_date = _parse_date_key(row.get("latest_market_date"))
     payload = {
         "set": set_identity,
         "window": resolved_window,
         "windowDays": window_days,
+        "latestMarketDate": legacy_market_as_of_date,
         "marketMovers": {
             "window": resolved_window,
             "windowDays": window_days,
             "heatingUp": heating_up[:limit_value],
             "coolingOff": cooling_off[:limit_value],
+            "all": persisted_all[:limit_value],
         },
         "meta": {
             "limit": limit_value,
@@ -4235,14 +5007,17 @@ def get_pokemon_set_market_movers_snapshot_payload(
             "priceBasis": "pokemon_set_market_dashboard_snapshot_latest.payload_json.marketMoversByWindow",
             "snapshot": {
                 "source": "pokemon_set_market_dashboard_snapshot_latest",
-                "sourceField": "payload_json.marketMoversByWindow.heatingUp/coolingOff",
+                "sourceField": "payload_json.marketMoversByWindow.all/heatingUp/coolingOff",
                 "window": resolved_window,
                 "usedReadModel": True,
+                "usedLegacyMoverList": True,
                 "rowWindowKey": row.get("window_key"),
                 "usedFallbackWindow": used_fallback_window,
+                "usedLegacyAllFallback": used_legacy_all_fallback,
                 **({"fallbackReason": "missing_365d_row"} if used_fallback_window else {}),
                 "updatedAt": _to_optional_str(row.get("updated_at")),
-                "latestMarketDate": _parse_date_key(row.get("latest_market_date")),
+                "marketAsOfDate": legacy_market_as_of_date,
+                "latestMarketDate": legacy_market_as_of_date,
                 "isStaleFallback": True,
             },
             "timings": timings,

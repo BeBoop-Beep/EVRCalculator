@@ -26,6 +26,10 @@ export async function GET(request, { params }) {
   if (limit) {
     backendUrl.searchParams.set("limit", limit);
   }
+  const snapshotContract = request?.nextUrl?.searchParams?.get("snapshot_contract");
+  if (snapshotContract) {
+    backendUrl.searchParams.set("snapshot_contract", snapshotContract);
+  }
 
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",

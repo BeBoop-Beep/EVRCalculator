@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.db.services.pokemon_card_market_delta_contract import (
+    WINDOW_CONVENTION,
+    calculate_pokemon_card_market_delta,
+    utc_date_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +47,10 @@ CARD_MOVERS_MAX_HISTORY_SPAN_DAYS_BY_WINDOW = {
     7: 10,
     30: 45,
 }
-# The observations query is ordered captured_at ascending with a 10k-row cap, so an
-# oversized variant_id chunk on a large set (e.g. Mega Evolution) can silently drop
-# the most recent rows before they're ever returned — exactly the rows movers need.
-# Keep this well under 10k even for variants with several observation sources/day
-# across the CARD_MOVERS_HISTORY_LOOKBACK_DAYS window.
-CARD_MOVERS_OBSERVATION_CHUNK_SIZE = 50
+# Explicit range pagination prevents PostgREST's response cap from truncating
+# history, so chunks can be large enough to reduce request fan-out safely.
+CARD_MOVERS_OBSERVATION_CHUNK_SIZE = 40
+CARD_MOVERS_OBSERVATION_PAGE_SIZE = 1000
 _IN_CHUNK_SIZE = 500
 _DELTA_KEYS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 SET_VALUE_SCOPES = ("standard", "hits", "top10")
@@ -87,6 +92,14 @@ def _to_optional_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return parsed if parsed > 0 else None
+
+
+def _to_signed_float(value: Any) -> Optional[float]:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _to_optional_int(value: Any) -> Optional[int]:
@@ -259,6 +272,8 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
                 (time.perf_counter() - t0) * 1000,
                 type(exc).__name__,
             )
+            if is_transient_data_service_error(exc):
+                raise
             raise PokemonSetMarketError(500, "Set lookup failed", "POKEMON_SET_LOOKUP_FAILED") from exc
         if row:
             logger.debug(
@@ -281,7 +296,9 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
             row = _first_row(result)
             if row:
                 return row
-        except Exception:
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             logger.warning("[pokemon-set-market] set lookup failed field=%s set_id=%s", field, resolved)
 
     normalized_resolved = _normalise_set_lookup_key(resolved)
@@ -307,7 +324,9 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
                         row.get("canonical_key"),
                     )
                     return row
-        except Exception:
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             logger.warning("[pokemon-set-market] normalized set lookup failed set_id=%s", resolved)
 
     raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
@@ -321,10 +340,16 @@ def _resolve_set_row(set_id: str) -> Dict[str, Any]:
     return resolve_pokemon_set_identifier(set_id)
 
 
-def _load_near_mint_condition_id(warnings: List[str], sources: Dict[str, str]) -> Optional[str]:
+def _load_near_mint_condition_id(
+    warnings: List[str],
+    sources: Dict[str, str],
+    *,
+    client: Any = None,
+) -> Optional[str]:
+    active_client = client if client is not None else public_read_client
     try:
         result = (
-            public_read_client.table("conditions")
+            active_client.table("conditions")
             .select("id,name")
             .eq("name", "Near Mint")
             .limit(1)
@@ -338,15 +363,18 @@ def _load_near_mint_condition_id(warnings: List[str], sources: Dict[str, str]) -
         sources["conditions"] = "NO_NEAR_MINT_ROW"
         warnings.append("Near Mint condition row is unavailable; market price history is not available.")
     except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         sources["conditions"] = "FAILED"
         warnings.append("Failed to resolve Near Mint condition for card market prices.")
         logger.warning("[pokemon-set-market] condition lookup failed: %s", exc)
     return None
 
 
-def _load_canonical_cards(set_id: str, sources: Dict[str, str]) -> List[Dict[str, Any]]:
+def _load_canonical_cards(set_id: str, sources: Dict[str, str], *, client: Any = None) -> List[Dict[str, Any]]:
+    active_client = client if client is not None else public_read_client
     result = (
-        public_read_client.table("pokemon_canonical_cards")
+        active_client.table("pokemon_canonical_cards")
         .select(
             "id,set_id,pokemon_tcg_api_card_id,name,rarity,number,printed_number,"
             "image_small_url,image_large_url"
@@ -359,9 +387,32 @@ def _load_canonical_cards(set_id: str, sources: Dict[str, str]) -> List[Dict[str
     return rows
 
 
-def _load_legacy_cards(set_id: str, sources: Dict[str, str]) -> List[Dict[str, Any]]:
+def _load_selected_canonical_price_rows(
+    set_id: str,
+    sources: Dict[str, str],
+    *,
+    client: Any = None,
+) -> List[Dict[str, Any]]:
+    """Load the authoritative public card identity/current-price layer."""
+    active_client = client if client is not None else public_read_client
     result = (
-        public_read_client.table("cards")
+        active_client.table("pokemon_canonical_card_market_prices_latest")
+        .select(
+            "canonical_card_id,set_id,card_variant_id,condition_id,printing_type,market_price,"
+            "captured_at,source,price_selection_reason,refreshed_at"
+        )
+        .eq("set_id", set_id)
+        .execute()
+    )
+    rows = list(result.data or [])
+    sources["pokemon_canonical_card_market_prices_latest"] = "OK"
+    return rows
+
+
+def _load_legacy_cards(set_id: str, sources: Dict[str, str], *, client: Any = None) -> List[Dict[str, Any]]:
+    active_client = client if client is not None else public_read_client
+    result = (
+        active_client.table("cards")
         .select("id,set_id,name,rarity,card_number,image_small_url,image_large_url,pokemon_tcg_api_id")
         .eq("set_id", set_id)
         .execute()
@@ -371,15 +422,21 @@ def _load_legacy_cards(set_id: str, sources: Dict[str, str]) -> List[Dict[str, A
     return rows
 
 
-def _load_variants(legacy_card_ids: List[str], sources: Dict[str, str]) -> List[Dict[str, Any]]:
+def _load_variants(
+    legacy_card_ids: List[str],
+    sources: Dict[str, str],
+    *,
+    client: Any = None,
+) -> List[Dict[str, Any]]:
     if not legacy_card_ids:
         sources["card_variants"] = "NO_CARD_IDS"
         return []
 
+    active_client = client if client is not None else public_read_client
     rows: List[Dict[str, Any]] = []
     for card_id_chunk in _chunk(legacy_card_ids):
         result = (
-            public_read_client.table("card_variants")
+            active_client.table("card_variants")
             .select("id,card_id,pokemon_tcg_api_id,image_small_url,image_large_url")
             .in_("card_id", card_id_chunk)
             .execute()
@@ -474,18 +531,21 @@ def _load_conditioned_latest_price_rows(
     variant_ids: List[str],
     condition_by_variant: Dict[str, str],
     sources: Dict[str, str],
+    *,
+    client: Any = None,
 ) -> List[Dict[str, Any]]:
     if not variant_ids or not condition_by_variant:
         sources["card_market_usd_latest_by_condition_for_movers"] = "NO_VARIANTS_OR_CONDITIONS"
         return []
 
+    active_client = client if client is not None else public_read_client
     rows: List[Dict[str, Any]] = []
     condition_ids = sorted(set(condition_by_variant.values()))
     # Large sets (e.g. Prismatic Evolutions) can time out this query at the default
     # 500-id chunk size; use the same smaller chunk as the observations query.
     for variant_id_chunk in _chunk(variant_ids, size=CARD_MOVERS_OBSERVATION_CHUNK_SIZE):
         query = (
-            public_read_client.table("card_market_usd_latest_by_condition")
+            active_client.table("card_market_usd_latest_by_condition")
             .select("variant_id,condition_id,market_price,source,captured_at")
             .in_("variant_id", variant_id_chunk)
         )
@@ -506,52 +566,131 @@ def _load_conditioned_price_observation_rows(
     condition_by_variant: Dict[str, str],
     days: int,
     sources: Dict[str, str],
+    *,
+    client: Any = None,
+    diagnostics: Optional[Dict[str, int]] = None,
+    page_size: int = CARD_MOVERS_OBSERVATION_PAGE_SIZE,
 ) -> List[Dict[str, Any]]:
     if not variant_ids or not condition_by_variant:
         sources["card_variant_price_observations_for_movers"] = "NO_VARIANTS_OR_CONDITIONS"
         return []
 
+    active_client = client if client is not None else public_read_client
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows: List[Dict[str, Any]] = []
+    seen: set[Tuple[Any, ...]] = set()
     condition_ids = sorted(set(condition_by_variant.values()))
+    safe_page_size = max(1, int(page_size))
     for variant_id_chunk in _chunk(variant_ids, size=CARD_MOVERS_OBSERVATION_CHUNK_SIZE):
-        query = (
-            public_read_client.table("card_variant_price_observations")
-            .select("card_variant_id,condition_id,market_price,source,captured_at")
-            .in_("card_variant_id", variant_id_chunk)
-            .gte("captured_at", since)
-            # PostgREST enforces its own server-side max-rows cap (observed: 1000)
-            # regardless of this .limit() value. With ascending order, a chunk with
-            # more matching rows than that cap silently drops the most recent
-            # rows — exactly the ones 1D/7D movers need — while keeping decades-old
-            # history. Fetch newest-first so any truncation drops old rows instead.
-            # _build_card_movements_from_context re-sorts ascending before use, so
-            # this ordering only affects which rows survive truncation.
-            .order("captured_at", desc=True)
-            .limit(10000)
-        )
-        if condition_ids:
-            query = query.in_("condition_id", condition_ids)
-        result = query.execute()
-        for row in result.data or []:
-            variant_id = _to_optional_str(row.get("card_variant_id"))
-            condition_id = _to_optional_str(row.get("condition_id"))
-            if variant_id and condition_id == condition_by_variant.get(variant_id):
+        start = 0
+        while True:
+            query = (
+                active_client.table("card_variant_price_observations")
+                .select("id,card_variant_id,condition_id,market_price,source,captured_at")
+                .in_("card_variant_id", variant_id_chunk)
+                .gte("captured_at", since)
+                .order("captured_at", desc=False)
+                .order("id", desc=False)
+            )
+            if condition_ids:
+                query = query.in_("condition_id", condition_ids)
+            result = query.range(start, start + safe_page_size - 1).execute()
+            page = list(result.data or [])
+            if diagnostics is not None:
+                diagnostics["observationQueryCount"] = diagnostics.get("observationQueryCount", 0) + 1
+                diagnostics["observationPageCount"] = diagnostics.get("observationPageCount", 0) + 1
+            for row in page:
+                variant_id = _to_optional_str(row.get("card_variant_id"))
+                condition_id = _to_optional_str(row.get("condition_id"))
+                if not variant_id or condition_id != condition_by_variant.get(variant_id):
+                    continue
+                dedupe_key = (
+                    ("id", row.get("id"))
+                    if row.get("id") is not None
+                    else (
+                        "value",
+                        variant_id,
+                        condition_id,
+                        row.get("market_price"),
+                        row.get("source"),
+                        row.get("captured_at"),
+                    )
+                )
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
                 rows.append(row)
+            if len(page) < safe_page_size:
+                break
+            start += safe_page_size
     sources["card_variant_price_observations_for_movers"] = "OK"
+    if diagnostics is not None:
+        diagnostics["observationRowsLoaded"] = len(rows)
     return rows
 
 
-def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources: Dict[str, str]) -> Dict[str, Any]:
+def _build_market_context(
+    set_row: Dict[str, Any],
+    warnings: List[str],
+    sources: Dict[str, str],
+    *,
+    client: Any = None,
+    include_legacy: bool = True,
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     set_id = _to_optional_str(set_row.get("id")) or ""
-    canonical_cards = _load_canonical_cards(set_id, sources)
-    legacy_cards = _load_legacy_cards(set_id, sources)
+    canonical_cards = _load_canonical_cards(set_id, sources, client=client)
 
     canonical_by_id = {
         str(card["id"]): card
         for card in canonical_cards
         if card.get("id") is not None
     }
+    if selected_price_rows is None:
+        try:
+            selected_price_rows = _load_selected_canonical_price_rows(set_id, sources, client=client)
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
+            # Compatibility for old/local databases while snapshots are migrated.
+            # Production parity is only guaranteed when the canonical view exists.
+            selected_price_rows = []
+            sources["pokemon_canonical_card_market_prices_latest"] = "UNAVAILABLE"
+            warnings.append("Canonical selected card prices are unavailable; using the legacy mover path.")
+    else:
+        selected_price_rows = list(selected_price_rows)
+        sources["pokemon_canonical_card_market_prices_latest"] = "COORDINATED_CONTEXT"
+    selected_price_by_canonical_id = {
+        str(row["canonical_card_id"]): row
+        for row in selected_price_rows
+        if row.get("canonical_card_id") is not None
+        and str(row.get("canonical_card_id")) in canonical_by_id
+        and _to_optional_str(row.get("card_variant_id"))
+        and _to_optional_str(row.get("condition_id"))
+        and _to_optional_float(row.get("market_price")) is not None
+    }
+    if selected_price_by_canonical_id and not include_legacy:
+        selected_variant_to_canonical_id = {
+            str(row["card_variant_id"]): canonical_id
+            for canonical_id, row in selected_price_by_canonical_id.items()
+        }
+        return {
+            "set": {
+                "id": _to_optional_str(set_row.get("id")),
+                "name": _to_optional_str(set_row.get("name")),
+                "slug": _to_optional_str(set_row.get("canonical_key")),
+                "pokemon_api_set_id": _to_optional_str(set_row.get("pokemon_api_set_id")),
+            },
+            "canonical_by_id": canonical_by_id,
+            "legacy_card_to_canonical_id": {},
+            "variant_to_canonical_id": selected_variant_to_canonical_id,
+            "variant_rows_by_id": {},
+            "variant_ids": sorted(selected_variant_to_canonical_id),
+            "condition_id": None,
+            "selected_price_by_canonical_id": selected_price_by_canonical_id,
+        }
+
+    legacy_cards = _load_legacy_cards(set_id, sources, client=client)
     canonical_by_api_id = {
         str(card["pokemon_tcg_api_card_id"]): card
         for card in canonical_cards
@@ -579,7 +718,7 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
             legacy_card_to_canonical_id[str(legacy_card["id"])] = str(canonical["id"])
 
     legacy_card_ids = [str(card["id"]) for card in legacy_cards if card.get("id") is not None]
-    variants = _load_variants(legacy_card_ids, sources)
+    variants = _load_variants(legacy_card_ids, sources, client=client)
 
     variant_to_canonical_id: Dict[str, str] = {}
     variant_rows_by_id: Dict[str, Dict[str, Any]] = {}
@@ -595,7 +734,7 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
         if canonical_id:
             variant_to_canonical_id[variant_id] = canonical_id
 
-    condition_id = _load_near_mint_condition_id(warnings, sources)
+    condition_id = _load_near_mint_condition_id(warnings, sources, client=client)
 
     if canonical_cards and legacy_cards and not variant_to_canonical_id:
         warnings.append("No canonical checklist cards could be matched to priced card variants.")
@@ -613,6 +752,7 @@ def _build_market_context(set_row: Dict[str, Any], warnings: List[str], sources:
         "variant_rows_by_id": variant_rows_by_id,
         "variant_ids": sorted(variant_to_canonical_id.keys()),
         "condition_id": condition_id,
+        "selected_price_by_canonical_id": selected_price_by_canonical_id,
     }
 
 
@@ -733,12 +873,16 @@ def _public_card_movement(
     }
 
 
-def _build_card_movements_from_context(
+def _build_legacy_card_movements_from_context(
     context: Dict[str, Any],
     *,
     window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
     warnings: Optional[List[str]] = None,
     sources: Optional[Dict[str, str]] = None,
+    client: Any = None,
+    diagnostics: Optional[Dict[str, int]] = None,
+    latest_rows_override: Optional[List[Dict[str, Any]]] = None,
+    observation_rows_override: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     movement_sources = sources if sources is not None else {}
     near_mint_condition_id = _to_optional_str(context.get("condition_id"))
@@ -749,13 +893,24 @@ def _build_card_movements_from_context(
         return []
 
     condition_by_variant = {variant_id: near_mint_condition_id for variant_id in variant_ids}
-    latest_rows = _load_conditioned_latest_price_rows(variant_ids, condition_by_variant, movement_sources)
-    observation_rows = _load_conditioned_price_observation_rows(
-        variant_ids,
-        condition_by_variant,
-        max(window_days + 1, CARD_MOVERS_HISTORY_LOOKBACK_DAYS),
-        movement_sources,
-    )
+    latest_rows = latest_rows_override
+    if latest_rows is None:
+        latest_rows = _load_conditioned_latest_price_rows(
+            variant_ids,
+            condition_by_variant,
+            movement_sources,
+            client=client,
+        )
+    observation_rows = observation_rows_override
+    if observation_rows is None:
+        observation_rows = _load_conditioned_price_observation_rows(
+            variant_ids,
+            condition_by_variant,
+            max(window_days + 1, CARD_MOVERS_HISTORY_LOOKBACK_DAYS),
+            movement_sources,
+            client=client,
+            diagnostics=diagnostics,
+        )
 
     latest_by_variant: Dict[str, Dict[str, Any]] = {}
     for row in latest_rows:
@@ -866,29 +1021,238 @@ def _build_card_movements_from_context(
     return list(best_by_canonical.values())
 
 
-def build_pokemon_set_card_movement_payload(
-    set_id: str,
+def _canonical_public_card_movement(
     *,
-    limit: int = DEFAULT_CARD_MOVERS_LIMIT,
-    window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
+    canonical_card: Dict[str, Any],
+    selected_price: Dict[str, Any],
+    delta: Dict[str, Any],
 ) -> Dict[str, Any]:
-    warnings: List[str] = []
-    sources: Dict[str, str] = {}
-    set_row = _resolve_set_row(set_id)
-    context = _build_market_context(set_row, warnings, sources)
-    movements = _build_card_movements_from_context(
-        context,
-        window_days=window_days,
-        warnings=warnings,
-        sources=sources,
+    amount = delta.get("changeAmount")
+    percent = delta.get("changePercent")
+    score = (
+        round((abs(amount) * 0.72) + (min(abs(percent), 100.0) * float(delta["currentPrice"]) * 0.0028), 4)
+        if amount is not None and percent is not None and delta.get("currentPrice") is not None
+        else 0.0
+    )
+    signed_score = score if (amount or 0) > 0 else -score if (amount or 0) < 0 else 0.0
+    window_key = str(delta["window"])
+    suffix = window_key.lower()
+    card_id = _to_optional_str(canonical_card.get("id"))
+    variant_id = _to_optional_str(selected_price.get("card_variant_id"))
+    condition_id = _to_optional_str(selected_price.get("condition_id"))
+    image_url = _to_optional_str(canonical_card.get("image_small_url")) or _to_optional_str(canonical_card.get("image_large_url"))
+    card_number = _to_optional_str(canonical_card.get("printed_number")) or _to_optional_str(canonical_card.get("number"))
+    movement = {
+        "cardId": card_id,
+        "card_id": card_id,
+        "canonicalCardId": card_id,
+        "canonical_card_id": card_id,
+        "cardVariantId": variant_id,
+        "card_variant_id": variant_id,
+        "conditionId": condition_id,
+        "condition_id": condition_id,
+        "conditionIdUsed": condition_id,
+        "condition_id_used": condition_id,
+        "printingType": _to_optional_str(selected_price.get("printing_type")),
+        "printing_type": _to_optional_str(selected_price.get("printing_type")),
+        "setId": _to_optional_str(canonical_card.get("set_id")),
+        "set_id": _to_optional_str(canonical_card.get("set_id")),
+        "name": _to_optional_str(canonical_card.get("name")),
+        "rarity": _to_optional_str(canonical_card.get("rarity")),
+        "setNumber": card_number,
+        "set_number": card_number,
+        "cardNumber": card_number,
+        "card_number": card_number,
+        "imageUrl": image_url,
+        "image_url": image_url,
+        "imageSmallUrl": _to_optional_str(canonical_card.get("image_small_url")),
+        "imageLargeUrl": _to_optional_str(canonical_card.get("image_large_url")),
+        "currentPrice": delta.get("currentPrice"),
+        "current_price": delta.get("currentPrice"),
+        "marketPrice": delta.get("currentPrice"),
+        "market_price": delta.get("currentPrice"),
+        "changeAmount": amount,
+        "change_amount": amount,
+        "changePercent": percent,
+        "change_percent": percent,
+        f"change{suffix}Amount": amount,
+        f"change_{suffix}_amount": amount,
+        f"change{suffix}Percent": percent,
+        f"change_{suffix}_percent": percent,
+        "movementScore": signed_score,
+        "movement_score": signed_score,
+        "movementLabel": _movement_label(amount),
+        "movement_label": _movement_label(amount),
+        "moverEligible": bool(delta.get("reliable")),
+        "mover_eligible": bool(delta.get("reliable")),
+        "window": window_key,
+        "windowDays": delta.get("windowDays"),
+        "window_days": delta.get("windowDays"),
+        "windowConvention": delta.get("windowConvention"),
+        "window_convention": delta.get("windowConvention"),
+        "targetStartDate": delta.get("targetStartDate"),
+        "target_start_date": delta.get("targetStartDate"),
+        "startDate": delta.get("startDate"),
+        "start_date": delta.get("startDate"),
+        "endDate": delta.get("endDate"),
+        "end_date": delta.get("endDate"),
+        "startingPrice": delta.get("startingPrice"),
+        "starting_price": delta.get("startingPrice"),
+        "fullWindowCoverage": bool(delta.get("fullWindowCoverage")),
+        "full_window_coverage": bool(delta.get("fullWindowCoverage")),
+        "isPartialWindow": bool(delta.get("isPartialWindow")),
+        "is_partial_window": bool(delta.get("isPartialWindow")),
+        "windowCoverageDays": delta.get("windowCoverageDays"),
+        "window_coverage_days": delta.get("windowCoverageDays"),
+        "requestedWindowDays": delta.get("requestedWindowDays"),
+        "requested_window_days": delta.get("requestedWindowDays"),
+        "enoughHistory": bool(delta.get("enoughHistory")),
+        "enough_history": bool(delta.get("enoughHistory")),
+        "reliable": bool(delta.get("reliable")),
+        "reliability": delta.get("reliability"),
+        "historyPointCount": delta.get("historyPointCount"),
+        "history_point_count": delta.get("historyPointCount"),
+        "historyStartDate": delta.get("startDate"),
+        "history_start_date": delta.get("startDate"),
+        "historyEndDate": delta.get("endDate"),
+        "history_end_date": delta.get("endDate"),
+        "startSourceDate": delta.get("startSourceDate"),
+        "endSourceDate": delta.get("endSourceDate"),
+        "source": _to_optional_str(selected_price.get("source")),
+        "provider": _to_optional_str(selected_price.get("source")),
+        "priceUpdatedAt": _to_optional_str(selected_price.get("captured_at")),
+        "price_updated_at": _to_optional_str(selected_price.get("captured_at")),
+    }
+    return movement
+
+
+def _build_card_movements_from_context(
+    context: Dict[str, Any],
+    *,
+    window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
+    warnings: Optional[List[str]] = None,
+    sources: Optional[Dict[str, str]] = None,
+    client: Any = None,
+    diagnostics: Optional[Dict[str, int]] = None,
+    observations_by_variant: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    latest_market_date: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    selected_by_card = dict(context.get("selected_price_by_canonical_id") or {})
+    if not selected_by_card:
+        return _build_legacy_card_movements_from_context(
+            context,
+            window_days=window_days,
+            warnings=warnings,
+            sources=sources,
+            client=client,
+            diagnostics=diagnostics,
+        )
+
+    movement_sources = sources if sources is not None else {}
+    variant_ids = sorted({
+        str(row["card_variant_id"])
+        for row in selected_by_card.values()
+        if row.get("card_variant_id") and row.get("condition_id")
+    })
+    condition_by_variant = {
+        str(row["card_variant_id"]): str(row["condition_id"])
+        for row in selected_by_card.values()
+        if row.get("card_variant_id") and row.get("condition_id")
+    }
+    grouped_observations = observations_by_variant
+    if grouped_observations is None:
+        observation_rows = _load_conditioned_price_observation_rows(
+            variant_ids,
+            condition_by_variant,
+            max(window_days + 1, CARD_MOVERS_HISTORY_LOOKBACK_DAYS),
+            movement_sources,
+            client=client,
+            diagnostics=diagnostics,
+        )
+        grouped_observations = {}
+        for row in observation_rows:
+            variant_id = _to_optional_str(row.get("card_variant_id"))
+            if variant_id and _to_optional_str(row.get("condition_id")) == condition_by_variant.get(variant_id):
+                grouped_observations.setdefault(variant_id, []).append(row)
+
+    resolved_latest_market_date = latest_market_date or max(
+        (
+            date_key
+            for row in selected_by_card.values()
+            if (date_key := utc_date_key(row.get("captured_at")))
+        ),
+        default=None,
+    )
+    if not resolved_latest_market_date:
+        return []
+
+    movements: List[Dict[str, Any]] = []
+    for canonical_id, selected_price in selected_by_card.items():
+        canonical_card = (context.get("canonical_by_id") or {}).get(canonical_id)
+        variant_id = _to_optional_str(selected_price.get("card_variant_id"))
+        condition_id = _to_optional_str(selected_price.get("condition_id"))
+        current_price = _to_optional_float(selected_price.get("market_price"))
+        if not canonical_card or not variant_id or not condition_id or current_price is None:
+            continue
+        delta = calculate_pokemon_card_market_delta(
+            observations=grouped_observations.get(variant_id, []),
+            selected_current_price=current_price,
+            selected_variant_id=variant_id,
+            selected_condition_id=condition_id,
+            latest_market_date=resolved_latest_market_date,
+            requested_window_days=window_days,
+            selected_current_source_date=selected_price.get("captured_at"),
+            selected_current_source=selected_price.get("source"),
+        )
+        movements.append(
+            _canonical_public_card_movement(
+                canonical_card=canonical_card,
+                selected_price=selected_price,
+                delta=delta,
+            )
+        )
+    return movements
+
+
+def _movement_payload_for_window(
+    *,
+    context: Dict[str, Any],
+    movements: List[Dict[str, Any]],
+    window_days: int,
+    limit: int,
+    warnings: List[str],
+    sources: Dict[str, str],
+    diagnostics: Dict[str, int],
+) -> Dict[str, Any]:
+    window_suffix = f"{window_days}d"
+    for movement in movements:
+        legacy_amount = movement.get("change30dAmount")
+        legacy_percent = movement.get("change30dPercent")
+        movement.setdefault("changeAmount", legacy_amount)
+        movement.setdefault("changePercent", legacy_percent)
+        movement.setdefault(f"change{window_suffix}Amount", movement.get("changeAmount"))
+        movement.setdefault(f"change{window_suffix}Percent", movement.get("changePercent"))
+        movement.setdefault("window", f"{window_days}D")
+        movement.setdefault("windowDays", window_days)
+        movement.setdefault("windowConvention", WINDOW_CONVENTION)
+        movement.setdefault("moverEligible", True)
+    eligible_movements = sorted(
+        [movement for movement in movements if movement.get("moverEligible")],
+        key=lambda movement: (
+            -abs(_to_signed_float(movement.get("changePercent")) or 0),
+            -abs(_to_signed_float(movement.get("changeAmount")) or 0),
+            (_to_optional_str(movement.get("canonicalCardId")) or _to_optional_str(movement.get("cardId")) or _to_optional_str(movement.get("id")) or "").lower(),
+            (_to_optional_str(movement.get("cardVariantId")) or "").lower(),
+            (_to_optional_str(movement.get("conditionId")) or "").lower(),
+        ),
     )
     heating = sorted(
-        [movement for movement in movements if movement.get("change30dAmount", 0) > 0],
+        [movement for movement in eligible_movements if (movement.get("changeAmount") or 0) > 0],
         key=lambda movement: movement.get("movementScore") or 0,
         reverse=True,
     )
     cooling = sorted(
-        [movement for movement in movements if movement.get("change30dAmount", 0) < 0],
+        [movement for movement in eligible_movements if (movement.get("changeAmount") or 0) < 0],
         key=lambda movement: movement.get("movementScore") or 0,
     )
 
@@ -906,14 +1270,14 @@ def build_pokemon_set_card_movement_payload(
             "heating_up": heating[:limit],
             "coolingOff": cooling[:limit],
             "cooling_off": cooling[:limit],
-            "all": movements,
+            "all": eligible_movements,
         },
         "market_movers": {
             "window": f"{window_days}D",
             "window_days": window_days,
             "heating_up": heating[:limit],
             "cooling_off": cooling[:limit],
-            "all": movements,
+            "all": eligible_movements,
         },
         "meta": {
             "limit": limit,
@@ -926,10 +1290,191 @@ def build_pokemon_set_card_movement_payload(
                 "maximumHistorySpanDays": _card_movers_max_history_span_days(window_days),
                 "maximumAbsolutePercentChange": CARD_MOVERS_MAX_ABS_PERCENT_CHANGE,
             },
-            "priceBasis": "Near Mint card_variant_price_observations and card_market_usd_latest_by_condition mapped to canonical Pokemon cards",
+            "windowConvention": WINDOW_CONVENTION,
+            "priceBasis": "pokemon_canonical_card_market_prices_latest plus matching card_variant_price_observations",
             "sources": sources,
             "warnings": warnings,
+            **diagnostics,
         },
+    }
+
+
+def build_pokemon_set_card_movements_by_window_payload(
+    set_id: str,
+    *,
+    window_days: Sequence[int] = (1, 7, 30),
+    limit: int = DEFAULT_CARD_MOVERS_LIMIT,
+    client: Any = None,
+    selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Build every requested mover window from one canonical market context."""
+
+    resolved_windows = tuple(dict.fromkeys(max(1, int(value)) for value in window_days))
+    if not resolved_windows:
+        resolved_windows = (DEFAULT_CARD_MOVERS_WINDOW_DAYS,)
+    warnings: List[str] = []
+    sources: Dict[str, str] = {}
+    diagnostics: Dict[str, int] = {
+        "observationQueryCount": 0,
+        "observationRowsLoaded": 0,
+        "selectedVariantCount": 0,
+        "observationPageCount": 0,
+        "windowsCalculated": len(resolved_windows),
+    }
+    active_client = client if client is not None else public_read_client
+    set_row = resolve_pokemon_set_identifier(set_id, client=active_client)
+    context = _build_market_context(
+        set_row,
+        warnings,
+        sources,
+        client=active_client,
+        include_legacy=False,
+        selected_price_rows=selected_price_rows,
+    )
+    selected_by_card = dict(context.get("selected_price_by_canonical_id") or {})
+    payloads_by_window: Dict[str, Dict[str, Any]] = {}
+
+    if selected_by_card:
+        variant_ids = sorted({
+            str(row["card_variant_id"])
+            for row in selected_by_card.values()
+            if row.get("card_variant_id") and row.get("condition_id")
+        })
+        condition_by_variant = {
+            str(row["card_variant_id"]): str(row["condition_id"])
+            for row in selected_by_card.values()
+            if row.get("card_variant_id") and row.get("condition_id")
+        }
+        diagnostics["selectedVariantCount"] = len(variant_ids)
+        observation_rows = _load_conditioned_price_observation_rows(
+            variant_ids,
+            condition_by_variant,
+            max(max(resolved_windows) + 1, CARD_MOVERS_HISTORY_LOOKBACK_DAYS),
+            sources,
+            client=active_client,
+            diagnostics=diagnostics,
+        )
+        observations_by_variant: Dict[str, List[Dict[str, Any]]] = {}
+        for row in observation_rows:
+            variant_id = _to_optional_str(row.get("card_variant_id"))
+            if variant_id:
+                observations_by_variant.setdefault(variant_id, []).append(row)
+        latest_market_date = max(
+            (
+                date_key
+                for row in selected_by_card.values()
+                if (date_key := utc_date_key(row.get("captured_at")))
+            ),
+            default=None,
+        )
+        for requested_days in resolved_windows:
+            movements = _build_card_movements_from_context(
+                context,
+                window_days=requested_days,
+                warnings=warnings,
+                sources=sources,
+                client=active_client,
+                observations_by_variant=observations_by_variant,
+                latest_market_date=latest_market_date,
+            )
+            key = f"{requested_days}D"
+            payloads_by_window[key] = _movement_payload_for_window(
+                context=context,
+                movements=movements,
+                window_days=requested_days,
+                limit=limit,
+                warnings=warnings,
+                sources=sources,
+                diagnostics=diagnostics,
+            )
+    else:
+        # Compatibility for old/local databases without the canonical selected
+        # price view. Production snapshots use the canonical branch above.
+        variant_ids = list(context.get("variant_ids") or [])
+        near_mint_condition_id = _to_optional_str(context.get("condition_id"))
+        condition_by_variant = {
+            variant_id: near_mint_condition_id
+            for variant_id in variant_ids
+            if near_mint_condition_id
+        }
+        diagnostics["selectedVariantCount"] = len(variant_ids)
+        legacy_latest_rows = _load_conditioned_latest_price_rows(
+            variant_ids,
+            condition_by_variant,
+            sources,
+            client=active_client,
+        )
+        legacy_observation_rows = _load_conditioned_price_observation_rows(
+            variant_ids,
+            condition_by_variant,
+            max(max(resolved_windows) + 1, CARD_MOVERS_HISTORY_LOOKBACK_DAYS),
+            sources,
+            client=active_client,
+            diagnostics=diagnostics,
+        )
+        for requested_days in resolved_windows:
+            movements = _build_legacy_card_movements_from_context(
+                context,
+                window_days=requested_days,
+                warnings=warnings,
+                sources=sources,
+                client=active_client,
+                latest_rows_override=legacy_latest_rows,
+                observation_rows_override=legacy_observation_rows,
+            )
+            key = f"{requested_days}D"
+            payloads_by_window[key] = _movement_payload_for_window(
+                context=context,
+                movements=movements,
+                window_days=requested_days,
+                limit=limit,
+                warnings=warnings,
+                sources=sources,
+                diagnostics=diagnostics,
+            )
+
+    return {
+        "set": context.get("set"),
+        "payloadsByWindow": payloads_by_window,
+        "payloads_by_window": payloads_by_window,
+        "marketMoversByWindow": {
+            key: payload.get("marketMovers") or {}
+            for key, payload in payloads_by_window.items()
+        },
+        "market_movers_by_window": {
+            key: payload.get("market_movers") or {}
+            for key, payload in payloads_by_window.items()
+        },
+        "meta": {**diagnostics, "sources": sources, "warnings": warnings},
+    }
+
+
+def build_pokemon_set_card_movement_payload(
+    set_id: str,
+    *,
+    limit: int = DEFAULT_CARD_MOVERS_LIMIT,
+    window_days: int = DEFAULT_CARD_MOVERS_WINDOW_DAYS,
+    client: Any = None,
+) -> Dict[str, Any]:
+    """Compatibility wrapper selecting one result from the multi-window build."""
+
+    key = f"{max(1, int(window_days))}D"
+    payload = build_pokemon_set_card_movements_by_window_payload(
+        set_id,
+        window_days=(window_days,),
+        limit=limit,
+        client=client,
+    )
+    return (payload.get("payloadsByWindow") or {}).get(key) or {
+        "set": payload.get("set"),
+        "window": key,
+        "window_key": key,
+        "windowDays": window_days,
+        "window_days": window_days,
+        "movements": [],
+        "marketMovers": {},
+        "market_movers": {},
+        "meta": payload.get("meta") or {},
     }
 
 
@@ -1049,6 +1594,8 @@ def _load_latest_combined_set_run(set_id: str, sources: Dict[str, str]) -> Optio
         sources["calculation_runs_latest_combined"] = "OK"
         return _first_row(result)
     except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         sources["calculation_runs_latest_combined"] = "FAILED"
         logger.warning("[pokemon-set-market] latest combined run lookup failed set_id=%s: %s", set_id, exc)
         return None
@@ -1074,6 +1621,8 @@ def _load_simulation_input_card_rows(
         sources["simulation_input_cards"] = "OK"
         return list(result.data or [])
     except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         sources["simulation_input_cards"] = "FAILED"
         logger.warning("[pokemon-set-market] simulation input cards lookup failed run_id=%s: %s", run_id, exc)
         return []
@@ -1114,6 +1663,8 @@ def _load_simulation_card_image_context(
             }
             sources["card_variants_for_simulation_inputs"] = "OK"
         except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             sources["card_variants_for_simulation_inputs"] = "FAILED"
             logger.warning("[pokemon-set-market] card variant enrichment failed: %s", exc)
     else:
@@ -1142,6 +1693,8 @@ def _load_simulation_card_image_context(
             }
             sources["cards_for_simulation_inputs"] = "OK"
         except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
             sources["cards_for_simulation_inputs"] = "FAILED"
             logger.warning("[pokemon-set-market] card enrichment failed: %s", exc)
     else:
@@ -1241,6 +1794,8 @@ def _load_variant_price_history(
                     }
         sources["card_variant_price_observations_for_chase_trends"] = "OK"
     except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         sources["card_variant_price_observations_for_chase_trends"] = "FAILED"
         if warnings is not None:
             warnings.append("Failed to load top chase card price history.")
@@ -1945,6 +2500,8 @@ def _load_available_set_value_scopes(set_id: str, sources: Dict[str, str]) -> Li
         )
         sources["pokemon_set_value_daily_history_scopes"] = "OK"
     except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         sources["pokemon_set_value_daily_history_scopes"] = "FAILED"
         logger.warning("[pokemon-set-market] daily set value scopes lookup failed set_id=%s: %s", set_id, exc)
         return []
@@ -1990,6 +2547,8 @@ def _load_market_set_value_history(
         latest_row = _first_row(latest_result)
         sources["pokemon_set_value_daily_history_latest"] = "OK"
     except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         sources["pokemon_set_value_daily_history_latest"] = "FAILED"
         warnings.append("Failed to load daily set value market history.")
         logger.warning("[pokemon-set-market] daily set value latest lookup failed set_id=%s: %s", set_id, exc)
@@ -2020,6 +2579,8 @@ def _load_market_set_value_history(
         raw_rows = list(history_result.data or [])
         sources["pokemon_set_value_daily_history"] = "OK"
     except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
         sources["pokemon_set_value_daily_history"] = "FAILED"
         warnings.append("Failed to load daily set value market history.")
         logger.warning("[pokemon-set-market] daily set value history failed set_id=%s: %s", set_id, exc)

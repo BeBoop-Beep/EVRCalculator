@@ -5,6 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const ripPageClientPath = path.resolve(__dirname, "RipStatisticsPageClient.jsx");
+const moversTickerViewportPath = path.resolve(__dirname, "MoversTickerViewport.jsx");
 const marketDashboardStatePath = path.resolve(__dirname, "marketDashboardState.mjs");
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const cardsClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCardsClient.js");
@@ -476,7 +477,7 @@ test("Decision Signals selector returns stable rows from summary pillars while m
   });
 
   assert.equal(selected.rows.length, 2);
-  assert.equal(selected.rows[0].label, "Profitability");
+  assert.equal(selected.rows[0].label, "Profit");
   assert.equal(selected.sourceUsed, "summary+pillarSignals");
 });
 
@@ -809,6 +810,11 @@ test("market dashboard payload exposes distinct 1D/7D/30D market mover rows for 
 test("Market Movers module supports a 1D/7D/30D window selector defaulting to 30D", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
+  assert.ok(!source.includes("function MarketMoversModule("), "the standalone Cards movers module must be removed");
+  assert.ok(source.includes('{ value: "7d-movers", label: "Largest 7D Moves" }'));
+  assert.ok(source.includes('cardSort: "7d-movers"'));
+  return;
+
   const componentStart = source.indexOf("function MarketMoversModule(");
   const componentEnd = source.indexOf("\nfunction normalizePullRateAssumptions");
   assert.ok(componentStart >= 0, "MarketMoversModule must exist");
@@ -848,7 +854,13 @@ test("Market Movers module supports a 1D/7D/30D window selector defaulting to 30
   assert.ok(source.includes("moversByWindow={marketMoversByWindow}"));
   assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"));
   assert.ok(source.includes("onWindowChange={setMarketMoversWindowKey}"));
-  assert.ok(source.includes("onViewAll={handleViewAllMarketMovers}"), "View all movers behavior must be unchanged");
+  // The module now lives on the Cards tab as the "View all movers"
+  // destination itself, so it renders without an onViewAll affordance (which
+  // would be circular there); the Overview ticker owns that navigation and
+  // routes it through the same canonical handler.
+  assert.ok(!source.includes("onViewAll={handleViewAllMarketMovers}"), "the relocated module must not render a circular View-all affordance at its own destination");
+  assert.ok(componentSource.includes("{onViewAll ? ("), "the View all movers button must be optional so the destination can omit it");
+  assert.ok(source.includes("handleViewAllMarketMovers();"), "the ticker's navigation must reuse the canonical View-all-movers handler");
 });
 
 test("top chase cards and market movers each fetch their own canonical slim endpoint, and the live market dashboard fetch is gone", () => {
@@ -929,16 +941,16 @@ test("Overview parity: getPokemonSetMarketMovers's normalized payload shape matc
   assert.equal(normalized.marketMovers, undefined, "the normalized payload must not be double-nested under a marketMovers key");
 });
 
-test("Overview parity: Market Movers and Top Chase Cards are both still rendered inside the overview tab's JSX block", () => {
+test("Overview parity: the 7D Movers ticker and Top Chase Cards are both rendered inside the overview tab's JSX block", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   const overviewBlockStart = source.indexOf('{setDetailTab === "overview" ? (');
   assert.ok(overviewBlockStart >= 0, "the overview tab conditional render block must exist");
-  const overviewBlockEnd = source.indexOf("<MarketMoversModule", overviewBlockStart);
-  assert.ok(overviewBlockEnd > overviewBlockStart, "MarketMoversModule must render inside the overview tab block");
+  const tickerIndex = source.indexOf("<MarketMoversTicker", overviewBlockStart);
+  assert.ok(tickerIndex > overviewBlockStart, "MarketMoversTicker must render inside the overview tab block");
 
-  const topChaseBlockEnd = source.indexOf("<TopChaseCardsModule", overviewBlockEnd);
-  assert.ok(topChaseBlockEnd > overviewBlockEnd, "TopChaseCardsModule must render inside the overview tab block, after MarketMoversModule");
+  const topChaseBlockEnd = source.indexOf("<TopChaseCardsModule", tickerIndex);
+  assert.ok(topChaseBlockEnd > tickerIndex, "TopChaseCardsModule must render inside the overview tab block, after the ticker");
 
   // Both must appear before the overview block's own closing `) : null}` —
   // approximated by asserting no earlier/later tab conditional interrupts
@@ -946,7 +958,17 @@ test("Overview parity: Market Movers and Top Chase Cards are both still rendered
   const nextTabBlockStart = source.indexOf('setDetailTab === "cards"', overviewBlockStart);
   assert.ok(
     nextTabBlockStart === -1 || nextTabBlockStart > topChaseBlockEnd,
-    "MarketMoversModule/TopChaseCardsModule must render before any subsequent tab block, i.e. still inside overview"
+    "MarketMoversTicker/TopChaseCardsModule must render before any subsequent tab block, i.e. still inside overview"
+  );
+
+  // The retired Market Movers card must be gone from Overview — its full
+  // experience now lives on the Cards tab (see the Phase 5A container test).
+  const overviewSectionStart = source.indexOf('id="set-detail-overview"');
+  const overviewSectionEnd = source.indexOf("</section>", overviewSectionStart);
+  assert.ok(overviewSectionStart >= 0 && overviewSectionEnd > overviewSectionStart);
+  assert.ok(
+    !source.slice(overviewSectionStart, overviewSectionEnd).includes("<MarketMoversModule"),
+    "the Market Movers card must not render on Overview anymore — the ticker replaces it"
   );
 });
 
@@ -964,7 +986,10 @@ test("Overview parity: Market Movers and Top Chase Cards are both still rendered
 test("Phase 5A: Overview fetches Top Chase and Market Movers through their slim endpoints", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   assert.ok(source.includes("getPokemonSetTopChase(setId, { window: topChaseSourceWindow, limit: 10 })"), "Top Chase must fetch via getPokemonSetTopChase");
-  assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: 5 })"), "Market Movers must fetch via getPokemonSetMarketMovers");
+  assert.ok(
+    source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: moversFetchLimit })"),
+    "Market Movers must fetch via getPokemonSetMarketMovers"
+  );
 });
 
 test("Phase 5A: Top Chase Cards section container always renders on Overview, regardless of data availability", () => {
@@ -981,23 +1006,34 @@ test("Phase 5A: Top Chase Cards section container always renders on Overview, re
   );
 });
 
-test("Phase 5A: Market Movers section container always renders on Overview, regardless of data availability", () => {
+test("Phase 5A: the 7D Movers ticker always renders on Overview, and the full module always renders at its Cards tab destination", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes('id="set-detail-movers-ticker"'));
+  assert.ok(!source.includes('id="set-detail-cards-market-movers"'));
+  assert.ok(!source.includes("<MarketMoversModule"));
+  return;
 
   assert.ok(
     !source.includes("{hasMarketMovers ? ("),
-    "the Market Movers container must no longer be conditionally rendered behind hasMarketMovers"
+    "the movers containers must no longer be conditionally rendered behind hasMarketMovers"
   );
-  const renderStart = source.indexOf('id="set-detail-market-movers"');
-  assert.ok(renderStart >= 0, "the Market Movers container div must exist");
+  const tickerStart = source.indexOf('id="set-detail-movers-ticker"');
+  assert.ok(tickerStart >= 0, "the Overview movers ticker container div must exist");
   assert.ok(
-    source.slice(renderStart, renderStart + 400).includes("<MarketMoversModule"),
-    "MarketMoversModule must render unconditionally inside its container div"
+    source.slice(tickerStart, tickerStart + 1200).includes("<MarketMoversTicker"),
+    "MarketMoversTicker must render unconditionally inside its container div"
+  );
+  const cardsHomeStart = source.indexOf('id="set-detail-cards-market-movers"');
+  assert.ok(cardsHomeStart >= 0, "the Cards tab Market Movers container div must exist");
+  assert.ok(
+    source.slice(cardsHomeStart, cardsHomeStart + 1600).includes("<MarketMoversModule"),
+    "MarketMoversModule must render inside the Cards tab market-movers section"
   );
 
   // MarketMoversModule itself must no longer bail out to null just because
   // there are zero rows — it must show a loading skeleton, an error message,
-  // or fall through to MarketMoverColumn's own per-column empty state.
+  // or fall through to the list's own empty state.
   const componentStart = source.indexOf("function MarketMoversModule(");
   const componentEnd = source.indexOf("\nfunction normalizePullRateAssumptions");
   const componentSource = source.slice(componentStart, componentEnd);
@@ -1005,6 +1041,67 @@ test("Phase 5A: Market Movers section container always renders on Overview, rega
   assert.ok(componentSource.includes('status === "loading"'), "must render a loading state distinct from the empty state");
   assert.ok(componentSource.includes("<InlinePanelSkeleton"), "must show a loading skeleton while the fetch is in flight");
   assert.ok(componentSource.includes('status === "error"'), "must render an error state instead of silently disappearing");
+
+  // The ticker renders its loading/error/empty states inside the same
+  // fixed-height strip, so Overview never shifts while movers settle.
+  const tickerComponentStart = source.indexOf("function MarketMoversTicker(");
+  assert.ok(tickerComponentStart >= 0, "MarketMoversTicker must exist");
+  const tickerComponentSource = source.slice(tickerComponentStart, componentEnd);
+  assert.ok(tickerComponentSource.includes("h-14"), "the ticker strip must reserve a fixed height from first paint");
+  assert.ok(tickerComponentSource.includes('status === "loading"'), "the ticker must render a loading state inside the strip");
+  assert.ok(tickerComponentSource.includes('status === "error"'), "the ticker must render an error state inside the strip");
+});
+
+test("7D Movers ticker motion: CSS transform marquee, hover/focus pause, reduced-motion static fallback", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const viewportSource = fs.readFileSync(moversTickerViewportPath, "utf8");
+  const globalsCssPath = path.resolve(__dirname, "../../app/styles/globals.css");
+  const css = fs.readFileSync(globalsCssPath, "utf8");
+
+  // The loop is a CSS transform animation — no rAF-driven positioning, no
+  // marquee library. (rAF would also run in the scaffold's hidden duplicate
+  // mount; a display:none CSS animation costs nothing.)
+  assert.ok(css.includes("@keyframes index-ticker-marquee"), "the marquee keyframes must live in globals.css");
+  assert.ok(/index-ticker-marquee\s*\{[^}]*transform: translateX\(0\)/.test(css.replace(/\r\n/g, "\n").replace(/\n/g, " ")), "the loop must animate transform");
+  assert.ok(css.includes("translateX(-50%)"), "the loop must translate by -50% (two-copy seamless wrap)");
+
+  // WCAG 2.2.2: hover and focus-within must pause playback.
+  const cssFlat = css.replace(/\r\n/g, "\n");
+  assert.ok(
+    cssFlat.includes(".index-ticker-viewport:hover .index-ticker-track,\n.index-ticker-viewport:focus-within .index-ticker-track"),
+    "hover and focus-within must pause the marquee"
+  );
+  assert.ok(/:focus-within[^{]*\{\s*animation-play-state: paused/.test(cssFlat.replace(/\n/g, " ")), "pause must use animation-play-state");
+
+  // prefers-reduced-motion renders the identical static strip: animation
+  // removed and the presentation-only duplicate hidden.
+  const reducedMotionStart = cssFlat.indexOf("@media (prefers-reduced-motion: reduce)", cssFlat.indexOf("index-ticker-marquee"));
+  assert.ok(reducedMotionStart >= 0, "a reduced-motion block must cover the ticker");
+  const reducedMotionBlock = cssFlat.slice(reducedMotionStart, reducedMotionStart + 400);
+  assert.ok(reducedMotionBlock.includes(".index-ticker-track") && reducedMotionBlock.includes("animation: none"), "reduced motion must disable the loop");
+  assert.ok(reducedMotionBlock.includes(".index-ticker-duplicate") && reducedMotionBlock.includes("display: none"), "reduced motion must drop the duplicate copy");
+
+  // Overflow/reduced-motion determine structure. Focus can only pause the
+  // mounted track, so pointer-down focus cannot remove the duplicate anchor
+  // before click dispatch.
+  assert.ok(viewportSource.includes('window.matchMedia("(prefers-reduced-motion: reduce)")'), "the component must mirror the reduced-motion preference");
+  assert.ok(
+    viewportSource.includes("const shouldRenderMarquee = hasItems && isOverflowing && !prefersReducedMotion"),
+    "marquee structure must depend only on items, overflow, and reduced motion"
+  );
+  assert.ok(viewportSource.includes("const isMarqueePaused = isFocusWithin"), "focus must be represented only as playback pause state");
+  assert.ok(viewportSource.includes('animationPlayState: "paused"'), "focus pause must use animation-play-state");
+  assert.ok(viewportSource.includes("onFocusCapture") && viewportSource.includes("onBlurCapture"), "real child focus must pause through capture handlers");
+  assert.ok(!viewportSource.includes("tabIndex={0}"), "the viewport must not add an extra tab stop");
+  assert.ok(!viewportSource.includes("scrollLeft"), "focus changes must never reset horizontal position");
+  assert.ok(source.includes('tabIndex={ariaHidden ? -1 : undefined}'), "duplicate-copy links must be unfocusable");
+  assert.ok(source.includes('aria-hidden={ariaHidden ? "true" : undefined}'), "the duplicate copy must be aria-hidden");
+  assert.ok(viewportSource.includes('aria-label="7-day market movers"'), "the scrolling region must keep its aria-label");
+  const tickerStart = source.indexOf("function MoversTickerItemChip");
+  const tickerEnd = source.indexOf("function normalizePullRateAssumptions", tickerStart);
+  const tickerSource = source.slice(tickerStart, tickerEnd);
+  assert.equal((tickerSource.match(/href=\{viewAllHref\}/g) || []).length, 2, "card chips and View all movers must share one real href");
+  assert.ok(!tickerSource.includes("onClick="), "ticker links must not intercept native clicks");
 });
 
 test("Phase 5A: Overview does not require activeMarketDashboardDerivedState to render the Top Chase or Market Movers containers", () => {
@@ -1102,16 +1199,17 @@ test("top chase and market movers request windows are canonical", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const marketSource = fs.readFileSync(marketClientPath, "utf8");
 
-  assert.ok(source.includes('const DEFAULT_TOP_CHASE_MARKET_WINDOW = "30D"'));
+  assert.ok(source.includes('const DEFAULT_TOP_CHASE_MARKET_WINDOW = "365d"'));
   assert.ok(source.includes("const topChaseSourceWindow = DEFAULT_TOP_CHASE_MARKET_WINDOW"));
   assert.ok(source.includes("getPokemonSetTopChase(setId, { window: topChaseSourceWindow"));
-  assert.ok(source.includes('const [marketMoversWindowKey, setMarketMoversWindowKey] = useState(DEFAULT_MARKET_MOVERS_WINDOW)'));
+  assert.ok(marketSource.includes('getPokemonSetTopChase(setId, { window = "365d"'));
+  assert.ok(source.includes('const MOVERS_TICKER_WINDOW = "7D"'));
   assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow"));
   assert.ok(marketSource.includes("export async function getPokemonSetTopChase"));
   assert.ok(marketSource.includes("export async function getPokemonSetMarketMovers"));
 });
 
-test("market movers effect refetches by selected window and top chase effect does not depend on it", () => {
+test("market movers effect is fixed to the Overview 7D ticker and top chase remains independent", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   const moversEffectStart = source.indexOf("getPokemonSetMarketMovers(setId, { window: moversSourceWindow");
@@ -1119,10 +1217,8 @@ test("market movers effect refetches by selected window and top chase effect doe
   const moversEffectDepsEnd = source.indexOf("]);", moversEffectDepsStart);
   const moversEffectDeps = source.slice(moversEffectDepsStart, moversEffectDepsEnd);
   assert.ok(moversEffectStart >= 0, "market movers effect must exist");
-  assert.ok(
-    moversEffectDeps.includes("marketMoversWindowKey"),
-    "the market movers effect must re-run (and refetch) when the selected window changes"
-  );
+  assert.ok(!moversEffectDeps.includes("marketMoversWindowKey"));
+  assert.ok(source.includes("const moversSourceWindow = MOVERS_TICKER_WINDOW;"));
 
   const topChaseEffectStart = source.indexOf("getPokemonSetTopChase(setId, { window: topChaseSourceWindow");
   const topChaseEffectDepsStart = source.indexOf("}, [", topChaseEffectStart);
@@ -1269,7 +1365,7 @@ test("compact sparkline tooltip is local to the sparkline wrapper", () => {
 
 test("header set value compact sparkline shows the simple date/value/delta hover tooltip", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const labelIndex = source.indexOf("{setValueMetricLabel}");
+  const labelIndex = source.indexOf(">Set Value Trend</p>");
   const sparklineStart = source.indexOf("<CompactSparkline", labelIndex);
   const sparklineEnd = source.indexOf("/>", sparklineStart);
   const setValueSparklineSource = source.slice(sparklineStart, sparklineEnd);
@@ -1507,22 +1603,44 @@ test("card validation bucket row keys include stable identity beyond card name",
   assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
 });
 
-test("desirability evidence proof content renders from set payload validation data", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
+test("desirability evidence renders verdict + diverging agreement view from set payload validation data", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(source.includes("function DesirabilityEvidenceCard"));
-  assert.ok(source.includes("function DesirabilityProofContent"));
+  // The verdict line + diverging confirm/conflict view replaced the old
+  // rank-ladder (which conflated rank-of-field and agreement on one axis);
+  // only the two scatter views toggle now.
+  assert.ok(source.includes("function DesirabilityAgreementContent"));
+  assert.ok(source.includes("function DesirabilityVerdictLine"));
+  assert.ok(source.includes("function DesirabilityAgreementDiverging"));
+  assert.ok(!source.includes("function DesirabilityAlignmentLadder"), "the old rank-ladder component must be gone");
+  assert.ok(!source.includes("buildLadderLayout"), "the ladder geometry helpers must be gone");
+  assert.ok(!source.includes("Desirability #"), "the rank-anchor label must be gone");
+  assert.ok(!source.includes("function DesirabilityProofContent"), "the old Proof grid component must be gone");
+  assert.ok(!source.includes('label: "Proof"'), "the Proof sub-tab must be retired");
   assert.ok(source.includes('title="Desirability Evidence"'));
-  assert.ok(source.includes('label: "Proof"'));
   assert.ok(source.includes('label: "Set Validation"'));
   assert.ok(source.includes('label: "Card Validation"'));
-  assert.ok(source.includes("Desirability Impact"));
-  assert.ok(source.includes("Desirability Signal Check"));
   assert.ok(source.includes("getDesirabilityValidationPayload(explorePayload)"));
   assert.ok(source.includes("desirabilityValidationPayload"));
-  assert.ok(source.includes("Card appeal validation is not available for this set yet."));
-  assert.ok(source.includes("View Card Appeal chart"));
-  assert.ok(source.includes("#set-detail-card-desirability-price"));
+  // Verdict + diverging view display only what the backend agreement logic
+  // already computed — no frontend agreement math.
+  assert.ok(source.includes("selectDesirabilityVerdict(validation)"));
+  assert.ok(source.includes("selectDesirabilityAgreement(validation)"));
+  assert.ok(source.includes("buildDivergingAgreementModel(agreement)"));
+  // Exactly ONE lead line: the verdict sentence. The backend restatement moved
+  // into the section info tooltip.
+  const verdictStart = source.indexOf("function DesirabilityVerdictLine");
+  const verdictEnd = source.indexOf("function DesirabilityAgreementDiverging", verdictStart);
+  assert.ok(verdictStart >= 0 && verdictEnd > verdictStart);
+  assert.ok(!source.slice(verdictStart, verdictEnd).includes("verdict.summary"), "the gray restatement sentence must not render in the lead");
+  assert.ok(source.includes("const sectionInfoText = ["), "the section tooltip must absorb the moved prose");
+  assert.ok(source.includes("titleInfoText={sectionInfoText}"));
+  // The anchor spans stay so legacy deep links keep landing on the section.
+  assert.ok(source.includes("#set-detail-card-desirability-price") || source.includes('id="set-detail-card-desirability-price"'));
+  // The concrete top-chase anchor renders only when thumbnail data exists.
+  assert.ok(source.includes("selectTopChaseAnchorHit(topHits)"));
+  assert.ok(source.includes("topHits={topHits}"));
 });
 
 test("desirability validation selector uses metric-specific market checks", () => {
@@ -2155,7 +2273,7 @@ test("shallow-only same-set tab navigation helper does not exist", () => {
   );
 });
 
-test("title/header card renders from the Set Header Summary Contract, not activeSetDetailTab", () => {
+test("title/header card keeps stable Set Value data while its score follows the hero mode contract", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(
@@ -2195,16 +2313,16 @@ test("title/header card renders from the Set Header Summary Contract, not active
   // read from setHeaderSummary — never directly off setDetailTab, and never
   // bare `summary.pack_tier`/`recommendationBadge` inside that block, since
   // those are only as fresh as whatever tab happened to load.
-  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const heroStart = source.indexOf("<RipScoreModeToggle");
   const heroEnd = source.indexOf("set-detail-content", heroStart);
   const heroSource = source.slice(heroStart, heroEnd);
 
   assert.ok(!heroSource.includes("setDetailTab"), "header hero must not depend on the active setDetailTab");
-  assert.ok(heroSource.includes("setHeaderSummary.score"), "header score must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.tier"), "header tier must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.rank"), "header rank must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.recommendationBadge"), "header badge must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.recommendationSummary"), "header recommendation text must come from setHeaderSummary");
+  assert.ok(heroSource.includes("displayedTopScore"), "header score must come from the selected hero score contract");
+  assert.ok(heroSource.includes("heroScoreSelection.tier"), "header tier must come from the selected hero score contract");
+  assert.ok(heroSource.includes("heroScoreSelection.rank"), "header rank must come from the selected hero score contract");
+  assert.ok(heroSource.includes("recommendationBadge"), "header badge must follow the selected hero score mode");
+  assert.ok(heroSource.includes("recommendationSummary"), "header recommendation text must follow the selected hero score mode");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.current"), "header set value must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.delta30dAmount"), "header set value delta must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.sparklinePoints"), "header sparkline must come from setHeaderSummary");
@@ -2333,15 +2451,15 @@ test("Patch 2: set-switch pending state exists and replaces placeholder metric v
     "the RIP score must render a pending skeleton instead of a placeholder score during a switch"
   );
   assert.ok(
-    source.includes("setHeaderSummary.setValue.current === null\n                                    ? titleCardMetricsPending\n                                      ? titleMetricPendingPlaceholder"),
-    "the set value must render the pending placeholder during a switch"
+    source.includes("loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}"),
+    "the shared set value stack must render its pending skeleton during a switch"
   );
 });
 
 test("title-card checklist set value sparkline has a hover tooltip like the Overview Set Value Trend chart", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const heroStart = source.indexOf("<RipScoreModeToggle");
   const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
   const sparklineEnd = source.indexOf("/>", sparklineStart);
   const sparklineSource = source.slice(sparklineStart, sparklineEnd);
@@ -2356,22 +2474,23 @@ test("title-card checklist set value sparkline has a hover tooltip like the Over
 test("compact header sparkline tooltip floats above the RIP score/title card instead of being clipped", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  const heroStart = source.indexOf('{RIP_COPY.scoreLabel}</p>');
+  const heroStart = source.indexOf("<RipScoreModeToggle");
   const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
   assert.ok(sparklineStart > heroStart, "header CompactSparkline must exist after the RIP score label");
 
-  const cardWrapperStart = source.lastIndexOf('<div className="relative flex min-h-[8.25rem]', sparklineStart);
-  const cardWrapperEnd = source.indexOf(">", cardWrapperStart);
-  const cardWrapperClassName = source.slice(cardWrapperStart, cardWrapperEnd);
+  const stackingTokenIndex = source.lastIndexOf("has-[[data-compact-sparkline-tooltip]]:z-30", sparklineStart);
+  const resolvedCardWrapperStart = source.lastIndexOf('<div className="', stackingTokenIndex);
+  const cardWrapperEnd = source.indexOf(">", resolvedCardWrapperStart);
+  const cardWrapperClassName = source.slice(resolvedCardWrapperStart, cardWrapperEnd);
 
-  assert.ok(cardWrapperStart >= 0, "checklist set value card wrapping the header sparkline must exist");
+  assert.ok(resolvedCardWrapperStart >= 0, "Set Value card wrapping the header sparkline must exist");
   assert.ok(
     cardWrapperClassName.includes("has-[[data-compact-sparkline-tooltip]]:z-30"),
-    "checklist set value card must raise its stacking context above the RIP score/title card (z-20) while its tooltip is showing"
+    "Set Value card must raise its stacking context above the RIP score/title card (z-20) while its tooltip is showing"
   );
   assert.ok(
     !cardWrapperClassName.includes("overflow-hidden"),
-    "checklist set value card must not clip the sparkline tooltip"
+    "Set Value card must not clip the sparkline tooltip"
   );
 
   const compactStart = source.indexOf("function CompactSparkline");
@@ -2508,12 +2627,15 @@ test("Phase 3A: Top Chase live fetch path calls getPokemonSetTopChase", () => {
   assert.ok(dispatchStart >= 0 && dispatchStart < topChaseEffectStart, "must dispatch loading before calling getPokemonSetTopChase");
 });
 
-test("Phase 3A: Market Movers live fetch path calls getPokemonSetMarketMovers with the selected window", () => {
+test("Phase 3A: Market Movers live fetch path serves only the fixed Overview ticker window", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("const moversSourceWindow = marketMoversWindowKey || DEFAULT_MARKET_MOVERS_WINDOW"), "movers fetch must derive its window from the selected window state");
+  // Overview's ticker always requests the fixed 7D window; the Cards tab
+  // destination follows the user's 1D/7D/30D selection.
+  assert.ok(source.includes("const moversSourceWindow = MOVERS_TICKER_WINDOW;"));
+  assert.ok(source.includes('const MOVERS_TICKER_WINDOW = "7D"'), "the ticker window must be pinned to 7D");
   assert.ok(source.includes("getPokemonSetMarketMovers(setId, { window: moversSourceWindow"), "must call getPokemonSetMarketMovers with the derived window");
-  assert.ok(source.includes("selectedWindow={marketMoversWindowKey}"), "MarketMoversModule must be driven by the same selected-window state");
+  assert.ok(!source.includes("function MarketMoversModule("), "the Cards-only movers module must be removed");
 });
 
 test("Phase 3A: dev-only warning fires when a legacy market dashboard payload backs the Overview fallback", () => {
@@ -3325,14 +3447,14 @@ test("Phase 11: Overview renders 5 priority-ordered sections, each independently
   const errorBoundaryCount = (renderSource.match(/<SectionErrorBoundary/g) || []).length;
   assert.equal(errorBoundaryCount, 5, `Overview must wrap exactly 5 sections in SectionErrorBoundary (found ${errorBoundaryCount})`);
 
+  const tickerIndex = renderSource.indexOf("<MarketMoversTicker");
   const setValueIndex = renderSource.indexOf("<SetValueTrendCard");
   const perfIndex = renderSource.indexOf("<SectionBoundary");
-  const moversIndex = renderSource.indexOf("<MarketMoversModule");
   const chaseIndex = renderSource.indexOf("<TopChaseCardsModule");
   const signalsIndex = renderSource.indexOf("<DecisionSignalsCard");
   assert.ok(
-    setValueIndex >= 0 && perfIndex > setValueIndex && moversIndex > perfIndex && chaseIndex > moversIndex && signalsIndex > chaseIndex,
-    "sections must render in priority order: Set Value, Performance vs Cost, Market Movers, Top Chase, Market Signals"
+    tickerIndex >= 0 && setValueIndex > tickerIndex && perfIndex > setValueIndex && chaseIndex > perfIndex && signalsIndex > chaseIndex,
+    "sections must render ticker, chart row, then Top Chase and Decision Signals"
   );
 
   assert.ok(
@@ -3344,8 +3466,8 @@ test("Phase 11: Overview renders 5 priority-ordered sections, each independently
     "Set Value must keep reading its own independent fetch status"
   );
   assert.ok(
-    renderSource.includes("status={marketMoversStatus}"),
-    "Market Movers must keep reading its own independent fetch status"
+    renderSource.includes("status={moversTickerStatus}"),
+    "the 7D Movers ticker must keep reading its own independent fetch status"
   );
   assert.ok(
     renderSource.includes("status={topPricedCardsStatus}"),
@@ -3493,14 +3615,14 @@ test("Phase 11: Insights' critical tier holds its own branded panel (not a whole
   );
 
   const insightsSectionStart = source.indexOf('{(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (');
-  const openingOutcomesStart = source.indexOf('title="Opening Outcomes"', insightsSectionStart);
+  const openingOutcomesStart = source.indexOf('title="Simulation Results"', insightsSectionStart);
   const openingOutcomesEnd = source.indexOf("</SectionCard>", openingOutcomesStart);
-  assert.ok(openingOutcomesStart > insightsSectionStart, "Opening Outcomes must still render under the Insights section");
-  assert.ok(openingOutcomesEnd > openingOutcomesStart, "Opening Outcomes card body must be present");
+  assert.ok(openingOutcomesStart > insightsSectionStart, "Simulation Results (formerly Opening Outcomes) must still render under the Insights section");
+  assert.ok(openingOutcomesEnd > openingOutcomesStart, "Simulation Results card body must be present");
   const openingOutcomesSource = source.slice(openingOutcomesStart, openingOutcomesEnd);
   assert.ok(
     openingOutcomesSource.includes("insightsSectionsBlocked ? ("),
-    "Opening Outcomes must remain gated by insightsSectionsBlocked, now driven by the secondary-tier fetch independent of the critical tier"
+    "Simulation Results must remain gated by insightsSectionsBlocked, now driven by the secondary-tier fetch independent of the critical tier"
   );
 
   // Both the hero (RipScoreBreakdownModule) and the secondary-tier sections
@@ -3655,9 +3777,53 @@ test("Phase 10: changing set/sort/search/movement filter rewinds to the first ch
   const resetStart = source.indexOf("setCardsPage(1);");
   assert.ok(resetStart >= 0, "a scope-reset effect must rewind the page counter");
   const resetSource = source.slice(source.lastIndexOf("useEffect(() => {", resetStart), source.indexOf("]);", resetStart) + 3);
-  for (const dep of ["cardSortMode", "cardMovementFilter", "cardSearchQuery", "resolvedSetResourceId"]) {
+  for (const dep of ["cardSortMode", "cardMovementFilter", "cardSearchQuery", "cardRarityFilter", "resolvedSetResourceId"]) {
     assert.ok(resetSource.includes(dep), `the scope-reset effect must depend on ${dep}`);
   }
+});
+
+test("Cards request identity includes snapshot contract, rarity, and every movement/search dimension", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("// Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  for (const token of [
+    "setId",
+    "PRICING_SNAPSHOT_CONTRACT_VERSION",
+    "effectiveCardSortMode",
+    "cardSearchQuery.trim()",
+    'cardRarityFilter || ""',
+    "effectiveCardMovementFilter",
+    "movementSortValue",
+  ]) {
+    assert.ok(effectSource.includes(token), `request identity missing ${token}`);
+  }
+  assert.ok(effectSource.includes("rarity: cardRarityFilter"));
+});
+
+test("Cards page one clears and replaces while later matching pages append", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  const effectStart = source.indexOf("Cards tab: slim, paginated fetch (getPokemonSetCardsPage)");
+  const effectEnd = source.indexOf("// Pull Rates tab fetch effect", effectStart);
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectSource.includes('status: "loading",'));
+  assert.ok(effectSource.includes("scopeKey: cardsPageScopeKey"));
+  assert.ok(effectSource.includes("cards: [],"), "a new request identity must clear pages from the prior identity");
+  assert.ok(effectSource.includes("requestedPage > 1 &&"));
+  assert.ok(effectSource.includes("previous.scopeKey === cardsPageScopeKey"));
+  assert.ok(effectSource.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"));
+  assert.ok(effectSource.includes(": payload.cards;"), "page one must replace rather than append");
+});
+
+test("Cards stale responses cannot overwrite a newer request identity", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  assert.ok(source.includes("const activeCardsPageRequestKeyRef = useRef(null);"));
+  assert.ok(source.includes("activeCardsPageRequestKeyRef.current = cardsPageRequestKey;"));
+  const staleGuardCount = (source.match(/activeCardsPageRequestKeyRef\.current !== cardsPageRequestKey/g) || []).length;
+  assert.ok(staleGuardCount >= 3, "success, state merge, and failure paths must all reject stale identities");
+  assert.ok(source.includes('debugSetPagePerf("cards_page.tab_fetch_stale_identity"'));
 });
 
 test("Phase 10: load-more failures keep the loaded cards, disable the sentinel, and offer an explicit Retry", () => {
@@ -3727,7 +3893,7 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   const navSource = source.slice(navStart, navEnd);
   assert.ok(navStart >= 0 && navEnd > navStart, "handleSetDetailNavSelect must exist");
   assert.ok(
-    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortMode("30d-gainers");'),
+    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortMode("7d-movers");'),
     "entering Market Movers must preset the movers sort"
   );
   assert.ok(
@@ -3735,10 +3901,11 @@ test("Phase 10: entering a cards section applies its preset and routes through t
     "entering All Cards must restore the default checklist view"
   );
 
-  const viewAllStart = source.indexOf("const handleViewAllMarketMovers = () => {");
-  const viewAllSource = source.slice(viewAllStart, source.indexOf("};", viewAllStart));
-  assert.ok(viewAllSource.includes('setCardsSection("market-movers");'), "View-all-movers must activate the market-movers section");
-  assert.ok(viewAllSource.includes('pushSetDetailRouteState({ tab: "cards", section: "market-movers" });'), "View-all-movers must reflect the section in the URL");
+  const tickerHrefStart = source.indexOf("const moversTickerHref = updateSetDetailQueryParams({");
+  const tickerHrefSource = source.slice(tickerHrefStart, source.indexOf("});", tickerHrefStart));
+  assert.ok(tickerHrefStart >= 0, "View-all-movers must have a stable destination URL");
+  assert.ok(tickerHrefSource.includes('tab: "cards"') && tickerHrefSource.includes('section: "market-movers"'), "View-all-movers must activate the URL-backed market-movers section");
+  assert.ok(tickerHrefSource.includes('cardSort: "7d-movers"') && tickerHrefSource.includes('movementFilter: "all"'), "the URL must carry the movers preset");
 
   // Both sections render the same checklist grid, so the movers view gets the
   // same append/sentinel mechanics and the fetch always carries the active
@@ -3749,6 +3916,31 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   assert.ok(source.includes("movementSort: movementSortValue,"), "the shared fetch must carry the movement sort");
 });
 
+test("Decision Signals has one fixed compact presentation and only renders tracked lens scores", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const cardStart = source.indexOf("function DecisionSignalsCard(");
+  const cardEnd = source.indexOf("function CompactPillarSignalTile(", cardStart);
+  const cardSource = source.slice(cardStart, cardEnd);
+
+  assert.ok(cardStart >= 0 && cardEnd > cardStart, "DecisionSignalsCard must exist");
+  assert.ok(!cardSource.includes("SectionViewTabs"));
+  assert.ok(!cardSource.includes("displayMode"));
+  assert.ok(!cardSource.includes("usedRawFallback"));
+  assert.ok(cardSource.includes("const hasScore = toNumber(resolvedScore.score) !== null"));
+});
+
+test("7D movers destination is URL-backed and reloads into the paginated Cards preset", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(source.includes('nextParams.set("card_sort", cardSort);'));
+  assert.ok(source.includes('nextParams.set("movement", movementFilter);'));
+  assert.ok(source.includes('getSetDetailSectionParam(searchParams) === "market-movers" ? "7d-movers" : "set-number"'));
+  assert.ok(source.includes('const routeSort = String(searchParams?.get?.("card_sort") || "")'));
+  assert.ok(source.includes('setCardSortMode(routeSort === "7d-movers" ? routeSort : "7d-movers");'));
+  assert.ok(source.includes('setCardMovementFilter(CARD_MOVEMENT_FILTER_OPTIONS.some((option) => option.value === routeMovement) ? routeMovement : "all");'));
+  assert.ok(!source.includes('id="set-detail-cards-market-movers"'));
+});
+
 // Progressive-rendering refactor: Cards priority 5 ("secondary metadata/
 // deltas/badges after initial grid is usable") — the price/delta badge is
 // deferred via startTransition per tile so the name/image commit first, with
@@ -3756,7 +3948,7 @@ test("Phase 10: entering a cards section applies its preset and routes through t
 // when it pops in. Priority 3 (stable image placeholders) was already
 // implemented before this refactor (aspect-[3/4] box, absolutely-positioned
 // placeholder) and is asserted here too so a future edit can't regress it.
-test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition with a reserved-width skeleton", () => {
+test("Phase 11: ChecklistCardTile defers one stacked market block with reserved width", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
@@ -3764,7 +3956,7 @@ test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition 
     "the page client must import the standalone startTransition function"
   );
 
-  const tileStart = source.indexOf("function ChecklistCardTile({ card }) {");
+  const tileStart = source.indexOf('function ChecklistCardTile({ card, movementWindow = "30D" }) {');
   assert.ok(tileStart >= 0, "ChecklistCardTile must exist");
   const tileEnd = source.indexOf("\nfunction getChecklistCardMarketPrice", tileStart);
   const tileSource = source.slice(tileStart, tileEnd);
@@ -3775,13 +3967,16 @@ test("Phase 11: ChecklistCardTile defers price/delta badges via startTransition 
     "the reveal must be scheduled via startTransition, not a synchronous state update"
   );
   assert.ok(
-    tileSource.includes('className="min-w-[4.5rem] shrink-0 text-right"'),
-    "the badge slot must reserve its width before content is revealed, so reveal never shifts the name/number column"
+    tileSource.includes('className="min-w-[7.5rem] shrink-0 text-right"'),
+    "the price slot must reserve its width before content is revealed, so reveal never shifts the metadata column"
   );
   assert.ok(
     tileSource.includes("animate-pulse rounded bg-[rgba(148,163,184,0.12)]"),
-    "an unrevealed badge slot must show a quiet skeleton, not blank space"
+    "an unrevealed price slot must show a quiet skeleton, not blank space"
   );
+  assert.ok(tileSource.includes('windowLabelPlacement="below"'), "the shared block must place the neutral period below the delta");
+  assert.ok(!tileSource.includes('content="value"'), "the price must not be split into a separate MarketValueChange instance");
+  assert.ok(!tileSource.includes('content="change"'), "the detached full-width footer must be removed");
 
   // Priority 3, pre-existing: the image box is a fixed aspect-ratio
   // container with an absolutely-positioned placeholder, so swapping in the
@@ -3840,9 +4035,23 @@ test("Stabilization: Performance vs Cost never shows loading/empty when a perfor
     !source.includes("const historyTrend = explorePayload?.history_trend ||"),
     "an empty explorePayload.history_trend must never shadow the /overview series via ||"
   );
+  // Stale-snapshot regression (Prismatic Evolutions June 30 flatline): a
+  // NONEMPTY set-page history_trend must not unconditionally win either —
+  // pokemon_set_page_snapshot_latest can lag the market-dashboard series by
+  // days. The two sources must be merged per real snapshot date instead.
   assert.ok(
-    source.includes("const historyTrend = hasNonEmptyArray(explorePayload?.history_trend)\n    ? explorePayload.history_trend\n    : overviewPerformanceVsCostHistory;"),
-    "historyTrend must only prefer a NON-EMPTY explorePayload series over the overview series"
+    !source.includes("? explorePayload.history_trend\n    : overviewPerformanceVsCostHistory"),
+    "a nonempty stale explorePayload.history_trend must not shadow fresher overview history via nonempty-array precedence"
+  );
+  assert.ok(
+    source.includes("mergePerformanceHistories({") &&
+      source.includes("setPageHistory: explorePayloadHistoryTrend") &&
+      source.includes("marketHistory: overviewPerformanceVsCostHistory"),
+    "historyTrend must be the freshness-aware date-level merge of the set-page and market histories (performanceHistorySelector.mjs)"
+  );
+  assert.ok(
+    source.includes("const latestRealPerformanceDate = getLatestRealPerformanceDate(historyTrend);"),
+    "the latest real (non-carried-forward) performance date must be derived from the merged history"
   );
 
   // Paradox-style state: seeded overview has performanceVsCostHistory points
@@ -3870,6 +4079,44 @@ test("Stabilization: Performance vs Cost never shows loading/empty when a perfor
   assert.ok(
     source.includes("status={overviewPerformanceVsCostStatus}"),
     "the Performance vs Cost SectionBoundary must consume the derived status"
+  );
+});
+
+test("Stale-snapshot fix: direct Insights entry fetches the slim /overview payload and freshness copy uses real dates only", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // Opening Profit vs Cost / Metrics on Insights merge the market-dashboard
+  // performanceVsCostHistory — a direct Insights entry must trigger the slim
+  // /overview fetch itself instead of waiting for a visit to Overview.
+  assert.ok(
+    source.includes('const shouldRenderOverviewData = setDetailTab === "overview" || setDetailTab === "insights";'),
+    "the slim /overview fetch effect must run for both the Overview and Insights tabs"
+  );
+
+  // "Performance History Latest" (Metrics) must report the latest REAL
+  // observation — never the trailing row, which can be a carried-forward
+  // display-filler point.
+  const metricsStart = source.indexOf("function SimulationMetricsContent");
+  const metricsEnd = source.indexOf("function formatDriverScore", metricsStart);
+  assert.ok(metricsStart >= 0 && metricsEnd > metricsStart, "SimulationMetricsContent must exist");
+  const metricsSource = source.slice(metricsStart, metricsEnd);
+  assert.ok(
+    metricsSource.includes("performanceHistoryLatestDate ?? getLatestRealPerformanceDate(historyTrend)"),
+    "Metrics freshness must come from the shared latest-real-date selector"
+  );
+  assert.ok(
+    !metricsSource.includes("historyPoints[historyPoints.length - 1]"),
+    "Metrics freshness must not read the trailing history row directly"
+  );
+  assert.ok(
+    source.includes("performanceHistoryLatestDate={latestRealPerformanceDate}"),
+    "the page must pass the merged history's latest real date into SimulationMetricsContent"
+  );
+
+  // Trend arrows compare against the previous REAL point, not carried filler.
+  assert.ok(
+    source.includes("const realHistoryTrendPoints = normalizedHistoryTrendPoints.filter((point) => !point.isCarriedForward);"),
+    "trend calculations must exclude carried-forward points"
   );
 });
 
@@ -3965,10 +4212,10 @@ test("Stabilization: insights pending timeout clears as soon as secondary render
   );
 });
 
-test("Stabilization: Opening Outcomes renders data first, quiet placeholder while its fetch is in flight, empty copy only when settled", () => {
+test("Stabilization: Simulation Results renders data first, quiet placeholder while its fetch is in flight, empty copy only when settled", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  const openingOutcomesStart = source.indexOf('title="Opening Outcomes"');
+  const openingOutcomesStart = source.indexOf('title="Simulation Results"');
   const openingOutcomesEnd = source.indexOf("</SectionCard>", openingOutcomesStart);
   const openingOutcomesSource = source.slice(openingOutcomesStart, openingOutcomesEnd);
 
@@ -3984,6 +4231,74 @@ test("Stabilization: Opening Outcomes renders data first, quiet placeholder whil
     "a sub-view with no rows must show a quiet placeholder while the secondary fetch is loading, before any empty verdict"
   );
   assert.ok(emptyCopyIndex >= 0, "the settled per-subtab empty copy must remain");
+});
+
+test("Simulation Results section targets: Opening Profit vs Cost routes to Insights while Overview's performance-vs-cost stays put", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // Backward-compatible deep links to the card + its default sub-view.
+  assert.ok(source.includes('"opening-outcomes": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" }'));
+  assert.ok(source.includes('"simulation-results": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" }'));
+
+  // The technical Opening P vs C sub-view is its own section id (historical-trend)
+  // so it does not collide with Overview's quick-read performance-vs-cost.
+  assert.ok(source.includes('"opening-performance-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" }'));
+  assert.ok(source.includes('"simulation-metrics": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-metrics" }'));
+
+  // Overview keeps its own Performance vs Cost chart, unchanged.
+  assert.ok(source.includes('"performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" }'));
+
+  // Metrics is a real graph section so scroll/highlight/URL-sync treat it like
+  // the other sub-views.
+  assert.ok(source.includes('const GRAPH_SECTION_KEYS = new Set(["outcome-distribution", "historical-trend", "simulation-drivers", "pack-breakdown", "value-contribution", "simulation-metrics"])'));
+  assert.ok(source.includes('"simulation-metrics": "explore-outcomes"'));
+});
+
+test("Simulation Results compact Pack Paths and Value Structure use all-row contribution rails", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const cardStart = source.indexOf('title="Simulation Results"');
+  const cardEnd = source.indexOf("</SectionCard>", cardStart);
+  assert.ok(cardStart >= 0 && cardEnd > cardStart, "Simulation Results card must be present");
+  const cardSource = source.slice(cardStart, cardEnd);
+
+  assert.ok(cardSource.includes('<SimulationResultsPanel id="set-detail-value-structure">'));
+  assert.ok(cardSource.includes("<RarityContributionContent rankings={rankings} condensed />"));
+  assert.ok(cardSource.includes('<SimulationResultsPanel id="set-detail-pack-breakdown">'));
+  assert.ok(cardSource.includes("<PackBreakdownContent"));
+  assert.ok(cardSource.includes("condensed"));
+
+  assert.ok(source.includes("function PackPathsVisualization("), "Pack Paths compact branch must exist");
+  assert.ok(source.includes("function PackPathDonutTooltip("), "Pack Paths must use the compact top-level donut");
+  assert.ok(source.includes("<PieChart"), "Pack Paths must render the top-level donut");
+  assert.ok(source.includes("const displayPathRows = buildPackPathDisplayRows(visiblePathRows);"), "donut sectors use display-only rescaled weights built from the nonzero paths");
+  assert.ok(source.includes("displayPathRows.map((row) => <Cell"), "zero-count paths must not render visible wedges");
+  assert.ok(source.includes("pathRows.map((row) => ("), "the legend must retain every top-level path");
+  assert.ok(source.includes('import CompactRankedBarChart from "@/components/explore/CompactRankedBarChart";'), "both compact views must share the compact ranked bar chart");
+  assert.ok(!source.includes("function ContributionBarRow("), "the old per-row progress-bar renderer must be gone");
+  assert.ok(source.includes("function ContributionBarList("), "both distributions must render through the unified contribution panel");
+  assert.ok(source.includes("function NormalStateContributionRails("), "normal states must feed the all-state chart");
+  assert.ok(source.includes("buildNormalStateContributionRows(normalStateRows)"), "normal states must be normalized before chart rendering");
+  assert.ok(source.includes("function RarityContributionRails("), "Value Structure must use the all-rarity chart");
+  assert.ok(source.includes("sharePercent: totalStates > 0 ? (row.count / totalStates) * 100 : 0,"), "state bars must use actual share");
+  assert.ok(source.includes("sharePercent: totalValue > 0 ? (row.value / totalValue) * 100 : 0,"), "rarity bars must use actual value share");
+  assert.ok(source.includes('wrapperStyle={{ zIndex: 9999, pointerEvents: "none" }}'), "donut tooltip must float above neighboring content");
+  assert.ok(!source.includes("<Treemap"), "compact Simulation Results views must not retain treemaps");
+  assert.ok(!source.includes("SIMULATION_TREEMAP_COLORS"), "the removed treemap palette must not remain");
+  assert.ok(!source.includes("function NormalStateTreemap("), "the Normal States treemap must be removed");
+  assert.ok(!source.includes("function ValueStructureTreemapTooltip("), "the Value Structure treemap tooltip must be removed");
+  assert.ok(!source.includes("function ValueCompositionRibbon("), "Value Structure must not use the old composition ribbon");
+  assert.ok(!source.includes("function RarityDetailTile("), "Value Structure must not use the old ribbon detail tile");
+  assert.ok(!source.includes("function ValueLadderTile("), "Value Structure must not use the small-card value ladder");
+  assert.ok(!source.includes("function StateMatrixTile("), "Pack Paths must not use the small-card state matrix");
+  assert.ok(!source.includes("<ValueCompositionRibbon"), "Value Structure must not render a ribbon as the primary view");
+  assert.ok(!source.includes("+{hiddenRarityCount} more rarity groups"), "Value Structure must not hide extra rarity groups");
+  assert.ok(!source.includes("+{hiddenCount} more states"), "Pack Paths must not hide extra normal states");
+
+  assert.ok(cardSource.includes('label: "Value Structure"'));
+  assert.ok(cardSource.includes('label: "Pack Paths"'));
+  assert.ok(source.includes('"pack-breakdown": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "pack-breakdown" }'));
+  assert.ok(source.includes('value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" }'));
 });
 
 test("Stabilization: Simulation Drivers warning appears only after the secondary fetch SUCCEEDED with truly empty top_hits", () => {
@@ -4047,91 +4362,81 @@ test("Stabilization: useSectionFetchState dedupes auto-fetches by set id and rel
 });
 
 // ---------------------------------------------------------------------------
-// Patch 3 — Desirability Evidence N/A handling. Uncomputed proof fields
-// (final RIP rank/score, score/rank deltas, top-10 card value) must read
-// "Not computed yet" rather than a bare "N/A" that looks broken, and Price
-// Relation must reuse the already-computed cardAppealMarketPriceCorrelation
-// (pearson/spearman) instead of showing "n/a" — never recompute.
+// Desirability Evidence redesign — the verdict leads, the alignment ladder
+// carries the ranks, and uncomputed fields (Score Delta, Final RIP Rank, Rank
+// Delta, Top 10 Cards) are omitted from the display instead of rendering as
+// equal-weight "Not computed yet" placeholder boxes. Display-only: none of the
+// underlying computations changed.
 // ---------------------------------------------------------------------------
 
-test("Patch 3: uncomputed proof fields render 'Not computed yet' instead of bare N/A", () => {
+test("Desirability redesign: uncomputed proof fields are omitted, never placeholder boxes", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  assert.ok(source.includes('const PROOF_NOT_COMPUTED_LABEL = "Not computed yet";'), "a shared 'Not computed yet' label must exist");
-  assert.ok(source.includes("function formatProofRankOrNotComputed(value)"), "a rank formatter that yields the not-computed label must exist");
-  assert.ok(source.includes("function formatProofDeltaOrNotComputed(value, suffix"), "a delta formatter that yields the not-computed label must exist");
+  assert.ok(!source.includes("Not computed yet"), "no 'Not computed yet' placeholder boxes may remain");
+  assert.ok(!source.includes('"Awaiting canonical comparison"'), "no awaiting-comparison placeholder boxes may remain");
+  assert.ok(!source.includes('"Awaiting canonical card prices"'), "no awaiting-prices placeholder boxes may remain");
+  assert.ok(!source.includes("<ProofMetric"), "the rank-chip grid must be gone from the main display");
 
-  // Final RIP Rank / Score Delta / Rank Delta must route through the
-  // not-computed formatters, not the bare N/A ones.
+  // The impact movement line renders only when every comparison field is
+  // computed AND the movement is real: a no-op "#1 to #1 (0 ranks)" or a
+  // not-yet-computed state renders nothing at all — no fallback sentence.
+  const impactStart = source.indexOf("function DesirabilityImpactNote({ validation })");
+  assert.ok(impactStart >= 0, "the subdued impact note must exist");
+  const impactEnd = source.indexOf("\n}\n", impactStart);
+  const impactSource = source.slice(impactStart, impactEnd);
   assert.ok(
-    source.includes('<ProofMetric label="Final RIP Rank" value={formatProofRankOrNotComputed(finalRank)} />'),
-    "Final RIP Rank must use the not-computed formatter"
+    impactSource.includes(
+      "coreRank !== null && finalRank !== null && rankDelta !== null && rankDelta !== 0 && coreRank !== finalRank"
+    ),
+    "the movement sentence requires computed fields and a real (nonzero) movement"
   );
   assert.ok(
-    source.includes("<ProofMetric label=\"Score Delta\" value={formatProofDeltaOrNotComputed(validation.desirability_score_delta ?? validation.desirabilityScoreDelta)} />"),
-    "Score Delta must use the not-computed formatter"
-  );
-  assert.ok(
-    source.includes('<ProofMetric label="Rank Delta" value={formatProofDeltaOrNotComputed(rankDelta, " ranks")} />'),
-    "Rank Delta must use the not-computed formatter"
+    !impactSource.includes("desirability_impact_summary"),
+    "the not-yet-computed fallback sentence must be gone"
   );
 });
 
-test("Patch 3: Top 10 Cards honors missing_data_flags and null rank with 'Not computed yet'", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+test("Desirability redesign: diverging view consumes engine output only, with polarity captions and a11y equivalents", () => {
+  const alignmentSource = fs
+    .readFileSync(path.resolve(__dirname, "desirabilityAlignment.mjs"), "utf8")
+    .replace(/\r\n/g, "\n");
 
-  const flagStart = source.indexOf("const top10CardValueNotComputed =");
-  assert.ok(flagStart >= 0, "a top10CardValueNotComputed flag must exist");
-  const flagEnd = source.indexOf(";", flagStart);
-  const flagSource = source.slice(flagStart, flagEnd);
-  assert.ok(flagSource.includes('missingDataFlags') && flagSource.includes('"top_10_card_value"'), "must consult missing_data_flags");
+  // Agreement state is read off the payload's named signals, and bar geometry
+  // off the payload's per-signal alignment score — never derived from new
+  // frontend math (see also the inconsistent-payload behavioral guard in
+  // desirabilityAlignment.test.mjs).
+  assert.ok(alignmentSource.includes("validation.strongest_supporting_signal ?? validation.strongestSupportingSignal"));
+  assert.ok(alignmentSource.includes("validation.biggest_conflicting_signal ?? validation.biggestConflictingSignal"));
+  assert.ok(alignmentSource.includes('isStrongest ? "confirms" : isConflict ? "conflicts" : "neutral"'));
+  assert.ok(alignmentSource.includes('["total_ranked_sets", "totalRankedSets"]'), "field size must come from the payload");
+  assert.ok(alignmentSource.includes("desirability_alignment_details"), "bar rows must come from the engine's per-signal magnitudes");
   assert.ok(
-    flagSource.includes("toNumber(validation.top_10_card_value_rank ?? validation.top10CardValueRank) === null"),
-    "must also treat a null top-10 rank as not computed"
+    alignmentSource.includes("Math.abs(signal.alignmentScore - 50) * 2"),
+    "bar extent must be a pure rescale of the engine score, nothing else"
   );
-  assert.ok(
-    source.includes("value={top10CardValueNotComputed ? PROOF_NOT_COMPUTED_LABEL : formatProofRank(validation.top_10_card_value_rank ?? validation.top10CardValueRank)}"),
-    "the Top 10 Cards tile must render the not-computed label when flagged/null"
-  );
+  assert.ok(!alignmentSource.includes("buildLadderLayout"), "the rank-ladder geometry must be gone");
+  assert.ok(!alignmentSource.includes("anchorX"), "the rank-anchor plotting must be gone");
+
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  assert.ok(source.includes('confirms: "var(--success)"'), "the confirm side must use the success token");
+  assert.ok(source.includes('conflicts: "var(--warning)"'), "the conflict side must use the warning token");
+  assert.ok(source.includes("conflicts with read"), "the left axis caption must name the conflict side");
+  assert.ok(source.includes("confirms read"), "the right axis caption must name the confirm side");
+  assert.ok(source.includes("buildAgreementAriaLabel(model)"), "the diverging plot must carry a live aria-label");
+  assert.ok(source.includes('role="img"'), "the diverging plot must be exposed as an image");
+  assert.ok(source.includes("describeAgreementSignal(row, model.fieldSize)"), "a visually-hidden signal list must exist");
 });
 
-test("Patch 3: Price Relation reuses cardAppealMarketPriceCorrelation instead of raw N/A", () => {
+test("Simulation Results renders expanded by default with no collapse toggle", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  const resolverStart = source.indexOf("function resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation)");
-  assert.ok(resolverStart >= 0, "a Price Relation resolver must exist");
-  const resolverEnd = source.indexOf("\n}\n", resolverStart);
-  const resolverSource = source.slice(resolverStart, resolverEnd);
-  assert.ok(
-    resolverSource.includes("validation?.card_appeal_vs_market_price_correlation ?? validation?.cardAppealVsMarketPriceCorrelation"),
-    "must prefer the persisted desirabilityValidation correlation field first"
-  );
-  assert.ok(
-    resolverSource.includes("toNumber(correlation.pearson) ?? toNumber(correlation.spearman)"),
-    "must fall back to the existing cardAppealMarketPriceCorrelation pearson/spearman"
-  );
-
-  // The proof card must consume the resolver and pass the correlation down.
-  assert.ok(
-    source.includes("const priceRelationValue = resolveCardAppealPriceRelation(validation, cardAppealMarketPriceCorrelation);"),
-    "the proof card must resolve Price Relation via the shared resolver"
-  );
-  assert.ok(
-    source.includes("value={priceRelationValue === null ? PROOF_NOT_COMPUTED_LABEL : formatCorrelationValue(priceRelationValue)}"),
-    "Price Relation must show the resolved correlation, or 'Not computed yet' only when truly absent"
-  );
-  assert.ok(
-    source.includes("cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}"),
-    "DesirabilityEvidenceCard must pass the correlation into DesirabilityProofContent"
-  );
-});
-
-test("Patch 3: Desirability Impact and Signal Check blocks still render (regression guard)", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
-
-  assert.ok(source.includes('<h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Impact</h3>'), "Desirability Impact block must remain");
-  assert.ok(source.includes('<h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability Signal Check</h3>'), "Desirability Signal Check block must remain");
-  // RIP Core Rank keeps the plain formatter (the investigation found it
-  // populated) — only the confirmed-null fields switched to not-computed.
-  assert.ok(source.includes('<ProofMetric label="RIP Core Rank" value={formatProofRank(coreRank)} />'), "RIP Core Rank keeps the plain rank formatter");
+  assert.ok(!source.includes("simulationResultsExpanded"), "the collapse state must be gone");
+  assert.ok(!source.includes("Show full results"), "the expand toggle must be gone");
+  assert.ok(!source.includes("Hide full results"), "the collapse toggle must be gone");
+  // The full sub-tab explorer still renders inside the card.
+  const cardStart = source.indexOf('<h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Simulation Results</h2>');
+  assert.ok(cardStart >= 0, "the Simulation Results card header must remain");
+  const cardEnd = source.indexOf("</article>", cardStart);
+  const cardSource = source.slice(cardStart, cardEnd);
+  assert.ok(cardSource.includes("<SectionViewTabs"), "the sub-tab strip must render unconditionally");
 });

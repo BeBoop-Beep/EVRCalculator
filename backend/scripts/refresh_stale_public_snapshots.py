@@ -24,12 +24,12 @@ from backend.scripts.build_pokemon_desirability_validation_snapshots import (
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
     DEFAULT_DASHBOARD_WINDOW,
-    build_cards_snapshot_row,
+    build_coordinated_set_market_snapshot_rows,
     build_explore_rankings_snapshot_row,
-    build_market_dashboard_snapshot_rows,
     build_set_page_snapshot_row,
     get_client,
     list_pokemon_sets,
+    refresh_canonical_card_market_prices_for_set,
     resolve_set_row,
     upsert_row,
     upsert_rows,
@@ -70,6 +70,21 @@ class SetRefreshPlan:
 
 
 @dataclass
+class SetPageFreshnessAudit:
+    """Post-run guard: set-page snapshots vs their simulation/market sources."""
+
+    total: int = 0
+    fresh: int = 0
+    stale_details: List[str] = field(default_factory=list)
+    max_staleness_seconds: float = 0.0
+    max_staleness_set: Optional[str] = None
+
+    @property
+    def stale(self) -> int:
+        return len(self.stale_details)
+
+
+@dataclass
 class RefreshSummary:
     source_checks_performed: int = 0
     stale_snapshot_families: set[str] = field(default_factory=set)
@@ -81,6 +96,7 @@ class RefreshSummary:
     global_rebuilt: List[str] = field(default_factory=list)
     global_skipped: List[str] = field(default_factory=list)
     global_failed: List[str] = field(default_factory=list)
+    set_page_audit: Optional[SetPageFreshnessAudit] = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -227,6 +243,16 @@ def _variant_ids_for_set(client: Any, set_id: str) -> List[str]:
     return [str(row["id"]) for row in rows if row.get("id") is not None]
 
 
+def _canonical_selected_variant_ids(client: Any, set_id: str) -> List[str]:
+    rows, _error = _execute_query(
+        "pokemon_canonical_card_market_prices_latest.variant_ids",
+        client.table("pokemon_canonical_card_market_prices_latest")
+        .select("card_variant_id")
+        .eq("set_id", set_id),
+    )
+    return sorted({str(row["card_variant_id"]) for row in rows if row.get("card_variant_id") is not None})
+
+
 def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List[str]]:
     checks: List[str] = []
     timestamps: List[Optional[str]] = []
@@ -239,7 +265,7 @@ def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List
         timestamps.append(latest)
 
     legacy_card_ids = _legacy_card_ids(client, set_id)
-    variant_ids = _variant_ids_for_set(client, set_id)
+    variant_ids = sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))
     canonical_card_ids = _canonical_card_ids(client, set_id)
 
     latest, table_checks = _latest_timestamp(
@@ -294,7 +320,7 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
         client,
         table="card_variant_price_observations",
         timestamp_columns=("captured_at", "updated_at", "created_at"),
-        in_filters=(("card_variant_id", _variant_ids_for_set(client, set_id)),),
+        in_filters=(("card_variant_id", sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))),),
     )
     checks.extend(table_checks)
     timestamps.append(latest)
@@ -494,20 +520,60 @@ def _cards_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
     row = _read_snapshot_row(
         client,
         "pokemon_set_cards_snapshot_latest",
-        "set_id,payload_json,updated_at",
+        "set_id,cards_json,card_count,payload_json,updated_at",
         (("set_id", set_id),),
     )
     if not row:
         return FreshnessResult("cards", True, "snapshot row missing", None, dependency_updated_at, checks)
     payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    marker_missing = not isinstance((payload.get("meta") or {}).get("snapshot"), dict)
+    snapshot_meta = (payload.get("meta") or {}).get("snapshot")
+    marker_missing = not isinstance(snapshot_meta, dict)
+    movement_marker_missing = not bool(
+        isinstance(snapshot_meta, dict)
+        and snapshot_meta.get("movementContractVersion")
+        and snapshot_meta.get("generationId")
+        and snapshot_meta.get("windowConvention")
+        and "movementAsOfDate" in snapshot_meta
+        and snapshot_meta.get("builtAt")
+    )
     correlation_missing = not isinstance(
         payload.get("cardAppealMarketPriceCorrelation") or payload.get("card_appeal_market_price_correlation"),
         dict,
     )
     snapshot_updated_at = _to_text(row.get("updated_at"))
+    cards = row.get("cards_json") if isinstance(row.get("cards_json"), list) else []
+    priced_count = sum(
+        1 for card in cards
+        if isinstance(card, dict)
+        and (card.get("marketPrice") is not None or card.get("market_price") is not None)
+    )
+    movement_contract_count = sum(
+        1 for card in cards
+        if isinstance(card, dict)
+        and isinstance(card.get("movement7d") or card.get("movement_7d"), dict)
+    )
+    selected_price_rows, selected_price_error = _execute_query(
+        "pokemon_canonical_card_market_prices_latest.coverage",
+        client.table("pokemon_canonical_card_market_prices_latest")
+        .select("canonical_card_id,market_price")
+        .eq("set_id", set_id),
+    )
+    if selected_price_error:
+        checks.append(f"pokemon_canonical_card_market_prices_latest.coverage: {selected_price_error}")
+    authoritative_priced_count = sum(1 for price_row in selected_price_rows if price_row.get("market_price") is not None)
+    if authoritative_priced_count and priced_count < authoritative_priced_count:
+        return FreshnessResult(
+            "cards", True, "snapshot priced-card coverage below canonical selected-price coverage",
+            snapshot_updated_at, dependency_updated_at, checks,
+        )
+    if priced_count and movement_contract_count < priced_count:
+        return FreshnessResult(
+            "cards", True, "priced cards missing 7D movement contracts", snapshot_updated_at, dependency_updated_at, checks
+        )
     if marker_missing:
         return FreshnessResult("cards", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
+    if movement_marker_missing:
+        return FreshnessResult("cards", True, "movement generation marker missing", snapshot_updated_at, dependency_updated_at, checks)
     if correlation_missing:
         return FreshnessResult("cards", True, "card appeal validation payload missing", snapshot_updated_at, dependency_updated_at, checks)
     if _is_newer(dependency_updated_at, snapshot_updated_at):
@@ -527,15 +593,37 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     row = _read_snapshot_row(
         client,
         "pokemon_set_market_dashboard_snapshot_latest",
-        "set_id,window_key,payload_json,set_value_histories_json,latest_market_date,updated_at",
+        "set_id,window_key,payload_json,set_value_histories_json,top_chase_card_histories_json,latest_market_date,updated_at",
         (("set_id", set_id), ("window_key", window)),
     )
     if not row:
         return FreshnessResult("market_dashboard", True, "snapshot row missing", None, dependency_updated_at, checks)
     payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    marker_missing = not isinstance((payload.get("meta") or {}).get("snapshot"), dict)
+    snapshot_meta = (payload.get("meta") or {}).get("snapshot")
+    marker_missing = not isinstance(snapshot_meta, dict)
+    movement_marker_missing = not bool(
+        isinstance(snapshot_meta, dict)
+        and snapshot_meta.get("movementContractVersion")
+        and snapshot_meta.get("generationId")
+        and snapshot_meta.get("windowConvention")
+        and "movementAsOfDate" in snapshot_meta
+        and snapshot_meta.get("builtAt")
+    )
     snapshot_updated_at = _to_text(row.get("updated_at"))
     latest_market_date = _to_text(row.get("latest_market_date") or payload.get("latestMarketDate") or payload.get("latest_market_date"))
+    top_chase_histories = row.get("top_chase_card_histories_json")
+    top_chase_history_end = max(
+        (
+            _history_latest_date(history)
+            for history in (top_chase_histories.values() if isinstance(top_chase_histories, dict) else [])
+        ),
+        default=None,
+    )
+    if top_chase_histories and latest_market_date and top_chase_history_end != latest_market_date:
+        return FreshnessResult(
+            "market_dashboard", True, "top chase history end differs from latest_market_date",
+            snapshot_updated_at, dependency_updated_at, checks,
+        )
     dashboard_date_by_scope = _dashboard_set_value_latest_date_by_scope(row)
     if marker_missing:
         return FreshnessResult("market_dashboard", True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
@@ -555,6 +643,25 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
             )
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult("market_dashboard", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
+    if movement_marker_missing:
+        return FreshnessResult("market_dashboard", True, "movement generation marker missing", snapshot_updated_at, dependency_updated_at, checks)
+    cards_row = _read_snapshot_row(
+        client,
+        "pokemon_set_cards_snapshot_latest",
+        "set_id,payload_json",
+        (("set_id", set_id),),
+    )
+    cards_payload = (cards_row or {}).get("payload_json") if isinstance((cards_row or {}).get("payload_json"), dict) else {}
+    cards_snapshot_meta = (cards_payload.get("meta") or {}).get("snapshot") or {}
+    if cards_snapshot_meta.get("generationId") != snapshot_meta.get("generationId"):
+        return FreshnessResult(
+            "market_dashboard",
+            True,
+            "cards and market dashboard generation IDs differ",
+            snapshot_updated_at,
+            dependency_updated_at,
+            checks,
+        )
     return FreshnessResult("market_dashboard", False, "fresh", snapshot_updated_at, dependency_updated_at, checks)
 
 
@@ -656,33 +763,39 @@ def _record_stale(summary: RefreshSummary, result: FreshnessResult) -> None:
         summary.stale_snapshot_families.add(result.family)
 
 
-def _maybe_rebuild_cards(client: Any, plan: SetRefreshPlan, *, commit: bool, summary: RefreshSummary) -> None:
-    if not plan.cards.stale:
+def _maybe_rebuild_coordinated_market(
+    client: Any,
+    plan: SetRefreshPlan,
+    *,
+    commit: bool,
+    days: int,
+    window: str,
+    summary: RefreshSummary,
+) -> None:
+    if not plan.cards.stale and not plan.market_dashboard.stale:
         return
     set_row = plan.set_row
     canonical_key = str(set_row.get("canonical_key") or set_row.get("id"))
     if not commit:
-        summary.skipped_sets["cards"].append(f"{canonical_key}: dry-run {plan.cards.reason}")
+        reason = f"cards={plan.cards.reason}; market_dashboard={plan.market_dashboard.reason}"
+        summary.skipped_sets["cards"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
+        summary.skipped_sets["market_dashboard"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
         return
     try:
-        row = build_cards_snapshot_row(set_row)
-        upsert_row(client, "pokemon_set_cards_snapshot_latest", row, on_conflict="set_id", commit=True)
-        summary.rebuilt_sets["cards"].append(canonical_key)
-    except Exception as exc:
-        logger.exception("failed cards snapshot refresh %s", _set_label(set_row))
-        summary.failed_sets["cards"].append(f"{canonical_key}: {exc}")
-
-
-def _maybe_rebuild_market(client: Any, plan: SetRefreshPlan, *, commit: bool, days: int, window: str, summary: RefreshSummary) -> None:
-    if not plan.market_dashboard.stale:
-        return
-    set_row = plan.set_row
-    canonical_key = str(set_row.get("canonical_key") or set_row.get("id"))
-    if not commit:
-        summary.skipped_sets["market_dashboard"].append(f"{canonical_key}: dry-run {plan.market_dashboard.reason}")
-        return
-    try:
-        dashboard_row, history_rows = build_market_dashboard_snapshot_rows(set_row, days=days, window=window, client=client)
+        refresh_canonical_card_market_prices_for_set(client, str(set_row["id"]), commit=True)
+        cards_row, dashboard_row, history_rows = build_coordinated_set_market_snapshot_rows(
+            set_row,
+            days=days,
+            window=window,
+            client=client,
+        )
+        upsert_row(
+            client,
+            "pokemon_set_cards_snapshot_latest",
+            cards_row,
+            on_conflict="set_id",
+            commit=True,
+        )
         upsert_rows(
             client,
             "pokemon_set_top_chase_card_daily_history",
@@ -697,9 +810,11 @@ def _maybe_rebuild_market(client: Any, plan: SetRefreshPlan, *, commit: bool, da
             on_conflict="set_id,window_key",
             commit=True,
         )
+        summary.rebuilt_sets["cards"].append(canonical_key)
         summary.rebuilt_sets["market_dashboard"].append(canonical_key)
     except Exception as exc:
-        logger.exception("failed market dashboard snapshot refresh %s", _set_label(set_row))
+        logger.exception("failed coordinated cards/market snapshot refresh %s", _set_label(set_row))
+        summary.failed_sets["cards"].append(f"{canonical_key}: {exc}")
         summary.failed_sets["market_dashboard"].append(f"{canonical_key}: {exc}")
 
 
@@ -733,7 +848,17 @@ def _maybe_rebuild_set_page(
     summary: RefreshSummary,
 ) -> None:
     rankings_rebuilt_after_set_page = bool(rankings_updated_at and _is_newer(rankings_updated_at, plan.set_page.snapshot_updated_at))
-    needs_rebuild = plan.set_page.stale or plan.cards.stale or rankings_rebuilt_after_set_page
+    # plan.market_dashboard.stale means the market dashboard was (or is about
+    # to be) rebuilt earlier in THIS run — the set page embeds history/market
+    # context from it, so it must be rebuilt after, in the same run. Deferring
+    # it to the next invocation left set pages one refresh behind their
+    # market dashboards (stale Performance vs Cost flatline).
+    needs_rebuild = (
+        plan.set_page.stale
+        or plan.cards.stale
+        or plan.market_dashboard.stale
+        or rankings_rebuilt_after_set_page
+    )
     if not needs_rebuild:
         return
     set_row = plan.set_row
@@ -851,6 +976,88 @@ def _verify_after_build(client: Any, set_rows: List[Dict[str, Any]], summary: Re
     summary.problem_canonical_keys = [problem.split(":", 1)[0] for problem in problems[:10]]
 
 
+def _staleness_seconds(dependency_updated_at: Any, snapshot_updated_at: Any) -> float:
+    dependency_dt = _parse_datetime(dependency_updated_at)
+    snapshot_dt = _parse_datetime(snapshot_updated_at)
+    if not dependency_dt or not snapshot_dt:
+        return 0.0
+    return max(0.0, (dependency_dt - snapshot_dt).total_seconds())
+
+
+def _audit_set_page_freshness(client: Any, set_rows: List[Dict[str, Any]]) -> SetPageFreshnessAudit:
+    """Post-run freshness guard for the set-page snapshot family.
+
+    Compares each set page snapshot's updated_at against the newest simulation
+    run timestamp and the market dashboard snapshot timestamp — the two
+    dependencies whose lag produces stale Performance vs Cost history on the
+    set-detail pages. Only the sets this run processed are audited, so
+    intentionally unsupported/hidden sets never count against strict mode.
+    """
+    audit = SetPageFreshnessAudit()
+    for set_row in set_rows:
+        set_id = str(set_row["id"])
+        canonical_key = str(set_row.get("canonical_key") or set_id)
+        audit.total += 1
+        row = _read_snapshot_row(
+            client,
+            "pokemon_set_page_snapshot_latest",
+            "set_id,updated_at",
+            (("set_id", set_id),),
+        )
+        snapshot_updated_at = _to_text((row or {}).get("updated_at"))
+        if not row or not snapshot_updated_at:
+            audit.stale_details.append(f"{canonical_key}: set page snapshot missing")
+            continue
+
+        simulation_run_at, _checks = _latest_timestamp(
+            client,
+            table="simulation_latest_by_target",
+            timestamp_columns=("updated_at", "run_at"),
+            filters=(("target_type", "set"), ("target_id", set_id)),
+        )
+        rip_run_at, _checks = _latest_timestamp(
+            client,
+            table="explore_rip_statistics_latest",
+            timestamp_columns=("updated_at", "run_at", "created_at"),
+            filters=(("set_id", set_id),),
+        )
+        market_updated_at, _checks = _latest_timestamp(
+            client,
+            table="pokemon_set_market_dashboard_snapshot_latest",
+            timestamp_columns=("updated_at",),
+            filters=(("set_id", set_id),),
+        )
+
+        latest_simulation = _max_datetime_text(simulation_run_at, rip_run_at)
+        reasons: List[str] = []
+        if _is_newer(latest_simulation, snapshot_updated_at):
+            reasons.append(f"simulation newer ({latest_simulation} > {snapshot_updated_at})")
+        if _is_newer(market_updated_at, snapshot_updated_at):
+            reasons.append(f"market dashboard newer ({market_updated_at} > {snapshot_updated_at})")
+
+        if not reasons:
+            audit.fresh += 1
+            continue
+
+        audit.stale_details.append(f"{canonical_key}: {'; '.join(reasons)}")
+        staleness = _staleness_seconds(_max_datetime_text(latest_simulation, market_updated_at), snapshot_updated_at)
+        if staleness > audit.max_staleness_seconds:
+            audit.max_staleness_seconds = staleness
+            audit.max_staleness_set = canonical_key
+    return audit
+
+
+def _strict_should_fail(summary: RefreshSummary, *, commit: bool) -> bool:
+    audit = summary.set_page_audit
+    return bool(
+        summary.warnings_remaining
+        or summary.global_failed
+        or any(summary.failed_sets[family] for family in summary.failed_sets)
+        or (audit and audit.stale)
+        or (not commit and summary.stale_snapshot_families)
+    )
+
+
 def _print_summary(summary: RefreshSummary) -> None:
     print("public snapshot refresh summary")
     print(f"source checks performed: {summary.source_checks_performed}")
@@ -866,6 +1073,16 @@ def _print_summary(summary: RefreshSummary) -> None:
     for warning in summary.warnings_remaining[:20]:
         print(f"  {warning}")
     print(f"first 10 problem canonical keys: {summary.problem_canonical_keys[:10]}")
+    audit = summary.set_page_audit
+    if audit is not None:
+        print("set page freshness audit")
+        print(f"  sets compared: {audit.total}")
+        print(f"  fresh: {audit.fresh}")
+        print(f"  stale: {audit.stale}")
+        if audit.max_staleness_set:
+            print(f"  max staleness: {audit.max_staleness_seconds / 3600.0:.1f}h ({audit.max_staleness_set})")
+        for detail in audit.stale_details[:20]:
+            print(f"  stale: {detail}")
 
 
 def main() -> None:
@@ -887,11 +1104,16 @@ def main() -> None:
         _record_stale(summary, plan.set_page)
     _record_stale(summary, rankings)
 
-    # Rebuild order: set cards, market dashboards, explore rankings, set pages, desirability validation.
+    # Rebuild order: coordinated Cards + Market Dashboard, rankings, set pages, validation.
     for plan in plans:
-        _maybe_rebuild_cards(client, plan, commit=commit, summary=summary)
-    for plan in plans:
-        _maybe_rebuild_market(client, plan, commit=commit, days=args.days, window=args.window, summary=summary)
+        _maybe_rebuild_coordinated_market(
+            client,
+            plan,
+            commit=commit,
+            days=args.days,
+            window=args.window,
+            summary=summary,
+        )
 
     rankings_needed = rankings.stale
     if rankings_needed:
@@ -922,15 +1144,10 @@ def main() -> None:
         )
 
     _verify_after_build(client, set_rows, summary)
+    summary.set_page_audit = _audit_set_page_freshness(client, set_rows)
     _print_summary(summary)
 
-    stale_or_failed = bool(
-        summary.warnings_remaining
-        or summary.global_failed
-        or any(summary.failed_sets[family] for family in summary.failed_sets)
-        or (not commit and summary.stale_snapshot_families)
-    )
-    if args.strict and stale_or_failed:
+    if args.strict and _strict_should_fail(summary, commit=commit):
         raise SystemExit(1)
 
 

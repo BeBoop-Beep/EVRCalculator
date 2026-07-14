@@ -25,6 +25,17 @@ function makeCamelCard(overrides = {}) {
     currentPrice: 42.5,
     change30dAmount: 5,
     change30dPercent: 11.1,
+    change7dAmount: -2,
+    change7dPercent: -4.7,
+    movement7d: {
+      currentPrice: 42.5,
+      changeAmount: -2,
+      changePercent: -4.7,
+      fullWindowCoverage: true,
+      isPartialWindow: false,
+      windowCoverageDays: 7,
+      requestedWindowDays: 7,
+    },
     movementScore: 5,
     movementLabel: "heating_up",
     enoughHistory: true,
@@ -49,6 +60,10 @@ function makeCamelCard(overrides = {}) {
       score: 5,
       label: "heating_up",
       enoughHistory: true,
+      fullWindowCoverage: false,
+      isPartialWindow: true,
+      windowCoverageDays: 16,
+      requestedWindowDays: 30,
       confidence: "medium",
     },
     ...overrides,
@@ -92,6 +107,52 @@ test("normalizePokemonSetCardsPagePayload normalizes cards using the same shape 
   assert.equal(pageResult.cards[0].marketPrice, 42.5);
   assert.equal(pageResult.cards[0].treatmentScore, 1.2);
   assert.equal(pageResult.cards[0].change30dAmount, 5);
+  assert.equal(pageResult.cards[0].change7dAmount, -2);
+  assert.equal(pageResult.cards[0].change7dPercent, -4.7);
+  assert.equal(pageResult.cards[0].movement7d.fullWindowCoverage, true);
+  assert.equal(pageResult.cards[0].movement30d.isPartialWindow, true);
+  assert.equal(pageResult.cards[0].movement30d.windowCoverageDays, 16);
+  assert.equal(pageResult.cards[0].movement30d.requestedWindowDays, 30);
+});
+
+test("a percent-only 30d delta survives normalization alongside the price", () => {
+  const result = normalizePokemonSetCardsPagePayload(
+    makeCardsPagePayload({
+      cards: [
+        makeCamelCard({
+          change30dAmount: null,
+          change30dPercent: 11.1,
+          movement30d: { currentPrice: 42.5, changeAmount: null, changePercent: 11.1 },
+        }),
+      ],
+    })
+  );
+
+  assert.equal(result.cards[0].marketPrice, 42.5);
+  assert.equal(result.cards[0].change30dAmount, null);
+  assert.equal(result.cards[0].change30dPercent, 11.1);
+  assert.equal(result.cards[0].movement30d.changeAmount, null);
+  assert.equal(result.cards[0].movement30d.changePercent, 11.1);
+});
+
+test("an amount-only 30d delta survives normalization alongside the price", () => {
+  const result = normalizePokemonSetCardsPagePayload(
+    makeCardsPagePayload({
+      cards: [
+        makeCamelCard({
+          change30dAmount: 5,
+          change30dPercent: null,
+          movement30d: { currentPrice: 42.5, changeAmount: 5, changePercent: null },
+        }),
+      ],
+    })
+  );
+
+  assert.equal(result.cards[0].marketPrice, 42.5);
+  assert.equal(result.cards[0].change30dAmount, 5);
+  assert.equal(result.cards[0].change30dPercent, null);
+  assert.equal(result.cards[0].movement30d.changeAmount, 5);
+  assert.equal(result.cards[0].movement30d.changePercent, null);
 });
 
 test("normalizePokemonSetCardsPagePayload normalizes pagination metadata", () => {

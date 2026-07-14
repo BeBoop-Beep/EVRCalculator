@@ -1,3 +1,6 @@
+import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "./pricingSnapshotContract.mjs";
+export { PRICING_SNAPSHOT_CONTRACT_VERSION } from "./pricingSnapshotContract.mjs";
+
 function toOptionalString(value) {
   const text = String(value || "").trim();
   return text || null;
@@ -171,6 +174,8 @@ function normalizeCardAppealMarketPriceCorrelation(payload) {
 }
 
 function normalizeSetCard(card, validation = {}) {
+  const movement7dSource = card?.movement7d ?? card?.movement_7d ?? {};
+  const movement30dSource = card?.movement30d ?? card?.movement_30d ?? {};
   const currentPrice = toOptionalNumber(
     card?.currentPrice ??
       card?.current_price ??
@@ -182,6 +187,8 @@ function normalizeSetCard(card, validation = {}) {
   );
   const change30dAmount = toOptionalNumber(card?.change30dAmount ?? card?.change_30d_amount ?? card?.movement30d?.changeAmount ?? card?.movement30d?.change_amount);
   const change30dPercent = toOptionalNumber(card?.change30dPercent ?? card?.change_30d_percent ?? card?.movement30d?.changePercent ?? card?.movement30d?.change_percent);
+  const change7dAmount = toOptionalNumber(card?.change7dAmount ?? card?.change_7d_amount ?? card?.movement7d?.changeAmount ?? card?.movement7d?.change_amount);
+  const change7dPercent = toOptionalNumber(card?.change7dPercent ?? card?.change_7d_percent ?? card?.movement7d?.changePercent ?? card?.movement7d?.change_percent);
   const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score ?? card?.movement30d?.movementScore ?? card?.movement30d?.score);
   const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label ?? card?.movement30d?.movementLabel ?? card?.movement30d?.label);
   const enoughHistory = Boolean(card?.enoughHistory ?? card?.enough_history ?? card?.movement30d?.enoughHistory ?? card?.movement30d?.enough_history);
@@ -193,6 +200,7 @@ function normalizeSetCard(card, validation = {}) {
 
   return {
     id: toOptionalString(card?.id),
+    canonicalCardId: toOptionalString(card?.canonicalCardId ?? card?.canonical_card_id ?? card?.id),
     name: toOptionalString(card?.name),
     setId: toOptionalString(card?.set_id ?? card?.setId),
     setName: toOptionalString(card?.set_name ?? card?.setName),
@@ -210,6 +218,14 @@ function normalizeSetCard(card, validation = {}) {
     marketPrice: currentPrice ?? toOptionalNumber(card?.market_price ?? card?.estimated_market_price ?? card?.marketPrice),
     currentPrice,
     cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id ?? validation?.cardVariantId ?? validation?.card_variant_id),
+    conditionId: toOptionalString(card?.conditionId ?? card?.condition_id),
+    printingType: toOptionalString(card?.printingType ?? card?.printing_type),
+    priceUpdatedAt: toOptionalString(card?.priceUpdatedAt ?? card?.price_updated_at),
+    priceSourceDate: toOptionalString(card?.priceSourceDate ?? card?.price_source_date),
+    marketDate: toOptionalString(card?.marketDate ?? card?.market_date),
+    priceCarriedForward: toOptionalBoolean(card?.priceCarriedForward ?? card?.price_carried_forward),
+    priceSource: toOptionalString(card?.priceSource ?? card?.price_source),
+    priceSelectionReason: toOptionalString(card?.priceSelectionReason ?? card?.price_selection_reason),
     subjectDemandScore,
     cardDesirabilityScore: subjectDemandScore,
     pokemonDesirabilityScore: subjectDemandScore,
@@ -234,17 +250,64 @@ function normalizeSetCard(card, validation = {}) {
     isHitEligible: toOptionalBoolean(card?.isHitEligible ?? card?.is_hit_eligible ?? validation?.isHitEligible ?? validation?.is_hit_eligible),
     change30dAmount,
     change30dPercent,
+    change7dAmount,
+    change7dPercent,
+    movement7d: {
+      window: toOptionalString(movement7dSource?.window) || "7D",
+      windowDays: toOptionalNumber(movement7dSource?.windowDays ?? movement7dSource?.window_days) ?? 7,
+      windowConvention: toOptionalString(movement7dSource?.windowConvention ?? movement7dSource?.window_convention),
+      targetStartDate: toOptionalString(movement7dSource?.targetStartDate ?? movement7dSource?.target_start_date),
+      startDate: toOptionalString(movement7dSource?.startDate ?? movement7dSource?.start_date),
+      endDate: toOptionalString(movement7dSource?.endDate ?? movement7dSource?.end_date),
+      startingPrice: toOptionalNumber(movement7dSource?.startingPrice ?? movement7dSource?.starting_price),
+      currentPrice: toOptionalNumber(movement7dSource?.currentPrice ?? movement7dSource?.current_price) ?? currentPrice,
+      changeAmount: change7dAmount,
+      changePercent: change7dPercent,
+      enoughHistory: toOptionalBoolean(movement7dSource?.enoughHistory ?? movement7dSource?.enough_history),
+      reliable: toOptionalBoolean(movement7dSource?.reliable ?? card?.movement7dReliable ?? card?.movement_7d_reliable),
+      reliability: toOptionalString(movement7dSource?.reliability),
+      fullWindowCoverage: toOptionalBoolean(movement7dSource?.fullWindowCoverage ?? movement7dSource?.full_window_coverage),
+      isPartialWindow: toOptionalBoolean(movement7dSource?.isPartialWindow ?? movement7dSource?.is_partial_window),
+      windowCoverageDays: toOptionalNumber(movement7dSource?.windowCoverageDays ?? movement7dSource?.window_coverage_days),
+      requestedWindowDays: toOptionalNumber(movement7dSource?.requestedWindowDays ?? movement7dSource?.requested_window_days) ?? 7,
+      startSourceDate: toOptionalString(movement7dSource?.startSourceDate ?? movement7dSource?.start_source_date),
+      endSourceDate: toOptionalString(movement7dSource?.endSourceDate ?? movement7dSource?.end_source_date),
+      startCarriedForward: toOptionalBoolean(movement7dSource?.startCarriedForward ?? movement7dSource?.start_carried_forward),
+      endCarriedForward: toOptionalBoolean(movement7dSource?.endCarriedForward ?? movement7dSource?.end_carried_forward),
+      cardVariantId: toOptionalString(movement7dSource?.cardVariantId ?? movement7dSource?.card_variant_id),
+      conditionId: toOptionalString(movement7dSource?.conditionId ?? movement7dSource?.condition_id),
+      source: toOptionalString(movement7dSource?.source),
+      historyPointCount: toOptionalNumber(movement7dSource?.historyPointCount ?? movement7dSource?.history_point_count),
+    },
     movementScore,
     movementLabel,
     enoughHistory,
     confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
     movement30d: {
+      window: toOptionalString(movement30dSource?.window) || "30D",
+      windowDays: toOptionalNumber(movement30dSource?.windowDays ?? movement30dSource?.window_days) ?? 30,
+      windowConvention: toOptionalString(movement30dSource?.windowConvention ?? movement30dSource?.window_convention),
+      targetStartDate: toOptionalString(movement30dSource?.targetStartDate ?? movement30dSource?.target_start_date),
+      startDate: toOptionalString(movement30dSource?.startDate ?? movement30dSource?.start_date),
+      endDate: toOptionalString(movement30dSource?.endDate ?? movement30dSource?.end_date),
+      startingPrice: toOptionalNumber(movement30dSource?.startingPrice ?? movement30dSource?.starting_price),
       currentPrice,
       changeAmount: change30dAmount,
       changePercent: change30dPercent,
       score: movementScore,
       label: movementLabel,
       enoughHistory,
+      reliable: toOptionalBoolean(movement30dSource?.reliable ?? card?.movement30dReliable ?? card?.movement_30d_reliable),
+      reliability: toOptionalString(movement30dSource?.reliability),
+      fullWindowCoverage: toOptionalBoolean(movement30dSource?.fullWindowCoverage ?? movement30dSource?.full_window_coverage),
+      isPartialWindow: toOptionalBoolean(movement30dSource?.isPartialWindow ?? movement30dSource?.is_partial_window),
+      windowCoverageDays: toOptionalNumber(movement30dSource?.windowCoverageDays ?? movement30dSource?.window_coverage_days),
+      requestedWindowDays: toOptionalNumber(movement30dSource?.requestedWindowDays ?? movement30dSource?.requested_window_days) ?? 30,
+      startSourceDate: toOptionalString(movement30dSource?.startSourceDate ?? movement30dSource?.start_source_date),
+      endSourceDate: toOptionalString(movement30dSource?.endSourceDate ?? movement30dSource?.end_source_date),
+      startCarriedForward: toOptionalBoolean(movement30dSource?.startCarriedForward ?? movement30dSource?.start_carried_forward),
+      endCarriedForward: toOptionalBoolean(movement30dSource?.endCarriedForward ?? movement30dSource?.end_carried_forward),
+      historyPointCount: toOptionalNumber(movement30dSource?.historyPointCount ?? movement30dSource?.history_point_count),
       confidence: toOptionalString(card?.confidence ?? card?.movement30d?.confidence),
     },
     tcgplayerProductId: toOptionalString(card?.tcgplayer_product_id ?? card?.tcgplayerProductId),
@@ -395,6 +458,15 @@ export function normalizePokemonSetCardsPagePayload(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
   const pagination = payload?.pagination || {};
   const filters = payload?.filters || {};
+  const movementGeneration = payload?.meta?.movementGeneration;
+
+  if (process.env.NODE_ENV !== "production" && movementGeneration?.matches === false) {
+    console.warn("[pokemon-market-delta] Cards and Market Dashboard snapshot generations differ", {
+      cardsGenerationId: movementGeneration?.cardsGenerationId ?? null,
+      marketDashboardGenerationId: movementGeneration?.marketDashboardGenerationId ?? null,
+      status: movementGeneration?.status ?? null,
+    });
+  }
 
   return {
     set: {
@@ -424,6 +496,7 @@ export function normalizePokemonSetCardsPagePayload(payload) {
       sort: toOptionalString(filters?.sort),
       movementSort: toOptionalString(filters?.movementSort),
       movementFilter: toOptionalString(filters?.movementFilter),
+      section: toOptionalString(filters?.section),
       query: toOptionalString(filters?.query),
       rarity: toOptionalString(filters?.rarity),
     },
@@ -533,7 +606,7 @@ export async function getPokemonSetCardsValidation(setId, { maxCards = null, inc
 
 export async function getPokemonSetCardsPage(
   setId,
-  { page = 1, pageSize = 60, sort = "set-number", query = null, rarity = null, movementFilter = null, movementSort = null } = {}
+  { page = 1, pageSize = 60, sort = "set-number", query = null, rarity = null, movementFilter = null, movementSort = null, section = null } = {}
 ) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -541,6 +614,7 @@ export async function getPokemonSetCardsPage(
   }
 
   const params = new URLSearchParams();
+  params.set("snapshot_contract", PRICING_SNAPSHOT_CONTRACT_VERSION);
   if (page) {
     params.set("page", String(page));
   }
@@ -562,13 +636,25 @@ export async function getPokemonSetCardsPage(
   if (movementSort) {
     params.set("movement_sort", String(movementSort));
   }
+  // Market Movers is a query mode over the same canonical Cards dataset —
+  // section=market-movers narrows membership server-side (valid nonzero
+  // movement); All Cards omits it and keeps the complete checklist.
+  if (section) {
+    params.set("section", String(section));
+  }
 
   const cacheKey = `cards-page:${resolvedSetId}:${params.toString()}`;
   return joinCardsClientRequest(cacheKey, async () => {
     const startedAt = performance.now();
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/cards/page${params.toString() ? `?${params}` : ""}`,
-      { method: "GET" }
+      {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      }
     );
 
     let payload = null;
@@ -587,6 +673,19 @@ export async function getPokemonSetCardsPage(
     }
 
     const normalized = normalizePokemonSetCardsPagePayload(payload);
+    const firstCard = normalized.cards[0] || null;
+    debugTiming("cards_page.snapshot_diagnostics", {
+      setId: resolvedSetId,
+      requestedPage: page,
+      snapshotUpdatedAt: normalized.meta?.snapshot?.updatedAt ?? null,
+      returnedCardCount: normalized.cards.length,
+      cardsWith30dDelta: normalized.cards.filter(
+        (card) => card?.change30dAmount !== null || card?.change30dPercent !== null
+      ).length,
+      firstCardName: firstCard?.name ?? null,
+      firstCardMarketPrice: firstCard?.marketPrice ?? null,
+      firstCardChange30dAmount: firstCard?.change30dAmount ?? null,
+    });
     debugTiming("cards_page.fetch_success", {
       setId: resolvedSetId,
       page,

@@ -26,8 +26,10 @@ function makeCardsPagePayload(overrides = {}) {
 function stubFetchJson(responseFactory) {
   const originalFetch = globalThis.fetch;
   let callCount = 0;
+  const calls = [];
   globalThis.fetch = async (...args) => {
     callCount += 1;
+    calls.push(args);
     const body = responseFactory(callCount, ...args);
     return {
       ok: true,
@@ -37,11 +39,56 @@ function stubFetchJson(responseFactory) {
   };
   return {
     getCallCount: () => callCount,
+    getCalls: () => calls,
     restore: () => {
       globalThis.fetch = originalFetch;
     },
   };
 }
+
+test("getPokemonSetCardsPage bypasses browser caches and requests pricing-v4", async () => {
+  const stub = stubFetchJson(() => makeCardsPagePayload());
+  try {
+    await getPokemonSetCardsPage("set-cache-contract", { page: 1, sort: "set-number" });
+    const [[url, options]] = stub.getCalls();
+    assert.match(url, /snapshot_contract=pricing-v4/);
+    assert.deepEqual(options, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    });
+  } finally {
+    stub.restore();
+  }
+});
+
+test("a completed fresh response replaces an older response for the same set", async () => {
+  const stub = stubFetchJson((callCount) =>
+    makeCardsPagePayload({
+      cards: [
+        {
+          id: "caterpie",
+          name: "Caterpie",
+          marketPrice: callCount === 1 ? 0.16 : 0.19,
+          change30dAmount: callCount === 1 ? null : 0.09,
+          change30dPercent: callCount === 1 ? null : 90,
+        },
+      ],
+      meta: { snapshot: { updatedAt: callCount === 1 ? "old" : "fresh" } },
+    })
+  );
+  try {
+    const oldPayload = await getPokemonSetCardsPage("journey-together-freshness", { page: 1 });
+    const freshPayload = await getPokemonSetCardsPage("journey-together-freshness", { page: 1 });
+    assert.equal(stub.getCallCount(), 2, "only concurrent calls may be joined; completed data must not be cached");
+    assert.equal(oldPayload.cards[0].marketPrice, 0.16);
+    assert.equal(freshPayload.cards[0].marketPrice, 0.19);
+    assert.equal(freshPayload.cards[0].change30dAmount, 0.09);
+    assert.equal(freshPayload.meta.snapshot.updatedAt, "fresh");
+  } finally {
+    stub.restore();
+  }
+});
 
 test("getPokemonSetCardsPage joins concurrent identical calls into a single fetch", async () => {
   const stub = stubFetchJson(() => makeCardsPagePayload());
@@ -69,8 +116,9 @@ test("getPokemonSetCardsPage does not join calls for a different set id, page, s
       getPokemonSetCardsPage("set-dedupe-cards-a", { page: 2, sort: "set-number" }),
       getPokemonSetCardsPage("set-dedupe-cards-a", { page: 1, sort: "market-value" }),
       getPokemonSetCardsPage("set-dedupe-cards-a", { page: 1, sort: "set-number", movementFilter: "risers" }),
+      getPokemonSetCardsPage("set-dedupe-cards-a", { page: 1, sort: "set-number", movementSort: "7d-movers" }),
     ]);
-    assert.equal(stub.getCallCount(), 5, "distinct set ids, pages, sorts, or movement filters must not be joined together");
+    assert.equal(stub.getCallCount(), 6, "distinct set ids, pages, sorts, movement filters, or movement sorts must not be joined together");
   } finally {
     stub.restore();
   }

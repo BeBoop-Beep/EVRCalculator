@@ -16,6 +16,7 @@ class _Query:
         self.in_filters = []
         self.order_fields = []
         self.limit_value = None
+        self.range_value = None
 
     def select(self, fields):
         self.select_fields = fields
@@ -35,6 +36,10 @@ class _Query:
 
     def limit(self, value):
         self.limit_value = value
+        return self
+
+    def range(self, start, end):
+        self.range_value = (start, end)
         return self
 
     def execute(self):
@@ -159,6 +164,31 @@ def _build_handlers():
                 "source": "snapshot",
             },
         ],
+        "pokemon_set_opening_desirability_latest": lambda _q: [
+            {
+                "set_id": "set-1",
+                "opening_desirability_score": 42.0,
+                "opening_desirability_display_status": "scored",
+                "scoring_version": "opening-v1",
+            },
+            {
+                "set_id": "set-2",
+                "opening_desirability_score": 96.0,
+                "opening_desirability_display_status": "scored",
+                "scoring_version": "opening-v1",
+            },
+        ],
+        "pokemon_canonical_card_market_prices_latest": lambda _q: [
+            *[
+                {"set_id": "set-1", "canonical_card_id": f"set-1-card-{index:02d}", "market_price": float(index)}
+                for index in range(1, 13)
+            ],
+            *[
+                {"set_id": "set-2", "canonical_card_id": f"set-2-card-{index:02d}", "market_price": float(index * 2)}
+                for index in range(1, 13)
+            ],
+        ],
+        "set_pack_score_rankings_latest": lambda _q: [],
     }
 
 
@@ -187,7 +217,12 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     assert targets_by_id["set-2"]["leaderboard_label"] == "Strong value"
     assert targets_by_id["set-2"]["canonical_recommendation_header"] == "Strong value, some path sensitivity"
     assert targets_by_id["set-2"]["pack_tier"] == "S"
-    assert targets_by_id["set-1"]["pack_tier"] == "A"
+    assert targets_by_id["set-1"]["pack_tier"] == "D"
+    assert targets_by_id["set-1"]["pack_rank"] == targets_by_id["set-1"]["rip_rank_with_desirability"]
+    assert targets_by_id["set-1"]["relative_rip_core_score"] is not None
+    assert targets_by_id["set-1"]["top_10_card_value"] == 75.0
+    assert targets_by_id["set-2"]["top_10_card_value"] == 150.0
+    assert targets_by_id["set-2"]["top_10_card_value_rank"] == 1
     assert targets_by_id["set-2"]["biggest_upside_score"] is not None
     assert targets_by_id["set-2"]["relative_biggest_upside_score"] is not None
     assert targets_by_id["set-2"]["biggest_upside_rank"] == 1
@@ -205,7 +240,7 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     assert targets_by_id["set-2"]["rip_rank_with_desirability"] == 1
     assert targets_by_id["set-2"]["rip_rank_without_desirability"] == 1
     assert targets_by_id["set-2"]["desirability_component_score"] == 96.0
-    assert targets_by_id["set-2"]["pack_score"] == 89.0
+    assert targets_by_id["set-2"]["pack_score"] == 83.0
     assert targets_by_id["set-2"]["set_value_for_validation"] == 222.22
     assert targets_by_id["set-2"]["current_checklist_set_value"] == 222.22
     assert targets_by_id["set-2"]["checklist_set_value"] == 222.22
@@ -286,3 +321,101 @@ def test_limit_is_safely_clamped(monkeypatch):
     assert payload["meta"]["request"]["limit"] == 200
     target_query = next(call for call in client.calls if call.table_name == "explore_rip_statistics_latest")
     assert target_query.limit_value == 200
+
+
+def test_all_scored_opening_desirability_rows_join_into_canonical_comparison(monkeypatch):
+    set_ids = [f"set-{index:02d}" for index in range(33)]
+    handlers = {
+        "explore_rip_statistics_latest": lambda _q: [
+            {
+                "set_id": set_id,
+                "run_at": "2026-07-01T00:00:00Z",
+                "pack_score": 20 + index,
+                "relative_pack_score": index,
+                "pack_rank": 33 - index,
+                "pack_tier": "C",
+                "profit_score": 20 + index,
+                "safety_score": 30 + index,
+                "stability_score": 40 + index,
+                "desirability_score": (50 + index if index < 21 else None),
+                "pack_cost": 5,
+                "mean_value": 4,
+            }
+            for index, set_id in enumerate(set_ids)
+        ],
+        "sets": lambda _q: [{"id": set_id, "name": f"Set {index:02d}"} for index, set_id in enumerate(set_ids)],
+        "eras": lambda _q: [],
+        "pokemon_set_value_daily_history": lambda _q: [],
+        "pokemon_set_opening_desirability_latest": lambda _q: [
+            {
+                "set_id": set_id,
+                "opening_desirability_score": 50 + index,
+                "opening_desirability_display_status": "scored",
+                "scoring_version": "opening-v1",
+            }
+            for index, set_id in enumerate(set_ids)
+        ],
+        "pokemon_canonical_card_market_prices_latest": lambda _q: [
+            {
+                "set_id": set_id,
+                "canonical_card_id": f"{set_id}-card-{card_index:02d}",
+                "market_price": card_index + index,
+            }
+            for index, set_id in enumerate(set_ids)
+            for card_index in range(1, 11)
+        ],
+        "set_pack_score_rankings_latest": lambda _q: [],
+    }
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(
+        service,
+        "build_rip_interpretation",
+        lambda _row: {"meta": {"packScore": {"label": "Profile", "summary": "Summary", "severity": "neutral"}}},
+    )
+
+    payload = service.get_rip_statistics_targets_payload(limit=100)
+
+    assert len(payload["targets"]) == 33
+    assert payload["meta"]["ripDesirabilityComparison"]["valid_comparison_count"] == 33
+    assert all(target["rip_score_with_desirability"] is not None for target in payload["targets"])
+    assert all(target["rip_rank_with_desirability"] == target["pack_rank"] for target in payload["targets"])
+    assert all(target["top_10_card_value_rank"] is not None for target in payload["targets"])
+
+
+def test_top_10_card_value_sorts_before_aggregation_and_reports_unavailable_prices(monkeypatch):
+    rows = [
+        {"set_id": "set-1", "canonical_card_id": "missing", "market_price": None},
+        *[
+            {"set_id": "set-1", "canonical_card_id": f"card-{index:02d}", "market_price": float(index)}
+            for index in [3, 12, 1, 8, 11, 4, 10, 2, 9, 7, 6, 5]
+        ],
+    ]
+    client = _Client({"pokemon_canonical_card_market_prices_latest": lambda _q: rows})
+    monkeypatch.setattr(service, "public_read_client", client)
+    sources = {}
+    warnings = []
+
+    lookup = service._load_top_10_card_value_lookup(["set-1"], sources=sources, warnings=warnings)
+
+    assert lookup["set-1"]["top_10_card_value"] == 75.0
+    assert lookup["set-1"]["top_10_card_value_sample_size"] == 10
+    assert lookup["set-1"]["top_10_card_value_priced_card_count"] == 12
+    assert lookup["set-1"]["top_10_card_value_unavailable_price_count"] == 1
+    assert lookup["set-1"]["top_10_card_value_coverage"] == 1.0
+
+
+def test_top_10_card_value_rank_ties_use_target_id_deterministically():
+    targets = [
+        {"target_id": "set-z", "top_10_card_value": 100},
+        {"target_id": "set-a", "top_10_card_value": 100},
+        {"target_id": "set-m", "top_10_card_value": 90},
+    ]
+
+    service._rank_top_10_card_values(targets)
+
+    assert {target["target_id"]: target["top_10_card_value_rank"] for target in targets} == {
+        "set-a": 1,
+        "set-z": 2,
+        "set-m": 3,
+    }

@@ -19,6 +19,7 @@ import {
 
 function loadPokemonSetMarketClientForTests() {
   const source = readFileSync(new URL("../pokemon/pokemonSetMarketClient.js", import.meta.url), "utf8")
+    .replace(/import \{ PRICING_SNAPSHOT_CONTRACT_VERSION \} from "\.\/pricingSnapshotContract\.mjs";\s*/, 'const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v4";\n')
     .replace(/export\s+(async\s+function|function)\s+/g, "$1 ");
   const context = {
     console,
@@ -64,6 +65,32 @@ test("marketDeltaWindows exposes the standard market window definitions", () => 
     DELTA_WINDOW_DEFINITIONS.map((definition) => definition.label),
     ["1D", "7D", "30D", "3M", "6M", "1Y", "Lifetime"]
   );
+});
+
+test("Chaos Rising repaired Hits history stays corrected across every long window", () => {
+  const values = [
+    968.34, 968.34, 968.34, 968.34, 968.34, 878.30, 878.30, 861.11,
+    861.11, 861.11, 861.11, 835.63, 824.68, 822.65, 806.86, 823.44,
+    822.83, 811.45, 798.73, 786.88, 788.78, 777.78, 761.52, 749.39,
+    753.74, 718.94, 706.11,
+  ];
+  const history = values.map((setValue, index) => ({
+    date: addDays("2026-06-16", index),
+    setValue,
+  }));
+
+  for (const key of ["30D", "3M", "6M", "1Y", "lifetime"]) {
+    const selected = getSelectedDeltaWindowFromHistory(history, { selectedKey: key }).selectedWindow;
+    const visible = filterHistoryPointsForDeltaWindow(history, selected);
+    assert.equal(visible[0].date, "2026-06-16", `${key} must begin at the first available date`);
+    assert.ok(visible.every((point) => point.setValue !== 118137.48), `${key} must exclude the corrupt plateau`);
+  }
+
+  const selected30D = getSelectedDeltaWindowFromHistory(history, { selectedKey: "30D" }).selectedWindow;
+  const metrics = getVisibleHistoryWindowMetrics(history, selected30D, { valueKey: "setValue" });
+  assert.equal(metrics.currentValue, 706.11);
+  assert.equal(Number(metrics.deltaAmount.toFixed(2)), -262.23);
+  assert.equal(Number(metrics.deltaPercent.toFixed(1)), -27.1);
 });
 
 test("extractDeltaWindows reads actual amount and percent fields", () => {
@@ -383,6 +410,23 @@ test("top chase 1D can ignore trailing carried-forward duplicate points", () => 
   assert.equal(chartRows.length, 2);
   assert.equal(chartRows[0].date, "2026-06-22");
   assert.equal(chartRows.at(-1).date, "2026-06-23");
+});
+
+test("top chase 1D uses the latest two market dates when the terminal price is carried", () => {
+  const rows = [
+    { date: "2026-07-10", marketPrice: 100 },
+    { date: "2026-07-11", marketPrice: 105 },
+    { date: "2026-07-12", marketPrice: 105, isCarriedForward: true, sourceDate: "2026-07-11" },
+  ];
+  const selectedWindow = getSelectedDeltaWindowFromHistory(rows, {
+    selectedKey: "1D",
+    valueKey: "marketPrice",
+    preferActualPointsForOneDay: false,
+  }).selectedWindow;
+
+  assert.equal(selectedWindow.startDate, "2026-07-11");
+  assert.equal(selectedWindow.endDate, "2026-07-12");
+  assert.equal(selectedWindow.amount, 0);
 });
 
 test("set value windows can anchor to latest observed point instead of carried-forward today", () => {
