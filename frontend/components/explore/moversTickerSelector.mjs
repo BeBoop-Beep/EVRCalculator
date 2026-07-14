@@ -78,12 +78,16 @@ function stableCardIdentity(card) {
 }
 
 function getCandidateCards(entry) {
-  if (Array.isArray(entry?.all) && entry.all.length > 0) return entry.all;
-  if (Array.isArray(entry?.movements) && entry.movements.length > 0) return entry.movements;
-  return [
+  if (Array.isArray(entry?.all) && entry.all.length > 0) {
+    return { cards: entry.all, authoritativeOrder: true };
+  }
+  if (Array.isArray(entry?.movements) && entry.movements.length > 0) {
+    return { cards: entry.movements, authoritativeOrder: true };
+  }
+  return { cards: [
     ...(Array.isArray(entry?.heatingUp) ? entry.heatingUp : Array.isArray(entry?.heating_up) ? entry.heating_up : []),
     ...(Array.isArray(entry?.coolingOff) ? entry.coolingOff : Array.isArray(entry?.cooling_off) ? entry.cooling_off : []),
-  ];
+  ], authoritativeOrder: false };
 }
 
 function absoluteAmount(movement) {
@@ -94,15 +98,28 @@ function absoluteAmount(movement) {
 export const MOVERS_TICKER_MAX_ITEMS = 10;
 
 export function selectMoversTickerItems(entry, { maxItems = MOVERS_TICKER_MAX_ITEMS } = {}) {
-  const ranked = getCandidateCards(entry)
+  const candidates = getCandidateCards(entry);
+  const eligible = candidates.cards
     .map((card) => ({ card, movement: getCardMovement7d(card), identity: stableCardIdentity(card) }))
-    .filter(({ movement }) => movement && Number.isFinite(movement.percent) && movement.percent !== 0)
-    .sort(
-      (left, right) =>
-        Math.abs(right.movement.percent) - Math.abs(left.movement.percent) ||
-        absoluteAmount(right.movement) - absoluteAmount(left.movement) ||
-        left.identity.localeCompare(right.identity)
-    );
+    .filter(({ card, movement }) => (
+      card?.reliable !== false
+      && card?.movementReliable !== false
+      && card?.movement_reliable !== false
+      && card?.moverEligible !== false
+      && card?.mover_eligible !== false
+      && movement?.reliable !== false
+      && movement
+      && Number.isFinite(movement.percent)
+      && movement.percent !== 0
+    ));
+  const ranked = candidates.authoritativeOrder
+    ? eligible
+    : eligible.sort(
+        (left, right) =>
+          Math.abs(right.movement.percent) - Math.abs(left.movement.percent) ||
+          absoluteAmount(right.movement) - absoluteAmount(left.movement) ||
+          left.identity.localeCompare(right.identity)
+      );
   const selected = [];
   const seen = new Set();
 

@@ -26,11 +26,13 @@ test("prefers the complete eligible all list over capped direction arrays", () =
   const result = selectMoversTickerItems(entry);
 
   assert.equal(result.length, MOVERS_TICKER_MAX_ITEMS);
-  assert.ok(result.some((item) => item.card.id === "negative-22"));
-  assert.ok(!result.some((item) => item.card.id === "negative-1"));
+  assert.deepEqual(result.map((item) => item.card.id), [
+    "positive",
+    ...Array.from({ length: 9 }, (_, index) => `negative-${index + 1}`),
+  ]);
 });
 
-test("ranks one positive with the nine largest of twenty-two negatives", () => {
+test("preserves the authoritative persisted all order for imbalanced movers", () => {
   const positive = card("positive", 100, 20);
   const negatives = Array.from({ length: 22 }, (_, index) => card(`negative-${index + 1}`, -(index + 1), -(index + 1)));
 
@@ -38,10 +40,10 @@ test("ranks one positive with the nine largest of twenty-two negatives", () => {
 
   assert.equal(result.length, 10);
   assert.equal(result.filter((item) => item.movement.percent > 0).length, 1);
-  assert.deepEqual(
-    result.filter((item) => item.movement.percent < 0).map((item) => item.card.id),
-    Array.from({ length: 9 }, (_, index) => `negative-${22 - index}`)
-  );
+  assert.deepEqual(result.map((item) => item.card.id), [
+    "positive",
+    ...Array.from({ length: 9 }, (_, index) => `negative-${index + 1}`),
+  ]);
 });
 
 test("returns ten positives when no negative candidates exist", () => {
@@ -53,6 +55,31 @@ test("returns ten positives when no negative candidates exist", () => {
   assert.ok(result.every((item) => item.movement.percent > 0));
 });
 
+test("accepts ten negative reliable movers without directional balancing", () => {
+  const result = selectMoversTickerItems({
+    all: Array.from({ length: 10 }, (_, index) =>
+      card(`negative-${index + 1}`, -(20 - index), -(10 - index), { reliable: true })
+    ),
+  });
+
+  assert.equal(result.length, 10);
+  assert.ok(result.every((item) => item.movement.percent < 0));
+});
+
+test("151-shaped authoritative preview retains an honest seven-down three-up composition", () => {
+  const rankedAll = [
+    ...Array.from({ length: 7 }, (_, index) => card(`down-${index + 1}`, -(30 - index), -(10 - index))),
+    ...Array.from({ length: 3 }, (_, index) => card(`up-${index + 1}`, 20 - index, 5 - index)),
+    ...Array.from({ length: 39 }, (_, index) => card(`remainder-${index + 1}`, index + 1, index + 1)),
+  ];
+
+  const result = selectMoversTickerItems({ all: rankedAll });
+
+  assert.equal(result.length, 10);
+  assert.equal(result.filter((item) => item.movement.percent < 0).length, 7);
+  assert.equal(result.filter((item) => item.movement.percent > 0).length, 3);
+});
+
 test("deduplicates canonical card identities after ranking", () => {
   const result = selectMoversTickerItems({
     all: [
@@ -62,7 +89,7 @@ test("deduplicates canonical card identities after ranking", () => {
     ],
   });
 
-  assert.deepEqual(result.map((item) => item.card.id), ["variant-b", "other"]);
+  assert.deepEqual(result.map((item) => item.card.id), ["variant-a", "other"]);
 });
 
 test("excludes zero, null, and non-finite movement percentages", () => {
@@ -73,7 +100,7 @@ test("excludes zero, null, and non-finite movement percentages", () => {
   assert.deepEqual(result.map((item) => item.card.id), ["valid"]);
 });
 
-test("uses stable percentage, amount, then identity tie ordering", () => {
+test("does not re-sort the persisted all list", () => {
   const result = selectMoversTickerItems({
     all: [
       card("percent-first", -11, -1),
@@ -83,7 +110,37 @@ test("uses stable percentage, amount, then identity tie ordering", () => {
     ],
   });
 
-  assert.deepEqual(result.map((item) => item.card.id), ["percent-first", "identity-a", "identity-c", "amount-last"]);
+  assert.deepEqual(result.map((item) => item.card.id), ["percent-first", "amount-last", "identity-c", "identity-a"]);
+});
+
+test("excludes explicitly unreliable and ineligible persisted candidates without filling from side arrays", () => {
+  const result = selectMoversTickerItems({
+    all: [
+      card("reliable-1", 9, 3, { reliable: true }),
+      card("unreliable", 100, 30, { reliable: false }),
+      card("ineligible", -80, -20, { moverEligible: false }),
+      card("reliable-2", -7, -2, { reliable: true }),
+    ],
+    heatingUp: [card("side-array-only", 200, 50)],
+  });
+
+  assert.deepEqual(result.map((item) => item.card.id), ["reliable-1", "reliable-2"]);
+});
+
+test("banner identities exactly match the first ten authoritative Cards 7D Movers identities", () => {
+  const cardsPage = Array.from({ length: 14 }, (_, index) =>
+    card(`cards-page-${index + 1}`, index % 2 ? -(30 - index) : 30 - index, index + 1, {
+      canonicalCardId: `canonical-${index + 1}`,
+      reliable: true,
+    })
+  );
+
+  const result = selectMoversTickerItems({ all: cardsPage });
+
+  assert.deepEqual(
+    result.map((item) => item.card.canonicalCardId),
+    cardsPage.slice(0, 10).map((item) => item.canonicalCardId)
+  );
 });
 
 test("uses movements before legacy direction arrays when all is unavailable", () => {

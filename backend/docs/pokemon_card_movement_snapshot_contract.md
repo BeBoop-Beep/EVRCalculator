@@ -18,6 +18,19 @@ Cards and Market Dashboard snapshot metadata includes
 `generationId`, and `builtAt`. Top Chase persists the same metadata with its
 stored 1D, 7D, and 30D `marketDeltaWindows`.
 
+Top Chase only persists a short-window entry when it has two usable distinct
+market dates and finite amount/percentage output. The dashboard snapshot meta
+records per-window movement counts, missing canonical/selected-variant counts,
+and partial-card counts. The frontend always derives the selected chart range
+from capped history; a usable stored contract owns the displayed delta, while
+a missing or malformed contract uses an explicit history fallback.
+
+`marketMoversByWindow.<window>.all` is the complete eligible overall ranking,
+ordered by absolute percentage, absolute amount, then canonical identity. The
+slim Market Movers endpoint projects that persisted list directly and applies
+`limit` to the overall list. Directional arrays remain separately preserved.
+Snapshots without `all` are identified as legacy fallback responses.
+
 Public Cards, Market Dashboard, and Top Chase responses expose
 `meta.movementGeneration`, including both generation IDs, `matches`, and a
 status. Development clients warn when `matches` is false. History-derived Top

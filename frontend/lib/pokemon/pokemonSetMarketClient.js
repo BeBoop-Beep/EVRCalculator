@@ -334,6 +334,9 @@ function normalizeTopMarketCardsPayload(payload) {
     : {};
   const isLegacyMovementSnapshot = snapshotMeta?.isLegacyMovementSnapshot === true;
   const allowsLegacyHistoryFallback = snapshotMeta?.allowsLegacyHistoryFallback === true;
+  const dashboardLatestMarketDate = toOptionalString(
+    payload?.latestMarketDate ?? payload?.latest_market_date ?? snapshotMeta?.latestMarketDate
+  );
 
   if (process.env.NODE_ENV !== "production" && movementGeneration?.matches === false) {
     console.warn("[pokemon-market-delta] Cards and Market Dashboard snapshot generations differ", {
@@ -377,6 +380,7 @@ function normalizeTopMarketCardsPayload(payload) {
         estimatedMarketPrice: toOptionalNumber(card?.estimatedMarketPrice ?? card?.estimated_market_price),
         marketPrice: toOptionalNumber(card?.marketPrice ?? card?.estimatedMarketPrice ?? card?.estimated_market_price),
         marketDate: toOptionalString(card?.marketDate ?? card?.market_date),
+        dashboardLatestMarketDate,
         windowConvention: toOptionalString(card?.windowConvention ?? card?.window_convention),
         marketDeltaWindows,
         market_delta_windows: marketDeltaWindows,
@@ -426,6 +430,8 @@ function normalizeMarketMoverCard(card, window = "30D") {
   const movementScore = toOptionalNumber(card?.movementScore ?? card?.movement_score);
   const movementLabel = toOptionalString(card?.movementLabel ?? card?.movement_label);
   const normalizedWindow = String(window || card?.window || "30D").toUpperCase();
+  const reliable = card?.reliable ?? card?.movementReliable ?? card?.movement_reliable;
+  const reliability = toOptionalString(card?.reliability);
 
   return {
     id: toOptionalString(card?.cardId ?? card?.card_id ?? card?.id),
@@ -446,7 +452,18 @@ function normalizeMarketMoverCard(card, window = "30D") {
     changeAmount,
     changePercent,
     ...(normalizedWindow === "1D" ? { change1dAmount: changeAmount, change1dPercent: changePercent } : {}),
-    ...(normalizedWindow === "7D" ? { change7dAmount: changeAmount, change7dPercent: changePercent, movement7d: { changeAmount, changePercent } } : {}),
+    ...(normalizedWindow === "7D" ? {
+      change7dAmount: changeAmount,
+      change7dPercent: changePercent,
+      movement7d: {
+        changeAmount,
+        changePercent,
+        reliable: reliable === undefined ? null : Boolean(reliable),
+        reliability,
+        fullWindowCoverage: Boolean(card?.fullWindowCoverage ?? card?.full_window_coverage),
+        isPartialWindow: Boolean(card?.isPartialWindow ?? card?.is_partial_window),
+      },
+    } : {}),
     ...(normalizedWindow === "30D" ? { change30dAmount: changeAmount, change30dPercent: changePercent } : {}),
     window: normalizedWindow,
     windowDays: toOptionalNumber(card?.windowDays ?? card?.window_days),
@@ -458,6 +475,9 @@ function normalizeMarketMoverCard(card, window = "30D") {
     isPartialWindow: Boolean(card?.isPartialWindow ?? card?.is_partial_window),
     movementScore,
     movementLabel,
+    moverEligible: card?.moverEligible ?? card?.mover_eligible,
+    reliable: reliable === undefined ? null : Boolean(reliable),
+    reliability,
     enoughHistory: Boolean(card?.enoughHistory ?? card?.enough_history),
     confidence: toOptionalString(card?.confidence),
     historyPointCount: toOptionalNumber(card?.historyPointCount ?? card?.history_point_count),
@@ -826,6 +846,7 @@ export function normalizeTopChasePayload(payload) {
     cards: payload?.topChaseCards || payload?.top_chase_cards || [],
     topChaseCardHistories: payload?.topChaseCardHistories,
     top_chase_card_histories: payload?.top_chase_card_histories,
+    latestMarketDate: payload?.latestMarketDate ?? payload?.latest_market_date,
     meta: payload?.meta,
   });
 }
@@ -952,7 +973,7 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
   });
 }
 
-export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 5 } = {}) {
+export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10 } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");

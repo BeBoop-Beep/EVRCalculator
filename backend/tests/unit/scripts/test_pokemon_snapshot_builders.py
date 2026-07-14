@@ -711,6 +711,18 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     assert payload["meta"]["topChaseHistoryMinPoints"] == 2
     assert payload["meta"]["topChaseHistoryMaxPoints"] == 2
     assert payload["meta"]["topChaseHistoryHydratedFromDailyTable"] is False
+    assert payload["meta"]["topChaseCardCount"] == 1
+    assert payload["meta"]["topChaseMovementCountByWindow"] == {"1D": 0, "7D": 0, "30D": 0}
+    assert payload["meta"]["topChaseMissingCanonicalIdentityCount"] == 1
+    assert payload["meta"]["topChaseMissingSelectedVariantCount"] == 0
+    assert payload["meta"]["topChasePartialCardCount"] == 0
+    assert payload["meta"]["topChaseCardsWith1dMovement"] == 0
+    assert payload["meta"]["topChaseCardsWith7dMovement"] == 0
+    assert payload["meta"]["topChaseCardsWith30dMovement"] == 0
+    assert payload["meta"]["topChaseCardsMissingCanonicalIdentity"] == 1
+    assert payload["meta"]["topChaseCardsMissingSelectedVariant"] == 0
+    assert payload["meta"]["topChaseCardsUsingPartialWindow"] == 0
+    assert any("priced cards but no usable" in warning for warning in payload["meta"]["warnings"])
     assert history_rows[0]["card_variant_id"] == "variant-1"
     assert history_rows[0]["market_price"] == 10.0
 

@@ -125,6 +125,7 @@ def test_ascended_heroes_pikachu_276_uses_correct_inclusive_7d_baseline_on_every
     assert diagnostics == []
     assert set(top_cards[0]["marketDeltaWindows"]) == {"1D", "7D", "30D"}
     assert top_cards[0]["movementMetadata"]["generationId"] == "11111111-1111-4111-8111-111111111111"
+    assert top_movement["canonicalCardId"] == canonical_card_id
     assert all(
         movement["generationId"] == "11111111-1111-4111-8111-111111111111"
         for movement in top_cards[0]["marketDeltaWindows"].values()
@@ -165,6 +166,50 @@ def test_missing_pre_boundary_history_is_partial_but_displayable():
     assert movement["isPartialWindow"] is True
     assert movement["reliable"] is False
     assert movement["reliability"] == "partial_window"
+
+
+def test_top_chase_omits_unusable_short_windows_and_reports_identity_gaps():
+    selected_price = {
+        "card_variant_id": VARIANT_ID,
+        "condition_id": CONDITION_ID,
+        "market_price": 127.13,
+        "captured_at": "2026-07-13T23:00:00Z",
+    }
+    cards, diagnostics = pokemon_snapshot_builders._enrich_top_chase_cards_with_canonical_deltas(
+        [
+            {"cardId": "display-1", "cardVariantId": VARIANT_ID, "name": "One Point"},
+            {"cardId": "unmapped", "cardVariantId": "unmapped-variant", "name": "Unmapped"},
+        ],
+        histories={VARIANT_ID: [{"date": "2026-07-13", "marketPrice": 127.13}]},
+        canonical_context={
+            "display_key_to_canonical_id": {VARIANT_ID: CARD_ID},
+            "selected_price_by_canonical_id": {CARD_ID: selected_price},
+        },
+        latest_market_date="2026-07-13",
+    )
+
+    assert cards[0]["marketDeltaWindows"] == {}
+    assert "marketDeltaWindows" not in cards[1]
+    assert diagnostics == [{
+        "type": "top_chase_missing_canonical_identity",
+        "displayCardId": "unmapped-variant",
+        "name": "Unmapped",
+    }]
+
+
+def test_top_chase_reports_missing_selected_variant():
+    cards, diagnostics = pokemon_snapshot_builders._enrich_top_chase_cards_with_canonical_deltas(
+        [{"cardId": "display-1", "cardVariantId": VARIANT_ID, "name": "No Selection"}],
+        histories={},
+        canonical_context={
+            "display_key_to_canonical_id": {VARIANT_ID: CARD_ID},
+            "selected_price_by_canonical_id": {},
+        },
+        latest_market_date="2026-07-13",
+    )
+
+    assert "marketDeltaWindows" not in cards[0]
+    assert diagnostics[0]["type"] == "top_chase_missing_selected_variant"
 
 
 def test_selected_variant_cannot_be_replaced_by_more_volatile_printing(monkeypatch):

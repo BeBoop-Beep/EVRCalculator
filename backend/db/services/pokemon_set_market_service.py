@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -91,6 +92,14 @@ def _to_optional_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return parsed if parsed > 0 else None
+
+
+def _to_signed_float(value: Any) -> Optional[float]:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _to_optional_int(value: Any) -> Optional[int]:
@@ -1227,7 +1236,16 @@ def _movement_payload_for_window(
         movement.setdefault("windowDays", window_days)
         movement.setdefault("windowConvention", WINDOW_CONVENTION)
         movement.setdefault("moverEligible", True)
-    eligible_movements = [movement for movement in movements if movement.get("moverEligible")]
+    eligible_movements = sorted(
+        [movement for movement in movements if movement.get("moverEligible")],
+        key=lambda movement: (
+            -abs(_to_signed_float(movement.get("changePercent")) or 0),
+            -abs(_to_signed_float(movement.get("changeAmount")) or 0),
+            (_to_optional_str(movement.get("canonicalCardId")) or _to_optional_str(movement.get("cardId")) or _to_optional_str(movement.get("id")) or "").lower(),
+            (_to_optional_str(movement.get("cardVariantId")) or "").lower(),
+            (_to_optional_str(movement.get("conditionId")) or "").lower(),
+        ),
+    )
     heating = sorted(
         [movement for movement in eligible_movements if (movement.get("changeAmount") or 0) > 0],
         key=lambda movement: movement.get("movementScore") or 0,

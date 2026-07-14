@@ -9,6 +9,7 @@ const cardClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCard
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const pricingContractPath = path.resolve(__dirname, "../../lib/pokemon/pricingSnapshotContract.mjs");
 const moversRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/market/movers/route.js");
+const topChaseWindowStatePath = path.resolve(__dirname, "topChaseWindowState.mjs");
 
 const read = (file) => fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n");
 const section = (source, startToken, endToken) => {
@@ -73,10 +74,9 @@ test("Top Chase combines Price and Change into the shared selected-window stack"
 });
 
 test("Top Chase prefers stored canonical short-window deltas and warns on chart mismatches", () => {
-  const source = read(pagePath);
-  const delta = section(source, "function getTopCardDeltaWindow", "function getTopCardsAvailableDeltaWindows");
-  assert.ok(delta.includes('const storedMovement = ["1D", "7D", "30D"].includes(selectedWindowKey)'));
-  assert.ok(delta.indexOf("if (storedMovement)") < delta.indexOf("if (selectedHistoryWindow)"));
+  const delta = read(topChaseWindowStatePath);
+  assert.ok(delta.includes('const SHORT_WINDOW_KEYS = new Set(["1D", "7D", "30D"])'));
+  assert.ok(delta.indexOf("if (storedMovement)") < delta.indexOf("if (historyMovement)"));
   assert.ok(delta.includes('source: "stored-canonical"'));
   assert.ok(delta.includes('console.warn("[pokemon-market-delta]'));
   for (const token of ["startDate", "endDate", "currentPrice", "cardVariantId", "conditionId"]) {
@@ -149,7 +149,7 @@ test("Top Chase and ticker hide the suffix while Cards place it below", () => {
   assert.ok(tile.includes('windowLabelPlacement="below"'));
   assert.ok(!tile.includes("showWindowLabel={false}"));
   assert.ok(source.includes("since the first available observation"));
-  assert.ok(source.includes("topCardDeltaWindow?.isSinceFirstAvailable"));
+  assert.ok(source.includes("windowState.displayMovement?.isSinceFirstAvailable"));
   assert.ok(source.includes('className="flex h-14 min-w-0 items-center gap-2'));
 });
 

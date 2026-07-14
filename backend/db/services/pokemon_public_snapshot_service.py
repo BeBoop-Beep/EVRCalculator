@@ -2142,6 +2142,14 @@ def _cards_page_stable_tie_key(card: Dict[str, Any]) -> tuple:
     )
 
 
+def _cards_page_mover_tie_key(card: Dict[str, Any]) -> tuple:
+    return (
+        (_to_optional_str(card.get("canonicalCardId")) or _to_optional_str(card.get("id")) or _to_optional_str(card.get("cardId")) or "").lower(),
+        (_to_optional_str(card.get("cardVariantId")) or "").lower(),
+        (_to_optional_str(card.get("conditionId")) or "").lower(),
+    )
+
+
 def _cards_page_movement_sign_value(card: Dict[str, Any], percent_field: str, amount_field: str) -> float:
     percent = _to_optional_float(card.get(percent_field))
     if percent is not None:
@@ -2201,6 +2209,9 @@ def _apply_cards_page_filters_and_sort(
     movement_percent_field = "change7dPercent" if effective_sort == "7d-movers" else "change30dPercent"
     movement_amount_field = "change7dAmount" if effective_sort == "7d-movers" else "change30dAmount"
 
+    if effective_sort == "7d-movers":
+        filtered = [card for card in filtered if _cards_page_has_reliable_movement(card, effective_sort)]
+
     if movement_filter == "heating":
         filtered = [
             card for card in filtered
@@ -2225,10 +2236,10 @@ def _apply_cards_page_filters_and_sort(
     elif effective_sort == "7d-movers":
         filtered.sort(
             key=lambda card: (
-                not _cards_page_has_reliable_movement(card, effective_sort),
                 _to_optional_float(card.get("change7dPercent")) is None,
                 -abs(_to_optional_float(card.get("change7dPercent")) or 0),
-                _cards_page_stable_tie_key(card),
+                -abs(_to_optional_float(card.get("change7dAmount")) or 0),
+                _cards_page_mover_tie_key(card),
             )
         )
     elif effective_sort == "30d-gainers":
@@ -4393,6 +4404,7 @@ def _empty_market_movers_payload(
     window_days: int,
     warnings: Optional[List[str]] = None,
     fallback_source: str,
+    limit: int = DEFAULT_CARD_MOVERS_LIMIT,
 ) -> Dict[str, Any]:
     return {
         "set": {
@@ -4408,9 +4420,10 @@ def _empty_market_movers_payload(
             "windowDays": window_days,
             "heatingUp": [],
             "coolingOff": [],
+            "all": [],
         },
         "meta": {
-            "limit": DEFAULT_CARD_MOVERS_LIMIT,
+            "limit": limit,
             "warnings": list(warnings or []),
             "snapshot": {
                 "source": fallback_source,
@@ -4430,6 +4443,12 @@ def get_pokemon_set_market_movers_snapshot_payload(
     limit: Any = None,
 ) -> Dict[str, Any]:
     """Return the slim Market Movers snapshot (camelCase only) for a Pokemon set.
+
+    Updated contract: reads the requested window's persisted ranked ``all``
+    list plus directional arrays through narrow JSON-path projections. This
+    preserves the canonical overall order shared with Cards 7D Movers and
+    the Overview banner; snapshots predating ``all`` use a diagnosed legacy
+    fallback. Historical notes below describe the earlier projection.
 
     Reads only set_id, window_key, latest_market_date, updated_at, and the
     heatingUp/coolingOff sub-arrays of the single requested mover window out
@@ -4482,7 +4501,11 @@ def get_pokemon_set_market_movers_snapshot_payload(
     select_fields = (
         f"set_id,window_key,latest_market_date,updated_at,"
         f"heating:payload_json->marketMoversByWindow->{resolved_window}->heatingUp,"
-        f"cooling:payload_json->marketMoversByWindow->{resolved_window}->coolingOff"
+        f"cooling:payload_json->marketMoversByWindow->{resolved_window}->coolingOff,"
+        f"all_items:payload_json->marketMoversByWindow->{resolved_window}->all,"
+        f"heating_snake:payload_json->market_movers_by_window->{resolved_window}->heating_up,"
+        f"cooling_snake:payload_json->market_movers_by_window->{resolved_window}->cooling_off,"
+        f"all_items_snake:payload_json->market_movers_by_window->{resolved_window}->all"
     )
 
     def _read_movers_row(window_key: str) -> Optional[Dict[str, Any]]:
@@ -4500,7 +4523,10 @@ def get_pokemon_set_market_movers_snapshot_payload(
         # legitimately empty side (e.g. no cards met the heating-up
         # guardrails this window) still resolves that side to `[]`, not
         # None — so either key being present is enough to call this "found".
-        if row and (row.get("heating") is not None or row.get("cooling") is not None):
+        if row and any(
+            row.get(key) is not None
+            for key in ("heating", "cooling", "all_items", "heating_snake", "cooling_snake", "all_items_snake")
+        ):
             return row
         return None
 
@@ -4537,6 +4563,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
             window_days=window_days,
             warnings=["Pokemon market movers snapshot is missing; served empty fallback payload."],
             fallback_source="empty_fallback_missing_pokemon_set_market_dashboard_snapshot_latest",
+            limit=limit_value,
         )
 
     if used_fallback_window:
@@ -4556,8 +4583,32 @@ def get_pokemon_set_market_movers_snapshot_payload(
         "pokemon_api_set_id": _to_optional_str(identity_row.get("pokemon_api_set_id")),
     }
 
-    heating_up = row.get("heating") if isinstance(row.get("heating"), list) else []
-    cooling_off = row.get("cooling") if isinstance(row.get("cooling"), list) else []
+    heating_up = row.get("heating") if isinstance(row.get("heating"), list) else row.get("heating_snake")
+    cooling_off = row.get("cooling") if isinstance(row.get("cooling"), list) else row.get("cooling_snake")
+    heating_up = heating_up if isinstance(heating_up, list) else []
+    cooling_off = cooling_off if isinstance(cooling_off, list) else []
+    persisted_all = row.get("all_items") if isinstance(row.get("all_items"), list) else row.get("all_items_snake")
+    used_legacy_all_fallback = not isinstance(persisted_all, list)
+    if used_legacy_all_fallback:
+        def _legacy_overall_rank(card: Dict[str, Any]) -> tuple:
+            percent = _to_optional_float(
+                card.get("changePercent")
+                if card.get("changePercent") is not None
+                else card.get("change7dPercent")
+                if resolved_window == "7D"
+                else card.get("change30dPercent")
+            ) or 0
+            amount = _to_optional_float(
+                card.get("changeAmount")
+                if card.get("changeAmount") is not None
+                else card.get("change7dAmount")
+                if resolved_window == "7D"
+                else card.get("change30dAmount")
+            ) or 0
+            identity = _to_optional_str(card.get("canonicalCardId")) or _to_optional_str(card.get("cardId")) or ""
+            return (-abs(percent), -abs(amount), identity.lower())
+
+        persisted_all = sorted([*heating_up, *cooling_off], key=_legacy_overall_rank)
 
     timings = {
         "snapshotQueryMs": query_ms,
@@ -4569,6 +4620,10 @@ def get_pokemon_set_market_movers_snapshot_payload(
             f"Market movers snapshot row for window_key {DEFAULT_DASHBOARD_WINDOW} is missing; served the "
             f"{DEFAULT_TOP_CHASE_DASHBOARD_WINDOW} row's stored movers instead."
         )
+    if used_legacy_all_fallback:
+        warnings.append(
+            "Legacy market movers snapshot has no persisted overall ranking; synthesized all from directional arrays."
+        )
 
     payload = {
         "set": set_identity,
@@ -4579,6 +4634,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
             "windowDays": window_days,
             "heatingUp": heating_up[:limit_value],
             "coolingOff": cooling_off[:limit_value],
+            "all": persisted_all[:limit_value],
         },
         "meta": {
             "limit": limit_value,
@@ -4586,11 +4642,12 @@ def get_pokemon_set_market_movers_snapshot_payload(
             "priceBasis": "pokemon_set_market_dashboard_snapshot_latest.payload_json.marketMoversByWindow",
             "snapshot": {
                 "source": "pokemon_set_market_dashboard_snapshot_latest",
-                "sourceField": "payload_json.marketMoversByWindow.heatingUp/coolingOff",
+                "sourceField": "payload_json.marketMoversByWindow.all/heatingUp/coolingOff",
                 "window": resolved_window,
                 "usedReadModel": True,
                 "rowWindowKey": row.get("window_key"),
                 "usedFallbackWindow": used_fallback_window,
+                "usedLegacyAllFallback": used_legacy_all_fallback,
                 **({"fallbackReason": "missing_365d_row"} if used_fallback_window else {}),
                 "updatedAt": _to_optional_str(row.get("updated_at")),
                 "latestMarketDate": _parse_date_key(row.get("latest_market_date")),

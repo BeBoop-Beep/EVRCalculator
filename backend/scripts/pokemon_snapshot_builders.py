@@ -1940,11 +1940,35 @@ def _enrich_top_chase_cards_with_canonical_deltas(
         )
         canonical_id = display_to_canonical.get(display_key or "")
         selected = selected_by_canonical.get(canonical_id or "")
-        if not canonical_id or not selected or not latest_market_date:
+        if not canonical_id:
+            diagnostics.append({
+                "type": "top_chase_missing_canonical_identity",
+                "displayCardId": display_key,
+                "name": first_non_empty(card.get("name")),
+            })
+            enriched_cards.append(enriched)
+            continue
+        if not selected:
+            diagnostics.append({
+                "type": "top_chase_missing_selected_variant",
+                "canonicalCardId": canonical_id,
+                "displayCardId": display_key,
+            })
+            enriched_cards.append(enriched)
+            continue
+        if not latest_market_date:
             enriched_cards.append(enriched)
             continue
         selected_variant_id = first_non_empty(selected.get("card_variant_id"))
         selected_condition_id = first_non_empty(selected.get("condition_id"))
+        if not selected_variant_id or not selected_condition_id:
+            diagnostics.append({
+                "type": "top_chase_missing_selected_variant",
+                "canonicalCardId": canonical_id,
+                "displayCardId": display_key,
+            })
+            enriched_cards.append(enriched)
+            continue
         original_variant_id = first_non_empty(card.get("cardVariantId"), card.get("card_variant_id"))
         original_condition_id = first_non_empty(card.get("conditionId"), card.get("condition_id"), card.get("conditionIdUsed"), card.get("condition_id_used"))
         if original_variant_id and original_variant_id != selected_variant_id:
@@ -1961,8 +1985,12 @@ def _enrich_top_chase_cards_with_canonical_deltas(
                 "simulationConditionId": original_condition_id,
                 "canonicalConditionId": selected_condition_id,
             })
-        history = histories.get(display_key or "") or list(card.get("priceHistory") or card.get("price_history") or [])
-        movements = {
+        history = (
+            histories.get(selected_variant_id)
+            or histories.get(display_key or "")
+            or list(card.get("priceHistory") or card.get("price_history") or [])
+        )
+        calculated_movements = {
             window_key: calculate_pokemon_card_market_delta(
                 observations=history,
                 selected_current_price=selected.get("market_price"),
@@ -1974,6 +2002,19 @@ def _enrich_top_chase_cards_with_canonical_deltas(
                 selected_current_source=selected.get("source"),
             )
             for window_key, window_days in MARKET_MOVERS_WINDOWS_DAYS.items()
+        }
+        movements = {
+            window_key: {
+                **movement,
+                "canonicalCardId": canonical_id,
+                "canonical_card_id": canonical_id,
+            }
+            for window_key, movement in calculated_movements.items()
+            if movement.get("startDate")
+            and movement.get("endDate")
+            and movement.get("startDate") < movement.get("endDate")
+            and movement.get("changeAmount") is not None
+            and movement.get("changePercent") is not None
         }
         if movement_metadata:
             movements = {
@@ -2164,6 +2205,40 @@ def build_market_dashboard_snapshot_rows(
             "builtAt": built_at,
         },
     )
+    top_chase_window_counts = {
+        window_key: sum(
+            1
+            for card in compact_top_cards
+            if isinstance(card.get("marketDeltaWindows"), dict)
+            and isinstance(card["marketDeltaWindows"].get(window_key), dict)
+        )
+        for window_key in MARKET_MOVERS_WINDOWS_DAYS
+    }
+    top_chase_missing_canonical_identity_count = sum(
+        diagnostic.get("type") == "top_chase_missing_canonical_identity"
+        for diagnostic in top_chase_identity_diagnostics
+    )
+    top_chase_missing_selected_variant_count = sum(
+        diagnostic.get("type") == "top_chase_missing_selected_variant"
+        for diagnostic in top_chase_identity_diagnostics
+    )
+    top_chase_partial_card_count = sum(
+        any(
+            movement.get("isPartialWindow") is True
+            for movement in (card.get("marketDeltaWindows") or {}).values()
+            if isinstance(movement, dict)
+        )
+        for card in compact_top_cards
+    )
+    top_chase_priced_card_count = sum(
+        (to_optional_float(card.get("marketPrice")) or 0) > 0
+        for card in compact_top_cards
+    )
+    top_chase_movement_warnings = []
+    if top_chase_priced_card_count > 0 and sum(top_chase_window_counts.values()) == 0:
+        warning = "Top Chase has priced cards but no usable 1D/7D/30D movement contracts."
+        top_chase_movement_warnings.append(warning)
+        logger.warning("[pokemon-snapshot] %s set_id=%s", warning, set_id)
     # Re-key the canonical selected-variant histories as aliases so the slim
     # Top Chase reader and frontend can resolve history after the public card
     # identity is changed from the simulation variant to the selected variant.
@@ -2256,6 +2331,7 @@ def build_market_dashboard_snapshot_rows(
                 list(standard_meta.get("warnings") or [])
                 + list((top_payload.get("meta") or {}).get("warnings") or [])
                 + ([] if perf_history else ["Simulation performance history is unavailable for this set."])
+                + top_chase_movement_warnings
             ),
             "topChaseHistorySource": TOP_CHASE_HISTORY_SOURCE,
             "topChaseHistorySourceWindowDays": TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
@@ -2267,6 +2343,17 @@ def build_market_dashboard_snapshot_rows(
             "windowConvention": WINDOW_CONVENTION,
             "movementQueryDiagnostics": movement_windows_payload.get("meta") or {},
             "topChaseIdentityDiagnostics": top_chase_identity_diagnostics,
+            "topChaseCardCount": len(compact_top_cards),
+            "topChaseMovementCountByWindow": top_chase_window_counts,
+            "topChaseMissingCanonicalIdentityCount": top_chase_missing_canonical_identity_count,
+            "topChaseMissingSelectedVariantCount": top_chase_missing_selected_variant_count,
+            "topChasePartialCardCount": top_chase_partial_card_count,
+            "topChaseCardsWith1dMovement": top_chase_window_counts["1D"],
+            "topChaseCardsWith7dMovement": top_chase_window_counts["7D"],
+            "topChaseCardsWith30dMovement": top_chase_window_counts["30D"],
+            "topChaseCardsMissingCanonicalIdentity": top_chase_missing_canonical_identity_count,
+            "topChaseCardsMissingSelectedVariant": top_chase_missing_selected_variant_count,
+            "topChaseCardsUsingPartialWindow": top_chase_partial_card_count,
             "snapshot": {
                 "type": "pokemon_set_market_dashboard",
                 "builtAt": built_at,

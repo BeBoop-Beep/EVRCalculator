@@ -126,7 +126,6 @@ import {
   debugLoadingTiming,
 } from "@/lib/navigation/loadingPolicy";
 import {
-  computeDeltaWindowsFromHistory,
   extractDeltaWindows,
   filterHistoryPointsForDeltaWindow,
   getDeltaWindowLabel,
@@ -137,6 +136,11 @@ import {
 } from "@/lib/explore/marketDeltaWindows.mjs";
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { forwardFillDailyHistoryThroughToday, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
+import {
+  getTopCardPreferredHistoryEndDate,
+  resolveTopCardWindowState,
+  warnForTopCardWindowState,
+} from "./topChaseWindowState.mjs";
 import { mergePerformanceHistories, getLatestRealPerformanceDate } from "./performanceHistorySelector.mjs";
 import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
 import {
@@ -2896,15 +2900,14 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
   const name = card?.name || "Unknown card";
   const rarity = card?.rarity || null;
   const price = getChecklistCardMarketPrice(card);
-  const historyPoints = getTopCardPriceHistory(card);
-  const topCardDeltaWindow = getTopCardDeltaWindow(card, historyPoints, selectedWindowKey);
-  const sparklinePoints = filterHistoryPointsForDeltaWindow(historyPoints, topCardDeltaWindow, { dateKey: "date" });
-  const valuedHistoryPoints = historyPoints.filter((point) => point.value !== null);
-  const firstPrice = valuedHistoryPoints[0]?.value ?? null;
-  const lastPrice = valuedHistoryPoints[valuedHistoryPoints.length - 1]?.value ?? null;
-  const historyDeltaAmount = getPriceDeltaAmount(lastPrice, firstPrice);
-  const displayDeltaAmount = topCardDeltaWindow?.amount ?? (selectedWindowKey ? null : historyDeltaAmount);
-  const displayDelta = topCardDeltaWindow?.percent ?? (selectedWindowKey ? null : getPriceDeltaPercent(lastPrice, firstPrice));
+  const historyPoints = getTopCardPriceHistory(card, selectedWindowKey);
+  const windowState = resolveTopCardWindowState({ card, historyPoints, selectedWindowKey });
+  warnForTopCardWindowState(windowState, card, selectedWindowKey);
+  const sparklinePoints = windowState.chartWindow
+    ? filterHistoryPointsForDeltaWindow(historyPoints, windowState.chartWindow, { dateKey: "date" })
+    : [];
+  const displayDeltaAmount = windowState.displayMovement?.amount ?? null;
+  const displayDelta = windowState.displayMovement?.percent ?? null;
   const sparklineTone =
     displayDeltaAmount === null
       ? displayDelta === null
@@ -2965,10 +2968,13 @@ function TopMarketCardRow({ card, index, selectedWindowKey }) {
           windowLabel={getDeltaWindowLabel(selectedWindowKey)}
           showWindowLabel={false}
           accessiblePeriodLabel={
-            topCardDeltaWindow?.isSinceFirstAvailable
+            windowState.displayMovement?.isSinceFirstAvailable
               ? getMovementAccessiblePeriod({
                   isPartialWindow: true,
-                  windowCoverageDays: getDateSpanDays(topCardDeltaWindow.startDate, topCardDeltaWindow.endDate),
+                  windowCoverageDays: getDateSpanDays(
+                    windowState.displayMovement.startDate,
+                    windowState.displayMovement.endDate
+                  ),
                 })
               : null
           }
@@ -3078,120 +3084,11 @@ function getDateSpanDays(startDate, endDate) {
   return Math.round((end - start) / 86400000);
 }
 
-function getTopCardDeltaWindow(card, historyPoints, selectedWindowKey) {
-  const historyWindows = computeDeltaWindowsFromHistory(historyPoints, {
-    dateKey: "date",
-    valueKey: "value",
-    // Persisted Top Chase history now materializes the effective market-day
-    // endpoint (with sourceDate retained when carried). The 1D window must use
-    // those last two market dates, not skip carries to find older observations.
-    preferActualPointsForOneDay: false,
-  });
-  const selectedHistoryWindow = historyWindows.find((entry) => entry.key === selectedWindowKey);
-  const storedWindows = card?.marketDeltaWindows && typeof card.marketDeltaWindows === "object"
-    ? card.marketDeltaWindows
-    : card?.market_delta_windows && typeof card.market_delta_windows === "object"
-    ? card.market_delta_windows
-    : null;
-  const storedMovement = ["1D", "7D", "30D"].includes(selectedWindowKey)
-    ? storedWindows?.[selectedWindowKey]
-    : null;
-  if (storedMovement) {
-    const storedWindow = {
-      ...storedMovement,
-      key: selectedWindowKey,
-      label: selectedWindowKey,
-      amount: toNumber(storedMovement?.changeAmount ?? storedMovement?.change_amount),
-      percent: toNumber(storedMovement?.changePercent ?? storedMovement?.change_percent),
-      startDate: getHistoryDateKey(storedMovement?.startDate ?? storedMovement?.start_date),
-      endDate: getHistoryDateKey(storedMovement?.endDate ?? storedMovement?.end_date),
-      targetStartDate: getHistoryDateKey(storedMovement?.targetStartDate ?? storedMovement?.target_start_date),
-      isSinceFirstAvailable: Boolean(storedMovement?.isPartialWindow ?? storedMovement?.is_partial_window),
-      source: "stored-canonical",
-    };
-    if (process.env.NODE_ENV !== "production") {
-      const latestChartPoint = [...(Array.isArray(historyPoints) ? historyPoints : [])]
-        .filter((point) => toNumber(point?.value) !== null)
-        .sort((a, b) => String(a?.date || "").localeCompare(String(b?.date || "")))
-        .at(-1);
-      const mismatches = [];
-      if (selectedHistoryWindow?.startDate && storedWindow.startDate !== selectedHistoryWindow.startDate) mismatches.push("startDate");
-      if (selectedHistoryWindow?.endDate && storedWindow.endDate !== selectedHistoryWindow.endDate) mismatches.push("endDate");
-      const storedCurrentPrice = toNumber(storedMovement?.currentPrice ?? storedMovement?.current_price);
-      if (storedCurrentPrice !== null && toNumber(latestChartPoint?.value) !== null && Math.abs(storedCurrentPrice - toNumber(latestChartPoint.value)) >= 0.005) mismatches.push("currentPrice");
-      const movementVariantId = storedMovement?.cardVariantId ?? storedMovement?.card_variant_id;
-      const movementConditionId = storedMovement?.conditionId ?? storedMovement?.condition_id;
-      if (movementVariantId && card?.cardVariantId && movementVariantId !== card.cardVariantId) mismatches.push("cardVariantId");
-      if (movementConditionId && card?.conditionId && movementConditionId !== card.conditionId) mismatches.push("conditionId");
-      if (mismatches.length > 0) {
-        console.warn("[pokemon-market-delta] Stored Top Chase movement disagrees with chart/identity", {
-          canonicalCardId: card?.canonicalCardId || card?.cardId || card?.id,
-          window: selectedWindowKey,
-          mismatches,
-          storedMovement,
-          selectedHistoryWindow,
-        });
-      }
-    }
-    return storedWindow;
-  }
-  if (
-    ["1D", "7D", "30D"].includes(selectedWindowKey)
-    && card?.allowLegacyMovementHistoryFallback !== true
-  ) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[pokemon-market-delta] Refusing implicit Top Chase history fallback", {
-        canonicalCardId: card?.canonicalCardId || card?.cardId || card?.id,
-        window: selectedWindowKey,
-        movementGeneration: card?.movementGeneration || null,
-      });
-    }
-    return null;
-  }
-  if (selectedHistoryWindow) {
-    return selectedHistoryWindow;
-  }
-
-  const fieldWindows = extractDeltaWindows({ deltas: card?.deltas });
-  const selectedFieldWindow = fieldWindows.find((entry) => entry.key === selectedWindowKey);
-  if (selectedFieldWindow) {
-    return selectedFieldWindow;
-  }
-  if (selectedWindowKey === "30D") {
-    const valuedHistoryPoints = (Array.isArray(historyPoints) ? historyPoints : [])
-      .filter((point) => toNumber(point?.value) !== null)
-      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
-    const firstPoint = valuedHistoryPoints[0] || null;
-    const latestPoint = valuedHistoryPoints[valuedHistoryPoints.length - 1] || null;
-    const firstValue = toNumber(firstPoint?.value);
-    const latestValue = toNumber(latestPoint?.value);
-    if (valuedHistoryPoints.length >= 2 && firstValue !== null && latestValue !== null && firstValue !== 0) {
-      const amount = latestValue - firstValue;
-      return {
-        key: "30D",
-        label: "30D",
-        amount,
-        percent: (amount / firstValue) * 100,
-        startDate: firstPoint.date,
-        endDate: latestPoint.date,
-        isSinceFirstAvailable: true,
-        source: "partial-history",
-      };
-    }
-  }
-  if (selectedWindowKey) {
-    return null;
-  }
-
-  const preferredHistoryKey = getPreferredDeltaWindowKey(historyWindows, "30D");
-  return preferredHistoryKey ? historyWindows.find((entry) => entry.key === preferredHistoryKey) || null : null;
-}
-
 function getTopCardsAvailableDeltaWindows(cards) {
   return Array.isArray(cards) && cards.length > 0 ? getStandardDeltaWindowDefinitions() : [];
 }
 
-function getTopCardPriceHistory(card) {
+function getTopCardPriceHistory(card, selectedWindowKey) {
   const history = Array.isArray(card?.priceHistory) ? card.priceHistory : Array.isArray(card?.price_history) ? card.price_history : [];
   const points = history
     .map((point) => ({
@@ -3203,9 +3100,15 @@ function getTopCardPriceHistory(card) {
     }))
     .filter((point) => point.date);
 
-  return forwardFillDailyHistoryThroughToday(points, {
+  const preferredEndDate = getTopCardPreferredHistoryEndDate(card, selectedWindowKey, points);
+  const boundedPoints = preferredEndDate
+    ? points.filter((point) => point.date <= preferredEndDate)
+    : points;
+
+  return forwardFillDailyHistoryThroughToday(boundedPoints, {
     dateField: "date",
     valueKeys: ["value"],
+    todayDateKey: preferredEndDate,
   });
 }
 
