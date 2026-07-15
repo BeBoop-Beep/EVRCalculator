@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   DESIRABILITY_AGREEMENT_SIGNALS,
   buildAgreementAriaLabel,
-  buildDivergingAgreementModel,
+  buildRankedAgreementModel,
   describeAgreementSignal,
   selectDesirabilityAgreement,
   selectDesirabilityVerdict,
@@ -39,7 +39,7 @@ test("agreement selection returns one row per engine-scored signal, sorted stron
   assert.equal(agreement.anchorRank, 14);
   assert.equal(agreement.fieldSize, 40);
   // avg_hit_value has no engine alignment in the payload → omitted, no
-  // placeholder and no fabricated bar.
+  // placeholder and no fabricated row.
   assert.ok(!agreement.signals.some((signal) => signal.key === "avg_hit_value"));
   const keys = agreement.signals.map((signal) => signal.key);
   assert.deepEqual(keys, ["expected_value", "p95_value", "top_10_card_value", "top_chase_value", "set_value"]);
@@ -61,28 +61,32 @@ test("agreement states mirror the backend's named strongest/conflict signals onl
   assert.equal(agreement.conflict.key, "set_value");
 });
 
-test("diverging model is an affine display transform of the engine score around its midpoint", () => {
-  const model = buildDivergingAgreementModel(selectDesirabilityAgreement(BASE_VALIDATION));
-  const byKey = new Map(model.rows.map((row) => [row.key, row]));
+test("ranked model keeps the engine order and score verbatim, with no invented sign or geometry", () => {
+  const model = buildRankedAgreementModel(selectDesirabilityAgreement(BASE_VALIDATION));
 
-  // score > 50 → right/confirm side; score < 50 → left/conflict side; length
-  // is |score − 50| × 2 percent of the half-axis. The engine score itself is
-  // preserved untouched on every row.
-  assert.equal(byKey.get("expected_value").side, "confirms");
-  assert.equal(byKey.get("expected_value").extentPercent, 95);
+  assert.equal(model.anchorRank, 14);
+  assert.equal(model.fieldSize, 40);
+  assert.deepEqual(
+    model.rows.map((row) => row.key),
+    ["expected_value", "p95_value", "top_10_card_value", "top_chase_value", "set_value"],
+    "rows must stay ordered strongest agreement first"
+  );
+  const byKey = new Map(model.rows.map((row) => [row.key, row]));
   assert.equal(byKey.get("expected_value").alignmentScore, 97.5);
-  assert.equal(byKey.get("set_value").side, "conflicts");
-  assert.equal(byKey.get("set_value").extentPercent, 15);
   assert.equal(byKey.get("set_value").alignmentScore, 42.5);
-  assert.equal(byKey.get("top_chase_value").side, "confirms");
-  assert.equal(byKey.get("top_chase_value").extentPercent, 35);
+  // The engine's 0–100 closeness score is unsigned: no confirm/conflict side
+  // and no bar extent may be derived from it on the frontend.
+  for (const row of model.rows) {
+    assert.ok(!("side" in row), `${row.key} must not carry a derived side`);
+    assert.ok(!("extentPercent" in row), `${row.key} must not carry a derived bar extent`);
+  }
 });
 
-test("a #1 top chase the engine scores as full agreement renders as a strong confirm, never the outlier", () => {
+test("a #1 top chase the engine names strongest leads the list as the confirm callout, never the outlier", () => {
   // The exact regression being guarded: desirability #1 + top chase #1 → the
-  // engine outputs alignment 100 and names top chase the strongest signal. The
-  // display must put it on the confirm side at full extent.
-  const model = buildDivergingAgreementModel(
+  // engine outputs alignment 100 and names top chase the strongest signal.
+  // The display must lead with it as the confirm callout.
+  const model = buildRankedAgreementModel(
     selectDesirabilityAgreement({
       desirability_rank: 1,
       total_ranked_sets: 33,
@@ -98,20 +102,21 @@ test("a #1 top chase the engine scores as full agreement renders as a strong con
   );
   const topChase = model.rows.find((row) => row.key === "top_chase_value");
 
-  assert.equal(topChase.side, "confirms");
-  assert.equal(topChase.extentPercent, 100);
   assert.equal(topChase.state, "confirms");
+  assert.equal(topChase.alignmentScore, 100);
   assert.equal(model.rows[0].key, "top_chase_value", "the strongest confirm leads the row order");
+  assert.equal(model.strongest.key, "top_chase_value");
   const setValue = model.rows.find((row) => row.key === "set_value");
-  assert.equal(setValue.side, "conflicts");
+  assert.equal(setValue.state, "conflicts");
+  assert.equal(model.rows[model.rows.length - 1].key, "set_value", "the weakest agreement sits last");
 });
 
-test("display-only guard: bar geometry consumes the engine's alignment output, never re-derived from ranks", () => {
+test("display-only guard: rows consume the engine's alignment output, never re-derived from ranks", () => {
   // Deliberately inconsistent payload: the ranks are identical (a rank-based
   // recomputation would yield full agreement) but the engine's score says 20.
   // The display must follow the engine score — proof no new agreement math
   // runs on the frontend.
-  const model = buildDivergingAgreementModel(
+  const model = buildRankedAgreementModel(
     selectDesirabilityAgreement({
       desirability_rank: 5,
       total_ranked_sets: 20,
@@ -122,10 +127,9 @@ test("display-only guard: bar geometry consumes the engine's alignment output, n
   const row = model.rows[0];
 
   assert.equal(row.alignmentScore, 20);
-  assert.equal(row.side, "conflicts");
-  assert.equal(row.extentPercent, 60);
+  assert.equal(row.state, "neutral", "no engine callout means no confirm/conflict styling");
 
-  // And a signal with a rank but no engine magnitude gets no bar at all.
+  // And a signal with a rank but no engine magnitude gets no row at all.
   const withoutMagnitude = selectDesirabilityAgreement({
     desirability_rank: 5,
     total_ranked_sets: 20,
@@ -163,29 +167,15 @@ test("agreement view is null without any engine-scored signal", () => {
   assert.equal(
     selectDesirabilityAgreement({ desirability_rank: 3, total_ranked_sets: 10, set_value_rank: 4 }),
     null,
-    "ranks alone carry no engine agreement magnitude — nothing honest to plot"
+    "ranks alone carry no engine agreement magnitude — nothing honest to list"
   );
-  assert.equal(buildDivergingAgreementModel(null), null);
-});
-
-test("a midpoint score renders no bar in either direction", () => {
-  const model = buildDivergingAgreementModel(
-    selectDesirabilityAgreement({
-      desirability_rank: 3,
-      total_ranked_sets: 10,
-      expected_value_rank: 8,
-      desirability_alignment_details: { expected_value_alignment: 50 },
-    })
-  );
-
-  assert.equal(model.rows[0].extentPercent, 0);
-  assert.equal(model.rows[0].side, "confirms");
+  assert.equal(buildRankedAgreementModel(null), null);
 });
 
 test("verdict binds the backend band, signals, and summary; single-signal payloads drop the outlier clause", () => {
   const verdict = selectDesirabilityVerdict(BASE_VALIDATION);
   assert.equal(verdict.band, "moderate");
-  assert.equal(verdict.label, "Partly confirmed");
+  assert.equal(verdict.label, "Moderate market association");
   assert.equal(verdict.strongestLabel, "EV");
   assert.equal(verdict.conflictLabel, "Set value");
   assert.equal(verdict.summary, "This set shows partial market confirmation.");
@@ -200,20 +190,25 @@ test("verdict binds the backend band, signals, and summary; single-signal payloa
   assert.equal(selectDesirabilityVerdict({}), null);
 });
 
-test("accessible descriptions carry the engine score, side, rank, and named state", () => {
-  const model = buildDivergingAgreementModel(selectDesirabilityAgreement(BASE_VALIDATION));
+test("accessible descriptions carry the engine score, rank, and named state", () => {
+  const model = buildRankedAgreementModel(selectDesirabilityAgreement(BASE_VALIDATION));
   const setValue = model.rows.find((row) => row.key === "set_value");
 
   const description = describeAgreementSignal(setValue, model.fieldSize);
   assert.ok(description.includes("Set value: agreement 43 of 100"));
-  assert.ok(description.includes("conflicts with the desirability read"));
-  assert.ok(description.includes("rank #31 of 40"));
+  assert.ok(description.includes("market rank #31 of 40"));
   assert.ok(description.includes("biggest conflicting signal"));
+
+  const neutral = model.rows.find((row) => row.key === "p95_value");
+  const neutralDescription = describeAgreementSignal(neutral, model.fieldSize);
+  assert.ok(!neutralDescription.includes("conflicting"), "neutral rows carry no engine callout text");
+  assert.ok(!neutralDescription.includes("supporting"));
 
   const ariaLabel = buildAgreementAriaLabel(model);
   assert.ok(ariaLabel.includes("desirability rank #14 of 40"));
-  assert.ok(ariaLabel.includes("Bars right of center confirm the desirability read"));
+  assert.ok(ariaLabel.includes("listed strongest agreement first"));
   assert.ok(ariaLabel.includes("EV: agreement 98 of 100"));
+  assert.ok(!ariaLabel.toLowerCase().includes("bars"), "no bar geometry may be described — there are no bars");
   assert.equal(buildAgreementAriaLabel(null), "");
 });
 

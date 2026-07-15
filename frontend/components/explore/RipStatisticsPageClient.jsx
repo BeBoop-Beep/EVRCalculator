@@ -46,8 +46,7 @@ import {
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import {
   buildAgreementAriaLabel,
-  buildDivergingAgreementModel,
-  describeAgreementSignal,
+  buildRankedAgreementModel,
   selectDesirabilityAgreement,
   selectDesirabilityVerdict,
 } from "./desirabilityAlignment.mjs";
@@ -965,7 +964,7 @@ const SIMPLE_PILLAR_INFO_COPY = {
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   Desirability:
-    "Desirability is the RIP Score pillar based on the Opening Desirability model. The headline score is adjusted for set-to-set ranking, while Collector Appeal and Chase Appeal show the main drivers behind it.",
+    "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value. Because it deliberately excludes price, scarcity, and rarity, it is not expected to reproduce market value on its own — it contributes a small, fixed share of the RIP Score alongside the financial pillars.",
   Stability:
     "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
 };
@@ -6098,13 +6097,16 @@ function hasDesirabilityProofSignal(validation) {
   });
 }
 
-// ——— Desirability agreement (verdict + diverging confirm/conflict view) ———
-// Rebuilt from the old rank-ladder: the verdict leads, and each market signal
-// renders as a diverging bar around a neutral center — right = the signal
-// confirms the desirability read, left = it conflicts. Bar geometry is a pure
-// rescale of the engine's own 0–100 per-signal alignment score (surfaced
-// verbatim as each row's end label); all agreement determinations come from
-// the backend validation payload untouched.
+// ——— Desirability agreement (verdict + ranked signal list) ———
+// Rebuilt twice: the old rank-ladder conflated rank-of-field and agreement on
+// one axis, and the diverging bars that replaced it invented a
+// confirm/conflict sign the engine does not output — its per-signal score is
+// UNSIGNED 0–100 rank closeness with no natural center (see
+// backend/desirability/set_validation.py). Signals now render as a ranked
+// list, strongest agreement first, with the engine score surfaced verbatim;
+// confirm/conflict accents come only from the engine's own named callouts,
+// and correlation stats shown as supporting text reuse the exact selector the
+// Set Validation scatter uses — same source, never an independent copy.
 
 const AGREEMENT_STATE_FILL = {
   confirms: "var(--success)",
@@ -6112,11 +6114,18 @@ const AGREEMENT_STATE_FILL = {
 };
 
 // Exactly ONE lead line: the colored verdict sentence. The backend's gray
-// restatement (verdict.summary) moved into the section's info tooltip.
-function DesirabilityVerdictLine({ verdict }) {
+// restatement (verdict.summary) moved into the section's info tooltip. When
+// the engine's strongest signal has an exactly-matching scatter statistic,
+// the live (r, n) rides along; the claim stays contemporaneous ("tracks") —
+// future-tense language is parked until the lagged forward-return study runs
+// (docs/research/desirability-price-driver-study.md).
+function DesirabilityVerdictLine({ verdict, strongestStat = null }) {
   if (!verdict) {
     return null;
   }
+  const statText = strongestStat
+    ? ` (r = ${formatCorrelationValue(strongestStat.pearson)}, n = ${strongestStat.sampleCount})`
+    : "";
   return (
     <p className="min-w-0 max-w-full text-sm leading-relaxed text-[var(--text-primary)]">
       <span className="font-semibold">{verdict.label}</span>
@@ -6124,12 +6133,13 @@ function DesirabilityVerdictLine({ verdict }) {
         <>
           {" — "}
           <span className="font-semibold text-[var(--success)]">{verdict.strongestLabel}</span>
-          {" backs our desirability read most strongly"}
+          {" tracks our desirability read most closely"}
+          {statText}
           {verdict.conflictLabel ? (
             <>
               {", while "}
               <span className="font-semibold text-[var(--warning)]">{verdict.conflictLabel}</span>
-              {" is the outlier"}
+              {" agrees least"}
             </>
           ) : null}
           {"."}
@@ -6139,84 +6149,76 @@ function DesirabilityVerdictLine({ verdict }) {
   );
 }
 
-function DesirabilityAgreementDiverging({ agreement }) {
-  const model = buildDivergingAgreementModel(agreement);
+// Ranked signal list: strongest agreement first, engine score verbatim on
+// every row. A 0–100 closeness score has no honest center to diverge around
+// and no honest zero-anchored bar (a 45/100 dressed as a bar reads like a
+// positive amount of agreement), so weak signals are made visibly weak by
+// order and muting instead. The engine's own strongest/conflict callouts are
+// the only rows that carry confirm/conflict color.
+function DesirabilityAgreementRankedList({ agreement, signalCorrelations = {} }) {
+  const model = buildRankedAgreementModel(agreement);
   if (!model) {
     return null;
   }
 
-  const rowGridClass = "grid grid-cols-[6.5rem_minmax(0,1fr)_3rem] items-center gap-x-2 sm:grid-cols-[8rem_minmax(0,1fr)_3.25rem]";
-
   return (
     <div className="min-w-0">
-      {/* Polarity captions for the whole plot. */}
-      <div className={rowGridClass} aria-hidden="true">
-        <span />
-        <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          <span>{"←"} conflicts with read</span>
-          <span>confirms read {"→"}</span>
-        </div>
-        <span />
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+        <span className="uppercase tracking-[0.08em]">Signal agreement · strongest first</span>
+        <span className="tabular-nums opacity-80">100 = same rank · 0 = opposite end</span>
       </div>
-
-      <div role="img" aria-label={buildAgreementAriaLabel(model)} className="mt-1.5 space-y-1.5">
-        {model.rows.map((row) => (
-          <div key={`agreement-signal:${row.key}`} className={rowGridClass}>
-            <div className="flex min-w-0 items-baseline gap-1.5">
-              <span className="truncate text-[11px] font-semibold text-[var(--text-primary)]">{row.label}</span>
-              {row.rank !== null ? (
-                <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-secondary)] opacity-80">#{row.rank}</span>
-              ) : null}
-            </div>
-            <div className="relative h-4 min-w-0">
-              {/* Neutral center line: the engine scale's own midpoint. */}
-              <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[color:color-mix(in_srgb,var(--text-secondary)_45%,transparent)]" />
-              {row.extentPercent > 0 ? (
+      <ol aria-label={buildAgreementAriaLabel(model)} className="mt-1.5 space-y-1">
+        {model.rows.map((row) => {
+          const accent = row.state === "neutral" ? null : AGREEMENT_STATE_FILL[row.state];
+          const correlation = signalCorrelations[row.key] || null;
+          return (
+            <li
+              key={`agreement-signal:${row.key}`}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3"
+            >
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0">
                 <span
-                  className={`absolute top-1/2 h-2.5 -translate-y-1/2 ${
-                    row.side === "confirms" ? "left-1/2 rounded-r-[4px]" : "right-1/2 rounded-l-[4px]"
+                  className={`truncate text-[11px] ${
+                    row.state === "neutral"
+                      ? "font-medium text-[var(--text-secondary)]"
+                      : "font-semibold text-[var(--text-primary)]"
                   }`}
-                  style={{
-                    width: `${row.extentPercent / 2}%`,
-                    backgroundColor: AGREEMENT_STATE_FILL[row.side],
-                    // Deeper stop = stronger: depth follows the engine score's
-                    // distance from the midpoint (display-only rescale).
-                    opacity: 0.38 + 0.55 * (row.extentPercent / 100),
-                  }}
-                />
-              ) : null}
-            </div>
-            <span className="text-right text-[10px] font-medium tabular-nums text-[var(--text-secondary)]">
-              {Math.round(row.alignmentScore)}/100
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* The engine's own named callouts, only when present. */}
-      {model.strongest || model.conflict ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-[var(--text-secondary)]" aria-hidden="true">
-          {model.strongest ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: AGREEMENT_STATE_FILL.confirms }} />
-              Strongest confirm: {model.strongest.label}
-            </span>
-          ) : null}
-          {model.conflict ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: AGREEMENT_STATE_FILL.conflicts }} />
-              Biggest conflict: {model.conflict.label}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* Screen-reader equivalent of the diverging plot. */}
-      <ul className="sr-only">
-        {model.rows.map((row) => (
-          <li key={`agreement-sr:${row.key}`}>{describeAgreementSignal(row, model.fieldSize)}</li>
-        ))}
-      </ul>
+                >
+                  {row.label}
+                </span>
+                {row.rank !== null ? (
+                  <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-secondary)] opacity-80">
+                    #{row.rank}
+                    {model.fieldSize ? ` of ${model.fieldSize}` : ""}
+                  </span>
+                ) : null}
+                {correlation ? (
+                  <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-secondary)] opacity-80">
+                    r = {formatCorrelationValue(correlation.pearson)} · n = {correlation.sampleCount}
+                  </span>
+                ) : null}
+                {accent ? (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold"
+                    style={{ color: accent }}
+                  >
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                    {row.state === "confirms" ? "Strongest confirm" : "Biggest conflict"}
+                  </span>
+                ) : null}
+              </div>
+              <span
+                className={`text-right text-[10px] tabular-nums ${
+                  row.state === "neutral" ? "font-medium text-[var(--text-secondary)]" : "font-semibold"
+                }`}
+                style={accent ? { color: accent } : undefined}
+              >
+                {Math.round(row.alignmentScore)}/100
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
@@ -6240,7 +6242,7 @@ function DesirabilityImpactNote({ validation }) {
   );
 }
 
-function DesirabilityAgreementContent({ validation, loading = false, loadingTimedOut = false }) {
+function DesirabilityAgreementContent({ validation, signalCorrelations = {}, loading = false, loadingTimedOut = false }) {
   if (!hasDesirabilityProofSignal(validation)) {
     // While the /insights payload is still in flight this section holds a
     // stable skeleton box (instead of mounting late as an afterthought); if
@@ -6269,11 +6271,14 @@ function DesirabilityAgreementContent({ validation, loading = false, loadingTime
 
   const verdict = selectDesirabilityVerdict(validation);
   const agreement = selectDesirabilityAgreement(validation);
+  // The engine names the strongest signal; the verdict cites its (r, n) only
+  // when that signal has an exactly-matching scatter statistic available.
+  const strongestStat = agreement?.strongest ? signalCorrelations[agreement.strongest.key] || null : null;
 
   return (
-    <div className="min-w-0 space-y-3">
-      <DesirabilityVerdictLine verdict={verdict} />
-      {agreement ? <DesirabilityAgreementDiverging agreement={agreement} /> : null}
+    <div className="min-w-0 space-y-2">
+      <DesirabilityVerdictLine verdict={verdict} strongestStat={strongestStat} />
+      {agreement ? <DesirabilityAgreementRankedList agreement={agreement} signalCorrelations={signalCorrelations} /> : null}
       <DesirabilityImpactNote validation={validation} />
     </div>
   );
@@ -6430,14 +6435,11 @@ function DesirabilityValidationContent({ targets, freshness = null }) {
     metricOptions.find((metric) => metric.key === selectedMetricKey) ||
     metricOptions[0] ||
     DESIRABILITY_VALIDATION_METRICS[0];
-  const points = useMemo(
-    () => selectSetDesirabilityValidation(rows, { metricKey: selectedMetric.key }).points,
-    [rows, selectedMetric]
-  );
   const validationContract = useMemo(
     () => selectSetDesirabilityValidation(rows, { metricKey: selectedMetric.key }),
     [rows, selectedMetric]
   );
+  const points = validationContract.points;
   const pearson = validationContract.pearson;
   const spearman = validationContract.spearman;
   const regressionLinePoints = useMemo(() => calculateRegressionLine(points), [points]);
@@ -6621,7 +6623,8 @@ const CARD_VALIDATION_X_METRICS = [
     label: "Card Appeal",
     axisLabel: "Card Appeal",
     tooltipLabel: "Card Appeal",
-    description: "Card Appeal blends subject demand with card treatment. Scarcity is not included yet when scarcity data is unavailable.",
+    description:
+      "Card Appeal blends subject demand with card treatment. Scarcity is not included yet when scarcity data is unavailable. Because treatment tracks rarity (a price driver), Card Appeal's price correlation is not evidence of collector demand — Pure Pokemon Demand is the price-independent read.",
     resolver: getCardAppealScore,
   },
   {
@@ -6655,10 +6658,11 @@ const CARD_VALIDATION_X_METRICS = [
   },
 ];
 
+// "Hits Only" / "Chase / High Value" scopes were removed deliberately: both
+// select cards BY rarity or price, so any correlation they showed would be
+// partially selecting on the outcome - misleading as demand evidence.
 const CARD_VALIDATION_SCOPES = [
   { key: "priced", label: "Priced Cards", filter: () => true },
-  { key: "hits", label: "Hits Only", filter: (point) => point.isHitEligible },
-  { key: "chase", label: "Chase / High Value", filter: (point) => point.isHitEligible || point.y >= 10 || (point.setValueShare !== null && point.setValueShare >= 0.0025) },
   { key: "scarcity", label: "Scarcity-Qualified", filter: (point) => point.scarcityScore !== null || point.scarcityAdjustedCardAppealScore !== null },
 ];
 
@@ -6899,8 +6903,11 @@ function CardDesirabilityMarketValidationContent({
   snapshotLoading = false,
   dataLoading = false,
 }) {
-  const [selectedMetricKey, setSelectedMetricKey] = useState("cardAppeal");
-  const [selectedScopeKey, setSelectedScopeKey] = useState("hits");
+  // Pure Pokemon Demand leads: it is the only price-independent metric here,
+  // so it is the honest default read (the merged Card Appeal metric inherits
+  // most of its price correlation from Treatment/rarity).
+  const [selectedMetricKey, setSelectedMetricKey] = useState("pure");
+  const [selectedScopeKey, setSelectedScopeKey] = useState("priced");
   const rows = useMemo(() => (Array.isArray(cards) ? cards : []), [cards]);
   const cardAppealSampleDiagnostics = useMemo(() => getCardAppealSampleDiagnostics(rows), [rows]);
   const metricOptions = useMemo(
@@ -6914,11 +6921,7 @@ function CardDesirabilityMarketValidationContent({
       }),
     [cardAppealMarketPriceCorrelation, rows]
   );
-  const defaultMetricKey = useMemo(() => {
-    const appealMetric = CARD_VALIDATION_X_METRICS.find((metric) => metric.key === "cardAppeal");
-    const appealRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, appealMetric);
-    return appealMetric && hasEnoughCardValidationMetricRows(appealRows, appealMetric) ? "cardAppeal" : "pure";
-  }, [cardAppealMarketPriceCorrelation, rows]);
+  const defaultMetricKey = "pure";
   const selectedMetric =
     metricOptions.find((metric) => metric.key === selectedMetricKey) ||
     metricOptions.find((metric) => metric.key === defaultMetricKey) ||
@@ -6941,18 +6944,7 @@ function CardDesirabilityMarketValidationContent({
   }, [cardAppealMarketPriceCorrelation, rows, selectedMetric]);
   const scopeOptions = useMemo(() => {
     const countsByScope = Object.fromEntries(CARD_VALIDATION_SCOPES.map((scope) => [scope.key, rawPoints.filter(scope.filter).length]));
-    return CARD_VALIDATION_SCOPES.filter((scope) => {
-      if (scope.key === "priced") {
-        return true;
-      }
-      if ((countsByScope[scope.key] || 0) < 3) {
-        return false;
-      }
-      if (scope.key === "chase" && countsByScope.chase === countsByScope.hits) {
-        return false;
-      }
-      return true;
-    });
+    return CARD_VALIDATION_SCOPES.filter((scope) => scope.key === "priced" || (countsByScope[scope.key] || 0) >= 3);
   }, [rawPoints]);
   const selectedScope = scopeOptions.find((scope) => scope.key === selectedScopeKey) || CARD_VALIDATION_SCOPES[0];
   const points = useMemo(() => rawPoints.filter(selectedScope.filter), [rawPoints, selectedScope]);
@@ -6983,8 +6975,6 @@ function CardDesirabilityMarketValidationContent({
   const sampleSourceLabel =
     canonicalRowsAvailable && selectedScope?.key === "priced"
       ? "canonical cards"
-      : canonicalRowsAvailable && selectedScope?.key === "hits"
-      ? "hits only"
       : canonicalCorrelation?.sampleSource === "canonical_checklist_cards"
       ? "canonical cards"
       : canonicalCorrelation
@@ -7008,17 +6998,22 @@ function CardDesirabilityMarketValidationContent({
   // The scatter is the primary element: correlation renders as a compact
   // caption on the chart, and the Card Appeal caveat (non-Pokémon exclusion),
   // sample-source detail, and freshness live in the title's info tooltip.
+  // Card-level correlation within one set is a small sample, so it is always
+  // labeled preliminary — the set-level scatter (all ranked sets) is the
+  // primary evidence until the pooled cross-set study runs
+  // (docs/research/desirability-price-driver-study.md).
   const cardValidationInfoText = [
     isCardAppealMetric
       ? CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT
       : selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set.",
+    "Preliminary: this is a small single-set sample, an early signal rather than validated evidence — the Set Validation scatter across all ranked sets is the primary proof.",
     isCardAppealMetric ? cardAppealInfoText : null,
     !isCardAppealMetric && sampleSourceLabel ? `Sample: ${sampleSourceLabel}; ${points.length} plotted.` : null,
     !isCardAppealMetric ? formatSectionFreshnessInfo(freshness).trim() || null : null,
   ]
     .filter(Boolean)
     .join(" ");
-  const correlationCaption = `r = ${formatCorrelationValue(pearson)} · ρ = ${formatCorrelationValue(spearman)} · ${sampleCountLabel} · ${relationshipLabel}`;
+  const correlationCaption = `Preliminary · r = ${formatCorrelationValue(pearson)} · ρ = ${formatCorrelationValue(spearman)} · ${sampleCountLabel} · ${relationshipLabel}`;
 
   return (
     <div className="space-y-3">
@@ -7142,6 +7137,17 @@ function CardDesirabilityMarketValidationContent({
   );
 }
 
+// Ranked-list signals with an exactly-matching Set Validation scatter metric
+// get live (r, n) supporting text. Set value ↔ setValue and EV ↔ expectedValue
+// are exact matches; the P95 scatter metric is cost-adjusted upside — a
+// different quantity than the p95_value rank signal — so it gets no statistic
+// rather than a mislabeled one, and the chase/top-10/avg-hit signals have no
+// correlation metric to cite.
+const AGREEMENT_SIGNAL_METRIC_KEYS = {
+  set_value: "setValue",
+  expected_value: "expectedValue",
+};
+
 function DesirabilityEvidenceCard({
   mode,
   onModeChange,
@@ -7158,20 +7164,38 @@ function DesirabilityEvidenceCard({
   dataLoading = false,
   topHits = [],
 }) {
-  // The old "Proof" sub-tab folded into the always-visible verdict + diverging
-  // agreement view above the charts, so only the two scatter views toggle now.
+  // The old "Proof" sub-tab folded into the always-visible verdict + ranked
+  // agreement list above the charts, so only the two scatter views toggle now.
   // Legacy deep links that request "proof" land on the primary Set Validation
   // proof.
   const selectedMode = mode === "card-validation" ? "card-validation" : "set-validation";
   const topChaseAnchorHit = useMemo(() => selectTopChaseAnchorHit(topHits), [topHits]);
+  // Same selector (and same >= 3 point floor) the Set Validation scatter
+  // caption uses, over the same targets — the verdict line, the ranked list,
+  // and the scatter caption all cite one computation, never separate copies.
+  const signalCorrelations = useMemo(() => {
+    const rows = Array.isArray(targets) ? targets : [];
+    const bySignal = {};
+    if (rows.length === 0) {
+      return bySignal;
+    }
+    for (const [signalKey, metricKey] of Object.entries(AGREEMENT_SIGNAL_METRIC_KEYS)) {
+      const contract = selectSetDesirabilityValidation(rows, { metricKey });
+      if (contract.pearson !== null && contract.sampleCount >= 3) {
+        bySignal[signalKey] = { pearson: contract.pearson, sampleCount: contract.sampleCount };
+      }
+    }
+    return bySignal;
+  }, [targets]);
   // One verdict line stays visible; the backend's restatement sentence and the
   // methodology copy live here in the section's info tooltip instead.
   const verdictSummary = selectDesirabilityVerdict(validation)?.summary || null;
   const sectionInfoText = [
     "Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals.",
     verdictSummary,
-    "Each market signal is ranked across all sets; the engine scores how closely that signal's rank agrees with this set's desirability rank (100 = same rank, 0 = opposite end of the field). Bars right of center confirm the read, bars left of center conflict with it.",
-    "Set Validation is the cleanest market confirmation check: higher desirability should generally align with stronger total checklist value.",
+    "Each market signal is ranked across all sets; the engine scores how closely that signal's rank agrees with this set's desirability rank (100 = same rank, 0 = opposite end of the field). Signals are listed strongest agreement first, and the strongest-supporting and biggest-conflicting callouts are the engine's own.",
+    "Desirability and set value are computed from independent inputs, so this agreement is not circular.",
+    "This is Market Association: higher set desirability is positively associated with set value in the current sample. It is descriptive context, not a price forecast, causal proof, or an input to the score.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -7185,21 +7209,23 @@ function DesirabilityEvidenceCard({
         eyebrow="02 · Proof"
         tone="plain"
         title="Desirability Evidence"
-        subtitle="Does the market agree? Validation against demand and price data."
+        subtitle="Market association: how collector demand lines up with market outcomes in the current sample."
         titleInfoText={sectionInfoText}
-        bodyClassName="space-y-4"
+        bodyClassName="space-y-3"
       >
-        <DesirabilityAgreementContent
-          validation={validation}
-          loading={proofLoading}
-          loadingTimedOut={proofLoadingTimedOut}
-        />
-
-        {/* Statistical proof, promoted out of the old sub-tabs: the primary
-            set-level correlation scatter renders without a click; the card
-            appeal scatter stays one compact toggle away. */}
+        {/* One grid for the whole proof read: the Top Chase context card sits
+            alongside the verdict + ranked signal list (completing in the same
+            viewport block), with the promoted correlation scatter below in the
+            same column. */}
         <div className={topChaseAnchorHit ? "grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]" : "min-w-0"}>
           <div className="min-w-0 space-y-3">
+            <DesirabilityAgreementContent
+              validation={validation}
+              signalCorrelations={signalCorrelations}
+              loading={proofLoading}
+              loadingTimedOut={proofLoadingTimedOut}
+            />
+
             <SegmentedControl
               options={[
                 { value: "set-validation", label: "Set Validation" },
@@ -11259,8 +11285,20 @@ export default function RipStatisticsPageClient({
     { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share), trend: trendByMetricKey.top3Share },
     { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share), trend: trendByMetricKey.top5Share },
   ];
-  const ripBreakdownInfo =
-    "RIP Score combines profit, safety, desirability, and stability into a collector-facing opening score.";
+  // Weights read from the backend scoring config via the explore payload —
+  // never hardcoded here — and always labeled a reasoned default.
+  const ripWeightsConfig = explorePayload?.meta?.ripWeightsConfig || null;
+  const ripWeightsText = ripWeightsConfig?.weights
+    ? `Component weighting (${ripWeightsConfig.weightsLabel || "reasoned default weighting"}): ${Object.entries(ripWeightsConfig.weights)
+        .map(([pillar, weight]) => `${pillar} ${Math.round(weight * 100)}%`)
+        .join(" / ")}.`
+    : null;
+  const ripBreakdownInfo = [
+    "RIP Score combines profit, safety, desirability, and stability into a collector-facing opening score.",
+    ripWeightsText,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const ripScoreBreakdown = useMemo(
     () => selectRipScoreBreakdown(summary, trendByMetricKey, { requestTimeout: isTimeoutFallbackPayload }),
     [summary, trendByMetricKey, isTimeoutFallbackPayload]

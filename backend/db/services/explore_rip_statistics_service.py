@@ -9,6 +9,13 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from backend.db.clients.supabase_client import public_read_client
 from backend.db.services.rip_desirability_comparison import build_rip_desirability_comparison_payload
+from backend.db.services.universal_set_desirability_service import (
+    get_universal_desirability_bundle,
+    public_payload as universal_public_payload,
+)
+from backend.desirability.scoring_config import DEFAULT_RIP_WEIGHTS, rip_weights_payload
+from backend.desirability.universal_set_desirability import assess_simulation_coverage
+from backend.desirability.weighted_rip import compute_weighted_rip
 from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
@@ -899,6 +906,47 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         comparison_diagnostics["minimal_impact_count"],
     )
 
+    # Universal Set Desirability v3 + weighted RIP v3 (versioned, additive;
+    # legacy pack_score fields above are unchanged during the migration).
+    universal_bundle = get_universal_desirability_bundle()
+    universal_payloads = universal_bundle.get("payloads") or {}
+    # Descriptive context only. Desirability's RIP weight comes from the config
+    # defaults; this correlation never zeroes it (see scoring_config).
+    set_value_association = universal_bundle.get("setValueAssociation")
+    rip_v3_rows: List[Dict[str, Any]] = []
+    for target in targets:
+        resolved_id = _to_optional_str(target.get("set_id")) or _to_optional_str(target.get("target_id"))
+        universal_row = universal_payloads.get(resolved_id or "") or universal_payloads.get(
+            str(target.get("target_id") or "")
+        )
+        universal = universal_public_payload(universal_row, set_value_association)
+        target["universalSetDesirability"] = universal
+        target["desirabilityCoverage"] = (universal or {}).get("coverage") or {
+            "status": "unavailable",
+            "reasons": ["missing_demand_scores"],
+        }
+        target["simulationCoverage"] = assess_simulation_coverage(target)
+        desirability_v3_score = (
+            (universal or {}).get("score")
+            if ((universal or {}).get("coverage") or {}).get("status") == "full"
+            else None
+        )
+        target["rip"] = compute_weighted_rip(
+            {
+                "profit": target.get("profit_score"),
+                "safety": target.get("safety_score"),
+                "stability": target.get("stability_score"),
+                "desirability": desirability_v3_score,
+            }
+        )
+        if target["rip"].get("score") is not None:
+            rip_v3_rows.append(target)
+    rip_v3_rows.sort(
+        key=lambda row: (-(_to_optional_float(row["rip"].get("score")) or 0.0), str(row.get("target_id") or ""))
+    )
+    for rank, target in enumerate(rip_v3_rows, start=1):
+        target["rip"]["rank"] = rank
+
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
         targets[0],
@@ -916,6 +964,12 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             "warnings": warnings,
             "ripDesirabilityComparison": comparison_diagnostics,
             "rip_desirability_comparison": comparison_diagnostics,
+            "setValueAssociation": set_value_association,
+            "ripWeightsConfig": rip_weights_payload(DEFAULT_RIP_WEIGHTS),
+            "deprecatedFields": {
+                "pack_score": "Legacy 45/25/20/10 blend; superseded by the versioned `rip` object.",
+                "rip_score_with_desirability": "Legacy comparison field; see `rip` and universalSetDesirability.gate.",
+            },
             "timings": {
                 "targets_query_ms": round(query_ms, 2),
                 "set_enrichment_ms": round(set_ms, 2),

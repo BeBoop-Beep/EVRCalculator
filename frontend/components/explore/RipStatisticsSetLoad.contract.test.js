@@ -1502,14 +1502,20 @@ test("cards proxy route returns controlled timeout errors", () => {
   assert.ok(cardsRoute.includes("backendPathForDiagnostics(backendUrl)"));
 });
 
-test("card appeal market chart defaults to hits with honest labels", () => {
+test("card validation chart defaults to price-independent Pure Demand over all priced cards", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes('useState("cardAppeal")'));
-  assert.ok(source.includes('useState("hits")'));
+  // Pure Pokemon Demand (the price-independent metric) over all priced cards
+  // is the honest default read; rarity/price-selected scopes were removed
+  // because they partially select on the outcome.
+  assert.ok(source.includes('useState("pure")'));
+  assert.ok(source.includes('useState("priced")'));
+  assert.ok(!source.includes('useState("cardAppeal")'));
+  assert.ok(!source.includes('useState("hits")'));
+  assert.ok(!source.includes('label: "Hits Only"'));
+  assert.ok(!source.includes('label: "Chase / High Value"'));
   assert.ok(source.includes("getCardAppealSampleDiagnostics"));
   assert.ok(source.includes('label: "Priced Cards"'));
-  assert.ok(source.includes('label: "Hits Only"'));
   assert.ok(source.includes('label: "Card Appeal"'));
   assert.ok(source.includes("Card Appeal is currently calculated for Pokémon cards only."));
   assert.ok(source.includes("This chart only includes priced cards with a Card Appeal score."));
@@ -1570,7 +1576,7 @@ test("card appeal market chart prefers canonical correlation sample when availab
   assert.ok(source.includes("const pointSpearman = calculateSpearmanCorrelation(points)"));
   assert.ok(source.includes("const sampleCount = canonicalCorrelation && !canonicalRowsAvailable ? canonicalCorrelation.n : points.length"));
   assert.ok(source.includes('"canonical cards"'));
-  assert.ok(source.includes('"hits only"'));
+  assert.ok(!source.includes('"hits only"'));
   assert.ok(source.includes("points.length} plotted"));
 });
 
@@ -1603,16 +1609,19 @@ test("card validation bucket row keys include stable identity beyond card name",
   assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
 });
 
-test("desirability evidence renders verdict + diverging agreement view from set payload validation data", () => {
+test("desirability evidence renders verdict + ranked agreement list from set payload validation data", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(source.includes("function DesirabilityEvidenceCard"));
-  // The verdict line + diverging confirm/conflict view replaced the old
-  // rank-ladder (which conflated rank-of-field and agreement on one axis);
-  // only the two scatter views toggle now.
+  // The verdict line + ranked signal list replaced the old rank-ladder (which
+  // conflated rank-of-field and agreement on one axis) and the diverging bars
+  // that followed it (which invented a confirm/conflict sign the engine's
+  // unsigned 0–100 closeness score does not carry); only the two scatter
+  // views toggle now.
   assert.ok(source.includes("function DesirabilityAgreementContent"));
   assert.ok(source.includes("function DesirabilityVerdictLine"));
-  assert.ok(source.includes("function DesirabilityAgreementDiverging"));
+  assert.ok(source.includes("function DesirabilityAgreementRankedList"));
+  assert.ok(!source.includes("DesirabilityAgreementDiverging"), "the diverging bar chart must be gone");
   assert.ok(!source.includes("function DesirabilityAlignmentLadder"), "the old rank-ladder component must be gone");
   assert.ok(!source.includes("buildLadderLayout"), "the ladder geometry helpers must be gone");
   assert.ok(!source.includes("Desirability #"), "the rank-anchor label must be gone");
@@ -1623,24 +1632,40 @@ test("desirability evidence renders verdict + diverging agreement view from set 
   assert.ok(source.includes('label: "Card Validation"'));
   assert.ok(source.includes("getDesirabilityValidationPayload(explorePayload)"));
   assert.ok(source.includes("desirabilityValidationPayload"));
-  // Verdict + diverging view display only what the backend agreement logic
+  // Verdict + ranked list display only what the backend agreement logic
   // already computed — no frontend agreement math.
   assert.ok(source.includes("selectDesirabilityVerdict(validation)"));
   assert.ok(source.includes("selectDesirabilityAgreement(validation)"));
-  assert.ok(source.includes("buildDivergingAgreementModel(agreement)"));
+  assert.ok(source.includes("buildRankedAgreementModel(agreement)"));
   // Exactly ONE lead line: the verdict sentence. The backend restatement moved
   // into the section info tooltip.
   const verdictStart = source.indexOf("function DesirabilityVerdictLine");
-  const verdictEnd = source.indexOf("function DesirabilityAgreementDiverging", verdictStart);
+  const verdictEnd = source.indexOf("function DesirabilityAgreementRankedList", verdictStart);
   assert.ok(verdictStart >= 0 && verdictEnd > verdictStart);
   assert.ok(!source.slice(verdictStart, verdictEnd).includes("verdict.summary"), "the gray restatement sentence must not render in the lead");
   assert.ok(source.includes("const sectionInfoText = ["), "the section tooltip must absorb the moved prose");
   assert.ok(source.includes("titleInfoText={sectionInfoText}"));
+  // Credibility framing: the not-circular point lives in the tooltip.
+  assert.ok(
+    source.includes("Desirability and set value are computed from independent inputs, so this agreement is not circular."),
+    "the independent-inputs point must live in the section tooltip"
+  );
   // The anchor spans stay so legacy deep links keep landing on the section.
   assert.ok(source.includes("#set-detail-card-desirability-price") || source.includes('id="set-detail-card-desirability-price"'));
-  // The concrete top-chase anchor renders only when thumbnail data exists.
+  // The concrete top-chase anchor renders only when thumbnail data exists,
+  // and it sits alongside the verdict + ranked list inside the section grid
+  // so the proof read completes in one viewport block.
   assert.ok(source.includes("selectTopChaseAnchorHit(topHits)"));
   assert.ok(source.includes("topHits={topHits}"));
+  const gridStart = source.indexOf('lg:grid-cols-[minmax(0,1fr)_15rem]');
+  assert.ok(gridStart >= 0, "the proof grid must exist");
+  const gridEnd = source.indexOf("</SectionCard>", gridStart);
+  const gridSource = source.slice(gridStart, gridEnd);
+  assert.ok(
+    gridSource.includes("<DesirabilityAgreementContent"),
+    "the verdict + ranked list must render inside the grid column beside the top-chase card"
+  );
+  assert.ok(gridSource.includes("<TopChaseAnchorCard"), "the top-chase card must share the grid with the signal list");
 });
 
 test("desirability validation selector uses metric-specific market checks", () => {
@@ -4396,12 +4421,12 @@ test("Desirability redesign: uncomputed proof fields are omitted, never placehol
   );
 });
 
-test("Desirability redesign: diverging view consumes engine output only, with polarity captions and a11y equivalents", () => {
+test("Desirability redesign: ranked list consumes engine output only — no invented sign, center, or bar geometry", () => {
   const alignmentSource = fs
     .readFileSync(path.resolve(__dirname, "desirabilityAlignment.mjs"), "utf8")
     .replace(/\r\n/g, "\n");
 
-  // Agreement state is read off the payload's named signals, and bar geometry
+  // Agreement state is read off the payload's named signals, and row order
   // off the payload's per-signal alignment score — never derived from new
   // frontend math (see also the inconsistent-payload behavioral guard in
   // desirabilityAlignment.test.mjs).
@@ -4409,22 +4434,76 @@ test("Desirability redesign: diverging view consumes engine output only, with po
   assert.ok(alignmentSource.includes("validation.biggest_conflicting_signal ?? validation.biggestConflictingSignal"));
   assert.ok(alignmentSource.includes('isStrongest ? "confirms" : isConflict ? "conflicts" : "neutral"'));
   assert.ok(alignmentSource.includes('["total_ranked_sets", "totalRankedSets"]'), "field size must come from the payload");
-  assert.ok(alignmentSource.includes("desirability_alignment_details"), "bar rows must come from the engine's per-signal magnitudes");
-  assert.ok(
-    alignmentSource.includes("Math.abs(signal.alignmentScore - 50) * 2"),
-    "bar extent must be a pure rescale of the engine score, nothing else"
-  );
+  assert.ok(alignmentSource.includes("desirability_alignment_details"), "list rows must come from the engine's per-signal magnitudes");
+  // The engine score is unsigned 0–100 closeness: the display must not derive
+  // a confirm/conflict sign from a midpoint, a bar length, or anything else.
+  assert.ok(!alignmentSource.includes("alignmentScore - 50"), "no midpoint split may be derived from the unsigned score");
+  assert.ok(!alignmentSource.includes("extentPercent"), "no bar extent may be derived from the unsigned score");
+  assert.ok(!alignmentSource.includes("buildDivergingAgreementModel"), "the diverging model must be gone");
+  assert.ok(alignmentSource.includes("buildRankedAgreementModel"), "the ranked-list model must exist");
   assert.ok(!alignmentSource.includes("buildLadderLayout"), "the rank-ladder geometry must be gone");
   assert.ok(!alignmentSource.includes("anchorX"), "the rank-anchor plotting must be gone");
 
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
-  assert.ok(source.includes('confirms: "var(--success)"'), "the confirm side must use the success token");
-  assert.ok(source.includes('conflicts: "var(--warning)"'), "the conflict side must use the warning token");
-  assert.ok(source.includes("conflicts with read"), "the left axis caption must name the conflict side");
-  assert.ok(source.includes("confirms read"), "the right axis caption must name the confirm side");
-  assert.ok(source.includes("buildAgreementAriaLabel(model)"), "the diverging plot must carry a live aria-label");
-  assert.ok(source.includes('role="img"'), "the diverging plot must be exposed as an image");
-  assert.ok(source.includes("describeAgreementSignal(row, model.fieldSize)"), "a visually-hidden signal list must exist");
+  assert.ok(source.includes('confirms: "var(--success)"'), "the engine's strongest callout must use the success token");
+  assert.ok(source.includes('conflicts: "var(--warning)"'), "the engine's conflict callout must use the warning token");
+  assert.ok(!source.includes("conflicts with read"), "the diverging axis captions must be gone");
+  assert.ok(!source.includes("confirms read"), "the diverging axis captions must be gone");
+  assert.ok(source.includes("Signal agreement · strongest first"), "the ranked list must caption its ordering");
+  assert.ok(source.includes("100 = same rank · 0 = opposite end"), "the ranked list must caption the engine scale");
+  assert.ok(source.includes("buildAgreementAriaLabel(model)"), "the ranked list must carry a live aria-label");
+  // Supporting statistics reuse the Set Validation scatter's selector on the
+  // same targets — one computation feeding the verdict, the list, and the
+  // scatter caption.
+  assert.ok(source.includes("const signalCorrelations = useMemo"), "signal statistics must be computed once in the section card");
+  assert.ok(source.includes("selectSetDesirabilityValidation(rows, { metricKey })"), "signal statistics must reuse the scatter's selector");
+  assert.ok(source.includes("strongestStat={strongestStat}"), "the verdict must cite the shared statistic");
+
+  // Evidence today is contemporaneous correlation only: no future-tense
+  // claims anywhere in the section source until the lagged forward-return
+  // study exists (see docs/research/desirability-price-driver-study.md).
+  //
+  // Explicit DISCLAIMERS are the one exception: copy that says the score does
+  // *not* predict/forecast is the honest framing the model requires, and a
+  // blunt substring ban would forbid the very sentence we want. Each allowed
+  // phrase is listed verbatim, so any other use of the banned words still
+  // fails this test.
+  const NEGATED_CLAIM_DISCLAIMERS = [
+    "It does not use card prices or predict future value.",
+    "not a price forecast",
+    "these fit price, not user utility",
+  ];
+  const stripDisclaimers = (text) =>
+    NEGATED_CLAIM_DISCLAIMERS.reduce((acc, phrase) => acc.split(phrase).join(""), text).toLowerCase();
+  const sourceWithoutDisclaimers = stripDisclaimers(source);
+  const alignmentWithoutDisclaimers = stripDisclaimers(alignmentSource);
+  for (const forbidden of ["predict", "forecast", "leading indicator"]) {
+    assert.ok(
+      !sourceWithoutDisclaimers.includes(forbidden),
+      `future-tense claim language ("${forbidden}") must not appear in the page client outside an explicit disclaimer`
+    );
+    assert.ok(
+      !alignmentWithoutDisclaimers.includes(forbidden),
+      `future-tense claim language ("${forbidden}") must not appear in the alignment helpers outside an explicit disclaimer`
+    );
+  }
+});
+
+test("Set Desirability copy states the price-independent framing without over-claiming", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  // The required product framing, verbatim.
+  assert.ok(
+    source.includes(
+      "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value."
+    ),
+    "the Desirability pillar must carry the price-independent framing"
+  );
+  // "Market confirmed" and friends are gone: the set-value relationship is an
+  // association in the current sample, never confirmation or proof.
+  for (const forbidden of ["Market confirmed", "Partly confirmed", "Weakly confirmed"]) {
+    assert.ok(!source.includes(forbidden), `"${forbidden}" over-claims and must not appear`);
+  }
 });
 
 test("Simulation Results renders expanded by default with no collapse toggle", () => {

@@ -1,13 +1,23 @@
 // Desirability agreement view: pure selection helpers for the Desirability
-// Evidence section's diverging confirm/conflict chart. Everything here only
-// *displays* what the backend desirability validation payload already computed
-// (see backend/desirability/set_validation.py) — per-signal alignment scores
+// Evidence section's ranked signal list. Everything here only *displays* what
+// the backend desirability validation payload already computed (see
+// backend/desirability/set_validation.py) — per-signal alignment scores
 // (0–100, where 100 means the signal's market rank matches the desirability
 // rank exactly and 0 means it sits at the opposite end of the field), the
-// named strongest/conflicting signals, ranks, and total_ranked_sets. No new
-// agreement math is derived on the frontend; the diverging geometry below is
-// an affine display transform of the engine's own 0–100 scale around its
-// midpoint, and the engine score is always surfaced verbatim next to the bar.
+// named strongest/conflicting signals, ranks, and total_ranked_sets.
+//
+// The engine score is UNSIGNED closeness on a 0–100 scale: it has no
+// confirm/conflict sign and no natural center, so it is rendered as a ranked
+// list (strongest agreement first) with the engine score surfaced verbatim —
+// never as bars diverging around an invented midpoint and never as
+// equal-weight bars that dress a weak score up as a positive amount of
+// agreement. Confirm/conflict coloring comes ONLY from the engine's own named
+// strongest_supporting_signal / biggest_conflicting_signal callouts. No new
+// agreement math is derived on the frontend.
+//
+// Copy consuming these helpers must stay contemporaneous ("tracks", "agrees
+// with", "explains") — future-tense claims are parked until the lagged
+// forward-return study runs; see docs/research/desirability-price-driver-study.md.
 
 function toFiniteNumber(value) {
   const parsed = typeof value === "string" ? Number(value) : value;
@@ -39,7 +49,8 @@ function normalizeSignalName(value) {
 // strongest/conflict matching stays a plain string comparison against what the
 // payload names. `alignmentKeys` point at desirability_alignment_details —
 // the engine's per-signal agreement magnitude. Signals the engine does not
-// score (RIP Core, Card Appeal) have no honest bar length and are not listed.
+// score (RIP Core, Card Appeal) have no honest row to render and are not
+// listed.
 export const DESIRABILITY_AGREEMENT_SIGNALS = [
   {
     key: "set_value",
@@ -85,10 +96,14 @@ export const DESIRABILITY_AGREEMENT_SIGNALS = [
   },
 ];
 
+// "Market Association" phrasing only: these describe how strongly desirability
+// is *associated* with market outcomes in the current sample. They are
+// descriptive context — never proof, never a claim about future prices, and
+// never an input to the score — so no band is ever labeled "confirmed".
 const VERDICT_LABEL_BY_BAND = {
-  strong: "Market confirmed",
-  moderate: "Partly confirmed",
-  weak: "Weakly confirmed",
+  strong: "Strong market association",
+  moderate: "Moderate market association",
+  weak: "Weak market association",
 };
 
 function displayLabelForSignalName(name) {
@@ -122,7 +137,7 @@ export function selectDesirabilityVerdict(validation) {
   }
   return {
     band,
-    label: (band && VERDICT_LABEL_BY_BAND[band]) || "Market check",
+    label: (band && VERDICT_LABEL_BY_BAND[band]) || "Market association",
     strongestLabel,
     // A single scored signal makes the backend name the same signal both
     // "strongest" and "conflict" — treat that as confirming, not an outlier.
@@ -132,8 +147,8 @@ export function selectDesirabilityVerdict(validation) {
   };
 }
 
-// Selects the plottable agreement rows: every market signal the engine scored
-// (a signal without an engine alignment magnitude gets no bar — lengths are
+// Selects the listable agreement rows: every market signal the engine scored
+// (a signal without an engine alignment magnitude gets no row — scores are
 // never fabricated from ranks or anything else). State naming mirrors the
 // payload's strongest/conflicting signals; ranks ride along as supporting
 // labels only.
@@ -185,47 +200,41 @@ export function selectDesirabilityAgreement(validation) {
   };
 }
 
-// Display-only geometry for the diverging bars. The engine's alignment scale
-// is 0–100 with 100 = full agreement and 0 = full disagreement; its midpoint
-// (50) is the neutral center line, scores above it extend right (confirms)
-// and scores below it extend left (conflicts). `extentPercent` is the bar
-// length as a percentage of ONE half-axis: |score − 50| × 2. This is a pure
-// rescale of the engine's number — no agreement value is computed here, and
-// the untouched engine score is kept on every row for the end label.
-export function buildDivergingAgreementModel(agreement) {
+// Display-only model for the ranked signal list. Rows arrive from
+// selectDesirabilityAgreement already sorted strongest agreement first; this
+// keeps them in that order and passes every engine value through untouched —
+// no sides, no bar extents, no derived center. The engine's unsigned 0–100
+// score cannot honestly diverge around a midpoint, so nothing here invents
+// one.
+export function buildRankedAgreementModel(agreement) {
   if (!agreement || !Array.isArray(agreement.signals) || agreement.signals.length === 0) {
     return null;
   }
-  const rows = agreement.signals.map((signal) => ({
-    ...signal,
-    side: signal.alignmentScore >= 50 ? "confirms" : "conflicts",
-    extentPercent: Math.min(100, Math.abs(signal.alignmentScore - 50) * 2),
-  }));
   return {
     anchorRank: agreement.anchorRank,
     fieldSize: agreement.fieldSize,
-    rows,
+    rows: agreement.signals.map((signal) => ({ ...signal })),
     strongest: agreement.strongest,
     conflict: agreement.conflict,
   };
 }
 
-// Accessible-text equivalents shared by the aria-label and the sr-only list.
+// Accessible-text equivalent of one ranked-list row. State naming mirrors the
+// engine's callouts only; a row without one is described by its score alone.
 export function describeAgreementSignal(row, fieldSize) {
   const stateText =
     row.state === "confirms"
-      ? " (strongest confirming signal)"
+      ? " — the engine's strongest supporting signal"
       : row.state === "conflicts"
-      ? " (biggest conflicting signal)"
+      ? " — the engine's biggest conflicting signal"
       : "";
-  const sideText = row.side === "confirms" ? "confirms the desirability read" : "conflicts with the desirability read";
   const rankText =
     row.rank === null || row.rank === undefined
       ? ""
       : fieldSize
-      ? `, rank #${row.rank} of ${fieldSize}`
-      : `, rank #${row.rank}`;
-  return `${row.label}: agreement ${Math.round(row.alignmentScore)} of 100, ${sideText}${rankText}${stateText}`;
+      ? `, market rank #${row.rank} of ${fieldSize}`
+      : `, market rank #${row.rank}`;
+  return `${row.label}: agreement ${Math.round(row.alignmentScore)} of 100${rankText}${stateText}`;
 }
 
 export function buildAgreementAriaLabel(model) {
@@ -239,5 +248,5 @@ export function buildAgreementAriaLabel(model) {
         : ` against this set's desirability rank #${model.anchorRank}`
       : "";
   const signalText = model.rows.map((row) => describeAgreementSignal(row, model.fieldSize)).join("; ");
-  return `Market signal agreement${anchorText}. Bars right of center confirm the desirability read, bars left of center conflict with it. ${signalText}.`;
+  return `Market signal agreement${anchorText}, listed strongest agreement first on the engine's 0 to 100 scale. ${signalText}.`;
 }
