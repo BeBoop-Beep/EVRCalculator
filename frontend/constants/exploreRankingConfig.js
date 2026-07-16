@@ -1,6 +1,12 @@
 /**
  * Configuration for Explore page ranking mode dropdown.
- * Public Explore score modes must use relative score fields only.
+ *
+ * RIP-contract modes (overall, profit, safety, stability, collector appeal)
+ * read the CANONICAL backend objects — `rip`, `rip.components.*`,
+ * `openingExperience.*` — actual scores with ranks/tiers computed against the
+ * backend-authorized public cohort. The legacy relative/pack score fields are
+ * a cohort min-max presentation over the old 33-set population and must not
+ * power public ranking again. Fields are dot-paths resolved by getFieldValue.
  */
 
 function toNumber(value) {
@@ -9,6 +15,20 @@ function toNumber(value) {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function getFieldValue(target, fieldPath) {
+  if (!target || !fieldPath) {
+    return null;
+  }
+  let value = target;
+  for (const key of String(fieldPath).split(".")) {
+    if (value === null || value === undefined || typeof value !== "object") {
+      return null;
+    }
+    value = value[key];
+  }
+  return value === undefined ? null : value;
 }
 
 export const EXPLORE_RANKING_MODES = {
@@ -20,9 +40,9 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by the strongest overall opening profile.",
     scoreLabel: "RIP SCORE",
     tierLabel: "TIER",
-    scoreField: "relative_pack_score",
-    rankField: "pack_rank",
-    tierField: "pack_tier",
+    scoreField: "rip.score",
+    rankField: "rip.rank",
+    tierField: "rip.tier",
     scoreFormat: "decimal",
     description: "Overall RIP score combines all factors for a comprehensive ranking.",
   },
@@ -34,9 +54,9 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by their profit profile, including chance to beat cost, Expected Value, and upside.",
     scoreLabel: "PROFIT SCORE",
     tierLabel: "PROFIT TIER",
-    scoreField: "relative_profit_score",
-    rankField: "profit_rank",
-    tierField: "profit_tier",
+    scoreField: "rip.components.profit.score",
+    rankField: "rip.components.profit.rank",
+    tierField: "rip.components.profit.tier",
     scoreFormat: "decimal",
     description: "Profit score focuses on return potential and margin above pack cost.",
   },
@@ -48,25 +68,25 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how well they protect against rough openings.",
     scoreLabel: "SAFETY SCORE",
     tierLabel: "SAFETY TIER",
-    scoreField: "relative_safety_score",
-    rankField: "safety_rank",
-    tierField: "safety_tier",
+    scoreField: "rip.components.safety.score",
+    rankField: "rip.components.safety.rank",
+    tierField: "rip.components.safety.tier",
     scoreFormat: "decimal",
     description: "Safety score emphasizes protection from downside and loss mitigation.",
   },
   desirability: {
     id: "desirability",
-    label: "Opening Desirability",
-    title: "Best Opening Desirability",
-    subtitle: "Sets ranked by Opening Desirability, including Collector Appeal and Chase Appeal.",
-    tooltip: "Opening Desirability combines Collector Appeal and Chase Appeal to estimate how compelling the set is to open.",
-    scoreLabel: "OPENING DESIRABILITY",
-    tierLabel: "DESIRABILITY TIER",
-    scoreField: "relative_desirability_score",
-    rankField: "desirability_rank",
-    tierField: "desirability_tier",
+    label: "Collector Appeal",
+    title: "Best Collector Appeal",
+    subtitle: "Sets ranked by Collector Appeal — roster desirability plus dual-path chase structure, independent of price.",
+    tooltip: "Collector Appeal combines Roster Desirability with a bounded Dual-Path Depth bonus. Price is never an input.",
+    scoreLabel: "COLLECTOR APPEAL",
+    tierLabel: "TIER",
+    scoreField: "openingExperience.collectorAppeal.score",
+    rankField: "openingExperience.collectorAppeal.rank",
+    tierField: "openingExperience.collectorAppeal.tier",
     scoreFormat: "decimal",
-    description: "Opening Desirability combines Collector Appeal and Chase Appeal.",
+    description: "Collector Appeal measures how exciting the set's roster is to open, independent of price.",
   },
   stability: {
     id: "stability",
@@ -76,9 +96,9 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how steady their opening profile is across many simulated packs.",
     scoreLabel: "STABILITY SCORE",
     tierLabel: "STABILITY TIER",
-    scoreField: "relative_stability_score",
-    rankField: "stability_rank",
-    tierField: "stability_tier",
+    scoreField: "rip.components.stability.score",
+    rankField: "rip.components.stability.rank",
+    tierField: "rip.components.stability.tier",
     scoreFormat: "decimal",
     description: "Stability score measures consistency and predictability of outcomes.",
   },
@@ -167,12 +187,11 @@ export function getRankField(modeId) {
 }
 
 export function getTierField(modeId) {
-  return getModeConfig(modeId).tierField || "pack_tier";
+  return getModeConfig(modeId).tierField || "rip.tier";
 }
 
 export function getScoreForMode(target, modeId) {
-  const field = getScoreField(modeId);
-  return toNumber(target?.[field]);
+  return toNumber(getFieldValue(target, getScoreField(modeId)));
 }
 
 export function getRankForMode(target, modeId) {
@@ -180,7 +199,12 @@ export function getRankForMode(target, modeId) {
   if (!field) {
     return null;
   }
-  return toNumber(target?.[field]);
+  return toNumber(getFieldValue(target, field));
+}
+
+export function getTierForMode(target, modeId) {
+  const value = getFieldValue(target, getTierField(modeId));
+  return value === null || value === undefined ? null : String(value);
 }
 
 export function formatModeScore(value, format = "decimal") {

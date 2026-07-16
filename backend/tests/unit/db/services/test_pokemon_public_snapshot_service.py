@@ -1018,11 +1018,13 @@ def test_set_page_snapshot_read_adds_desirability_validation_when_missing(monkey
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
 
+    # desirabilityValidation is retired: no key, and no per-request warning
+    # complaining about the absence of a payload that is deliberately gone.
     assert payload.get("desirabilityValidation") is None
     assert payload.get("desirability_validation") is None
-    assert (
-        "Desirability validation is missing in this snapshot; request path skipped runtime rebuild."
-        in payload["meta"]["warnings"]
+    assert not any(
+        "desirability validation" in str(warning).lower()
+        for warning in payload["meta"].get("warnings") or []
     )
 
 
@@ -1313,7 +1315,11 @@ def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(
     assert payload["meta"]["sources"]["simulation_input_cards"] == "OK"
     assert payload.get("desirabilityValidation") is None
     assert payload.get("desirability_validation") is None
-    assert "Desirability validation is missing in this snapshot; request path skipped runtime rebuild." in payload["meta"]["warnings"]
+    # Retired section: its absence is intentional and must not raise a warning.
+    assert not any(
+        "desirability validation" in str(warning).lower()
+        for warning in payload["meta"].get("warnings") or []
+    )
 
 
 def test_set_page_missing_snapshot_returns_fallback_without_live_assembly(monkeypatch):
@@ -1435,11 +1441,9 @@ def test_set_page_snapshot_read_does_not_runtime_build_desirability_validation(m
         }
     )
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
-    monkeypatch.setattr(
-        pokemon_public_snapshot_service,
-        "_with_desirability_validation",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("runtime desirability validation should not run")),
-    )
+    # The runtime desirability-validation rebuild no longer EXISTS - stronger
+    # than "should not run". If someone reintroduces it, this fails.
+    assert not hasattr(pokemon_public_snapshot_service, "_with_desirability_validation")
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "_with_rankings_freshness_warning",
@@ -4835,8 +4839,9 @@ def test_insights_payload_excludes_cards_and_market_and_pull_rates_and_full_payl
     assert "marketMovers" not in payload
     assert "pullRates" not in payload and "pullRateAssumptions" not in payload and "pull_rate_assumptions" not in payload
     assert "cardDesirabilityValidation" not in payload and "card_desirability_validation" not in payload
-    # The set-level desirability *proof* row is allowed; per-card validation rows are not.
-    assert "cards" not in payload["desirabilityValidation"]
+    # The set-level desirability validation payload is retired outright: even a
+    # snapshot row that still carries the key must not have it served.
+    assert "desirabilityValidation" not in payload and "desirability_validation" not in payload
 
 
 def test_insights_payload_returns_rip_breakdown_inputs(monkeypatch):
@@ -4871,7 +4876,7 @@ def test_insights_payload_returns_rip_breakdown_inputs(monkeypatch):
     assert payload["rarityContribution"][0]["totalSampledValue"] == 100.0
     assert len(payload["historyTrend"]) == 5
     assert payload["desirability"]["openingDesirabilityScore"] == 77.0
-    assert payload["desirabilityValidation"]["cardAppealScore"] == 91.2
+    # desirabilityValidation is retired and no longer served (see the excludes test).
     assert payload["interpretation"]["meta"]["packScore"]["label"] == "Strong Buy"
     assert payload["meta"]["source"] == "pokemon_set_page_snapshot_latest"
     assert payload["meta"]["warnings"] == []
@@ -5045,3 +5050,143 @@ def test_movement_generation_metadata_flags_new_cards_with_legacy_dashboard(monk
 
     assert result["matches"] is False
     assert result["status"] == "mixed_generation_and_legacy"
+
+
+# ---------------------------------------------------------------------------
+# Insights critical payload: the canonical public contract (Phase 9)
+# ---------------------------------------------------------------------------
+
+def _ascended_heroes_snapshot_payload_json():
+    """A set-page snapshot carrying the canonical contract with Ascended
+    Heroes' REAL production numbers (dry-run artifact, 2026-07-16). The legacy
+    summary fields are present and deliberately inconsistent so a test can
+    prove the canonical objects are not derived from them."""
+    return {
+        "set": {"id": _TEST_UUID, "name": "Ascended Heroes"},
+        "summary": {
+            "pack_score": 12.3,
+            "relative_pack_score": 98.4,
+            "pack_rank": 99,
+            "pack_tier": "F",
+            "profit_score": 90.0,
+            "safety_score": 80.0,
+            "stability_score": 70.0,
+        },
+        "interpretation": {"meta": {"pack_score": {"label": "Strong Buy"}}},
+        "rip": {
+            "score": 82.20942,
+            "rank": 1,
+            "tier": "S",
+            "cohortSize": 21,
+            "status": None,
+            "version": "rip_v3_weighted",
+            "effectiveWeights": {"profit": 0.58, "safety": 0.20, "stability": 0.12, "desirability": 0.10},
+            "components": {
+                "profit": {"score": 90.0, "weight": 0.58, "contribution": 52.2, "rank": 2, "tier": "S", "cohortSize": 21},
+                "safety": {"score": 80.0, "weight": 0.20, "contribution": 16.0, "rank": 3, "tier": "A", "cohortSize": 21},
+                "stability": {"score": 70.0, "weight": 0.12, "contribution": 8.4, "rank": 4, "tier": "A", "cohortSize": 21},
+                "desirability": {"score": 96.0942, "weight": 0.10, "contribution": 9.6094, "rank": 1, "tier": "S", "cohortSize": 21},
+            },
+        },
+        "ripCore": {
+            "score": 83.11,
+            "rank": 2,
+            "tier": "S",
+            "cohortSize": 21,
+            "version": "financial_rip_v2",
+            "components": {
+                "profit": {"score": 90.0, "rank": 2, "tier": "S", "cohortSize": 21},
+                "safety": {"score": 80.0, "rank": 3, "tier": "A", "cohortSize": 21},
+                "stability": {"score": 70.0, "rank": 4, "tier": "A", "cohortSize": 21},
+            },
+        },
+        "openingExperience": {
+            "status": "available",
+            "cohort": {"version": "public_analytics_policy_v1_era_gated", "eligibleSetCount": 21},
+            "rosterDesirability": {"score": 95.4809, "rank": 1, "cohortSize": 21, "tier": "S"},
+            "dualPathDepth": {"rawValue": 0.27143, "displayPercent": 27.1, "rank": 14, "cohortSize": 21},
+            "collectorAppeal": {"score": 96.0942, "rank": 1, "cohortSize": 21, "tier": "S", "version": "collector_appeal_ca7_v1"},
+            "chaseAppeal": {"score": 92.4, "rank": 2, "cohortSize": 21, "tier": "S"},
+            "topSubjects": [
+                {
+                    "subjectName": "Gengar",
+                    "accessiblePath": {"canonicalCardId": "card-gengar-dr", "cardName": "Gengar ex", "cardNumber": "104", "rarity": "Double Rare", "modeledProbability": 0.005236, "impliedOdds": 191.0},
+                    "elitePath": {"canonicalCardId": "card-gengar-sir", "cardName": "Gengar ex", "cardNumber": "215", "rarity": "Special Illustration Rare", "modeledProbability": 0.000652, "impliedOdds": 1533.0},
+                }
+            ],
+            "coverage": {"status": "available", "reasons": [], "pullModelAvailable": True},
+        },
+        "publicAnalyticsStatus": "analytics_ready",
+        "publicAnalyticsCohort": {"version": "public_analytics_policy_v1_era_gated", "eligibleSetCount": 21, "status": "analytics_ready"},
+        "meta": {},
+    }
+
+
+def test_insights_critical_payload_serves_the_canonical_contract(monkeypatch):
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _q: [
+                {"set_id": _TEST_UUID, "updated_at": "2026-07-16T00:00:00+00:00", "payload_json": _ascended_heroes_snapshot_payload_json()}
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
+
+    # The hero: canonical rip, not the legacy relative presentation.
+    assert payload["rip"]["score"] == 82.20942
+    assert payload["rip"]["rank"] == 1
+    assert payload["rip"]["tier"] == "S"
+    assert payload["rip"]["cohortSize"] == 21
+    assert payload["rip"]["score"] != payload["ripScore"]["score"]  # legacy differs by fixture design
+
+    # RIP Core with its own separately-calculated placement.
+    assert payload["ripCore"]["score"] == 83.11
+    assert payload["ripCore"]["rank"] == 2
+    assert "desirability" not in payload["ripCore"]["components"]
+
+    # The four pillars carry actual component scores, ranks, tiers, weights.
+    pillar = payload["rip"]["components"]["desirability"]
+    assert pillar["score"] == 96.0942
+    assert pillar["weight"] == 0.10
+    assert pillar["contribution"] == 9.6094
+
+    # Opening Experience: explicit new fields, honest scales, 21-set cohort.
+    opening = payload["openingExperience"]
+    assert opening["collectorAppeal"]["score"] == 96.0942
+    assert opening["rosterDesirability"]["score"] == 95.4809
+    assert opening["dualPathDepth"]["displayPercent"] == 27.1
+    assert opening["cohort"]["eligibleSetCount"] == 21
+    top = opening["topSubjects"][0]
+    assert top["accessiblePath"]["canonicalCardId"]
+    assert top["elitePath"]["cardNumber"] == "215"
+
+    assert payload["publicAnalyticsStatus"] == "analytics_ready"
+    assert payload["publicAnalyticsCohort"]["eligibleSetCount"] == 21
+
+    # No warning about the canonical contract when it is present.
+    assert not any("Canonical RIP" in str(w) for w in payload["meta"]["warnings"])
+
+
+def test_insights_critical_payload_warns_when_snapshot_predates_the_contract(monkeypatch):
+    stale = _ascended_heroes_snapshot_payload_json()
+    for key in ("rip", "ripCore", "openingExperience", "publicAnalyticsCohort", "publicAnalyticsStatus"):
+        stale.pop(key, None)
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _q: [
+                {"set_id": _TEST_UUID, "updated_at": "2026-07-01T00:00:00+00:00", "payload_json": stale}
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
+
+    # An old snapshot yields empty canonical objects and a loud warning -
+    # never a silent fall back to the legacy relative score under a new label.
+    assert payload["rip"] == {}
+    assert payload["ripCore"] == {}
+    assert payload["openingExperience"] == {}
+    assert any("rebuild set-page snapshots" in str(w) for w in payload["meta"]["warnings"])

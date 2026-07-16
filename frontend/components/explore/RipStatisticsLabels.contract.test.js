@@ -552,10 +552,13 @@ test("Explore God Pull Upside mode uses P99 ratio display with P99 ranking field
   assert.ok(source.includes('tierField: "p99_value_to_cost_tier"'));
 });
 
-test("Desirability pillar uses updated public labels and breakdown rows", () => {
+test("Collector Appeal pillar uses updated public labels and breakdown rows", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes('title="Desirability"'));
+  // The fourth pillar is Collector Appeal (CA7); the generic Desirability
+  // pillar label is retired from active rendering.
+  assert.ok(source.includes('title="Collector Appeal"'));
+  assert.ok(!source.includes('title="Desirability"'));
   assert.ok(!source.includes('title="Opening Desirability"'));
   assert.ok(!source.includes('label: "How It Works"'));
   assert.ok(!source.includes('label: "Opening Desirability"'));
@@ -563,8 +566,7 @@ test("Desirability pillar uses updated public labels and breakdown rows", () => 
   assert.ok(source.includes('label: "Chase Appeal"'));
   assert.ok(!source.includes('label: "Source"'));
   assert.ok(!source.includes('value: "Opening Desirability model"'));
-  assert.ok(source.includes("SIMPLE_PILLAR_INFO_COPY.Desirability"));
-  assert.ok(source.includes("headline score is adjusted for set-to-set ranking"));
+  assert.ok(source.includes('SIMPLE_PILLAR_INFO_COPY["Collector Appeal"]'));
   assert.ok(source.includes('"Needs chase data"'));
   assert.ok(source.includes("topCollectorAppealDrivers"));
   assert.ok(source.includes("openingPayload?.topCollectorAppealDrivers"));

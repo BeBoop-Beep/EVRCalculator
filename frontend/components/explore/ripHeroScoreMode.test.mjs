@@ -1,56 +1,151 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import {
   RIP_CORE_MODE,
   RIP_SCORE_MODE,
+  hasCanonicalRipContract,
+  hasRipCorePresentationContract,
   selectRipHeroScoreMode,
 } from "./ripHeroScoreMode.mjs";
 
-const summary = {
-  relative_pack_score: 72.4,
-  pack_rank: 18,
-  pack_tier: "D",
-  rip_score_interpretation: { label: "Elite but swingy", summary: "Final summary", severity: "positive" },
-  rip_score_without_desirability: 18.55,
-  relative_rip_core_score: 61.2,
-  rip_core_rank: 15,
-  rip_core_tier: "C",
-  rip_core_interpretation: { label: "Financially mixed", summary: "Core summary", severity: "neutral" },
+// Canonical backend objects, shaped like the explore/insights contract.
+// Legacy fields are ALSO present, with deliberately different values, so every
+// test doubles as proof that the legacy fields are not being read.
+const target = {
+  rip: {
+    score: 82.2094,
+    rank: 1,
+    tier: "S",
+    cohortSize: 21,
+    interpretation: { label: "Elite opener", summary: "Final summary", severity: "positive" },
+  },
+  ripCore: {
+    score: 83.11,
+    rank: 2,
+    tier: "S",
+    cohortSize: 21,
+    interpretation: { label: "Financially strong", summary: "Core summary", severity: "positive" },
+  },
+  // Legacy fields — never to be read again. Values chosen to be obviously
+  // different from the canonical ones above.
+  pack_score: 12.3,
+  relative_pack_score: 98.4,
+  pack_rank: 99,
+  pack_tier: "F",
+  relative_rip_core_score: 55.5,
+  rip_core_rank: 88,
+  rip_core_tier: "D",
+  rip_rank_with_desirability: 77,
 };
 
-test("RIP Score and RIP Core switch score, rank, tier, helper, and interpretation", () => {
-  const finalMode = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, summary });
-  const coreMode = selectRipHeroScoreMode({ mode: RIP_CORE_MODE, summary });
+test("RIP Score hero reads canonical rip.score/rank/tier with the cohort denominator", () => {
+  const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target });
 
-  assert.equal(finalMode.score, 72.4);
-  assert.equal(finalMode.rank, 18);
-  assert.equal(finalMode.tier, "D");
-  assert.notEqual(String(finalMode.rank), finalMode.tier, "rank must remain numerical rather than displaying the tier letter");
-  assert.equal(finalMode.interpretation.label, "Elite but swingy");
-  assert.equal(finalMode.interpretation.summary, "Final summary");
-  assert.match(finalMode.helper, /collector desirability/);
-  assert.equal(coreMode.score, 61.2);
-  assert.equal(coreMode.rank, 15);
-  assert.equal(coreMode.tier, "C");
-  assert.notEqual(String(coreMode.rank), coreMode.tier, "core rank must remain numerical rather than displaying the tier letter");
-  assert.equal(coreMode.interpretation.label, "Financially mixed");
-  assert.equal(coreMode.interpretation.summary, "Core summary");
-  assert.match(coreMode.helper, /without collector desirability/);
+  assert.equal(selected.score, 82.2094);
+  assert.equal(selected.rank, 1);
+  assert.equal(selected.tier, "S");
+  assert.equal(selected.cohortSize, 21);
+  assert.equal(selected.available, true);
+  assert.equal(selected.interpretation.label, "Elite opener");
+  assert.match(selected.helper, /Collector Appeal/);
+  // Legacy values must not leak through under any label.
+  assert.notEqual(selected.score, 98.4);
+  assert.notEqual(selected.score, 12.3);
+  assert.notEqual(selected.rank, 99);
+  assert.notEqual(selected.rank, 77);
 });
 
-test("RIP Core never displays the raw canonical comparison score on the presentation scale", () => {
+test("RIP Core hero reads canonical ripCore with its own separately calculated placement", () => {
+  const selected = selectRipHeroScoreMode({ mode: RIP_CORE_MODE, target });
+
+  assert.equal(selected.mode, RIP_CORE_MODE);
+  assert.equal(selected.score, 83.11);
+  assert.equal(selected.rank, 2);
+  assert.equal(selected.tier, "S");
+  assert.equal(selected.cohortSize, 21);
+  assert.equal(selected.interpretation.label, "Financially strong");
+  assert.match(selected.helper, /without Collector Appeal/);
+  assert.notEqual(selected.score, 55.5);
+  assert.notEqual(selected.rank, 88);
+});
+
+test("a missing canonical contract renders unavailable — never the legacy score", () => {
+  const legacyOnly = {
+    pack_score: 89.0,
+    relative_pack_score: 98.4,
+    pack_rank: 3,
+    pack_tier: "S",
+    relative_rip_core_score: 61.2,
+    rip_core_rank: 15,
+  };
+  const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, summary: legacyOnly });
+
+  assert.equal(selected.score, null);
+  assert.equal(selected.rank, null);
+  assert.equal(selected.tier, null);
+  assert.equal(selected.available, false);
+  assert.equal(hasCanonicalRipContract(legacyOnly), false);
+});
+
+test("an unavailable canonical RIP carries the backend's status through", () => {
+  const hidden = {
+    rip: { score: null, status: "incomplete_missing_desirability" },
+  };
+  const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target: hidden });
+
+  assert.equal(selected.score, null);
+  assert.equal(selected.available, false);
+  assert.equal(selected.status, "incomplete_missing_desirability");
+});
+
+test("RIP Core mode falls back to RIP Score MODE when core is absent, without inventing a score", () => {
+  const ripOnly = { rip: { score: 70.0, rank: 5, tier: "A", cohortSize: 21 } };
+  const selected = selectRipHeroScoreMode({ mode: RIP_CORE_MODE, target: ripOnly });
+
+  assert.equal(selected.mode, RIP_SCORE_MODE);
+  assert.equal(selected.score, 70.0);
+  assert.equal(hasRipCorePresentationContract(ripOnly), false);
+});
+
+test("the payload source (set-page snapshot) is honored alongside the target", () => {
   const selected = selectRipHeroScoreMode({
-    mode: RIP_CORE_MODE,
-    summary: { rip_score_without_desirability: 18.55, rip_core_rank: 15 },
+    mode: RIP_SCORE_MODE,
+    payload: { rip: { score: 56.7918, rank: 21, tier: "F", cohortSize: 21 } },
   });
 
-  assert.equal(selected.mode, RIP_SCORE_MODE);
-  assert.equal(selected.score, null);
+  assert.equal(selected.score, 56.7918);
+  assert.equal(selected.rank, 21);
+  assert.equal(selected.cohortSize, 21);
 });
 
-test("RIP Core selection resets to RIP Score when the next set lacks the normalized contract", () => {
-  const selected = selectRipHeroScoreMode({ mode: RIP_CORE_MODE, summary: { relative_pack_score: 80 } });
-  assert.equal(selected.mode, RIP_SCORE_MODE);
-  assert.equal(selected.score, 80);
+test("rank stays numerical rather than displaying the tier letter", () => {
+  const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target });
+  assert.notEqual(String(selected.rank), selected.tier);
+});
+
+test("source-level guard: the selector never mentions the legacy score fields", () => {
+  const source = readFileSync(fileURLToPath(new URL("./ripHeroScoreMode.mjs", import.meta.url)), "utf8");
+  const code = source
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//"))
+    .join("\n");
+  for (const banned of [
+    '"pack_score"',
+    '"relative_pack_score"',
+    '"packScore"',
+    '"relativePackScore"',
+    '"pack_rank"',
+    '"packRank"',
+    '"pack_tier"',
+    '"packTier"',
+    '"relative_rip_core_score"',
+    '"relativeRipCoreScore"',
+    '"rip_rank_with_desirability"',
+    '"rip_rank_without_desirability"',
+  ]) {
+    assert.ok(!code.includes(banned), `ripHeroScoreMode.mjs reads legacy field ${banned}`);
+  }
 });

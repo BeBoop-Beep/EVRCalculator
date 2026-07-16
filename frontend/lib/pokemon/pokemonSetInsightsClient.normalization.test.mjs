@@ -21,6 +21,11 @@ function makeInsightsPayload(overrides = {}) {
     historyTrend: [{ date: "2026-06-01", meanValue: 5.0 }],
     desirability: { openingDesirabilityScore: 77 },
     desirabilityValidation: { cardAppealScore: 91.2 },
+    rip: { score: 82.2, rank: 1, tier: "S", cohortSize: 21, components: { desirability: { score: 96.09 } } },
+    ripCore: { score: 83.1, rank: 2, tier: "S", cohortSize: 21 },
+    openingExperience: { status: "available", collectorAppeal: { score: 96.09, rank: 1 } },
+    publicAnalyticsCohort: { eligibleSetCount: 21 },
+    publicAnalyticsStatus: "analytics_ready",
     meta: { source: "pokemon_set_page_snapshot_latest", updatedAt: "2026-06-30T00:00:00+00:00", warnings: [] },
     ...overrides,
   };
@@ -54,12 +59,20 @@ test("normalizePokemonSetInsightsPayload returns outcome distribution, simulatio
   assert.equal(normalized.historyTrend[0].meanValue, 5.0);
 });
 
-test("normalizePokemonSetInsightsPayload returns desirability proof fields (excluding card validation rows)", () => {
+test("normalizePokemonSetInsightsPayload carries the canonical contract and drops the retired validation payload", () => {
   const normalized = normalizePokemonSetInsightsPayload(makeInsightsPayload());
 
   assert.equal(normalized.desirability.openingDesirabilityScore, 77);
-  assert.equal(normalized.desirabilityValidation.cardAppealScore, 91.2);
-  assert.equal(normalized.desirabilityValidation.cards, undefined);
+  // The canonical contract passes through untouched.
+  assert.equal(normalized.rip.score, 82.2);
+  assert.equal(normalized.rip.components.desirability.score, 96.09);
+  assert.equal(normalized.ripCore.rank, 2);
+  assert.equal(normalized.openingExperience.collectorAppeal.score, 96.09);
+  assert.equal(normalized.publicAnalyticsCohort.eligibleSetCount, 21);
+  assert.equal(normalized.publicAnalyticsStatus, "analytics_ready");
+  // desirabilityValidation is retired: even a payload that still carries the
+  // key (an old snapshot) must not surface it to the UI.
+  assert.equal(normalized.desirabilityValidation, undefined);
 });
 
 test("normalizePokemonSetInsightsPayload is defensive against a completely empty payload", () => {
@@ -76,6 +89,11 @@ test("normalizePokemonSetInsightsPayload is defensive against a completely empty
   assert.deepEqual(normalized.rarityContribution, []);
   assert.deepEqual(normalized.historyTrend, []);
   assert.deepEqual(normalized.desirability, {});
-  assert.deepEqual(normalized.desirabilityValidation, {});
+  assert.equal(normalized.desirabilityValidation, undefined);
+  assert.deepEqual(normalized.rip, {});
+  assert.deepEqual(normalized.ripCore, {});
+  assert.deepEqual(normalized.openingExperience, {});
+  assert.deepEqual(normalized.publicAnalyticsCohort, {});
+  assert.equal(normalized.publicAnalyticsStatus, null);
   assert.deepEqual(normalized.meta, { warnings: [] });
 });

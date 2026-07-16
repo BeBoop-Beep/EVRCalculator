@@ -50,10 +50,11 @@ def main() -> None:
         "set pages",
         ["backend/scripts/build_pokemon_set_page_snapshots.py", "--all", mode_flag],
     )
-    _run_step(
-        "desirability validation",
-        ["backend/scripts/build_pokemon_desirability_validation_snapshot.py", mode_flag],
-    )
+    # The "desirability validation" step is retired: it patched the legacy
+    # rank-alignment evidence payload into set-page snapshots, and that public
+    # section was replaced by Opening Experience (Collector Appeal). The script
+    # remains in backend/scripts for research use; it is just no longer part of
+    # the production snapshot pipeline.
 
 
 if __name__ == "__main__":

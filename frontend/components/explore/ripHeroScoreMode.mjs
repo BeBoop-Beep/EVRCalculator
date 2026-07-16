@@ -1,10 +1,22 @@
+// The RIP hero selector: which score/rank/tier the big number shows.
+//
+// CANONICAL CONTRACT ONLY. The hero reads the backend's versioned `rip` and
+// `ripCore` objects — actual weighted scores, ranks and tiers computed against
+// the backend-authorized public cohort. It deliberately does NOT fall back to
+// the legacy fields (`pack_score`, `relative_pack_score`, `pack_rank`,
+// `relative_rip_core_score`): those are a cohort min-max presentation of a
+// superseded blend, and silently serving one when the canonical object is
+// missing would put a number on screen that is not the RIP Score while
+// labeling it as one. A missing contract renders as unavailable instead —
+// see ripHeroScoreMode.test.mjs, which fails if a legacy read reappears.
+
 export const RIP_SCORE_MODE = "rip-score";
 export const RIP_CORE_MODE = "rip-core";
 
 export const RIP_SCORE_HELPER =
-  "Measures the complete opening experience — financial performance plus collector desirability.";
+  "Complete opening profile — financial performance plus Collector Appeal.";
 export const RIP_CORE_HELPER =
-  "Measures the financial opening profile only — profit, safety, and stability, without collector desirability.";
+  "Financial opening profile only — Profit, Safety and Stability, without Collector Appeal.";
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -12,77 +24,90 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function firstValue(sources, keys) {
+function toObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function firstContract(sources, keys) {
   for (const source of sources) {
     if (!source || typeof source !== "object") continue;
     for (const key of keys) {
-      if (source[key] !== null && source[key] !== undefined) return source[key];
+      const candidate = source[key];
+      if (candidate && typeof candidate === "object") return candidate;
     }
   }
   return null;
 }
 
-function firstNumber(sources, keys) {
-  return toNumber(firstValue(sources, keys));
+function interpretationOf(contract, sources, snakePrefix, camelPrefix) {
+  const embedded = toObject(contract?.interpretation);
+  const fromFields = (suffix, camelSuffix) => {
+    for (const source of sources) {
+      if (!source || typeof source !== "object") continue;
+      const value = source[`${snakePrefix}_${suffix}`] ?? source[`${camelPrefix}${camelSuffix}`];
+      if (value !== null && value !== undefined) return value;
+    }
+    return null;
+  };
+  return {
+    label: embedded.label ?? fromFields("interpretation_label", "InterpretationLabel"),
+    summary: embedded.summary ?? fromFields("interpretation_summary", "InterpretationSummary"),
+    severity: embedded.severity ?? fromFields("interpretation_severity", "InterpretationSeverity"),
+  };
+}
+
+export function hasCanonicalRipContract(...sources) {
+  const rip = firstContract(sources, ["rip"]);
+  return toNumber(rip?.score) !== null;
 }
 
 export function hasRipCorePresentationContract(...sources) {
-  return firstNumber(sources, ["relative_rip_core_score", "relativeRipCoreScore"]) !== null;
+  const core = firstContract(sources, ["ripCore", "rip_core"]);
+  return toNumber(core?.score) !== null;
 }
 
-export function selectRipHeroScoreMode({ mode = RIP_SCORE_MODE, summary = {}, target = {} } = {}) {
-  const sources = [summary, target];
-  const coreAvailable = hasRipCorePresentationContract(...sources);
+export function selectRipHeroScoreMode({ mode = RIP_SCORE_MODE, summary = {}, target = {}, payload = {} } = {}) {
+  // Source order: the set-page snapshot payload (set detail), then the
+  // rankings target (Explore), then the merged summary. All three carry the
+  // SAME backend objects — one bundle powers both surfaces — so order only
+  // matters when a stale cache and a fresh one briefly coexist.
+  const sources = [payload, target, summary];
+  const rip = toObject(firstContract(sources, ["rip"]));
+  const ripCore = toObject(firstContract(sources, ["ripCore", "rip_core"]));
+  const coreAvailable = toNumber(ripCore.score) !== null;
   const resolvedMode = mode === RIP_CORE_MODE && coreAvailable ? RIP_CORE_MODE : RIP_SCORE_MODE;
 
   if (resolvedMode === RIP_CORE_MODE) {
-    const interpretation = firstValue(sources, ["rip_core_interpretation", "ripCoreInterpretation"]);
     return {
       mode: RIP_CORE_MODE,
       label: "RIP Core",
       helper: RIP_CORE_HELPER,
-      score: firstNumber(sources, ["relative_rip_core_score", "relativeRipCoreScore"]),
-      rank: firstNumber(sources, ["rip_core_rank", "ripCoreRank", "rip_rank_without_desirability", "ripRankWithoutDesirability"]),
-      tier: firstValue(sources, ["rip_core_tier", "ripCoreTier"]),
-      interpretation: {
-        label:
-          (interpretation && interpretation.label) ||
-          firstValue(sources, ["rip_core_interpretation_label", "ripCoreInterpretationLabel"]),
-        summary:
-          (interpretation && interpretation.summary) ||
-          firstValue(sources, ["rip_core_interpretation_summary", "ripCoreInterpretationSummary"]),
-        severity:
-          (interpretation && interpretation.severity) ||
-          firstValue(sources, ["rip_core_interpretation_severity", "ripCoreInterpretationSeverity"]),
-      },
+      score: toNumber(ripCore.score),
+      rank: toNumber(ripCore.rank),
+      tier: ripCore.tier ?? null,
+      cohortSize: toNumber(ripCore.cohortSize),
+      available: coreAvailable,
+      status: ripCore.status ?? null,
+      interpretation: interpretationOf(ripCore, sources, "rip_core", "ripCore"),
       coreAvailable,
     };
   }
 
-  const interpretation = firstValue(sources, [
-    "rip_score_interpretation",
-    "ripScoreInterpretation",
-    "pack_score_interpretation",
-    "packScoreInterpretation",
-  ]);
+  const available = toNumber(rip.score) !== null;
   return {
     mode: RIP_SCORE_MODE,
     label: "RIP Score",
     helper: RIP_SCORE_HELPER,
-    score: firstNumber(sources, ["relative_pack_score", "relativePackScore", "pack_score", "packScore"]),
-    rank: firstNumber(sources, ["rip_rank_with_desirability", "ripRankWithDesirability", "pack_rank", "packRank"]),
-    tier: firstValue(sources, ["pack_tier", "packTier"]),
-    interpretation: {
-      label:
-        (interpretation && interpretation.label) ||
-        firstValue(sources, ["rip_score_interpretation_label", "ripScoreInterpretationLabel", "pack_score_interpretation_label", "packScoreInterpretationLabel"]),
-      summary:
-        (interpretation && interpretation.summary) ||
-        firstValue(sources, ["rip_score_interpretation_summary", "ripScoreInterpretationSummary", "pack_score_interpretation_summary", "packScoreInterpretationSummary"]),
-      severity:
-        (interpretation && interpretation.severity) ||
-        firstValue(sources, ["rip_score_interpretation_severity", "ripScoreInterpretationSeverity", "pack_score_interpretation_severity", "packScoreInterpretationSeverity"]),
-    },
+    score: toNumber(rip.score),
+    rank: toNumber(rip.rank),
+    tier: rip.tier ?? null,
+    cohortSize: toNumber(rip.cohortSize),
+    available,
+    // When the canonical RIP is unavailable the backend says why
+    // (e.g. incomplete_missing_desirability); the UI renders that state
+    // rather than substituting a legacy score.
+    status: rip.status ?? null,
+    interpretation: interpretationOf(rip, sources, "rip_score", "ripScore"),
     coreAvailable,
   };
 }

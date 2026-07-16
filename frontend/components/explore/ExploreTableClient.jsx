@@ -14,8 +14,9 @@ import {
   EXPLORE_RANKING_MODES,
   getScoreForMode,
   getRankForMode,
+  getTierForMode,
   formatModeScore,
-  getTierField,
+
 } from "@/constants/exploreRankingConfig";
 import { getDangerValueStyle } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
@@ -296,8 +297,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               {sortedTargets.map((target) => {
                 const averageLoss = estimateAverageLoss(target);
                 const scoreForMode = getScoreForMode(target, selectedMode);
-                const tierField = getTierField(selectedMode);
-                const tier = (target?.[tierField] || target?.pack_tier || "").toString().toUpperCase() || null;
+                const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
                 const recommendationLabel = getLeaderboardRecommendationLabel(target);
                 const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
 
@@ -341,8 +341,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             {sortedTargets.map((target) => {
               const recommendationLabel = getLeaderboardRecommendationLabel(target);
               const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
-              const tierField = getTierField(selectedMode);
-              const tier = (target?.[tierField] || target?.pack_tier || "").toString().toUpperCase() || null;
+              const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
 
               return (
                 <Link

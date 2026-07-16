@@ -105,6 +105,13 @@ from backend.desirability.factorized_opening_appeal import (
 COLLECTOR_APPEAL_VERSION = "collector_appeal_ca7_v1"
 DUAL_PATH_DEPTH_VERSION = "dual_path_depth_v1"
 
+# Chase Appeal (D x M) ships as its own visible metric and is NOT a RIP pillar.
+# Intentionally absent from ``collector_appeal_fingerprint.collect_assumptions``:
+# that hash identifies the rules behind a stored COLLECTOR APPEAL score, and
+# Chase Appeal is a different metric that changes none of them. Adding it there
+# would mark every stored CA7 row stale for a metric CA7 does not consume.
+CHASE_APPEAL_VERSION = "chase_appeal_ca2_v1"
+
 # --- Product identity (see docs/research/collector_appeal_product_naming_transition.md)
 #
 # ``collector_appeal_score`` ALREADY EXISTS in production and is Pure/Universal
@@ -434,6 +441,39 @@ def compute_collector_appeal(d: Any, p: Any, *, lam: float = CA7_PRODUCTION_LAMB
     missing (see MISSING_DATA_POLICY).
     """
     return bounded_bonus_appeal(d, p, lam)
+
+
+def compute_chase_appeal(d: Any, m_star: Any) -> Optional[float]:
+    """THE production Chase Appeal: ``D * M`` on [0, 1]. Algebraically CA2.
+
+    A SEPARATE, VISIBLE METRIC - NOT A RIP PILLAR
+    ---------------------------------------------
+    Chase Appeal answers a different question from Collector Appeal: "how do this
+    set's desirability and its elite scarcity combine into a chase structure?"
+    The market study found it survives the set-size correction on its own, so it
+    ships under its own name (see
+    docs/research/collector_appeal_market_prediction_results.md section 2).
+
+    It is deliberately NOT added to RIP. RIP has exactly four pillars, and D
+    already enters through Collector Appeal; adding D x M as a fifth would apply
+    desirability to RIP twice. A test pins the pillar count.
+
+    WHY THIS EXISTS RATHER THAN READING THE GRID
+    --------------------------------------------
+    ``compute_collector_appeal_candidates`` also produces D*M under the key
+    ``CA2_chase``, but that grid is research: its whole purpose is to COMPARE
+    candidates, and serving a number off it would be shipping a candidate as a
+    product - the exact confusion this module's header forbids. So the shipped
+    metric gets one named entry point with its own version. A test asserts this
+    function and the grid's CA2 never disagree, so the two cannot drift.
+
+    Returns None - never 0.0 - when either input is missing.
+    """
+    d_value = _as_float(d)
+    m_value = _as_float(m_star)
+    if d_value is None or m_value is None:
+        return None
+    return _clamp(_clamp(d_value) * _clamp(m_value))
 
 
 def bounded_bonus_appeal(d: Any, p: Any, lam: float) -> Optional[float]:

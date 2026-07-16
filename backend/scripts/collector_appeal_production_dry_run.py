@@ -43,6 +43,7 @@ from backend.desirability.collector_appeal import (  # noqa: E402
     COLLECTOR_APPEAL_METRIC_NAME,
     COLLECTOR_APPEAL_PRODUCT_STATUS,
 )
+from backend.desirability.collector_appeal_inputs import build_subject_index  # noqa: E402
 from backend.desirability.collector_appeal_rollout import (  # noqa: E402
     ReadOnlyClientGuard,
     build_update_plan,
@@ -377,36 +378,10 @@ def _to_float(value: Any) -> Optional[float]:
 # Subject building (same inputs the audit and a committed run would use)
 # ---------------------------------------------------------------------------
 
-def build_subject_index(client: Any, set_ids: Sequence[str], pull_model: Mapping[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
-    modelled_ids = [sid for sid in set_ids if sid in pull_model]
-    if not modelled_ids:
-        return {}
-    cards = load_cards(client, modelled_ids)
-    appeal_by_card = load_appeal_by_card(client, [str(card.get("id")) for card in cards])
-
-    by_set: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for card in cards:
-        set_id = str(card.get("set_id"))
-        rarity_model = pull_model.get(set_id) or {}
-        classification = classify_rarity(card.get("rarity"))
-        if classification.bucket not in HIT_BUCKETS:
-            continue
-        appeal_row = appeal_by_card.get(str(card.get("id")))
-        model = rarity_model.get(classification.normalized_key)
-        if appeal_row is None or model is None:
-            continue
-        by_set[set_id].append(
-            {
-                "subject_key": subject_key_for(appeal_row["primary_reference_id"]),
-                "subject_name": appeal_row.get("primary_species"),
-                "subject_demand": appeal_row["appeal"],
-                "pull_probability": min(model["probability"], 1.0),
-                "slot_group": model["slot_group"],
-                "card_name": card.get("name"),
-                "rarity": card.get("rarity"),
-            }
-        )
-    return {set_id: build_subjects(cards) for set_id, cards in by_set.items()}
+# ``build_subject_index`` moved to backend.desirability.collector_appeal_inputs
+# (imported above) so the dry run and the production service assemble subjects
+# through the same function. A copy here would let the audit certify an assembly
+# the service does not perform.
 
 
 # ---------------------------------------------------------------------------

@@ -35,9 +35,7 @@ from backend.db.services.pokemon_set_market_service import (
     get_pokemon_set_value_history_payload,
 )
 from backend.desirability.set_validation import (
-    build_desirability_validation_payload,
     build_opening_set_audit,
-    is_complete_desirability_validation,
     is_opening_set_row,
 )
 from backend.scripts.set_value_scope_invariants import validate_histories_by_scope
@@ -374,6 +372,45 @@ def _target_rank_context_fields(target: Optional[Dict[str, Any]]) -> Dict[str, A
         elif key in summary and summary.get(key) is not None:
             fields[key] = summary.get(key)
     return fields
+
+
+def _merge_canonical_rip_contract_into_set_payload(
+    *,
+    payload: Dict[str, Any],
+    set_id: str,
+    set_row: Dict[str, Any],
+    rankings_payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Copy the canonical public contract from the rankings target into the set page.
+
+    The same backend bundle powers both surfaces BY CONSTRUCTION: these objects
+    are lifted verbatim from the row ``get_rip_statistics_targets_payload``
+    ranked, so the Explore leaderboard and the set Insights page cannot disagree
+    about a score, a rank, or a denominator - they are reading one object.
+
+    Nothing is recomputed here, and the legacy summary fields are left exactly
+    as they were: they remain for backward compatibility and are listed in the
+    payload's deprecation metadata.
+    """
+    target_rows = rankings_payload.get("targets") or []
+    matching_target = _find_matching_rankings_target(
+        set_id=set_id,
+        set_row=set_row,
+        payload=payload,
+        target_rows=target_rows,
+    )
+    if not isinstance(matching_target, dict):
+        return payload
+
+    next_payload = dict(payload)
+    for key in ("rip", "ripCore", "openingExperience", "publicAnalyticsStatus"):
+        value = matching_target.get(key)
+        if value is not None:
+            next_payload[key] = value
+    cohort = (rankings_payload.get("meta") or {}).get("publicAnalyticsCohort")
+    if isinstance(cohort, dict):
+        next_payload["publicAnalyticsCohort"] = cohort
+    return next_payload
 
 
 def _merge_rip_desirability_comparison_into_set_payload(
@@ -941,36 +978,21 @@ def _merge_last_known_good_snapshot_sections(
             reason="no valid card appeal market-price validation has been captured yet",
         )
 
-    new_desirability = next_payload.get("desirabilityValidation") or next_payload.get("desirability_validation")
-    old_desirability = old_payload.get("desirabilityValidation") or old_payload.get("desirability_validation")
-    new_desirability_valid = is_complete_desirability_validation(new_desirability)
-    old_desirability_valid = is_complete_desirability_validation(old_desirability)
-    desirability_source = _section_source(next_payload, fallback="pokemon_explore_rankings_snapshot_latest")
-    if new_desirability_valid:
-        section_freshness["desirabilityValidation"] = _fresh_section_status(
-            next_payload,
-            section_key="desirabilityValidation",
-            built_at=built_at,
-            source=desirability_source,
-        )
-    elif old_desirability_valid:
-        validation = old_payload.get("desirabilityValidation") or old_payload.get("desirability_validation")
-        next_payload["desirabilityValidation"] = validation
-        next_payload["desirability_validation"] = validation
-        section_freshness["desirabilityValidation"] = _stale_section_status(
-            old_payload,
-            section_key="desirabilityValidation",
-            attempted_at=built_at,
-            source=_section_source(old_payload, fallback="pokemon_explore_rankings_snapshot_latest"),
-            reason="current snapshot build did not include a complete canonical desirability comparison",
-            old_row=existing_row,
-        )
-    else:
-        section_freshness["desirabilityValidation"] = _missing_section_status(
-            built_at=built_at,
-            source=desirability_source,
-            reason="no complete canonical desirability comparison has been captured yet",
-        )
+    # desirabilityValidation is RETIRED, not merely absent. The carry-forward
+    # branch that used to live here would resurrect the legacy rank-alignment
+    # payload from the previous snapshot row on every rebuild, so the section
+    # could never actually die. New snapshots drop the keys; the freshness entry
+    # says why, so a staleness audit reads "retired" instead of "broken".
+    next_payload.pop("desirabilityValidation", None)
+    next_payload.pop("desirability_validation", None)
+    section_freshness["desirabilityValidation"] = {
+        "status": "retired",
+        "builtAt": built_at,
+        "reason": (
+            "The Desirability Evidence section was replaced by Opening Experience "
+            "(Collector Appeal); its validation payload is no longer produced."
+        ),
+    }
 
     meta["sectionFreshness"] = section_freshness
     next_payload["meta"] = meta
@@ -1146,20 +1168,26 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             set_row=set_row,
             target_rows=target_rows,
         )
-        desirability_validation = build_desirability_validation_payload(
+        payload = _merge_canonical_rip_contract_into_set_payload(
+            payload=payload,
             set_id=set_id,
-            set_payload=payload,
-            target_rows=target_rows,
+            set_row=set_row,
+            rankings_payload=rankings_payload,
         )
-        payload["desirabilityValidation"] = desirability_validation
-        payload["desirability_validation"] = desirability_validation
+        # The legacy desirabilityValidation payload (rank-alignment bars,
+        # set-value scatter, market agree/conflict verdicts) is no longer
+        # produced: its only consumer was the public Desirability Evidence
+        # section, which the Opening Experience section replaced. Pure Roster
+        # Desirability is price-independent by construction, so validating it
+        # against set value was never the right proof for the construct.
+        # backend/desirability/set_validation.py remains for research use.
     except Exception as exc:
         if is_transient_data_service_error(exc):
             raise
-        logger.warning("desirability validation build failed set_id=%s", set_id, exc_info=True)
+        logger.warning("canonical RIP contract merge failed set_id=%s", set_id, exc_info=True)
         meta = dict(payload.get("meta") or {})
         warnings = list(meta.get("warnings") or [])
-        warnings.append("Desirability validation could not be generated for this snapshot.")
+        warnings.append("Canonical RIP contract could not be merged into this snapshot.")
         meta["warnings"] = warnings
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)

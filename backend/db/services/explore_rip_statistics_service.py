@@ -5,17 +5,24 @@ from __future__ import annotations
 import logging
 import math
 import time
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.db.services.collector_appeal_service import get_collector_appeal_bundle
 from backend.db.services.rip_desirability_comparison import build_rip_desirability_comparison_payload
 from backend.db.services.universal_set_desirability_service import (
     get_universal_desirability_bundle,
     public_payload as universal_public_payload,
 )
+from backend.desirability.public_analytics_policy import (
+    PublicCohortIntegrityError,
+    assert_cohort_integrity,
+    build_public_cohort,
+    public_analytics_status,
+)
 from backend.desirability.scoring_config import DEFAULT_RIP_WEIGHTS, rip_weights_payload
 from backend.desirability.universal_set_desirability import assess_simulation_coverage
-from backend.desirability.weighted_rip import compute_weighted_rip
+from backend.desirability.weighted_rip import compute_financial_rip, compute_weighted_rip
 from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
@@ -464,6 +471,280 @@ def _calculate_score_ranks_and_tiers(
     return result
 
 
+def _resolve_desirability_key(target: Mapping[str, Any]) -> Optional[str]:
+    """The id the desirability bundles are keyed by, for one target row."""
+    return _to_optional_str(target.get("set_id")) or _to_optional_str(target.get("target_id"))
+
+
+# Which metrics get a public rank, and where each one's score lives on the
+# target row. Declared as data so "rank everything the contract exposes" is one
+# list to read rather than nine call sites to audit.
+PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
+    ("_rank_rip", "rip"),
+    ("_rank_rip_core", "ripCore"),
+    ("_rank_profit", "profit"),
+    ("_rank_safety", "safety"),
+    ("_rank_stability", "stability"),
+    ("_rank_roster_desirability", "rosterDesirability"),
+    ("_rank_collector_appeal", "collectorAppeal"),
+    ("_rank_chase_appeal", "chaseAppeal"),
+    ("_rank_dual_path_depth", "dualPathDepth"),
+)
+
+
+def _attach_public_rip_contract(
+    targets: List[Dict[str, Any]],
+    *,
+    sources: Dict[str, str],
+    warnings: List[str],
+) -> Dict[str, Any]:
+    """Fix the public cohort, then compute every public score, rank and tier in it.
+
+    ORDER IS THE WHOLE POINT
+    ------------------------
+    Coverage, then eligibility, then the cohort, then the rows, then the ranks.
+    The defect this replaces ranked all 33 simulated sets and let the frontend
+    hide 12, so a public page could say "#1 of 33" while listing 21. A rank is a
+    property OF a cohort; computing it before the cohort is fixed produces a
+    number that is not about anything the reader can see.
+
+    Every rank here is therefore computed against ``cohort`` only. Hidden sets
+    still get their own payload (a set page must render something), but they are
+    never in the population any public rank is quoted against, and they never
+    receive a canonical RIP.
+    """
+    # The same failure posture as this file's other enrichments: a bundle-build
+    # failure degrades to an honest unavailable state (canonical RIP reports
+    # incomplete_missing_desirability), never to a legacy score and never to a
+    # 500 that takes the whole leaderboard down with it.
+    try:
+        collector_bundle = get_collector_appeal_bundle()
+        collector_payloads = collector_bundle.get("payloads") or {}
+        sources["collector_appeal_bundle"] = "OK"
+    except Exception as exc:
+        logger.exception("[rip-statistics-targets] collector appeal bundle failed")
+        warnings.append("Failed to load Collector Appeal for RIP targets")
+        sources["collector_appeal_bundle"] = "FAILED"
+        collector_payloads = {}
+
+    # 1. The cohort, from set metadata through the centralized backend policy.
+    cohort = build_public_cohort(
+        [
+            {
+                "set_id": str(target.get("target_id")),
+                "name": target.get("name"),
+                "era_id": target.get("era_id"),
+                "era": target.get("era"),
+            }
+            for target in targets
+            if target.get("target_id")
+        ]
+    )
+    cohort_ids = set(cohort["eligibleSetIds"])
+
+    # 2. Every row's scores. CA7 is the 10% pillar; Universal Desirability is
+    #    NOT, and there is deliberately no fallback between them.
+    for target in targets:
+        resolved_id = _resolve_desirability_key(target)
+        collector = collector_payloads.get(resolved_id or "") or collector_payloads.get(
+            str(target.get("target_id") or "")
+        ) or {}
+
+        collector_appeal_score = ((collector.get("collectorAppeal") or {}).get("score"))
+
+        target["openingExperience"] = _build_opening_experience(target, collector, cohort)
+        target["rip"] = compute_weighted_rip(
+            {
+                "profit": target.get("profit_score"),
+                "safety": target.get("safety_score"),
+                "stability": target.get("stability_score"),
+                # Collector Appeal (CA7), never Universal Desirability. When it
+                # is missing, compute_weighted_rip reports the canonical RIP
+                # unavailable rather than renormalizing the financial pillars
+                # into a canonical-looking score - see its missing-pillar policy.
+                "desirability": collector_appeal_score,
+            }
+        )
+        target["ripCore"] = compute_financial_rip(
+            {
+                "profit": target.get("profit_score"),
+                "safety": target.get("safety_score"),
+                "stability": target.get("stability_score"),
+            }
+        )
+        target["publicAnalyticsStatus"] = public_analytics_status(
+            {"name": target.get("name"), "era_id": target.get("era_id"), "era": target.get("era")}
+        )
+
+    # 3. Integrity: an eligible set with no CA7 is an error, not a row to drop.
+    try:
+        assert_cohort_integrity(
+            cohort,
+            {
+                str(target.get("target_id")): (
+                    (target.get("openingExperience") or {}).get("collectorAppeal") or {}
+                ).get("score")
+                for target in targets
+                if str(target.get("target_id")) in cohort_ids
+            },
+        )
+    except PublicCohortIntegrityError as exc:
+        # Loud, and reported in the payload. Not swallowed: the alternative is a
+        # leaderboard whose denominator silently disagrees with its own list.
+        logger.error("[rip-statistics-targets] public cohort integrity: %s", exc)
+        warnings.append(str(exc))
+        cohort["status"] = "integrity_error"
+
+    # 4. Ranks - only now, and only within the cohort.
+    cohort_rows = [target for target in targets if str(target.get("target_id")) in cohort_ids]
+    _rank_within_cohort(cohort_rows, cohort_size=len(cohort_ids))
+    return cohort
+
+
+def _rank_within_cohort(cohort_rows: List[Dict[str, Any]], *, cohort_size: int) -> None:
+    """Rank and tier every publicly-exposed metric across the fixed cohort."""
+    for extractor_name, contract_key in PUBLIC_RANKED_METRICS:
+        extractor = globals()[extractor_name]
+        scratch = [
+            {"target_id": row.get("target_id"), "_score": extractor(row)}
+            for row in cohort_rows
+        ]
+        ranked = _calculate_score_ranks_and_tiers(scratch, "_score")
+        for row in cohort_rows:
+            entry = ranked.get(str(row.get("target_id"))) or {}
+            _apply_rank(row, contract_key, entry, cohort_size=cohort_size)
+
+
+def _apply_rank(
+    row: Dict[str, Any],
+    contract_key: str,
+    entry: Mapping[str, Any],
+    *,
+    cohort_size: int,
+) -> None:
+    """Write a rank/tier/cohortSize onto the object it describes.
+
+    Every ranked object carries its OWN denominator. A rank without the cohort
+    it was computed against is the ambiguity this phase is removing, so the two
+    always travel together.
+    """
+    if contract_key in ("rip", "ripCore"):
+        target = row.get(contract_key) or {}
+        target["rank"] = entry.get("rank")
+        target["tier"] = entry.get("tier")
+        target["cohortSize"] = cohort_size
+        return
+    if contract_key in ("profit", "safety", "stability"):
+        components = (row.get("rip") or {}).get("components") or {}
+        component = components.get(contract_key)
+        if isinstance(component, dict):
+            component["rank"] = entry.get("rank")
+            component["tier"] = entry.get("tier")
+            component["cohortSize"] = cohort_size
+        core_components = (row.get("ripCore") or {}).get("components") or {}
+        core_component = core_components.get(contract_key)
+        if isinstance(core_component, dict):
+            core_component["rank"] = entry.get("rank")
+            core_component["tier"] = entry.get("tier")
+            core_component["cohortSize"] = cohort_size
+        return
+    opening = row.get("openingExperience") or {}
+    block = opening.get(contract_key)
+    if isinstance(block, dict):
+        block["rank"] = entry.get("rank")
+        block["cohortSize"] = cohort_size
+        # Dual-Path Depth is a structural index, not a graded 0-100 metric, so it
+        # gets a rank but deliberately no tier: a "D tier" on a scale whose
+        # maximum is not attainable would read as a verdict on the set.
+        if contract_key != "dualPathDepth":
+            block["tier"] = entry.get("tier")
+    if contract_key == "collectorAppeal":
+        # The RIP pillar is the same number, so it carries the same placement.
+        component = ((row.get("rip") or {}).get("components") or {}).get("desirability")
+        if isinstance(component, dict):
+            component["rank"] = entry.get("rank")
+            component["tier"] = entry.get("tier")
+            component["cohortSize"] = cohort_size
+
+
+def _rank_rip(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float((row.get("rip") or {}).get("score"))
+
+
+def _rank_rip_core(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float((row.get("ripCore") or {}).get("score"))
+
+
+def _rank_profit(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float(row.get("profit_score"))
+
+
+def _rank_safety(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float(row.get("safety_score"))
+
+
+def _rank_stability(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float(row.get("stability_score"))
+
+
+def _opening_metric(row: Mapping[str, Any], key: str, field: str = "score") -> Optional[float]:
+    block = (row.get("openingExperience") or {}).get(key) or {}
+    return _to_optional_float(block.get(field))
+
+
+def _rank_roster_desirability(row: Mapping[str, Any]) -> Optional[float]:
+    return _opening_metric(row, "rosterDesirability")
+
+
+def _rank_collector_appeal(row: Mapping[str, Any]) -> Optional[float]:
+    return _opening_metric(row, "collectorAppeal")
+
+
+def _rank_chase_appeal(row: Mapping[str, Any]) -> Optional[float]:
+    return _opening_metric(row, "chaseAppeal")
+
+
+def _rank_dual_path_depth(row: Mapping[str, Any]) -> Optional[float]:
+    return _opening_metric(row, "dualPathDepth", "rawValue")
+
+
+def _build_opening_experience(
+    target: Mapping[str, Any],
+    collector: Mapping[str, Any],
+    cohort: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """The public Opening Experience contract for one set (ranks added later).
+
+    Assembled from the Collector Appeal service's payload only. Nothing is
+    recomputed here; this shapes and labels what that service already decided.
+    """
+    if not collector:
+        return {
+            "status": "unavailable",
+            "cohort": {
+                "version": cohort.get("version"),
+                "eligibleSetCount": cohort.get("eligibleSetCount"),
+            },
+            "coverage": {"status": "unavailable", "reasons": ["no_component_source_row"]},
+        }
+
+    return {
+        "status": collector.get("status"),
+        "version": (collector.get("collectorAppeal") or {}).get("version"),
+        "asOf": collector.get("asOf"),
+        "cohort": {
+            "version": cohort.get("version"),
+            "eligibleSetCount": cohort.get("eligibleSetCount"),
+        },
+        "rosterDesirability": dict(collector.get("rosterDesirability") or {}),
+        "dualPathDepth": dict(collector.get("dualPathDepth") or {}),
+        "collectorAppeal": dict(collector.get("collectorAppeal") or {}),
+        "chaseAppeal": dict(collector.get("chaseAppeal") or {}),
+        "topSubjects": list(collector.get("topSubjects") or []),
+        "coverage": dict(collector.get("coverage") or {}),
+    }
+
+
 def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Dict[str, Any]:
     """Return available RIP targets and the best default target from persisted data."""
     total_started = time.perf_counter()
@@ -710,6 +991,10 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "pokemon_api_set_id": set_row.get("pokemon_api_set_id"),
                 "name": str(set_row.get("name") or target_id),
                 "era": era_row.get("name") if era_row else None,
+                # The table-backed era key, threaded through so the public
+                # analytics policy can classify on the reliable identifier
+                # rather than falling back to matching a display name.
+                "era_id": _to_optional_str(set_row.get("era_id")),
                 "logo_image_url": set_row.get("logo_image_url"),
                 "symbol_image_url": set_row.get("symbol_image_url"),
                 "hero_image_url": set_row.get("hero_image_url"),
@@ -906,16 +1191,16 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         comparison_diagnostics["minimal_impact_count"],
     )
 
-    # Universal Set Desirability v3 + weighted RIP v3 (versioned, additive;
-    # legacy pack_score fields above are unchanged during the migration).
+    # Universal Set Desirability v3 stays as a SUPPORTING metric (Roster
+    # Desirability). It is no longer the 10% RIP pillar - see
+    # _attach_public_rip_contract.
     universal_bundle = get_universal_desirability_bundle()
     universal_payloads = universal_bundle.get("payloads") or {}
     # Descriptive context only. Desirability's RIP weight comes from the config
     # defaults; this correlation never zeroes it (see scoring_config).
     set_value_association = universal_bundle.get("setValueAssociation")
-    rip_v3_rows: List[Dict[str, Any]] = []
     for target in targets:
-        resolved_id = _to_optional_str(target.get("set_id")) or _to_optional_str(target.get("target_id"))
+        resolved_id = _resolve_desirability_key(target)
         universal_row = universal_payloads.get(resolved_id or "") or universal_payloads.get(
             str(target.get("target_id") or "")
         )
@@ -926,26 +1211,8 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             "reasons": ["missing_demand_scores"],
         }
         target["simulationCoverage"] = assess_simulation_coverage(target)
-        desirability_v3_score = (
-            (universal or {}).get("score")
-            if ((universal or {}).get("coverage") or {}).get("status") == "full"
-            else None
-        )
-        target["rip"] = compute_weighted_rip(
-            {
-                "profit": target.get("profit_score"),
-                "safety": target.get("safety_score"),
-                "stability": target.get("stability_score"),
-                "desirability": desirability_v3_score,
-            }
-        )
-        if target["rip"].get("score") is not None:
-            rip_v3_rows.append(target)
-    rip_v3_rows.sort(
-        key=lambda row: (-(_to_optional_float(row["rip"].get("score")) or 0.0), str(row.get("target_id") or ""))
-    )
-    for rank, target in enumerate(rip_v3_rows, start=1):
-        target["rip"]["rank"] = rank
+
+    cohort = _attach_public_rip_contract(targets, sources=sources, warnings=warnings)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
@@ -966,9 +1233,32 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             "rip_desirability_comparison": comparison_diagnostics,
             "setValueAssociation": set_value_association,
             "ripWeightsConfig": rip_weights_payload(DEFAULT_RIP_WEIGHTS),
+            # The population every public rank in this payload was computed
+            # against. Exposed rather than implied: a denominator the client has
+            # to infer is a denominator the client can get wrong.
+            "publicAnalyticsCohort": {
+                "version": cohort.get("version"),
+                "eligibleSetCount": cohort.get("eligibleSetCount"),
+                "status": cohort.get("status"),
+                "excludedCountsByReason": cohort.get("excludedCountsByReason"),
+            },
             "deprecatedFields": {
-                "pack_score": "Legacy 45/25/20/10 blend; superseded by the versioned `rip` object.",
+                "pack_score": "Legacy 45/25/20/10 blend; superseded by the versioned `rip` object. Do not read.",
+                "relative_pack_score": "Legacy cohort min-max presentation, NOT the canonical RIP score. Do not read.",
+                "pack_rank": "Legacy 33-set rank. Superseded by `rip.rank` (cohort-scoped). Do not read.",
+                "pack_tier": "Legacy 33-set tier. Superseded by `rip.tier`. Do not read.",
+                "relative_profit_score": "Legacy min-max presentation; use `rip.components.profit.score`.",
+                "relative_safety_score": "Legacy min-max presentation; use `rip.components.safety.score`.",
+                "relative_stability_score": "Legacy min-max presentation; use `rip.components.stability.score`.",
+                "relative_desirability_score": "Legacy min-max presentation; use `openingExperience.collectorAppeal.score`.",
+                "collector_appeal_score": (
+                    "AMBIGUOUS LEGACY FIELD: this is Pure/Universal Desirability, NOT Collector "
+                    "Appeal (CA7). It is intentionally NOT repointed. Read "
+                    "`openingExperience.rosterDesirability` or `openingExperience.collectorAppeal`."
+                ),
+                "opening_desirability_score": "Legacy prototype metric; superseded by `openingExperience`.",
                 "rip_score_with_desirability": "Legacy comparison field; see `rip` and universalSetDesirability.gate.",
+                "rip_score_without_desirability": "Legacy comparison field; see `ripCore.score`.",
             },
             "timings": {
                 "targets_query_ms": round(query_ms, 2),

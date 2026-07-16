@@ -1,3 +1,18 @@
+// The four pillar cards under the RIP hero.
+//
+// CANONICAL CONTRACT ONLY. Rows come from the backend's `rip.components` —
+// actual component scores, backend-computed ranks/tiers against the public
+// cohort, the configured weight, and the direct contribution (score x weight).
+// The legacy `relative_*_score` fields are a cohort min-max presentation and
+// are deliberately not read, even as a fallback: a silently min-maxed pillar
+// is a different number wearing the same label. Missing canonical data renders
+// as unavailable (see the rankDiagnostic), never as a legacy score.
+//
+// The fourth pillar is Collector Appeal (CA7). The backend keys it
+// `desirability` inside rip.components for weight-config compatibility; the
+// public label is Collector Appeal, and relabeling happens HERE, in exactly
+// one place.
+
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -5,51 +20,64 @@ function toOptionalNumber(value) {
 }
 
 function toObject(value) {
-  return value && typeof value === "object" ? value : {};
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+// Display order per the product spec: financial pillars by weight, then the
+// Collector Appeal pillar.
 const PILLARS = [
-  { key: "profit", title: "Profit" },
-  { key: "safety", title: "Safety" },
-  { key: "desirability", title: "Desirability" },
-  { key: "stability", title: "Stability" },
+  { key: "profit", title: "Profit", trendKey: "profitScore" },
+  { key: "safety", title: "Safety", trendKey: "safetyScore" },
+  { key: "stability", title: "Stability", trendKey: "stabilityScore" },
+  { key: "desirability", title: "Collector Appeal", trendKey: "desirabilityScore" },
 ];
 
-export function selectRipScoreBreakdown(summary = {}, trends = {}, options = {}) {
-  const safeSummary = toObject(summary);
+export function selectRipScoreBreakdown(rip = {}, trends = {}, options = {}) {
+  const safeRip = toObject(rip);
+  const components = toObject(safeRip.components);
   const safeTrends = toObject(trends);
   const requestTimeout = options?.requestTimeout === true || options?.payload?.meta?.requestTimeout === true;
+  const hasContract = Object.keys(components).length > 0;
   const missingFields = [];
+
   const rows = PILLARS.map((pillar) => {
-    const score = toOptionalNumber(safeSummary[`relative_${pillar.key}_score`] ?? safeSummary[`${pillar.key}_score`]);
-    const rank = toOptionalNumber(safeSummary[`${pillar.key}_rank`]);
-    const tier = safeSummary[`${pillar.key}_tier`] || null;
-    if (score === null) missingFields.push(`${pillar.key}_score`);
-    if (rank === null) missingFields.push(`${pillar.key}_rank`);
+    const component = toObject(components[pillar.key]);
+    const score = toOptionalNumber(component.score);
+    const rank = toOptionalNumber(component.rank);
+    const tier = component.tier ?? null;
+    if (score === null) missingFields.push(`${pillar.key}.score`);
+    if (rank === null) missingFields.push(`${pillar.key}.rank`);
     return {
-      ...pillar,
+      key: pillar.key,
+      title: pillar.title,
       score,
-      scoreTrend: safeTrends[`${pillar.key}Score`] || null,
+      scoreTrend: safeTrends[pillar.trendKey] || null,
       rankValue: rank,
       rankTier: tier,
-      rankDiagnostic: rank === null
-        ? requestTimeout
-          ? "Rank loading: set page snapshot request timed out; retrying."
-          : "Rank unavailable: source payload lacks rank field."
-        : null,
+      cohortSize: toOptionalNumber(component.cohortSize),
+      weight: toOptionalNumber(component.weight),
+      contribution: toOptionalNumber(component.contribution),
+      rankDiagnostic:
+        rank === null
+          ? requestTimeout
+            ? "Rank loading: set page snapshot request timed out; retrying."
+            : hasContract
+            ? "Rank unavailable: canonical RIP component lacks a rank."
+            : "Rank unavailable: canonical RIP contract missing from payload."
+          : null,
     };
   });
 
   return {
     rows,
-    sourceUsed: "summary",
+    sourceUsed: "rip.components",
     fallbackUsed: false,
     diagnostics: {
-      source: "summary",
-      status: requestTimeout ? "loading" : "ready",
+      source: "rip.components",
+      status: requestTimeout ? "loading" : hasContract ? "ready" : "unavailable",
       requestTimeout,
       missingFields: requestTimeout ? [] : missingFields,
-      fallbackUsed: requestTimeout,
+      fallbackUsed: false,
     },
   };
 }

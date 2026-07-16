@@ -44,12 +44,6 @@ import {
   resolvePreferredCardAppealCorrelation,
 } from "./cardAppealSampleDiagnostics.mjs";
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
-import {
-  buildAgreementAriaLabel,
-  buildRankedAgreementModel,
-  selectDesirabilityAgreement,
-  selectDesirabilityVerdict,
-} from "./desirabilityAlignment.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
@@ -87,7 +81,10 @@ import {
   hasRipCorePresentationContract,
   selectRipHeroScoreMode,
 } from "./ripHeroScoreMode.mjs";
-import { selectDesirabilityValidation as selectSetDesirabilityValidation } from "@/components/pokemon/set-page/Insights/desirabilityValidationSelector.mjs";
+import {
+  selectCollectorAppealImpact,
+  selectOpeningExperiencePresentation,
+} from "@/components/pokemon/set-page/Insights/openingExperienceSelector.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import {
@@ -252,9 +249,12 @@ const SET_DETAIL_SECTION_TARGETS = {
   "set-intelligence": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "set-signals": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "rip-score": { tab: "insights", targetId: "set-detail-rip-score", graphMode: "outcome-distribution" },
-  "desirability-proof": { tab: "insights", targetId: "set-detail-desirability-evidence" },
-  "desirability-validation": { tab: "insights", targetId: "set-detail-desirability-evidence" },
-  "card-desirability-price": { tab: "insights", targetId: "set-detail-desirability-evidence" },
+  // Legacy desirability-evidence deep links resolve to the Opening Experience
+  // section that replaced it. `opening-experience` is the preferred alias.
+  "opening-experience": { tab: "insights", targetId: "set-detail-opening-experience" },
+  "desirability-proof": { tab: "insights", targetId: "set-detail-opening-experience" },
+  "desirability-validation": { tab: "insights", targetId: "set-detail-opening-experience" },
+  "card-desirability-price": { tab: "insights", targetId: "set-detail-opening-experience" },
   // Simulation Results card (formerly "Opening Outcomes"). `opening-outcomes`
   // stays for backwards-compatible deep links; `simulation-results` is the
   // preferred alias for the same card/default sub-view.
@@ -274,11 +274,6 @@ const SET_DETAIL_SECTION_TARGETS = {
   "top-market-cards": { tab: "overview", targetId: "set-detail-top-market-cards" },
   "market-movers": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
   "all-cards": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
-};
-const DESIRABILITY_EVIDENCE_MODE_BY_SECTION = {
-  "desirability-proof": "proof",
-  "desirability-validation": "set-validation",
-  "card-desirability-price": "card-validation",
 };
 
 function debugSetPagePerf(label, details = {}) {
@@ -586,7 +581,8 @@ function hasInsightsPayloadData(payload) {
     return true;
   }
 
-  return hasDesirabilityProofSignal(payload.desirabilityValidation || payload.desirability_validation);
+  // desirabilityValidation is retired; nothing else marks the payload renderable.
+  return false;
 }
 
 function getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }) {
@@ -963,8 +959,11 @@ const SIMPLE_PILLAR_INFO_COPY = {
     "Profit explains how often simulated openings beat cost, how Expected Value compares with pack cost, and how much upside the better pulls create. A strong profit profile does not guarantee a profitable pack.",
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
+  "Collector Appeal":
+    "Collector Appeal combines Roster Desirability — how beloved the set's Pokémon are, independent of price — with a bounded bonus for Dual-Path Depth, the share of desirable Pokémon offering both a realistically pullable printing and an elite chase. Price is never an input. It contributes a fixed 10% of the RIP Score alongside the financial pillars.",
+  // Legacy key kept only for stale render paths; the pillar label is Collector Appeal.
   Desirability:
-    "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value. Because it deliberately excludes price, scarcity, and rarity, it is not expected to reproduce market value on its own — it contributes a small, fixed share of the RIP Score alongside the financial pillars.",
+    "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value.",
   Stability:
     "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
 };
@@ -1447,81 +1446,8 @@ function getFirstTextFromSources(sources, keys = []) {
   return null;
 }
 
-function getRipDesirabilityImpactLabel({ label, scoreDelta, rankDelta }) {
-  if (label) {
-    return label;
-  }
-  if (rankDelta !== null && rankDelta >= 2) {
-    return "Rank lift";
-  }
-  if (rankDelta !== null && rankDelta <= -2) {
-    return "Rank drag";
-  }
-  if (scoreDelta !== null && scoreDelta >= 2) {
-    return "Score lift";
-  }
-  if (scoreDelta !== null && scoreDelta <= -2) {
-    return "Score drag";
-  }
-  if (scoreDelta !== null || rankDelta !== null) {
-    return "Minimal impact";
-  }
-  return "Missing desirability";
-}
-
-function normalizeRipDesirabilityComparison(summary, selectedTarget) {
-  const sources = [summary, selectedTarget].filter(Boolean);
-  const withoutScore = getFirstNumericFromSources(sources, ["rip_score_without_desirability", "ripScoreWithoutDesirability"]);
-  const withScore = getFirstNumericFromSources(sources, ["rip_score_with_desirability", "ripScoreWithDesirability"]);
-  const scoreDelta = getFirstNumericFromSources(sources, ["rip_score_delta", "ripScoreDelta"]);
-  const withoutRank = getFirstNumericFromSources(sources, ["rip_rank_without_desirability", "ripRankWithoutDesirability"]);
-  const withRank = getFirstNumericFromSources(sources, ["rip_rank_with_desirability", "ripRankWithDesirability"]);
-  const rankDelta = getFirstNumericFromSources(sources, ["rip_rank_delta", "ripRankDelta"]);
-  const componentScore = getFirstNumericFromSources(sources, ["desirability_component_score", "desirabilityComponentScore"]);
-  const label = getFirstTextFromSources(sources, ["rip_desirability_impact_label", "ripDesirabilityImpactLabel"]);
-
-  if (
-    withoutScore === null &&
-    withScore === null &&
-    scoreDelta === null &&
-    withoutRank === null &&
-    withRank === null &&
-    rankDelta === null &&
-    componentScore === null
-  ) {
-    return null;
-  }
-
-  return {
-    withoutScore,
-    withScore,
-    scoreDelta,
-    withoutRank,
-    withRank,
-    rankDelta,
-    componentScore,
-    label: getRipDesirabilityImpactLabel({ label, scoreDelta, rankDelta }),
-  };
-}
-
-function formatSignedScore(value) {
-  const parsed = toNumber(value);
-  if (parsed === null) {
-    return "--";
-  }
-  const sign = parsed > 0 ? "+" : "";
-  return `${sign}${parsed.toFixed(1)}`;
-}
-
-function formatRankDelta(value) {
-  const parsed = toNumber(value);
-  if (parsed === null) {
-    return "--";
-  }
-  const sign = parsed > 0 ? "+" : "";
-  return `${sign}${Math.round(parsed)}`;
-}
-
+// The legacy "Without/With Desirability" comparison helpers were retired with
+// the strip they fed; see CollectorAppealImpactStrip + selectCollectorAppealImpact.
 function formatNumber(value, decimals = 2) {
   const parsed = toNumber(value);
   if (parsed === null) {
@@ -5888,31 +5814,40 @@ function CompactPillarSignalTile({
   );
 }
 
-function RipDesirabilityComparisonStrip({ comparison }) {
-  if (!comparison) {
+function CollectorAppealImpactStrip({ impact }) {
+  // The truthful replacement for the old "Without/With Desirability" strip.
+  // Every value is read from the canonical rip/ripCore objects via
+  // selectCollectorAppealImpact; the direct contribution is the backend's
+  // score x weight, never `full RIP - RIP Core` (RIP Core is renormalized, so
+  // that subtraction is not the weighted contribution).
+  if (!impact) {
     return null;
   }
 
   const metrics = [
-    { label: "Without Desirability", value: formatRawScore(comparison.withoutScore) },
-    { label: "With Desirability", value: formatRawScore(comparison.withScore) },
-    { label: "Score Delta", value: formatSignedScore(comparison.scoreDelta) },
-    { label: "Rank Delta", value: formatRankDelta(comparison.rankDelta) },
+    { label: "RIP Core", value: impact.ripCore.scoreLabel, detail: impact.ripCore.rankLabel },
+    { label: "Collector Appeal", value: impact.collectorAppeal.scoreLabel, detail: impact.collectorAppeal.rankLabel },
+    { label: "Collector Appeal Weight", value: impact.weightLabel, detail: null },
+    { label: "Direct RIP Contribution", value: impact.contributionLabel, detail: null },
+    { label: "Final RIP", value: impact.finalRip.scoreLabel, detail: impact.finalRip.rankLabel },
   ];
 
   return (
     <div className="mt-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Desirability Comparison</p>
-        <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
-          {comparison.label}
-        </span>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Collector Appeal Impact</p>
+        {impact.rankEffectLabel ? (
+          <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
+            {impact.rankEffectLabel}
+          </span>
+        ) : null}
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {metrics.map((metric) => (
-          <div key={`rip-desirability-comparison:${metric.label}`} className="min-w-0">
+          <div key={`collector-appeal-impact:${metric.label}`} className="min-w-0">
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{metric.label}</p>
-            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{metric.value}</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{metric.value ?? "—"}</p>
+            {metric.detail ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{metric.detail}</p> : null}
           </div>
         ))}
       </div>
@@ -5925,14 +5860,16 @@ function RipScoreBreakdownModule({
   scoreTrend = null,
   rankTier,
   rankValue,
+  cohortSize = null,
   verdict,
   explanation,
   pillars,
   titleInfoText,
-  ripDesirabilityComparison = null,
+  collectorAppealImpact = null,
 }) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const parsedRank = toNumber(rankValue);
+  const parsedCohortSize = toNumber(cohortSize);
 
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
@@ -5976,7 +5913,13 @@ function RipScoreBreakdownModule({
                 rank={rankTier}
                 label="Rank"
                 size="supporting"
-                title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
+                title={
+                  parsedRank === null
+                    ? "Rank unavailable"
+                    : parsedCohortSize === null
+                    ? `Rank #${Math.round(parsedRank)}`
+                    : `Rank #${Math.round(parsedRank)} of ${Math.round(parsedCohortSize)}`
+                }
               />
               <RecommendationBadge label={verdict} rankTier={rankTier} />
               {explanation ? <InfoPopover text={explanation} /> : null}
@@ -5989,7 +5932,7 @@ function RipScoreBreakdownModule({
             <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
           ))}
         </div>
-        <RipDesirabilityComparisonStrip comparison={ripDesirabilityComparison} />
+        <CollectorAppealImpactStrip impact={collectorAppealImpact} />
       </article>
     </section>
   );
@@ -6047,1210 +5990,199 @@ function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "d
   );
 }
 
-function formatProofRank(value) {
-  const parsed = toNumber(value);
-  return parsed === null ? "N/A" : `#${Math.round(parsed)}`;
-}
+// ---------------------------------------------------------------------------
+// 02 · OPENING EXPERIENCE — Collector Appeal
+//
+// Replaces the retired Desirability Evidence section (rank-alignment bars,
+// Set/Card Validation scatter toggles, market agree/conflict verdicts). Pure
+// Roster Desirability is price-independent by construction, so validating it
+// against set value was never the right proof for the construct. This section
+// explains the score's actual composition instead: Roster Desirability, a
+// bounded Dual-Path Depth bonus, and the specific printings behind the top
+// desirable subjects. All numbers come from the backend openingExperience
+// contract via selectOpeningExperiencePresentation — nothing is computed here.
+// ---------------------------------------------------------------------------
 
-function formatProofDelta(value, suffix = "") {
-  const parsed = toNumber(value);
-  if (parsed === null) {
-    return "N/A";
-  }
-  const sign = parsed > 0 ? "+" : "";
-  return `${sign}${Number.isInteger(parsed) ? parsed : parsed.toFixed(1)}${suffix}`;
-}
+const OPENING_EXPERIENCE_INFO_TEXT = [
+  "Collector Appeal measures how exciting a set's roster is to open: Roster Desirability (how beloved the set's Pokémon are, independent of price) plus a bounded bonus for Dual-Path Depth (the share of desirable Pokémon offering both a realistically pullable printing and an elite chase).",
+  "Price is not an input to Roster Desirability or Collector Appeal.",
+  "Dual-Path Depth uses the modeled pull structure of this set's packs.",
+  "Chase Appeal is a separate desirability × scarcity diagnostic. It is shown for context and is not independently added to the RIP Score.",
+].join(" ");
 
-function getDesirabilityValidationPayload(explorePayload) {
-  const payload = explorePayload?.desirabilityValidation || explorePayload?.desirability_validation;
-  return payload && typeof payload === "object" ? payload : null;
-}
-
-// The /insights normalizer coerces a missing desirabilityValidation to `{}`
-// (truthy), and a populated object can still carry only identity fields — in
-// both cases the proof card used to render a full grid of "—" placeholders
-// that read as stuck skeleton rows. A proof payload only counts as real when
-// at least one field the card actually displays has a value.
-function hasDesirabilityProofSignal(validation) {
-  if (!validation || typeof validation !== "object") {
-    return false;
-  }
-  const signalKeys = [
-    "desirability_impact_band", "desirabilityImpactBand",
-    "desirability_alignment_band", "desirabilityAlignmentBand",
-    "desirability_impact_summary", "desirabilityImpactSummary",
-    "desirability_alignment_summary", "desirabilityAlignmentSummary",
-    "rip_core_rank_without_desirability", "ripCoreRankWithoutDesirability",
-    "final_rip_rank_with_desirability", "finalRipRankWithDesirability",
-    "desirability_score_delta", "desirabilityScoreDelta",
-    "desirability_rank_delta", "desirabilityRankDelta",
-    "desirability_rank", "desirabilityRank",
-    "card_appeal_score", "cardAppealScore",
-    "card_appeal_summary", "cardAppealSummary",
-  ];
-  return signalKeys.some((key) => {
-    const value = validation[key];
-    if (value === null || value === undefined) {
-      return false;
-    }
-    return typeof value === "string" ? value.trim().length > 0 : true;
-  });
-}
-
-// ——— Desirability agreement (verdict + ranked signal list) ———
-// Rebuilt twice: the old rank-ladder conflated rank-of-field and agreement on
-// one axis, and the diverging bars that replaced it invented a
-// confirm/conflict sign the engine does not output — its per-signal score is
-// UNSIGNED 0–100 rank closeness with no natural center (see
-// backend/desirability/set_validation.py). Signals now render as a ranked
-// list, strongest agreement first, with the engine score surfaced verbatim;
-// confirm/conflict accents come only from the engine's own named callouts,
-// and correlation stats shown as supporting text reuse the exact selector the
-// Set Validation scatter uses — same source, never an independent copy.
-
-const AGREEMENT_STATE_FILL = {
-  confirms: "var(--success)",
-  conflicts: "var(--warning)",
-};
-
-// Exactly ONE lead line: the colored verdict sentence. The backend's gray
-// restatement (verdict.summary) moved into the section's info tooltip. When
-// the engine's strongest signal has an exactly-matching scatter statistic,
-// the live (r, n) rides along; the claim stays contemporaneous ("tracks") —
-// future-tense language is parked until the lagged forward-return study runs
-// (docs/research/desirability-price-driver-study.md).
-function DesirabilityVerdictLine({ verdict, strongestStat = null }) {
-  if (!verdict) {
-    return null;
-  }
-  const statText = strongestStat
-    ? ` (r = ${formatCorrelationValue(strongestStat.pearson)}, n = ${strongestStat.sampleCount})`
-    : "";
+function OpeningExperienceMetricCard({ label, value, detail, infoText }) {
   return (
-    <p className="min-w-0 max-w-full text-sm leading-relaxed text-[var(--text-primary)]">
-      <span className="font-semibold">{verdict.label}</span>
-      {verdict.strongestLabel ? (
-        <>
-          {" — "}
-          <span className="font-semibold text-[var(--success)]">{verdict.strongestLabel}</span>
-          {" tracks our desirability read most closely"}
-          {statText}
-          {verdict.conflictLabel ? (
-            <>
-              {", while "}
-              <span className="font-semibold text-[var(--warning)]">{verdict.conflictLabel}</span>
-              {" agrees least"}
-            </>
-          ) : null}
-          {"."}
-        </>
-      ) : null}
-    </p>
-  );
-}
-
-// Ranked signal list: strongest agreement first, engine score verbatim on
-// every row. A 0–100 closeness score has no honest center to diverge around
-// and no honest zero-anchored bar (a 45/100 dressed as a bar reads like a
-// positive amount of agreement), so weak signals are made visibly weak by
-// order and muting instead. The engine's own strongest/conflict callouts are
-// the only rows that carry confirm/conflict color.
-function DesirabilityAgreementRankedList({ agreement, signalCorrelations = {} }) {
-  const model = buildRankedAgreementModel(agreement);
-  if (!model) {
-    return null;
-  }
-
-  return (
-    <div className="min-w-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-        <span className="uppercase tracking-[0.08em]">Signal agreement · strongest first</span>
-        <span className="tabular-nums opacity-80">100 = same rank · 0 = opposite end</span>
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+        {infoText ? <InfoPopover text={infoText} /> : null}
       </div>
-      <ol aria-label={buildAgreementAriaLabel(model)} className="mt-1.5 space-y-1">
-        {model.rows.map((row) => {
-          const accent = row.state === "neutral" ? null : AGREEMENT_STATE_FILL[row.state];
-          const correlation = signalCorrelations[row.key] || null;
-          return (
-            <li
-              key={`agreement-signal:${row.key}`}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3"
-            >
-              <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0">
-                <span
-                  className={`truncate text-[11px] ${
-                    row.state === "neutral"
-                      ? "font-medium text-[var(--text-secondary)]"
-                      : "font-semibold text-[var(--text-primary)]"
-                  }`}
-                >
-                  {row.label}
-                </span>
-                {row.rank !== null ? (
-                  <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-secondary)] opacity-80">
-                    #{row.rank}
-                    {model.fieldSize ? ` of ${model.fieldSize}` : ""}
-                  </span>
-                ) : null}
-                {correlation ? (
-                  <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-secondary)] opacity-80">
-                    r = {formatCorrelationValue(correlation.pearson)} · n = {correlation.sampleCount}
-                  </span>
-                ) : null}
-                {accent ? (
-                  <span
-                    className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold"
-                    style={{ color: accent }}
-                  >
-                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
-                    {row.state === "confirms" ? "Strongest confirm" : "Biggest conflict"}
-                  </span>
-                ) : null}
-              </div>
-              <span
-                className={`text-right text-[10px] tabular-nums ${
-                  row.state === "neutral" ? "font-medium text-[var(--text-secondary)]" : "font-semibold"
-                }`}
-                style={accent ? { color: accent } : undefined}
-              >
-                {Math.round(row.alignmentScore)}/100
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <p className="mt-1.5 text-xl font-semibold text-[var(--text-primary)]">{value ?? "—"}</p>
+      {detail ? <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{detail}</p> : null}
     </div>
   );
 }
 
-// Subdued one-line impact note (core → final rank movement). It renders only
-// when every comparison field is computed AND the movement is real — a no-op
-// "#1 to #1 (0 ranks)" or a not-yet-computed state renders nothing at all.
-function DesirabilityImpactNote({ validation }) {
-  const coreRank = toNumber(validation.rip_core_rank_without_desirability ?? validation.ripCoreRankWithoutDesirability);
-  const finalRank = toNumber(validation.final_rip_rank_with_desirability ?? validation.finalRipRankWithDesirability);
-  const rankDelta = toNumber(validation.desirability_rank_delta ?? validation.desirabilityRankDelta);
-  const hasRealMovement =
-    coreRank !== null && finalRank !== null && rankDelta !== null && rankDelta !== 0 && coreRank !== finalRank;
-  if (!hasRealMovement) {
-    return null;
-  }
-  return (
-    <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-      {`Desirability moved this set from ${formatProofRank(coreRank)} to ${formatProofRank(finalRank)} (${formatProofDelta(rankDelta, " ranks")}).`}
-    </p>
-  );
-}
-
-function DesirabilityAgreementContent({ validation, signalCorrelations = {}, loading = false, loadingTimedOut = false }) {
-  if (!hasDesirabilityProofSignal(validation)) {
-    // While the /insights payload is still in flight this section holds a
-    // stable skeleton box (instead of mounting late as an afterthought); if
-    // loading stalls or fails it says so explicitly. A settled payload with
-    // no proof data renders a compact, intentional empty state — never a
-    // grid of "—" placeholders and never a silently missing section.
-    if (loading) {
-      return (
-        <div aria-busy={!loadingTimedOut}>
-          {loadingTimedOut ? (
-            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-              Set insights are taking longer than expected to load. Refresh the page to retry.
-            </div>
-          ) : (
-            <InlinePanelSkeleton rows={3} />
-          )}
-        </div>
-      );
-    }
-    return (
-      <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-        Desirability proof isn&apos;t available for this set yet. It appears once this set has enough desirability and market data to compare.
-      </p>
-    );
-  }
-
-  const verdict = selectDesirabilityVerdict(validation);
-  const agreement = selectDesirabilityAgreement(validation);
-  // The engine names the strongest signal; the verdict cites its (r, n) only
-  // when that signal has an exactly-matching scatter statistic available.
-  const strongestStat = agreement?.strongest ? signalCorrelations[agreement.strongest.key] || null : null;
-
-  return (
-    <div className="min-w-0 space-y-2">
-      <DesirabilityVerdictLine verdict={verdict} strongestStat={strongestStat} />
-      {agreement ? <DesirabilityAgreementRankedList agreement={agreement} signalCorrelations={signalCorrelations} /> : null}
-      <DesirabilityImpactNote validation={validation} />
-    </div>
-  );
-}
-
-// Concrete anchor beside the proof charts: the chase card behind the set's
-// Top Chase market rank, reusing the Simulation Drivers thumbnail treatment.
-function selectTopChaseAnchorHit(topHits) {
-  const rows = Array.isArray(topHits) ? topHits : [];
-  let best = null;
-  let bestPrice = null;
-  for (const hit of rows) {
-    const name = hit?.card_name || null;
-    const imageSrc = hit?.image_url || hit?.image_small_url || hit?.image_large_url || null;
-    if (!name || !imageSrc) {
-      continue;
-    }
-    const price = getTopHitNearMintPrice(hit);
-    if (best === null || (price !== null && (bestPrice === null || price > bestPrice))) {
-      best = { name, imageSrc, price };
-      bestPrice = price;
-    }
-  }
-  return best;
-}
-
-function TopChaseAnchorCard({ hit, validation }) {
-  const [hasImageError, setHasImageError] = useState(false);
-
+function OpeningExperiencePathCard({ kind, path }) {
+  const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => {
-    setHasImageError(false);
-  }, [hit?.imageSrc]);
-
-  if (!hit) {
+    setImageFailed(false);
+  }, [path?.imageUrl]);
+  if (!path) {
     return null;
   }
-  const rank = toNumber(validation?.top_chase_value_rank ?? validation?.topChaseValueRank);
-  const fieldSize = toNumber(validation?.total_ranked_sets ?? validation?.totalRankedSets);
-  const rankCaption =
-    rank === null
-      ? "Top chase"
-      : `Top chase · ${formatProofRank(rank)}${fieldSize !== null ? ` of ${Math.round(fieldSize)}` : " of field"}`;
-
+  const showImage = Boolean(path.imageUrl) && !imageFailed;
   return (
-    <div className="min-w-0 self-start rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{rankCaption}</p>
-      <div className="mt-2 flex min-w-0 items-center gap-3">
-        <div className={TOP_CARD_IMAGE_CONTAINER_CLASS}>
-          {!hasImageError ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={hit.imageSrc}
-              alt={`${hit.name} card image`}
-              loading="lazy"
-              decoding="async"
-              onError={() => setHasImageError(true)}
-              className="h-full w-full rounded-[5px] object-contain"
-            />
-          ) : null}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{hit.name}</p>
-          {hit.price !== null ? (
-            <p className="mt-0.5 text-xs tabular-nums text-[var(--text-secondary)]">{formatCurrency(hit.price)}</p>
-          ) : null}
-        </div>
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-        The real chase card behind this set&apos;s Top Chase market rank.
-      </p>
-    </div>
-  );
-}
-
-function DesirabilityValidationTooltip({ active, payload, metric }) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-  const point = payload.find((entry) => entry?.payload?.kind === "set")?.payload;
-  if (!point) {
-    return null;
-  }
-
-  return (
-    <div className="max-w-[16rem] rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.94)] p-3 text-left shadow-xl">
-      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{point.name || "Unknown Set"}</p>
-      {point.era ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{point.era}</p> : null}
-      <div className="mt-2 space-y-1 text-xs">
-        <div className="flex justify-between gap-4">
-          <span className="text-[var(--text-secondary)]">Pure Desirability</span>
-          <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.x, 1)}</span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-[var(--text-secondary)]">{metric.summaryLabel}</span>
-          <span className="font-medium text-[var(--text-primary)]">{metric.formatter(point.y)}</span>
-        </div>
-        {point.ripScore !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">RIP Score</span>
-            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.ripScore, 1)}</span>
-          </div>
-        ) : null}
-        {point.rank !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">Rank</span>
-            <span className="font-medium text-[var(--text-primary)]">#{point.rank}</span>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function buildDesirabilityValidationPoint(row, metric) {
-  if (!row || !metric) {
-    return null;
-  }
-  // Prefer the raw desirability score for "pure" appeal; fall back to the relative score for older snapshot rows.
-  const x =
-    getFirstNumericValue(row, ["desirability_score", "desirabilityScore", "pure_desirability_score", "pureDesirabilityScore"]) ??
-    getFirstNumericValue(row, ["relative_desirability_score", "relativeDesirabilityScore"]);
-  const yMetric = metric.resolver ? metric.resolver(row) : getFirstNumericMetric(row, metric.valueKeys);
-  const y = yMetric.value;
-  if (x === null || y === null) {
-    return null;
-  }
-
-  return {
-    kind: "set",
-    x,
-    y,
-    ySourceKey: yMetric.key,
-    name: row.name || row.set_name || row.setName || row.target_id || "Unknown Set",
-    slug: row.slug || row.canonical_key || row.target_id || null,
-    era: row.era || row.era_name || row.eraName || null,
-    ripScore: getFirstNumericValue(row, ["relative_pack_score", "relativePackScore", "pack_score", "packScore"]),
-    rank: getFirstNumericValue(row, ["pack_rank", "packRank", "rank"]),
-  };
-}
-
-function DesirabilityValidationContent({ targets, freshness = null }) {
-  const [selectedMetricKey, setSelectedMetricKey] = useState("setValue");
-  const rows = useMemo(() => (Array.isArray(targets) ? targets : []), [targets]);
-  const metricOptions = DESIRABILITY_VALIDATION_METRICS.filter((metric) => {
-    if (metric.key === "setValue") {
-      return true;
-    }
-    return rows.some((row) => {
-      const yMetric = metric.resolver ? metric.resolver(row) : getFirstNumericMetric(row, metric.valueKeys);
-      return yMetric.value !== null;
-    });
-  });
-  const selectedMetric =
-    metricOptions.find((metric) => metric.key === selectedMetricKey) ||
-    metricOptions[0] ||
-    DESIRABILITY_VALIDATION_METRICS[0];
-  const validationContract = useMemo(
-    () => selectSetDesirabilityValidation(rows, { metricKey: selectedMetric.key }),
-    [rows, selectedMetric]
-  );
-  const points = validationContract.points;
-  const pearson = validationContract.pearson;
-  const spearman = validationContract.spearman;
-  const regressionLinePoints = useMemo(() => calculateRegressionLine(points), [points]);
-  const relationshipLabel = getRelationshipLabel(pearson);
-  const hasEnoughPoints = points.length >= 3;
-  const xDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.x), { floorAtZero: true, fallback: [0, 100] }), [points]);
-  const yDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.y), { floorAtZero: true }), [points]);
-  const sampleLabel = `n=${points.length} ${selectedMetric.sampleLabel || "opening sets"}`;
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") {
-      return;
-    }
-    const diagnostics = {
-      ...getDesirabilityValidationDiagnostics(rows, selectedMetric, points),
-      contract: validationContract.diagnostics,
-    };
-    console.debug("[desirability-validation] sample diagnostics", diagnostics);
-    if (selectedMetric.key !== "setValue" || points.length > 0) {
-      return;
-    }
-    const sample = getDesirabilityValidationMissingSetValueSample(rows);
-    if (sample.length > 0) {
-      console.debug("[desirability-validation] missing Set Value sample", sample);
-    }
-  }, [points, rows, selectedMetric, validationContract.diagnostics]);
-
-  // The scatter is the primary element: correlation renders as a compact
-  // caption on the chart, and the metric explanation + freshness live in the
-  // title's info tooltip instead of stacked stat boxes and paragraphs.
-  const setValidationInfoText = [
-    "Compare set desirability against market and simulation outcomes.",
-    selectedMetric.description || null,
-    formatSectionFreshnessInfo(freshness).trim() || null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const correlationCaption = `r = ${formatCorrelationValue(pearson)} · ρ = ${formatCorrelationValue(spearman)} · ${sampleLabel} · ${relationshipLabel}`;
-
-  return (
-    <div className="space-y-3">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Desirability vs {selectedMetric.summaryLabel}</h3>
-            <InfoPopover text={setValidationInfoText} />
-          </div>
-          <SegmentedControl
-            options={metricOptions.map((metric) => ({ value: metric.key, label: metric.label }))}
-            value={selectedMetric.key}
-            onChange={setSelectedMetricKey}
-            ariaLabel="Desirability validation metric"
+    <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-2">
+      <div className="h-12 w-9 flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5">
+        {showImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={path.imageUrl}
+            alt={path.cardName ? `${path.cardName} card image` : "Card image"}
+            loading="lazy"
+            decoding="async"
+            onError={() => setImageFailed(true)}
+            className="h-full w-full rounded-[4px] object-contain"
           />
-        </div>
-
-        {hasEnoughPoints ? (
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">
-              <span className="tabular-nums">{correlationCaption}</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[rgba(45,212,191,0.84)]" />Dots = Sets</span>
-              {regressionLinePoints.length === 2 ? (
-                <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
-              ) : null}
-              {/* TODO: Add rank-trend visual line after validation dataset stabilizes. */}
-            </div>
-            <ChartFrame className="h-[22rem] min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                <XAxis
-                  type="number"
-                  dataKey="x"
-                  name="Pure Desirability Score"
-                  domain={xDomain}
-                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                  tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                  label={{ value: "Pure Desirability Score", position: "insideBottom", offset: -18, fill: "var(--text-secondary)", fontSize: 11 }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="y"
-                  name={selectedMetric.summaryLabel}
-                  domain={yDomain}
-                  tickFormatter={selectedMetric.tickFormatter}
-                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                  tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                  width={58}
-                />
-                <RechartsTooltip
-                  content={<DesirabilityValidationTooltip metric={selectedMetric} />}
-                  cursor={{ stroke: "rgba(45,212,191,0.24)", strokeWidth: 1 }}
-                />
-                {regressionLinePoints.length === 2 ? (
-                  <Line
-                    data={regressionLinePoints}
-                    type="linear"
-                    dataKey="y"
-                    name="Pearson trend"
-                    stroke="rgba(248,250,252,0.72)"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={false}
-                    isAnimationActive={false}
-                  />
-                ) : null}
-                <Scatter data={points} dataKey="y" fill="rgba(45,212,191,0.84)" fillOpacity={0.82} isAnimationActive={false} />
-              </ComposedChart>
-              </ResponsiveContainer>
-            </ChartFrame>
-          </div>
-        ) : (
-          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-            Not enough set data to compare yet. This chart appears once at least three sets have this metric.
-          </p>
-        )}
-    </div>
-  );
-}
-
-function getCardDesirabilityScore(card) {
-  return (
-    toNumber(card?.subjectDemandScore) ??
-    toNumber(card?.subject_demand_score) ??
-    toNumber(card?.pokemonDesirabilityScore) ??
-    toNumber(card?.pokemon_desirability_score) ??
-    toNumber(card?.cardDesirabilityScore) ??
-    toNumber(card?.card_desirability_score) ??
-    toNumber(card?.desirabilityScore) ??
-    toNumber(card?.desirability_score)
-  );
-}
-
-function getLinkedPokemonLabel(card) {
-  const linked = Array.isArray(card?.linkedPokemon)
-    ? card.linkedPokemon
-    : Array.isArray(card?.linked_pokemon)
-    ? card.linked_pokemon
-    : [];
-  const names = linked
-    .map((entry) => entry?.pokemonName || entry?.pokemon_name || entry?.name)
-    .filter(Boolean);
-  return Array.from(new Set(names)).join(", ") || null;
-}
-
-function isCardHitEligible(card) {
-  return card?.isHitEligible === true || card?.is_hit_eligible === true || String(card?.isHitEligible ?? card?.is_hit_eligible).toLowerCase() === "true";
-}
-
-function getCardTreatmentScore(card) {
-  return toNumber(card?.treatmentScore) ?? toNumber(card?.treatment_score);
-}
-
-function getCardScarcityScore(card) {
-  return toNumber(card?.scarcityScore) ?? toNumber(card?.scarcity_score);
-}
-
-function getCardAdjustedAppealScore(card) {
-  return toNumber(card?.adjustedCardAppealScore) ?? toNumber(card?.adjusted_card_appeal_score);
-}
-
-function getCardAppealScore(card) {
-  return (
-    toNumber(card?.cardAppealScore) ??
-    toNumber(card?.card_appeal_score) ??
-    getCardAdjustedAppealScore(card)
-  );
-}
-
-function getCardScarcityAdjustedAppealScore(card) {
-  return toNumber(card?.scarcityAdjustedCardAppealScore) ?? toNumber(card?.scarcity_adjusted_card_appeal_score);
-}
-
-function getCardPullRate(card) {
-  return toNumber(card?.pullRate) ?? toNumber(card?.pull_rate);
-}
-
-const CARD_VALIDATION_X_METRICS = [
-  {
-    key: "cardAppeal",
-    label: "Card Appeal",
-    axisLabel: "Card Appeal",
-    tooltipLabel: "Card Appeal",
-    description:
-      "Card Appeal blends subject demand with card treatment. Scarcity is not included yet when scarcity data is unavailable. Because treatment tracks rarity (a price driver), Card Appeal's price correlation is not evidence of collector demand — Pure Pokemon Demand is the price-independent read.",
-    resolver: getCardAppealScore,
-  },
-  {
-    key: "pure",
-    label: "Pure Pokemon Demand",
-    axisLabel: "Pure Pokemon Demand",
-    tooltipLabel: "Pokemon Demand",
-    resolver: getCardDesirabilityScore,
-  },
-  {
-    key: "treatment",
-    label: "Treatment Score",
-    axisLabel: "Treatment Score",
-    tooltipLabel: "Treatment",
-    description: "Treatment measures how premium the card version is, such as SIR, IR, Alt Art, Rainbow Rare, Full Art, Gold, or other era-specific chase treatments.",
-    resolver: getCardTreatmentScore,
-  },
-  {
-    key: "scarcity",
-    label: "Scarcity Score",
-    axisLabel: "Scarcity Score",
-    tooltipLabel: "Scarcity",
-    resolver: getCardScarcityScore,
-  },
-  {
-    key: "scarcityAdjusted",
-    label: "Scarcity-Adjusted Appeal",
-    axisLabel: "Scarcity-Adjusted Appeal",
-    tooltipLabel: "Scarcity-Adjusted Appeal",
-    resolver: getCardScarcityAdjustedAppealScore,
-  },
-];
-
-// "Hits Only" / "Chase / High Value" scopes were removed deliberately: both
-// select cards BY rarity or price, so any correlation they showed would be
-// partially selecting on the outcome - misleading as demand evidence.
-const CARD_VALIDATION_SCOPES = [
-  { key: "priced", label: "Priced Cards", filter: () => true },
-  { key: "scarcity", label: "Scarcity-Qualified", filter: (point) => point.scarcityScore !== null || point.scarcityAdjustedCardAppealScore !== null },
-];
-
-const CARD_APPEAL_MARKET_PRICE_INFO_TEXT =
-  "Card Appeal is currently calculated for Pokémon cards only. This chart includes cards that have both a valid market price and a Card Appeal score. Trainer, Item, Stadium, Energy, and other non-Pokémon cards may still have market prices, but they are excluded from this chart because they do not have a Pokémon demand score yet.";
-
-const CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT =
-  "This chart only includes priced cards with a Card Appeal score. Card Appeal currently uses Pokémon demand + card treatment, so non-Pokémon cards are excluded even if they have prices.";
-
-function getCardValidationMetricValue(card, metric) {
-  return toNumber(metric?.resolver?.(card));
-}
-
-function hasEnoughCardValidationMetricRows(rows, metric) {
-  return rows.filter((card) => getCardValidationMetricValue(card, metric) !== null && getCardMarketPrice(card) !== null).length >= 3;
-}
-
-function getCardValidationDiagnostics({ rows, rawPoints, points, selectedMetric, selectedScope, context }) {
-  return {
-    selectedSetId: context?.setId || null,
-    selectedSetSlug: context?.setSlug || null,
-    selectedTab: context?.selectedTab || null,
-    checklistCardsLength: rows.length,
-    cardsWithMarketPriceOrCurrentPrice: rows.filter((card) => getCardMarketPrice(card) !== null).length,
-    cardsWithPokemonDesirabilityScore: rows.filter((card) => getCardDesirabilityScore(card) !== null).length,
-    cardsWithCardDesirabilityScore: rows.filter((card) => toNumber(card?.cardDesirabilityScore ?? card?.card_desirability_score) !== null).length,
-    cardsWithTreatmentScore: rows.filter((card) => getCardTreatmentScore(card) !== null).length,
-    cardsWithAdjustedCardAppealScore: rows.filter((card) => getCardAdjustedAppealScore(card) !== null).length,
-    cardsWithScarcityScore: rows.filter((card) => getCardScarcityScore(card) !== null).length,
-    finalChartPointCount: points.length,
-    rawChartPointCount: rawPoints.length,
-    activeMetricKey: selectedMetric?.key || null,
-    activeMetricLabel: selectedMetric?.label || null,
-    currentCardScope: selectedScope?.label || null,
-  };
-}
-
-function getCanonicalCardAppealCorrelationForSelection(correlation, selectedMetric, selectedScope) {
-  if (selectedMetric?.key !== "pure" || selectedScope?.key !== "priced") {
-    return null;
-  }
-  const sampleSource = correlation?.sampleSource || correlation?.sample_source;
-  const n = toNumber(correlation?.n ?? correlation?.includedCount ?? correlation?.included_count);
-  if (!correlation || n === null) {
-    return null;
-  }
-  return {
-    n,
-    pearson: toNumber(correlation?.pearson),
-    spearman: toNumber(correlation?.spearman),
-    sampleSource: sampleSource || "legacy_display_sample",
-  };
-}
-
-function getCanonicalCardAppealRows(correlation, selectedMetric) {
-  if (!["pure", "cardAppeal", "treatment"].includes(selectedMetric?.key)) {
-    return [];
-  }
-  const rows = Array.isArray(correlation?.plotRows)
-    ? correlation.plotRows
-    : Array.isArray(correlation?.plot_rows)
-    ? correlation.plot_rows
-    : Array.isArray(correlation?.rows)
-    ? correlation.rows
-    : [];
-  return rows;
-}
-
-function getCardValidationRowsForMetric(rows, correlation, metric) {
-  const canonicalRows = getCanonicalCardAppealRows(correlation, metric);
-  return canonicalRows.length > 0 ? canonicalRows : rows;
-}
-
-function buildCardDesirabilityMarketPoint(card, totalVisibleMarketValue, selectedMetric) {
-  const xValue = getCardValidationMetricValue(card, selectedMetric);
-  const marketPrice = getCardMarketPrice(card);
-  if (xValue === null || marketPrice === null) {
-    return null;
-  }
-
-  return {
-    kind: "card",
-    id: card?.id ?? null,
-    cardId: card?.cardId ?? card?.card_id ?? null,
-    card_id: card?.card_id ?? card?.cardId ?? null,
-    pokemonCanonicalCardId: card?.pokemonCanonicalCardId ?? card?.pokemon_canonical_card_id ?? null,
-    pokemon_canonical_card_id: card?.pokemon_canonical_card_id ?? card?.pokemonCanonicalCardId ?? null,
-    printedNumber: card?.printedNumber ?? card?.printed_number ?? null,
-    printed_number: card?.printed_number ?? card?.printedNumber ?? null,
-    setNumber: card?.setNumber ?? card?.set_number ?? card?.cardNumber ?? card?.card_number ?? null,
-    set_number: card?.set_number ?? card?.setNumber ?? card?.card_number ?? card?.cardNumber ?? null,
-    x: xValue,
-    y: marketPrice,
-    name: card?.name || "Unknown card",
-    rarity: card?.rarity || null,
-    linkedPokemon: card?.linkedPokemonName || card?.linked_pokemon_name || getLinkedPokemonLabel(card),
-    setValueShare: toNumber(card?.setValueShare ?? card?.set_value_share) ?? (totalVisibleMarketValue > 0 ? marketPrice / totalVisibleMarketValue : null),
-    isHitEligible: isCardHitEligible(card),
-    selectedMetricLabel: selectedMetric?.tooltipLabel || selectedMetric?.label || "Selected Score",
-    pokemonDesirabilityScore: getCardDesirabilityScore(card),
-    treatmentScore: getCardTreatmentScore(card),
-    scarcityScore: getCardScarcityScore(card),
-    adjustedCardAppealScore: getCardAdjustedAppealScore(card),
-    cardAppealScore: getCardAppealScore(card),
-    scarcityAdjustedCardAppealScore: getCardScarcityAdjustedAppealScore(card),
-    pullRate: getCardPullRate(card),
-    pullRateSource: card?.pullRateSource || card?.pull_rate_source || null,
-  };
-}
-
-function CardDesirabilityMarketTooltip({ active, payload, selectedMetric }) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-  const point = payload.find((entry) => entry?.payload?.kind === "card")?.payload;
-  if (!point) {
-    return null;
-  }
-
-  return (
-    <div className="max-w-[17rem] rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.94)] p-3 text-left shadow-xl">
-      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{point.name}</p>
-      {point.rarity ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{point.rarity}</p> : null}
-      {point.linkedPokemon ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{point.linkedPokemon}</p> : null}
-      <div className="mt-2 space-y-1 text-xs">
-        <div className="flex justify-between gap-4">
-          <span className="text-[var(--text-secondary)]">Market Price</span>
-          <span className="font-medium text-[var(--text-primary)]">{formatCurrency(point.y)}</span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-[var(--text-secondary)]">{selectedMetric?.tooltipLabel || point.selectedMetricLabel}</span>
-          <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.x, 1)}</span>
-        </div>
-        {point.pokemonDesirabilityScore !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">Pure Pokemon Demand</span>
-            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.pokemonDesirabilityScore, 1)}</span>
-          </div>
         ) : null}
-        {point.treatmentScore !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">Treatment</span>
-            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.treatmentScore, 1)}</span>
-          </div>
-        ) : null}
-        {point.scarcityScore !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">Scarcity</span>
-            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.scarcityScore, 1)}</span>
-          </div>
-        ) : null}
-        {point.cardAppealScore !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">Card Appeal</span>
-            <span className="font-medium text-[var(--text-primary)]">{formatNumber(point.cardAppealScore, 1)}</span>
-          </div>
-        ) : null}
-        {point.pullRate !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">Pull Rate</span>
-            <span className="font-medium text-[var(--text-primary)]">{formatPercent(point.pullRate, { probability: true })}</span>
-          </div>
-        ) : null}
-        {point.setValueShare !== null ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-[var(--text-secondary)]">Visible Value Share</span>
-            <span className="font-medium text-[var(--text-primary)]">{formatPercent(point.setValueShare, { probability: true })}</span>
-          </div>
-        ) : null}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{kind}</p>
+        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+          {path.cardName}
+          {path.cardNumber ? <span className="ml-1 font-normal text-[var(--text-secondary)]">#{path.cardNumber}</span> : null}
+        </p>
+        <p className="truncate text-xs text-[var(--text-secondary)]">
+          {[path.rarity, path.impliedOddsLabel].filter(Boolean).join(" · ") || "—"}
+        </p>
       </div>
     </div>
   );
 }
 
-function getCardValidationBuckets(points) {
-  if (!Array.isArray(points) || points.length < 3) {
-    return null;
-  }
-  const desirabilityValues = points.map((point) => point.x).sort((a, b) => a - b);
-  const priceValues = points.map((point) => point.y).sort((a, b) => a - b);
-  const desirabilityCutoff = desirabilityValues[Math.floor(desirabilityValues.length * 0.67)] ?? desirabilityValues[desirabilityValues.length - 1];
-  const lowDesirabilityCutoff = desirabilityValues[Math.floor(desirabilityValues.length * 0.33)] ?? desirabilityValues[0];
-  const priceCutoff = priceValues[Math.floor(priceValues.length * 0.67)] ?? priceValues[priceValues.length - 1];
-  const lowPriceCutoff = priceValues[Math.floor(priceValues.length * 0.33)] ?? priceValues[0];
-  const compact = (rows) => rows.slice(0, 3).map((point) => ({
-    id: point.id,
-    cardId: point.cardId,
-    card_id: point.card_id,
-    pokemonCanonicalCardId: point.pokemonCanonicalCardId,
-    pokemon_canonical_card_id: point.pokemon_canonical_card_id,
-    printedNumber: point.printedNumber,
-    printed_number: point.printed_number,
-    setNumber: point.setNumber,
-    set_number: point.set_number,
-    rarity: point.rarity,
-    name: point.name,
-    detail: `${formatCurrency(point.y)} · ${formatNumber(point.x, 1)}`,
-  }));
-
-  return [
-    {
-      title: "Aligned Demand",
-      rows: compact(points.filter((point) => point.x >= desirabilityCutoff && point.y >= priceCutoff).sort((a, b) => b.y - a.y)),
-    },
-    {
-      title: "Market Premium",
-      rows: compact(points.filter((point) => point.x <= lowDesirabilityCutoff && point.y >= priceCutoff).sort((a, b) => b.y - a.y)),
-    },
-    {
-      title: "Appeal Above Price",
-      rows: compact(points.filter((point) => point.x >= desirabilityCutoff && point.y <= lowPriceCutoff).sort((a, b) => b.x - a.x)),
-    },
-  ];
-}
-
-function getValidationBucketRowKey(bucket, row, index) {
-  return [
-    bucket?.title,
-    row?.id,
-    row?.cardId ?? row?.card_id,
-    row?.pokemonCanonicalCardId ?? row?.pokemon_canonical_card_id,
-    row?.printedNumber ?? row?.printed_number,
-    row?.setNumber ?? row?.set_number,
-    row?.rarity,
-    row?.name,
-    index,
-  ]
-    .filter((part) => part !== null && part !== undefined && part !== "")
-    .map(String)
-    .join(":");
-}
-
-function CardDesirabilityMarketValidationContent({
-  cards,
-  cardAppealMarketPriceCorrelation = null,
-  diagnosticsContext = {},
-  freshness = null,
-  snapshotLoading = false,
-  dataLoading = false,
-}) {
-  // Pure Pokemon Demand leads: it is the only price-independent metric here,
-  // so it is the honest default read (the merged Card Appeal metric inherits
-  // most of its price correlation from Treatment/rarity).
-  const [selectedMetricKey, setSelectedMetricKey] = useState("pure");
-  const [selectedScopeKey, setSelectedScopeKey] = useState("priced");
-  const rows = useMemo(() => (Array.isArray(cards) ? cards : []), [cards]);
-  const cardAppealSampleDiagnostics = useMemo(() => getCardAppealSampleDiagnostics(rows), [rows]);
-  const metricOptions = useMemo(
-    () =>
-      CARD_VALIDATION_X_METRICS.filter((metric) => {
-        const metricRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, metric);
-        if (metric.key === "scarcity" || metric.key === "scarcityAdjusted") {
-          return hasEnoughCardValidationMetricRows(metricRows, metric);
-        }
-        return metric.key === "pure" || hasEnoughCardValidationMetricRows(metricRows, metric);
-      }),
-    [cardAppealMarketPriceCorrelation, rows]
-  );
-  const defaultMetricKey = "pure";
-  const selectedMetric =
-    metricOptions.find((metric) => metric.key === selectedMetricKey) ||
-    metricOptions.find((metric) => metric.key === defaultMetricKey) ||
-    CARD_VALIDATION_X_METRICS.find((metric) => metric.key === "pure");
-
-  useEffect(() => {
-    if (selectedMetric?.key && selectedMetric.key !== selectedMetricKey) {
-      setSelectedMetricKey(selectedMetric.key);
-    }
-  }, [selectedMetric?.key, selectedMetricKey]);
-
-  const rawPoints = useMemo(() => {
-    const sourceRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, selectedMetric);
-    const pricedCards = sourceRows.filter((card) => getCardValidationMetricValue(card, selectedMetric) !== null && getCardMarketPrice(card) !== null);
-    const totalVisibleMarketValue = pricedCards.reduce((sum, card) => sum + (getCardMarketPrice(card) || 0), 0);
-    return pricedCards
-      .map((card) => buildCardDesirabilityMarketPoint(card, totalVisibleMarketValue, selectedMetric))
-      .filter(Boolean)
-      .sort((a, b) => a.x - b.x);
-  }, [cardAppealMarketPriceCorrelation, rows, selectedMetric]);
-  const scopeOptions = useMemo(() => {
-    const countsByScope = Object.fromEntries(CARD_VALIDATION_SCOPES.map((scope) => [scope.key, rawPoints.filter(scope.filter).length]));
-    return CARD_VALIDATION_SCOPES.filter((scope) => scope.key === "priced" || (countsByScope[scope.key] || 0) >= 3);
-  }, [rawPoints]);
-  const selectedScope = scopeOptions.find((scope) => scope.key === selectedScopeKey) || CARD_VALIDATION_SCOPES[0];
-  const points = useMemo(() => rawPoints.filter(selectedScope.filter), [rawPoints, selectedScope]);
-  const canonicalCorrelation = getCanonicalCardAppealCorrelationForSelection(cardAppealMarketPriceCorrelation, selectedMetric, selectedScope);
-  const canonicalRowsAvailable = getCanonicalCardAppealRows(cardAppealMarketPriceCorrelation, selectedMetric).length > 0;
-  const pointPearson = calculatePearsonCorrelation(points);
-  const pointSpearman = calculateSpearmanCorrelation(points);
-  const pearson = canonicalRowsAvailable ? pointPearson : canonicalCorrelation ? canonicalCorrelation.pearson : pointPearson;
-  const spearman = canonicalRowsAvailable ? pointSpearman : canonicalCorrelation ? canonicalCorrelation.spearman : pointSpearman;
-  const regressionLinePoints = useMemo(() => calculateRegressionLine(points), [points]);
-  const buckets = getCardValidationBuckets(points);
-  const hasEnoughPoints = points.length >= 3;
-  const relationshipLabel = getRelationshipLabel(pearson);
-  const sampleCount = canonicalCorrelation && !canonicalRowsAvailable ? canonicalCorrelation.n : points.length;
-  const isCardAppealMetric = selectedMetric?.key === "cardAppeal";
-  const sampleCountLabel =
-    isCardAppealMetric && cardAppealSampleDiagnostics.pricedCards > 0
-      ? `n=${sampleCount} / ${cardAppealSampleDiagnostics.pricedCards} priced cards`
-      : `n=${sampleCount}`;
-  const excludedNonPokemonCount = cardAppealSampleDiagnostics.excludedNonPokemonPriced;
-  const excludedNonPokemonLabel =
-    excludedNonPokemonCount > 0
-      ? `${excludedNonPokemonCount} priced non-Pokémon ${excludedNonPokemonCount === 1 ? "card" : "cards"} excluded from Card Appeal.`
-      : null;
-  const cardAppealInfoText = `${CARD_APPEAL_MARKET_PRICE_INFO_TEXT}${
-    excludedNonPokemonLabel ? ` ${excludedNonPokemonLabel}` : ""
-  }${formatSectionFreshnessInfo(freshness)}`;
-  const sampleSourceLabel =
-    canonicalRowsAvailable && selectedScope?.key === "priced"
-      ? "canonical cards"
-      : canonicalCorrelation?.sampleSource === "canonical_checklist_cards"
-      ? "canonical cards"
-      : canonicalCorrelation
-      ? "legacy sample"
-      : null;
-  const xDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.x), { floorAtZero: true, fallback: [0, 100] }), [points]);
-  const yDomain = useMemo(() => getPaddedNumberDomain(points.map((point) => point.y), { floorAtZero: true }), [points]);
-
-  useEffect(() => {
-    if (selectedScope.key !== selectedScopeKey) {
-      setSelectedScopeKey(selectedScope.key);
-    }
-  }, [selectedScope.key, selectedScopeKey]);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[card-appeal-market-validation] chart data", getCardValidationDiagnostics({ rows, rawPoints, points, selectedMetric, selectedScope, context: diagnosticsContext }));
-    }
-  }, [diagnosticsContext, points, rawPoints, rows, selectedMetric, selectedScope]);
-
-  // The scatter is the primary element: correlation renders as a compact
-  // caption on the chart, and the Card Appeal caveat (non-Pokémon exclusion),
-  // sample-source detail, and freshness live in the title's info tooltip.
-  // Card-level correlation within one set is a small sample, so it is always
-  // labeled preliminary — the set-level scatter (all ranked sets) is the
-  // primary evidence until the pooled cross-set study runs
-  // (docs/research/desirability-price-driver-study.md).
-  const cardValidationInfoText = [
-    isCardAppealMetric
-      ? CARD_APPEAL_MARKET_PRICE_CONCISE_TEXT
-      : selectedMetric.description || "Compare card-level demand and treatment signals against current market prices in this set.",
-    "Preliminary: this is a small single-set sample, an early signal rather than validated evidence — the Set Validation scatter across all ranked sets is the primary proof.",
-    isCardAppealMetric ? cardAppealInfoText : null,
-    !isCardAppealMetric && sampleSourceLabel ? `Sample: ${sampleSourceLabel}; ${points.length} plotted.` : null,
-    !isCardAppealMetric ? formatSectionFreshnessInfo(freshness).trim() || null : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const correlationCaption = `Preliminary · r = ${formatCorrelationValue(pearson)} · ρ = ${formatCorrelationValue(spearman)} · ${sampleCountLabel} · ${relationshipLabel}`;
-
+function OpeningExperienceSubjectRow({ subject }) {
   return (
-    <div className="space-y-3">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{selectedMetric.label} vs Market Price</h3>
-            <InfoPopover text={cardValidationInfoText} />
-          </div>
-          <div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
-            <SegmentedControl
-              options={metricOptions.map((metric) => ({ value: metric.key, label: metric.label, title: metric.description }))}
-              value={selectedMetric.key}
-              onChange={setSelectedMetricKey}
-              ariaLabel="Card validation score metric"
-            />
-            <SegmentedControl
-              options={scopeOptions.map((scope) => ({ value: scope.key, label: scope.label }))}
-              value={selectedScope.key}
-              onChange={setSelectedScopeKey}
-              ariaLabel="Card validation card scope"
-            />
-          </div>
-        </div>
-
-        {hasEnoughPoints ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-[var(--text-secondary)]">
-              <span className="tabular-nums">{correlationCaption}</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[rgba(125,211,252,0.84)]" />Dots = Cards</span>
-              {regressionLinePoints.length === 2 ? (
-                <span className="inline-flex items-center gap-1.5"><span className="h-px w-6 bg-[rgba(248,250,252,0.72)]" />Pearson trend</span>
-              ) : null}
-            </div>
-            <ChartFrame className="h-[22rem] min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart margin={{ top: 12, right: 16, bottom: 30, left: 4 }}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                  <XAxis
-                    type="number"
-                    dataKey="x"
-                    name={selectedMetric.axisLabel}
-                    domain={xDomain}
-                    tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                    tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                    axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                    label={{ value: selectedMetric.axisLabel, position: "insideBottom", offset: -18, fill: "var(--text-secondary)", fontSize: 11 }}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="y"
-                    name="Current Market Price"
-                    domain={yDomain}
-                    tickFormatter={formatCompactCurrency}
-                    tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                    tickLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                    axisLine={{ stroke: "rgba(255,255,255,0.16)" }}
-                    width={58}
-                  />
-                  <RechartsTooltip
-                    content={<CardDesirabilityMarketTooltip selectedMetric={selectedMetric} />}
-                    cursor={{ stroke: "rgba(125,211,252,0.24)", strokeWidth: 1 }}
-                  />
-                  {regressionLinePoints.length === 2 ? (
-                    <Line
-                      data={regressionLinePoints}
-                      type="linear"
-                      dataKey="y"
-                      name="Pearson trend"
-                      stroke="rgba(248,250,252,0.72)"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={false}
-                      isAnimationActive={false}
-                    />
-                  ) : null}
-                  <Scatter data={points} dataKey="y" fill="rgba(125,211,252,0.84)" fillOpacity={0.82} isAnimationActive={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartFrame>
-            {buckets ? (
-              <div className="grid gap-3 md:grid-cols-3">
-                {buckets.map((bucket) => (
-                  <div key={bucket.title} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{bucket.title}</p>
-                    {bucket.rows.length > 0 ? (
-                      <div className="mt-2 space-y-1.5">
-                        {bucket.rows.map((row, rowIndex) => (
-                          <div key={getValidationBucketRowKey(bucket, row, rowIndex)} className="min-w-0">
-                            <p className="truncate text-xs font-semibold text-[var(--text-primary)]">{row.name}</p>
-                            <p className="text-[11px] text-[var(--text-secondary)]">{row.detail}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-xs text-[var(--text-secondary)]">No clear examples yet.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : snapshotLoading || dataLoading ? (
-          // Still loading — a skeleton, not empty-state copy, so the section
-          // never reads as "no data" before the fetch settles.
-          <div className="space-y-3" aria-busy="true">
-            <InlinePanelSkeleton rows={3} />
-            <p className="text-xs text-[var(--text-secondary)]">
-              {snapshotLoading
-                ? "Card appeal data is taking longer than expected to load. Retrying now…"
-                : "Loading card appeal and market price data…"}
-            </p>
-          </div>
-        ) : (
-          // Settled with too few points — compact, intentional empty state
-          // instead of a chart-sized blank panel.
-          <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-            {"Not enough card appeal and market price data yet."} This chart appears once enough cards in this set have both appeal scores and market prices.
-          </p>
-        )}
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-semibold text-[var(--text-primary)]">{subject.subjectName}</p>
+        {subject.demandShare !== null ? (
+          <p className="text-xs text-[var(--text-secondary)]">{`${(subject.demandShare * 100).toFixed(0)}% of roster demand`}</p>
+        ) : null}
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <OpeningExperiencePathCard kind="Accessible Path" path={subject.accessiblePath} />
+        <OpeningExperiencePathCard kind="Elite Chase" path={subject.elitePath} />
+      </div>
     </div>
   );
 }
 
-// Ranked-list signals with an exactly-matching Set Validation scatter metric
-// get live (r, n) supporting text. Set value ↔ setValue and EV ↔ expectedValue
-// are exact matches; the P95 scatter metric is cost-adjusted upside — a
-// different quantity than the p95_value rank signal — so it gets no statistic
-// rather than a mislabeled one, and the chase/top-10/avg-hit signals have no
-// correlation metric to cite.
-const AGREEMENT_SIGNAL_METRIC_KEYS = {
-  set_value: "setValue",
-  expected_value: "expectedValue",
-};
-
-function DesirabilityEvidenceCard({
-  mode,
-  onModeChange,
-  validation,
-  proofLoading = false,
-  proofLoadingTimedOut = false,
-  targets,
-  setValidationFreshness = null,
-  cards,
-  cardAppealMarketPriceCorrelation = null,
-  diagnosticsContext = {},
-  cardValidationFreshness = null,
-  snapshotLoading = false,
-  dataLoading = false,
-  topHits = [],
-}) {
-  // The old "Proof" sub-tab folded into the always-visible verdict + ranked
-  // agreement list above the charts, so only the two scatter views toggle now.
-  // Legacy deep links that request "proof" land on the primary Set Validation
-  // proof.
-  const selectedMode = mode === "card-validation" ? "card-validation" : "set-validation";
-  const topChaseAnchorHit = useMemo(() => selectTopChaseAnchorHit(topHits), [topHits]);
-  // Same selector (and same >= 3 point floor) the Set Validation scatter
-  // caption uses, over the same targets — the verdict line, the ranked list,
-  // and the scatter caption all cite one computation, never separate copies.
-  const signalCorrelations = useMemo(() => {
-    const rows = Array.isArray(targets) ? targets : [];
-    const bySignal = {};
-    if (rows.length === 0) {
-      return bySignal;
-    }
-    for (const [signalKey, metricKey] of Object.entries(AGREEMENT_SIGNAL_METRIC_KEYS)) {
-      const contract = selectSetDesirabilityValidation(rows, { metricKey });
-      if (contract.pearson !== null && contract.sampleCount >= 3) {
-        bySignal[signalKey] = { pearson: contract.pearson, sampleCount: contract.sampleCount };
-      }
-    }
-    return bySignal;
-  }, [targets]);
-  // One verdict line stays visible; the backend's restatement sentence and the
-  // methodology copy live here in the section's info tooltip instead.
-  const verdictSummary = selectDesirabilityVerdict(validation)?.summary || null;
-  const sectionInfoText = [
-    "Desirability is compared against market and simulation outcomes to show whether collector demand is supported by real chase/value signals.",
-    verdictSummary,
-    "Each market signal is ranked across all sets; the engine scores how closely that signal's rank agrees with this set's desirability rank (100 = same rank, 0 = opposite end of the field). Signals are listed strongest agreement first, and the strongest-supporting and biggest-conflicting callouts are the engine's own.",
-    "Desirability and set value are computed from independent inputs, so this agreement is not circular.",
-    "This is Market Association: higher set desirability is positively associated with set value in the current sample. It is descriptive context, not a price forecast, causal proof, or an input to the score.",
-  ]
-    .filter(Boolean)
-    .join(" ");
+function OpeningExperienceCard({ openingExperience, loading = false, loadingTimedOut = false }) {
+  const presentation = useMemo(
+    () => selectOpeningExperiencePresentation(openingExperience),
+    [openingExperience]
+  );
 
   return (
-    <section id="set-detail-desirability-evidence" className="scroll-mt-24 md:scroll-mt-28">
+    <section id="set-detail-opening-experience" className="scroll-mt-24 md:scroll-mt-28">
+      {/* Legacy deep-link anchors: old desirability-proof/-validation/card
+          links must keep landing somewhere real, so they resolve here. */}
+      <span id="set-detail-desirability-evidence" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-desirability-proof" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <SectionCard
-        eyebrow="02 · Proof"
+        eyebrow="02 · Opening Experience"
         tone="plain"
-        title="Desirability Evidence"
-        subtitle="Market association: how collector demand lines up with market outcomes in the current sample."
-        titleInfoText={sectionInfoText}
-        bodyClassName="space-y-3"
+        title="Collector Appeal"
+        subtitle="How exciting this set's roster is to open — collector demand plus chase structure, independent of price."
+        titleInfoText={OPENING_EXPERIENCE_INFO_TEXT}
+        bodyClassName="space-y-4"
       >
-        {/* One grid for the whole proof read: the Top Chase context card sits
-            alongside the verdict + ranked signal list (completing in the same
-            viewport block), with the promoted correlation scatter below in the
-            same column. */}
-        <div className={topChaseAnchorHit ? "grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]" : "min-w-0"}>
-          <div className="min-w-0 space-y-3">
-            <DesirabilityAgreementContent
-              validation={validation}
-              signalCorrelations={signalCorrelations}
-              loading={proofLoading}
-              loadingTimedOut={proofLoadingTimedOut}
-            />
+        {!presentation.available ? (
+          loading ? (
+            <div aria-busy={!loadingTimedOut}>
+              {loadingTimedOut ? (
+                <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                  Set insights are taking longer than expected to load. Refresh the page to retry.
+                </div>
+              ) : (
+                <InlinePanelSkeleton rows={3} />
+              )}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+              Collector Appeal isn&apos;t available for this set yet. It appears once the set has full
+              desirability coverage and a modeled pull structure.
+            </p>
+          )
+        ) : (
+          <>
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <p className="inline-flex items-end gap-1.5 text-3xl font-semibold leading-none text-[var(--text-primary)]">
+                <span>{presentation.collectorAppeal.scoreLabel}</span>
+                <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
+              </p>
+              {presentation.collectorAppeal.tier ? (
+                <RankBadge
+                  rank={presentation.collectorAppeal.tier}
+                  label="Rank"
+                  size="supporting"
+                  title={presentation.collectorAppeal.rankLabel || "Rank unavailable"}
+                />
+              ) : null}
+              {presentation.collectorAppeal.rankLabel ? (
+                <span className="text-sm text-[var(--text-secondary)]">{presentation.collectorAppeal.rankLabel}</span>
+              ) : null}
+            </div>
 
-            <SegmentedControl
-              options={[
-                { value: "set-validation", label: "Set Validation" },
-                { value: "card-validation", label: "Card Validation" },
-              ]}
-              value={selectedMode}
-              onChange={onModeChange}
-              ariaLabel="Desirability evidence mode"
-            />
-
-            {selectedMode === "set-validation" ? (
-              <DesirabilityValidationContent targets={targets} freshness={setValidationFreshness} />
-            ) : (
-              <CardDesirabilityMarketValidationContent
-                cards={cards}
-                cardAppealMarketPriceCorrelation={cardAppealMarketPriceCorrelation}
-                diagnosticsContext={diagnosticsContext}
-                freshness={cardValidationFreshness}
-                snapshotLoading={snapshotLoading}
-                dataLoading={dataLoading}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <OpeningExperienceMetricCard
+                label="Roster Desirability"
+                value={presentation.rosterDesirability.scoreLabel}
+                detail={presentation.rosterDesirability.rankLabel}
+                infoText="How beloved this set's Pokémon roster is, measured from collector demand signals. Card prices are never an input."
               />
-            )}
-          </div>
-          {topChaseAnchorHit ? <TopChaseAnchorCard hit={topChaseAnchorHit} validation={validation} /> : null}
-        </div>
+              <OpeningExperienceMetricCard
+                label="Dual-Path Depth"
+                value={presentation.dualPathDepth.displayLabel}
+                detail={
+                  [
+                    presentation.dualPathDepth.rankLabel,
+                    presentation.dualPathDepth.subjectsWithMultiplePaths !== null
+                      ? `${presentation.dualPathDepth.subjectsWithMultiplePaths} subjects with multiple paths`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || null
+                }
+                infoText="A structural coverage measure: of the Pokémon this set's collectors care about, how much of that demand has BOTH a realistically pullable printing and an elite chase. It is not a 0–100 grade — most sets sit well below 50%."
+              />
+              <OpeningExperienceMetricCard
+                label="Chase Appeal"
+                value={presentation.chaseAppeal.scoreLabel}
+                detail={presentation.chaseAppeal.rankLabel}
+                infoText="Desirability × elite scarcity: how strongly this set's most-wanted Pokémon concentrate into genuine chase cards. A separate diagnostic — it is not added to the RIP Score."
+              />
+            </div>
+
+            {presentation.topSubjects.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Why this score</p>
+                {presentation.topSubjects.map((subject) => (
+                  <OpeningExperienceSubjectRow key={`opening-subject:${subject.subjectName}`} subject={subject} />
+                ))}
+              </div>
+            ) : null}
+
+            <p className="text-xs text-[var(--text-secondary)]">
+              Price is not an input to Roster Desirability or Collector Appeal. Dual-Path Depth uses the
+              modeled pull structure. Chase Appeal is a separate desirability × scarcity diagnostic and is
+              not independently added to the RIP Score.
+            </p>
+          </>
+        )}
       </SectionCard>
     </section>
   );
@@ -8223,7 +7155,7 @@ function SetPageNavigationRail({
         ]
       : [
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
-          { id: "desirability-evidence", label: "Desirability Evidence", tab: "insights", section: "desirability-proof", targetId: "set-detail-desirability-evidence", active: false },
+          { id: "opening-experience", label: "Opening Experience", tab: "insights", section: "opening-experience", targetId: "set-detail-opening-experience", active: false },
           { id: "simulation-results", label: "Simulation Results", tab: "insights", section: "simulation-results", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
           { id: "opening-performance-cost", label: "Opening Profit vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
@@ -8672,10 +7604,6 @@ export default function RipStatisticsPageClient({
       ),
     [explorePayload?.openingDesirability, explorePayload?.opening_desirability]
   );
-  const desirabilityValidationPayload = useMemo(
-    () => getDesirabilityValidationPayload(explorePayload),
-    [explorePayload]
-  );
   const initialCardsPayload = initialModuleSnapshots?.cardsPayload || null;
   const initialMarketDashboardPayload = initialModuleSnapshots?.marketDashboardPayload || null;
   const initialOverviewPayload = initialModuleSnapshots?.overviewPayload || null;
@@ -8810,7 +7738,6 @@ export default function RipStatisticsPageClient({
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
   const [, setInsightsValueView] = useState("value-structure");
-  const [selectedDesirabilityEvidenceMode, setSelectedDesirabilityEvidenceMode] = useState("set-validation");
   const effectiveViewMode = setDetailMode ? "expert" : viewMode;
   const isExpertMode = effectiveViewMode === "expert";
   const effectiveValueView = setDetailMode ? "value" : isExpertMode ? activeValueView : "cards";
@@ -8920,59 +7847,8 @@ export default function RipStatisticsPageClient({
   // window before it resolves on first load. This contract distinguishes
   // "still loading" from "genuinely no data" so the card doesn't render a
   // permanent-looking n=0 empty state during that gap.
-  const activeCardValidationData = useMemo(() => {
-    const cards =
-      checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0
-        ? checklistState.cards
-        : initialCardAppealRows;
-
-    const correlation = resolvePreferredCardAppealCorrelation({
-      explorePayload,
-      cardsPayload: initialCardsPayload,
-      checklistState:
-        checklistState.setId === resolvedSetResourceId ? checklistState : null,
-      previous: initialCardAppealMarketPriceCorrelation,
-    });
-
-    const hasRows = Array.isArray(cards) && cards.length > 0;
-    const hasCorrelation = hasUsableCardAppealCorrelation(correlation);
-
-    const isActiveSetLoading =
-      setDetailMode &&
-      setDetailTab === "insights" &&
-      resolvedSetResourceId &&
-      (checklistState.status === "loading" ||
-        checklistState.status === "idle" ||
-        checklistState.setId !== resolvedSetResourceId) &&
-      !hasRows &&
-      !hasCorrelation;
-
-    return {
-      cards,
-      correlation,
-      status: hasRows || hasCorrelation
-        ? "ready"
-        : isActiveSetLoading
-        ? "loading"
-        : checklistState.status === "error"
-        ? "error"
-        : "empty",
-      source: hasRows
-        ? "checklist_state_or_initial_rows"
-        : hasCorrelation
-        ? "correlation_snapshot"
-        : null,
-    };
-  }, [
-    checklistState,
-    resolvedSetResourceId,
-    initialCardAppealRows,
-    initialCardsPayload,
-    initialCardAppealMarketPriceCorrelation,
-    explorePayload,
-    setDetailMode,
-    setDetailTab,
-  ]);
+  // activeCardValidationData (card-validation scatter inputs) retired with the
+  // Desirability Evidence section it fed.
   const [topMarketCardsWindowKey, setTopMarketCardsWindowKey] = useState(DEFAULT_TOP_MARKET_CARDS_WINDOW);
   const [marketDashboardState, dispatchMarketDashboard] = useReducer(
     marketDashboardReducer,
@@ -9716,9 +8592,6 @@ export default function RipStatisticsPageClient({
       setCardSortMode("set-number");
       setCardMovementFilter("all");
     }
-    if (DESIRABILITY_EVIDENCE_MODE_BY_SECTION[section]) {
-      setSelectedDesirabilityEvidenceMode(DESIRABILITY_EVIDENCE_MODE_BY_SECTION[section]);
-    }
 
     if (nextGraphMode) {
       setGraphMode(nextGraphMode);
@@ -9777,9 +8650,6 @@ export default function RipStatisticsPageClient({
       // param from ever diverging (e.g. ?section=market-movers rendering
       // with "All Cards" highlighted).
       setCardsSection(nextSection === "market-movers" ? "market-movers" : "all-cards");
-    }
-    if (DESIRABILITY_EVIDENCE_MODE_BY_SECTION[nextSection]) {
-      setSelectedDesirabilityEvidenceMode(DESIRABILITY_EVIDENCE_MODE_BY_SECTION[nextSection]);
     }
 
     if (sectionTarget?.graphMode) {
@@ -9906,21 +8776,35 @@ export default function RipStatisticsPageClient({
     { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
-  const heroScoreSelection = selectRipHeroScoreMode({ mode: heroScoreMode, summary, target: selectedTarget });
+  const heroScoreSelection = selectRipHeroScoreMode({
+    mode: heroScoreMode,
+    summary,
+    target: selectedTarget,
+    payload: explorePayload,
+  });
   const topScoreRaw = heroScoreSelection.score;
   const displayedTopScore = formatRawScore(topScoreRaw);
 
-  const displayedProfitScore =
-    toNumber(summary.relative_profit_score) ?? toNumber(summary.profit_score);
-  const displayedSafetyScore =
-    toNumber(summary.relative_safety_score) ?? toNumber(summary.safety_score);
-  const displayedDesirabilityScore =
-    toNumber(summary.relative_desirability_score) ?? toNumber(summary.desirability_score);
-  const displayedStabilityScore =
-    toNumber(summary.relative_stability_score) ?? toNumber(summary.stability_score);
-  const ripDesirabilityComparison = useMemo(
-    () => normalizeRipDesirabilityComparison(summary, selectedTarget),
-    [summary, selectedTarget]
+  // Canonical backend RIP contract: the set-page snapshot payload carries it
+  // in set-detail mode, the rankings target carries it on Explore. The pillar
+  // scores below are the ACTUAL component scores from rip.components — the
+  // legacy relative_*_score min-max presentations are deliberately never read.
+  const canonicalRip = useMemo(
+    () => explorePayload?.rip || selectedTarget?.rip || summary?.rip || {},
+    [explorePayload?.rip, selectedTarget?.rip, summary?.rip]
+  );
+  const canonicalRipComponents = canonicalRip?.components || {};
+  const displayedProfitScore = toNumber(canonicalRipComponents.profit?.score);
+  const displayedSafetyScore = toNumber(canonicalRipComponents.safety?.score);
+  const displayedCollectorAppealScore = toNumber(canonicalRipComponents.desirability?.score);
+  const displayedStabilityScore = toNumber(canonicalRipComponents.stability?.score);
+  const canonicalRipCore = useMemo(
+    () => explorePayload?.ripCore || selectedTarget?.ripCore || summary?.ripCore || {},
+    [explorePayload?.ripCore, selectedTarget?.ripCore, summary?.ripCore]
+  );
+  const collectorAppealImpact = useMemo(
+    () => selectCollectorAppealImpact(canonicalRip, canonicalRipCore),
+    [canonicalRip, canonicalRipCore]
   );
   const desirabilitySummary = getDesirabilitySummary(summary);
   const topDesirabilityCards = getTopCollectorAppealDrivers(
@@ -10493,7 +9377,7 @@ export default function RipStatisticsPageClient({
     }),
     desirabilityScore: getHistoryMetricTrend({
       metricKey: "desirabilityScore",
-      currentValue: displayedDesirabilityScore,
+      currentValue: displayedCollectorAppealScore,
       previousPoint: previousTrendPoint,
     }),
     stabilityScore: getHistoryMetricTrend({
@@ -10853,8 +9737,7 @@ export default function RipStatisticsPageClient({
     hasNonEmptyArray(explorePayload?.rankings) ||
     hasNonEmptyArray(explorePayload?.history_trend || explorePayload?.historyTrend) ||
     hasMeaningfulObjectFields(explorePayload?.rip_statistics || explorePayload?.ripStatistics) ||
-    hasMeaningfulObjectFields(explorePayload?.openingDesirability || explorePayload?.opening_desirability) ||
-    hasDesirabilityProofSignal(explorePayload?.desirabilityValidation || explorePayload?.desirability_validation);
+    hasMeaningfulObjectFields(explorePayload?.openingDesirability || explorePayload?.opening_desirability);
   useEffect(() => {
     if (!insightsSecondaryHasRenderableData) {
       return;
@@ -11300,17 +10183,25 @@ export default function RipStatisticsPageClient({
     .filter(Boolean)
     .join(" ");
   const ripScoreBreakdown = useMemo(
-    () => selectRipScoreBreakdown(summary, trendByMetricKey, { requestTimeout: isTimeoutFallbackPayload }),
-    [summary, trendByMetricKey, isTimeoutFallbackPayload]
+    () => selectRipScoreBreakdown(canonicalRip, trendByMetricKey, { requestTimeout: isTimeoutFallbackPayload }),
+    [canonicalRip, trendByMetricKey, isTimeoutFallbackPayload]
   );
   const ripBreakdownRowByTitle = new Map(ripScoreBreakdown.rows.map((row) => [row.title, row]));
+  // Pillar order and labels follow the canonical contract: Profit | Safety |
+  // Stability | Collector Appeal. Scores/ranks/tiers come from rip.components
+  // only — no `?? summary.*` fallback, because a legacy relative score
+  // rendering under the canonical card's label is the exact defect this
+  // replaced.
   const ripPillarTiles = [
     {
       title: "Profit",
-      score: ripBreakdownRowByTitle.get("Profit")?.score ?? displayedProfitScore,
+      score: ripBreakdownRowByTitle.get("Profit")?.score ?? null,
       scoreTrend: ripBreakdownRowByTitle.get("Profit")?.scoreTrend ?? trendByMetricKey.profitScore,
-      rankValue: ripBreakdownRowByTitle.get("Profit")?.rankValue ?? summary.profit_rank,
-      rankTier: ripBreakdownRowByTitle.get("Profit")?.rankTier ?? summary.profit_tier,
+      rankValue: ripBreakdownRowByTitle.get("Profit")?.rankValue ?? null,
+      rankTier: ripBreakdownRowByTitle.get("Profit")?.rankTier ?? null,
+      cohortSize: ripBreakdownRowByTitle.get("Profit")?.cohortSize ?? null,
+      weight: ripBreakdownRowByTitle.get("Profit")?.weight ?? null,
+      contribution: ripBreakdownRowByTitle.get("Profit")?.contribution ?? null,
       statusLabel: getPillarStatusLabel({ label: profitMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]?.state, score: displayedProfitScore }),
       highlight: getPillarSignalHighlight("Profit", displayedProfitScore),
       metrics: profitPillarMetrics,
@@ -11318,36 +10209,45 @@ export default function RipStatisticsPageClient({
     },
     {
       title: "Safety",
-      score: ripBreakdownRowByTitle.get("Safety")?.score ?? displayedSafetyScore,
+      score: ripBreakdownRowByTitle.get("Safety")?.score ?? null,
       scoreTrend: ripBreakdownRowByTitle.get("Safety")?.scoreTrend ?? trendByMetricKey.safetyScore,
-      rankValue: ripBreakdownRowByTitle.get("Safety")?.rankValue ?? summary.safety_rank,
-      rankTier: ripBreakdownRowByTitle.get("Safety")?.rankTier ?? summary.safety_tier,
+      rankValue: ripBreakdownRowByTitle.get("Safety")?.rankValue ?? null,
+      rankTier: ripBreakdownRowByTitle.get("Safety")?.rankTier ?? null,
+      cohortSize: ripBreakdownRowByTitle.get("Safety")?.cohortSize ?? null,
+      weight: ripBreakdownRowByTitle.get("Safety")?.weight ?? null,
+      contribution: ripBreakdownRowByTitle.get("Safety")?.contribution ?? null,
       statusLabel: getPillarStatusLabel({ label: safetyMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]?.state, score: displayedSafetyScore }),
       highlight: getPillarSignalHighlight("Safety", displayedSafetyScore),
       metrics: safetyPillarMetrics,
       infoText: getFormattedTooltip("Safety"),
     },
     {
-      title: "Desirability",
-      score: ripBreakdownRowByTitle.get("Desirability")?.score ?? displayedDesirabilityScore,
-      scoreTrend: ripBreakdownRowByTitle.get("Desirability")?.scoreTrend ?? trendByMetricKey.desirabilityScore,
-      rankValue: ripBreakdownRowByTitle.get("Desirability")?.rankValue ?? summary.desirability_rank,
-      rankTier: ripBreakdownRowByTitle.get("Desirability")?.rankTier ?? summary.desirability_tier,
-      statusLabel: getPillarStatusLabel({ label: desirabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]?.state, score: displayedDesirabilityScore }),
-      highlight: getPillarSignalHighlight("Desirability", displayedDesirabilityScore),
-      metrics: desirabilityPillarMetrics,
-      infoText: SIMPLE_PILLAR_INFO_COPY.Desirability,
-    },
-    {
       title: "Stability",
-      score: ripBreakdownRowByTitle.get("Stability")?.score ?? displayedStabilityScore,
+      score: ripBreakdownRowByTitle.get("Stability")?.score ?? null,
       scoreTrend: ripBreakdownRowByTitle.get("Stability")?.scoreTrend ?? trendByMetricKey.stabilityScore,
-      rankValue: ripBreakdownRowByTitle.get("Stability")?.rankValue ?? summary.stability_rank,
-      rankTier: ripBreakdownRowByTitle.get("Stability")?.rankTier ?? summary.stability_tier,
+      rankValue: ripBreakdownRowByTitle.get("Stability")?.rankValue ?? null,
+      rankTier: ripBreakdownRowByTitle.get("Stability")?.rankTier ?? null,
+      cohortSize: ripBreakdownRowByTitle.get("Stability")?.cohortSize ?? null,
+      weight: ripBreakdownRowByTitle.get("Stability")?.weight ?? null,
+      contribution: ripBreakdownRowByTitle.get("Stability")?.contribution ?? null,
       statusLabel: getPillarStatusLabel({ label: stabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]?.state, score: displayedStabilityScore }),
       highlight: getPillarSignalHighlight("Stability", displayedStabilityScore),
       metrics: stabilityPillarMetrics,
       infoText: getFormattedTooltip("Stability"),
+    },
+    {
+      title: "Collector Appeal",
+      score: ripBreakdownRowByTitle.get("Collector Appeal")?.score ?? null,
+      scoreTrend: ripBreakdownRowByTitle.get("Collector Appeal")?.scoreTrend ?? trendByMetricKey.desirabilityScore,
+      rankValue: ripBreakdownRowByTitle.get("Collector Appeal")?.rankValue ?? null,
+      rankTier: ripBreakdownRowByTitle.get("Collector Appeal")?.rankTier ?? null,
+      cohortSize: ripBreakdownRowByTitle.get("Collector Appeal")?.cohortSize ?? null,
+      weight: ripBreakdownRowByTitle.get("Collector Appeal")?.weight ?? null,
+      contribution: ripBreakdownRowByTitle.get("Collector Appeal")?.contribution ?? null,
+      statusLabel: getPillarStatusLabel({ label: desirabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]?.state, score: displayedCollectorAppealScore }),
+      highlight: getPillarSignalHighlight("Desirability", displayedCollectorAppealScore),
+      metrics: desirabilityPillarMetrics,
+      infoText: SIMPLE_PILLAR_INFO_COPY["Collector Appeal"] || SIMPLE_PILLAR_INFO_COPY.Desirability,
     },
   ];
   const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
@@ -13513,7 +12413,7 @@ export default function RipStatisticsPageClient({
                           <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4 md:gap-3">
                             <SimplePillarSummaryCard
                               title="Profit"
-                              rankTier={summary.profit_tier}
+                              rankTier={ripBreakdownRowByTitle.get("Profit")?.rankTier ?? null}
                               infoText={`${SIMPLE_PILLAR_INFO_COPY.Profit}${decisionSignalFreshnessInfo}`}
                               sectionMeta={profitMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]}
@@ -13521,27 +12421,27 @@ export default function RipStatisticsPageClient({
                             />
                             <SimplePillarSummaryCard
                               title="Safety"
-                              rankTier={summary.safety_tier}
+                              rankTier={ripBreakdownRowByTitle.get("Safety")?.rankTier ?? null}
                               infoText={`${SIMPLE_PILLAR_INFO_COPY.Safety}${decisionSignalFreshnessInfo}`}
                               sectionMeta={safetyMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]}
                               fallbackSummary={interpretation?.safety}
                             />
                             <SimplePillarSummaryCard
-                              title="Desirability"
-                              rankTier={summary.desirability_tier}
-                              infoText={`${SIMPLE_PILLAR_INFO_COPY.Desirability}${decisionSignalFreshnessInfo}`}
-                              sectionMeta={desirabilityMeta}
-                              backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]}
-                              fallbackSummary={desirabilitySummary}
-                            />
-                            <SimplePillarSummaryCard
                               title="Stability"
-                              rankTier={summary.stability_tier}
+                              rankTier={ripBreakdownRowByTitle.get("Stability")?.rankTier ?? null}
                               infoText={`${SIMPLE_PILLAR_INFO_COPY.Stability}${decisionSignalFreshnessInfo}`}
                               sectionMeta={stabilityMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]}
                               fallbackSummary={interpretation?.stability}
+                            />
+                            <SimplePillarSummaryCard
+                              title="Collector Appeal"
+                              rankTier={ripBreakdownRowByTitle.get("Collector Appeal")?.rankTier ?? null}
+                              infoText={`${SIMPLE_PILLAR_INFO_COPY["Collector Appeal"]}${decisionSignalFreshnessInfo}`}
+                              sectionMeta={desirabilityMeta}
+                              backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]}
+                              fallbackSummary={desirabilitySummary}
                             />
                           </div>
                         </>
@@ -13661,43 +12561,25 @@ export default function RipStatisticsPageClient({
                   <RipScoreBreakdownModule
                     score={topScoreRaw}
                     scoreTrend={trendByMetricKey.ripScore}
-                    rankTier={summary.pack_tier}
-                    rankValue={summary.pack_rank}
+                    rankTier={heroScoreSelection.tier}
+                    rankValue={heroScoreSelection.rank}
+                    cohortSize={heroScoreSelection.cohortSize}
                     verdict={recommendationBadge}
                     explanation={recommendationSummary}
                     pillars={ripPillarTiles}
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                    ripDesirabilityComparison={ripDesirabilityComparison}
+                    collectorAppealImpact={collectorAppealImpact}
                   />
                 </SectionErrorBoundary>
 
-                {/* Priority 5: deep diagnostics. proofLoading/proofLoadingTimedOut
-                    reflect the secondary-tier fetch. DesirabilityAgreementContent
-                    renders data whenever the proof signal exists, so a truthy
-                    proofLoading can never hide loaded content — it only
-                    upgrades the no-data state from a premature "isn't
-                    available" verdict to a quiet placeholder while the owning
-                    fetch is still in flight. */}
-                <SectionErrorBoundary sectionName="insights-desirability-evidence" resetKeys={[resolvedSetResourceId]} title="Desirability Evidence" minHeightClassName="min-h-[14rem]">
-                  <DesirabilityEvidenceCard
-                    mode={selectedDesirabilityEvidenceMode}
-                    onModeChange={setSelectedDesirabilityEvidenceMode}
-                    validation={desirabilityValidationPayload}
-                    proofLoading={insightsSectionsBlocked || activeInsightsSecondaryStatus === "loading"}
-                    proofLoadingTimedOut={insightsSectionsShowFallbackCopy}
-                    targets={targets}
-                    setValidationFreshness={sectionFreshness.desirabilityValidation}
-                    cards={activeCardValidationData.cards}
-                    cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}
-                    diagnosticsContext={{
-                      setId: resolvedSetResourceId,
-                      setSlug: selectedTarget?.slug || selectedTarget?.canonical_key || requestedTargetId,
-                      selectedTab: setDetailTab,
-                    }}
-                    cardValidationFreshness={sectionFreshness.cardAppealValidation}
-                    snapshotLoading={isTimeoutFallbackPayload}
-                    dataLoading={activeCardValidationData.status === "loading"}
-                    topHits={topHits}
+                {/* Priority 2b: Opening Experience (Collector Appeal). Reads the
+                    critical payload's openingExperience contract — no extra
+                    fetch, no secondary-tier dependency. */}
+                <SectionErrorBoundary sectionName="insights-opening-experience" resetKeys={[resolvedSetResourceId]} title="Opening Experience" minHeightClassName="min-h-[14rem]">
+                  <OpeningExperienceCard
+                    openingExperience={explorePayload?.openingExperience || selectedTarget?.openingExperience || null}
+                    loading={insightsSectionsBlocked}
+                    loadingTimedOut={insightsSectionsShowFallbackCopy}
                   />
                 </SectionErrorBoundary>
 
@@ -13909,8 +12791,8 @@ export default function RipStatisticsPageClient({
                   title="Profit"
                   score={displayedProfitScore}
                   scoreTrend={trendByMetricKey.profitScore}
-                  rankValue={summary.profit_rank}
-                  rankTier={summary.profit_tier}
+                  rankValue={ripBreakdownRowByTitle.get("Profit")?.rankValue ?? null}
+                  rankTier={ripBreakdownRowByTitle.get("Profit")?.rankTier ?? null}
                   rankLabel="Profit Rank"
                   sectionMeta={profitMeta}
                   fallbackSummary={null}
@@ -13933,8 +12815,8 @@ export default function RipStatisticsPageClient({
                   title="Safety"
                   score={displayedSafetyScore}
                   scoreTrend={trendByMetricKey.safetyScore}
-                  rankValue={summary.safety_rank}
-                  rankTier={summary.safety_tier}
+                  rankValue={ripBreakdownRowByTitle.get("Safety")?.rankValue ?? null}
+                  rankTier={ripBreakdownRowByTitle.get("Safety")?.rankTier ?? null}
                   rankLabel="Safety Rank"
                   sectionMeta={safetyMeta}
                   fallbackSummary={null}
@@ -13950,34 +12832,12 @@ export default function RipStatisticsPageClient({
                     { label: "Worst 5% Outcome", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.worstFivePercentShortfall?.trend === "unknown" ? trendByMetricKey.badPackFloorValue : trendByMetricKey.worstFivePercentShortfall, infoText: getMetricTooltip("Worst 5% Outcome") },
                   ]}
                 />
-                <div id="set-detail-desirability" className="h-full scroll-mt-24 md:scroll-mt-28">
-                  <ScorePillarCard
-                    title="Desirability"
-                    score={displayedDesirabilityScore}
-                    scoreTrend={trendByMetricKey.desirabilityScore}
-                    rankValue={summary.desirability_rank}
-                    rankTier={summary.desirability_tier}
-                    rankLabel="Desirability Rank"
-                    sectionMeta={desirabilityMeta}
-                    fallbackSummary={desirabilitySummary}
-                    infoText={SIMPLE_PILLAR_INFO_COPY.Desirability}
-                    simpleMetrics={desirabilityOverviewMetrics}
-                    advancedMetrics={[
-                      {
-                        label: "Top Collector Appeal Drivers",
-                        value: null,
-                        content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
-                        trend: null,
-                      },
-                    ]}
-                  />
-                </div>
                 <ScorePillarCard
                   title="Stability"
                   score={displayedStabilityScore}
                   scoreTrend={trendByMetricKey.stabilityScore}
-                  rankValue={summary.stability_rank}
-                  rankTier={summary.stability_tier}
+                  rankValue={ripBreakdownRowByTitle.get("Stability")?.rankValue ?? null}
+                  rankTier={ripBreakdownRowByTitle.get("Stability")?.rankTier ?? null}
                   rankLabel="Stability Rank"
                   sectionMeta={stabilityMeta}
                   fallbackSummary={null}
@@ -13995,6 +12855,28 @@ export default function RipStatisticsPageClient({
                     { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share), trend: trendByMetricKey.top5Share },
                   ]}
                 />
+                <div id="set-detail-desirability" className="h-full scroll-mt-24 md:scroll-mt-28">
+                  <ScorePillarCard
+                    title="Collector Appeal"
+                    score={displayedCollectorAppealScore}
+                    scoreTrend={trendByMetricKey.desirabilityScore}
+                    rankValue={ripBreakdownRowByTitle.get("Collector Appeal")?.rankValue ?? null}
+                    rankTier={ripBreakdownRowByTitle.get("Collector Appeal")?.rankTier ?? null}
+                    rankLabel="Collector Appeal Rank"
+                    sectionMeta={desirabilityMeta}
+                    fallbackSummary={desirabilitySummary}
+                    infoText={SIMPLE_PILLAR_INFO_COPY["Collector Appeal"] || SIMPLE_PILLAR_INFO_COPY.Desirability}
+                    simpleMetrics={desirabilityOverviewMetrics}
+                    advancedMetrics={[
+                      {
+                        label: "Top Collector Appeal Drivers",
+                        value: null,
+                        content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
+                        trend: null,
+                      },
+                    ]}
+                  />
+                </div>
               </div>
               {setDetailMode ? (
                 <div id="set-detail-simulation-cards" className="scroll-mt-24 md:scroll-mt-28">

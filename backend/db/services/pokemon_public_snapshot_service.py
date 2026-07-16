@@ -19,7 +19,7 @@ from backend.desirability.card_appeal import (
     normalize_pull_probability,
 )
 from backend.desirability.set_components import build_card_appeal_correlation_dataset
-from backend.desirability.set_validation import build_desirability_validation_payload, build_opening_set_audit, is_opening_set_row
+from backend.desirability.set_validation import build_opening_set_audit, is_opening_set_row
 from backend.db.services.explore_page_service import ExplorePageError
 from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
@@ -1198,29 +1198,10 @@ def _merge_snapshot_meta(payload: Dict[str, Any], row: Dict[str, Any], source: s
     return {**payload, "meta": meta}
 
 
-def _with_desirability_validation(payload: Dict[str, Any], set_id: str) -> Dict[str, Any]:
-    if isinstance(payload.get("desirabilityValidation"), dict) or isinstance(payload.get("desirability_validation"), dict):
-        return payload
-    try:
-        rankings = get_pokemon_explore_rankings_snapshot_payload(limit=DEFAULT_RANKINGS_LIMIT)
-        validation = build_desirability_validation_payload(
-            set_id=set_id,
-            set_payload=payload,
-            target_rows=rankings.get("targets") or [],
-        )
-    except Exception:
-        logger.warning("[pokemon-snapshot] desirability validation fallback failed set_id=%s", set_id, exc_info=True)
-        return payload
-    meta = dict(payload.get("meta") or {})
-    sources = dict(meta.get("sources") or {})
-    sources["desirability_validation"] = "runtime_from_rankings_snapshot"
-    meta["sources"] = sources
-    return {
-        **payload,
-        "desirabilityValidation": validation,
-        "desirability_validation": validation,
-        "meta": meta,
-    }
+# _with_desirability_validation (the runtime rebuild of the legacy evidence
+# payload during route render) is retired along with the Desirability Evidence
+# section it fed. Opening Experience replaced it; see openingExperience in the
+# insights critical payload.
 
 
 def _mark_missing_simulation_drivers_without_live_repair(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -1260,21 +1241,10 @@ def _mark_missing_simulation_drivers_without_live_repair(payload: Dict[str, Any]
     }
 
 
-def _with_missing_desirability_validation_warning(payload: Dict[str, Any]) -> Dict[str, Any]:
-    if not isinstance(payload, dict):
-        return payload
-    if isinstance(payload.get("desirabilityValidation"), dict) or isinstance(payload.get("desirability_validation"), dict):
-        return payload
-    meta = dict(payload.get("meta") or {})
-    warnings = list(meta.get("warnings") or [])
-    warning = "Desirability validation is missing in this snapshot; request path skipped runtime rebuild."
-    if warning not in warnings:
-        warnings.append(warning)
-    meta["warnings"] = warnings
-    return {
-        **payload,
-        "meta": meta,
-    }
+# _with_missing_desirability_validation_warning is retired with the section it
+# warned about: a per-request "validation is missing" warning would now fire on
+# every set page, describing the absence of a payload that is deliberately no
+# longer produced.
 
 
 def _load_rankings_snapshot_updated_at() -> Optional[str]:
@@ -1429,7 +1399,6 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         if row and isinstance(row.get("payload_json"), dict):
             payload = _merge_snapshot_meta(row["payload_json"], row, "pokemon_set_page_snapshot_latest")
             payload = _mark_missing_simulation_drivers_without_live_repair(payload)
-            payload = _with_missing_desirability_validation_warning(payload)
             timings = dict((payload.get("meta") or {}).get("timings") or {})
             if set_resolve_ms is not None:
                 timings["set_resolve_ms"] = set_resolve_ms
@@ -5312,7 +5281,6 @@ def _empty_insights_payload(
         "rarityContribution": [],
         "historyTrend": [],
         "desirability": {},
-        "desirabilityValidation": {},
         "meta": {
             "source": fallback_source,
             "updatedAt": datetime.now(timezone.utc).isoformat(),
@@ -5456,17 +5424,11 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
     raw_desirability = payload_json.get("openingDesirability")
     if not isinstance(raw_desirability, dict):
         raw_desirability = payload_json.get("opening_desirability")
-    raw_desirability_validation = payload_json.get("desirabilityValidation")
-    if not isinstance(raw_desirability_validation, dict):
-        raw_desirability_validation = payload_json.get("desirability_validation")
 
     summary_camel = _to_camel_case_only(raw_summary) if isinstance(raw_summary, dict) else {}
     interpretation_camel = _to_camel_case_only(raw_interpretation) if isinstance(raw_interpretation, dict) else {}
     rip_statistics_camel = _to_camel_case_only(raw_rip_statistics) if isinstance(raw_rip_statistics, dict) else {}
     desirability_camel = _to_camel_case_only(raw_desirability) if isinstance(raw_desirability, dict) else {}
-    desirability_validation_camel = (
-        _to_camel_case_only(raw_desirability_validation) if isinstance(raw_desirability_validation, dict) else {}
-    )
 
     interpretation_meta = interpretation_camel.get("meta") if isinstance(interpretation_camel.get("meta"), dict) else {}
     pack_score_meta = interpretation_meta.get("packScore") if isinstance(interpretation_meta.get("packScore"), dict) else {}
@@ -5504,7 +5466,9 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
         "rarityContribution": _to_camel_case_only(raw_rankings) if isinstance(raw_rankings, list) else [],
         "historyTrend": _to_camel_case_only(raw_history_trend) if isinstance(raw_history_trend, list) else [],
         "desirability": desirability_camel,
-        "desirabilityValidation": desirability_validation_camel,
+        # desirabilityValidation is retired: its only consumer was the public
+        # Desirability Evidence section, replaced by Opening Experience. Old
+        # snapshot rows may still carry the key; it is deliberately not served.
         "meta": {
             "source": "pokemon_set_page_snapshot_latest",
             "updatedAt": _to_optional_str(row.get("updated_at")),
@@ -5601,6 +5565,11 @@ def _empty_insights_critical_payload(
         "summary": {},
         "recommendation": {},
         "ripScore": {},
+        "rip": {},
+        "ripCore": {},
+        "openingExperience": {},
+        "publicAnalyticsCohort": {},
+        "publicAnalyticsStatus": None,
         "interpretation": {},
         "meta": {
             "source": fallback_source,
@@ -5626,7 +5595,6 @@ def _empty_insights_secondary_payload(
         "rarityContribution": [],
         "historyTrend": [],
         "desirability": {},
-        "desirabilityValidation": {},
         "meta": {
             "source": fallback_source,
             "updatedAt": datetime.now(timezone.utc).isoformat(),
@@ -5673,9 +5641,30 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
     if rip_score_value is None:
         rip_score_value = summary_camel.get("packScore")
 
+    # The canonical public contract, stored on the snapshot by
+    # _merge_canonical_rip_contract_into_set_payload. Served verbatim (the
+    # objects are built camelCase at the source), so the set page reads the
+    # SAME objects the Explore leaderboard ranked - one bundle, two surfaces.
+    canonical_rip = payload_json.get("rip") if isinstance(payload_json.get("rip"), dict) else {}
+    canonical_rip_core = payload_json.get("ripCore") if isinstance(payload_json.get("ripCore"), dict) else {}
+    opening_experience = (
+        payload_json.get("openingExperience")
+        if isinstance(payload_json.get("openingExperience"), dict)
+        else {}
+    )
+    public_cohort = (
+        payload_json.get("publicAnalyticsCohort")
+        if isinstance(payload_json.get("publicAnalyticsCohort"), dict)
+        else {}
+    )
+
     warnings: List[str] = []
     if not summary_camel:
         warnings.append("RIP summary is not available for this set yet.")
+    if not canonical_rip:
+        warnings.append(
+            "Canonical RIP contract is not in this snapshot yet; rebuild set-page snapshots."
+        )
 
     payload = {
         "set": set_identity,
@@ -5684,11 +5673,18 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
             "label": pack_score_meta.get("label"),
             "summary": pack_score_meta.get("summary"),
         },
+        # Legacy hero block (relative/min-max presentation). Deprecated: the new
+        # UI reads `rip`/`ripCore`. Kept only so older clients keep rendering.
         "ripScore": {
             "score": rip_score_value,
             "rank": summary_camel.get("packRank"),
             "tier": summary_camel.get("packTier"),
         },
+        "rip": canonical_rip,
+        "ripCore": canonical_rip_core,
+        "openingExperience": opening_experience,
+        "publicAnalyticsCohort": public_cohort,
+        "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),
         "interpretation": interpretation_camel,
         "meta": {
             "source": "pokemon_set_page_snapshot_latest",
@@ -5746,15 +5742,9 @@ def get_pokemon_set_insights_secondary_snapshot_payload(set_id: str) -> Dict[str
     raw_desirability = payload_json.get("openingDesirability")
     if not isinstance(raw_desirability, dict):
         raw_desirability = payload_json.get("opening_desirability")
-    raw_desirability_validation = payload_json.get("desirabilityValidation")
-    if not isinstance(raw_desirability_validation, dict):
-        raw_desirability_validation = payload_json.get("desirability_validation")
 
     rip_statistics_camel = _to_camel_case_only(raw_rip_statistics) if isinstance(raw_rip_statistics, dict) else {}
     desirability_camel = _to_camel_case_only(raw_desirability) if isinstance(raw_desirability, dict) else {}
-    desirability_validation_camel = (
-        _to_camel_case_only(raw_desirability_validation) if isinstance(raw_desirability_validation, dict) else {}
-    )
 
     warnings: List[str] = []
     if not isinstance(raw_top_hits, list) or not raw_top_hits:
@@ -5772,7 +5762,9 @@ def get_pokemon_set_insights_secondary_snapshot_payload(set_id: str) -> Dict[str
         "rarityContribution": _to_camel_case_only(raw_rankings) if isinstance(raw_rankings, list) else [],
         "historyTrend": _to_camel_case_only(raw_history_trend) if isinstance(raw_history_trend, list) else [],
         "desirability": desirability_camel,
-        "desirabilityValidation": desirability_validation_camel,
+        # desirabilityValidation is retired: its only consumer was the public
+        # Desirability Evidence section, replaced by Opening Experience. Old
+        # snapshot rows may still carry the key; it is deliberately not served.
         "meta": {
             "source": "pokemon_set_page_snapshot_latest",
             "updatedAt": _to_optional_str(row.get("updated_at")),

@@ -1115,7 +1115,7 @@ def test_market_dashboard_snapshot_uses_corrected_local_set_value_history_date(m
     assert dashboard_row["payload_json"]["setValueHistoriesByScope"]["hits"][0]["date"] == "2026-06-26"
 
 
-def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatch):
+def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_explore_page_payload",
@@ -1162,6 +1162,19 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
                     "rip_desirability_impact_label": "Rank lift",
                     "rip_desirability_comparison_version": "rip_desirability_comparison_v1",
                     "top_hits": [{"marketPrice": 100}],
+                    "rip": {
+                        "score": 82.61,
+                        "rank": 1,
+                        "tier": "S",
+                        "cohortSize": 21,
+                        "components": {"desirability": {"score": 96.09, "weight": 0.10}},
+                    },
+                    "ripCore": {"score": 74.25, "rank": 3, "tier": "A", "cohortSize": 21},
+                    "openingExperience": {
+                        "status": "available",
+                        "collectorAppeal": {"score": 96.09, "rank": 1, "cohortSize": 21},
+                    },
+                    "publicAnalyticsStatus": "analytics_ready",
                 },
                 {
                     "id": "set-2",
@@ -1178,7 +1191,14 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
                     },
                     "top_hits": [{"marketPrice": 25}],
                 },
-            ]
+            ],
+            "meta": {
+                "publicAnalyticsCohort": {
+                    "version": "public_analytics_policy_v1_era_gated",
+                    "eligibleSetCount": 21,
+                    "status": "analytics_ready",
+                }
+            },
         },
     )
 
@@ -1199,10 +1219,18 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
         assert row["payload_json"]["set"][key] == expected
         assert row["rip_summary_json"][key] == expected
 
-    validation = row["payload_json"]["desirabilityValidation"]
-    assert validation["formula_version"] == "desirability_validation_v2"
-    assert validation["desirability_impact_band"] in {"lift", "drag", "neutral"}
-    assert row["payload_json"]["desirability_validation"] == validation
+    # The canonical contract travels from the rankings target into the set-page
+    # snapshot verbatim - the same object powers both surfaces.
+    payload = row["payload_json"]
+    assert payload["rip"]["score"] == 82.61
+    assert payload["rip"]["cohortSize"] == 21
+    assert payload["ripCore"]["score"] == 74.25
+    assert payload["openingExperience"]["collectorAppeal"]["score"] == 96.09
+    assert payload["publicAnalyticsStatus"] == "analytics_ready"
+    assert payload["publicAnalyticsCohort"]["eligibleSetCount"] == 21
+    # The legacy validation payload is retired: new snapshots never carry it.
+    assert "desirabilityValidation" not in payload
+    assert "desirability_validation" not in payload
 
 
 def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(monkeypatch):
@@ -1526,7 +1554,10 @@ def test_build_set_page_snapshot_row_preserves_previous_card_appeal_correlation_
     assert payload["meta"]["sectionFreshness"]["cardAppealValidation"]["status"] == "stale"
 
 
-def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_validation_missing(monkeypatch):
+def test_build_set_page_snapshot_row_retires_previous_desirability_validation(monkeypatch):
+    """A legacy validation payload on the EXISTING snapshot row must not be
+    carried forward - the retired section would otherwise resurrect itself from
+    the last-known-good merge on every rebuild, forever."""
     monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1538,11 +1569,8 @@ def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_vali
         },
     )
     monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
-
-    def _raise_validation_error(**_kwargs):
-        raise RuntimeError("validation unavailable")
-
-    monkeypatch.setattr(pokemon_snapshot_builders, "build_desirability_validation_payload", _raise_validation_error)
+    # The legacy payload builder must be gone from this module entirely.
+    assert not hasattr(pokemon_snapshot_builders, "build_desirability_validation_payload")
 
     validation = {"formula_version": "desirability_validation_v1", "summary": {"sampleCount": 12}}
     client = _Client(
@@ -1572,7 +1600,7 @@ def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_vali
 
     assert "desirabilityValidation" not in payload
     assert "desirability_validation" not in payload
-    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "missing"
+    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "retired"
 
 
 def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapshot(monkeypatch):

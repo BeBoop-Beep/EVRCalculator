@@ -47,6 +47,16 @@ from backend.desirability.card_links import (  # noqa: E402
     CARD_DESIRABILITY_LINK_TABLE,
     aggregate_card_appeal,
 )
+from backend.desirability.collector_appeal_inputs import (  # noqa: E402
+    # The loaders live in the desirability package now, not here: a service on
+    # the request path needs them, and importing a CLI study module to get them
+    # would drag argparse/numpy/artifact-writing into an API process. Re-exported
+    # under their original names so this script and the other studies that
+    # import them from here keep working against ONE implementation.
+    load_appeal_by_card,
+    load_cards,
+    load_pull_rate_model,
+)
 from backend.desirability.composite import COMPOSITE_SCORING_VERSION  # noqa: E402
 from backend.desirability.pull_model import (  # noqa: E402
     PULL_MODEL_PAYLOAD_KEYS,
@@ -137,52 +147,6 @@ def _as_float(value: Any) -> Optional[float]:
     return parsed if math.isfinite(parsed) else None
 
 
-def load_pull_rate_model(client) -> Dict[str, Dict[str, Dict[str, Any]]]:
-    """set_id -> {rarity_key: {probability, slot_group}} from the modeled pack model.
-
-    ``slot_label`` is the mutually-exclusive slot; cards sharing it must have
-    their probabilities added, never combined by an independence formula.
-    """
-    rows = _paged_select(
-        client.table(PULL_MODEL_SOURCE_TABLE).select(PULL_MODEL_SOURCE_COLUMNS)
-    )
-    by_set: Dict[str, Dict[str, Dict[str, Any]]] = {}
-    for row in rows:
-        payload = row.get("payload_json")
-        if not isinstance(payload, dict):
-            continue
-        assumptions = next(
-            (payload[key] for key in PULL_MODEL_PAYLOAD_KEYS
-             if isinstance(payload.get(key), dict)),
-            None,
-        )
-        if assumptions is None:
-            continue
-        best: Dict[str, Tuple[int, Dict[str, Any]]] = {}
-        for entry in assumptions.get("rows") or []:
-            if not isinstance(entry, dict):
-                continue
-            probability = probability_from_denominator(entry.get("specific_card_odds_denominator"))
-            rarity_key = normalize_rarity_key(str(entry.get("rarity") or ""))
-            if not rarity_key or probability is None:
-                continue
-            priority = group_priority(entry.get("group"))
-            current = best.get(rarity_key)
-            if current is None or priority < current[0]:
-                best[rarity_key] = (
-                    priority,
-                    {
-                        "probability": probability,
-                        "slot_group": slot_group_of(entry),
-                        "card_count": entry.get("card_count"),
-                        "expected_cards_per_pack": entry.get("expected_cards_per_pack"),
-                    },
-                )
-        if best:
-            by_set[str(row.get("set_id"))] = {key: value for key, (_p, value) in best.items()}
-    return by_set
-
-
 def load_latest_v2_rows(client) -> Dict[str, Dict[str, Any]]:
     rows = _paged_select(
         client.table("pokemon_set_desirability_component_scores")
@@ -206,19 +170,6 @@ def load_latest_v2_rows(client) -> Dict[str, Dict[str, Any]]:
     return latest
 
 
-def load_cards(client, set_ids: Sequence[str]) -> List[Dict[str, Any]]:
-    cards: List[Dict[str, Any]] = []
-    for chunk in _chunked(sorted(set_ids), 5):
-        cards.extend(
-            _paged_select(
-                client.table("pokemon_canonical_cards")
-                .select("id,set_id,name,supertype,subtypes,rarity,number,printed_number")
-                .in_("set_id", list(chunk))
-            )
-        )
-    return cards
-
-
 def load_prices(client, set_ids: Sequence[str]) -> Dict[str, float]:
     prices: Dict[str, float] = {}
     for chunk in _chunked(sorted(set_ids), 5):
@@ -232,33 +183,6 @@ def load_prices(client, set_ids: Sequence[str]) -> Dict[str, float]:
             if card_id and price is not None and price > 0:
                 prices[card_id] = price
     return prices
-
-
-def load_appeal_by_card(client, card_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
-    scores = {
-        int(row["pokemon_reference_id"]): row
-        for row in _paged_select(
-            client.table("pokemon_desirability_composite_scores")
-            .select("pokemon_reference_id,pokemon_name,desirability_score")
-            .eq("scoring_version", COMPOSITE_SCORING_VERSION)
-        )
-        if row.get("pokemon_reference_id") is not None
-    }
-    links_by_card: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for chunk in _chunked(sorted(card_ids), 200):
-        for link in _paged_select(
-            client.table(CARD_DESIRABILITY_LINK_TABLE)
-            .select(CARD_DESIRABILITY_LINK_COLUMNS)
-            .in_("pokemon_canonical_card_id", list(chunk))
-        ):
-            links_by_card[str(link.get("pokemon_canonical_card_id"))].append(link)
-
-    appeal: Dict[str, Dict[str, Any]] = {}
-    for card_id, links in links_by_card.items():
-        aggregated = aggregate_card_appeal(links, scores)
-        if aggregated is not None:
-            appeal[card_id] = aggregated
-    return appeal
 
 
 def load_simulation_rows(client) -> Dict[str, Dict[str, Any]]:

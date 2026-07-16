@@ -552,27 +552,24 @@ test("Trend Scores selector tolerates null summary and partial set value metrics
 test("RIP Score Breakdown selector exposes missing rank diagnostics", async () => {
   const { selectRipScoreBreakdown } = await import(pathToFileURL(ripScoreBreakdownSelectorPath).href);
   const selected = selectRipScoreBreakdown({
-    relative_profit_score: 70,
-    profit_tier: "B",
+    components: { profit: { score: 70, tier: "B" } },
   });
 
   const profit = selected.rows.find((row) => row.title === "Profit");
   assert.equal(profit.score, 70);
   assert.equal(profit.rankValue, null);
   assert.match(profit.rankDiagnostic, /Rank unavailable/);
-  assert.ok(selected.diagnostics.missingFields.includes("profit_rank"));
+  assert.ok(selected.diagnostics.missingFields.includes("profit.rank"));
 });
 
 test("RIP Score Breakdown selector keeps current metrics when trends are missing", async () => {
   const { selectRipScoreBreakdown } = await import(pathToFileURL(ripScoreBreakdownSelectorPath).href);
   const selected = selectRipScoreBreakdown(
     {
-      relative_profit_score: 70,
-      profit_rank: 4,
-      profit_tier: "A",
-      relative_safety_score: 61,
-      safety_rank: 12,
-      safety_tier: "B",
+      components: {
+        profit: { score: 70, rank: 4, tier: "A", weight: 0.58, contribution: 40.6, cohortSize: 21 },
+        safety: { score: 61, rank: 12, tier: "B", weight: 0.2, contribution: 12.2, cohortSize: 21 },
+      },
     },
     null
   );
@@ -584,8 +581,38 @@ test("RIP Score Breakdown selector keeps current metrics when trends are missing
   assert.equal(profit.rankValue, 4);
   assert.equal(profit.rankTier, "A");
   assert.equal(profit.scoreTrend, null);
+  assert.equal(profit.weight, 0.58);
+  assert.equal(profit.cohortSize, 21);
   assert.equal(safety.score, 61);
   assert.equal(safety.rankValue, 12);
+});
+
+test("RIP Score Breakdown selector labels the fourth pillar Collector Appeal and never reads legacy relative fields", async () => {
+  const { selectRipScoreBreakdown } = await import(pathToFileURL(ripScoreBreakdownSelectorPath).href);
+  const fsModule = await import("node:fs");
+  const selectorSource = fsModule.readFileSync(ripScoreBreakdownSelectorPath, "utf8");
+
+  // The fourth pillar is Collector Appeal (CA7); the backend keys the
+  // component `desirability` for weight-config compatibility.
+  const selected = selectRipScoreBreakdown({
+    components: { desirability: { score: 96.09, rank: 1, tier: "S", weight: 0.1, contribution: 9.61, cohortSize: 21 } },
+  });
+  const collectorAppeal = selected.rows.find((row) => row.title === "Collector Appeal");
+  assert.ok(collectorAppeal, "the Collector Appeal pillar row must exist");
+  assert.equal(collectorAppeal.score, 96.09);
+  assert.equal(collectorAppeal.contribution, 9.61);
+  assert.equal(selected.rows.map((row) => row.title).join("|"), "Profit|Safety|Stability|Collector Appeal");
+
+  // Legacy min-max fields must never be read, even as a fallback.
+  const withLegacyOnly = selectRipScoreBreakdown({
+    relative_profit_score: 98.4,
+    profit_score: 70,
+    profit_rank: 4,
+  });
+  assert.equal(withLegacyOnly.rows.find((row) => row.title === "Profit").score, null);
+  for (const banned of ["relative_profit_score", "relative_safety_score", "relative_stability_score", "relative_desirability_score"]) {
+    assert.ok(!selectorSource.includes(banned), `selector must not read ${banned}`);
+  }
 });
 
 test("backend top hits warning includes diagnostic source context", () => {
@@ -1241,58 +1268,47 @@ test("30D top chase UI selection does not require a 30d dashboard snapshot", () 
   assert.ok(!source.includes("prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW })"));
 });
 
-test("RIP desirability comparison renders only from available payload fields", () => {
+test("Collector Appeal impact strip replaces the legacy desirability comparison", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("function normalizeRipDesirabilityComparison"));
-  assert.ok(source.includes("rip_score_without_desirability"));
-  assert.ok(source.includes("rip_score_with_desirability"));
-  assert.ok(source.includes("rip_rank_delta"));
-  assert.ok(source.includes("function RipDesirabilityComparisonStrip"));
-  assert.ok(source.includes("Without Desirability"));
-  assert.ok(source.includes("With Desirability"));
-  assert.ok(source.includes("Score Delta"));
-  assert.ok(source.includes("Rank Delta"));
-  assert.ok(source.includes("ripDesirabilityComparison={ripDesirabilityComparison}"));
+  // The truthful strip: RIP Core, Collector Appeal, its fixed weight, the
+  // DIRECT backend-computed contribution, and the final RIP.
+  assert.ok(source.includes("function CollectorAppealImpactStrip"));
+  assert.ok(source.includes('label: "RIP Core"'));
+  assert.ok(source.includes('label: "Collector Appeal Weight"'));
+  assert.ok(source.includes('label: "Direct RIP Contribution"'));
+  assert.ok(source.includes('label: "Final RIP"'));
+  assert.ok(source.includes("collectorAppealImpact={collectorAppealImpact}"));
+  assert.ok(source.includes("selectCollectorAppealImpact(canonicalRip, canonicalRipCore)"));
+
+  // The old strip and its labels are gone: `full RIP - RIP Core` is not the
+  // Collector Appeal contribution (RIP Core is renormalized).
+  assert.ok(!source.includes("function RipDesirabilityComparisonStrip"));
+  assert.ok(!source.includes("function normalizeRipDesirabilityComparison"));
+  assert.ok(!source.includes('"Without Desirability"'));
+  assert.ok(!source.includes('"With Desirability"'));
+  assert.ok(!source.includes('"Score Delta"'));
+  assert.ok(!source.includes('"Rank Delta"'));
 });
 
-test("set page insights receive RIP desirability comparison through snapshot summary payload", () => {
+test("set page insights receive the canonical RIP contract through the snapshot payload", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const snapshotBuilderSource = fs.readFileSync(snapshotBuilderPath, "utf8");
-  const requiredFields = [
-    "rip_score_without_desirability",
-    "rip_score_with_desirability",
-    "rip_score_delta",
-    "rip_rank_without_desirability",
-    "rip_rank_with_desirability",
-    "rip_rank_delta",
-    "desirability_component_score",
-    "rip_desirability_impact_label",
-  ];
 
-  assert.ok(snapshotBuilderSource.includes("RIP_DESIRABILITY_COMPARISON_FIELDS"));
-  assert.ok(snapshotBuilderSource.includes("_merge_rip_desirability_comparison_into_set_payload"));
-  assert.ok(snapshotBuilderSource.includes('next_payload["summary"] = summary'));
-  assert.ok(source.includes("const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };"));
-
-  for (const field of requiredFields) {
-    assert.ok(snapshotBuilderSource.includes(field), `snapshot builder propagates ${field}`);
-    assert.ok(source.includes(field), `frontend normalizer accepts ${field}`);
+  // The snapshot builder copies the SAME canonical objects the Explore
+  // rankings computed onto the set-page snapshot, so both surfaces read one
+  // contract and can never disagree about a score, rank, or denominator.
+  assert.ok(snapshotBuilderSource.includes("_merge_canonical_rip_contract_into_set_payload"));
+  for (const key of ['"rip"', '"ripCore"', '"openingExperience"', '"publicAnalyticsStatus"', '"publicAnalyticsCohort"']) {
+    assert.ok(snapshotBuilderSource.includes(key), `snapshot builder propagates ${key}`);
   }
 
-  const summaryStart = source.indexOf("const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };");
-  const comparisonStart = source.indexOf("const ripDesirabilityComparison = useMemo(", summaryStart);
-  const comparisonEnd = source.indexOf("const desirabilitySummary", comparisonStart);
-  const comparisonSource = source.slice(comparisonStart, comparisonEnd);
-  const insightsStart = source.indexOf('{setDetailMode ? (', comparisonEnd);
-  const insightsEnd = source.indexOf("<DesirabilityEvidenceCard", insightsStart);
-  const insightsSource = source.slice(insightsStart, insightsEnd);
-
-  assert.ok(summaryStart >= 0);
-  assert.ok(comparisonStart > summaryStart);
-  assert.ok(comparisonSource.includes("normalizeRipDesirabilityComparison(summary, selectedTarget)"));
-  assert.ok(insightsSource.includes("<RipScoreBreakdownModule"));
-  assert.ok(insightsSource.includes("ripDesirabilityComparison={ripDesirabilityComparison}"));
+  // The page reads the canonical objects (payload first, then the rankings
+  // target) and feeds the impact strip from them.
+  assert.ok(source.includes("explorePayload?.rip || selectedTarget?.rip"));
+  assert.ok(source.includes("explorePayload?.ripCore || selectedTarget?.ripCore"));
+  assert.ok(source.includes("<RipScoreBreakdownModule"));
+  assert.ok(source.includes("collectorAppealImpact={collectorAppealImpact}"));
 });
 
 test("market dashboard normalizer attaches top chase histories to cards", async () => {
@@ -1502,170 +1518,59 @@ test("cards proxy route returns controlled timeout errors", () => {
   assert.ok(cardsRoute.includes("backendPathForDiagnostics(backendUrl)"));
 });
 
-test("card validation chart defaults to price-independent Pure Demand over all priced cards", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // Pure Pokemon Demand (the price-independent metric) over all priced cards
-  // is the honest default read; rarity/price-selected scopes were removed
-  // because they partially select on the outcome.
-  assert.ok(source.includes('useState("pure")'));
-  assert.ok(source.includes('useState("priced")'));
-  assert.ok(!source.includes('useState("cardAppeal")'));
-  assert.ok(!source.includes('useState("hits")'));
-  assert.ok(!source.includes('label: "Hits Only"'));
-  assert.ok(!source.includes('label: "Chase / High Value"'));
-  assert.ok(source.includes("getCardAppealSampleDiagnostics"));
-  assert.ok(source.includes('label: "Priced Cards"'));
-  assert.ok(source.includes('label: "Card Appeal"'));
-  assert.ok(source.includes("Card Appeal is currently calculated for Pokémon cards only."));
-  assert.ok(source.includes("This chart only includes priced cards with a Card Appeal score."));
-  assert.ok(source.includes("Card Appeal currently uses Pokémon demand + card treatment"));
-  assert.ok(source.includes("non-Pokémon cards are excluded even if they have prices."));
-  assert.ok(source.includes("priced non-Pokémon"));
-  assert.ok(source.includes("excluded from Card Appeal."));
-  assert.ok(source.includes("priced cards`"));
-  assert.ok(source.includes('label: "Pure Pokemon Demand"'));
-  assert.ok(source.includes('label: "Treatment Score"'));
-  assert.ok(source.includes('label: "Scarcity-Adjusted Appeal"'));
-  assert.ok(!source.includes('label: "Adjusted Card Appeal"'));
-  assert.ok(!source.includes('tooltipLabel: "Adjusted Appeal"'));
-  assert.ok(!source.includes("useHitsOnly"));
-  assert.ok(!source.includes("hitPoints"));
-  assert.ok(!source.includes("Undervalued"));
-  assert.ok(source.includes("Appeal Above Price"));
-});
 
-test("card appeal market chart accepts current price and logs sample diagnostics", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("toNumber(card?.currentPrice)"));
-  assert.ok(source.includes("toNumber(card?.current_price)"));
-  for (const expected of [
-    "selectedSetId",
-    "selectedSetSlug",
-    "selectedTab",
-    "checklistCardsLength",
-    "cardsWithMarketPriceOrCurrentPrice",
-    "cardsWithPokemonDesirabilityScore",
-    "cardsWithCardDesirabilityScore",
-    "cardsWithTreatmentScore",
-    "cardsWithAdjustedCardAppealScore",
-    "cardsWithScarcityScore",
-    "finalChartPointCount",
-    "activeMetricKey",
-    "activeMetricLabel",
-    "currentCardScope",
-  ]) {
-    assert.ok(source.includes(expected), `missing diagnostic key: ${expected}`);
-  }
-});
 
-test("card appeal market chart prefers canonical correlation sample when available", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
-
-  assert.ok(source.includes("cardAppealMarketPriceCorrelation"));
-  assert.ok(source.includes("getCanonicalCardAppealCorrelationForSelection"));
-  assert.ok(source.includes("getCanonicalCardAppealRows"));
-  assert.ok(source.includes("getCardValidationRowsForMetric"));
-  assert.ok(source.includes('["pure", "cardAppeal", "treatment"].includes(selectedMetric?.key)'));
-  assert.ok(source.includes('selectedMetric?.key !== "pure"'));
-  assert.ok(source.includes('selectedScope?.key !== "priced"'));
-  assert.ok(source.includes("const sourceRows = getCardValidationRowsForMetric(rows, cardAppealMarketPriceCorrelation, selectedMetric)"));
-  assert.ok(source.includes("const canonicalRowsAvailable = getCanonicalCardAppealRows(cardAppealMarketPriceCorrelation, selectedMetric).length > 0"));
-  assert.ok(source.includes("const pointPearson = calculatePearsonCorrelation(points)"));
-  assert.ok(source.includes("const pointSpearman = calculateSpearmanCorrelation(points)"));
-  assert.ok(source.includes("const sampleCount = canonicalCorrelation && !canonicalRowsAvailable ? canonicalCorrelation.n : points.length"));
-  assert.ok(source.includes('"canonical cards"'));
-  assert.ok(!source.includes('"hits only"'));
-  assert.ok(source.includes("points.length} plotted"));
-});
-
-test("card validation bucket row keys include stable identity beyond card name", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const helperStart = source.indexOf("function getValidationBucketRowKey");
-  const helperEnd = source.indexOf("function CardDesirabilityMarketValidationContent", helperStart);
-  const helperSource = source.slice(helperStart, helperEnd);
-  const renderStart = source.indexOf("{bucket.rows.map((row, rowIndex) => (", helperEnd);
-  const renderEnd = source.indexOf("</div>", renderStart);
-  const renderSource = source.slice(renderStart, renderEnd);
-
-  assert.ok(helperStart >= 0);
-  assert.ok(helperEnd > helperStart);
-  for (const expected of [
-    "row?.id",
-    "row?.cardId ?? row?.card_id",
-    "row?.pokemonCanonicalCardId ?? row?.pokemon_canonical_card_id",
-    "row?.printedNumber ?? row?.printed_number",
-    "row?.setNumber ?? row?.set_number",
-    "row?.rarity",
-    "row?.name",
-    "index",
-  ]) {
-    assert.ok(helperSource.includes(expected), `missing key field: ${expected}`);
-  }
-  assert.ok(helperSource.includes(".filter((part) => part !== null && part !== undefined && part !== \"\")"));
-  assert.ok(helperSource.includes(".map(String)"));
-  assert.ok(renderSource.includes("getValidationBucketRowKey(bucket, row, rowIndex)"));
-  assert.ok(!renderSource.includes("`${bucket.title}:${row.name}`"));
-});
-
-test("desirability evidence renders verdict + ranked agreement list from set payload validation data", () => {
+test("Opening Experience replaces Desirability Evidence and renders from the canonical contract", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  assert.ok(source.includes("function DesirabilityEvidenceCard"));
-  // The verdict line + ranked signal list replaced the old rank-ladder (which
-  // conflated rank-of-field and agreement on one axis) and the diverging bars
-  // that followed it (which invented a confirm/conflict sign the engine's
-  // unsigned 0–100 closeness score does not carry); only the two scatter
-  // views toggle now.
-  assert.ok(source.includes("function DesirabilityAgreementContent"));
-  assert.ok(source.includes("function DesirabilityVerdictLine"));
-  assert.ok(source.includes("function DesirabilityAgreementRankedList"));
-  assert.ok(!source.includes("DesirabilityAgreementDiverging"), "the diverging bar chart must be gone");
-  assert.ok(!source.includes("function DesirabilityAlignmentLadder"), "the old rank-ladder component must be gone");
-  assert.ok(!source.includes("buildLadderLayout"), "the ladder geometry helpers must be gone");
-  assert.ok(!source.includes("Desirability #"), "the rank-anchor label must be gone");
-  assert.ok(!source.includes("function DesirabilityProofContent"), "the old Proof grid component must be gone");
-  assert.ok(!source.includes('label: "Proof"'), "the Proof sub-tab must be retired");
-  assert.ok(source.includes('title="Desirability Evidence"'));
-  assert.ok(source.includes('label: "Set Validation"'));
-  assert.ok(source.includes('label: "Card Validation"'));
-  assert.ok(source.includes("getDesirabilityValidationPayload(explorePayload)"));
-  assert.ok(source.includes("desirabilityValidationPayload"));
-  // Verdict + ranked list display only what the backend agreement logic
-  // already computed — no frontend agreement math.
-  assert.ok(source.includes("selectDesirabilityVerdict(validation)"));
-  assert.ok(source.includes("selectDesirabilityAgreement(validation)"));
-  assert.ok(source.includes("buildRankedAgreementModel(agreement)"));
-  // Exactly ONE lead line: the verdict sentence. The backend restatement moved
-  // into the section info tooltip.
-  const verdictStart = source.indexOf("function DesirabilityVerdictLine");
-  const verdictEnd = source.indexOf("function DesirabilityAgreementRankedList", verdictStart);
-  assert.ok(verdictStart >= 0 && verdictEnd > verdictStart);
-  assert.ok(!source.slice(verdictStart, verdictEnd).includes("verdict.summary"), "the gray restatement sentence must not render in the lead");
-  assert.ok(source.includes("const sectionInfoText = ["), "the section tooltip must absorb the moved prose");
-  assert.ok(source.includes("titleInfoText={sectionInfoText}"));
-  // Credibility framing: the not-circular point lives in the tooltip.
-  assert.ok(
-    source.includes("Desirability and set value are computed from independent inputs, so this agreement is not circular."),
-    "the independent-inputs point must live in the section tooltip"
-  );
-  // The anchor spans stay so legacy deep links keep landing on the section.
-  assert.ok(source.includes("#set-detail-card-desirability-price") || source.includes('id="set-detail-card-desirability-price"'));
-  // The concrete top-chase anchor renders only when thumbnail data exists,
-  // and it sits alongside the verdict + ranked list inside the section grid
-  // so the proof read completes in one viewport block.
-  assert.ok(source.includes("selectTopChaseAnchorHit(topHits)"));
-  assert.ok(source.includes("topHits={topHits}"));
-  const gridStart = source.indexOf('lg:grid-cols-[minmax(0,1fr)_15rem]');
-  assert.ok(gridStart >= 0, "the proof grid must exist");
-  const gridEnd = source.indexOf("</SectionCard>", gridStart);
-  const gridSource = source.slice(gridStart, gridEnd);
-  assert.ok(
-    gridSource.includes("<DesirabilityAgreementContent"),
-    "the verdict + ranked list must render inside the grid column beside the top-chase card"
-  );
-  assert.ok(gridSource.includes("<TopChaseAnchorCard"), "the top-chase card must share the grid with the signal list");
+  // The new section: Collector Appeal header, three supporting metric cards,
+  // subject paths, and the methodology disclosure - all from the backend
+  // openingExperience contract via the pure selector.
+  assert.ok(source.includes("function OpeningExperienceCard"));
+  assert.ok(source.includes("selectOpeningExperiencePresentation"));
+  assert.ok(source.includes('eyebrow="02 · Opening Experience"'));
+  assert.ok(source.includes('title="Collector Appeal"'));
+  assert.ok(source.includes('label="Roster Desirability"'));
+  assert.ok(source.includes('label="Dual-Path Depth"'));
+  assert.ok(source.includes('label="Chase Appeal"'));
+  assert.ok(source.includes('kind="Accessible Path"'));
+  assert.ok(source.includes('kind="Elite Chase"'));
+  assert.ok(source.includes("Price is not an input to Roster Desirability or Collector Appeal."));
+  assert.ok(source.includes("not independently added to the RIP Score"));
+
+  // The retired section, its toggles, and its charts are gone.
+  assert.ok(!source.includes("function DesirabilityEvidenceCard"));
+  assert.ok(!source.includes('title="Desirability Evidence"'));
+  assert.ok(!source.includes('label: "Set Validation"'));
+  assert.ok(!source.includes('label: "Card Validation"'));
+  assert.ok(!source.includes("Does the market agree"));
+  assert.ok(!source.includes("confirms read"));
+  assert.ok(!source.includes("conflicts with read"));
+  assert.ok(!source.includes("function DesirabilityValidationContent"));
+  assert.ok(!source.includes("function CardDesirabilityMarketValidationContent"));
+  assert.ok(!source.includes("function DesirabilityAgreementContent"));
+  assert.ok(!source.includes('from "./desirabilityAlignment.mjs"'));
+});
+
+test("old desirability deep links resolve to the Opening Experience section", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  for (const alias of ['"desirability-proof"', '"desirability-validation"', '"card-desirability-price"', '"opening-experience"']) {
+    const aliasIndex = source.indexOf(`  ${alias}: { tab: "insights", targetId: "set-detail-opening-experience" }`);
+    assert.ok(aliasIndex >= 0, `${alias} must target set-detail-opening-experience`);
+  }
+  // The anchors those aliases and any external #fragment links land on.
+  for (const anchor of [
+    'id="set-detail-opening-experience"',
+    'id="set-detail-desirability-evidence"',
+    'id="set-detail-desirability-proof"',
+    'id="set-detail-desirability-validation"',
+    'id="set-detail-card-desirability-price"',
+  ]) {
+    assert.ok(source.includes(anchor), `anchor ${anchor} must exist`);
+  }
 });
 
 test("desirability validation selector uses metric-specific market checks", () => {
@@ -1682,109 +1587,8 @@ test("desirability validation selector uses metric-specific market checks", () =
   assert.ok(!source.includes("P99 Chase Upside"));
 });
 
-test("desirability validation set value prefers canonical checklist target fields", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const resolverStart = source.indexOf("function getValidationSetValueMetric");
-  const resolverEnd = source.indexOf("function getValueRelatedKeys", resolverStart);
-  const resolverSource = source.slice(resolverStart, resolverEnd);
-  const validationFieldIndex = resolverSource.indexOf("set_value_for_validation");
-  const checklistFieldIndex = resolverSource.indexOf("current_checklist_set_value");
-  const simulatedFieldIndex = resolverSource.indexOf("simulated_set_value");
 
-  assert.ok(resolverStart >= 0);
-  assert.ok(resolverEnd > resolverStart);
-  assert.ok(validationFieldIndex >= 0);
-  assert.ok(resolverSource.includes("setValueForValidation"));
-  assert.ok(resolverSource.includes("currentChecklistSetValue"));
-  assert.ok(resolverSource.includes("checklistSetValue"));
-  assert.ok(checklistFieldIndex < validationFieldIndex);
-  assert.ok(validationFieldIndex < simulatedFieldIndex);
-  assert.ok(source.includes("function getDesirabilityValidationDiagnostics"));
-  assert.ok(source.includes("selectSetDesirabilityValidation"));
-  assert.ok(source.includes("[desirability-validation] sample diagnostics"));
-});
 
-test("card appeal market validation can hydrate from initial module snapshot correlation", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const diagnosticsSource = fs.readFileSync(path.resolve(__dirname, "cardAppealSampleDiagnostics.mjs"), "utf8");
-
-  assert.ok(source.includes("initialCardAppealMarketPriceCorrelation"));
-  assert.ok(source.includes("initialModuleSnapshots = null"));
-  assert.ok(source.includes("cardsPayload: initialCardsPayload"));
-  assert.ok(source.includes("marketDashboardPayload: initialMarketDashboardPayload"));
-  assert.ok(source.includes("const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation"));
-  assert.ok(source.includes("initialCardAppealRows"));
-  assert.ok(
-    source.includes("checklistState.setId === resolvedSetResourceId && checklistState.cards.length > 0"),
-    "activeCardValidationData must only trust checklistState.cards when it belongs to the active set"
-  );
-  assert.ok(
-    source.includes("? checklistState.cards\r\n        : initialCardAppealRows") ||
-      source.includes("? checklistState.cards\n        : initialCardAppealRows"),
-    "must fall back to the seeded initial rows when checklistState isn't for the active set yet"
-  );
-  assert.ok(source.includes("resolvePreferredCardAppealCorrelation({"));
-  assert.ok(source.includes("cardsPayload: initialCardsPayload"));
-  assert.ok(source.includes("previous: initialCardAppealMarketPriceCorrelation"));
-  assert.ok(diagnosticsSource.indexOf("asObject(cardsPayload?.cardAppealMarketPriceCorrelation)") < diagnosticsSource.indexOf("asObject(checklistState?.cardAppealMarketPriceCorrelation)"));
-});
-
-test("card validation section renders from an explicit readiness contract instead of ad-hoc inline fallbacks", () => {
-  // Regression guard: CardDesirabilityMarketValidationCard previously read
-  // `checklistState.cards.length > 0 ? checklistState.cards : initialCardAppealRows`
-  // and re-called resolvePreferredCardAppealCorrelation directly in the JSX,
-  // with no notion of "cards/correlation haven't loaded yet" — so on
-  // Insights/Pull-Rates first load (cards aren't seeded server-side there)
-  // it rendered a permanent-looking "Not enough card appeal and market price
-  // data yet." / n=0 empty state instead of a loading state, until switching
-  // tabs happened to trigger the cards fetch. activeCardValidationData now
-  // owns that readiness distinction.
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
-
-  const memoStart = source.indexOf("const activeCardValidationData = useMemo(");
-  assert.ok(memoStart >= 0, "must define an activeCardValidationData memo");
-  const memoEnd = source.indexOf("const [topMarketCardsWindowKey", memoStart);
-  const memoSource = source.slice(memoStart, memoEnd);
-
-  assert.ok(memoSource.includes("hasUsableCardAppealCorrelation(correlation)"), "must classify readiness using hasUsableCardAppealCorrelation");
-  assert.ok(memoSource.includes('status === "loading"'), "must treat an in-flight checklist fetch as loading");
-  assert.ok(memoSource.includes('status === "idle"'), "must treat the pre-fetch idle state as loading");
-  assert.ok(memoSource.includes("checklistState.setId !== resolvedSetResourceId"), "must treat a stale/mismatched set id as loading");
-  assert.ok(memoSource.includes('setDetailTab === "insights"'), "must scope the loading classification to the insights tab");
-
-  const renderStart = source.indexOf("<DesirabilityEvidenceCard");
-  const renderEnd = source.indexOf("/>", renderStart);
-  const renderSource = source.slice(renderStart, renderEnd);
-
-  assert.ok(renderSource.includes("cards={activeCardValidationData.cards}"), "must render cards from the readiness contract");
-  assert.ok(
-    renderSource.includes("cardAppealMarketPriceCorrelation={activeCardValidationData.correlation}"),
-    "must render correlation from the readiness contract instead of an inline resolvePreferredCardAppealCorrelation call"
-  );
-  assert.ok(
-    renderSource.includes('dataLoading={activeCardValidationData.status === "loading"}'),
-    "must pass the readiness contract's loading status through to the card"
-  );
-  assert.ok(
-    !renderSource.includes("resolvePreferredCardAppealCorrelation({"),
-    "must not re-resolve correlation inline in JSX now that activeCardValidationData owns it"
-  );
-
-  const componentStart = source.indexOf("function CardDesirabilityMarketValidationContent(");
-  const componentEnd = source.indexOf("\n}\n", componentStart);
-  const componentSource = source.slice(componentStart, componentEnd);
-
-  assert.ok(componentSource.includes("dataLoading = false"), "component must accept a dataLoading prop");
-  assert.ok(
-    componentSource.includes('"Loading card appeal and market price data…"'),
-    "component must render a distinct loading message instead of the permanent-looking \"not enough data\" copy while data is loading"
-  );
-  assert.ok(
-    componentSource.indexOf('"Loading card appeal and market price data…"') <
-      componentSource.indexOf('"Not enough card appeal and market price data yet."'),
-    "the loading message must be checked before falling through to the permanent-looking not-enough-data copy"
-  );
-});
 
 test("initial cards payload seeds checklist state before cards fetch", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
@@ -3009,12 +2813,12 @@ test("Phase 4B: summary-only payloads do not count as loaded Insights data", () 
     "ripStatistics",
     "openingDesirability",
     "opening_desirability",
-    "desirabilityValidation",
-    "desirability_validation",
-    "hasDesirabilityProofSignal",
   ]) {
     assert.ok(helperSource.includes(expected), `helper must inspect ${expected}`);
   }
+  // desirabilityValidation is retired: the helper must no longer count it as
+  // renderable insights data.
+  assert.ok(!helperSource.includes("hasDesirabilityProofSignal"));
   assert.ok(!helperSource.includes("payload.summary"), "summary alone must not count as insights data");
 });
 
@@ -3366,13 +3170,10 @@ test("Phase 8B: every set-switcher surface renders switcherTargets while non-swi
   );
 
   // Non-switcher consumers intentionally stay on the raw list: the
-  // Desirability Validation scatter's sample and the adjacent-target route
-  // prefetch are not switcher surfaces, and Phase 8B must not silently
-  // change analytics-chart contents or prefetch behavior.
-  assert.ok(
-    source.includes("<DesirabilityEvidenceCard") && source.includes("targets={targets}"),
-    "DesirabilityEvidenceCard must keep receiving the unfiltered targets list for its Set Validation mode"
-  );
+  // adjacent-target route prefetch is not a switcher surface, and Phase 8B
+  // must not silently change prefetch behavior. (The Desirability Validation
+  // scatter that also consumed the raw list was retired with the Desirability
+  // Evidence section.)
   assert.ok(
     source.includes('const currentIndex = targets.findIndex((target) => String(target?.id || "") === resolvedSetId);'),
     "adjacent-target prefetch must keep walking the unfiltered targets list"
@@ -4214,10 +4015,11 @@ test("Stabilization: insights pending timeout clears as soon as secondary render
     "history_trend",
     "rip_statistics",
     "openingDesirability",
-    "hasDesirabilityProofSignal",
   ]) {
     assert.ok(readinessSource.includes(field), `secondary readiness must inspect ${field}`);
   }
+  // The retired desirabilityValidation payload no longer gates readiness.
+  assert.ok(!readinessSource.includes("hasDesirabilityProofSignal"));
 
   // The clearing effect: once renderable data lands, a previously-fired
   // "taking longer than expected" timeout no longer describes reality.
@@ -4394,99 +4196,36 @@ test("Stabilization: useSectionFetchState dedupes auto-fetches by set id and rel
 // underlying computations changed.
 // ---------------------------------------------------------------------------
 
-test("Desirability redesign: uncomputed proof fields are omitted, never placeholder boxes", () => {
+test("Collector Appeal impact strip omits uncomputed fields instead of rendering placeholder boxes", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(!source.includes("Not computed yet"), "no 'Not computed yet' placeholder boxes may remain");
   assert.ok(!source.includes('"Awaiting canonical comparison"'), "no awaiting-comparison placeholder boxes may remain");
   assert.ok(!source.includes('"Awaiting canonical card prices"'), "no awaiting-prices placeholder boxes may remain");
   assert.ok(!source.includes("<ProofMetric"), "the rank-chip grid must be gone from the main display");
+  assert.ok(!source.includes("function DesirabilityImpactNote"), "the legacy impact note was retired with its section");
 
-  // The impact movement line renders only when every comparison field is
-  // computed AND the movement is real: a no-op "#1 to #1 (0 ranks)" or a
-  // not-yet-computed state renders nothing at all — no fallback sentence.
-  const impactStart = source.indexOf("function DesirabilityImpactNote({ validation })");
-  assert.ok(impactStart >= 0, "the subdued impact note must exist");
-  const impactEnd = source.indexOf("\n}\n", impactStart);
-  const impactSource = source.slice(impactStart, impactEnd);
-  assert.ok(
-    impactSource.includes(
-      "coreRank !== null && finalRank !== null && rankDelta !== null && rankDelta !== 0 && coreRank !== finalRank"
-    ),
-    "the movement sentence requires computed fields and a real (nonzero) movement"
-  );
-  assert.ok(
-    !impactSource.includes("desirability_impact_summary"),
-    "the not-yet-computed fallback sentence must be gone"
-  );
+  // The strip renders nothing at all when the canonical contract is absent -
+  // no fallback sentence, no legacy comparison.
+  const stripStart = source.indexOf("function CollectorAppealImpactStrip({ impact })");
+  assert.ok(stripStart >= 0);
+  const stripSource = source.slice(stripStart, stripStart + 600);
+  assert.ok(stripSource.includes("if (!impact) {"), "a missing impact model must render nothing");
 });
 
-test("Desirability redesign: ranked list consumes engine output only — no invented sign, center, or bar geometry", () => {
-  const alignmentSource = fs
-    .readFileSync(path.resolve(__dirname, "desirabilityAlignment.mjs"), "utf8")
-    .replace(/\r\n/g, "\n");
-
-  // Agreement state is read off the payload's named signals, and row order
-  // off the payload's per-signal alignment score — never derived from new
-  // frontend math (see also the inconsistent-payload behavioral guard in
-  // desirabilityAlignment.test.mjs).
-  assert.ok(alignmentSource.includes("validation.strongest_supporting_signal ?? validation.strongestSupportingSignal"));
-  assert.ok(alignmentSource.includes("validation.biggest_conflicting_signal ?? validation.biggestConflictingSignal"));
-  assert.ok(alignmentSource.includes('isStrongest ? "confirms" : isConflict ? "conflicts" : "neutral"'));
-  assert.ok(alignmentSource.includes('["total_ranked_sets", "totalRankedSets"]'), "field size must come from the payload");
-  assert.ok(alignmentSource.includes("desirability_alignment_details"), "list rows must come from the engine's per-signal magnitudes");
-  // The engine score is unsigned 0–100 closeness: the display must not derive
-  // a confirm/conflict sign from a midpoint, a bar length, or anything else.
-  assert.ok(!alignmentSource.includes("alignmentScore - 50"), "no midpoint split may be derived from the unsigned score");
-  assert.ok(!alignmentSource.includes("extentPercent"), "no bar extent may be derived from the unsigned score");
-  assert.ok(!alignmentSource.includes("buildDivergingAgreementModel"), "the diverging model must be gone");
-  assert.ok(alignmentSource.includes("buildRankedAgreementModel"), "the ranked-list model must exist");
-  assert.ok(!alignmentSource.includes("buildLadderLayout"), "the rank-ladder geometry must be gone");
-  assert.ok(!alignmentSource.includes("anchorX"), "the rank-anchor plotting must be gone");
-
+test("the legacy rank-alignment presentation is fully retired from the page", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
-  assert.ok(source.includes('confirms: "var(--success)"'), "the engine's strongest callout must use the success token");
-  assert.ok(source.includes('conflicts: "var(--warning)"'), "the engine's conflict callout must use the warning token");
-  assert.ok(!source.includes("conflicts with read"), "the diverging axis captions must be gone");
-  assert.ok(!source.includes("confirms read"), "the diverging axis captions must be gone");
-  assert.ok(source.includes("Signal agreement · strongest first"), "the ranked list must caption its ordering");
-  assert.ok(source.includes("100 = same rank · 0 = opposite end"), "the ranked list must caption the engine scale");
-  assert.ok(source.includes("buildAgreementAriaLabel(model)"), "the ranked list must carry a live aria-label");
-  // Supporting statistics reuse the Set Validation scatter's selector on the
-  // same targets — one computation feeding the verdict, the list, and the
-  // scatter caption.
-  assert.ok(source.includes("const signalCorrelations = useMemo"), "signal statistics must be computed once in the section card");
-  assert.ok(source.includes("selectSetDesirabilityValidation(rows, { metricKey })"), "signal statistics must reuse the scatter's selector");
-  assert.ok(source.includes("strongestStat={strongestStat}"), "the verdict must cite the shared statistic");
 
-  // Evidence today is contemporaneous correlation only: no future-tense
-  // claims anywhere in the section source until the lagged forward-return
-  // study exists (see docs/research/desirability-price-driver-study.md).
-  //
-  // Explicit DISCLAIMERS are the one exception: copy that says the score does
-  // *not* predict/forecast is the honest framing the model requires, and a
-  // blunt substring ban would forbid the very sentence we want. Each allowed
-  // phrase is listed verbatim, so any other use of the banned words still
-  // fails this test.
-  const NEGATED_CLAIM_DISCLAIMERS = [
-    "It does not use card prices or predict future value.",
-    "not a price forecast",
-    "these fit price, not user utility",
-  ];
-  const stripDisclaimers = (text) =>
-    NEGATED_CLAIM_DISCLAIMERS.reduce((acc, phrase) => acc.split(phrase).join(""), text).toLowerCase();
-  const sourceWithoutDisclaimers = stripDisclaimers(source);
-  const alignmentWithoutDisclaimers = stripDisclaimers(alignmentSource);
-  for (const forbidden of ["predict", "forecast", "leading indicator"]) {
-    assert.ok(
-      !sourceWithoutDisclaimers.includes(forbidden),
-      `future-tense claim language ("${forbidden}") must not appear in the page client outside an explicit disclaimer`
-    );
-    assert.ok(
-      !alignmentWithoutDisclaimers.includes(forbidden),
-      `future-tense claim language ("${forbidden}") must not appear in the alignment helpers outside an explicit disclaimer`
-    );
-  }
+  // desirabilityAlignment.mjs remains on disk for research, but the page no
+  // longer imports it or renders any of its presentation.
+  assert.ok(!source.includes('from "./desirabilityAlignment.mjs"'));
+  assert.ok(!source.includes("buildRankedAgreementModel"));
+  assert.ok(!source.includes("buildAgreementAriaLabel"));
+  assert.ok(!source.includes("Signal agreement · strongest first"));
+  assert.ok(!source.includes("100 = same rank · 0 = opposite end"));
+  assert.ok(!source.includes("conflicts with read"));
+  assert.ok(!source.includes("confirms read"));
+  assert.ok(!source.includes("selectSetDesirabilityValidation"));
 });
 
 test("Set Desirability copy states the price-independent framing without over-claiming", () => {

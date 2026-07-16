@@ -38,7 +38,16 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     },
     summary: toPlainObject(payload?.summary),
     recommendation: toPlainObject(payload?.recommendation),
+    // Legacy hero block (relative/min-max). Deprecated: new UI reads `rip`.
     ripScore: toPlainObject(payload?.ripScore),
+    // The canonical public contract. Pass-through only: scores, ranks, tiers,
+    // weights and cohort sizes are backend-computed; the frontend never
+    // derives them (see backend explore_rip_statistics_service).
+    rip: toPlainObject(payload?.rip),
+    ripCore: toPlainObject(payload?.ripCore),
+    openingExperience: toPlainObject(payload?.openingExperience),
+    publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
+    publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),
     interpretation: toPlainObject(payload?.interpretation),
     meta: payload?.meta || { warnings: [] },
   };

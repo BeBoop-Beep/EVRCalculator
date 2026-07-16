@@ -41,7 +41,14 @@ export function normalizePokemonSetInsightsPayload(payload) {
     },
     summary: toPlainObject(payload?.summary),
     recommendation: toPlainObject(payload?.recommendation),
+    // Legacy hero block (relative/min-max). Deprecated: new UI reads `rip`.
     ripScore: toPlainObject(payload?.ripScore),
+    // Canonical public contract (pass-through; backend-computed).
+    rip: toPlainObject(payload?.rip),
+    ripCore: toPlainObject(payload?.ripCore),
+    openingExperience: toPlainObject(payload?.openingExperience),
+    publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
+    publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),
     interpretation: toPlainObject(payload?.interpretation),
     ripStatistics: toPlainObject(payload?.ripStatistics),
     outcomeDistribution: {
@@ -53,7 +60,9 @@ export function normalizePokemonSetInsightsPayload(payload) {
     rarityContribution: toArray(payload?.rarityContribution),
     historyTrend: toArray(payload?.historyTrend),
     desirability: toPlainObject(payload?.desirability),
-    desirabilityValidation: toPlainObject(payload?.desirabilityValidation),
+    // desirabilityValidation is retired: the backend no longer serves it and
+    // the Desirability Evidence section it fed was replaced by Opening
+    // Experience.
     meta: payload?.meta || { warnings: [] },
   };
 }
