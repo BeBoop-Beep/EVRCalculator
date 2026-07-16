@@ -20,6 +20,13 @@ from typing import Any, Set
 import pandas as pd
 
 
+# Identity of the raw-rarity -> normalized-key mapping performed by
+# normalize_rarity_key. Folded into the Collector Appeal fingerprint: a change to
+# how a printed rarity string resolves to a key can silently re-bucket cards and
+# therefore move every downstream Dual-Path and Collector Appeal score. Bump this
+# whenever the normalization rules change.
+RARITY_NORMALIZATION_VERSION = "rarity_normalization_v1_unicode_nfkd_snake_case"
+
 RARITY_KEY_SEPARATOR_PATTERN = re.compile(r"[\s-]+")
 RARITY_KEY_DUPLICATE_SEPARATOR_PATTERN = re.compile(r"_+")
 DEFAULT_CHASE_METRICS_EXCLUDED_RARITY_KEYS = frozenset(

@@ -130,6 +130,45 @@ CA6_DUAL_PATH_GAIN: float = 0.50
 # to assert no search loop exists over them.
 CA7_LAMBDA_GRID: Tuple[float, ...] = (0.25, 0.50, 0.75)
 
+# ---------------------------------------------------------------------------
+# THE SELECTED PRODUCTION CANDIDATE
+#
+# CA7 at lambda = 0.50 was selected on CONSTRUCT grounds (see
+# docs/research/collector_appeal_product_rollout.md section 7), never by fitting
+# to price, set value, or RIP rank movement. lambda = 0.50 is the neutral,
+# symmetric prior: dual-path structure at its maximum may claim half of a set's
+# remaining appeal headroom.
+#
+# These are separated from the research grid above because they are what
+# PRODUCTION computes. The grid stays for the comparison study; changing either
+# constant below changes stored scores and must invalidate the fingerprint.
+# ---------------------------------------------------------------------------
+CA7_FORMULA = "CA7"
+CA7_FORMULA_VERSION = "collector_appeal_ca7_bounded_bonus_v1"
+CA7_PRODUCTION_LAMBDA: float = 0.50
+
+# How the formula treats absent inputs. Pinned as a version because flipping any
+# of these rules silently changes what a stored score MEANS without changing the
+# formula: "missing -> None" and "missing -> 0.0" produce different numbers from
+# identical data.
+MISSING_DATA_POLICY_VERSION = "collector_appeal_missing_data_v1_none_never_zero"
+MISSING_DATA_POLICY = {
+    "missing_input_returns": "None",
+    "never_substitutes_zero": True,
+    "unmodeled_subjects": "renormalize_over_covered_demand_share",
+    "no_desirable_subject": "dual_path_depth_is_None",
+}
+
+# Rounding and clamping are part of the formula's identity, not presentation:
+# both change the stored number.
+ROUNDING_POLICY_VERSION = "collector_appeal_rounding_v1"
+ROUNDING_POLICY = {
+    "clamp_domain": [0.0, 1.0],
+    "clamp_applied_to": ["d", "p", "ca6", "ca7"],
+    "round_half": "python_banker_default",
+    "stored_decimal_places": 6,
+}
+
 COLLECTOR_APPEAL_CANDIDATE_KEYS: Tuple[str, ...] = (
     "CA0_desirability_only",
     "CA1_accessible",
@@ -339,6 +378,16 @@ def dual_path_utility(p: Any) -> Optional[float]:
     if value is None:
         return None
     return _clamp(CA6_DUAL_PATH_FLOOR + CA6_DUAL_PATH_GAIN * _clamp(value))
+
+
+def compute_collector_appeal(d: Any, p: Any, *, lam: float = CA7_PRODUCTION_LAMBDA) -> Optional[float]:
+    """THE production Collector Appeal: CA7 at the selected lambda = 0.50.
+
+    One entry point, so preview and commit cannot diverge on which candidate or
+    which lambda they compute. Returns None - never 0.0 - when either input is
+    missing (see MISSING_DATA_POLICY).
+    """
+    return bounded_bonus_appeal(d, p, lam)
 
 
 def bounded_bonus_appeal(d: Any, p: Any, lam: float) -> Optional[float]:

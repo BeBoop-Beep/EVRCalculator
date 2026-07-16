@@ -31,6 +31,15 @@ OPENING_APPEAL_VERSION = "opening_appeal_candidate_v1_research"
 ACCESSIBLE_APPEAL_VERSION = "accessible_appeal_v1_slot_aware"
 ELITE_CHASE_MAGNETISM_VERSION = "elite_chase_magnetism_v1_card_level"
 
+# Transform identities. These name the SHAPE of the transform (log10 interpolation
+# between two anchors, clamped to [0, 1]); the anchor VALUES are the separate
+# constants below. Both are folded into the Collector Appeal fingerprint, so a
+# change to either the shape or the anchors invalidates every stored score that
+# depended on them. Bump these when the transform's mathematics changes; changing
+# an anchor constant alone already moves the fingerprint on its own.
+ACCESS_TRANSFORM_VERSION = "access_transform_v1_log10_anchor_interpolation"
+SCARCITY_TRANSFORM_VERSION = "scarcity_transform_v1_access_complement"
+
 DEMAND_BASELINE = 50.0
 
 # Shared probability anchors (reasoned defaults): 1-in-10 is "easy", 1-in-1000
