@@ -134,13 +134,39 @@ def test_desirability_zero_weight_reproduces_renormalized_financial_only_rip():
     assert math.isclose(financial_only["score"], round(expected, 4), abs_tol=1e-3)
 
 
-def test_missing_desirability_data_renormalizes_instead_of_scoring_zero():
+def test_missing_desirability_data_makes_canonical_rip_unavailable():
+    """POLICY REVERSAL (deliberate). Supersedes
+    ``test_missing_desirability_data_renormalizes_instead_of_scoring_zero``.
+
+    The old behaviour renormalized Profit/Safety/Stability to 100% when
+    desirability was missing. That was never a decision - it fell out of the
+    generic renormalization rule, which cannot tell "this pillar is switched
+    off" from "we could not measure this pillar".
+
+    The result LOOKED like a canonical RIP and sorted against real four-pillar
+    RIPs while not being comparable to them: a product missing its fourth pillar
+    could out-rank a fully-measured booster set purely because the missing
+    pillar was scored out of existence. Missing data must not become a
+    competitive score.
+
+    Financial-only numbers are still available - under a distinct label, via
+    compute_financial_rip / the financialOnly payload - and are never ranked in
+    the canonical cohort.
+    """
     with_missing = compute_weighted_rip(
         {"profit": 80.0, "safety": 40.0, "stability": 60.0, "desirability": None}
     )
+    assert with_missing["score"] is None
+    assert with_missing["status"] == "incomplete_missing_desirability"
+    assert with_missing["rankable"] is False
+    assert with_missing["effectiveWeights"] == {}
+
+    # The financial-only view remains available, separately labelled.
     financial_only = compute_financial_rip({"profit": 80.0, "safety": 40.0, "stability": 60.0})
-    assert math.isclose(with_missing["score"], financial_only["score"], abs_tol=1e-9)
-    assert "desirability" not in with_missing["effectiveWeights"]
+    assert math.isclose(
+        with_missing["financialOnly"]["score"], financial_only["score"], abs_tol=1e-9
+    )
+    assert with_missing["financialOnly"]["version"] == "financial_rip_v2"
 
 
 def test_pillar_diagnostics_are_report_only_and_do_not_mutate_weights():

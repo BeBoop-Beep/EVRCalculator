@@ -1,0 +1,1385 @@
+{
+  "version": "dual_path_audit_v1",
+  "generated_at": "2026-07-16T04:43:07.708638+00:00",
+  "read_only": true,
+  "anchors": {
+    "easy_probability": 0.1,
+    "elite_probability": 0.001
+  },
+  "ca6": {
+    "floor": 0.5,
+    "gain": 0.5
+  },
+  "ca7_lambda_grid": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "sets_audited": 22,
+  "sets_with_dual_path": 21,
+  "distribution": {
+    "n": 21,
+    "min": 0.135148,
+    "max": 0.446603,
+    "mean": 0.292753,
+    "median": 0.29829,
+    "sd": 0.078953,
+    "hit_access_ceiling_mean": 0.554359,
+    "hit_access_ceiling_max": 0.721849,
+    "note": "P is bounded above by the set's hit_access_ceiling = max access over hit-eligible rarities. No hit card approaches the 1-in-10 EASY anchor, so P is structurally compressed well below 1.0. See the results doc."
+  },
+  "diagnostics": {
+    "spearman_P_vs_eligible_card_count": -0.4491,
+    "spearman_P_vs_desirable_subject_count": -0.3683,
+    "spearman_P_vs_D": -0.0844,
+    "note": "Descriptive only. Nothing here selects a formula or a lambda."
+  },
+  "ascended_heroes_anchor": {
+    "ascendedHeroes": {
+      "set_name": "Ascended Heroes",
+      "dual_path_depth_P": 0.27143,
+      "roster_desirability_D": 95.4809,
+      "hit_access_ceiling": 0.359483,
+      "subjects": [
+        {
+          "subject_name": "Gengar",
+          "subject_key": "ref:94",
+          "subject_demand": 83.4567,
+          "appeal_excess": 0.669134,
+          "demand_share_q_s": 0.066533,
+          "printing_count": 3,
+          "cards": [
+            {
+              "card_name": "Mega Gengar ex",
+              "number": "125",
+              "rarity": "Double Rare",
+              "treatment_prestige": 0.62,
+              "pull_probability": 0.0052356,
+              "pull_odds_label": "1-in-191",
+              "access_transform": 0.359483,
+              "scarcity_transform": 0.640517,
+              "is_selected_easiest": true,
+              "is_selected_rarest": false
+            },
+            {
+              "card_name": "Mega Gengar ex",
+              "number": "269",
+              "rarity": "MEGA_ATTACK_RARE",
+              "treatment_prestige": 0.36,
+              "pull_probability": 0.0049505,
+              "pull_odds_label": "1-in-202",
+              "access_transform": 0.347324,
+              "scarcity_transform": 0.652676,
+              "is_selected_easiest": false,
+              "is_selected_rarest": false
+            },
+            {
+              "card_name": "Mega Gengar ex",
+              "number": "284",
+              "rarity": "Special Illustration Rare",
+              "treatment_prestige": 0.96,
+              "pull_probability": 0.00065232,
+              "pull_odds_label": "1-in-1,533",
+              "access_transform": 0.0,
+              "scarcity_transform": 1.0,
+              "is_selected_easiest": false,
+              "is_selected_rarest": true
+            }
+          ],
+          "selected_easiest_card": "Mega Gengar ex #125 (Double Rare)",
+          "selected_rarest_card": "Mega Gengar ex #284 (Special Illustration Rare)",
+          "reachable_access": 0.359483,
+          "elite_scarcity": 1.0,
+          "dual_path": 0.359483,
+          "contribution": 0.023917,
+          "same_card_both_paths": false,
+          "same_card_ceiling_note": null,
+          "elite_tie_count": 1,
+          "elite_tie_note": null
+        },
+        {
+          "subject_name": "Dragonite",
+          "subject_key": "ref:149",
+          "subject_demand": 74.4633,
+          "appeal_excess": 0.489266,
+          "demand_share_q_s": 0.048648,
+          "printing_count": 4,
+          "cards": [
+            {
+              "card_name": "Mega Dragonite ex",
+              "number": "152",
+              "rarity": "Double Rare",
+              "treatment_prestige": 0.62,
+              "pull_probability": 0.0052356,
+              "pull_odds_label": "1-in-191",
+              "access_transform": 0.359483,
+              "scarcity_transform": 0.640517,
+              "is_selected_easiest": true,
+              "is_selected_rarest": false
+            },
+            {
+              "card_name": "Mega Dragonite ex",
+              "number": "271",
+              "rarity": "MEGA_ATTACK_RARE",
+              "treatment_prestige": 0.36,
+              "pull_probability": 0.0049505,
+              "pull_odds_label": "1-in-202",
+              "access_transform": 0.347324,
+              "scarcity_transform": 0.652676,
+              "is_selected_easiest": false,
+              "is_selected_rarest": false
+            },
+            {
+              "card_name": "Mega Dragonite ex",
+              "number": "290",
+              "rarity": "Special Illustration Rare",
+              "treatment_prestige": 0.96,
+              "pull_probability": 0.00065232,
+              "pull_odds_label": "1-in-1,533",
+              "access_transform": 0.0,
+              "scarcity_transform": 1.0,
+              "is_selected_easiest": false,
+              "is_selected_rarest": true
+            },
+            {
+              "card_name": "Mega Dragonite ex",
+              "number": "295",
+              "rarity": "Mega Hyper Rare",
+              "treatment_prestige": 0.82,
+              "pull_probability": 0.00092593,
+              "pull_odds_label": "1-in-1,080",
+              "access_transform": 0.0,
+              "scarcity_transform": 1.0,
+              "is_selected_easiest": false,
+              "is_selected_rarest": false
+            }
+          ],
+          "selected_easiest_card": "Mega Dragonite ex #152 (Double Rare)",
+          "selected_rarest_card": "Mega Dragonite ex #290 (Special Illustration Rare)",
+          "reachable_access": 0.359483,
+          "elite_scarcity": 1.0,
+          "dual_path": 0.359483,
+          "contribution": 0.017488,
+          "same_card_both_paths": false,
+          "same_card_ceiling_note": null,
+          "elite_tie_count": 2,
+          "elite_tie_note": "2 printings tie at the elite anchor (access clamped to 0.0); which one is reported as 'rarest' is decided by iteration order, not by scarcity. The dual_path VALUE is unaffected (the tied cards share an access), only the label is ambiguous."
+        }
+      ],
+      "anchor_card_trace": [
+        {
+          "card_name": "Mega Gengar ex",
+          "number": "125",
+          "rarity": "Double Rare",
+          "rarity_bucket": "accessible_hit",
+          "rarity_key": "double_rare",
+          "treatment_prestige": 0.62,
+          "hit_eligible": true,
+          "subject_name": "Gengar",
+          "subject_demand": 83.4567,
+          "pull_probability": 0.0052356,
+          "pull_odds_label": "1-in-191",
+          "slot_group": "Rare slot model",
+          "access_transform": 0.359483,
+          "scarcity_transform": 0.640517,
+          "eligible_for_dual_path": true,
+          "excluded_because": null
+        },
+        {
+          "card_name": "Mega Dragonite ex",
+          "number": "152",
+          "rarity": "Double Rare",
+          "rarity_bucket": "accessible_hit",
+          "rarity_key": "double_rare",
+          "treatment_prestige": 0.62,
+          "hit_eligible": true,
+          "subject_name": "Dragonite",
+          "subject_demand": 74.4633,
+          "pull_probability": 0.0052356,
+          "pull_odds_label": "1-in-191",
+          "slot_group": "Rare slot model",
+          "access_transform": 0.359483,
+          "scarcity_transform": 0.640517,
+          "eligible_for_dual_path": true,
+          "excluded_because": null
+        },
+        {
+          "card_name": "Mega Gengar ex",
+          "number": "269",
+          "rarity": "MEGA_ATTACK_RARE",
+          "rarity_bucket": "major_hit",
+          "rarity_key": "mega_attack_rare",
+          "treatment_prestige": 0.36,
+          "hit_eligible": true,
+          "subject_name": "Gengar",
+          "subject_demand": 83.4567,
+          "pull_probability": 0.0049505,
+          "pull_odds_label": "1-in-202",
+          "slot_group": "Rare slot model",
+          "access_transform": 0.347324,
+          "scarcity_transform": 0.652676,
+          "eligible_for_dual_path": true,
+          "excluded_because": null
+        },
+        {
+          "card_name": "Mega Dragonite ex",
+          "number": "271",
+          "rarity": "MEGA_ATTACK_RARE",
+          "rarity_bucket": "major_hit",
+          "rarity_key": "mega_attack_rare",
+          "treatment_prestige": 0.36,
+          "hit_eligible": true,
+          "subject_name": "Dragonite",
+          "subject_demand": 74.4633,
+          "pull_probability": 0.0049505,
+          "pull_odds_label": "1-in-202",
+          "slot_group": "Rare slot model",
+          "access_transform": 0.347324,
+          "scarcity_transform": 0.652676,
+          "eligible_for_dual_path": true,
+          "excluded_because": null
+        },
+        {
+          "card_name": "Mega Gengar ex",
+          "number": "284",
+          "rarity": "Special Illustration Rare",
+          "rarity_bucket": "premium_chase",
+          "rarity_key": "special_illustration_rare",
+          "treatment_prestige": 0.96,
+          "hit_eligible": true,
+          "subject_name": "Gengar",
+          "subject_demand": 83.4567,
+          "pull_probability": 0.00065232,
+          "pull_odds_label": "1-in-1,533",
+          "slot_group": "Reverse slot model",
+          "access_transform": 0.0,
+          "scarcity_transform": 1.0,
+          "eligible_for_dual_path": true,
+          "excluded_because": null
+        },
+        {
+          "card_name": "Mega Dragonite ex",
+          "number": "290",
+          "rarity": "Special Illustration Rare",
+          "rarity_bucket": "premium_chase",
+          "rarity_key": "special_illustration_rare",
+          "treatment_prestige": 0.96,
+          "hit_eligible": true,
+          "subject_name": "Dragonite",
+          "subject_demand": 74.4633,
+          "pull_probability": 0.00065232,
+          "pull_odds_label": "1-in-1,533",
+          "slot_group": "Reverse slot model",
+          "access_transform": 0.0,
+          "scarcity_transform": 1.0,
+          "eligible_for_dual_path": true,
+          "excluded_because": null
+        },
+        {
+          "card_name": "Mega Dragonite ex",
+          "number": "295",
+          "rarity": "Mega Hyper Rare",
+          "rarity_bucket": "premium_chase",
+          "rarity_key": "mega_hyper_rare",
+          "treatment_prestige": 0.82,
+          "hit_eligible": true,
+          "subject_name": "Dragonite",
+          "subject_demand": 74.4633,
+          "pull_probability": 0.00092593,
+          "pull_odds_label": "1-in-1,080",
+          "slot_group": "Reverse slot model",
+          "access_transform": 0.0,
+          "scarcity_transform": 1.0,
+          "eligible_for_dual_path": true,
+          "excluded_because": null
+        }
+      ]
+    }
+  },
+  "effective_rip_influence": {
+    "CA6_dual_path_utility": {
+      "candidate": "CA6_dual_path_utility",
+      "n": 21,
+      "nominal_weight": 0.1,
+      "pillar_sd": 7.038,
+      "rip_sd": 5.0232,
+      "one_sd_marginal_rip_points": 0.7038,
+      "weighted_contribution_sd_by_pillar": {
+        "profit": 2.781,
+        "safety": 1.1478,
+        "stability": 2.3714,
+        "desirability": 0.7038
+      },
+      "share_of_weighted_dispersion": 0.1005,
+      "max_rank_movement": 1,
+      "mean_rank_movement": 0.381,
+      "median_rank_movement": 0,
+      "pct_moving_1_plus": 38.1,
+      "pct_moving_3_plus": 0.0,
+      "pct_moving_5_plus": 0.0,
+      "mean_abs_score_delta": 3.0093,
+      "top5_changed": false,
+      "most_helped": [
+        {
+          "set_name": "Chaos Rising",
+          "old_rank": 10,
+          "new_rank": 9,
+          "rank_delta": 1,
+          "score_delta": -2.195
+        },
+        {
+          "set_name": "Twilight Masquerade",
+          "old_rank": 8,
+          "new_rank": 7,
+          "rank_delta": 1,
+          "score_delta": -2.7372
+        },
+        {
+          "set_name": "Shrouded Fable",
+          "old_rank": 12,
+          "new_rank": 11,
+          "rank_delta": 1,
+          "score_delta": -1.9569
+        },
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": -3.5724
+        }
+      ],
+      "most_harmed": [
+        {
+          "set_name": "Destined Rivals",
+          "old_rank": 7,
+          "new_rank": 8,
+          "rank_delta": -1,
+          "score_delta": -2.9849
+        },
+        {
+          "set_name": "Ascended Heroes",
+          "old_rank": 9,
+          "new_rank": 10,
+          "rank_delta": -1,
+          "score_delta": -3.4782
+        },
+        {
+          "set_name": "Stellar Crown",
+          "old_rank": 11,
+          "new_rank": 12,
+          "rank_delta": -1,
+          "score_delta": -3.1986
+        },
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": -3.7751
+        }
+      ],
+      "largest_movers": [
+        {
+          "set_name": "Chaos Rising",
+          "old_rank": 10,
+          "new_rank": 9,
+          "rank_delta": 1,
+          "score_delta": -2.195
+        },
+        {
+          "set_name": "Twilight Masquerade",
+          "old_rank": 8,
+          "new_rank": 7,
+          "rank_delta": 1,
+          "score_delta": -2.7372
+        },
+        {
+          "set_name": "Destined Rivals",
+          "old_rank": 7,
+          "new_rank": 8,
+          "rank_delta": -1,
+          "score_delta": -2.9849
+        },
+        {
+          "set_name": "Ascended Heroes",
+          "old_rank": 9,
+          "new_rank": 10,
+          "rank_delta": -1,
+          "score_delta": -3.4782
+        },
+        {
+          "set_name": "Stellar Crown",
+          "old_rank": 11,
+          "new_rank": 12,
+          "rank_delta": -1,
+          "score_delta": -3.1986
+        },
+        {
+          "set_name": "Shrouded Fable",
+          "old_rank": 12,
+          "new_rank": 11,
+          "rank_delta": 1,
+          "score_delta": -1.9569
+        },
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": -3.5724
+        },
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": -3.7751
+        },
+        {
+          "set_name": "Mega Evolution",
+          "old_rank": 13,
+          "new_rank": 13,
+          "rank_delta": 0,
+          "score_delta": -2.4128
+        },
+        {
+          "set_name": "Prismatic Evolutions",
+          "old_rank": 18,
+          "new_rank": 18,
+          "rank_delta": 0,
+          "score_delta": -2.804
+        }
+      ]
+    },
+    "CA7_bounded_bonus_25": {
+      "candidate": "CA7_bounded_bonus_25",
+      "n": 21,
+      "nominal_weight": 0.1,
+      "pillar_sd": 9.0361,
+      "rip_sd": 4.8645,
+      "one_sd_marginal_rip_points": 0.9036,
+      "weighted_contribution_sd_by_pillar": {
+        "profit": 2.781,
+        "safety": 1.1478,
+        "stability": 2.3714,
+        "desirability": 0.9036
+      },
+      "share_of_weighted_dispersion": 0.1254,
+      "max_rank_movement": 1,
+      "mean_rank_movement": 0.095,
+      "median_rank_movement": 0,
+      "pct_moving_1_plus": 9.52,
+      "pct_moving_3_plus": 0.0,
+      "pct_moving_5_plus": 0.0,
+      "mean_abs_score_delta": 0.1088,
+      "top5_changed": false,
+      "most_helped": [
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": 0.0504
+        }
+      ],
+      "most_harmed": [
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": 0.0429
+        }
+      ],
+      "largest_movers": [
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": 0.0504
+        },
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": 0.0429
+        },
+        {
+          "set_name": "Mega Evolution",
+          "old_rank": 13,
+          "new_rank": 13,
+          "rank_delta": 0,
+          "score_delta": 0.1429
+        },
+        {
+          "set_name": "Prismatic Evolutions",
+          "old_rank": 18,
+          "new_rank": 18,
+          "rank_delta": 0,
+          "score_delta": 0.0671
+        },
+        {
+          "set_name": "Chaos Rising",
+          "old_rank": 10,
+          "new_rank": 10,
+          "rank_delta": 0,
+          "score_delta": 0.2799
+        },
+        {
+          "set_name": "Phantasmal Flames",
+          "old_rank": 20,
+          "new_rank": 20,
+          "rank_delta": 0,
+          "score_delta": 0.0859
+        },
+        {
+          "set_name": "Surging Sparks",
+          "old_rank": 14,
+          "new_rank": 14,
+          "rank_delta": 0,
+          "score_delta": 0.1008
+        },
+        {
+          "set_name": "Perfect Order",
+          "old_rank": 2,
+          "new_rank": 2,
+          "rank_delta": 0,
+          "score_delta": 0.1596
+        },
+        {
+          "set_name": "Scarlet and Violet Base Set",
+          "old_rank": 5,
+          "new_rank": 5,
+          "rank_delta": 0,
+          "score_delta": 0.2038
+        },
+        {
+          "set_name": "Twilight Masquerade",
+          "old_rank": 8,
+          "new_rank": 8,
+          "rank_delta": 0,
+          "score_delta": 0.1532
+        }
+      ]
+    },
+    "CA7_bounded_bonus_50": {
+      "candidate": "CA7_bounded_bonus_50",
+      "n": 21,
+      "nominal_weight": 0.1,
+      "pillar_sd": 8.4088,
+      "rip_sd": 4.8904,
+      "one_sd_marginal_rip_points": 0.8409,
+      "weighted_contribution_sd_by_pillar": {
+        "profit": 2.781,
+        "safety": 1.1478,
+        "stability": 2.3714,
+        "desirability": 0.8409
+      },
+      "share_of_weighted_dispersion": 0.1178,
+      "max_rank_movement": 1,
+      "mean_rank_movement": 0.19,
+      "median_rank_movement": 0,
+      "pct_moving_1_plus": 19.05,
+      "pct_moving_3_plus": 0.0,
+      "pct_moving_5_plus": 0.0,
+      "mean_abs_score_delta": 0.2177,
+      "top5_changed": false,
+      "most_helped": [
+        {
+          "set_name": "Chaos Rising",
+          "old_rank": 10,
+          "new_rank": 9,
+          "rank_delta": 1,
+          "score_delta": 0.5598
+        },
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": 0.1008
+        }
+      ],
+      "most_harmed": [
+        {
+          "set_name": "Ascended Heroes",
+          "old_rank": 9,
+          "new_rank": 10,
+          "rank_delta": -1,
+          "score_delta": 0.0613
+        },
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": 0.0858
+        }
+      ],
+      "largest_movers": [
+        {
+          "set_name": "Chaos Rising",
+          "old_rank": 10,
+          "new_rank": 9,
+          "rank_delta": 1,
+          "score_delta": 0.5598
+        },
+        {
+          "set_name": "Ascended Heroes",
+          "old_rank": 9,
+          "new_rank": 10,
+          "rank_delta": -1,
+          "score_delta": 0.0613
+        },
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": 0.1008
+        },
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": 0.0858
+        },
+        {
+          "set_name": "Mega Evolution",
+          "old_rank": 13,
+          "new_rank": 13,
+          "rank_delta": 0,
+          "score_delta": 0.2858
+        },
+        {
+          "set_name": "Prismatic Evolutions",
+          "old_rank": 18,
+          "new_rank": 18,
+          "rank_delta": 0,
+          "score_delta": 0.1341
+        },
+        {
+          "set_name": "Phantasmal Flames",
+          "old_rank": 20,
+          "new_rank": 20,
+          "rank_delta": 0,
+          "score_delta": 0.1718
+        },
+        {
+          "set_name": "Surging Sparks",
+          "old_rank": 14,
+          "new_rank": 14,
+          "rank_delta": 0,
+          "score_delta": 0.2016
+        },
+        {
+          "set_name": "Perfect Order",
+          "old_rank": 2,
+          "new_rank": 2,
+          "rank_delta": 0,
+          "score_delta": 0.3193
+        },
+        {
+          "set_name": "Scarlet and Violet Base Set",
+          "old_rank": 5,
+          "new_rank": 5,
+          "rank_delta": 0,
+          "score_delta": 0.4075
+        }
+      ]
+    },
+    "CA7_bounded_bonus_75": {
+      "candidate": "CA7_bounded_bonus_75",
+      "n": 21,
+      "nominal_weight": 0.1,
+      "pillar_sd": 7.7967,
+      "rip_sd": 4.9171,
+      "one_sd_marginal_rip_points": 0.7797,
+      "weighted_contribution_sd_by_pillar": {
+        "profit": 2.781,
+        "safety": 1.1478,
+        "stability": 2.3714,
+        "desirability": 0.7797
+      },
+      "share_of_weighted_dispersion": 0.1101,
+      "max_rank_movement": 1,
+      "mean_rank_movement": 0.286,
+      "median_rank_movement": 0,
+      "pct_moving_1_plus": 28.57,
+      "pct_moving_3_plus": 0.0,
+      "pct_moving_5_plus": 0.0,
+      "mean_abs_score_delta": 0.3265,
+      "top5_changed": false,
+      "most_helped": [
+        {
+          "set_name": "Chaos Rising",
+          "old_rank": 10,
+          "new_rank": 9,
+          "rank_delta": 1,
+          "score_delta": 0.8397
+        },
+        {
+          "set_name": "Shrouded Fable",
+          "old_rank": 12,
+          "new_rank": 11,
+          "rank_delta": 1,
+          "score_delta": 0.8575
+        },
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": 0.1512
+        }
+      ],
+      "most_harmed": [
+        {
+          "set_name": "Ascended Heroes",
+          "old_rank": 9,
+          "new_rank": 10,
+          "rank_delta": -1,
+          "score_delta": 0.092
+        },
+        {
+          "set_name": "Stellar Crown",
+          "old_rank": 11,
+          "new_rank": 12,
+          "rank_delta": -1,
+          "score_delta": 0.2652
+        },
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": 0.1287
+        }
+      ],
+      "largest_movers": [
+        {
+          "set_name": "Chaos Rising",
+          "old_rank": 10,
+          "new_rank": 9,
+          "rank_delta": 1,
+          "score_delta": 0.8397
+        },
+        {
+          "set_name": "Ascended Heroes",
+          "old_rank": 9,
+          "new_rank": 10,
+          "rank_delta": -1,
+          "score_delta": 0.092
+        },
+        {
+          "set_name": "Stellar Crown",
+          "old_rank": 11,
+          "new_rank": 12,
+          "rank_delta": -1,
+          "score_delta": 0.2652
+        },
+        {
+          "set_name": "Shrouded Fable",
+          "old_rank": 12,
+          "new_rank": 11,
+          "rank_delta": 1,
+          "score_delta": 0.8575
+        },
+        {
+          "set_name": "Paldea Evolved",
+          "old_rank": 17,
+          "new_rank": 16,
+          "rank_delta": 1,
+          "score_delta": 0.1512
+        },
+        {
+          "set_name": "White Flare",
+          "old_rank": 16,
+          "new_rank": 17,
+          "rank_delta": -1,
+          "score_delta": 0.1287
+        },
+        {
+          "set_name": "Mega Evolution",
+          "old_rank": 13,
+          "new_rank": 13,
+          "rank_delta": 0,
+          "score_delta": 0.4287
+        },
+        {
+          "set_name": "Prismatic Evolutions",
+          "old_rank": 18,
+          "new_rank": 18,
+          "rank_delta": 0,
+          "score_delta": 0.2011
+        },
+        {
+          "set_name": "Phantasmal Flames",
+          "old_rank": 20,
+          "new_rank": 20,
+          "rank_delta": 0,
+          "score_delta": 0.2577
+        },
+        {
+          "set_name": "Surging Sparks",
+          "old_rank": 14,
+          "new_rank": 14,
+          "rank_delta": 0,
+          "score_delta": 0.3025
+        }
+      ]
+    }
+  },
+  "set_rankings": [
+    {
+      "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "set_name": "Mega Evolution",
+      "set_canonical_key": "megaEvolution",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 87.1998,
+      "dual_path_depth_P": 0.446603,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 15,
+      "multi_printing_subject_count": 6,
+      "single_printing_subject_count": 9,
+      "hit_access_ceiling": 0.659379,
+      "canonical_card_count": 189,
+      "eligible_card_count": 50,
+      "candidates": {
+        "CA6_dual_path_utility": 0.630717,
+        "CA7_bounded_bonus_25": 0.88629,
+        "CA7_bounded_bonus_50": 0.900581,
+        "CA7_bounded_bonus_75": 0.914873,
+        "CA0_desirability_only": 0.871998
+      },
+      "dual_path_rank": 1
+    },
+    {
+      "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "set_name": "Prismatic Evolutions",
+      "set_canonical_key": "prismaticEvolutions",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 93.2775,
+      "dual_path_depth_P": 0.398772,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 19,
+      "multi_printing_subject_count": 12,
+      "single_printing_subject_count": 7,
+      "hit_access_ceiling": 0.487347,
+      "canonical_card_count": 181,
+      "eligible_card_count": 56,
+      "candidates": {
+        "CA6_dual_path_utility": 0.65237,
+        "CA7_bounded_bonus_25": 0.939477,
+        "CA7_bounded_bonus_50": 0.946179,
+        "CA7_bounded_bonus_75": 0.952881,
+        "CA0_desirability_only": 0.932775
+      },
+      "dual_path_rank": 2
+    },
+    {
+      "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+      "set_name": "Chaos Rising",
+      "set_canonical_key": "chaosRising",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 69.8947,
+      "dual_path_depth_P": 0.371909,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 10,
+      "multi_printing_subject_count": 4,
+      "single_printing_subject_count": 6,
+      "hit_access_ceiling": 0.654902,
+      "canonical_card_count": 122,
+      "eligible_card_count": 34,
+      "candidates": {
+        "CA6_dual_path_utility": 0.479446,
+        "CA7_bounded_bonus_25": 0.726938,
+        "CA7_bounded_bonus_50": 0.754929,
+        "CA7_bounded_bonus_75": 0.78292,
+        "CA0_desirability_only": 0.698947
+      },
+      "dual_path_rank": 3
+    },
+    {
+      "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "set_name": "Phantasmal Flames",
+      "set_canonical_key": "phantasmalFlames",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 90.7445,
+      "dual_path_depth_P": 0.371361,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 14,
+      "multi_printing_subject_count": 6,
+      "single_printing_subject_count": 8,
+      "hit_access_ceiling": 0.659379,
+      "canonical_card_count": 132,
+      "eligible_card_count": 36,
+      "candidates": {
+        "CA6_dual_path_utility": 0.622217,
+        "CA7_bounded_bonus_25": 0.916038,
+        "CA7_bounded_bonus_50": 0.924631,
+        "CA7_bounded_bonus_75": 0.933223,
+        "CA0_desirability_only": 0.907445
+      },
+      "dual_path_rank": 4
+    },
+    {
+      "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+      "set_name": "Surging Sparks",
+      "set_canonical_key": "surgingSparks",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 88.8548,
+      "dual_path_depth_P": 0.361884,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 15,
+      "multi_printing_subject_count": 7,
+      "single_printing_subject_count": 8,
+      "hit_access_ceiling": 0.487347,
+      "canonical_card_count": 252,
+      "eligible_card_count": 64,
+      "candidates": {
+        "CA6_dual_path_utility": 0.60505,
+        "CA7_bounded_bonus_25": 0.898631,
+        "CA7_bounded_bonus_50": 0.908714,
+        "CA7_bounded_bonus_75": 0.918798,
+        "CA0_desirability_only": 0.888548
+      },
+      "dual_path_rank": 5
+    },
+    {
+      "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "set_name": "Perfect Order",
+      "set_canonical_key": "perfectOrder",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 81.6048,
+      "dual_path_depth_P": 0.347123,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 13,
+      "multi_printing_subject_count": 7,
+      "single_printing_subject_count": 6,
+      "hit_access_ceiling": 0.683266,
+      "canonical_card_count": 124,
+      "eligible_card_count": 33,
+      "candidates": {
+        "CA6_dual_path_utility": 0.549659,
+        "CA7_bounded_bonus_25": 0.832011,
+        "CA7_bounded_bonus_50": 0.847975,
+        "CA7_bounded_bonus_75": 0.863938,
+        "CA0_desirability_only": 0.816048
+      },
+      "dual_path_rank": 6
+    },
+    {
+      "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "set_name": "Scarlet and Violet Base Set",
+      "set_canonical_key": "scarletAndVioletBase",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 75.6024,
+      "dual_path_depth_P": 0.334027,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 10,
+      "multi_printing_subject_count": 6,
+      "single_printing_subject_count": 4,
+      "hit_access_ceiling": 0.53024,
+      "canonical_card_count": 262,
+      "eligible_card_count": 56,
+      "candidates": {
+        "CA6_dual_path_utility": 0.504278,
+        "CA7_bounded_bonus_25": 0.776398,
+        "CA7_bounded_bonus_50": 0.796771,
+        "CA7_bounded_bonus_75": 0.817145,
+        "CA0_desirability_only": 0.756024
+      },
+      "dual_path_rank": 7
+    },
+    {
+      "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "set_name": "Twilight Masquerade",
+      "set_canonical_key": "twilightMasquerade",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 81.1802,
+      "dual_path_depth_P": 0.325643,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 12,
+      "multi_printing_subject_count": 4,
+      "single_printing_subject_count": 8,
+      "hit_access_ceiling": 0.540461,
+      "canonical_card_count": 226,
+      "eligible_card_count": 58,
+      "candidates": {
+        "CA6_dual_path_utility": 0.53808,
+        "CA7_bounded_bonus_25": 0.827123,
+        "CA7_bounded_bonus_50": 0.842445,
+        "CA7_bounded_bonus_75": 0.857766,
+        "CA0_desirability_only": 0.811802
+      },
+      "dual_path_rank": 8
+    },
+    {
+      "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "set_name": "Destined Rivals",
+      "set_canonical_key": "destinedRivals",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 87.928,
+      "dual_path_depth_P": 0.321052,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 18,
+      "multi_printing_subject_count": 6,
+      "single_printing_subject_count": 12,
+      "hit_access_ceiling": 0.532751,
+      "canonical_card_count": 244,
+      "eligible_card_count": 66,
+      "candidates": {
+        "CA6_dual_path_utility": 0.580787,
+        "CA7_bounded_bonus_25": 0.888969,
+        "CA7_bounded_bonus_50": 0.898659,
+        "CA7_bounded_bonus_75": 0.908348,
+        "CA0_desirability_only": 0.87928
+      },
+      "dual_path_rank": 9
+    },
+    {
+      "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+      "set_name": "Journey Together",
+      "set_canonical_key": "journeyTogether",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 87.4598,
+      "dual_path_depth_P": 0.299017,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 18,
+      "multi_printing_subject_count": 5,
+      "single_printing_subject_count": 13,
+      "hit_access_ceiling": 0.551186,
+      "canonical_card_count": 191,
+      "eligible_card_count": 43,
+      "candidates": {
+        "CA6_dual_path_utility": 0.568059,
+        "CA7_bounded_bonus_25": 0.883972,
+        "CA7_bounded_bonus_50": 0.893347,
+        "CA7_bounded_bonus_75": 0.902721,
+        "CA0_desirability_only": 0.874598
+      },
+      "dual_path_rank": 10
+    },
+    {
+      "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "set_name": "Paradox Rift",
+      "set_canonical_key": "paradoxRift",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 86.6458,
+      "dual_path_depth_P": 0.29829,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 21,
+      "multi_printing_subject_count": 10,
+      "single_printing_subject_count": 11,
+      "hit_access_ceiling": 0.446395,
+      "canonical_card_count": 266,
+      "eligible_card_count": 84,
+      "candidates": {
+        "CA6_dual_path_utility": 0.562457,
+        "CA7_bounded_bonus_25": 0.876417,
+        "CA7_bounded_bonus_50": 0.886375,
+        "CA7_bounded_bonus_75": 0.896334,
+        "CA0_desirability_only": 0.866458
+      },
+      "dual_path_rank": 11
+    },
+    {
+      "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "set_name": "Temporal Forces",
+      "set_canonical_key": "temporalForces",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 86.0349,
+      "dual_path_depth_P": 0.290161,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 15,
+      "multi_printing_subject_count": 4,
+      "single_printing_subject_count": 11,
+      "hit_access_ceiling": 0.525305,
+      "canonical_card_count": 218,
+      "eligible_card_count": 61,
+      "candidates": {
+        "CA6_dual_path_utility": 0.554995,
+        "CA7_bounded_bonus_25": 0.870479,
+        "CA7_bounded_bonus_50": 0.88061,
+        "CA7_bounded_bonus_75": 0.89074,
+        "CA0_desirability_only": 0.860349
+      },
+      "dual_path_rank": 12
+    },
+    {
+      "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+      "set_name": "Scarlet and Violet 151",
+      "set_canonical_key": "scarletAndViolet151",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 93.6143,
+      "dual_path_depth_P": 0.289636,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 21,
+      "multi_printing_subject_count": 8,
+      "single_printing_subject_count": 13,
+      "hit_access_ceiling": 0.522879,
+      "canonical_card_count": 208,
+      "eligible_card_count": 46,
+      "candidates": {
+        "CA6_dual_path_utility": 0.603642,
+        "CA7_bounded_bonus_25": 0.940767,
+        "CA7_bounded_bonus_50": 0.945391,
+        "CA7_bounded_bonus_75": 0.950014,
+        "CA0_desirability_only": 0.936143
+      },
+      "dual_path_rank": 13
+    },
+    {
+      "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "set_name": "Ascended Heroes",
+      "set_canonical_key": "ascendedHeroes",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 95.4809,
+      "dual_path_depth_P": 0.27143,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 44,
+      "multi_printing_subject_count": 18,
+      "single_printing_subject_count": 26,
+      "hit_access_ceiling": 0.359483,
+      "canonical_card_count": 305,
+      "eligible_card_count": 103,
+      "candidates": {
+        "CA6_dual_path_utility": 0.606986,
+        "CA7_bounded_bonus_25": 0.957876,
+        "CA7_bounded_bonus_50": 0.960942,
+        "CA7_bounded_bonus_75": 0.964009,
+        "CA0_desirability_only": 0.954809
+      },
+      "dual_path_rank": 14
+    },
+    {
+      "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "set_name": "Stellar Crown",
+      "set_canonical_key": "stellarCrown",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 86.3548,
+      "dual_path_depth_P": 0.259192,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 11,
+      "multi_printing_subject_count": 3,
+      "single_printing_subject_count": 8,
+      "hit_access_ceiling": 0.487347,
+      "canonical_card_count": 175,
+      "eligible_card_count": 39,
+      "candidates": {
+        "CA6_dual_path_utility": 0.543686,
+        "CA7_bounded_bonus_25": 0.87239,
+        "CA7_bounded_bonus_50": 0.881232,
+        "CA7_bounded_bonus_75": 0.890073,
+        "CA0_desirability_only": 0.863548
+      },
+      "dual_path_rank": 15
+    },
+    {
+      "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "set_name": "Obsidian Flames",
+      "set_canonical_key": "obsidianFlames",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 87.315,
+      "dual_path_depth_P": 0.248412,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 12,
+      "multi_printing_subject_count": 3,
+      "single_printing_subject_count": 9,
+      "hit_access_ceiling": 0.40624,
+      "canonical_card_count": 230,
+      "eligible_card_count": 46,
+      "candidates": {
+        "CA6_dual_path_utility": 0.545026,
+        "CA7_bounded_bonus_25": 0.881028,
+        "CA7_bounded_bonus_50": 0.888906,
+        "CA7_bounded_bonus_75": 0.896783,
+        "CA0_desirability_only": 0.87315
+      },
+      "dual_path_rank": 16
+    },
+    {
+      "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "set_name": "Shrouded Fable",
+      "set_canonical_key": "shroudedFable",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 51.0746,
+      "dual_path_depth_P": 0.233709,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 5,
+      "multi_printing_subject_count": 0,
+      "single_printing_subject_count": 5,
+      "hit_access_ceiling": 0.721849,
+      "canonical_card_count": 107,
+      "eligible_card_count": 32,
+      "candidates": {
+        "CA6_dual_path_utility": 0.315056,
+        "CA7_bounded_bonus_25": 0.539332,
+        "CA7_bounded_bonus_50": 0.567918,
+        "CA7_bounded_bonus_75": 0.596503,
+        "CA0_desirability_only": 0.510746
+      },
+      "dual_path_rank": 17
+    },
+    {
+      "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "set_name": "Paldea Evolved",
+      "set_canonical_key": "paldeaEvolved",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 90.3742,
+      "dual_path_depth_P": 0.209423,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 19,
+      "multi_printing_subject_count": 6,
+      "single_printing_subject_count": 13,
+      "hit_access_ceiling": 0.453289,
+      "canonical_card_count": 279,
+      "eligible_card_count": 85,
+      "candidates": {
+        "CA6_dual_path_utility": 0.546503,
+        "CA7_bounded_bonus_25": 0.908782,
+        "CA7_bounded_bonus_50": 0.913821,
+        "CA7_bounded_bonus_75": 0.918861,
+        "CA0_desirability_only": 0.903742
+      },
+      "dual_path_rank": 18
+    },
+    {
+      "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "set_name": "Paldean Fates",
+      "set_canonical_key": "paldeanFates",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 95.3301,
+      "dual_path_depth_P": 0.198797,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 46,
+      "multi_printing_subject_count": 5,
+      "single_printing_subject_count": 41,
+      "hit_access_ceiling": 0.688375,
+      "canonical_card_count": 247,
+      "eligible_card_count": 154,
+      "candidates": {
+        "CA6_dual_path_utility": 0.571407,
+        "CA7_bounded_bonus_25": 0.955622,
+        "CA7_bounded_bonus_50": 0.957943,
+        "CA7_bounded_bonus_75": 0.960264,
+        "CA0_desirability_only": 0.953301
+      },
+      "dual_path_rank": 19
+    },
+    {
+      "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "set_name": "Black Bolt",
+      "set_canonical_key": "blackBolt",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 84.0138,
+      "dual_path_depth_P": 0.136229,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 19,
+      "multi_printing_subject_count": 5,
+      "single_printing_subject_count": 14,
+      "hit_access_ceiling": 0.622063,
+      "canonical_card_count": 175,
+      "eligible_card_count": 88,
+      "candidates": {
+        "CA6_dual_path_utility": 0.477294,
+        "CA7_bounded_bonus_25": 0.845582,
+        "CA7_bounded_bonus_50": 0.851027,
+        "CA7_bounded_bonus_75": 0.856471,
+        "CA0_desirability_only": 0.840138
+      },
+      "dual_path_rank": 20
+    },
+    {
+      "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "set_name": "White Flare",
+      "set_canonical_key": "whiteFlare",
+      "product_support_type": "valid_booster_set",
+      "supported": true,
+      "desirability_coverage": "full",
+      "roster_desirability_D": 87.3,
+      "dual_path_depth_P": 0.135148,
+      "dual_path_available": true,
+      "covered_demand_share": 1.0,
+      "desirable_subject_count": 24,
+      "multi_printing_subject_count": 3,
+      "single_printing_subject_count": 21,
+      "hit_access_ceiling": 0.622063,
+      "canonical_card_count": 173,
+      "eligible_card_count": 88,
+      "candidates": {
+        "CA6_dual_path_utility": 0.495492,
+        "CA7_bounded_bonus_25": 0.877291,
+        "CA7_bounded_bonus_50": 0.881582,
+        "CA7_bounded_bonus_75": 0.885873,
+        "CA0_desirability_only": 0.873
+      },
+      "dual_path_rank": 21
+    }
+  ]
+}

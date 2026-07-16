@@ -158,17 +158,48 @@ def compute_weighted_rip(
 ) -> Dict[str, Any]:
     """Linear four-component RIP from config weights.
 
-    - Missing components (or desirability when its configured weight is 0, or
-      when a caller explicitly excludes it) are dropped and the remaining
-      weights renormalize to 1.0.
-    - ``include_desirability`` is a configuration/data switch only. It is NOT
-      driven by any price or set-value correlation - see the module docstring.
+    - Missing FINANCIAL components are dropped and the remaining weights
+      renormalize to 1.0.
+    - A missing DESIRABILITY pillar does NOT renormalize. When desirability
+      carries weight in the model but no value is available, the canonical RIP
+      is reported as unavailable (``score=None``, ``status="incomplete"``). See
+      the missing-pillar policy below.
+    - ``include_desirability`` is a configuration switch only. It is NOT driven
+      by any price or set-value correlation - see the module docstring.
     - The final score is clamped to 0-100 purely as a numeric safety net,
       never as an influence cap.
     - Returns None score if no financial pillar is available.
+
+    MISSING-PILLAR POLICY (explicit, and deliberately not silent)
+    ------------------------------------------------------------
+    Renormalizing Profit/Safety/Stability to 100% when Collector Appeal is
+    missing produces a number that LOOKS like a canonical RIP, sorts alongside
+    real canonical RIPs, and is not comparable to them. A fixed-contents product
+    would then out- or under-rank real booster sets purely because a pillar was
+    absent - the absence of evidence rendered as a competitive score. That is
+    the option-C behaviour this codebase shipped by accident, as a side effect of
+    the renormalization rule rather than as a decision.
+
+    The policy is option B: canonical RIP is unavailable when a weighted pillar
+    is missing. Financial-only numbers remain available under the distinct
+    ``financial_rip_v2`` label via :func:`compute_financial_rip`, and are echoed
+    here under ``financialOnly`` so a caller can display them - clearly labelled
+    as financial-only, never as RIP, and never ranked in the canonical cohort.
+
+    Two ways desirability legitimately leaves the model, neither of which is a
+    missing pillar:
+      * ``include_desirability=False`` - the caller explicitly asked for the
+        financial-only view.
+      * configured weight of 0 - desirability is not part of the model at all.
+    In both cases the remaining weights renormalize as before and the result is
+    a valid, comparable financial RIP.
     """
     base = resolve_rip_weights(weights, include_desirability=True)
     values = {key: _as_float(pillar_scores.get(key)) for key in base}
+    desirability_weighted = base.get("desirability", 0.0) > 0.0
+    desirability_missing = (
+        include_desirability and desirability_weighted and values.get("desirability") is None
+    )
     if not include_desirability:
         values["desirability"] = None
 
@@ -177,10 +208,38 @@ def compute_weighted_rip(
         return {
             "score": None,
             "version": RIP_V3_VERSION,
+            "status": "unavailable_no_financial_pillar",
             "components": {},
             **rip_weights_payload(base),
             "effectiveWeights": {},
             "desirabilityIncluded": bool(include_desirability),
+            "rankable": False,
+        }
+
+    if desirability_missing:
+        # Do NOT renormalize the financial pillars into a canonical-looking RIP.
+        financial = compute_financial_rip(pillar_scores, weights=weights)
+        return {
+            "score": None,
+            "version": RIP_V3_VERSION,
+            "status": "incomplete_missing_desirability",
+            "statusReason": (
+                "Collector Appeal is unavailable for this product, so the canonical "
+                "four-pillar RIP cannot be computed. Financial-only scores are "
+                "reported separately and are NOT comparable to a canonical RIP."
+            ),
+            "missingPillars": ["desirability"],
+            "components": {},
+            **rip_weights_payload(base),
+            "effectiveWeights": {},
+            "desirabilityIncluded": False,
+            "rankable": False,
+            "financialOnly": {
+                "score": financial.get("score"),
+                "version": financial.get("version"),
+                "label": "Financial-only score. Not a RIP score; not comparable to canonical RIP.",
+                "components": financial.get("components"),
+            },
         }
 
     effective = renormalize_weights({key: base[key] for key in present})

@@ -1,0 +1,8 @@
+card_name,number,rarity,rarity_bucket,rarity_key,treatment_prestige,hit_eligible,subject_name,subject_demand,pull_probability,pull_odds_label,slot_group,access_transform,scarcity_transform,eligible_for_dual_path,excluded_because
+Mega Gengar ex,125,Double Rare,accessible_hit,double_rare,0.62,True,Gengar,83.4567,0.0052356,1-in-191,Rare slot model,0.359483,0.640517,True,
+Mega Dragonite ex,152,Double Rare,accessible_hit,double_rare,0.62,True,Dragonite,74.4633,0.0052356,1-in-191,Rare slot model,0.359483,0.640517,True,
+Mega Gengar ex,269,MEGA_ATTACK_RARE,major_hit,mega_attack_rare,0.36,True,Gengar,83.4567,0.0049505,1-in-202,Rare slot model,0.347324,0.652676,True,
+Mega Dragonite ex,271,MEGA_ATTACK_RARE,major_hit,mega_attack_rare,0.36,True,Dragonite,74.4633,0.0049505,1-in-202,Rare slot model,0.347324,0.652676,True,
+Mega Gengar ex,284,Special Illustration Rare,premium_chase,special_illustration_rare,0.96,True,Gengar,83.4567,0.00065232,"1-in-1,533",Reverse slot model,0.0,1.0,True,
+Mega Dragonite ex,290,Special Illustration Rare,premium_chase,special_illustration_rare,0.96,True,Dragonite,74.4633,0.00065232,"1-in-1,533",Reverse slot model,0.0,1.0,True,
+Mega Dragonite ex,295,Mega Hyper Rare,premium_chase,mega_hyper_rare,0.82,True,Dragonite,74.4633,0.00092593,"1-in-1,080",Reverse slot model,0.0,1.0,True,
