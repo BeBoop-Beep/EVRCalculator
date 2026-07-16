@@ -23,7 +23,7 @@ THREE DEFECTS THIS MODULE WAS REPAIRED TO PREVENT
 1. **Invalid write identity.** The write was
    ``upsert(payloads, on_conflict="set_id")`` with payloads of
    ``{"set_id", "diagnostics_json"}``. ``set_id`` is not unique in this table -
-   511 rows span 171 sets - so that conflict target does not exist and the
+   several hundred rows span 171 sets - so that conflict target does not exist and the
    payload does not identify a row. An upsert on a non-unique target does not
    update the row you meant; at best it errors, at worst it INSERTS a new row
    with null scores. Replaced by an update against the PRIMARY KEY:
@@ -734,6 +734,173 @@ def normalized_payload_hash(plan: Mapping[str, Any]) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+# ---------------------------------------------------------------------------
+# Cross-run determinism
+# ---------------------------------------------------------------------------
+
+# The verdicts a cross-run comparison can reach. Named so a caller branches on a
+# constant rather than on a prose string.
+DETERMINISM_IDENTICAL = "identical"
+DETERMINISM_SOURCE_DRIFT = "source_drift"
+DETERMINISM_NONDETERMINISTIC = "nondeterministic"
+DETERMINISM_FORMULA_CHANGED = "formula_identity_changed"
+
+# Fields that are EXPECTED to differ between two runs and are therefore excluded
+# from every hash. If one of these ever reached hashed content, two runs of an
+# unchanged source would disagree and determinism would be unprovable.
+VOLATILE_ARTIFACT_FIELDS: Sequence[str] = ("generated_at",)
+
+
+def compare_dry_run_artifacts(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Compare two INDEPENDENTLY generated dry-run artifacts.
+
+    This is a different question from invariant 17. That one builds the plan
+    twice inside ONE process from ONE in-memory source read: it proves the build
+    is a pure function of what was already loaded. It cannot see a fresh process,
+    a fresh connection, a fresh read, or dict/JSON ordering that happens to be
+    stable within a single interpreter. Only two separate runs test that, and
+    Phase 8.1 never ran them - it reported the in-process check and left the
+    cross-run one unexecuted, which is why this exists.
+
+    The verdict deliberately separates two failures that look identical if you
+    only compare payload hashes:
+
+    * the SOURCE moved between runs (someone rebuilt a row) - the code is fine,
+      and a changed source manifest is the correct, honest response;
+    * the source held still and the payload moved anyway - that is real
+      nondeterminism and a blocker.
+
+    Collapsing those into "hashes differ" is how a genuine nondeterminism bug
+    gets waved through as "the database probably changed".
+    """
+    fingerprint_match = previous.get("expected_fingerprint") == current.get("expected_fingerprint")
+    manifest_match = _manifest_hash(previous) == _manifest_hash(current)
+    payload_match = previous.get("normalized_payload_hash") == current.get("normalized_payload_hash")
+
+    part_hashes = _compare_manifest_parts(previous, current)
+    drifted_parts = sorted(name for name, entry in part_hashes.items() if not entry["match"])
+
+    # Ordering/serialization: the write targets, in the order the artifact lists
+    # them. Two runs that select the same rows but emit them in a different order
+    # are not deterministic, even if the set of rows is equal.
+    previous_targets = _artifact_targets(previous)
+    current_targets = _artifact_targets(current)
+    ordering_match = previous_targets == current_targets
+
+    counts_match = previous.get("counts") == current.get("counts")
+
+    if not fingerprint_match:
+        verdict = DETERMINISM_FORMULA_CHANGED
+    elif manifest_match and payload_match and ordering_match and counts_match:
+        verdict = DETERMINISM_IDENTICAL
+    elif not manifest_match:
+        verdict = DETERMINISM_SOURCE_DRIFT
+    else:
+        # Source identical, output moved. Nothing else can explain this.
+        verdict = DETERMINISM_NONDETERMINISTIC
+
+    return {
+        "verdict": verdict,
+        "deterministic": verdict == DETERMINISM_IDENTICAL,
+        "comparison_kind": "independent_cross_run",
+        "checks": {
+            "formula_fingerprint": {
+                "match": fingerprint_match,
+                "previous": previous.get("expected_fingerprint"),
+                "current": current.get("expected_fingerprint"),
+            },
+            "source_manifest": {
+                "match": manifest_match,
+                "previous": _manifest_hash(previous),
+                "current": _manifest_hash(current),
+            },
+            "normalized_payload_hash": {
+                "match": payload_match,
+                "previous": previous.get("normalized_payload_hash"),
+                "current": current.get("normalized_payload_hash"),
+            },
+            "component_manifest_parts": part_hashes,
+            "row_ordering_and_serialization": {
+                "match": ordering_match,
+                "previous_target_count": len(previous_targets),
+                "current_target_count": len(current_targets),
+            },
+            "counts": {"match": counts_match},
+        },
+        "drifted_manifest_parts": drifted_parts,
+        "volatile_fields_excluded_from_hashes": list(VOLATILE_ARTIFACT_FIELDS),
+        "volatile_fields_observed_differing": sorted(
+            field for field in VOLATILE_ARTIFACT_FIELDS
+            if previous.get(field) != current.get(field)
+        ),
+        "interpretation": _determinism_interpretation(verdict, drifted_parts),
+    }
+
+
+def _determinism_interpretation(verdict: str, drifted_parts: Sequence[str]) -> str:
+    if verdict == DETERMINISM_IDENTICAL:
+        return (
+            "Two independent runs of an unchanged source produced byte-identical "
+            "hashes. Wall-clock metadata differed and did not reach hashed content."
+        )
+    if verdict == DETERMINISM_SOURCE_DRIFT:
+        return (
+            "The source manifest moved between runs "
+            f"(parts: {', '.join(drifted_parts) or 'unknown'}). The inputs changed; "
+            "a changed payload is the correct response, not evidence of nondeterminism."
+        )
+    if verdict == DETERMINISM_FORMULA_CHANGED:
+        return "The formula fingerprint moved between runs. The calculation's identity is not stable."
+    return (
+        "The source manifest is IDENTICAL and the payload moved anyway. This is "
+        "real nondeterminism in the build or serialization, and it is a blocker."
+    )
+
+
+def _manifest_hash(artifact: Mapping[str, Any]) -> Optional[str]:
+    return (artifact.get("source_manifest") or {}).get("manifest_hash")
+
+
+def _compare_manifest_parts(
+    previous: Mapping[str, Any], current: Mapping[str, Any]
+) -> Dict[str, Dict[str, Any]]:
+    previous_parts = ((previous.get("source_manifest") or {}).get("parts") or {})
+    current_parts = ((current.get("source_manifest") or {}).get("parts") or {})
+    names = sorted(set(previous_parts) | set(current_parts))
+    compared: Dict[str, Dict[str, Any]] = {}
+    for name in names:
+        previous_hash = _part_hash(previous_parts.get(name))
+        current_hash = _part_hash(current_parts.get(name))
+        if previous_hash is None and current_hash is None:
+            continue  # a policy block, not a hashed part
+        compared[name] = {
+            "match": previous_hash == current_hash,
+            "previous": previous_hash,
+            "current": current_hash,
+        }
+    return compared
+
+
+def _part_hash(part: Any) -> Optional[str]:
+    return part.get("manifest_hash") if isinstance(part, Mapping) else None
+
+
+def _artifact_targets(artifact: Mapping[str, Any]) -> List[Any]:
+    """Write targets in ARTIFACT ORDER - deliberately not re-sorted.
+
+    Sorting here would hide exactly the defect this check exists to catch: a run
+    that emits the same rows in a different order.
+    """
+    return [
+        (row.get("update_target") or {}).get("id")
+        for row in (artifact.get("products") or [])
+        if row.get("would_update")
+    ]
+
+
 def describe_write_strategy() -> Dict[str, Any]:
     """The write this plan proposes, stated exactly. Never executed here."""
     return {
@@ -749,7 +916,7 @@ def describe_write_strategy() -> Dict[str, Any]:
         "rows_per_statement": 1,
         "inserts": "none - the row must already exist",
         "upsert": (
-            "FORBIDDEN. set_id is not unique in this table (511 rows / 171 sets), "
+            "FORBIDDEN. set_id is not unique in this table (several rows per set), "
             "so on_conflict=\"set_id\" names no constraint and cannot identify a row."
         ),
         "concurrency": (

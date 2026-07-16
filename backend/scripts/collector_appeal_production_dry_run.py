@@ -46,6 +46,7 @@ from backend.desirability.collector_appeal import (  # noqa: E402
 from backend.desirability.collector_appeal_rollout import (  # noqa: E402
     ReadOnlyClientGuard,
     build_update_plan,
+    compare_dry_run_artifacts,
     execute_plan,
     load_source_state,
     normalized_payload_hash,
@@ -71,6 +72,7 @@ logger = logging.getLogger(__name__)
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "research"
 JSON_ARTIFACT = DOCS / "collector_appeal_production_dry_run.json"
 MD_ARTIFACT = DOCS / "collector_appeal_production_dry_run.md"
+DETERMINISM_ARTIFACT = DOCS / "collector_appeal_cross_run_determinism.md"
 
 EXPECTED_TOTAL = 171
 EXPECTED_SUPPORTED = 135
@@ -477,9 +479,14 @@ def write_artifacts(plan: Mapping[str, Any], source_state: Mapping[str, Any],
     add("")
 
     add("## Source-version contract\n")
+    # Reported from the read, never hardcoded: the row count grows every time a
+    # set is rebuilt (the Chaos Rising backfill took it from 511 to 512), and a
+    # literal here would be quietly wrong the moment it did.
     add("The component table's real unique key is "
         f"`({', '.join(COMPONENT_UNIQUE_KEY)})` — **`set_id` is not unique** "
-        "(511 rows / 171 sets). Rows are selected by EXACT version match, never by recency.\n")
+        f"({selection['counts']['rows_scanned']} rows / "
+        f"{selection['counts']['sets_scanned']} sets in this read). "
+        "Rows are selected by EXACT version match, never by recency.\n")
     expected = plan["source_contract"]["expected_versions"]
     add("| Expected version | Value |")
     add("|---|---|")
@@ -623,6 +630,78 @@ def write_artifacts(plan: Mapping[str, Any], source_state: Mapping[str, Any],
     MD_ARTIFACT.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_determinism_artifact(
+    comparison: Mapping[str, Any],
+    compared_with: str,
+    invariants: Sequence[Mapping[str, Any]],
+) -> None:
+    """Report the two determinism checks SEPARATELY.
+
+    Invariant 17 and this comparison answer different questions, and Phase 8.1
+    reported the first as if it settled the second. Printing them side by side,
+    each labelled with what it actually covers, is the point of this artifact.
+    """
+    in_process = next((item for item in invariants if item["n"] == 17), None)
+    checks = comparison["checks"]
+
+    lines: List[str] = []
+    add = lines.append
+    add("# Collector Appeal CA7 — determinism validation\n")
+    add(f"Generated {datetime.now(timezone.utc).isoformat()}\n")
+    add("Two different questions, reported separately. The first cannot answer the second.\n")
+
+    add("## 1. In-process deterministic build\n")
+    add("Two `build_update_plan()` calls in ONE process from ONE in-memory source read. "
+        "Proves the build is a pure function of loaded state. Blind to process start-up, "
+        "a fresh connection, a fresh read, and any ordering that is stable within one interpreter.\n")
+    if in_process:
+        add(f"- Result: **{'PASS' if in_process['passed'] else 'FAIL'}** (invariant 17)")
+        add(f"- First payload hash: `{in_process['evidence']['first_payload_hash']}`")
+        add(f"- Second payload hash: `{in_process['evidence']['second_payload_hash']}`")
+    else:
+        add("- Result: **not run**")
+    add("")
+
+    add("## 2. Independent cross-run deterministic build\n")
+    # Only the file name: the full path is environment-specific provenance, and
+    # this artifact is committed.
+    add(f"A separate process re-read production and produced a new artifact, compared against "
+        f"`{Path(compared_with).name}`. This is the check Phase 8.1 left unexecuted.\n")
+    add(f"- **Verdict: `{comparison['verdict']}`** — deterministic: "
+        f"**{'YES' if comparison['deterministic'] else 'NO'}**\n")
+    add("| Check | Result | Previous | Current |")
+    add("|---|---|---|---|")
+    for name in ("formula_fingerprint", "source_manifest", "normalized_payload_hash"):
+        entry = checks[name]
+        add(f"| {name} | {'✅ match' if entry['match'] else '❌ differs'} | "
+            f"`{entry['previous']}` | `{entry['current']}` |")
+    for part, entry in checks["component_manifest_parts"].items():
+        add(f"| manifest part · {part} | {'✅ match' if entry['match'] else '❌ differs'} | "
+            f"`{entry['previous']}` | `{entry['current']}` |")
+    ordering = checks["row_ordering_and_serialization"]
+    add(f"| row ordering & serialization | {'✅ match' if ordering['match'] else '❌ differs'} | "
+        f"{ordering['previous_target_count']} targets | {ordering['current_target_count']} targets |")
+    add(f"| counts | {'✅ match' if checks['counts']['match'] else '❌ differs'} | — | — |")
+    add("")
+
+    add("## Volatile values\n")
+    add("Excluded from every hash: "
+        f"{', '.join(f'`{field}`' for field in comparison['volatile_fields_excluded_from_hashes'])}.")
+    observed = comparison["volatile_fields_observed_differing"]
+    add(f"- Observed differing between the two runs: "
+        f"{', '.join(f'`{field}`' for field in observed) if observed else 'none'}")
+    add("- These differ by design and do not reach hashed content — which is exactly what an "
+        "identical cross-run payload hash under differing timestamps proves.\n")
+
+    add("## Interpretation\n")
+    add(f"{comparison['interpretation']}\n")
+    add("> A changed **source manifest** means the inputs moved and is NOT nondeterminism: the "
+        "correct response to changed inputs is a changed payload. Nondeterminism is only the case "
+        "where the source manifest is identical and the payload moved anyway.\n")
+
+    DETERMINISM_ARTIFACT.write_text("\n".join(lines), encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compare-with", type=str, default=None,
@@ -699,11 +778,22 @@ def main() -> int:
     logger.info("[dry-run] source manifest hash: %s", plan["source_manifest"]["manifest_hash"])
 
     if args.compare_with:
+        # An INDEPENDENT cross-run check: this process read production itself and
+        # is comparing against an artifact a different process produced. Distinct
+        # from invariant 17, which never leaves this interpreter.
         previous = json.loads(Path(args.compare_with).read_text(encoding="utf-8"))
-        same = previous.get("normalized_payload_hash") == plan["normalized_payload_hash"]
-        logger.info("[dry-run] determinism vs %s: %s", args.compare_with,
-                    "IDENTICAL" if same else "DIFFERENT")
-        if not same:
+        current = json.loads(JSON_ARTIFACT.read_text(encoding="utf-8"))
+        comparison = compare_dry_run_artifacts(previous, current)
+        _write_determinism_artifact(comparison, args.compare_with, invariants)
+        logger.info("[cross-run] verdict: %s", comparison["verdict"])
+        for name, check in comparison["checks"].items():
+            if name == "component_manifest_parts":
+                for part, entry in check.items():
+                    logger.info("[cross-run]   part %s: %s", part, "MATCH" if entry["match"] else "DIFFERS")
+                continue
+            logger.info("[cross-run]   %s: %s", name, "MATCH" if check["match"] else "DIFFERS")
+        logger.info("[cross-run] %s", comparison["interpretation"])
+        if not comparison["deterministic"]:
             return 1
 
     return 1 if blocking else 0

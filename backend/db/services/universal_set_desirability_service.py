@@ -18,11 +18,18 @@ import logging
 import math
 import threading
 import time
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.desirability.component_source import (
+    COMPONENT_TABLE,
+    DUPLICATE_CURRENT_COMPONENT_SOURCE_ROW,
+    MISSING_CURRENT_COMPONENT_SOURCE_ROW,
+    expected_source_versions,
+    select_component_source_rows,
+    selector_columns,
+)
 from backend.desirability.scoring_config import UNIVERSAL_SET_DESIRABILITY_VERSION
-from backend.desirability.set_components import SCORING_VERSION as V2_SCORING_VERSION
 from backend.desirability.universal_set_desirability import (
     COVERAGE_FULL,
     assess_desirability_coverage,
@@ -37,7 +44,12 @@ CACHE_TTL_SECONDS = 6 * 60 * 60
 SET_VALUE_SCOPE = "standard"
 
 _cache_lock = threading.Lock()
-_cache: Dict[str, Any] = {"built_at": 0.0, "payloads": None, "setValueAssociation": None}
+_cache: Dict[str, Any] = {
+    "built_at": 0.0,
+    "payloads": None,
+    "setValueAssociation": None,
+    "sourceSelection": None,
+}
 
 
 def _to_optional_float(value: Any) -> Optional[float]:
@@ -66,27 +78,63 @@ def _chunked(values: Sequence[Any], size: int) -> Iterable[Sequence[Any]]:
         yield values[index:index + size]
 
 
-def _load_latest_v2_rows() -> Dict[str, Dict[str, Any]]:
+def _load_current_component_rows() -> Dict[str, Any]:
+    """The VERSION-EXACT component row per set, through the shared contract.
+
+    This function used to be ``_load_latest_v2_rows`` and took the newest row per
+    set by ``built_at``, preferring ``scoring_version`` only as a tiebreak. That
+    matched three rows deep in the wrong place: the table is keyed on
+    ``(set_id, scoring_version, hit_policy_version, composite_scoring_version,
+    fan_popularity_snapshot_id, config_fingerprint)``, and ``scoring_version``
+    agreeing says nothing about the other two. In production TODAY the newest row
+    for 170 of 171 sets carries ``hit_policy_version = ..._v1`` while the code
+    computes ``..._v2_coverage_cleanup`` - so the PUBLIC score was being computed
+    from v1 inputs for all but one set. Recency is not agreement; it was the
+    same defect Phase 8.1 repaired for CA7, still live on the public reader.
+
+    The expected versions are NOT restated here. They are read through
+    :mod:`backend.desirability.component_source`, which reads them from the
+    modules that define them, so this reader cannot drift from what CA7 selects.
+    """
     rows = _paged_select(
-        public_read_client.table("pokemon_set_desirability_component_scores")
+        public_read_client.table(COMPONENT_TABLE)
         .select(
-            "set_id,set_name,set_canonical_key,scoring_version,set_desirability_score,"
-            "hit_eligible_card_count,scored_hit_eligible_card_count,unique_subject_count,"
-            "subject_rollups_json,diagnostics_json,built_at"
+            selector_columns(
+                "set_desirability_score",
+                "hit_eligible_card_count",
+                "scored_hit_eligible_card_count",
+                "unique_subject_count",
+                "subject_rollups_json",
+                "diagnostics_json",
+            )
         )
+        # Ordered only so the read is stable and paginates deterministically.
+        # Selection does NOT depend on this order - that was the bug.
         .order("built_at", desc=True)
+        .order("id", desc=False)
     )
-    latest: Dict[str, Dict[str, Any]] = {}
-    for row in rows:
-        set_id = str(row.get("set_id") or "")
-        if not set_id:
-            continue
-        kept = latest.get(set_id)
-        if kept is None:
-            latest[set_id] = row
-        elif row.get("scoring_version") == V2_SCORING_VERSION and kept.get("scoring_version") != V2_SCORING_VERSION:
-            latest[set_id] = row
-    return latest
+    selection = select_component_source_rows(rows)
+
+    # A set with more than one exact-version row is an integrity error, not a
+    # choice to make here: the duplicates differ in fan_popularity_snapshot_id or
+    # config_fingerprint, so picking one would silently pick an input set. The
+    # shared selector already withholds them from ``selected``; this makes the
+    # withholding loud instead of merely quiet.
+    for entry in selection["duplicates"]:
+        logger.error(
+            "[universal-desirability] INTEGRITY: %s (%s) has %s exact-version component rows; "
+            "serving it is refused until exactly one remains. rows=%s",
+            entry["set_name"], entry["set_id"], entry["row_count"],
+            [row["id"] for row in entry["rows"]],
+        )
+    # Missing is reported, never back-filled from a near-version row.
+    for entry in selection["missing"]:
+        logger.warning(
+            "[universal-desirability] %s (%s): %s - has %s. Reported unavailable.",
+            entry["set_name"], entry["set_id"], entry["reason"],
+            [version["hit_policy_version"] for version in entry["available_versions"]],
+        )
+    return selection
 
 
 def _load_latest_set_values(set_ids: Sequence[str]) -> Dict[str, float]:
@@ -114,7 +162,8 @@ def _load_latest_set_values(set_ids: Sequence[str]) -> Dict[str, float]:
 
 
 def _build_payloads() -> Dict[str, Any]:
-    v2_rows = _load_latest_v2_rows()
+    selection = _load_current_component_rows()
+    v2_rows = selection["selected"]
     computed: List[Dict[str, Any]] = []
     for set_id, v2_row in v2_rows.items():
         diagnostics = v2_row.get("diagnostics_json") or {}
@@ -172,14 +221,63 @@ def _build_payloads() -> Dict[str, Any]:
     )
 
     payloads = {row["set_id"]: row for row in computed}
-    return {"payloads": payloads, "setValueAssociation": association}
+    return {
+        "payloads": payloads,
+        "setValueAssociation": association,
+        "sourceSelection": _source_selection_diagnostics(selection),
+    }
+
+
+def _source_selection_diagnostics(selection: Mapping[str, Any]) -> Dict[str, Any]:
+    """Which rows powered this bundle, and which sets were refused and why.
+
+    Internal diagnostics: deliberately NOT part of ``public_payload`` and not
+    served by any API or frontend field. A set that is absent from ``payloads``
+    is absent because it had no exact-version row or had several - and this says
+    which, so "unavailable" can be diagnosed without re-querying.
+    """
+    return {
+        "contract_version": selection["contract_version"],
+        "expected_versions": expected_source_versions(),
+        "counts": dict(selection["counts"]),
+        "missing": [
+            {
+                "set_id": entry["set_id"],
+                "set_name": entry["set_name"],
+                "reason": MISSING_CURRENT_COMPONENT_SOURCE_ROW,
+                "available_hit_policy_versions": [
+                    version["hit_policy_version"] for version in entry["available_versions"]
+                ],
+            }
+            for entry in selection["missing"]
+        ],
+        "duplicates": [
+            {
+                "set_id": entry["set_id"],
+                "set_name": entry["set_name"],
+                "reason": DUPLICATE_CURRENT_COMPONENT_SOURCE_ROW,
+                "row_count": entry["row_count"],
+            }
+            for entry in selection["duplicates"]
+        ],
+    }
+
+
+def _cached_bundle() -> Dict[str, Any]:
+    return {
+        "payloads": _cache["payloads"],
+        "setValueAssociation": _cache["setValueAssociation"],
+        "sourceSelection": _cache["sourceSelection"],
+    }
 
 
 def get_universal_desirability_bundle(*, force_refresh: bool = False) -> Dict[str, Any]:
-    """Return ``{"payloads": {set_id: payload}, "setValueAssociation": ...}`` (cached).
+    """Return ``{"payloads", "setValueAssociation", "sourceSelection"}`` (cached).
 
     ``setValueAssociation`` is descriptive context only; it never changes any
-    score or weight.
+    score or weight. ``sourceSelection`` is internal diagnostics describing which
+    component rows were selected and which sets were refused; no public field
+    reads it.
     """
     now = time.time()
     with _cache_lock:
@@ -188,23 +286,30 @@ def get_universal_desirability_bundle(*, force_refresh: bool = False) -> Dict[st
             and _cache["payloads"] is not None
             and now - _cache["built_at"] < CACHE_TTL_SECONDS
         ):
-            return {"payloads": _cache["payloads"], "setValueAssociation": _cache["setValueAssociation"]}
+            return _cached_bundle()
     try:
         bundle = _build_payloads()
     except Exception:
         logger.exception("[universal-desirability] failed to build v3 payloads")
         with _cache_lock:
             if _cache["payloads"] is not None:
-                return {"payloads": _cache["payloads"], "setValueAssociation": _cache["setValueAssociation"]}
-        return {"payloads": {}, "setValueAssociation": None}
+                return _cached_bundle()
+        return {"payloads": {}, "setValueAssociation": None, "sourceSelection": None}
     with _cache_lock:
         _cache["payloads"] = bundle["payloads"]
         _cache["setValueAssociation"] = bundle["setValueAssociation"]
+        _cache["sourceSelection"] = bundle["sourceSelection"]
         _cache["built_at"] = now
+    counts = (bundle["sourceSelection"] or {}).get("counts") or {}
     logger.info(
-        "[universal-desirability] built %s payloads (version=%s) set_value_association_spearman=%s (diagnostic only)",
+        "[universal-desirability] built %s payloads (version=%s) from %s exact-version rows "
+        "(scanned=%s missing=%s duplicates=%s) set_value_association_spearman=%s (diagnostic only)",
         len(bundle["payloads"]),
         UNIVERSAL_SET_DESIRABILITY_VERSION,
+        counts.get("exact_version_rows_found"),
+        counts.get("rows_scanned"),
+        counts.get("sets_missing_exact_version_row"),
+        counts.get("sets_with_duplicate_exact_version_rows"),
         (bundle["setValueAssociation"] or {}).get("spearman"),
     )
     return bundle

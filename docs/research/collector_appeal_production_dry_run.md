@@ -1,6 +1,6 @@
 # Collector Appeal CA7 — production dry run (Phase 8.1)
 
-**Preview trustworthy: YES** · **Writes performed: 0** · **`--commit` reachable: NO** · Generated 2026-07-16T06:31:19.030607+00:00
+**Preview trustworthy: YES** · **Writes performed: 0** · **`--commit` reachable: NO** · Generated 2026-07-16T17:03:30.444654+00:00
 
 > This run reads production and writes nothing. `main()` never passes `commit=True` and exposes no flag that could.
 
@@ -8,18 +8,18 @@
 
 - Metric: **`collector_appeal_ca7`** · status **`internal_candidate`** · stored at **`diagnostics_json.collector_appeal_ca7`**
 - Formula: **CA7**, λ = **0.5**
-- **Old formula fingerprint:** `fbd2ccff9b8286e3dcdaf4e10283647834e3f761daf42341cc1b592d7f382764`
+- **Old formula fingerprint:** `a98b948c693b87afdb1e4b0d19df03aa3ae650d35ca62b38eea41c126240b774`
 - **New formula fingerprint:** `a98b948c693b87afdb1e4b0d19df03aa3ae650d35ca62b38eea41c126240b774`
-- Normalized payload hash: `298a230164b671fedc793b4433a3818752c1ae8bd77de78d0a55c274562d27de`
-- Full source manifest hash: `4c16a4d42efc3346ee9835ffe1e6e553210fbcf6e0d87a45eea4fcfa4047a27a`
-  - `component_rows`: `41ac4ff95c88954a42d3b6189179b7b3cf3365f76bcd05de592d017eb9dd6b73`
+- Normalized payload hash: `1eac0ef18d9ff3c3474a415d0c5189362ecd70c277cfb0a309e31dd8e3f09dbf`
+- Full source manifest hash: `495bbb842cf6cb1a20a9d0bf8ac9f95c15fa8610b5874ca4d69237729db501a8`
+  - `component_rows`: `9f54ef2b7afef47810ce74c08125040c9c2de4d4df70b5eab30abe6ce746b741`
   - `pull_model`: `fd75a8334f67b4033e4cc2bc9a6176a61d239cd5bcf64cc16b04be6fc19502a1`
-  - `card_inputs`: `ebf4722147c9d064756cc51e579e31a4ec096a70b4284bfeff988b2b2dd15ebe`
+  - `card_inputs`: `c06e414d5ad4261e193360b5a4f4995d1e9f523e6d0c0c0df61bce0bf7f4a44d`
   - `simulation_cohort`: `821f52842625b241dab19754d2ad820c449f5e244520114c8edb2cfb849612bf`
 
 ## Source-version contract
 
-The component table's real unique key is `(set_id, scoring_version, hit_policy_version, composite_scoring_version, fan_popularity_snapshot_id, config_fingerprint)` — **`set_id` is not unique** (511 rows / 171 sets). Rows are selected by EXACT version match, never by recency.
+The component table's real unique key is `(set_id, scoring_version, hit_policy_version, composite_scoring_version, fan_popularity_snapshot_id, config_fingerprint)` — **`set_id` is not unique** (512 rows / 171 sets in this read). Rows are selected by EXACT version match, never by recency.
 
 | Expected version | Value |
 |---|---|
@@ -31,56 +31,41 @@ The component table's real unique key is `(set_id, scoring_version, hit_policy_v
 
 | scoring_version | hit_policy_version | composite_scoring_version | rows | sets | selected? |
 |---|---|---|---|---|---|
+| `pokemon_set_desirability_components_v2_40_25_20_15` | `pokemon_card_desirability_hit_policy_v2_coverage_cleanup` | `pokemon_desirability_composite_v1` | 171 | 171 | **YES** |
 | `pokemon_set_desirability_components_v2_40_25_20_15` | `pokemon_card_desirability_hit_policy_v1` | `pokemon_desirability_composite_v1` | 171 | 171 | no |
-| `pokemon_set_desirability_components_v2_40_25_20_15` | `pokemon_card_desirability_hit_policy_v2_coverage_cleanup` | `pokemon_desirability_composite_v1` | 170 | 170 | **YES** |
 | `pokemon_set_desirability_components_v2_40_25_20_15` | `pokemon_card_desirability_hit_policy_v2` | `pokemon_desirability_composite_v1` | 170 | 170 | no |
 
-- Exact-version rows found: **170**
-- Sets missing an exact-version row: **1**
+- Exact-version rows found: **171**
+- Sets missing an exact-version row: **0**
 - Sets with duplicate exact-version rows: **0**
-
-### Sets with no current-version component row
-
-These are **unavailable**, not silently served from an older row.
-
-- **Chaos Rising** (`5bdbfae1-3f2e-44e7-b8c9-1035ad45b896`) — `missing_current_component_source_row` · **RIP-consumed**
-  - Available versions:
-    - `pokemon_card_desirability_hit_policy_v1` (built 2026-06-16T17:03:14.983277+00:00, id `23ad1e53-11c0-422e-beed-6ef2afcfcf63`)
-  - Separate dry-run rebuild command (NOT executed in this task):
-    ```bash
-    python backend/scripts/build_pokemon_set_desirability_component_scores.py \
-      --set-id 5bdbfae1-3f2e-44e7-b8c9-1035ad45b896 \  # Chaos Rising
-      --hit-policy-version pokemon_card_desirability_hit_policy_v2_coverage_cleanup \
-      --dry-run
-    ```
 
 ## Counts
 
 | Metric | Value |
 |---|---|
-| products total | **170** |
-| booster supported | **134** |
+| products total | **171** |
+| booster supported | **135** |
 | unsupported | **36** |
-| exact version source rows available | **170** |
-| exact version source rows missing | **1** |
-| would update | **170** |
+| exact version source rows available | **171** |
+| exact version source rows missing | **0** |
+| would update | **171** |
 | would insert | **0** |
-| diagnostics only updates | **170** |
+| diagnostics only updates | **171** |
 | score changing updates | **0** |
 | unchanged | **0** |
 | fingerprint current | **0** |
 | fingerprint stale | **0** |
-| fingerprint missing | **170** |
-| collector appeal available | **20** |
+| fingerprint missing | **171** |
+| collector appeal available | **21** |
 | collector appeal unavailable | **150** |
 | rip consumed total | **33** |
-| rip consumed collector appeal available | **20** |
-| rip consumed collector appeal unavailable | **13** |
+| rip consumed collector appeal available | **21** |
+| rip consumed collector appeal unavailable | **12** |
 | rows with warnings | **0** |
 
 ## RIP-consumed cohort — CA7 coverage
 
-**20 of 33** RIP-consumed sets can produce a CA7 value. **13** cannot.
+**21 of 33** RIP-consumed sets can produce a CA7 value. **12** cannot.
 
 > RIP continues to use Universal Desirability v3 at 10%. CA7 is **not** wired into RIP, and no CA7→D fallback is permitted inside one leaderboard: that would rank rows computed from two different constructs against each other.
 
@@ -91,7 +76,6 @@ These are **unavailable**, not silently served from an older row.
 | Astral Radiance | `dual_path_depth_unavailable_no_pull_model` |
 | Battle Styles | `dual_path_depth_unavailable_no_pull_model` |
 | Brilliant Stars | `dual_path_depth_unavailable_no_pull_model` |
-| Chaos Rising | `missing_current_component_source_row` |
 | Chilling Reign | `dual_path_depth_unavailable_no_pull_model` |
 | Darkness Ablaze | `dual_path_depth_unavailable_no_pull_model` |
 | Evolving Skies | `dual_path_depth_unavailable_no_pull_model` |
@@ -108,6 +92,7 @@ These are **unavailable**, not silently served from an older row.
 |---|---|
 | Ascended Heroes | 0.960942 |
 | Black Bolt | 0.851027 |
+| Chaos Rising | 0.754929 |
 | Destined Rivals | 0.898659 |
 | Journey Together | 0.893347 |
 | Mega Evolution | 0.900581 |
@@ -164,8 +149,8 @@ These are **unavailable**, not silently served from an older row.
   ```json
   {
   "rip_consumed_total": 33,
-  "collector_appeal_available": 20,
-  "collector_appeal_unavailable": 13,
+  "collector_appeal_available": 21,
+  "collector_appeal_unavailable": 12,
   "unavailable_sets": [
     {
       "set_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
@@ -187,13 +172,6 @@ These are **unavailable**, not silently served from an older row.
       "set_canonical_key": "brilliantStars",
       "collector_appeal_ca7": null,
       "reason": "dual_path_depth_unavailable_no_pull_model"
-    },
-    {
-      "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
-      "set_name": "Chaos Rising",
-      "set_canonical_key": "chaosRising",
-      "collector_appeal_ca7": null,
-      "reason": "missing_current_component_source_row"
     },
     {
       "set_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
@@ -268,7 +246,7 @@ These are **unavailable**, not silently served from an older row.
 - Method: **update** by primary key, **1 row per statement**
 - Predicate: `id = <source_row_id> AND updated_at = <expected_updated_at>`
 - Writable columns: `['diagnostics_json']`
-- Upsert: FORBIDDEN. set_id is not unique in this table (511 rows / 171 sets), so on_conflict="set_id" names no constraint and cannot identify a row.
+- Upsert: FORBIDDEN. set_id is not unique in this table (several rows per set), so on_conflict="set_id" names no constraint and cannot identify a row.
 - Concurrency: optimistic: updated_at is pinned in the predicate, so a row that moved since the preview matches zero rows and fails instead of overwriting.
 - Zero rows returned → fails - the target vanished or moved
 - More than one row returned → fails - the predicate was not unique
@@ -282,15 +260,15 @@ A future commit command would require ALL THREE approval tokens to match a rebui
 
 ```bash
   --expected-fingerprint a98b948c693b87afdb1e4b0d19df03aa3ae650d35ca62b38eea41c126240b774
-  --expected-manifest 4c16a4d42efc3346ee9835ffe1e6e553210fbcf6e0d87a45eea4fcfa4047a27a
-  --expected-payload-hash 298a230164b671fedc793b4433a3818752c1ae8bd77de78d0a55c274562d27de
+  --expected-manifest 495bbb842cf6cb1a20a9d0bf8ac9f95c15fa8610b5874ca4d69237729db501a8
+  --expected-payload-hash 1eac0ef18d9ff3c3474a415d0c5189362ecd70c277cfb0a309e31dd8e3f09dbf
 ```
 
 **No such command exists yet.** `--commit` is not implemented in this script.
 
 ## Pagination
 
-- Pages read: 1 · total rows 511
+- Pages read: 3 · total rows 512
 - Final page partial (proves no truncation): **True**
 - Truncation possible: **False**
 

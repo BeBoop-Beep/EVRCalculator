@@ -117,7 +117,15 @@ Sequencing, for whoever picks this up:
    changes both its definition *and* its values, with the old name still in
    flight, is indistinguishable from a bug.
 
-**Blocked on:** CA7 covers only 20 of the 33 RIP-consumed sets
+**Blocked on:** CA7 covers only **21 of the 33** RIP-consumed sets
 (`collector_appeal_production_dry_run.md`). Promoting it to a public name while a
 third of the ranked cohort has no value would force a fallback to D — which is
 precisely the two-constructs-one-column failure this note exists to prevent.
+
+> **Phase 8.2 update.** Coverage moved 20 → 21 because Chaos Rising's missing
+> `v2_coverage_cleanup` component row was **built**, not because the contract was
+> loosened. Exact component coverage is now **171 of 171**. The remaining 12 are
+> all upstream pull-model gaps (11 `no pull model`, 1 `no modeled subject` —
+> Lost Origin); **zero** are missing component-source rows. The naming migration
+> remains **unauthorized**: CA7 is still `internal_candidate`, and the public
+> shipping metric is still Universal Desirability under the existing contract.

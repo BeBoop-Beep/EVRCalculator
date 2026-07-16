@@ -5,7 +5,9 @@ THE DEFECT THIS MODULE EXISTS TO PREVENT
 ``pokemon_set_desirability_component_scores`` is NOT one row per set. It is one
 row per (set, scoring_version, hit_policy_version, composite_scoring_version,
 fan_popularity_snapshot_id, config_fingerprint) - the table's actual unique key.
-Production currently holds 511 rows across 171 sets and three hit policies.
+Production holds several hundred rows across 171 sets and three hit policies
+(512 at the time of writing; the count grows with every rebuild, which is why no
+caller should hardcode it - report it from the read instead).
 
 The previous loader took "the latest row per set by ``built_at``". That rule is
 not merely imprecise, it is WRONG IN PRODUCTION TODAY: the newest rows for all
@@ -54,7 +56,7 @@ COMPONENT_UNIQUE_KEY: Sequence[str] = (
 )
 COMPONENT_PRIMARY_KEY = "id"
 
-# ``set_id`` alone is NOT unique (511 rows / 171 sets) and must never be used as
+# ``set_id`` alone is NOT unique (several rows per set) and must never be used as
 # a conflict target. Named so the prohibition is testable, not just documented.
 COMPONENT_NON_UNIQUE_COLUMNS: Sequence[str] = ("set_id", "set_canonical_key", "built_at")
 
@@ -109,6 +111,39 @@ COMPONENT_SOURCE_COLUMNS = ",".join(
         "updated_at",
     )
 )
+
+
+# The columns the SELECTOR itself reads: the version triple it matches on, the
+# unique-key fields a duplicate is diagnosed with, and the identity a caller
+# reports. A reader that needs different payload columns adds them via
+# :func:`selector_columns` rather than hand-writing this list - a second loader
+# with its own column list is a second place for the contract to drift.
+COMPONENT_IDENTITY_COLUMNS: Sequence[str] = (
+    "id",
+    "set_id",
+    "set_name",
+    "set_canonical_key",
+    "scoring_version",
+    "hit_policy_version",
+    "composite_scoring_version",
+    "fan_popularity_snapshot_id",
+    "config_fingerprint",
+    "built_at",
+)
+
+
+def selector_columns(*extra: str) -> str:
+    """The selector's identity columns plus a caller's payload columns.
+
+    Callers pass only what THEY need to compute with; the identity columns come
+    from here so no caller can accidentally select a row set the selector cannot
+    diagnose. Order is stable so two readers issue byte-identical queries.
+    """
+    columns: List[str] = list(COMPONENT_IDENTITY_COLUMNS)
+    for column in extra:
+        if column not in columns:
+            columns.append(column)
+    return ",".join(columns)
 
 
 def expected_source_versions() -> Dict[str, str]:

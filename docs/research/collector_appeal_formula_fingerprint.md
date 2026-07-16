@@ -11,8 +11,15 @@
 | **New (Phase 8.1)** | `a98b948c693b87afdb1e4b0d19df03aa3ae650d35ca62b38eea41c126240b774` |
 
 The fingerprint **changed on purpose**. Section 2 lists exactly which assumptions
-moved it. No stored row is affected: CA7 has never been persisted, so all 170
+moved it. No stored row is affected: CA7 has never been persisted, so all **171**
 selectable rows are `fingerprint_missing` under both the old and the new hash.
+
+> **Phase 8.2 re-verification.** After the Chaos Rising backfill the selectable
+> population is **171** (was 170). The fingerprint is **unchanged** —
+> `a98b948c693b87afdb1e4b0d19df03aa3ae650d35ca62b38eea41c126240b774` — and must
+> be: a new *input row* is not a new *rule*. The source-manifest and payload
+> hashes did change, which is the correct split. See
+> `collector_appeal_cross_run_determinism.md`.
 
 ---
 

@@ -6,6 +6,32 @@
 
 ---
 
+## Phase 8.2 update (2026-07-16)
+
+- **Chaos Rising exact component gap: RESOLVED.** Its `v2_coverage_cleanup`
+  component row was built and committed (`6e4cf65f-6846-4e7a-91dd-346550d31dca`).
+  The historical v1 row is retained and remains ignored by the version-exact
+  contract.
+- **Exact component coverage: 171 of 171** (0 missing, 0 duplicates), from 512
+  historical rows across three hit policies.
+- **CA7 RIP coverage: 21 of 33** (was 20). The remaining **12** are upstream pull
+  data gaps: **11 `no pull model`** + **1 `no modeled subject` (Lost Origin)**.
+  **Zero** are missing component-source rows.
+- **Formula fingerprint unchanged:**
+  `a98b948c693b87afdb1e4b0d19df03aa3ae650d35ca62b38eea41c126240b774`. Source and
+  payload hashes changed, correctly — a new input row is not a new rule.
+- **Public reader repaired.** Consumer #1 below selected by `built_at DESC` and
+  was serving `hit_policy_v1` rows for **170 of 171 sets**. It now uses the same
+  version-exact contract as CA7. **0 public scores and 0 ranks changed**; 170
+  sets changed which row backs the identical value. See
+  `universal_desirability_reader_source_repair.md`.
+- **Independent cross-run determinism executed and passed** (Phase 8.1 ran only
+  the in-process check). See `collector_appeal_cross_run_determinism.md`.
+- CA7 remains `internal_candidate`; **0 CA7 writes**, no migration, no RIP or
+  naming change. RIP still consumes Universal Desirability v3 at 10%.
+
+---
+
 ## 0. Headline
 
 Three findings drive everything below.
@@ -34,7 +60,7 @@ columns, traced end to end.
 
 | # | Consumer | Reads | Ranks unavailable as zero? |
 |---|---|---|---|
-| 1 | `universal_set_desirability_service._load_latest_v2_rows` | `subject_rollups_json`, `set_desirability_score` | **No** — computes v3 at read time, gates on `coverage.status` |
+| 1 | `universal_set_desirability_service._load_current_component_rows` | `subject_rollups_json`, `set_desirability_score` | **No** — computes v3 at read time, gates on `coverage.status` |
 | 2 | `explore_rip_statistics_service` (L929-933) | v3 payload | **No** — `desirability_v3_score = None` unless coverage `full` |
 | 3 | `weighted_rip.compute_weighted_rip` | pillar value | **No** — dropped missing pillar (now: canonical RIP unavailable) |
 | 4 | `rip_desirability_comparison.build_rip_desirability_comparison_payload` | `desirability_score` → `pack_score`, `pack_rank`, `pack_tier` | **No** — sources from `pokemon_set_opening_desirability_latest`, where all 36 are `NULL`; `_weighted_score` returns `None` if any input is missing |
