@@ -28,6 +28,23 @@ WHAT IS DELIBERATELY NOT IN IT
 * **No database access.** Fingerprinting reads module constants only. It must be
   callable in a unit test with no network and no credentials.
 * **No price or market input**, consistent with the construct.
+* **No product name or product status.** ``metric_name`` and ``product_status``
+  are recorded in the identity block but excluded from the hash: renaming a
+  metric or promoting it out of ``internal_candidate`` does not change a single
+  computed number, and hashing them would mark every row stale for a relabelling.
+
+FORMULA IDENTITY IS NOT SOURCE IDENTITY
+---------------------------------------
+This hash answers "under what RULES was this computed?" It cannot answer "from
+WHICH ROW?" - and conflating the two is how a diagnostics block certifying
+``hit_policy_version = ..._v2_coverage_cleanup`` came to be proposed for rows
+actually built under ``..._v1``. The certificate was true about the rules and
+silent about the inputs, so nothing contradicted it.
+
+The source identity is built separately, per row, by
+``component_source.build_source_identity``, and an invariant asserts the selected
+row's ACTUAL versions match the versions this fingerprint represents. Both are
+stored. Neither is sufficient alone.
 
 DETERMINISM
 -----------
@@ -44,10 +61,18 @@ import json
 from typing import Any, Dict, Mapping, Optional
 
 from backend.calculations.utils.rarity_classification import RARITY_NORMALIZATION_VERSION
+from backend.desirability.card_links import (
+    CARD_DESIRABILITY_LINK_SOURCE_VERSION,
+    CARD_LINK_AGGREGATION_POLICY_VERSION,
+    CARD_SUBJECT_ASSEMBLY_VERSION,
+)
 from backend.desirability.collector_appeal import (
     CA7_FORMULA,
     CA7_FORMULA_VERSION,
     CA7_PRODUCTION_LAMBDA,
+    COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    COLLECTOR_APPEAL_METRIC_NAME,
+    COLLECTOR_APPEAL_PRODUCT_STATUS,
     COLLECTOR_APPEAL_VERSION,
     DUAL_PATH_DEPTH_VERSION,
     MISSING_DATA_POLICY,
@@ -55,14 +80,28 @@ from backend.desirability.collector_appeal import (
     ROUNDING_POLICY,
     ROUNDING_POLICY_VERSION,
 )
+from backend.desirability.component_source import (
+    COMPONENT_SOURCE_CONTRACT_VERSION,
+    EXPECTED_COMPOSITE_SCORING_VERSION,
+    EXPECTED_HIT_POLICY_VERSION,
+    EXPECTED_SCORING_VERSION,
+)
 from backend.desirability.composite import COMPOSITE_SCORING_VERSION
-from backend.desirability.factorized_opening_appeal import D_FACTOR_VERSION
+from backend.desirability.factorized_opening_appeal import (
+    D_FACTOR_VERSION,
+    SUBJECT_DEMAND_AGGREGATION_VERSION,
+)
 from backend.desirability.opening_appeal import (
     ACCESS_TRANSFORM_VERSION,
     DEMAND_BASELINE,
     EASY_PROBABILITY,
     ELITE_PROBABILITY,
     SCARCITY_TRANSFORM_VERSION,
+    SUBJECT_CONSTRUCTION_VERSION,
+)
+from backend.desirability.pull_model import (
+    PULL_MODEL_LOADER_VERSION,
+    PULL_PROBABILITY_MAPPING_VERSION,
 )
 from backend.desirability.product_support import PRODUCT_SUPPORT_VERSION
 from backend.desirability.rankability import RANKABILITY_VERSION
@@ -117,8 +156,32 @@ def collect_assumptions() -> Dict[str, Any]:
             "rarity_mapping_version": RARITY_NORMALIZATION_VERSION,
             "rarity_override_version": RARITY_OVERRIDE_VERSION,
             # --- subjects -------------------------------------------------
+            # Every step between "a printed card exists" and "subject s carries
+            # demand share q_s" is a scoring decision that can move CA7 without
+            # touching the formula. Each was previously invisible to the hash:
+            # the fingerprint described the mathematics and said nothing about
+            # how its inputs were assembled.
             "subject_demand_source_version": COMPOSITE_SCORING_VERSION,
             "subject_weighting_version": D_FACTOR_VERSION,
+            "subject_construction_version": SUBJECT_CONSTRUCTION_VERSION,
+            "subject_demand_aggregation_version": SUBJECT_DEMAND_AGGREGATION_VERSION,
+            "card_link_source_version": CARD_DESIRABILITY_LINK_SOURCE_VERSION,
+            "card_link_aggregation_version": CARD_LINK_AGGREGATION_POLICY_VERSION,
+            "card_subject_assembly_version": CARD_SUBJECT_ASSEMBLY_VERSION,
+            # --- pull model ------------------------------------------------
+            # P is a function of MODELED probabilities. How they are read and how
+            # a "1 in N" denominator becomes a probability are as material to the
+            # result as the lambda is.
+            "pull_model_loader_version": PULL_MODEL_LOADER_VERSION,
+            "pull_probability_mapping_version": PULL_PROBABILITY_MAPPING_VERSION,
+            # --- component source contract ---------------------------------
+            # WHICH row the calculation is allowed to read. A change here means
+            # the same formula is being applied to a different set of inputs, so
+            # stored rows computed under the old contract are stale.
+            "component_source_contract_version": COMPONENT_SOURCE_CONTRACT_VERSION,
+            "component_source_scoring_version": EXPECTED_SCORING_VERSION,
+            "component_source_hit_policy_version": EXPECTED_HIT_POLICY_VERSION,
+            "component_source_composite_scoring_version": EXPECTED_COMPOSITE_SCORING_VERSION,
             # --- product policy -------------------------------------------
             "product_classifier_version": PRODUCT_SUPPORT_VERSION,
             "rankability_contract_version": RANKABILITY_VERSION,
@@ -177,6 +240,11 @@ def build_collector_appeal_identity(
     """
     resolved = dict(assumptions) if assumptions is not None else collect_assumptions()
     identity: Dict[str, Any] = {
+        # Product identity first: anything reading this block must be able to see
+        # WHAT metric it is before it sees any number. These are excluded from
+        # the hash (see the module docstring).
+        "metric_name": COLLECTOR_APPEAL_METRIC_NAME,
+        "product_status": COLLECTOR_APPEAL_PRODUCT_STATUS,
         "formula": resolved["formula"],
         "lambda": resolved["lambda"],
         "formula_version": resolved["formula_version"],
@@ -207,14 +275,18 @@ def current_fingerprint() -> str:
 def read_row_fingerprint(row: Mapping[str, Any]) -> Optional[str]:
     """Pull a stored fingerprint out of a component row's diagnostics.
 
-    Reads the nested ``diagnostics_json.collector_appeal.fingerprint`` shape.
-    Returns None when absent - which is every production row today, since
-    Collector Appeal has never been persisted.
+    Reads ``diagnostics_json.collector_appeal_ca7.fingerprint`` - the namespaced
+    key, NOT the generic ``collector_appeal``, which is reserved for the existing
+    public metric (Pure/Universal Desirability). Reading the generic key would
+    make this function answer a question about a different construct.
+
+    Returns None when absent - which is every production row today, since CA7 has
+    never been persisted.
     """
     diagnostics = row.get("diagnostics_json")
     if not isinstance(diagnostics, Mapping):
         return None
-    block = diagnostics.get("collector_appeal")
+    block = diagnostics.get(COLLECTOR_APPEAL_DIAGNOSTICS_KEY)
     if not isinstance(block, Mapping):
         return None
     stored = block.get("fingerprint")

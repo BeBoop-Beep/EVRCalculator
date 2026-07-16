@@ -1,5 +1,33 @@
-"""Collector Appeal pillar candidates (RESEARCH ONLY; never wired into RIP).
+"""Collector Appeal: a research candidate grid AND one selected production function.
 
+TWO THINGS LIVE HERE. THEY ARE NOT THE SAME THING.
+--------------------------------------------------
+1. **The research candidate grid** (CA0-CA7 across every pre-registered weight and
+   lambda; ``compute_collector_appeal_candidates``, ``collector_appeal_payload``,
+   ``COLLECTOR_APPEAL_CANDIDATE_KEYS``). Research only. It exists to COMPARE
+   candidates and is never stored, never served, and never wired into RIP. Its
+   whole purpose is to show what each candidate would have done.
+
+2. **The selected production candidate** (``compute_collector_appeal`` = CA7 at
+   ``CA7_PRODUCTION_LAMBDA``; identified by ``COLLECTOR_APPEAL_VERSION`` =
+   ``collector_appeal_ca7_v1``). This is a PRODUCTION CANDIDATE: one function,
+   one lambda, fingerprinted, and proposed for storage as an internal candidate
+   under ``diagnostics_json.collector_appeal_ca7``.
+
+Keep the boundary sharp. Reading a number off the grid and reporting it as "the"
+Collector Appeal would be reporting a candidate as a product; the grid is a menu,
+and only CA7@0.50 was chosen from it - on construct grounds, never by fitting.
+
+NOT THE PUBLIC "COLLECTOR APPEAL"
+---------------------------------
+The shipping ``collector_appeal_score`` column/API field is Pure/Universal
+Desirability - a DIFFERENT construct that happens to share the product name. CA7
+is not that metric and must not be persisted under a generic ``collector_appeal``
+key. See ``docs/research/collector_appeal_product_naming_transition.md``; no
+public rename is authorized.
+
+THE RESEARCH QUESTION
+---------------------
 Builds on ``factorized_opening_appeal`` (which is itself research-only) and asks
 a narrower question than that study did:
 
@@ -70,8 +98,26 @@ from backend.desirability.factorized_opening_appeal import (
     desirable_subjects,
 )
 
-COLLECTOR_APPEAL_VERSION = "collector_appeal_v1_research"
+# The identity of the PRODUCTION-CANDIDATE function (CA7), not of the research
+# grid. Renamed from ``collector_appeal_v1_research``: that string described a
+# study, and this constant now identifies a formula proposed for production
+# storage. The grid below stays research-only and is not covered by this version.
+COLLECTOR_APPEAL_VERSION = "collector_appeal_ca7_v1"
 DUAL_PATH_DEPTH_VERSION = "dual_path_depth_v1"
+
+# --- Product identity (see docs/research/collector_appeal_product_naming_transition.md)
+#
+# ``collector_appeal_score`` ALREADY EXISTS in production and is Pure/Universal
+# Desirability - a different construct from CA7. Persisting CA7 under a generic
+# "collector_appeal" key would put two different definitions behind one product
+# name, and the ambiguity would be permanent the moment anything read it.
+#
+# So the stored block is namespaced ``collector_appeal_ca7`` and declares itself
+# an internal candidate. The public field, API response and frontend contract are
+# untouched; no rename is authorized.
+COLLECTOR_APPEAL_METRIC_NAME = "collector_appeal_ca7"
+COLLECTOR_APPEAL_DIAGNOSTICS_KEY = "collector_appeal_ca7"
+COLLECTOR_APPEAL_PRODUCT_STATUS = "internal_candidate"
 
 # ---------------------------------------------------------------------------
 # PRE-REGISTERED candidate family.

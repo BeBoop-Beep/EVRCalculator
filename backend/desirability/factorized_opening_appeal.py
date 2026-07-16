@@ -54,6 +54,16 @@ from backend.desirability.scoring_config import FAVORITE_COVERAGE_SATURATION_K
 
 FACTORIZED_OPENING_APPEAL_VERSION = "factorized_opening_appeal_v1_research"
 D_FACTOR_VERSION = "desirability_factor_v1"
+
+# How subject demand is aggregated into the shares q_s that weight every
+# structural metric (see ``desirable_subjects`` and ``demand_shares``). Two
+# rules, both of which move Dual-Path Depth on identical data:
+#   * SELECTION: only subjects with appeal_excess > 0 participate;
+#   * NORMALIZATION: q_s = u_s / sum(u_s) over exactly those subjects.
+# Widening the selection or switching to a different normalization changes every
+# weighted structural score while leaving the formula untouched, so this is a
+# fingerprint dependency in its own right.
+SUBJECT_DEMAND_AGGREGATION_VERSION = "subject_demand_aggregation_v1_excess_share_normalized"
 A_STAR_VERSION = "accessibility_structure_v1_factor_free"
 M_STAR_VERSION = "elite_chase_structure_v1_factor_free"
 

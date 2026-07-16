@@ -13,10 +13,16 @@ import copy
 import inspect
 import json
 import re
+from unittest import mock
 
 import pytest
 
 from backend.desirability import collector_appeal_fingerprint as fp
+from backend.desirability.collector_appeal import (
+    COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    COLLECTOR_APPEAL_METRIC_NAME,
+    COLLECTOR_APPEAL_PRODUCT_STATUS,
+)
 from backend.desirability.collector_appeal_fingerprint import (
     FINGERPRINT_CURRENT,
     FINGERPRINT_MISSING,
@@ -118,9 +124,24 @@ def test_canonical_representation_is_stable_and_sorted():
         (["dependencies", "hit_buckets"], ["accessible_hit", "major_hit", "premium_chase"]),
         (["dependencies", "rarity_mapping_version"], "rarity_normalization_v2"),
         (["dependencies", "rarity_override_version"], "rarity_overrides_v2"),
-        # Subjects.
+        # Subjects - construction and demand aggregation. Phase 8.1 additions:
+        # every step between "a card exists" and "subject s has share q_s" is a
+        # scoring decision, and none of them were hashed before.
         (["dependencies", "subject_demand_source_version"], "pokemon_desirability_composite_v2"),
         (["dependencies", "subject_weighting_version"], "desirability_factor_v2"),
+        (["dependencies", "subject_construction_version"], "subject_construction_v2"),
+        (["dependencies", "subject_demand_aggregation_version"], "subject_demand_aggregation_v2"),
+        (["dependencies", "card_link_source_version"], "card_desirability_link_source_v2"),
+        (["dependencies", "card_link_aggregation_version"], "card_link_aggregation_v2_max"),
+        (["dependencies", "card_subject_assembly_version"], "card_subject_assembly_v2_card_key"),
+        # Pull model - P is a function of these; they were invisible to the hash.
+        (["dependencies", "pull_model_loader_version"], "pull_model_loader_v2"),
+        (["dependencies", "pull_probability_mapping_version"], "pull_probability_mapping_v2"),
+        # Component source contract - WHICH rows the formula is applied to.
+        (["dependencies", "component_source_contract_version"], "component_source_contract_v2"),
+        (["dependencies", "component_source_scoring_version"], "components_v3"),
+        (["dependencies", "component_source_hit_policy_version"], "hit_policy_v1"),
+        (["dependencies", "component_source_composite_scoring_version"], "composite_v2"),
         # Product policy.
         (["dependencies", "product_classifier_version"], "product_support_v2"),
         (["dependencies", "rankability_contract_version"], "rankability_contract_v2"),
@@ -166,16 +187,136 @@ def test_hit_bucket_membership_change_invalidates():
 
 
 # ---------------------------------------------------------------------------
+# Phase 8.1: dependency completeness
+# ---------------------------------------------------------------------------
+
+def test_every_material_path_has_an_explicit_version_identity():
+    """The dependency set must NAME every path that can move a CA7 score.
+
+    Enumerated rather than spot-checked: a dependency that is simply absent
+    cannot be caught by a mutation test, because there is nothing to mutate. That
+    is precisely how the subject-construction, card-link and pull-model paths
+    stayed outside the hash while being able to change every stored number.
+    """
+    dependencies = collect_assumptions()["dependencies"]
+    for required in (
+        "desirability_version", "dual_path_version",
+        "access_transform_version", "scarcity_transform_version",
+        "hit_eligibility_version", "rarity_mapping_version",
+        "subject_construction_version", "subject_demand_aggregation_version",
+        "card_link_source_version", "card_link_aggregation_version",
+        "card_subject_assembly_version",
+        "pull_model_loader_version", "pull_probability_mapping_version",
+        "component_source_contract_version", "component_source_scoring_version",
+        "component_source_hit_policy_version", "component_source_composite_scoring_version",
+    ):
+        assert dependencies.get(required), f"fingerprint does not cover {required}"
+
+
+def test_dependency_versions_are_read_live_from_their_defining_modules():
+    """Not duplicated string literals - a parallel copy drifts silently."""
+    from backend.desirability.card_links import (
+        CARD_DESIRABILITY_LINK_SOURCE_VERSION,
+        CARD_LINK_AGGREGATION_POLICY_VERSION,
+        CARD_SUBJECT_ASSEMBLY_VERSION,
+    )
+    from backend.desirability.factorized_opening_appeal import SUBJECT_DEMAND_AGGREGATION_VERSION
+    from backend.desirability.opening_appeal import SUBJECT_CONSTRUCTION_VERSION
+    from backend.desirability.pull_model import (
+        PULL_MODEL_LOADER_VERSION,
+        PULL_PROBABILITY_MAPPING_VERSION,
+    )
+
+    dependencies = collect_assumptions()["dependencies"]
+    assert dependencies["subject_construction_version"] == SUBJECT_CONSTRUCTION_VERSION
+    assert dependencies["subject_demand_aggregation_version"] == SUBJECT_DEMAND_AGGREGATION_VERSION
+    assert dependencies["card_link_source_version"] == CARD_DESIRABILITY_LINK_SOURCE_VERSION
+    assert dependencies["card_link_aggregation_version"] == CARD_LINK_AGGREGATION_POLICY_VERSION
+    assert dependencies["card_subject_assembly_version"] == CARD_SUBJECT_ASSEMBLY_VERSION
+    assert dependencies["pull_model_loader_version"] == PULL_MODEL_LOADER_VERSION
+    assert dependencies["pull_probability_mapping_version"] == PULL_PROBABILITY_MAPPING_VERSION
+
+
+def test_the_hit_policy_in_the_fingerprint_is_the_one_the_source_contract_demands():
+    """The two must never disagree: a fingerprint claiming v2_coverage_cleanup
+    while the loader selects something else is the original defect."""
+    from backend.desirability.component_source import EXPECTED_HIT_POLICY_VERSION
+
+    dependencies = collect_assumptions()["dependencies"]
+    assert dependencies["component_source_hit_policy_version"] == EXPECTED_HIT_POLICY_VERSION
+    assert dependencies["hit_eligibility_version"] == EXPECTED_HIT_POLICY_VERSION
+
+
+def test_the_module_version_is_the_production_candidate_identity():
+    """``collector_appeal_v1_research`` named a study, not a stored metric."""
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_VERSION
+
+    assert COLLECTOR_APPEAL_VERSION == "collector_appeal_ca7_v1"
+    assert "research" not in COLLECTOR_APPEAL_VERSION
+    assert collect_assumptions()["dependencies"]["collector_appeal_module_version"] == COLLECTOR_APPEAL_VERSION
+
+
+# ---------------------------------------------------------------------------
+# Phase 8.1: product naming is identity, not mathematics
+# ---------------------------------------------------------------------------
+
+def test_the_identity_declares_the_metric_name_and_product_status():
+    identity = build_collector_appeal_identity()
+    assert identity["metric_name"] == COLLECTOR_APPEAL_METRIC_NAME == "collector_appeal_ca7"
+    assert identity["product_status"] == COLLECTOR_APPEAL_PRODUCT_STATUS == "internal_candidate"
+
+
+def test_metric_name_and_product_status_are_excluded_from_the_hash():
+    """Renaming a metric or promoting it changes no computed number. Hashing
+    either would mark every row stale for a relabelling.
+
+    Asserted on the hashed KEYS, not on substrings: ``collector_appeal_ca7`` is a
+    prefix of the module version ``collector_appeal_ca7_v1``, which IS hashed and
+    should be - it identifies the formula, not the label.
+    """
+    assumptions = collect_assumptions()
+    assert "metric_name" not in assumptions
+    assert "product_status" not in assumptions
+    assert "metric_name" not in assumptions["dependencies"]
+    assert "product_status" not in assumptions["dependencies"]
+
+    parsed = json.loads(canonical_representation())
+    assert COLLECTOR_APPEAL_PRODUCT_STATUS not in parsed.values()
+    assert COLLECTOR_APPEAL_PRODUCT_STATUS not in parsed["dependencies"].values()
+
+
+def test_promoting_the_metric_out_of_internal_candidate_would_not_move_the_hash():
+    """The behavioural version of the rule above."""
+    baseline = current_fingerprint()
+    with mock.patch.object(fp, "COLLECTOR_APPEAL_PRODUCT_STATUS", "shipped"), \
+         mock.patch.object(fp, "COLLECTOR_APPEAL_METRIC_NAME", "roster_appeal"):
+        assert current_fingerprint() == baseline
+        identity = build_collector_appeal_identity()
+    assert identity["product_status"] == "shipped"
+    assert identity["metric_name"] == "roster_appeal"
+
+
+# ---------------------------------------------------------------------------
 # Staleness classification
 # ---------------------------------------------------------------------------
 
-def _row(fingerprint=None, *, block=True):
+def _row(fingerprint=None, *, block=True, key=COLLECTOR_APPEAL_DIAGNOSTICS_KEY):
     diagnostics = {}
     if block:
-        diagnostics["collector_appeal"] = {"formula": "CA7", "lambda": 0.5}
+        diagnostics[key] = {"formula": "CA7", "lambda": 0.5}
         if fingerprint is not None:
-            diagnostics["collector_appeal"]["fingerprint"] = fingerprint
+            diagnostics[key]["fingerprint"] = fingerprint
     return {"set_id": "s1", "diagnostics_json": diagnostics}
+
+
+def test_the_fingerprint_is_read_from_the_namespaced_key_only():
+    """A block under the generic ``collector_appeal`` key belongs to the EXISTING
+    public metric (Pure/Universal Desirability). Reading a fingerprint out of it
+    would answer a question about a different construct - and would classify a
+    row as current on the strength of someone else's certificate."""
+    generic = _row(current_fingerprint(), key="collector_appeal")
+    assert read_row_fingerprint(generic) is None
+    assert fingerprint_status(generic) == FINGERPRINT_MISSING
 
 
 def test_matching_fingerprint_is_current():

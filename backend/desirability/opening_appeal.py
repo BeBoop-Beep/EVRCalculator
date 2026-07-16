@@ -31,6 +31,17 @@ OPENING_APPEAL_VERSION = "opening_appeal_candidate_v1_research"
 ACCESSIBLE_APPEAL_VERSION = "accessible_appeal_v1_slot_aware"
 ELITE_CHASE_MAGNETISM_VERSION = "elite_chase_magnetism_v1_card_level"
 
+# How ``build_subjects`` collapses cards into the subjects every structural
+# metric is computed over. Names three decisions, each of which moves Dual-Path
+# Depth without touching the CA7 formula:
+#   * grouping key: cards are grouped by ``subject_key`` (one Pokemon, all its
+#     printings) - the multi-printing structure P exists to measure;
+#   * subject demand: the MAX across the subject's cards, not the mean, so a
+#     subject is as desirable as its most desirable printing;
+#   * subject probability: the slot-aware union, never an independence product.
+# Bump when any of those change.
+SUBJECT_CONSTRUCTION_VERSION = "subject_construction_v1_subject_key_max_demand_slot_union"
+
 # Transform identities. These name the SHAPE of the transform (log10 interpolation
 # between two anchors, clamped to [0, 1]); the anchor VALUES are the separate
 # constants below. Both are folded into the Collector Appeal fingerprint, so a
