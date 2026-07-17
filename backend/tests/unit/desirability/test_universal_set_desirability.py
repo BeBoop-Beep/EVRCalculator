@@ -11,6 +11,7 @@ from backend.desirability.scoring_config import (
 )
 from backend.desirability.weighted_rip import (
     compute_financial_rip,
+    compute_overall_rip,
     compute_weighted_rip,
     evaluate_set_value_association,
     pillar_redundancy_matrix,
@@ -125,48 +126,57 @@ def test_rip_has_no_cap_or_clamp_on_desirability_influence():
     assert math.isclose(high - low, 10.0, abs_tol=1e-6)
 
 
-def test_desirability_zero_weight_reproduces_renormalized_financial_only_rip():
+def test_financial_rip_is_60_25_15_not_a_renormalized_four_pillar_blend():
+    """Financial RIP is its own model now, not the legacy blend minus a pillar.
+
+    It used to be ``compute_weighted_rip(..., include_desirability=False)``,
+    which renormalized 0.58/0.20/0.12 over 0.90 to 0.644/0.222/0.133 - so the
+    weights it published were never the weights it applied. The two therefore no
+    longer agree, and that disagreement is the point.
+    """
     pillars = {"profit": 80.0, "safety": 40.0, "stability": 60.0, "desirability": 95.0}
-    zero_weighted = compute_weighted_rip(pillars, weights={"desirability": 0.0})
     financial_only = compute_financial_rip(pillars)
-    assert math.isclose(zero_weighted["score"], financial_only["score"], abs_tol=1e-9)
-    expected = (0.58 * 80.0 + 0.20 * 40.0 + 0.12 * 60.0) / 0.90
+    expected = 0.60 * 80.0 + 0.25 * 40.0 + 0.15 * 60.0
     assert math.isclose(financial_only["score"], round(expected, 4), abs_tol=1e-3)
 
+    legacy_renormalized = (0.58 * 80.0 + 0.20 * 40.0 + 0.12 * 60.0) / 0.90
+    assert not math.isclose(financial_only["score"], legacy_renormalized, abs_tol=1e-2)
 
-def test_missing_desirability_data_makes_canonical_rip_unavailable():
-    """POLICY REVERSAL (deliberate). Supersedes
-    ``test_missing_desirability_data_renormalizes_instead_of_scoring_zero``.
 
-    The old behaviour renormalized Profit/Safety/Stability to 100% when
-    desirability was missing. That was never a decision - it fell out of the
-    generic renormalization rule, which cannot tell "this pillar is switched
-    off" from "we could not measure this pillar".
+def test_missing_ca7_no_longer_prevents_a_rip_score():
+    """POLICY REVERSAL (deliberate), superseding the CA7-pillar policy.
 
-    The result LOOKED like a canonical RIP and sorted against real four-pillar
-    RIPs while not being comparable to them: a product missing its fourth pillar
-    could out-rank a fully-measured booster set purely because the missing
-    pillar was scored out of existence. Missing data must not become a
-    competitive score.
+    The retired model made CA7 a weighted pillar and reported
+    ``incomplete_missing_desirability`` whenever it was absent, so RIP was null
+    for every set whose pull model could not be read. CA7 is no longer a pillar:
+    Overall RIP reads Universal Set Desirability, which needs no pull model, so
+    a missing CA7 changes nothing.
 
-    Financial-only numbers are still available - under a distinct label, via
-    compute_financial_rip / the financialOnly payload - and are never ranked in
-    the canonical cohort.
+    The legacy four-pillar helper keeps its old missing-pillar behaviour for the
+    report-only sensitivity study that still calls it - which is why it is
+    asserted here against the LEGACY version string, not the shipping one.
     """
-    with_missing = compute_weighted_rip(
+    overall = compute_overall_rip(
+        {"profit": 80.0, "safety": 40.0, "stability": 60.0},
+        95.0,  # universal desirability; no CA7 anywhere
+    )
+    assert overall["score"] is not None
+    assert overall["rankable"] is True
+    assert overall.get("status") != "incomplete_missing_desirability"
+
+    legacy = compute_weighted_rip(
         {"profit": 80.0, "safety": 40.0, "stability": 60.0, "desirability": None}
     )
-    assert with_missing["score"] is None
-    assert with_missing["status"] == "incomplete_missing_desirability"
-    assert with_missing["rankable"] is False
-    assert with_missing["effectiveWeights"] == {}
+    assert legacy["score"] is None
+    assert legacy["status"] == "incomplete_missing_desirability"
 
-    # The financial-only view remains available, separately labelled.
+    # Its financial-only echo now carries the SHIPPING Financial RIP, so even
+    # that legacy path stops publishing the renormalized blend.
     financial_only = compute_financial_rip({"profit": 80.0, "safety": 40.0, "stability": 60.0})
     assert math.isclose(
-        with_missing["financialOnly"]["score"], financial_only["score"], abs_tol=1e-9
+        legacy["financialOnly"]["score"], financial_only["score"], abs_tol=1e-9
     )
-    assert with_missing["financialOnly"]["version"] == "financial_rip_v2"
+    assert legacy["financialOnly"]["version"] == "financial_rip_v2_60_25_15"
 
 
 def test_pillar_diagnostics_are_report_only_and_do_not_mutate_weights():

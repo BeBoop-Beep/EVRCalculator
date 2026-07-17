@@ -190,6 +190,10 @@ def _load_current_component_rows() -> Dict[str, Any]:
     return selection
 
 
+def _depth_input(v3: Mapping[str, Any], key: str) -> Any:
+    return ((v3.get("component_inputs") or {}).get("chase_subject_depth") or {}).get(key)
+
+
 def _hydrate_selected_rows(
     selected: Mapping[str, Mapping[str, Any]],
 ) -> Dict[str, Dict[str, Any]]:
@@ -308,9 +312,13 @@ def _build_payloads() -> Dict[str, Any]:
                 "weights_label": v3["weights_label"],
                 "top_subjects": v3["top_subjects"],
                 "distinct_eligible_subject_count": v3["distinct_eligible_subject_count"],
-                "effective_subject_count": (
-                    (v3["component_inputs"].get("chase_subject_depth") or {}).get("effective_subject_count")
-                ),
+                # The compact depth diagnostics only. The raw rollups behind them
+                # are megabytes and stay server-side; a public payload carries the
+                # summary, never the inputs.
+                "effective_subject_count": _depth_input(v3, "effective_subject_count"),
+                "top1_share": _depth_input(v3, "top1_share"),
+                "top3_share": _depth_input(v3, "top3_share"),
+                "favorite_hit_coverage_raw": v3.get("favorite_hit_coverage_raw"),
                 "version": v3["version"],
                 "eligibility_policy_version": v3["eligibility_policy_version"],
                 "coverage": coverage,
@@ -449,6 +457,35 @@ def get_universal_desirability_bundle(*, force_refresh: bool = False) -> Dict[st
     return bundle
 
 
+PUBLIC_TOP_SUBJECT_LIMIT = 5
+
+
+def _compact_top_subjects(subjects: Any) -> List[Dict[str, Any]]:
+    """The few fields the UI renders, for the few subjects it shows.
+
+    The stored rollups carry every subject with its full provenance. Shipping
+    that to a browser is how a public payload becomes megabytes; the page draws
+    a short "why this score" list, so that is what the contract carries.
+    """
+    rows = subjects if isinstance(subjects, list) else []
+    compact: List[Dict[str, Any]] = []
+    for subject in rows[:PUBLIC_TOP_SUBJECT_LIMIT]:
+        if not isinstance(subject, Mapping):
+            continue
+        compact.append(
+            {
+                "subjectName": subject.get("subject_name"),
+                "subjectDemand": subject.get("subject_demand"),
+                "cardCount": subject.get("card_count"),
+                "representativeCardName": subject.get("representative_card_name"),
+                "bestRarityBucket": subject.get("best_rarity_bucket"),
+                "slotWeight": subject.get("slot_weight"),
+                "weightedContribution": subject.get("weighted_contribution"),
+            }
+        )
+    return compact
+
+
 def public_payload(row: Optional[Dict[str, Any]], association: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Shape one set's universal desirability for the public API."""
     if not isinstance(row, dict):
@@ -465,9 +502,12 @@ def public_payload(row: Optional[Dict[str, Any]], association: Optional[Dict[str
         "components": row.get("components"),
         "componentWeights": row.get("component_weights"),
         "weightsLabel": row.get("weights_label"),
-        "topSubjects": row.get("top_subjects"),
+        "topSubjects": _compact_top_subjects(row.get("top_subjects")),
         "distinctEligibleSubjectCount": row.get("distinct_eligible_subject_count"),
         "effectiveSubjectCount": row.get("effective_subject_count"),
+        "top1Share": row.get("top1_share"),
+        "top3Share": row.get("top3_share"),
+        "favoriteHitCoverageRaw": row.get("favorite_hit_coverage_raw"),
         # Descriptive market-association context. Deliberately no
         # "cleared/blocked" flag: this correlation never gates the score.
         "setValueAssociation": association,

@@ -403,7 +403,19 @@ def _merge_canonical_rip_contract_into_set_payload(
         return payload
 
     next_payload = dict(payload)
-    for key in ("rip", "ripCore", "openingExperience", "publicAnalyticsStatus"):
+    for key in (
+        "rip",
+        "ripCore",
+        "openingExperience",
+        "publicAnalyticsStatus",
+        # The authoritative desirability score and the two coverage axes. The
+        # set page renders Set Desirability from `universalSetDesirability`
+        # directly, so omitting it here left the section with nothing to read
+        # even when the rankings target carried a full score.
+        "universalSetDesirability",
+        "desirabilityCoverage",
+        "simulationCoverage",
+    ):
         value = matching_target.get(key)
         if value is not None:
             next_payload[key] = value

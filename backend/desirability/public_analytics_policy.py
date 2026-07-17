@@ -215,17 +215,26 @@ class PublicCohortIntegrityError(RuntimeError):
 
 def assert_cohort_integrity(
     cohort: Mapping[str, Any],
-    collector_appeal_by_set: Mapping[str, Any],
+    desirability_by_set: Mapping[str, Any],
 ) -> None:
-    """Every eligible set must carry Collector Appeal, or the cohort is broken."""
+    """Every eligible set must carry Universal Set Desirability.
+
+    Checked against the UNIVERSAL score, not CA7. CA7 is no longer a required
+    pillar - it is an optional Simulation Opening Experience diagnostic that
+    exists only where a pull model loads - so an absent CA7 is now an expected
+    state and asserting on it would raise on every set whose pack model is
+    unavailable. Universal Set Desirability is the authoritative score and needs
+    no simulation, so an analytics_ready set without one is still a genuine
+    contradiction worth failing on.
+    """
     missing = [
         set_id for set_id in cohort.get("eligibleSetIds") or []
-        if collector_appeal_by_set.get(set_id) is None
+        if desirability_by_set.get(set_id) is None
     ]
     if missing:
         raise PublicCohortIntegrityError(
-            f"{len(missing)} analytics_ready set(s) have no Collector Appeal and "
-            f"cannot be ranked in a public cohort: {sorted(missing)}. "
-            "Either the set is not actually analytics_ready or its CA7 inputs "
-            "regressed; neither is resolvable by dropping it from the cohort."
+            f"{len(missing)} analytics_ready set(s) have no Universal Set Desirability "
+            f"and cannot be ranked in a public cohort: {sorted(missing)}. "
+            "Either the set is not actually analytics_ready or its desirability "
+            "coverage regressed; neither is resolvable by dropping it from the cohort."
         )

@@ -1,8 +1,20 @@
-"""Canonical RIP, RIP Core, and the 21-set public cohort, end to end in the service.
+"""Financial RIP, Overall RIP, and the 21-set public cohort, end to end in the service.
 
-Drives ``_attach_public_rip_contract`` with a stubbed Collector Appeal bundle, so
-the cohort/rank/weight behaviour is tested without a database. The numbers are
-the real ones: the CA7 values below are production's, per the dry-run artifact.
+Drives ``_attach_public_rip_contract`` with stubbed bundles, so cohort/rank/weight
+behaviour is tested without a database.
+
+THE ARCHITECTURE THESE PIN
+--------------------------
+Universal Set Desirability is the authoritative desirability score. It needs no
+simulation and no CA7. Financial RIP is exactly 60/25/15 over the simulation
+pillars. Overall RIP is Financial RIP plus a bounded desirability adjustment.
+
+CA7 is NOT a RIP pillar. It is a Simulation Opening Experience diagnostic that
+exists only where a pull model loads, so its absence is an expected state - not
+a reason to null a RIP. The previous suite asserted the opposite on every count
+(a 58/20/12/10 blend, CA7 as the 10% pillar, and
+``incomplete_missing_desirability`` whenever CA7 was missing); those assertions
+are retired with the model they described.
 """
 
 from __future__ import annotations
@@ -14,37 +26,42 @@ from backend.desirability.public_analytics_policy import (
     HIDDEN_PENDING_VALIDATION,
     SWORD_AND_SHIELD_ERA_ID,
 )
-from backend.desirability.scoring_config import DEFAULT_RIP_WEIGHTS
+from backend.desirability.scoring_config import (
+    DESIRABILITY_ADJUSTMENT_CAP,
+    FINANCIAL_RIP_WEIGHTS,
+)
 
 SV_ERA = "dfb0dfa1-6a8e-4335-850f-e003867e19ee"
 ME_ERA = "fb22f860-ae41-4879-a41a-857ca11bf0da"
 
-# name -> (era_id, CA7 x100, profit, safety, stability)
+# name -> (era_id, CA7 x100, profit, safety, stability, universal_desirability)
 READY = {
-    "Ascended Heroes": (ME_ERA, 96.0942, 90.0, 80.0, 70.0),
-    "Chaos Rising": (ME_ERA, 75.4929, 60.0, 55.0, 50.0),
-    "Shrouded Fable": (SV_ERA, 56.7918, 40.0, 45.0, 42.0),
-    "Prismatic Evolutions": (SV_ERA, 94.6179, 95.0, 85.0, 60.0),
-    "Black Bolt": (SV_ERA, 85.1027, 70.0, 60.0, 65.0),
-    "Destined Rivals": (SV_ERA, 89.8659, 65.0, 62.0, 58.0),
-    "Journey Together": (SV_ERA, 89.3347, 55.0, 52.0, 48.0),
-    "Mega Evolution": (ME_ERA, 90.0581, 75.0, 70.0, 68.0),
-    "Obsidian Flames": (SV_ERA, 88.8906, 50.0, 48.0, 44.0),
-    "Paldea Evolved": (SV_ERA, 91.3821, 52.0, 50.0, 46.0),
-    "Paldean Fates": (SV_ERA, 95.7943, 80.0, 75.0, 72.0),
-    "Paradox Rift": (SV_ERA, 88.6375, 45.0, 43.0, 41.0),
-    "Perfect Order": (ME_ERA, 84.7975, 68.0, 66.0, 64.0),
-    "Phantasmal Flames": (ME_ERA, 92.4631, 72.0, 71.0, 69.0),
-    "Scarlet and Violet 151": (SV_ERA, 94.5391, 85.0, 82.0, 78.0),
-    "Scarlet and Violet Base Set": (SV_ERA, 79.6771, 42.0, 40.0, 38.0),
-    "Stellar Crown": (SV_ERA, 88.1232, 58.0, 56.0, 54.0),
-    "Surging Sparks": (SV_ERA, 90.8714, 62.0, 60.0, 59.0),
-    "Temporal Forces": (SV_ERA, 88.0610, 48.0, 46.0, 45.0),
-    "Twilight Masquerade": (SV_ERA, 84.2445, 44.0, 42.0, 43.0),
-    "White Flare": (SV_ERA, 88.1582, 66.0, 64.0, 62.0),
+    "Ascended Heroes": (ME_ERA, 96.0942, 90.0, 80.0, 70.0, 95.4809),
+    "Chaos Rising": (ME_ERA, 75.4929, 60.0, 55.0, 50.0, 69.8947),
+    "Shrouded Fable": (SV_ERA, 56.7918, 40.0, 45.0, 42.0, 52.0),
+    "Prismatic Evolutions": (SV_ERA, 94.6179, 95.0, 85.0, 60.0, 93.0),
+    "Black Bolt": (SV_ERA, 85.1027, 70.0, 60.0, 65.0, 80.0),
+    "Destined Rivals": (SV_ERA, 89.8659, 65.0, 62.0, 58.0, 84.0),
+    "Journey Together": (SV_ERA, 89.3347, 55.0, 52.0, 48.0, 83.0),
+    "Mega Evolution": (ME_ERA, 90.0581, 75.0, 70.0, 68.0, 86.0),
+    "Obsidian Flames": (SV_ERA, 88.8906, 50.0, 48.0, 44.0, 82.0),
+    "Paldea Evolved": (SV_ERA, 91.3821, 52.0, 50.0, 46.0, 88.0),
+    "Paldean Fates": (SV_ERA, 95.7943, 80.0, 75.0, 72.0, 94.0),
+    "Paradox Rift": (SV_ERA, 88.6375, 45.0, 43.0, 41.0, 81.0),
+    "Perfect Order": (ME_ERA, 84.7975, 68.0, 66.0, 64.0, 79.0),
+    "Phantasmal Flames": (ME_ERA, 92.4631, 72.0, 71.0, 69.0, 90.0),
+    "Scarlet and Violet 151": (SV_ERA, 94.5391, 85.0, 82.0, 78.0, 92.0),
+    "Scarlet and Violet Base Set": (SV_ERA, 79.6771, 42.0, 40.0, 38.0, 74.0),
+    "Stellar Crown": (SV_ERA, 88.1232, 58.0, 56.0, 54.0, 78.0),
+    "Surging Sparks": (SV_ERA, 90.8714, 62.0, 60.0, 59.0, 87.0),
+    "Temporal Forces": (SV_ERA, 88.0610, 48.0, 46.0, 45.0, 77.0),
+    "Twilight Masquerade": (SV_ERA, 84.2445, 44.0, 42.0, 43.0, 76.0),
+    "White Flare": (SV_ERA, 88.1582, 66.0, 64.0, 62.0, 85.0),
 }
 
-# The 12 SWSH sets: simulated, but no CA7 and not approved for public analytics.
+# The 12 SWSH sets: simulated, but not approved for public analytics. They have
+# NO CA7 (no pull model) yet DO have universal desirability, which is exactly the
+# combination the old model could not score and this one can.
 HIDDEN = [
     "Astral Radiance", "Battle Styles", "Brilliant Stars", "Chilling Reign",
     "Darkness Ablaze", "Evolving Skies", "Fusion Strike", "Lost Origin",
@@ -58,7 +75,6 @@ def _collector_payload(name, ca7_x100):
         "setName": name,
         "status": "available",
         "asOf": "2026-07-16T00:00:00Z",
-        "rosterDesirability": {"score": 90.0, "version": "universal_set_desirability_v3"},
         "dualPathDepth": {"rawValue": 0.27143, "displayPercent": 27.1, "version": "dual_path_depth_v1"},
         "collectorAppeal": {"score": ca7_x100, "rawValue": ca7_x100 / 100.0, "version": "collector_appeal_ca7_v1"},
         "chaseAppeal": {"score": 70.0, "rawValue": 0.70, "version": "chase_appeal_ca2_v1"},
@@ -72,7 +88,6 @@ def _unavailable_payload(name):
         "setId": name,
         "setName": name,
         "status": "unavailable",
-        "rosterDesirability": {"score": 60.0},
         "dualPathDepth": {"rawValue": None, "displayPercent": None},
         "collectorAppeal": {"score": None, "rawValue": None},
         "chaseAppeal": {"score": None, "rawValue": None},
@@ -84,11 +99,27 @@ def _unavailable_payload(name):
     }
 
 
+def _universal(score):
+    return {
+        "score": score,
+        "rank": 1,
+        "rankedSetCount": 135,
+        "percentile": 100.0,
+        "version": "universal_set_desirability_v3",
+        "components": {
+            "chase_subject_strength": 86.6628,
+            "chase_subject_depth": 100.0,
+            "favorite_hit_coverage": 99.8113,
+        },
+        "coverage": {"status": "full", "reasons": []},
+    }
+
+
 @pytest.fixture
 def targets(monkeypatch):
     rows = []
     payloads = {}
-    for name, (era_id, ca7, profit, safety, stability) in READY.items():
+    for name, (era_id, ca7, profit, safety, stability, usd) in READY.items():
         rows.append(
             {
                 "target_id": name,
@@ -99,6 +130,7 @@ def targets(monkeypatch):
                 "profit_score": profit,
                 "safety_score": safety,
                 "stability_score": stability,
+                "universalSetDesirability": _universal(usd),
                 # Legacy fields present, and deliberately inconsistent with the
                 # canonical ones so a test can prove nothing reads them.
                 "pack_score": 12.3,
@@ -118,6 +150,7 @@ def targets(monkeypatch):
                 "profit_score": 99.0,  # would top every financial rank if included
                 "safety_score": 99.0,
                 "stability_score": 99.0,
+                "universalSetDesirability": _universal(70.0),
                 "pack_score": 99.0,
                 "relative_pack_score": 100.0,
             }
@@ -136,6 +169,10 @@ def _attach(rows):
     return cohort, warnings
 
 
+def _row(targets, name):
+    return next(r for r in targets if r["name"] == name)
+
+
 # ---------------------------------------------------------------------------
 # Cohort
 # ---------------------------------------------------------------------------
@@ -147,15 +184,7 @@ def test_public_cohort_is_exactly_21(targets):
     assert warnings == []
 
 
-def test_all_21_public_sets_have_collector_appeal(targets):
-    _attach(targets)
-    ready = [row for row in targets if row["name"] in READY]
-    assert len(ready) == 21
-    for row in ready:
-        assert row["openingExperience"]["collectorAppeal"]["score"] is not None, row["name"]
-
-
-def test_all_21_public_sets_receive_a_canonical_rip(targets):
+def test_all_21_public_sets_receive_an_overall_rip(targets):
     _attach(targets)
     for row in (r for r in targets if r["name"] in READY):
         assert row["rip"]["score"] is not None, row["name"]
@@ -168,10 +197,10 @@ def test_every_public_rank_denominator_is_21(targets):
     for row in (r for r in targets if r["name"] in READY):
         assert row["rip"]["cohortSize"] == 21
         assert row["ripCore"]["cohortSize"] == 21
-        for pillar in ("profit", "safety", "stability", "desirability"):
-            assert row["rip"]["components"][pillar]["cohortSize"] == 21
+        for pillar in ("profit", "safety", "stability"):
+            assert row["ripCore"]["components"][pillar]["cohortSize"] == 21
         opening = row["openingExperience"]
-        for key in ("rosterDesirability", "collectorAppeal", "chaseAppeal", "dualPathDepth"):
+        for key in ("collectorAppeal", "chaseAppeal", "dualPathDepth"):
             assert opening[key]["cohortSize"] == 21, key
         assert opening["cohort"]["eligibleSetCount"] == 21
 
@@ -195,141 +224,166 @@ def test_hidden_sets_do_not_influence_any_public_rank(targets):
     _attach(targets)
     best_profit = min(
         (r for r in targets if r["name"] in READY),
-        key=lambda r: r["rip"]["components"]["profit"]["rank"],
+        key=lambda r: r["ripCore"]["components"]["profit"]["rank"],
     )
     # Prismatic Evolutions has the highest profit among ELIGIBLE sets (95.0).
     assert best_profit["name"] == "Prismatic Evolutions"
-    assert best_profit["rip"]["components"]["profit"]["rank"] == 1
-
-
-def test_a_hidden_set_does_not_receive_a_canonical_public_rip(targets):
-    _attach(targets)
-    hidden = next(r for r in targets if r["name"] == "Evolving Skies")
-    assert hidden["rip"]["score"] is None
-    assert hidden["rip"]["status"] == "incomplete_missing_desirability"
+    assert best_profit["ripCore"]["components"]["profit"]["rank"] == 1
 
 
 # ---------------------------------------------------------------------------
-# RIP weights and the CA7 pillar
+# Financial RIP: exactly 60/25/15
 # ---------------------------------------------------------------------------
 
-def test_full_rip_uses_58_20_12_10(targets):
+def test_financial_rip_uses_exactly_60_25_15(targets):
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    weights = row["rip"]["effectiveWeights"]
-    assert weights["profit"] == pytest.approx(0.58)
-    assert weights["safety"] == pytest.approx(0.20)
-    assert weights["stability"] == pytest.approx(0.12)
-    assert weights["desirability"] == pytest.approx(0.10)
+    core = _row(targets, "Ascended Heroes")["ripCore"]
+    assert core["components"]["profit"]["weight"] == pytest.approx(0.60)
+    assert core["components"]["safety"]["weight"] == pytest.approx(0.25)
+    assert core["components"]["stability"]["weight"] == pytest.approx(0.15)
 
 
-def test_the_ten_percent_pillar_is_ca7_not_universal_desirability(targets):
+def test_financial_rip_weights_sum_to_one_and_are_not_renormalized(targets):
+    """The published weight is the applied weight.
+
+    The retired model advertised 0.58/0.20/0.12 and applied 0.644/0.222/0.133
+    after dropping the desirability pillar and renormalizing.
+    """
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    pillar = row["rip"]["components"]["desirability"]["score"]
-    # CA7 x100 = 96.0942, Roster Desirability = 90.0 in the fixture.
-    assert pillar == pytest.approx(96.0942, abs=5e-4)
-    assert pillar != row["openingExperience"]["rosterDesirability"]["score"]
+    core = _row(targets, "Ascended Heroes")["ripCore"]
+    weights = [core["components"][p]["weight"] for p in ("profit", "safety", "stability")]
+    assert sum(weights) == pytest.approx(1.0)
+    assert sum(FINANCIAL_RIP_WEIGHTS.values()) == pytest.approx(1.0)
 
 
-def test_direct_collector_appeal_contribution_is_score_times_010(targets):
+def test_financial_rip_score_is_the_exact_weighted_sum(targets):
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    component = row["rip"]["components"]["desirability"]
-    assert component["contribution"] == pytest.approx(component["score"] * 0.10, abs=1e-3)
-    assert component["contribution"] == pytest.approx(9.6094, abs=1e-3)
-
-
-def test_rip_score_is_the_weighted_sum_not_pack_score(targets):
-    _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    expected = 0.58 * 90.0 + 0.20 * 80.0 + 0.12 * 70.0 + 0.10 * 96.0942
-    assert row["rip"]["score"] == pytest.approx(expected, abs=1e-3)
+    row = _row(targets, "Ascended Heroes")
+    expected = 0.60 * 90.0 + 0.25 * 80.0 + 0.15 * 70.0
+    assert row["ripCore"]["score"] == pytest.approx(expected, abs=1e-4)
     # The legacy fields are present and different - proving they are not read.
     assert row["pack_score"] == 12.3
-    assert row["relative_pack_score"] == 98.4
-    assert row["rip"]["score"] != row["pack_score"]
-    assert row["rip"]["score"] != row["relative_pack_score"]
+    assert row["ripCore"]["score"] != row["pack_score"]
+    assert row["ripCore"]["score"] != row["relative_pack_score"]
 
 
-def test_missing_collector_appeal_prevents_canonical_rip_rather_than_renormalizing(targets):
+def test_financial_rip_has_no_desirability_component(targets):
     _attach(targets)
-    hidden = next(r for r in targets if r["name"] == "Sword & Shield")
-    assert hidden["rip"]["score"] is None
-    assert hidden["rip"]["missingPillars"] == ["desirability"]
-    # Financial-only remains available, clearly labelled, and NOT called RIP.
-    assert hidden["rip"]["financialOnly"]["score"] is not None
-    assert "Not a RIP score" in hidden["rip"]["financialOnly"]["label"]
+    core = _row(targets, "Ascended Heroes")["ripCore"]
+    assert set(core["components"]) == {"profit", "safety", "stability"}
 
 
-def test_default_rip_weights_are_the_expected_four(targets):
-    assert DEFAULT_RIP_WEIGHTS["profit"] == pytest.approx(0.58)
-    assert DEFAULT_RIP_WEIGHTS["safety"] == pytest.approx(0.20)
-    assert DEFAULT_RIP_WEIGHTS["stability"] == pytest.approx(0.12)
-    assert DEFAULT_RIP_WEIGHTS["desirability"] == pytest.approx(0.10)
+def test_financial_rip_is_unavailable_when_a_pillar_is_missing(targets):
+    from backend.desirability.weighted_rip import compute_financial_rip
+
+    result = compute_financial_rip({"profit": 90.0, "safety": None, "stability": 70.0})
+    assert result["score"] is None
+    assert result["missingPillars"] == ["safety"]
+    assert result["rankable"] is False
 
 
 # ---------------------------------------------------------------------------
-# RIP Core
+# Overall RIP = Financial RIP + bounded desirability adjustment
 # ---------------------------------------------------------------------------
 
-def test_rip_core_excludes_collector_appeal_and_renormalizes(targets):
+def test_overall_rip_is_financial_plus_adjustment(targets):
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    core = row["ripCore"]
-    assert "desirability" not in core["components"]
-    total = 0.58 + 0.20 + 0.12
-    expected = (0.58 * 90.0 + 0.20 * 80.0 + 0.12 * 70.0) / total
-    assert core["score"] == pytest.approx(expected, abs=1e-3)
-    assert sum(core["effectiveWeights"].values()) == pytest.approx(1.0)
+    row = _row(targets, "Ascended Heroes")
+    financial = 0.60 * 90.0 + 0.25 * 80.0 + 0.15 * 70.0
+    raw = (95.4809 - 50.0) / 10.0
+    adjustment = min(raw, DESIRABILITY_ADJUSTMENT_CAP)
+    assert row["rip"]["score"] == pytest.approx(financial + adjustment, abs=1e-3)
+    assert row["rip"]["desirabilityAdjustment"]["adjustment"] == pytest.approx(adjustment, abs=1e-4)
 
 
-def test_rip_core_is_computed_by_the_backend_financial_implementation(targets):
-    from backend.desirability.weighted_rip import FINANCIAL_RIP_V2_VERSION
-
+def test_overall_rip_reports_the_financial_rip_it_used(targets):
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    assert row["ripCore"]["version"] == FINANCIAL_RIP_V2_VERSION
+    row = _row(targets, "Ascended Heroes")
+    assert row["rip"]["financialRip"]["score"] == pytest.approx(row["ripCore"]["score"], abs=1e-6)
 
 
-def test_rip_and_rip_core_ranks_are_calculated_separately(targets):
+def test_overall_rip_version_is_the_new_model(targets):
     _attach(targets)
-    pairs = [
-        (r["name"], r["rip"]["rank"], r["ripCore"]["rank"])
-        for r in targets
-        if r["name"] in READY
-    ]
-    # The two orderings must not be the same object, and Collector Appeal must
-    # actually move at least one set's placement.
-    assert any(rip != core for _, rip, core in pairs)
+    row = _row(targets, "Ascended Heroes")
+    assert row["rip"]["version"] == "overall_rip_v3_financial_plus_universal_desirability"
+    assert row["ripCore"]["version"] == "financial_rip_v2_60_25_15"
 
 
-def test_rip_core_is_not_full_rip_minus_a_contribution(targets):
-    """RIP Core is renormalized, so subtraction would misstate the contribution."""
+# ---------------------------------------------------------------------------
+# CA7 is not required anywhere
+# ---------------------------------------------------------------------------
+
+def test_missing_ca7_does_not_null_overall_rip(targets):
+    """The regression that nulled every RIP the moment the pull model failed."""
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    contribution = row["rip"]["components"]["desirability"]["contribution"]
-    naive = row["rip"]["score"] - row["ripCore"]["score"]
-    assert naive != pytest.approx(contribution, abs=0.05)
+    hidden = _row(targets, "Evolving Skies")
+    assert hidden["openingExperience"]["collectorAppeal"]["score"] is None
+    assert hidden["rip"]["score"] is not None
+    assert hidden["ripCore"]["score"] is not None
+
+
+def test_incomplete_missing_desirability_is_unreachable(targets):
+    _attach(targets)
+    for row in targets:
+        assert row["rip"].get("status") != "incomplete_missing_desirability", row["name"]
+
+
+def test_overall_rip_needs_no_ca7_when_universal_desirability_is_present(targets):
+    from backend.desirability.weighted_rip import compute_overall_rip
+
+    result = compute_overall_rip(
+        {"profit": 90.0, "safety": 80.0, "stability": 70.0}, 95.4809
+    )
+    assert result["score"] is not None
+    assert result["rankable"] is True
+
+
+def test_overall_rip_is_unavailable_without_universal_desirability(targets):
+    from backend.desirability.weighted_rip import compute_overall_rip
+
+    result = compute_overall_rip({"profit": 90.0, "safety": 80.0, "stability": 70.0}, None)
+    assert result["score"] is None
+    assert "universal_set_desirability" in result["missingInputs"]
+
+
+def test_ca7_is_not_the_authoritative_rip_pillar(targets):
+    """CA7 must appear only as an Opening Experience diagnostic."""
+    _attach(targets)
+    row = _row(targets, "Ascended Heroes")
+    assert "desirability" not in (row["ripCore"].get("components") or {})
+    assert "components" not in row["rip"] or "desirability" not in (row["rip"].get("components") or {})
+    # CA7 (96.0942) is NOT what moved Overall RIP; the universal score (95.4809) is.
+    assert row["rip"]["universalSetDesirabilityScore"] == pytest.approx(95.4809, abs=1e-4)
+    assert row["openingExperience"]["collectorAppeal"]["score"] == pytest.approx(96.0942, abs=5e-4)
+
+
+def test_opening_experience_no_longer_carries_roster_desirability(targets):
+    """Roster desirability moved to `universalSetDesirability`.
+
+    It is not simulation-scoped, so routing it through a CA7-gated block is what
+    hid it whenever a pull model was missing.
+    """
+    _attach(targets)
+    opening = _row(targets, "Ascended Heroes")["openingExperience"]
+    assert "rosterDesirability" not in opening
+    assert opening["coverage"]["scope"] == "simulation_opening_experience"
 
 
 # ---------------------------------------------------------------------------
 # Contract
 # ---------------------------------------------------------------------------
 
-def test_opening_experience_exposes_the_explicit_fields(targets):
+def test_opening_experience_exposes_the_ca7_fields(targets):
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Chaos Rising")
-    opening = row["openingExperience"]
-    for field in ("rosterDesirability", "dualPathDepth", "collectorAppeal", "chaseAppeal"):
+    opening = _row(targets, "Chaos Rising")["openingExperience"]
+    for field in ("dualPathDepth", "collectorAppeal", "chaseAppeal"):
         assert field in opening
     assert opening["collectorAppeal"]["score"] == pytest.approx(75.4929, abs=5e-4)
 
 
 def test_dual_path_depth_carries_a_rank_but_no_tier(targets):
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    depth = row["openingExperience"]["dualPathDepth"]
+    depth = _row(targets, "Ascended Heroes")["openingExperience"]["dualPathDepth"]
     assert depth["rank"] is not None
     assert "tier" not in depth
 
@@ -337,18 +391,21 @@ def test_dual_path_depth_carries_a_rank_but_no_tier(targets):
 def test_legacy_collector_appeal_score_is_not_silently_redefined(targets):
     """The ambiguous legacy field must not be repointed to CA7."""
     _attach(targets)
-    row = next(r for r in targets if r["name"] == "Ascended Heroes")
-    # The new contract lives under openingExperience; the legacy top-level field
-    # is untouched by this service (it comes from the opening-desirability join).
+    row = _row(targets, "Ascended Heroes")
     assert row.get("collector_appeal_score") != row["openingExperience"]["collectorAppeal"]["score"]
 
 
-def test_cohort_integrity_error_is_reported_not_swallowed(targets, monkeypatch):
-    """An eligible set with no CA7 must surface, not quietly shrink the cohort."""
-    payloads = {row["name"]: _collector_payload(row["name"], 90.0) for row in targets}
-    payloads["Chaos Rising"] = _unavailable_payload("Chaos Rising")
-    monkeypatch.setattr(service, "get_collector_appeal_bundle", lambda **_: {"payloads": payloads})
+def test_cohort_integrity_keys_on_universal_desirability_not_ca7(targets, monkeypatch):
+    """An eligible set with no UNIVERSAL score must surface.
+
+    Keyed on the universal score because a missing CA7 is now expected, so
+    asserting on CA7 would raise for every set without a pull model.
+    """
+    _attach(targets)  # baseline: no integrity error even though HIDDEN lack CA7
+    row = _row(targets, "Chaos Rising")
+    row["universalSetDesirability"] = None
 
     cohort, warnings = _attach(targets)
     assert cohort["status"] == "integrity_error"
     assert any("cannot be ranked" in w for w in warnings)
+    assert any("Universal Set Desirability" in w for w in warnings)

@@ -1,17 +1,22 @@
-// The four pillar cards under the RIP hero.
+// The three Financial RIP pillar cards under the RIP hero.
 //
-// CANONICAL CONTRACT ONLY. Rows come from the backend's `rip.components` —
-// actual component scores, backend-computed ranks/tiers against the public
-// cohort, the configured weight, and the direct contribution (score x weight).
-// The legacy `relative_*_score` fields are a cohort min-max presentation and
-// are deliberately not read, even as a fallback: a silently min-maxed pillar
-// is a different number wearing the same label. Missing canonical data renders
-// as unavailable (see the rankDiagnostic), never as a legacy score.
+// CANONICAL CONTRACT ONLY. Rows come from the backend's Financial RIP
+// components — actual component scores, backend-computed ranks/tiers against
+// the public cohort, the configured weight, and the direct contribution
+// (score x weight). The legacy `relative_*_score` fields are a cohort min-max
+// presentation and are deliberately not read, even as a fallback: a silently
+// min-maxed pillar is a different number wearing the same label. Missing
+// canonical data renders as unavailable (see the rankDiagnostic), never as a
+// legacy score.
 //
-// The fourth pillar is Collector Appeal (CA7). The backend keys it
-// `desirability` inside rip.components for weight-config compatibility; the
-// public label is Collector Appeal, and relabeling happens HERE, in exactly
-// one place.
+// THREE PILLARS, NOT FOUR
+// -----------------------
+// There is no fourth "Collector Appeal" pillar any more. Financial RIP is
+// exactly 60/25/15 over Profit/Safety/Stability, and Set Desirability is not a
+// weighted pillar of it — it enters Overall RIP as a bounded additive
+// adjustment. Rendering it as a fourth weighted card would describe arithmetic
+// the backend does not perform. Set Desirability has its own card; see
+// `selectRipDesirabilityBreakdown` in openingExperienceSelector.mjs.
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -23,18 +28,21 @@ function toObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
-// Display order per the product spec: financial pillars by weight, then the
-// Collector Appeal pillar.
+// Display order per the product spec: the financial pillars by weight.
 const PILLARS = [
   { key: "profit", title: "Profit", trendKey: "profitScore" },
   { key: "safety", title: "Safety", trendKey: "safetyScore" },
   { key: "stability", title: "Stability", trendKey: "stabilityScore" },
-  { key: "desirability", title: "Collector Appeal", trendKey: "desirabilityScore" },
 ];
 
 export function selectRipScoreBreakdown(rip = {}, trends = {}, options = {}) {
   const safeRip = toObject(rip);
-  const components = toObject(safeRip.components);
+  // Overall RIP carries the Financial RIP it used under `financialRip`; a
+  // Financial-RIP-only payload carries its components directly. Both are the
+  // same object from one backend computation, so neither can disagree.
+  const components = toObject(
+    toObject(safeRip.financialRip).components ?? safeRip.components
+  );
   const safeTrends = toObject(trends);
   const requestTimeout = options?.requestTimeout === true || options?.payload?.meta?.requestTimeout === true;
   const hasContract = Object.keys(components).length > 0;
@@ -70,10 +78,10 @@ export function selectRipScoreBreakdown(rip = {}, trends = {}, options = {}) {
 
   return {
     rows,
-    sourceUsed: "rip.components",
+    sourceUsed: "rip.financialRip.components",
     fallbackUsed: false,
     diagnostics: {
-      source: "rip.components",
+      source: "rip.financialRip.components",
       status: requestTimeout ? "loading" : hasContract ? "ready" : "unavailable",
       requestTimeout,
       missingFields: requestTimeout ? [] : missingFields,

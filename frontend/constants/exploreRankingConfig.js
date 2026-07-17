@@ -1,12 +1,18 @@
 /**
  * Configuration for Explore page ranking mode dropdown.
  *
- * RIP-contract modes (overall, profit, safety, stability, collector appeal)
- * read the CANONICAL backend objects — `rip`, `rip.components.*`,
- * `openingExperience.*` — actual scores with ranks/tiers computed against the
- * backend-authorized public cohort. The legacy relative/pack score fields are
- * a cohort min-max presentation over the old 33-set population and must not
+ * RIP-contract modes read the CANONICAL backend objects — `rip` (Overall RIP),
+ * `rip.financialRip.components.*` (the three Financial RIP pillars), and
+ * `universalSetDesirability` — actual scores with ranks/tiers computed against
+ * the backend-authorized public cohort. The legacy relative/pack score fields
+ * are a cohort min-max presentation over the old 33-set population and must not
  * power public ranking again. Fields are dot-paths resolved by getFieldValue.
+ *
+ * The pillars moved out of `rip.components.*` when Overall RIP became Financial
+ * RIP plus a desirability adjustment: RIP is no longer a weighted average of
+ * four pillars, so it has no `components` of its own. The desirability lens
+ * reads `universalSetDesirability`, the authoritative score — not CA7, which is
+ * a simulation-only diagnostic and is absent wherever a pull model is.
  */
 
 function toNumber(value) {
@@ -54,9 +60,9 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by their profit profile, including chance to beat cost, Expected Value, and upside.",
     scoreLabel: "PROFIT SCORE",
     tierLabel: "PROFIT TIER",
-    scoreField: "rip.components.profit.score",
-    rankField: "rip.components.profit.rank",
-    tierField: "rip.components.profit.tier",
+    scoreField: "rip.financialRip.components.profit.score",
+    rankField: "rip.financialRip.components.profit.rank",
+    tierField: "rip.financialRip.components.profit.tier",
     scoreFormat: "decimal",
     description: "Profit score focuses on return potential and margin above pack cost.",
   },
@@ -68,25 +74,28 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how well they protect against rough openings.",
     scoreLabel: "SAFETY SCORE",
     tierLabel: "SAFETY TIER",
-    scoreField: "rip.components.safety.score",
-    rankField: "rip.components.safety.rank",
-    tierField: "rip.components.safety.tier",
+    scoreField: "rip.financialRip.components.safety.score",
+    rankField: "rip.financialRip.components.safety.rank",
+    tierField: "rip.financialRip.components.safety.tier",
     scoreFormat: "decimal",
     description: "Safety score emphasizes protection from downside and loss mitigation.",
   },
   desirability: {
     id: "desirability",
-    label: "Collector Appeal",
-    title: "Best Collector Appeal",
-    subtitle: "Sets ranked by Collector Appeal — roster desirability plus dual-path chase structure, independent of price.",
-    tooltip: "Collector Appeal combines Roster Desirability with a bounded Dual-Path Depth bonus. Price is never an input.",
-    scoreLabel: "COLLECTOR APPEAL",
+    label: "Set Desirability",
+    title: "Most Desirable Sets",
+    subtitle: "Sets ranked by the popularity and depth of the Pokémon subjects they contain, independent of price.",
+    tooltip: "Set Desirability measures the popularity and depth of the Pokémon subjects represented in a set. It does not use card prices or predict future value.",
+    scoreLabel: "SET DESIRABILITY",
     tierLabel: "TIER",
-    scoreField: "openingExperience.collectorAppeal.score",
-    rankField: "openingExperience.collectorAppeal.rank",
-    tierField: "openingExperience.collectorAppeal.tier",
+    // The authoritative score, and its ALL-SET rank (of 135) rather than the
+    // 21-set simulated cohort rank the retired CA7 lens quoted. CA7 needs a
+    // pull model; this does not, so this lens covers every scored set.
+    scoreField: "universalSetDesirability.score",
+    rankField: "universalSetDesirability.rank",
+    tierField: null,
     scoreFormat: "decimal",
-    description: "Collector Appeal measures how exciting the set's roster is to open, independent of price.",
+    description: "Set Desirability measures how popular and deep a set's Pokémon roster is, independent of price.",
   },
   stability: {
     id: "stability",
@@ -96,9 +105,9 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how steady their opening profile is across many simulated packs.",
     scoreLabel: "STABILITY SCORE",
     tierLabel: "STABILITY TIER",
-    scoreField: "rip.components.stability.score",
-    rankField: "rip.components.stability.rank",
-    tierField: "rip.components.stability.tier",
+    scoreField: "rip.financialRip.components.stability.score",
+    rankField: "rip.financialRip.components.stability.rank",
+    tierField: "rip.financialRip.components.stability.tier",
     scoreFormat: "decimal",
     description: "Stability score measures consistency and predictability of outcomes.",
   },

@@ -22,7 +22,11 @@ from typing import Dict, Iterable, Mapping, Optional
 # ---------------------------------------------------------------------------
 
 RIP_V3_VERSION = "rip_v3_weighted_four_component"
-FINANCIAL_RIP_V2_VERSION = "financial_rip_v2"
+# The legacy four-pillar blend's version, retained ONLY so stored rows written
+# under it remain identifiable. Nothing computes under it any more.
+FINANCIAL_RIP_V2_LEGACY_VERSION = "financial_rip_v2"
+FINANCIAL_RIP_V2_VERSION = "financial_rip_v2_60_25_15"
+OVERALL_RIP_V3_VERSION = "overall_rip_v3_financial_plus_universal_desirability"
 UNIVERSAL_SET_DESIRABILITY_VERSION = "universal_set_desirability_v3"
 UNIVERSAL_ELIGIBILITY_POLICY_VERSION = "universal_desirability_eligibility_v2"
 SIMULATION_OPENING_DETAILS_VERSION = "simulation_opening_details_v1"
@@ -35,17 +39,31 @@ WEIGHTS_DISCLOSURE = (
 
 
 # ---------------------------------------------------------------------------
-# RIP weights (Phase 10)
+# Financial RIP weights
 # ---------------------------------------------------------------------------
-# RIP = w_profit*Profit + w_safety*Safety + w_stability*Stability
-#       + w_desirability*Desirability
+# Financial RIP = 0.60*Profit + 0.25*Safety + 0.15*Stability
 #
-# The intended split discussed was ~57/20/12/10 (sums to 99); Profit is set to
-# 0.58 so the defaults sum to exactly 1.00. There are NO caps or clamps on the
-# desirability contribution: its influence is bounded linearly by its small
-# weight, which keeps the score transparent and makes future per-user
-# re-weighting (including w_desirability = 1.0) mathematically clean.
+# These sum to exactly 1.00 over the three simulation pillars, so there is no
+# renormalization step and the published weight IS the applied weight. That was
+# not true before: the previous model carried a fourth desirability pillar at
+# 0.10, and excluding it renormalized 0.58/0.20/0.12 to 0.644/0.222/0.133 - so
+# the number shown as "58%" was never the number applied.
+#
+# Desirability is deliberately NOT a weight here. It enters Overall RIP as a
+# bounded ADDITIVE adjustment instead (see below), because blending a
+# price-independent popularity score into a weighted average of financial
+# outcomes silently converts it into a financial claim.
 
+FINANCIAL_RIP_WEIGHTS: Dict[str, float] = {
+    "profit": 0.60,
+    "safety": 0.25,
+    "stability": 0.15,
+}
+
+FINANCIAL_PILLARS = ("profit", "safety", "stability")
+
+# Retained for the legacy four-pillar helpers and the report-only sensitivity
+# study. NOT the shipping model - see FINANCIAL_RIP_WEIGHTS.
 DEFAULT_RIP_WEIGHTS: Dict[str, float] = {
     "profit": 0.58,
     "safety": 0.20,
@@ -53,7 +71,51 @@ DEFAULT_RIP_WEIGHTS: Dict[str, float] = {
     "desirability": 0.10,
 }
 
-FINANCIAL_PILLARS = ("profit", "safety", "stability")
+
+# ---------------------------------------------------------------------------
+# Overall RIP: Financial RIP + a bounded desirability adjustment
+# ---------------------------------------------------------------------------
+#   raw_adjustment = (Universal Set Desirability - 50) / 10
+#   adjustment     = clamp(raw_adjustment, -CAP, +CAP)
+#   Overall RIP    = clamp(Financial RIP + adjustment, 0, 100)
+#
+# 50 is the neutral point: a set of averagely-loved subjects neither helps nor
+# hurts. /10 makes the units legible - ten desirability points is one RIP point
+# before the cap.
+#
+# The cap is what keeps Overall RIP a financial score that desirability nudges,
+# rather than a popularity score wearing a financial label. It is an ABSOLUTE
+# bound in RIP points, so its worst case is stated up front instead of being an
+# emergent property of a weight.
+
+DESIRABILITY_ADJUSTMENT_BASELINE = 50.0
+DESIRABILITY_ADJUSTMENT_DIVISOR = 10.0
+
+# SHIPPING CAP = 3, selected by backend/scripts/build_desirability_cap_study.py
+# against the guardrails. Cap 5 ships only if every guardrail passes; it does
+# not. Measured over the 33 sets with a valid Financial RIP:
+#
+#   cap 5: median |adjustment| = 3.79  -> FAILS the 2.5 median limit
+#   cap 3: median |adjustment| = 3.00  -> also above 2.5, but cap 3 is the
+#                                         stated fallback, and it is the
+#                                         lower-influence of the two.
+#
+# WHY BOTH EXCEED THE MEDIAN LIMIT, AND WHY IT IS NOT A BUG
+# ---------------------------------------------------------
+# The 50 baseline assumes desirability is centred near 50. It is not: every one
+# of the 33 simulated sets scores above it (minimum 51.07, median ~87), because
+# the simulated cohort is modern booster sets with popular rosters. So
+# (D - 50) / 10 is positive for every set and lands near +3.7 for a typical one.
+# The adjustment is therefore a bonus in practice, never a penalty.
+#
+# A consequence worth knowing before changing this: at cap 3, 30 of the 33 sets
+# clamp to exactly +3.0, so the adjustment adds an almost-constant offset that
+# still reorders 9 sets while carrying nearly no information. Cap 5 clamps none
+# and preserves the full spread. Re-centring the baseline on the observed
+# distribution would fix this properly, but that is a formula change and is not
+# taken here.
+DESIRABILITY_ADJUSTMENT_CAP = 3.0
+DESIRABILITY_ADJUSTMENT_CAP_CANDIDATES = (3.0, 5.0)
 
 
 # ---------------------------------------------------------------------------

@@ -552,37 +552,45 @@ test("Explore God Pull Upside mode uses P99 ratio display with P99 ranking field
   assert.ok(source.includes('tierField: "p99_value_to_cost_tier"'));
 });
 
-test("Collector Appeal pillar uses updated public labels and breakdown rows", () => {
+test("the authoritative desirability pillar is Set Desirability, not Collector Appeal", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // The fourth pillar is Collector Appeal (CA7); the generic Desirability
-  // pillar label is retired from active rendering.
-  assert.ok(source.includes('title="Collector Appeal"'));
+  // Set Desirability is the authoritative score and owns the Overview pillar
+  // card. Collector Appeal survives only as a Simulation Opening Experience
+  // section title, never as the authoritative pillar.
+  assert.ok(source.includes('title="Set Desirability"'));
+  assert.ok(source.includes('SIMPLE_PILLAR_INFO_COPY["Set Desirability"]'));
+  assert.ok(source.includes('rankLabel="Set Desirability Rank"'));
   assert.ok(!source.includes('title="Desirability"'));
   assert.ok(!source.includes('title="Opening Desirability"'));
   assert.ok(!source.includes('label: "How It Works"'));
   assert.ok(!source.includes('label: "Opening Desirability"'));
-  assert.ok(source.includes('label: "Collector Appeal"'));
-  assert.ok(source.includes('label: "Chase Appeal"'));
   assert.ok(!source.includes('label: "Source"'));
   assert.ok(!source.includes('value: "Opening Desirability model"'));
-  assert.ok(source.includes('SIMPLE_PILLAR_INFO_COPY["Collector Appeal"]'));
-  assert.ok(source.includes('"Needs chase data"'));
-  assert.ok(source.includes("topCollectorAppealDrivers"));
-  assert.ok(source.includes("openingPayload?.topCollectorAppealDrivers"));
-  assert.ok(source.includes("explorePayload?.openingDesirability?.topCollectorAppealDrivers"));
-  assert.ok(source.includes("function CollectorAppealDriverRow"));
-  assert.ok(source.includes("<CollectorAppealDriverRow"));
-  assert.ok(source.includes("Pokémon Appeal:"));
   assert.ok(!source.includes("Card Appeal:"));
   assert.ok(!source.includes("Why it matters:"));
   assert.ok(!source.includes('<OpeningDesirabilityCard'));
 });
 
-test("Top Collector Appeal Drivers empty state copy is specific to missing set data", () => {
+test("Simulation Opening Experience keeps the CA7 diagnostics lower in the page", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes("Top Collector Appeal drivers are not available for this set yet."));
+  assert.ok(source.includes('title="Collector Appeal"'));
+  assert.ok(source.includes('eyebrow="03 · Simulation Opening Experience"'));
+  assert.ok(source.includes('label="Chase Appeal"'));
+  assert.ok(source.includes('"Needs chase data"'));
+  assert.ok(source.includes("function CollectorAppealDriverRow"));
+  assert.ok(source.includes("<CollectorAppealDriverRow"));
+});
+
+test("legacy desirability labels are renamed to the Set Desirability vocabulary", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(source.includes("Top Desirability Drivers are not available for this set yet."));
+  assert.ok(!source.includes("Top Collector Appeal Drivers"));
+  assert.ok(!source.includes("Top Collector Appeal drivers are not available for this set yet."));
+  assert.ok(!source.includes("Pokémon Appeal:"));
+  assert.ok(source.includes("Subject Demand:"));
 });
 
 test("Simulation context boxes share one surface primitive and drop the older one-off surfaces", () => {

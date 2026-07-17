@@ -313,13 +313,36 @@ PUBLIC_FIELDS = {
     "weightsLabel", "topSubjects", "distinctEligibleSubjectCount",
     "effectiveSubjectCount", "setValueAssociation", "setValueCorrelation",
     "coverage",
+    # Concentration diagnostics the Set Desirability section renders.
+    "top1Share", "top3Share", "favoriteHitCoverageRaw",
 }
 
 
-def test_public_payload_field_names_are_unchanged(monkeypatch):
+def test_public_payload_field_names_are_exactly_the_contract(monkeypatch):
     bundle = _bundle(monkeypatch, [_row("s1", V2_CLEANUP)])
     payload = service.public_payload(bundle["payloads"]["s1"], bundle["setValueAssociation"])
     assert set(payload) == PUBLIC_FIELDS
+
+
+def test_public_payload_top_subjects_are_compact(monkeypatch):
+    """The payload carries the summary, never the raw rollups.
+
+    `subject_rollups_json` is ~6.4 MB across the table and is what the reader
+    times out on; shipping it to a browser would move that cost onto every
+    request. Only the few fields the "why this score" list renders are exposed.
+    """
+    bundle = _bundle(monkeypatch, [_row("s1", V2_CLEANUP)])
+    payload = service.public_payload(bundle["payloads"]["s1"], bundle["setValueAssociation"])
+
+    assert len(payload["topSubjects"]) <= service.PUBLIC_TOP_SUBJECT_LIMIT
+    for subject in payload["topSubjects"]:
+        assert set(subject) <= {
+            "subjectName", "subjectDemand", "cardCount",
+            "representativeCardName", "bestRarityBucket",
+            "slotWeight", "weightedContribution",
+        }
+        assert "subject_rollups_json" not in subject
+        assert "pokemon_reference_id" not in subject
 
 
 def test_source_diagnostics_are_not_exposed_publicly(monkeypatch):

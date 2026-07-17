@@ -21,9 +21,13 @@ from backend.desirability.public_analytics_policy import (
     build_public_cohort,
     public_analytics_status,
 )
-from backend.desirability.scoring_config import DEFAULT_RIP_WEIGHTS, rip_weights_payload
+from backend.desirability.scoring_config import (
+    DESIRABILITY_ADJUSTMENT_CAP,
+    FINANCIAL_RIP_WEIGHTS,
+    WEIGHTS_DISCLOSURE,
+)
 from backend.desirability.universal_set_desirability import assess_simulation_coverage
-from backend.desirability.weighted_rip import compute_financial_rip, compute_weighted_rip
+from backend.desirability.weighted_rip import compute_financial_rip, compute_overall_rip
 from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
@@ -477,16 +481,30 @@ def _resolve_desirability_key(target: Mapping[str, Any]) -> Optional[str]:
     return _to_optional_str(target.get("set_id")) or _to_optional_str(target.get("target_id"))
 
 
+def _resolve_collector_payload(
+    target: Mapping[str, Any],
+    collector_payloads: Mapping[str, Any],
+) -> Dict[str, Any]:
+    resolved_id = _resolve_desirability_key(target)
+    payload = collector_payloads.get(resolved_id or "") or collector_payloads.get(
+        str(target.get("target_id") or "")
+    )
+    return dict(payload) if isinstance(payload, Mapping) else {}
+
+
 # Which metrics get a public rank, and where each one's score lives on the
 # target row. Declared as data so "rank everything the contract exposes" is one
 # list to read rather than nine call sites to audit.
+# Roster desirability is deliberately absent: Universal Set Desirability carries
+# its own ALL-SET rank (rank / rankedSetCount / percentile) from its bundle, and
+# it is not simulation-scoped. Ranking it again inside the 21-set simulated
+# cohort would publish two different ranks for one score under one product name.
 PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
     ("_rank_rip", "rip"),
     ("_rank_rip_core", "ripCore"),
     ("_rank_profit", "profit"),
     ("_rank_safety", "safety"),
     ("_rank_stability", "stability"),
-    ("_rank_roster_desirability", "rosterDesirability"),
     ("_rank_collector_appeal", "collectorAppeal"),
     ("_rank_chase_appeal", "chaseAppeal"),
     ("_rank_dual_path_depth", "dualPathDepth"),
@@ -543,48 +561,39 @@ def _attach_public_rip_contract(
     )
     cohort_ids = set(cohort["eligibleSetIds"])
 
-    # 2. Every row's scores. CA7 is the 10% pillar; Universal Desirability is
-    #    NOT, and there is deliberately no fallback between them.
+    # 2. Every row's scores. Universal Set Desirability is the authoritative
+    #    desirability input; CA7 is a Simulation Opening Experience diagnostic
+    #    and is never required to produce a RIP.
     for target in targets:
-        resolved_id = _resolve_desirability_key(target)
-        collector = collector_payloads.get(resolved_id or "") or collector_payloads.get(
-            str(target.get("target_id") or "")
-        ) or {}
-
-        collector_appeal_score = ((collector.get("collectorAppeal") or {}).get("score"))
+        collector = _resolve_collector_payload(target, collector_payloads)
+        pillars = {
+            "profit": target.get("profit_score"),
+            "safety": target.get("safety_score"),
+            "stability": target.get("stability_score"),
+        }
+        universal_score = ((target.get("universalSetDesirability") or {}).get("score"))
 
         target["openingExperience"] = _build_opening_experience(target, collector, cohort)
-        target["rip"] = compute_weighted_rip(
-            {
-                "profit": target.get("profit_score"),
-                "safety": target.get("safety_score"),
-                "stability": target.get("stability_score"),
-                # Collector Appeal (CA7), never Universal Desirability. When it
-                # is missing, compute_weighted_rip reports the canonical RIP
-                # unavailable rather than renormalizing the financial pillars
-                # into a canonical-looking score - see its missing-pillar policy.
-                "desirability": collector_appeal_score,
-            }
-        )
-        target["ripCore"] = compute_financial_rip(
-            {
-                "profit": target.get("profit_score"),
-                "safety": target.get("safety_score"),
-                "stability": target.get("stability_score"),
-            }
-        )
+        target["ripCore"] = compute_financial_rip(pillars)
+        # Overall RIP = Financial RIP + a bounded desirability adjustment. It
+        # reads the universal score, so an unavailable CA7 no longer nulls it -
+        # that was `incomplete_missing_desirability`, which fired for every set
+        # the moment the pull model could not be read.
+        target["rip"] = compute_overall_rip(pillars, universal_score)
         target["publicAnalyticsStatus"] = public_analytics_status(
             {"name": target.get("name"), "era_id": target.get("era_id"), "era": target.get("era")}
         )
 
-    # 3. Integrity: an eligible set with no CA7 is an error, not a row to drop.
+    # 3. Integrity: an eligible set with no UNIVERSAL desirability is an error.
+    #    Checked against the universal score rather than CA7, because CA7 being
+    #    absent is now an expected state rather than a contradiction.
     try:
         assert_cohort_integrity(
             cohort,
             {
                 str(target.get("target_id")): (
-                    (target.get("openingExperience") or {}).get("collectorAppeal") or {}
-                ).get("score")
+                    (target.get("universalSetDesirability") or {}).get("score")
+                )
                 for target in targets
                 if str(target.get("target_id")) in cohort_ids
             },
@@ -636,18 +645,19 @@ def _apply_rank(
         target["cohortSize"] = cohort_size
         return
     if contract_key in ("profit", "safety", "stability"):
-        components = (row.get("rip") or {}).get("components") or {}
-        component = components.get(contract_key)
-        if isinstance(component, dict):
-            component["rank"] = entry.get("rank")
-            component["tier"] = entry.get("tier")
-            component["cohortSize"] = cohort_size
-        core_components = (row.get("ripCore") or {}).get("components") or {}
-        core_component = core_components.get(contract_key)
-        if isinstance(core_component, dict):
-            core_component["rank"] = entry.get("rank")
-            core_component["tier"] = entry.get("tier")
-            core_component["cohortSize"] = cohort_size
+        # The pillars live on Financial RIP now. Overall RIP carries the same
+        # Financial RIP object under `financialRip`, so both surfaces are ranked
+        # from one computation rather than two that can disagree.
+        blocks = [
+            (row.get("ripCore") or {}).get("components") or {},
+            ((row.get("rip") or {}).get("financialRip") or {}).get("components") or {},
+        ]
+        for components in blocks:
+            component = components.get(contract_key)
+            if isinstance(component, dict):
+                component["rank"] = entry.get("rank")
+                component["tier"] = entry.get("tier")
+                component["cohortSize"] = cohort_size
         return
     opening = row.get("openingExperience") or {}
     block = opening.get(contract_key)
@@ -659,13 +669,6 @@ def _apply_rank(
         # maximum is not attainable would read as a verdict on the set.
         if contract_key != "dualPathDepth":
             block["tier"] = entry.get("tier")
-    if contract_key == "collectorAppeal":
-        # The RIP pillar is the same number, so it carries the same placement.
-        component = ((row.get("rip") or {}).get("components") or {}).get("desirability")
-        if isinstance(component, dict):
-            component["rank"] = entry.get("rank")
-            component["tier"] = entry.get("tier")
-            component["cohortSize"] = cohort_size
 
 
 def _rank_rip(row: Mapping[str, Any]) -> Optional[float]:
@@ -693,10 +696,6 @@ def _opening_metric(row: Mapping[str, Any], key: str, field: str = "score") -> O
     return _to_optional_float(block.get(field))
 
 
-def _rank_roster_desirability(row: Mapping[str, Any]) -> Optional[float]:
-    return _opening_metric(row, "rosterDesirability")
-
-
 def _rank_collector_appeal(row: Mapping[str, Any]) -> Optional[float]:
     return _opening_metric(row, "collectorAppeal")
 
@@ -714,35 +713,47 @@ def _build_opening_experience(
     collector: Mapping[str, Any],
     cohort: Mapping[str, Any],
 ) -> Dict[str, Any]:
-    """The public Opening Experience contract for one set (ranks added later).
+    """The public Simulation Opening Experience contract for one set.
 
     Assembled from the Collector Appeal service's payload only. Nothing is
     recomputed here; this shapes and labels what that service already decided.
-    """
-    if not collector:
-        return {
-            "status": "unavailable",
-            "cohort": {
-                "version": cohort.get("version"),
-                "eligibleSetCount": cohort.get("eligibleSetCount"),
-            },
-            "coverage": {"status": "unavailable", "reasons": ["no_component_source_row"]},
-        }
 
-    return {
-        "status": collector.get("status"),
-        "version": (collector.get("collectorAppeal") or {}).get("version"),
-        "asOf": collector.get("asOf"),
+    This block is now CA7-SCOPED. It carries only what needs a pull model -
+    CA7, Chase Appeal, Dual-Path Depth and the per-subject printings. Roster
+    desirability is deliberately NOT sourced from here any more: it is the
+    universal score, it needs no simulation, and routing it through a block that
+    goes `unavailable` whenever a pack model is missing is what hid it. It lives
+    on `universalSetDesirability`, which every set with full coverage carries.
+    """
+    base = {
         "cohort": {
             "version": cohort.get("version"),
             "eligibleSetCount": cohort.get("eligibleSetCount"),
         },
-        "rosterDesirability": dict(collector.get("rosterDesirability") or {}),
+    }
+    if not collector:
+        return {
+            **base,
+            "status": "unavailable",
+            "coverage": {
+                "status": "unavailable",
+                "reasons": ["no_component_source_row"],
+                "scope": "simulation_opening_experience",
+            },
+        }
+
+    coverage = dict(collector.get("coverage") or {})
+    coverage["scope"] = "simulation_opening_experience"
+    return {
+        **base,
+        "status": collector.get("status"),
+        "version": (collector.get("collectorAppeal") or {}).get("version"),
+        "asOf": collector.get("asOf"),
         "dualPathDepth": dict(collector.get("dualPathDepth") or {}),
         "collectorAppeal": dict(collector.get("collectorAppeal") or {}),
         "chaseAppeal": dict(collector.get("chaseAppeal") or {}),
         "topSubjects": list(collector.get("topSubjects") or []),
-        "coverage": dict(collector.get("coverage") or {}),
+        "coverage": coverage,
     }
 
 
@@ -1259,7 +1270,22 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             "rip_desirability_comparison": comparison_diagnostics,
             "setValueAssociation": set_value_association,
             "desirabilityBundleStatus": universal_status,
-            "ripWeightsConfig": rip_weights_payload(DEFAULT_RIP_WEIGHTS),
+            # The Financial RIP weights, which sum to 1.00 and are applied as
+            # published - no renormalization step, unlike the retired four-pillar
+            # blend whose displayed weights were never the applied ones.
+            "ripWeightsConfig": {
+                "financialRip": {
+                    "weights": dict(FINANCIAL_RIP_WEIGHTS),
+                    "version": "financial_rip_v2_60_25_15",
+                },
+                "overallRip": {
+                    "formula": "clamp(financial_rip + clamp((desirability - 50) / 10, -cap, +cap), 0, 100)",
+                    "desirabilityAdjustmentCap": DESIRABILITY_ADJUSTMENT_CAP,
+                    "version": "overall_rip_v3_financial_plus_universal_desirability",
+                },
+                "weightsLabel": WEIGHTS_DISCLOSURE,
+                "configVersion": "scoring_config_v1",
+            },
             # The population every public rank in this payload was computed
             # against. Exposed rather than implied: a denominator the client has
             # to infer is a denominator the client can get wrong.

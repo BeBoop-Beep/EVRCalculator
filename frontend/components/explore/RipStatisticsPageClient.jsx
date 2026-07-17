@@ -82,8 +82,9 @@ import {
   selectRipHeroScoreMode,
 } from "./ripHeroScoreMode.mjs";
 import {
-  selectCollectorAppealImpact,
   selectOpeningExperiencePresentation,
+  selectRipDesirabilityBreakdown,
+  selectSetDesirabilityPresentation,
 } from "@/components/pokemon/set-page/Insights/openingExperienceSelector.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
@@ -959,9 +960,11 @@ const SIMPLE_PILLAR_INFO_COPY = {
     "Profit explains how often simulated openings beat cost, how Expected Value compares with pack cost, and how much upside the better pulls create. A strong profit profile does not guarantee a profitable pack.",
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
+  "Set Desirability":
+    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It is not a weighted pillar of the RIP Score: Overall RIP is Financial RIP plus a bounded adjustment from this score.",
   "Collector Appeal":
-    "Collector Appeal combines Roster Desirability — how beloved the set's Pokémon are, independent of price — with a bounded bonus for Dual-Path Depth, the share of desirable Pokémon offering both a realistically pullable printing and an elite chase. Price is never an input. It contributes a fixed 10% of the RIP Score alongside the financial pillars.",
-  // Legacy key kept only for stale render paths; the pillar label is Collector Appeal.
+    "Collector Appeal is a Simulation Opening Experience diagnostic: desirability combined with a bounded bonus for Dual-Path Depth, the share of desirable Pokémon offering both a realistically pullable printing and an elite chase. It needs the set's modeled pull structure, and it is not a pillar of the RIP Score.",
+  // Legacy key kept only for stale render paths.
   Desirability:
     "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value.",
   Stability:
@@ -1447,7 +1450,7 @@ function getFirstTextFromSources(sources, keys = []) {
 }
 
 // The legacy "Without/With Desirability" comparison helpers were retired with
-// the strip they fed; see CollectorAppealImpactStrip + selectCollectorAppealImpact.
+// the strip they fed; see RipDesirabilityBreakdownStrip.
 function formatNumber(value, decimals = 2) {
   const parsed = toNumber(value);
   if (parsed === null) {
@@ -4463,7 +4466,7 @@ function CollectorAppealDriverRow({ card, index }) {
           <p className="text-xs text-[var(--text-secondary)]">
             {[rarity, printedNumber].filter(Boolean).join(" · ") || "Card details unavailable"}
           </p>
-          <p className="text-xs text-[var(--text-secondary)]">Pokémon Appeal: {cardAppeal || "—"}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Subject Demand: {cardAppeal || "—"}</p>
           <p className="text-xs text-[var(--text-secondary)]">Subject: {subjects.length > 0 ? subjects.join(", ") : "—"}</p>
         </div>
       </div>
@@ -4477,7 +4480,7 @@ function TopDesirabilityDrivers({ drivers = [] }) {
     : [];
 
   if (cards.length === 0) {
-    return <p className="text-sm text-[var(--text-secondary)]">Top Collector Appeal drivers are not available for this set yet.</p>;
+    return <p className="text-sm text-[var(--text-secondary)]">Top Desirability Drivers are not available for this set yet.</p>;
   }
 
   return (
@@ -5814,43 +5817,64 @@ function CompactPillarSignalTile({
   );
 }
 
-function CollectorAppealImpactStrip({ impact }) {
-  // The truthful replacement for the old "Without/With Desirability" strip.
-  // Every value is read from the canonical rip/ripCore objects via
-  // selectCollectorAppealImpact; the direct contribution is the backend's
-  // score x weight, never `full RIP - RIP Core` (RIP Core is renormalized, so
-  // that subtraction is not the weighted contribution).
-  if (!impact) {
+function RipDesirabilityBreakdownStrip({ breakdown }) {
+  // Overall RIP = Financial RIP + a bounded desirability adjustment.
+  //
+  // Deliberately NOT presented as a four-way weighted blend: Set Desirability is
+  // added to Financial RIP, not averaged into it, and the retired strip's
+  // "Collector Appeal Weight 10% / Direct RIP Contribution" framing described a
+  // weighted pillar that no longer exists. The adjustment comes from the backend
+  // payload rather than `rip.score - ripCore.score`, which disagrees with it
+  // wherever either score hits its 0/100 clamp.
+  if (!breakdown) {
     return null;
   }
 
   const metrics = [
-    { label: "RIP Core", value: impact.ripCore.scoreLabel, detail: impact.ripCore.rankLabel },
-    { label: "Collector Appeal", value: impact.collectorAppeal.scoreLabel, detail: impact.collectorAppeal.rankLabel },
-    { label: "Collector Appeal Weight", value: impact.weightLabel, detail: null },
-    { label: "Direct RIP Contribution", value: impact.contributionLabel, detail: null },
-    { label: "Final RIP", value: impact.finalRip.scoreLabel, detail: impact.finalRip.rankLabel },
+    {
+      label: "Financial RIP",
+      value: breakdown.financialRip.scoreLabel,
+      detail: breakdown.financialRip.weightsLabel,
+    },
+    {
+      label: "Set Desirability",
+      value: breakdown.setDesirability.scoreLabel,
+      detail: breakdown.setDesirability.rankLabel,
+    },
+    {
+      label: "Desirability Adjustment",
+      value: breakdown.desirabilityAdjustment.label,
+      detail: breakdown.desirabilityAdjustment.clamped
+        ? `${breakdown.desirabilityAdjustment.capLabel} (clamped)`
+        : breakdown.desirabilityAdjustment.capLabel,
+    },
+    {
+      label: "Overall RIP",
+      value: breakdown.overallRip.scoreLabel,
+      detail: breakdown.overallRip.rankLabel,
+    },
   ];
 
   return (
     <div className="mt-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Collector Appeal Impact</p>
-        {impact.rankEffectLabel ? (
-          <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
-            {impact.rankEffectLabel}
-          </span>
-        ) : null}
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+          How Overall RIP Is Built
+        </p>
+        <span className="text-[11px] text-[var(--text-secondary)]">Financial RIP + Desirability Adjustment</span>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <div key={`collector-appeal-impact:${metric.label}`} className="min-w-0">
+          <div key={`rip-desirability-breakdown:${metric.label}`} className="min-w-0">
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{metric.label}</p>
             <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{metric.value ?? "—"}</p>
             {metric.detail ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{metric.detail}</p> : null}
           </div>
         ))}
       </div>
+      {breakdown.unavailableReason ? (
+        <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{breakdown.unavailableReason}</p>
+      ) : null}
     </div>
   );
 }
@@ -5865,7 +5889,7 @@ function RipScoreBreakdownModule({
   explanation,
   pillars,
   titleInfoText,
-  collectorAppealImpact = null,
+  ripDesirabilityBreakdown = null,
 }) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const parsedRank = toNumber(rankValue);
@@ -5927,12 +5951,12 @@ function RipScoreBreakdownModule({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {pillars.map((pillar) => (
             <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
           ))}
         </div>
-        <CollectorAppealImpactStrip impact={collectorAppealImpact} />
+        <RipDesirabilityBreakdownStrip breakdown={ripDesirabilityBreakdown} />
       </article>
     </section>
   );
@@ -5991,23 +6015,34 @@ function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "d
 }
 
 // ---------------------------------------------------------------------------
-// 02 · OPENING EXPERIENCE — Collector Appeal
+// 02 · SET DESIRABILITY and SIMULATION OPENING EXPERIENCE
 //
-// Replaces the retired Desirability Evidence section (rank-alignment bars,
-// Set/Card Validation scatter toggles, market agree/conflict verdicts). Pure
-// Roster Desirability is price-independent by construction, so validating it
-// against set value was never the right proof for the construct. This section
-// explains the score's actual composition instead: Roster Desirability, a
-// bounded Dual-Path Depth bonus, and the specific printings behind the top
-// desirable subjects. All numbers come from the backend openingExperience
-// contract via selectOpeningExperiencePresentation — nothing is computed here.
+// TWO SECTIONS, TWO AVAILABILITIES
+// --------------------------------
+// Set Desirability is the authoritative desirability score. It is computed from
+// the canonical checklist and Pokémon subject demand, so it needs no simulation,
+// no pull model and no CA7, and it renders for every adequately covered set.
+//
+// The Simulation Opening Experience needs the modeled pull structure, so it
+// renders only where CA7 loaded. It used to be the ONLY section, with Roster
+// Desirability nested inside it — so a set whose pack model could not be read
+// hid its Set Desirability too, a score the backend had already computed and
+// sent. They are separate now because they fail for different reasons.
+//
+// All numbers come from the backend contracts via the selectors; nothing here
+// computes a score, a weight or a rank.
 // ---------------------------------------------------------------------------
 
+const SET_DESIRABILITY_INFO_TEXT = [
+  "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value.",
+  "Chase Subject Strength is how beloved the set's top subjects are. Chase Subject Depth is how many distinct subjects carry that demand rather than one. Favorite Hit Coverage is how much of the desirable roster appears as a hit at all.",
+  "It is available for every set with an adequate checklist and subject coverage, whether or not the set has been simulated.",
+].join(" ");
+
 const OPENING_EXPERIENCE_INFO_TEXT = [
-  "Collector Appeal measures how exciting a set's roster is to open: Roster Desirability (how beloved the set's Pokémon are, independent of price) plus a bounded bonus for Dual-Path Depth (the share of desirable Pokémon offering both a realistically pullable printing and an elite chase).",
-  "Price is not an input to Roster Desirability or Collector Appeal.",
-  "Dual-Path Depth uses the modeled pull structure of this set's packs.",
-  "Chase Appeal is a separate desirability × scarcity diagnostic. It is shown for context and is not independently added to the RIP Score.",
+  "Collector Appeal measures how exciting a set's roster is to open, combining desirability with a bounded bonus for Dual-Path Depth (the share of desirable Pokémon offering both a realistically pullable printing and an elite chase).",
+  "It needs the modeled pull structure of this set's packs, so it appears only for sets with a pack model. It is a diagnostic — it is not a pillar of the RIP Score.",
+  "Chase Appeal is a separate desirability × scarcity diagnostic and is not added to the RIP Score.",
 ].join(" ");
 
 function OpeningExperienceMetricCard({ label, value, detail, infoText }) {
@@ -6078,14 +6113,34 @@ function OpeningExperienceSubjectRow({ subject }) {
   );
 }
 
-function OpeningExperienceCard({ openingExperience, loading = false, loadingTimedOut = false }) {
+function SetDesirabilitySubjectRow({ subject }) {
+  return (
+    <div className="flex min-w-0 items-baseline justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{subject.subjectName}</p>
+        {subject.representativeCardName ? (
+          <p className="truncate text-xs text-[var(--text-secondary)]">
+            {[subject.representativeCardName, subject.cardCount !== null ? `${subject.cardCount} printings` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
+      </div>
+      {subject.subjectDemandLabel ? (
+        <p className="flex-none text-sm font-semibold text-[var(--text-primary)]">{subject.subjectDemandLabel}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SetDesirabilityCard({ universalSetDesirability, loading = false, loadingTimedOut = false }) {
   const presentation = useMemo(
-    () => selectOpeningExperiencePresentation(openingExperience),
-    [openingExperience]
+    () => selectSetDesirabilityPresentation(universalSetDesirability),
+    [universalSetDesirability]
   );
 
   return (
-    <section id="set-detail-opening-experience" className="scroll-mt-24 md:scroll-mt-28">
+    <section id="set-detail-set-desirability" className="scroll-mt-24 md:scroll-mt-28">
       {/* Legacy deep-link anchors: old desirability-proof/-validation/card
           links must keep landing somewhere real, so they resolve here. */}
       <span id="set-detail-desirability-evidence" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
@@ -6093,11 +6148,11 @@ function OpeningExperienceCard({ openingExperience, loading = false, loadingTime
       <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <SectionCard
-        eyebrow="02 · Opening Experience"
+        eyebrow="02 · Set Desirability"
         tone="plain"
-        title="Collector Appeal"
-        subtitle="How exciting this set's roster is to open — collector demand plus chase structure, independent of price."
-        titleInfoText={OPENING_EXPERIENCE_INFO_TEXT}
+        title="Set Desirability"
+        subtitle="How popular and deep this set's Pokémon roster is — independent of price and of whether the set has been simulated."
+        titleInfoText={SET_DESIRABILITY_INFO_TEXT}
         bodyClassName="space-y-4"
       >
         {!presentation.available ? (
@@ -6113,8 +6168,111 @@ function OpeningExperienceCard({ openingExperience, loading = false, loadingTime
             </div>
           ) : (
             <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-              Collector Appeal isn&apos;t available for this set yet. It appears once the set has full
-              desirability coverage and a modeled pull structure.
+              Set Desirability isn&apos;t available for this set. It needs a canonical checklist with
+              Pokémon subjects that appear as hits; this product has none.
+            </p>
+          )
+        ) : (
+          <>
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <p className="inline-flex items-end gap-1.5 text-3xl font-semibold leading-none text-[var(--text-primary)]">
+                <span>{presentation.scoreLabel}</span>
+                <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
+              </p>
+              {presentation.rankLabel ? (
+                <span className="text-sm text-[var(--text-secondary)]">{presentation.rankLabel}</span>
+              ) : null}
+              {presentation.percentileLabel ? (
+                <span className="text-xs text-[var(--text-secondary)]">{`${presentation.percentileLabel} percentile`}</span>
+              ) : null}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {presentation.components.map((component) => (
+                <OpeningExperienceMetricCard
+                  key={`set-desirability:${component.key}`}
+                  label={component.label}
+                  value={component.scoreLabel}
+                />
+              ))}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <OpeningExperienceMetricCard
+                label="Effective Subjects"
+                value={presentation.effectiveSubjectCountLabel}
+                detail={
+                  presentation.distinctEligibleSubjectCount !== null
+                    ? `${presentation.distinctEligibleSubjectCount} eligible subjects`
+                    : null
+                }
+                infoText="How many distinct Pokémon subjects meaningfully carry this set's demand. A set whose demand sits on one Pokémon has a low effective count even with a long checklist."
+              />
+              <OpeningExperienceMetricCard
+                label="Top Subject Share"
+                value={presentation.top1ShareLabel}
+                infoText="Share of this set's desirable demand concentrated in its single strongest subject."
+              />
+              <OpeningExperienceMetricCard
+                label="Top 3 Share"
+                value={presentation.top3ShareLabel}
+                infoText="Share of this set's desirable demand concentrated in its three strongest subjects."
+              />
+            </div>
+
+            {presentation.topSubjects.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                  Top Desirability Drivers
+                </p>
+                {presentation.topSubjects.map((subject) => (
+                  <SetDesirabilitySubjectRow key={`set-desirability-subject:${subject.subjectName}`} subject={subject} />
+                ))}
+              </div>
+            ) : null}
+
+            <p className="text-xs text-[var(--text-secondary)]">{presentation.explanation}</p>
+          </>
+        )}
+      </SectionCard>
+    </section>
+  );
+}
+
+function OpeningExperienceCard({ openingExperience, loading = false, loadingTimedOut = false }) {
+  const presentation = useMemo(
+    () => selectOpeningExperiencePresentation(openingExperience),
+    [openingExperience]
+  );
+
+  return (
+    <section id="set-detail-opening-experience" className="scroll-mt-24 md:scroll-mt-28">
+      <SectionCard
+        eyebrow="03 · Simulation Opening Experience"
+        tone="plain"
+        title="Collector Appeal"
+        subtitle="How this set's desirable Pokémon are distributed across its modeled pull structure."
+        titleInfoText={OPENING_EXPERIENCE_INFO_TEXT}
+        bodyClassName="space-y-4"
+      >
+        {!presentation.available ? (
+          loading ? (
+            <div aria-busy={!loadingTimedOut}>
+              {loadingTimedOut ? (
+                <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                  Set insights are taking longer than expected to load. Refresh the page to retry.
+                </div>
+              ) : (
+                <InlinePanelSkeleton rows={3} />
+              )}
+            </div>
+          ) : (
+            // Scoped to the simulation ONLY. It must never read as a statement
+            // about desirability, which is shown above and does not need a pull
+            // model.
+            <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
+              Collector Appeal needs this set&apos;s modeled pull structure, which isn&apos;t available
+              yet. Set Desirability above is unaffected — it doesn&apos;t use pull data.
             </p>
           )
         ) : (
@@ -6137,13 +6295,7 @@ function OpeningExperienceCard({ openingExperience, loading = false, loadingTime
               ) : null}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <OpeningExperienceMetricCard
-                label="Roster Desirability"
-                value={presentation.rosterDesirability.scoreLabel}
-                detail={presentation.rosterDesirability.rankLabel}
-                infoText="How beloved this set's Pokémon roster is, measured from collector demand signals. Card prices are never an input."
-              />
+            <div className="grid gap-3 sm:grid-cols-2">
               <OpeningExperienceMetricCard
                 label="Dual-Path Depth"
                 value={presentation.dualPathDepth.displayLabel}
@@ -6169,7 +6321,9 @@ function OpeningExperienceCard({ openingExperience, loading = false, loadingTime
 
             {presentation.topSubjects.length > 0 ? (
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Why this score</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                  Pull paths for top subjects
+                </p>
                 {presentation.topSubjects.map((subject) => (
                   <OpeningExperienceSubjectRow key={`opening-subject:${subject.subjectName}`} subject={subject} />
                 ))}
@@ -6177,9 +6331,8 @@ function OpeningExperienceCard({ openingExperience, loading = false, loadingTime
             ) : null}
 
             <p className="text-xs text-[var(--text-secondary)]">
-              Price is not an input to Roster Desirability or Collector Appeal. Dual-Path Depth uses the
-              modeled pull structure. Chase Appeal is a separate desirability × scarcity diagnostic and is
-              not independently added to the RIP Score.
+              Price is not an input here. Dual-Path Depth uses the modeled pull structure. Collector
+              Appeal and Chase Appeal are opening diagnostics — neither is a pillar of the RIP Score.
             </p>
           </>
         )}
@@ -8793,18 +8946,32 @@ export default function RipStatisticsPageClient({
     () => explorePayload?.rip || selectedTarget?.rip || summary?.rip || {},
     [explorePayload?.rip, selectedTarget?.rip, summary?.rip]
   );
-  const canonicalRipComponents = canonicalRip?.components || {};
+  // The pillars live on Financial RIP. Overall RIP carries the same Financial
+  // RIP object under `financialRip`, so both surfaces read one computation.
+  const canonicalRipComponents =
+    canonicalRip?.financialRip?.components || canonicalRip?.components || {};
   const displayedProfitScore = toNumber(canonicalRipComponents.profit?.score);
   const displayedSafetyScore = toNumber(canonicalRipComponents.safety?.score);
-  const displayedCollectorAppealScore = toNumber(canonicalRipComponents.desirability?.score);
   const displayedStabilityScore = toNumber(canonicalRipComponents.stability?.score);
   const canonicalRipCore = useMemo(
     () => explorePayload?.ripCore || selectedTarget?.ripCore || summary?.ripCore || {},
     [explorePayload?.ripCore, selectedTarget?.ripCore, summary?.ripCore]
   );
-  const collectorAppealImpact = useMemo(
-    () => selectCollectorAppealImpact(canonicalRip, canonicalRipCore),
-    [canonicalRip, canonicalRipCore]
+  const canonicalUniversalSetDesirability = useMemo(
+    () =>
+      explorePayload?.universalSetDesirability ||
+      selectedTarget?.universalSetDesirability ||
+      summary?.universalSetDesirability ||
+      null,
+    [
+      explorePayload?.universalSetDesirability,
+      selectedTarget?.universalSetDesirability,
+      summary?.universalSetDesirability,
+    ]
+  );
+  const ripDesirabilityBreakdown = useMemo(
+    () => selectRipDesirabilityBreakdown(canonicalRip, canonicalRipCore, canonicalUniversalSetDesirability),
+    [canonicalRip, canonicalRipCore, canonicalUniversalSetDesirability]
   );
   const desirabilitySummary = getDesirabilitySummary(summary);
   const topDesirabilityCards = getTopCollectorAppealDrivers(
@@ -9375,9 +9542,12 @@ export default function RipStatisticsPageClient({
       currentValue: displayedSafetyScore,
       previousPoint: previousTrendPoint,
     }),
+    // Tracks the AUTHORITATIVE desirability score. It used to track the CA7
+    // pillar, which is no longer a RIP component and no longer exists on the
+    // canonical payload.
     desirabilityScore: getHistoryMetricTrend({
       metricKey: "desirabilityScore",
-      currentValue: displayedCollectorAppealScore,
+      currentValue: toNumber(canonicalUniversalSetDesirability?.score),
       previousPoint: previousTrendPoint,
     }),
     stabilityScore: getHistoryMetricTrend({
@@ -10154,7 +10324,7 @@ export default function RipStatisticsPageClient({
   const desirabilityPillarMetrics = [
     ...desirabilityOverviewMetrics,
     {
-      label: "Top Collector Appeal Drivers",
+      label: "Top Desirability Drivers",
       value: null,
       content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
       trend: null,
@@ -10235,20 +10405,10 @@ export default function RipStatisticsPageClient({
       metrics: stabilityPillarMetrics,
       infoText: getFormattedTooltip("Stability"),
     },
-    {
-      title: "Collector Appeal",
-      score: ripBreakdownRowByTitle.get("Collector Appeal")?.score ?? null,
-      scoreTrend: ripBreakdownRowByTitle.get("Collector Appeal")?.scoreTrend ?? trendByMetricKey.desirabilityScore,
-      rankValue: ripBreakdownRowByTitle.get("Collector Appeal")?.rankValue ?? null,
-      rankTier: ripBreakdownRowByTitle.get("Collector Appeal")?.rankTier ?? null,
-      cohortSize: ripBreakdownRowByTitle.get("Collector Appeal")?.cohortSize ?? null,
-      weight: ripBreakdownRowByTitle.get("Collector Appeal")?.weight ?? null,
-      contribution: ripBreakdownRowByTitle.get("Collector Appeal")?.contribution ?? null,
-      statusLabel: getPillarStatusLabel({ label: desirabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]?.state, score: displayedCollectorAppealScore }),
-      highlight: getPillarSignalHighlight("Desirability", displayedCollectorAppealScore),
-      metrics: desirabilityPillarMetrics,
-      infoText: SIMPLE_PILLAR_INFO_COPY["Collector Appeal"] || SIMPLE_PILLAR_INFO_COPY.Desirability,
-    },
+    // No fourth pillar. Financial RIP is 60/25/15 over these three; Set
+    // Desirability is an additive adjustment to Overall RIP, shown in the
+    // "How Overall RIP Is Built" strip and its own section. A fourth weighted
+    // tile here would state a blend the backend does not compute.
   ];
   const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
   const initialModuleSetValueHistories =
@@ -12568,14 +12728,25 @@ export default function RipStatisticsPageClient({
                     explanation={recommendationSummary}
                     pillars={ripPillarTiles}
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                    collectorAppealImpact={collectorAppealImpact}
+                    ripDesirabilityBreakdown={ripDesirabilityBreakdown}
                   />
                 </SectionErrorBoundary>
 
-                {/* Priority 2b: Opening Experience (Collector Appeal). Reads the
-                    critical payload's openingExperience contract — no extra
-                    fetch, no secondary-tier dependency. */}
-                <SectionErrorBoundary sectionName="insights-opening-experience" resetKeys={[resolvedSetResourceId]} title="Opening Experience" minHeightClassName="min-h-[14rem]">
+                {/* Priority 2a: Set Desirability. Reads `universalSetDesirability`
+                    only, so it renders for every adequately covered set whether
+                    or not the set is simulated and whether or not CA7 loaded. */}
+                <SectionErrorBoundary sectionName="insights-set-desirability" resetKeys={[resolvedSetResourceId]} title="Set Desirability" minHeightClassName="min-h-[14rem]">
+                  <SetDesirabilityCard
+                    universalSetDesirability={canonicalUniversalSetDesirability}
+                    loading={insightsSectionsBlocked}
+                    loadingTimedOut={insightsSectionsShowFallbackCopy}
+                  />
+                </SectionErrorBoundary>
+
+                {/* Priority 2b: Simulation Opening Experience (CA7). Needs the
+                    pull model, so it may be unavailable while Set Desirability
+                    above still renders. */}
+                <SectionErrorBoundary sectionName="insights-opening-experience" resetKeys={[resolvedSetResourceId]} title="Simulation Opening Experience" minHeightClassName="min-h-[14rem]">
                   <OpeningExperienceCard
                     openingExperience={explorePayload?.openingExperience || selectedTarget?.openingExperience || null}
                     loading={insightsSectionsBlocked}
@@ -12856,20 +13027,25 @@ export default function RipStatisticsPageClient({
                   ]}
                 />
                 <div id="set-detail-desirability" className="h-full scroll-mt-24 md:scroll-mt-28">
+                  {/* The authoritative desirability score, from
+                      `universalSetDesirability`. It carries its own ALL-SET rank
+                      (of 135), not the 21-set simulated cohort rank the retired
+                      CA7 pillar used. */}
                   <ScorePillarCard
-                    title="Collector Appeal"
-                    score={displayedCollectorAppealScore}
+                    title="Set Desirability"
+                    score={toNumber(canonicalUniversalSetDesirability?.score)}
                     scoreTrend={trendByMetricKey.desirabilityScore}
-                    rankValue={ripBreakdownRowByTitle.get("Collector Appeal")?.rankValue ?? null}
-                    rankTier={ripBreakdownRowByTitle.get("Collector Appeal")?.rankTier ?? null}
-                    rankLabel="Collector Appeal Rank"
+                    rankValue={toNumber(canonicalUniversalSetDesirability?.rank)}
+                    rankTier={null}
+                    cohortSize={toNumber(canonicalUniversalSetDesirability?.rankedSetCount)}
+                    rankLabel="Set Desirability Rank"
                     sectionMeta={desirabilityMeta}
                     fallbackSummary={desirabilitySummary}
-                    infoText={SIMPLE_PILLAR_INFO_COPY["Collector Appeal"] || SIMPLE_PILLAR_INFO_COPY.Desirability}
+                    infoText={SIMPLE_PILLAR_INFO_COPY["Set Desirability"]}
                     simpleMetrics={desirabilityOverviewMetrics}
                     advancedMetrics={[
                       {
-                        label: "Top Collector Appeal Drivers",
+                        label: "Top Desirability Drivers",
                         value: null,
                         content: <TopDesirabilityDrivers drivers={topDesirabilityCards} />,
                         trend: null,

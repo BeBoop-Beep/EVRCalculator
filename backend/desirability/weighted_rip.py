@@ -27,12 +27,19 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from backend.desirability.scoring_config import (
     DEFAULT_RIP_WEIGHTS,
+    DESIRABILITY_ADJUSTMENT_BASELINE,
+    DESIRABILITY_ADJUSTMENT_CAP,
+    DESIRABILITY_ADJUSTMENT_DIVISOR,
     FINANCIAL_PILLARS,
+    FINANCIAL_RIP_V2_LEGACY_VERSION,
     FINANCIAL_RIP_V2_VERSION,
+    FINANCIAL_RIP_WEIGHTS,
+    OVERALL_RIP_V3_VERSION,
     RIP_V3_VERSION,
     SET_VALUE_ASSOCIATION_DISCLOSURE,
     SET_VALUE_ASSOCIATION_PRIOR_BENCHMARK,
     WEIGHT_SENSITIVITY_ALTERNATIVES,
+    WEIGHTS_DISCLOSURE,
     renormalize_weights,
     resolve_rip_weights,
     rip_weights_payload,
@@ -252,7 +259,10 @@ def compute_weighted_rip(
         }
         for key in effective
     }
-    version = RIP_V3_VERSION if "desirability" in effective else FINANCIAL_RIP_V2_VERSION
+    # The legacy label, not `financial_rip_v2_60_25_15`: this branch renormalizes
+    # the four-pillar weights and is a different model from the shipping
+    # Financial RIP, so it must not borrow its version string.
+    version = RIP_V3_VERSION if "desirability" in effective else FINANCIAL_RIP_V2_LEGACY_VERSION
     return {
         "score": round(max(0.0, min(100.0, score)), 4),
         "version": version,
@@ -263,12 +273,154 @@ def compute_weighted_rip(
     }
 
 
-def compute_financial_rip(pillar_scores: Mapping[str, Any], *, weights: Optional[Mapping[str, float]] = None) -> Dict[str, Any]:
-    """Pillars-only RIP (``financial_rip_v2``): the same config weights with
-    desirability excluded and the financial weights renormalized to 1.0."""
-    payload = compute_weighted_rip(pillar_scores, weights=weights, include_desirability=False)
-    payload["version"] = FINANCIAL_RIP_V2_VERSION
-    return payload
+def compute_financial_rip(
+    pillar_scores: Mapping[str, Any],
+    *,
+    weights: Optional[Mapping[str, float]] = None,
+) -> Dict[str, Any]:
+    """Financial RIP: exactly 0.60*Profit + 0.25*Safety + 0.15*Stability.
+
+    The weights sum to 1.00 across the three pillars, so the published weight is
+    the applied weight. The previous implementation delegated to the four-pillar
+    blend with desirability excluded, which renormalized 0.58/0.20/0.12 up to
+    0.644/0.222/0.133 - the displayed weights were never the arithmetic.
+
+    Desirability is not a pillar here and cannot be passed as one; it enters via
+    :func:`compute_overall_rip`.
+
+    A missing pillar makes Financial RIP UNAVAILABLE rather than renormalizing
+    the survivors. Renormalizing would emit a number that looks like a Financial
+    RIP, sorts against real ones, and silently means something else - a set
+    missing Stability would be scored purely on Profit and Safety and compared
+    to sets scored on all three.
+    """
+    resolved = dict(FINANCIAL_RIP_WEIGHTS)
+    if weights:
+        for key, value in weights.items():
+            if key in resolved:
+                resolved[key] = float(value)
+
+    values = {key: _as_float(pillar_scores.get(key)) for key in FINANCIAL_PILLARS}
+    missing = sorted(key for key, value in values.items() if value is None)
+    if missing:
+        return {
+            "score": None,
+            "version": FINANCIAL_RIP_V2_VERSION,
+            "status": "unavailable_missing_financial_pillar",
+            "statusReason": (
+                "Financial RIP needs all three simulation pillars. Missing: "
+                + ", ".join(missing)
+                + ". The present pillars are NOT renormalized into a comparable score."
+            ),
+            "missingPillars": missing,
+            "components": {},
+            "weights": {key: round(value, 6) for key, value in resolved.items()},
+            "weightsLabel": WEIGHTS_DISCLOSURE,
+            "rankable": False,
+        }
+
+    score = sum(values[key] * resolved[key] for key in FINANCIAL_PILLARS)
+    return {
+        "score": round(max(0.0, min(100.0, score)), 4),
+        "version": FINANCIAL_RIP_V2_VERSION,
+        "components": {
+            key: {
+                "score": round(values[key], 4),
+                "weight": round(resolved[key], 6),
+                "contribution": round(values[key] * resolved[key], 4),
+            }
+            for key in FINANCIAL_PILLARS
+        },
+        "weights": {key: round(value, 6) for key, value in resolved.items()},
+        "weightsLabel": WEIGHTS_DISCLOSURE,
+        "rankable": True,
+    }
+
+
+def compute_desirability_adjustment(
+    universal_desirability_score: Any,
+    *,
+    cap: float = DESIRABILITY_ADJUSTMENT_CAP,
+) -> Dict[str, Any]:
+    """``clamp((D - 50) / 10, -cap, +cap)``, with the clamp reported.
+
+    Returned as a payload rather than a bare float so a caller can show WHY the
+    adjustment is what it is - a set whose raw adjustment was clamped is a
+    materially different story from one that landed inside the cap, and the two
+    are indistinguishable from the final number alone.
+    """
+    score = _as_float(universal_desirability_score)
+    if score is None:
+        return {
+            "adjustment": None,
+            "rawAdjustment": None,
+            "clamped": False,
+            "cap": cap,
+            "baseline": DESIRABILITY_ADJUSTMENT_BASELINE,
+        }
+    raw = (score - DESIRABILITY_ADJUSTMENT_BASELINE) / DESIRABILITY_ADJUSTMENT_DIVISOR
+    adjustment = max(-cap, min(cap, raw))
+    return {
+        "adjustment": round(adjustment, 4),
+        "rawAdjustment": round(raw, 4),
+        "clamped": abs(raw) > cap,
+        "cap": cap,
+        "baseline": DESIRABILITY_ADJUSTMENT_BASELINE,
+        "formula": "clamp((universal_set_desirability - 50) / 10, -cap, +cap)",
+    }
+
+
+def compute_overall_rip(
+    pillar_scores: Mapping[str, Any],
+    universal_desirability_score: Any,
+    *,
+    cap: float = DESIRABILITY_ADJUSTMENT_CAP,
+    weights: Optional[Mapping[str, float]] = None,
+) -> Dict[str, Any]:
+    """Overall RIP = clamp(Financial RIP + desirability_adjustment, 0, 100).
+
+    Requires a valid Financial RIP and a valid Universal Set Desirability. It
+    deliberately does NOT require CA7, pull-accessible favorite exposure, or
+    special-pack appeal: those describe how a set is opened, and Overall RIP is
+    a financial score adjusted by how desirable the roster is. A set whose pull
+    model cannot be loaded still has both inputs this needs, so the old
+    ``incomplete_missing_desirability`` state - which nulled RIP for every set
+    the moment CA7 was unavailable - has no analogue here and is not reachable.
+    """
+    financial = compute_financial_rip(pillar_scores, weights=weights)
+    adjustment_payload = compute_desirability_adjustment(universal_desirability_score, cap=cap)
+
+    financial_score = financial.get("score")
+    adjustment = adjustment_payload.get("adjustment")
+
+    if financial_score is None or adjustment is None:
+        missing = list(financial.get("missingPillars") or [])
+        if adjustment is None:
+            missing.append("universal_set_desirability")
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V3_VERSION,
+            "status": "unavailable_missing_input",
+            "statusReason": (
+                "Overall RIP needs a valid Financial RIP and a valid Universal Set "
+                "Desirability. Missing: " + ", ".join(missing) + "."
+            ),
+            "missingInputs": missing,
+            "financialRip": financial,
+            "desirabilityAdjustment": adjustment_payload,
+            "rankable": False,
+        }
+
+    score = max(0.0, min(100.0, financial_score + adjustment))
+    return {
+        "score": round(score, 4),
+        "version": OVERALL_RIP_V3_VERSION,
+        "financialRip": financial,
+        "universalSetDesirabilityScore": _as_float(universal_desirability_score),
+        "desirabilityAdjustment": adjustment_payload,
+        "formula": "clamp(financial_rip + clamp((desirability - 50) / 10, -cap, +cap), 0, 100)",
+        "rankable": True,
+    }
 
 
 # ---------------------------------------------------------------------------

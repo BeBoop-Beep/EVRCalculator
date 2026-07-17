@@ -331,7 +331,8 @@ def test_financial_only_numbers_remain_available_but_separately_labelled():
     )
     financial = result["financialOnly"]
     assert financial["score"] is not None
-    assert financial["version"] == "financial_rip_v2"
+    # The shipping Financial RIP model, not the retired renormalizing one.
+    assert financial["version"] == "financial_rip_v2_60_25_15"
     assert "not comparable" in financial["label"].lower()
     # It must never be presented as, or mistaken for, the canonical RIP.
     assert result["score"] is None
@@ -366,12 +367,17 @@ def test_unsupported_promo_with_simulation_data_cannot_get_a_canonical_rip():
     assert result.get("rank") is None
 
 
-def test_explicit_financial_only_request_is_still_valid_and_renormalized():
-    """Excluding desirability on purpose is not a missing pillar."""
+def test_financial_rip_is_valid_on_its_own_at_60_25_15():
+    """Financial RIP is a whole model, not the four-pillar blend minus a pillar.
+
+    There is no `desirabilityIncluded` flag any more: desirability is not a
+    pillar of this model, so there is nothing to include or exclude. The weights
+    sum to 1.00 and are applied as published rather than renormalized.
+    """
     result = compute_financial_rip({"profit": 80.0, "safety": 70.0, "stability": 60.0})
-    assert result["score"] is not None
-    assert result["version"] == "financial_rip_v2"
-    assert result["desirabilityIncluded"] is False
+    assert result["score"] == pytest.approx(0.60 * 80.0 + 0.25 * 70.0 + 0.15 * 60.0, abs=1e-6)
+    assert result["version"] == "financial_rip_v2_60_25_15"
+    assert set(result["components"]) == {"profit", "safety", "stability"}
 
 
 def test_zero_configured_desirability_weight_is_not_a_missing_pillar():

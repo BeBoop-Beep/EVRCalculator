@@ -587,21 +587,30 @@ test("RIP Score Breakdown selector keeps current metrics when trends are missing
   assert.equal(safety.rankValue, 12);
 });
 
-test("RIP Score Breakdown selector labels the fourth pillar Collector Appeal and never reads legacy relative fields", async () => {
+test("RIP Score Breakdown selector renders three financial pillars and never reads legacy relative fields", async () => {
   const { selectRipScoreBreakdown } = await import(pathToFileURL(ripScoreBreakdownSelectorPath).href);
   const fsModule = await import("node:fs");
   const selectorSource = fsModule.readFileSync(ripScoreBreakdownSelectorPath, "utf8");
 
-  // The fourth pillar is Collector Appeal (CA7); the backend keys the
-  // component `desirability` for weight-config compatibility.
+  // There is no fourth pillar. Financial RIP is 60/25/15 over three pillars;
+  // Set Desirability is an additive adjustment to Overall RIP, not a weighted
+  // component, so rendering it here would describe arithmetic that never runs.
   const selected = selectRipScoreBreakdown({
-    components: { desirability: { score: 96.09, rank: 1, tier: "S", weight: 0.1, contribution: 9.61, cohortSize: 21 } },
+    financialRip: {
+      components: {
+        profit: { score: 24.51, rank: 2, tier: "S", weight: 0.6, contribution: 14.706, cohortSize: 21 },
+      },
+    },
   });
-  const collectorAppeal = selected.rows.find((row) => row.title === "Collector Appeal");
-  assert.ok(collectorAppeal, "the Collector Appeal pillar row must exist");
-  assert.equal(collectorAppeal.score, 96.09);
-  assert.equal(collectorAppeal.contribution, 9.61);
-  assert.equal(selected.rows.map((row) => row.title).join("|"), "Profit|Safety|Stability|Collector Appeal");
+  assert.equal(selected.rows.map((row) => row.title).join("|"), "Profit|Safety|Stability");
+  assert.ok(
+    !selected.rows.some((row) => row.title === "Collector Appeal"),
+    "Collector Appeal is not a RIP pillar"
+  );
+  const profit = selected.rows.find((row) => row.title === "Profit");
+  assert.equal(profit.score, 24.51);
+  assert.equal(profit.weight, 0.6);
+  assert.equal(profit.contribution, 14.706);
 
   // Legacy min-max fields must never be read, even as a fallback.
   const withLegacyOnly = selectRipScoreBreakdown({
@@ -1268,27 +1277,47 @@ test("30D top chase UI selection does not require a 30d dashboard snapshot", () 
   assert.ok(!source.includes("prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW })"));
 });
 
-test("Collector Appeal impact strip replaces the legacy desirability comparison", () => {
+test("RIP breakdown strip shows Financial RIP, Set Desirability, adjustment and Overall RIP", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // The truthful strip: RIP Core, Collector Appeal, its fixed weight, the
-  // DIRECT backend-computed contribution, and the final RIP.
-  assert.ok(source.includes("function CollectorAppealImpactStrip"));
-  assert.ok(source.includes('label: "RIP Core"'));
-  assert.ok(source.includes('label: "Collector Appeal Weight"'));
-  assert.ok(source.includes('label: "Direct RIP Contribution"'));
-  assert.ok(source.includes('label: "Final RIP"'));
-  assert.ok(source.includes("collectorAppealImpact={collectorAppealImpact}"));
-  assert.ok(source.includes("selectCollectorAppealImpact(canonicalRip, canonicalRipCore)"));
+  // Overall RIP = Financial RIP + a bounded additive adjustment.
+  assert.ok(source.includes("function RipDesirabilityBreakdownStrip"));
+  assert.ok(source.includes('label: "Financial RIP"'));
+  assert.ok(source.includes('label: "Set Desirability"'));
+  assert.ok(source.includes('label: "Desirability Adjustment"'));
+  assert.ok(source.includes('label: "Overall RIP"'));
+  assert.ok(source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
 
-  // The old strip and its labels are gone: `full RIP - RIP Core` is not the
-  // Collector Appeal contribution (RIP Core is renormalized).
+  // The retired CA7-as-a-weighted-pillar framing is gone: Set Desirability is
+  // added to Financial RIP, not averaged into it at a 10% weight.
+  assert.ok(!source.includes("function CollectorAppealImpactStrip"));
+  assert.ok(!source.includes('label: "Collector Appeal Weight"'));
+  assert.ok(!source.includes('label: "Direct RIP Contribution"'));
+  assert.ok(!source.includes("selectCollectorAppealImpact"));
+
+  // And the older strip before that stays gone.
   assert.ok(!source.includes("function RipDesirabilityComparisonStrip"));
   assert.ok(!source.includes("function normalizeRipDesirabilityComparison"));
   assert.ok(!source.includes('"Without Desirability"'));
   assert.ok(!source.includes('"With Desirability"'));
-  assert.ok(!source.includes('"Score Delta"'));
-  assert.ok(!source.includes('"Rank Delta"'));
+});
+
+test("Collector Appeal is not the authoritative RIP pillar", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+  const selectorSource = fs.readFileSync(ripScoreBreakdownSelectorPath, "utf8");
+
+  // The pillar list is exactly the three financial pillars.
+  assert.ok(!selectorSource.includes('title: "Collector Appeal"'));
+  assert.ok(selectorSource.includes('title: "Profit"'));
+
+  // The Overview pillar card is Set Desirability, reading the universal score.
+  assert.ok(source.includes('title="Set Desirability"'));
+  assert.ok(source.includes("canonicalUniversalSetDesirability?.score"));
+
+  // Legacy driver/appeal labels are renamed.
+  assert.ok(!source.includes("Top Collector Appeal Drivers"));
+  assert.ok(!source.includes("Pokémon Appeal:"));
+  assert.ok(source.includes("Top Desirability Drivers"));
 });
 
 test("set page insights receive the canonical RIP contract through the snapshot payload", () => {
@@ -1299,16 +1328,27 @@ test("set page insights receive the canonical RIP contract through the snapshot 
   // rankings computed onto the set-page snapshot, so both surfaces read one
   // contract and can never disagree about a score, rank, or denominator.
   assert.ok(snapshotBuilderSource.includes("_merge_canonical_rip_contract_into_set_payload"));
-  for (const key of ['"rip"', '"ripCore"', '"openingExperience"', '"publicAnalyticsStatus"', '"publicAnalyticsCohort"']) {
+  for (const key of [
+    '"rip"',
+    '"ripCore"',
+    '"openingExperience"',
+    '"publicAnalyticsStatus"',
+    '"publicAnalyticsCohort"',
+    // Without this the set page's Set Desirability section has nothing to read.
+    '"universalSetDesirability"',
+    '"desirabilityCoverage"',
+    '"simulationCoverage"',
+  ]) {
     assert.ok(snapshotBuilderSource.includes(key), `snapshot builder propagates ${key}`);
   }
 
   // The page reads the canonical objects (payload first, then the rankings
-  // target) and feeds the impact strip from them.
+  // target) and feeds the breakdown strip from them.
   assert.ok(source.includes("explorePayload?.rip || selectedTarget?.rip"));
   assert.ok(source.includes("explorePayload?.ripCore || selectedTarget?.ripCore"));
+  assert.ok(source.includes("explorePayload?.universalSetDesirability"));
   assert.ok(source.includes("<RipScoreBreakdownModule"));
-  assert.ok(source.includes("collectorAppealImpact={collectorAppealImpact}"));
+  assert.ok(source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
 });
 
 test("market dashboard normalizer attaches top chase histories to cards", async () => {
@@ -1522,23 +1562,42 @@ test("cards proxy route returns controlled timeout errors", () => {
 
 
 
-test("Opening Experience replaces Desirability Evidence and renders from the canonical contract", () => {
+test("Set Desirability and Simulation Opening Experience are separate sections", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  // The new section: Collector Appeal header, three supporting metric cards,
-  // subject paths, and the methodology disclosure - all from the backend
-  // openingExperience contract via the pure selector.
+  // Set Desirability renders from `universalSetDesirability` alone, so it does
+  // not disappear when the pull model is missing.
+  assert.ok(source.includes("function SetDesirabilityCard"));
+  assert.ok(source.includes("selectSetDesirabilityPresentation"));
+  assert.ok(source.includes('eyebrow="02 · Set Desirability"'));
+  assert.ok(source.includes("universalSetDesirability={canonicalUniversalSetDesirability}"));
+  assert.ok(source.includes('label="Effective Subjects"'));
+  assert.ok(source.includes('label="Top Subject Share"'));
+  assert.ok(source.includes('label="Top 3 Share"'));
+  assert.ok(source.includes("Top Desirability Drivers"));
+
+  // The CA7 section is separate, later, and scoped to the simulation.
   assert.ok(source.includes("function OpeningExperienceCard"));
   assert.ok(source.includes("selectOpeningExperiencePresentation"));
-  assert.ok(source.includes('eyebrow="02 · Opening Experience"'));
+  assert.ok(source.includes('eyebrow="03 · Simulation Opening Experience"'));
   assert.ok(source.includes('title="Collector Appeal"'));
-  assert.ok(source.includes('label="Roster Desirability"'));
   assert.ok(source.includes('label="Dual-Path Depth"'));
   assert.ok(source.includes('label="Chase Appeal"'));
   assert.ok(source.includes('kind="Accessible Path"'));
   assert.ok(source.includes('kind="Elite Chase"'));
-  assert.ok(source.includes("Price is not an input to Roster Desirability or Collector Appeal."));
-  assert.ok(source.includes("not independently added to the RIP Score"));
+
+  // Its unavailable copy must be about the SIMULATION, and must say so without
+  // implying desirability is affected.
+  assert.ok(source.includes("Collector Appeal needs this set&apos;s modeled pull structure"));
+  assert.ok(source.includes("Set Desirability above is unaffected"));
+  assert.ok(
+    !source.includes("It appears once the set has full"),
+    "the old copy gated desirability on a pull model"
+  );
+
+  // Roster Desirability no longer lives inside the CA7 section.
+  assert.ok(!source.includes('label="Roster Desirability"'));
+  assert.ok(!source.includes("Price is not an input to Roster Desirability or Collector Appeal."));
 
   // The retired section, its toggles, and its charts are gone.
   assert.ok(!source.includes("function DesirabilityEvidenceCard"));
@@ -3451,13 +3510,19 @@ test("Phase 11: Insights' critical tier holds its own branded panel (not a whole
     "Simulation Results must remain gated by insightsSectionsBlocked, now driven by the secondary-tier fetch independent of the critical tier"
   );
 
-  // Both the hero (RipScoreBreakdownModule) and the secondary-tier sections
-  // (DesirabilityEvidenceCard, Opening Outcomes) are wrapped in their own
-  // SectionErrorBoundary for render-exception isolation.
+  // The hero (RipScoreBreakdownModule) and the secondary-tier sections each get
+  // their own SectionErrorBoundary for render-exception isolation. Four now:
+  // Set Desirability and Simulation Opening Experience are separate sections,
+  // so a CA7 render failure cannot take the desirability score down with it.
   const insightsRegionEnd = source.indexOf("{effectiveViewMode === \"expert\" && !setDetailMode ? (", insightsSectionStart);
   const insightsRegionSource = source.slice(insightsSectionStart, insightsRegionEnd);
   const insightsErrorBoundaryCount = (insightsRegionSource.match(/<SectionErrorBoundary/g) || []).length;
-  assert.equal(insightsErrorBoundaryCount, 3, `Insights must wrap RIP Score, Desirability Evidence, and Opening Outcomes each in their own SectionErrorBoundary (found ${insightsErrorBoundaryCount})`);
+  assert.equal(insightsErrorBoundaryCount, 4, `Insights must wrap RIP Score, Set Desirability, Simulation Opening Experience, and Simulation Results each in their own SectionErrorBoundary (found ${insightsErrorBoundaryCount})`);
+  assert.ok(
+    insightsRegionSource.indexOf('sectionName="insights-set-desirability"') <
+      insightsRegionSource.indexOf('sectionName="insights-opening-experience"'),
+    "Set Desirability must render above the CA7 section"
+  );
 });
 
 test("Phase 9D.2: Cards shows the branded panel only while the card page payload loads with no rows, and keeps per-card image placeholders", () => {
@@ -4196,7 +4261,7 @@ test("Stabilization: useSectionFetchState dedupes auto-fetches by set id and rel
 // underlying computations changed.
 // ---------------------------------------------------------------------------
 
-test("Collector Appeal impact strip omits uncomputed fields instead of rendering placeholder boxes", () => {
+test("RIP breakdown strip omits uncomputed fields instead of rendering placeholder boxes", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(!source.includes("Not computed yet"), "no 'Not computed yet' placeholder boxes may remain");
@@ -4207,10 +4272,10 @@ test("Collector Appeal impact strip omits uncomputed fields instead of rendering
 
   // The strip renders nothing at all when the canonical contract is absent -
   // no fallback sentence, no legacy comparison.
-  const stripStart = source.indexOf("function CollectorAppealImpactStrip({ impact })");
+  const stripStart = source.indexOf("function RipDesirabilityBreakdownStrip({ breakdown })");
   assert.ok(stripStart >= 0);
-  const stripSource = source.slice(stripStart, stripStart + 600);
-  assert.ok(stripSource.includes("if (!impact) {"), "a missing impact model must render nothing");
+  const stripSource = source.slice(stripStart, stripStart + 900);
+  assert.ok(stripSource.includes("if (!breakdown) {"), "a missing breakdown model must render nothing");
 });
 
 test("the legacy rank-alignment presentation is fully retired from the page", () => {

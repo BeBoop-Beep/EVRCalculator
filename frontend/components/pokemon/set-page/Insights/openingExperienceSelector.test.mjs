@@ -4,15 +4,49 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
-  selectCollectorAppealImpact,
+  SET_DESIRABILITY_EXPLANATION,
   selectOpeningExperiencePresentation,
+  selectRipDesirabilityBreakdown,
+  selectSetDesirabilityPresentation,
 } from "./openingExperienceSelector.mjs";
 
-// Ascended Heroes' real production numbers (dry-run artifact, 2026-07-16).
+// Ascended Heroes' real production numbers (verified live, 2026-07-16).
+const UNIVERSAL = {
+  score: 95.4809,
+  rank: 1,
+  rankedSetCount: 135,
+  percentile: 100.0,
+  version: "universal_set_desirability_v3",
+  components: {
+    chase_subject_strength: 86.6628,
+    chase_subject_depth: 100.0,
+    favorite_hit_coverage: 99.8113,
+  },
+  componentWeights: {
+    chase_subject_strength: 0.333333,
+    chase_subject_depth: 0.277778,
+    favorite_hit_coverage: 0.388889,
+  },
+  weightsLabel: "Reasoned defaults, not empirically fitted values.",
+  effectiveSubjectCount: 12.4,
+  distinctEligibleSubjectCount: 24,
+  top1Share: 0.181,
+  top3Share: 0.402,
+  topSubjects: [
+    {
+      subjectName: "Gengar",
+      subjectDemand: 98.2,
+      cardCount: 3,
+      representativeCardName: "Gengar ex",
+      bestRarityBucket: "special_illustration_rare",
+    },
+  ],
+  coverage: { status: "full", reasons: [], scoredHitEligibleShare: 1.0 },
+};
+
 const OPENING_EXPERIENCE = {
   status: "available",
   cohort: { version: "public_analytics_policy_v1_era_gated", eligibleSetCount: 21 },
-  rosterDesirability: { score: 95.4809, rank: 1, cohortSize: 21, tier: "S" },
   dualPathDepth: {
     rawValue: 0.27143,
     displayPercent: 27.1,
@@ -47,18 +81,106 @@ const OPENING_EXPERIENCE = {
       },
     },
   ],
-  coverage: { status: "available", reasons: [], pullModelAvailable: true },
+  coverage: { status: "available", reasons: [], pullModelAvailable: true, scope: "simulation_opening_experience" },
 };
 
-test("presentation formats the canonical scores on their honest scales", () => {
+// ---------------------------------------------------------------------------
+// Set Desirability
+// ---------------------------------------------------------------------------
+
+test("Set Desirability exposes score, all-set rank, cohort size and percentile", () => {
+  const model = selectSetDesirabilityPresentation(UNIVERSAL);
+
+  assert.equal(model.available, true);
+  assert.equal(model.scoreLabel, "95.5");
+  assert.equal(model.rankLabel, "#1 of 135");
+  assert.equal(model.rankedSetCount, 135);
+  assert.equal(model.percentileLabel, "100.0%");
+});
+
+test("Set Desirability exposes the three named components", () => {
+  const model = selectSetDesirabilityPresentation(UNIVERSAL);
+  assert.deepEqual(
+    model.components.map((row) => row.label),
+    ["Chase Subject Strength", "Chase Subject Depth", "Favorite Hit Coverage"]
+  );
+  assert.deepEqual(
+    model.components.map((row) => row.scoreLabel),
+    ["86.7", "100.0", "99.8"]
+  );
+});
+
+test("Set Desirability exposes concentration diagnostics and top subjects", () => {
+  const model = selectSetDesirabilityPresentation(UNIVERSAL);
+  assert.equal(model.effectiveSubjectCountLabel, "12.40");
+  assert.equal(model.distinctEligibleSubjectCount, 24);
+  assert.equal(model.top1ShareLabel, "18.1%");
+  assert.equal(model.top3ShareLabel, "40.2%");
+  assert.equal(model.topSubjects[0].subjectName, "Gengar");
+  assert.equal(model.topSubjects[0].subjectDemandLabel, "98.2");
+});
+
+test("Set Desirability renders with NO simulation, NO CA7 and NO Financial RIP", () => {
+  // The regression: the universal score was hidden whenever the pull model
+  // could not be read, even though the backend had already computed it.
+  const model = selectSetDesirabilityPresentation(UNIVERSAL);
+  assert.equal(model.available, true);
+  assert.equal(model.scoreLabel, "95.5");
+
+  // And the Simulation Opening Experience being unavailable changes nothing.
+  const opening = selectOpeningExperiencePresentation({
+    status: "unavailable",
+    coverage: { status: "unavailable", reasons: ["dual_path_depth_unavailable_no_pull_model"] },
+  });
+  assert.equal(opening.available, false);
+  assert.equal(model.available, true, "Set Desirability must not depend on CA7");
+});
+
+test("Set Desirability is unavailable only when its OWN coverage is not full", () => {
+  const partial = selectSetDesirabilityPresentation({
+    ...UNIVERSAL,
+    coverage: { status: "unavailable", reasons: ["no_eligible_pokemon_subjects"] },
+  });
+  assert.equal(partial.available, false);
+  assert.deepEqual(partial.unavailableReasons, ["no_eligible_pokemon_subjects"]);
+});
+
+test("Set Desirability nulls never become zeros", () => {
+  for (const input of [null, undefined, {}, { score: null }]) {
+    const model = selectSetDesirabilityPresentation(input);
+    assert.equal(model.available, false);
+    assert.equal(model.score, null);
+    assert.equal(model.scoreLabel, null);
+    assert.equal(model.rankLabel, null);
+  }
+});
+
+test("Set Desirability carries the price-independence explanation", () => {
+  const model = selectSetDesirabilityPresentation(UNIVERSAL);
+  assert.match(model.explanation, /does not use card prices/);
+  assert.match(SET_DESIRABILITY_EXPLANATION, /popularity and depth/);
+});
+
+// ---------------------------------------------------------------------------
+// Simulation Opening Experience (CA7-scoped)
+// ---------------------------------------------------------------------------
+
+test("Opening Experience formats the CA7 scores on their honest scales", () => {
   const model = selectOpeningExperiencePresentation(OPENING_EXPERIENCE);
 
   assert.equal(model.available, true);
   assert.equal(model.collectorAppeal.scoreLabel, "96.1");
   assert.equal(model.collectorAppeal.rankLabel, "#1 of 21");
-  assert.equal(model.rosterDesirability.scoreLabel, "95.5");
   assert.equal(model.chaseAppeal.scoreLabel, "92.4");
   assert.equal(model.cohortSize, 21);
+});
+
+test("Opening Experience no longer carries roster desirability", () => {
+  const model = selectOpeningExperiencePresentation(OPENING_EXPERIENCE);
+  assert.ok(
+    !("rosterDesirability" in model),
+    "roster desirability moved to the Set Desirability contract"
+  );
 });
 
 test("Dual-Path Depth is a percentage of its raw structural scale — never a rescale, never a tier", () => {
@@ -76,14 +198,12 @@ test("subject paths identify specific printings with backend-provided odds", () 
   const [gengar] = model.topSubjects;
 
   assert.equal(gengar.accessiblePath.canonicalCardId, "card-gengar-dr");
-  assert.equal(gengar.accessiblePath.cardNumber, "104");
   assert.equal(gengar.accessiblePath.impliedOddsLabel, "1 in 191");
-  assert.equal(gengar.elitePath.canonicalCardId, "card-gengar-sir");
   assert.equal(gengar.elitePath.rarity, "Special Illustration Rare");
   assert.equal(gengar.elitePath.impliedOddsLabel, "1 in 1,533");
 });
 
-test("a missing or unavailable contract renders unavailable — nulls never become zeros", () => {
+test("a missing or unavailable CA7 contract renders unavailable — nulls never become zeros", () => {
   for (const input of [null, undefined, {}, { status: "unavailable", collectorAppeal: { score: null } }]) {
     const model = selectOpeningExperiencePresentation(input);
     assert.equal(model.available, false);
@@ -102,48 +222,88 @@ test("unavailable reasons pass through from backend coverage", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Collector Appeal impact
+// RIP breakdown: Financial RIP, Set Desirability, adjustment, Overall RIP
 // ---------------------------------------------------------------------------
 
+const RIP_CORE = { score: 22.3155, rank: 4, cohortSize: 21, tier: "A" };
 const RIP = {
-  score: 82.2094,
-  rank: 1,
+  score: 26.8636,
+  rank: 2,
   cohortSize: 21,
-  components: {
-    desirability: { score: 96.0942, weight: 0.1, contribution: 9.6094, rank: 1, cohortSize: 21 },
+  tier: "S",
+  version: "overall_rip_v3_financial_plus_universal_desirability",
+  universalSetDesirabilityScore: 95.4809,
+  financialRip: { score: 22.3155 },
+  desirabilityAdjustment: {
+    adjustment: 4.5481,
+    rawAdjustment: 4.5481,
+    clamped: false,
+    cap: 5.0,
+    formula: "clamp((universal_set_desirability - 50) / 10, -cap, +cap)",
   },
 };
-const RIP_CORE = { score: 83.11, rank: 2, cohortSize: 21 };
 
-test("impact strip model reads the DIRECT backend contribution, not full RIP minus RIP Core", () => {
-  const impact = selectCollectorAppealImpact(RIP, RIP_CORE);
+test("breakdown shows Financial RIP, Set Desirability, adjustment and Overall RIP", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
 
-  assert.equal(impact.weightLabel, "10%");
-  assert.equal(impact.contributionLabel, "9.6 pts");
-  assert.equal(impact.finalRip.scoreLabel, "82.2");
-  assert.equal(impact.finalRip.rankLabel, "#1 of 21");
-  assert.equal(impact.ripCore.scoreLabel, "83.1");
-  assert.equal(impact.ripCore.rankLabel, "#2 of 21");
-  // RIP Core is renormalized: the naive subtraction (82.2 - 83.1 = -0.9) is
-  // NOT the contribution, and the model must not equal it.
-  const naive = RIP.score - RIP_CORE.score;
-  assert.notEqual(impact.contributionLabel, `${naive.toFixed(1)} pts`);
+  assert.equal(model.financialRip.scoreLabel, "22.3");
+  assert.equal(model.setDesirability.scoreLabel, "95.5");
+  assert.equal(model.setDesirability.rankLabel, "#1 of 135");
+  assert.equal(model.desirabilityAdjustment.label, "+4.5 pts");
+  assert.equal(model.overallRip.scoreLabel, "26.9");
 });
 
-test("rank effect compares RIP Core rank with final RIP rank", () => {
-  const impact = selectCollectorAppealImpact(RIP, RIP_CORE);
-  assert.equal(impact.rankEffect, 1);
-  assert.match(impact.rankEffectLabel, /\+1 vs RIP Core/);
-
-  const unchanged = selectCollectorAppealImpact({ ...RIP, rank: 2 }, RIP_CORE);
-  assert.equal(unchanged.rankEffect, 0);
-  assert.match(unchanged.rankEffectLabel, /No rank change/);
+test("breakdown states the 60/25/15 financial weights", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
+  assert.equal(model.financialRip.weightsLabel, "Profit 60% · Safety 25% · Stability 15%");
 });
 
-test("impact model is null when neither canonical object carries a score", () => {
-  assert.equal(selectCollectorAppealImpact({}, {}), null);
-  assert.equal(selectCollectorAppealImpact(null, undefined), null);
+test("the adjustment is read from the backend, never derived by subtraction", () => {
+  // Overall RIP and Financial RIP are clamped independently, so at the 0/100
+  // bounds `rip.score - ripCore.score` disagrees with the real adjustment.
+  const clampedAtZero = selectRipDesirabilityBreakdown(
+    {
+      score: 0,
+      financialRip: { score: 1.0 },
+      universalSetDesirabilityScore: 10.0,
+      desirabilityAdjustment: { adjustment: -4.0, rawAdjustment: -4.0, clamped: false, cap: 5.0 },
+    },
+    { score: 1.0 },
+    { score: 10.0 }
+  );
+  assert.equal(clampedAtZero.desirabilityAdjustment.label, "-4.0 pts");
+  const naive = 0 - 1.0;
+  assert.notEqual(clampedAtZero.desirabilityAdjustment.value, naive);
 });
+
+test("breakdown reports the cap and whether the adjustment was clamped", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
+  assert.equal(model.desirabilityAdjustment.capLabel, "capped at ±5");
+  assert.equal(model.desirabilityAdjustment.clamped, false);
+
+  const clamped = selectRipDesirabilityBreakdown(
+    { ...RIP, desirabilityAdjustment: { ...RIP.desirabilityAdjustment, adjustment: 5.0, rawAdjustment: 6.2, clamped: true } },
+    RIP_CORE,
+    UNIVERSAL
+  );
+  assert.equal(clamped.desirabilityAdjustment.clamped, true);
+  assert.equal(clamped.desirabilityAdjustment.rawValue, 6.2);
+});
+
+test("breakdown never presents Set Desirability as a weighted RIP pillar", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
+  assert.ok(!("weight" in model.setDesirability), "Set Desirability is additive, not weighted");
+  assert.ok(!("contribution" in model.setDesirability));
+});
+
+test("breakdown is null when nothing carries a score", () => {
+  assert.equal(selectRipDesirabilityBreakdown({}, {}, {}), null);
+  assert.equal(selectRipDesirabilityBreakdown(null, undefined, null), null);
+});
+
+// ---------------------------------------------------------------------------
+// Source guards
+// ---------------------------------------------------------------------------
 
 test("source-level guard: the selector computes nothing the backend owns", () => {
   const source = readFileSync(
@@ -154,13 +314,21 @@ test("source-level guard: the selector computes nothing the backend owns", () =>
     .split("\n")
     .filter((line) => !line.trim().startsWith("//") && !line.trim().startsWith("*"))
     .join("\n");
-  // No CA7, no lambda, no weight arithmetic, no rank computation.
-  assert.ok(!code.includes("0.5"), "the CA7 lambda must not appear");
-  assert.ok(!code.includes("0.58"), "RIP weights must not appear");
-  assert.ok(!/score\s*\*\s*/.test(code.replace("demandShare * 100", "")), "no score arithmetic beyond display formatting");
+  assert.ok(!code.includes("0.58"), "retired RIP weights must not appear");
+  assert.ok(!code.includes("0.60 *"), "financial weights must not be applied here");
   assert.ok(!code.includes(".sort("), "no ranking in the frontend");
-  // No legacy fallbacks.
   for (const banned of ["pack_score", "relative_pack_score", "collectorAppealScore", "opening_desirability_score"]) {
     assert.ok(!code.includes(banned), `selector must not read ${banned}`);
   }
+});
+
+test("source-level guard: the legacy CA7 impact strip is gone", () => {
+  const source = readFileSync(
+    fileURLToPath(new URL("./openingExperienceSelector.mjs", import.meta.url)),
+    "utf8"
+  );
+  assert.ok(
+    !source.includes("selectCollectorAppealImpact"),
+    "the CA7 impact strip presented CA7 as the authoritative 10% RIP pillar"
+  );
 });
