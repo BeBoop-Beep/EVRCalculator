@@ -18,9 +18,10 @@ import logging
 import math
 import threading
 import time
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, TypeVar
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.db.services.public_read_retry import run_batch_read_with_retry
 from backend.desirability.component_source import (
     COMPONENT_TABLE,
     DUPLICATE_CURRENT_COMPONENT_SOURCE_ROW,
@@ -43,6 +44,29 @@ logger = logging.getLogger(__name__)
 CACHE_TTL_SECONDS = 6 * 60 * 60
 SET_VALUE_SCOPE = "standard"
 
+# `subject_rollups_json` averages ~12 kB and the table holds ~6.4 MB of it. The
+# PostgREST role runs under an 8s statement_timeout, and a COLD read of all 171
+# current rows measured ~35s against production (the same read is ~10ms once the
+# pages are in the buffer cache) - the cost is detoasting on a throttled volume,
+# not the query plan. Selecting every row's JSONB in one request therefore could
+# not finish inside the timeout, which is why the reader failed as 57014 rather
+# than returning rows.
+#
+# So the read is split: the SELECTION runs on identity/scalar columns only (no
+# TOAST, whole table, cheap), and only the rows the contract actually selects are
+# hydrated with their JSONB, in chunks small enough to finish cold inside the
+# timeout. Chunk size is deliberately conservative: ~200ms/row cold means 15 rows
+# is ~3s, leaving headroom under 8s.
+COMPONENT_HYDRATION_CHUNK_SIZE = 15
+READ_MAX_ATTEMPTS = 4
+
+# Whether the bundle was BUILT, not whether any set scored. See
+# `get_universal_desirability_bundle` on why the two must stay distinguishable.
+STATUS_OK = "ok"
+STATUS_FAILED = "failed"
+
+T = TypeVar("T")
+
 _cache_lock = threading.Lock()
 _cache: Dict[str, Any] = {
     "built_at": 0.0,
@@ -60,12 +84,29 @@ def _to_optional_float(value: Any) -> Optional[float]:
     return parsed if math.isfinite(parsed) else None
 
 
-def _paged_select(query: Any, *, page_size: int = 1000) -> List[Dict[str, Any]]:
+def _read_with_retry(operation: Callable[[], T], *, operation_name: str) -> T:
+    return run_batch_read_with_retry(
+        operation, operation_name=operation_name, max_attempts=READ_MAX_ATTEMPTS
+    )
+
+
+def _paged_select(query_factory: Callable[[], Any], *, page_size: int = 1000) -> List[Dict[str, Any]]:
+    """Page through a read, retrying each page independently.
+
+    ``query_factory`` is called per attempt because a PostgREST builder carries
+    the range it was last given; reusing one across a retry would re-issue the
+    wrong window.
+    """
     rows: List[Dict[str, Any]] = []
     start = 0
     while True:
-        response = query.range(start, start + page_size - 1).execute()
-        page_rows = list(response.data or [])
+        offset = start
+        page_rows = _read_with_retry(
+            lambda offset=offset: list(
+                (query_factory().range(offset, offset + page_size - 1).execute()).data or []
+            ),
+            operation_name=f"{COMPONENT_TABLE}.page[{offset}]",
+        )
         rows.extend(page_rows)
         if len(page_rows) < page_size:
             break
@@ -97,23 +138,35 @@ def _load_current_component_rows() -> Dict[str, Any]:
     modules that define them, so this reader cannot drift from what CA7 selects.
     """
     rows = _paged_select(
-        public_read_client.table(COMPONENT_TABLE)
-        .select(
-            selector_columns(
-                "set_desirability_score",
-                "hit_eligible_card_count",
-                "scored_hit_eligible_card_count",
-                "unique_subject_count",
-                "subject_rollups_json",
-                "diagnostics_json",
+        lambda: (
+            public_read_client.table(COMPONENT_TABLE)
+            .select(
+                selector_columns(
+                    "set_desirability_score",
+                    "hit_eligible_card_count",
+                    "scored_hit_eligible_card_count",
+                    "unique_subject_count",
+                )
             )
+            # Ordered only so the read is stable and paginates deterministically.
+            # Selection does NOT depend on this order - that was the bug.
+            .order("built_at", desc=True)
+            .order("id", desc=False)
         )
-        # Ordered only so the read is stable and paginates deterministically.
-        # Selection does NOT depend on this order - that was the bug.
-        .order("built_at", desc=True)
-        .order("id", desc=False)
     )
+    # Selection runs on the light rows. It reads only version/identity columns, so
+    # dropping the JSONB from this read cannot change which row is selected, which
+    # sets are missing, or which are duplicated - the diagnostics below are the
+    # same ones the single-read version produced.
     selection = select_component_source_rows(rows)
+    hydrated = _hydrate_selected_rows(selection["selected"])
+    # `exact_version_rows_found` counts what the CONTRACT selected; a row that was
+    # selected but could not be hydrated is reported separately rather than
+    # silently shrinking the selection count, so the two numbers disagreeing is
+    # itself the signal.
+    selection["counts"]["rows_hydrated"] = len(hydrated)
+    selection["counts"]["selected_rows_not_hydrated"] = len(selection["selected"]) - len(hydrated)
+    selection["selected"] = hydrated
 
     # A set with more than one exact-version row is an integrity error, not a
     # choice to make here: the duplicates differ in fan_popularity_snapshot_id or
@@ -137,23 +190,89 @@ def _load_current_component_rows() -> Dict[str, Any]:
     return selection
 
 
+def _hydrate_selected_rows(
+    selected: Mapping[str, Mapping[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    """Attach ``subject_rollups_json``/``diagnostics_json`` to the selected rows.
+
+    Fetched by primary key in small chunks, so the heavy TOAST read is scoped to
+    the rows that were actually selected (171 of 512 today) and each request
+    stays inside the statement timeout even with a cold cache.
+
+    A row whose JSONB cannot be fetched is DROPPED, not served with empty
+    rollups: ``compute_universal_set_desirability([])`` returns a real-looking
+    0.0, so substituting an empty list would publish a fabricated score for a set
+    whose inputs simply were not read. Dropping it makes the set absent from
+    ``payloads``, which the API already renders as unavailable.
+    """
+    row_ids = sorted(str(row.get("id")) for row in selected.values() if row.get("id"))
+    heavy_by_id: Dict[str, Mapping[str, Any]] = {}
+    for chunk in _chunked(row_ids, COMPONENT_HYDRATION_CHUNK_SIZE):
+        ids = list(chunk)
+        fetched = _read_with_retry(
+            lambda ids=ids: list(
+                (
+                    public_read_client.table(COMPONENT_TABLE)
+                    .select("id,subject_rollups_json,diagnostics_json")
+                    .in_("id", ids)
+                    .execute()
+                ).data
+                or []
+            ),
+            operation_name=f"{COMPONENT_TABLE}.hydrate[{len(ids)}]",
+        )
+        for row in fetched:
+            heavy_by_id[str(row.get("id"))] = row
+
+    hydrated: Dict[str, Dict[str, Any]] = {}
+    for set_id, row in selected.items():
+        heavy = heavy_by_id.get(str(row.get("id")))
+        if heavy is None:
+            logger.error(
+                "[universal-desirability] %s (%s): selected row %s could not be hydrated; "
+                "withheld rather than scored from empty rollups.",
+                row.get("set_name"), set_id, row.get("id"),
+            )
+            continue
+        merged = dict(row)
+        merged["subject_rollups_json"] = heavy.get("subject_rollups_json")
+        merged["diagnostics_json"] = heavy.get("diagnostics_json")
+        hydrated[set_id] = merged
+    return hydrated
+
+
 def _load_latest_set_values(set_ids: Sequence[str]) -> Dict[str, float]:
+    """Latest set value per set, for the DIAGNOSTIC market association only.
+
+    Chunked at 20 (x45 days = 900 rows/request) and retried, because the wider
+    50-set chunk asked for 2250 ordered rows and exceeded the statement timeout.
+    A failed chunk is skipped rather than abandoning the whole load: this feeds a
+    descriptive correlation that gates nothing, so a partial sample degrades the
+    diagnostic instead of the scores.
+    """
     latest: Dict[str, float] = {}
-    for chunk in _chunked(sorted(set_ids), 50):
+    for chunk in _chunked(sorted(set_ids), 20):
+        ids = list(chunk)
         try:
-            rows = (
-                public_read_client.table("pokemon_set_value_daily_history")
-                .select("set_id,snapshot_date,set_value")
-                .in_("set_id", list(chunk))
-                .eq("value_scope", SET_VALUE_SCOPE)
-                .order("snapshot_date", desc=True)
-                .limit(len(chunk) * 45)
-                .execute()
+            rows = _read_with_retry(
+                lambda ids=ids: list(
+                    (
+                        public_read_client.table("pokemon_set_value_daily_history")
+                        .select("set_id,snapshot_date,set_value")
+                        .in_("set_id", ids)
+                        .eq("value_scope", SET_VALUE_SCOPE)
+                        .order("snapshot_date", desc=True)
+                        .limit(len(ids) * 45)
+                        .execute()
+                    ).data
+                    or []
+                ),
+                operation_name=f"pokemon_set_value_daily_history[{len(ids)}]",
             )
         except Exception as exc:
-            logger.warning("[universal-desirability] set value load failed: %s", exc)
-            return latest
-        for row in rows.data or []:
+            logger.warning("[universal-desirability] set value chunk failed, skipped: %s", exc)
+            continue
+        for row in rows:
             set_id = str(row.get("set_id") or "")
             value = _to_optional_float(row.get("set_value"))
             if set_id and set_id not in latest and value is not None and value > 0:
@@ -222,6 +341,7 @@ def _build_payloads() -> Dict[str, Any]:
 
     payloads = {row["set_id"]: row for row in computed}
     return {
+        "status": STATUS_OK,
         "payloads": payloads,
         "setValueAssociation": association,
         "sourceSelection": _source_selection_diagnostics(selection),
@@ -265,6 +385,7 @@ def _source_selection_diagnostics(selection: Mapping[str, Any]) -> Dict[str, Any
 
 def _cached_bundle() -> Dict[str, Any]:
     return {
+        "status": STATUS_OK,
         "payloads": _cache["payloads"],
         "setValueAssociation": _cache["setValueAssociation"],
         "sourceSelection": _cache["sourceSelection"],
@@ -272,12 +393,20 @@ def _cached_bundle() -> Dict[str, Any]:
 
 
 def get_universal_desirability_bundle(*, force_refresh: bool = False) -> Dict[str, Any]:
-    """Return ``{"payloads", "setValueAssociation", "sourceSelection"}`` (cached).
+    """Return ``{"status", "payloads", "setValueAssociation", "sourceSelection"}``.
 
     ``setValueAssociation`` is descriptive context only; it never changes any
     score or weight. ``sourceSelection`` is internal diagnostics describing which
     component rows were selected and which sets were refused; no public field
     reads it.
+
+    ``status`` distinguishes the two ways ``payloads`` can be empty, which the
+    caller MUST NOT conflate: ``ok`` means the source was read and genuinely
+    yielded nothing, while ``failed`` means the source was not read at all. They
+    are the same value and opposite facts. Publishing a ``failed`` build renders
+    every set "desirability unavailable" - a statement about the sets - when the
+    truth is that a query timed out, which is exactly how the empty payload
+    reached production.
     """
     now = time.time()
     with _cache_lock:
@@ -294,7 +423,12 @@ def get_universal_desirability_bundle(*, force_refresh: bool = False) -> Dict[st
         with _cache_lock:
             if _cache["payloads"] is not None:
                 return _cached_bundle()
-        return {"payloads": {}, "setValueAssociation": None, "sourceSelection": None}
+        return {
+            "status": STATUS_FAILED,
+            "payloads": {},
+            "setValueAssociation": None,
+            "sourceSelection": None,
+        }
     with _cache_lock:
         _cache["payloads"] = bundle["payloads"]
         _cache["setValueAssociation"] = bundle["setValueAssociation"]

@@ -2962,6 +2962,20 @@ def build_explore_rankings_snapshot_row(*, limit: int = DEFAULT_RANKINGS_LIMIT) 
     meta["openingSetAudit"] = opening_set_audit
     meta["opening_set_audit"] = opening_set_audit
     payload = {**payload, "targets": opening_targets, "meta": meta}
+
+    # A desirability read that FAILED renders every set "unavailable". Publishing
+    # that overwrites good stored rows with a statement about the sets that the
+    # failure never justified - and it looks exactly like a successful build, so
+    # nothing downstream can tell it apart. Refuse instead: the previous snapshot
+    # stays served, and the non-zero exit is the signal.
+    if meta.get("desirabilityBundleStatus") != "ok":
+        raise RuntimeError(
+            "Refusing to publish the Explore rankings snapshot: the Universal Set "
+            "Desirability bundle failed to build, so every set would be published "
+            "as desirability-unavailable. The previous snapshot is left in place. "
+            "Re-run once the source reads succeed."
+        )
+
     comparison_diagnostics = meta.get("ripDesirabilityComparison") or meta.get("rip_desirability_comparison") or {}
     logger.info(
         "[pokemon-snapshot] RIP desirability comparison valid=%s/%s opening_targets=%s",

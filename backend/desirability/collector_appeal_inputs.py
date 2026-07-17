@@ -60,11 +60,13 @@ from __future__ import annotations
 
 import logging
 import math
+import random
 import time
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.calculations.utils.rarity_classification import normalize_rarity_key
+from backend.db.services.data_service_health import classify_data_service_error
 from backend.desirability.card_links import (
     CARD_DESIRABILITY_LINK_COLUMNS,
     CARD_DESIRABILITY_LINK_TABLE,
@@ -100,26 +102,54 @@ COMPOSITE_SCORE_TABLE = "pokemon_desirability_composite_scores"
 COMPOSITE_SCORE_COLUMNS = "pokemon_reference_id,pokemon_name,desirability_score"
 
 
-def _paged_select(query: Any, *, page_size: int = 1000, attempts: int = 4) -> List[Dict[str, Any]]:
-    """Read every page, retrying transient failures.
+# `payload_json` averages ~209 kB/row (max ~483 kB) across 33 rows, and cold
+# detoast throughput on this instance was measured at roughly 60-180 kB/s against
+# an 8s statement_timeout - so even a 4-row page (~840 kB) failed every attempt.
+# One row per request is what reliably fits. It costs 33 round trips once per
+# cache period, which is the trade this loader already documents choosing.
+# Pagination only - see `load_pull_rate_model` on why this does not touch the
+# fingerprint.
+PULL_MODEL_READ_PAGE_SIZE = 1
 
-    Lifted unchanged from the study loader so the service and the scripts share
-    one pagination behaviour.
+
+def _paged_select(query: Any, *, page_size: int = 1000, attempts: int = 4) -> List[Dict[str, Any]]:
+    """Read every page, retrying TRANSIENT failures with backoff + jitter.
+
+    Transience is decided by the shared classifier rather than by retrying every
+    exception: the previous rule spent four attempts and ~12s on faults that
+    could never succeed (a missing column, a permission error), and reported all
+    of them identically. Backoff is exponential with jitter so several readers
+    recovering from the same outage do not retry in lockstep.
     """
     rows: List[Dict[str, Any]] = []
     start = 0
     while True:
         page: Optional[List[Dict[str, Any]]] = None
         last_error: Optional[Exception] = None
-        for attempt in range(attempts):
+        for attempt in range(1, attempts + 1):
             try:
                 response = query.range(start, start + page_size - 1).execute()
                 page = list(response.data or [])
                 break
             except Exception as exc:  # pragma: no cover - network shape
                 last_error = exc
-                if attempt < attempts - 1:
-                    time.sleep(2.0 * (attempt + 1))
+                failure = classify_data_service_error(exc)
+                if not failure.transient or attempt >= attempts:
+                    logger.error(
+                        "[collector-appeal-inputs] read failed offset=%s attempt=%s/%s "
+                        "error_type=%s code=%s status=%s transient=%s final=true",
+                        start, attempt, attempts, failure.error_type, failure.code,
+                        failure.status_code, failure.transient,
+                    )
+                    break
+                base_delay = min(4.0, 0.5 * (2 ** (attempt - 1)))
+                logger.warning(
+                    "[collector-appeal-inputs] read retry offset=%s attempt=%s/%s "
+                    "error_type=%s code=%s status=%s",
+                    start, attempt, attempts, failure.error_type, failure.code,
+                    failure.status_code,
+                )
+                time.sleep(max(0.0, base_delay + random.uniform(0.0, base_delay * 0.5)))
         if page is None:
             raise RuntimeError(f"read failed after {attempts} attempts at offset {start}") from last_error
         rows.extend(page)
@@ -142,9 +172,20 @@ def load_pull_rate_model(client: Any) -> Dict[str, Dict[str, Dict[str, Any]]]:
 
     Byte-identical to the study loader this replaces - see the module docstring
     on why the wasteful whole-payload read is retained deliberately.
+
+    Read in small PAGES, which is not the optimization the module docstring
+    refuses. That refusal is about the read's SHAPE - a different table, column,
+    or payload key would change the inputs and so must move the fingerprint.
+    Page size changes none of those: the same rows of the same columns of the
+    same table are returned, only across more requests, so the loader version
+    and the fingerprint are deliberately unchanged. It is required because the
+    default 1000-row page asks for all ~6.9 MB of `payload_json` at once and
+    exceeds the 8s statement_timeout on every attempt - a deterministic failure
+    that no retry can clear, and the reason CA7 was unavailable for every set.
     """
     rows = _paged_select(
-        client.table(PULL_MODEL_SOURCE_TABLE).select(PULL_MODEL_SOURCE_COLUMNS)
+        client.table(PULL_MODEL_SOURCE_TABLE).select(PULL_MODEL_SOURCE_COLUMNS),
+        page_size=PULL_MODEL_READ_PAGE_SIZE,
     )
     by_set: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for row in rows:

@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from backend.db.clients.supabase_client import public_read_client
 from backend.db.services.collector_appeal_service import get_collector_appeal_bundle
+from backend.db.services.public_read_retry import run_batch_read_with_retry
 from backend.db.services.rip_desirability_comparison import build_rip_desirability_comparison_payload
 from backend.db.services.universal_set_desirability_service import (
     get_universal_desirability_bundle,
@@ -755,13 +756,21 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
 
     query_started = time.perf_counter()
     try:
-        targets_result = (
-            public_read_client.table("explore_rip_statistics_latest")
-            .select("*")
-            .order("pack_score", desc=True)
-            .order("run_at", desc=True)
-            .limit(clamped_limit)
-            .execute()
+        # `explore_rip_statistics_latest` is a windowed view that measures ~6s
+        # against an 8s statement_timeout, so a cold run exceeds the budget and
+        # returns 57014 - the "explore_rip_statistics_latest read failed" that
+        # took the whole payload down with it. The read is unchanged; it is only
+        # retried, because the second attempt runs against a warm cache.
+        targets_result = run_batch_read_with_retry(
+            lambda: (
+                public_read_client.table("explore_rip_statistics_latest")
+                .select("*")
+                .order("pack_score", desc=True)
+                .order("run_at", desc=True)
+                .limit(clamped_limit)
+                .execute()
+            ),
+            operation_name="explore_rip_statistics_latest.targets",
         )
         raw_rows = [row for row in (targets_result.data or []) if row.get("set_id")]
         sources["explore_rip_statistics_latest"] = "OK"
@@ -1196,6 +1205,23 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     # _attach_public_rip_contract.
     universal_bundle = get_universal_desirability_bundle()
     universal_payloads = universal_bundle.get("payloads") or {}
+    # Reported so a consumer can tell "these sets have no desirability" from "the
+    # desirability source was not read". Without it both arrive as an empty
+    # bundle and every set is published `unavailable`, which is a claim about the
+    # sets that a timed-out query is not entitled to make.
+    universal_status = universal_bundle.get("status")
+    if universal_status != "ok":
+        logger.error(
+            "[rip-statistics-targets] universal desirability bundle FAILED to build; "
+            "every set will report desirability unavailable. This payload is not fit to publish."
+        )
+        warnings.append(
+            "Universal Set Desirability could not be read; its coverage in this payload "
+            "reflects a failed read, not the sets."
+        )
+        sources["universal_desirability_bundle"] = "FAILED"
+    else:
+        sources["universal_desirability_bundle"] = "OK"
     # Descriptive context only. Desirability's RIP weight comes from the config
     # defaults; this correlation never zeroes it (see scoring_config).
     set_value_association = universal_bundle.get("setValueAssociation")
@@ -1232,6 +1258,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             "ripDesirabilityComparison": comparison_diagnostics,
             "rip_desirability_comparison": comparison_diagnostics,
             "setValueAssociation": set_value_association,
+            "desirabilityBundleStatus": universal_status,
             "ripWeightsConfig": rip_weights_payload(DEFAULT_RIP_WEIGHTS),
             # The population every public rank in this payload was computed
             # against. Exposed rather than implied: a denominator the client has

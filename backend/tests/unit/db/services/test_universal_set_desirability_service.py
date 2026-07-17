@@ -380,18 +380,50 @@ def test_selection_is_independent_of_row_order(monkeypatch):
 
 
 def test_reader_reads_every_column_the_calculation_needs(monkeypatch):
-    """The select must carry the identity AND the payload columns."""
+    """Across its reads, the reader must carry the identity AND payload columns.
+
+    The columns are split over two selects on purpose (see the service): the
+    selection read stays off the TOASTed JSONB so it can complete inside the
+    statement timeout, and only the selected rows are hydrated. What must not
+    regress is the UNION - a column dropped from both reads is a column the
+    calculation silently computes without.
+    """
     client = _Client([_row("s1", V2_CLEANUP)])
     monkeypatch.setattr(service, "public_read_client", client)
     service.get_universal_desirability_bundle(force_refresh=True)
 
-    fields = next(
+    selects = [
         call["fields"] for call in client.calls
         if call["op"] == "select" and call["table"] == COMPONENT_TABLE
-    )
+    ]
+    assert selects, "the reader issued no select against the component table"
+    read_columns = {column for fields in selects for column in fields.split(",")}
     for column in (
         "id", "set_id", "scoring_version", "hit_policy_version",
         "composite_scoring_version", "fan_popularity_snapshot_id",
         "config_fingerprint", "subject_rollups_json", "diagnostics_json",
     ):
-        assert column in fields, f"{column} missing from the reader's select"
+        assert column in read_columns, f"{column} missing from the reader's selects"
+
+
+def test_selection_read_does_not_fetch_the_toasted_jsonb(monkeypatch):
+    """The whole-table read must stay off the JSONB columns.
+
+    This is the defect that broke publication: selecting ~6.4 MB of
+    `subject_rollups_json` for every row exceeded the 8s statement timeout on a
+    cold cache, so the reader raised 57014 and the bundle published empty. The
+    JSONB may only be fetched for rows already selected.
+    """
+    client = _Client([_row("s1", V2_CLEANUP)])
+    monkeypatch.setattr(service, "public_read_client", client)
+    service.get_universal_desirability_bundle(force_refresh=True)
+
+    selection_read = next(
+        call for call in client.calls
+        if call["op"] == "select" and call["table"] == COMPONENT_TABLE
+    )
+    for column in ("subject_rollups_json", "diagnostics_json"):
+        assert column not in selection_read["fields"], (
+            f"{column} is back in the whole-table selection read; that read must "
+            "not touch TOASTed columns"
+        )

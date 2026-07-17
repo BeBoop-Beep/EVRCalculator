@@ -9,8 +9,16 @@ import httpcore
 import httpx
 
 
-TRANSIENT_POSTGREST_CODES = frozenset({"PGRST002"})
-TRANSIENT_HTTP_STATUSES = frozenset({502, 503, 504, 521, 522})
+# PGRST002: PostgREST cannot reach the schema cache.
+# 57014: `canceling statement due to statement timeout`. Postgres cancels the
+# statement, not the connection, so the same query can succeed on a retry once
+# the pages it touches are in the buffer cache. Cold TOAST reads on a throttled
+# volume are the observed source, and they recover without intervention.
+TRANSIENT_POSTGREST_CODES = frozenset({"PGRST002", "57014"})
+# 520 is Cloudflare's "unknown error" from the origin and sits alongside the 521
+# and 522 already listed here; omitting it classified a Supabase edge failure as
+# permanent and skipped the retry entirely.
+TRANSIENT_HTTP_STATUSES = frozenset({502, 503, 504, 520, 521, 522})
 
 
 @dataclass(frozen=True)
