@@ -41,9 +41,9 @@ def _full_target():
             "cohortSize": 21,
             "version": FINANCIAL_RIP_V2_VERSION,
             "components": {
-                "profit": {"score": 40.0, "weight": 0.60, "contribution": 24.0, "rank": 6, "cohortSize": 21},
-                "safety": {"score": 10.0, "weight": 0.25, "contribution": 2.5, "rank": 9, "cohortSize": 21},
-                "stability": {"score": 2.7, "weight": 0.15, "contribution": 0.4, "rank": 12, "cohortSize": 21},
+                "profit": {"score": 40.0, "relativeScore": 71.0, "weight": 0.60, "contribution": 24.0, "rank": 6, "cohortSize": 21},
+                "safety": {"score": 10.0, "relativeScore": 33.0, "weight": 0.25, "contribution": 2.5, "rank": 9, "cohortSize": 21},
+                "stability": {"score": 2.7, "relativeScore": 5.0, "weight": 0.15, "contribution": 0.4, "rank": 12, "cohortSize": 21},
             },
         },
         "universalSetDesirability": {
@@ -93,9 +93,41 @@ def test_absolute_and_relative_are_distinct_never_conflated():
     contract = build_public_rip_contract_v4(_full_target())
     assert contract["overallRip"]["absoluteScore"] != contract["overallRip"]["relativeScore"]
     assert contract["financialRip"]["absoluteScore"] != contract["financialRip"]["relativeScore"]
-    # Pillars carry an absolute + rank but no fabricated relative.
+    # Pillars carry an absolute AND a cohort-relative public score (restoring
+    # main's relative_*_score presentation), never conflated.
     assert contract["financialRip"]["components"]["profit"]["absoluteScore"] == 40.0
-    assert contract["financialRip"]["components"]["profit"]["relativeScore"] is None
+    assert contract["financialRip"]["components"]["profit"]["relativeScore"] == 71.0
+
+
+def test_public_score_is_the_relative_score_absolute_is_the_raw_output():
+    """`score` is the canonical PUBLIC relative score; `absoluteScore` is raw."""
+    contract = build_public_rip_contract_v4(_full_target())
+
+    overall = contract["overallRip"]
+    assert overall["score"] == overall["relativeScore"] == 92.4
+    assert overall["absoluteScore"] == 33.81
+    assert overall["score"] != overall["absoluteScore"]
+    assert overall["normalizationMode"] == "cohort_min_max"
+
+    financial = contract["financialRip"]
+    assert financial["score"] == financial["relativeScore"] == 74.1
+    assert financial["absoluteScore"] == 26.9
+    assert financial["score"] != financial["absoluteScore"]
+    assert financial["normalizationMode"] == "cohort_min_max"
+
+
+def test_missing_relative_leaves_public_score_null_never_promotes_absolute():
+    """A present absolute with a null relative must NOT promote the absolute."""
+    target = _full_target()
+    target["rip"]["relativeScore"] = None
+    target["ripCore"]["relativeScore"] = None
+
+    contract = build_public_rip_contract_v4(target)
+    # Public score stays null even though the raw formula output is present.
+    assert contract["overallRip"]["score"] is None
+    assert contract["overallRip"]["absoluteScore"] == 33.81
+    assert contract["financialRip"]["score"] is None
+    assert contract["financialRip"]["absoluteScore"] == 26.9
 
 
 def test_opening_desirability_is_ca7_with_price_independent_signals():

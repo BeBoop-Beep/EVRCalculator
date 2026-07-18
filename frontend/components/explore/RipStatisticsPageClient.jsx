@@ -8945,8 +8945,17 @@ export default function RipStatisticsPageClient({
     target: selectedTarget,
     payload: explorePayload,
   });
+  // The PUBLIC hero number is the cohort-relative 0-100 score. The raw formula
+  // output (the 90/10 Overall blend or 60/25/15 Financial blend) is the model
+  // score, shown small beneath as a transparent diagnostic — never competing
+  // with the public score.
   const topScoreRaw = heroScoreSelection.score;
   const displayedTopScore = formatRawScore(topScoreRaw);
+  const heroModelScoreRaw = heroScoreSelection.absoluteScore;
+  const displayedHeroModelScore =
+    heroModelScoreRaw === null || heroModelScoreRaw === undefined
+      ? null
+      : formatRawScore(heroModelScoreRaw);
 
   // Canonical backend RIP contract: the set-page snapshot payload carries it
   // in set-detail mode, the rankings target carries it on Explore. The pillar
@@ -9550,8 +9559,10 @@ export default function RipStatisticsPageClient({
   );
   const trendByMetricKey = {
     ripScore: getHistoryMetricTrend({
+      // Trend tracks the absolute model score against recorded history (which
+      // stores the raw formula output), not the cohort-relative public number.
       metricKey: "ripScore",
-      currentValue: topScoreRaw,
+      currentValue: heroModelScoreRaw,
       previousPoint: previousTrendPoint,
     }),
     profitScore: getHistoryMetricTrend({
@@ -12026,6 +12037,11 @@ export default function RipStatisticsPageClient({
                               )}
                             </div>
                             <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
+                            {displayedHeroModelScore !== null ? (
+                              <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
+                                Underlying model score: {displayedHeroModelScore}
+                              </p>
+                            ) : null}
                             <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} interpretation={recommendationBadge} />
                             {/* Static qualifier — hardcoded copy, deliberately not wired to the
                                 interpretation/recommendation engine. */}
@@ -12532,6 +12548,11 @@ export default function RipStatisticsPageClient({
                       <div className="mt-4 w-full max-w-lg">
                         <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
                       </div>
+                      {displayedHeroModelScore !== null ? (
+                        <p className="mt-2 text-xs leading-snug text-[var(--text-secondary)]">
+                          Underlying model score: {displayedHeroModelScore}
+                        </p>
+                      ) : null}
                       <div className="mt-4 flex w-full justify-center self-center">
                         <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} interpretation={recommendationBadge} size="hero" />
                       </div>

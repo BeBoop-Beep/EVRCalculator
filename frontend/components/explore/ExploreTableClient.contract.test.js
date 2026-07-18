@@ -86,17 +86,63 @@ test("ScoreCell reads authoritative absolute/relative/rank/cohort fields, never 
   }
 });
 
-test("null scores render an explicit Unavailable state, never zero", () => {
+test("null primary scores render an explicit Unavailable state, never zero", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(source.includes('UNAVAILABLE_LABEL = "Unavailable"'), "an explicit Unavailable label must exist");
-  // Both the desktop cell and the mobile block must branch on a null absolute.
+  // Both the desktop cell and the mobile block must branch on a null PRIMARY
+  // value (the relative public score, or the absolute for ratio/legacy modes) —
+  // never silently promoting the model score when the relative one is missing.
   assert.ok(
-    source.includes("if (absolute === null)"),
-    "the desktop ScoreCell must guard a null absolute with the Unavailable state"
+    source.includes("if (primaryText === null)"),
+    "the desktop ScoreCell must guard a null primary value with the Unavailable state"
   );
   assert.ok(
-    source.includes("absolute === null ? ("),
-    "the mobile score block must guard a null absolute with the Unavailable state"
+    source.includes("primaryText === null ? ("),
+    "the mobile score block must guard a null primary value with the Unavailable state"
+  );
+});
+
+test("relative is the prominent value; the model (absolute) score is the small supporting line", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  const cellStart = source.indexOf("function ScoreCell");
+  const cellSource = source.slice(cellStart, source.indexOf("function MobileScoreBlock", cellStart));
+  // Primary text prefers the relative score, falling back to absolute only for
+  // modes with no relative field (ratio-only / legacy-relative modes).
+  assert.ok(
+    cellSource.includes("hasRelative") && cellSource.includes("formatRelative(relative)"),
+    "ScoreCell must derive its prominent value from the relative score when present"
+  );
+  // The absolute becomes a "Model" secondary line, never the prominent number.
+  assert.ok(
+    cellSource.includes("`Model ${formatModeScore(absolute"),
+    "ScoreCell must render the absolute as a secondary 'Model' line when a relative exists"
+  );
+  // The prominent span must render primaryText (relative-first), not the raw absolute.
+  assert.ok(
+    /font-semibold text-\[var\(--text-primary\)\]">\{primaryText\}</.test(cellSource),
+    "the prominent span must render the relative-first primaryText"
+  );
+});
+
+test("mobile preserves the relative-primary hierarchy", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  const start = source.indexOf("function MobileScoreBlock");
+  const mobileSource = source.slice(start, source.indexOf("function sortTargetsByMode", start));
+  assert.ok(
+    /font-semibold text-\[var\(--text-primary\)\]">\{primaryText\}</.test(mobileSource),
+    "mobile prominent span must render the relative-first primaryText"
+  );
+  assert.ok(
+    mobileSource.includes("Model {formatModeScore(absolute"),
+    "mobile must render the absolute as a small 'Model' supporting value when a relative exists"
+  );
+});
+
+test("a tooltip explains the relative-vs-model distinction", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(
+    source.includes("RELATIVE_SCORE_TOOLTIP") && source.includes("standardize each set against the current eligible cohort"),
+    "a tooltip must explain that relative scores standardize against the cohort and model scores are pre-standardization"
   );
 });
 

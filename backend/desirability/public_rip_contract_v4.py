@@ -92,13 +92,19 @@ def _build_overall(rip: Mapping[str, Any]) -> Dict[str, Any]:
         "openingDesirability": _weighted_component(_obj(components_source.get("openingDesirability"))),
     }
     absolute = _num(rip.get("score"))
+    relative = _num(rip.get("relativeScore"))
     block = {
+        # `score` is the canonical PUBLIC score: the cohort-relative 0-100
+        # standardization, for backward-compatible production semantics. The raw
+        # 90/10 formula output is preserved separately as `absoluteScore`.
+        "score": relative,
+        "relativeScore": relative,
         "absoluteScore": absolute,
-        "relativeScore": _num(rip.get("relativeScore")),
         "rank": _int(rip.get("rank")),
         "rankedSetCount": _int(rip.get("cohortSize")),
         "tier": rip.get("tier"),
         "version": rip.get("version") or OVERALL_RIP_V4_VERSION,
+        "normalizationMode": "cohort_min_max",
         "components": components,
     }
     if absolute is None:
@@ -116,13 +122,19 @@ def _build_financial(rip_core: Mapping[str, Any]) -> Dict[str, Any]:
         for pillar in ("profit", "safety", "stability")
     }
     absolute = _num(rip_core.get("score"))
+    relative = _num(rip_core.get("relativeScore"))
     block = {
+        # `score` is the canonical PUBLIC score: the cohort-relative 0-100
+        # standardization of the 60/25/15 Financial RIP. The raw formula output
+        # is preserved separately as `absoluteScore`.
+        "score": relative,
+        "relativeScore": relative,
         "absoluteScore": absolute,
-        "relativeScore": _num(rip_core.get("relativeScore")),
         "rank": _int(rip_core.get("rank")),
         "rankedSetCount": _int(rip_core.get("cohortSize")),
         "tier": rip_core.get("tier"),
         "version": rip_core.get("version") or FINANCIAL_RIP_V2_VERSION,
+        "normalizationMode": "cohort_min_max",
         "components": components,
     }
     if absolute is None:

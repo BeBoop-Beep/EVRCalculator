@@ -257,6 +257,12 @@ export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirab
   const collectorAppeal = toObject(opening.collectorAppeal);
 
   const overallScore = toNumber(safeRip.score);
+  // The cohort-relative public scores. Contribution math below uses ONLY the
+  // absolute scores; these are exposed so the UI can show the separate
+  // standardization step (absolute → cohort-relative public score) without ever
+  // blending relatives into the contribution arithmetic.
+  const overallRelativeScore = toNumber(safeRip.relativeScore);
+  const financialRelativeScore = toNumber(safeCore.relativeScore);
   const financialScore = toNumber(
     safeCore.score ?? toObject(safeRip.financialRip).score ?? financialComponent.score
   );
@@ -287,6 +293,8 @@ export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirab
     financialRip: {
       score: financialScore,
       scoreLabel: formatScore(financialScore),
+      relativeScore: financialRelativeScore,
+      relativeScoreLabel: formatScore(financialRelativeScore),
       rankLabel: formatRank(safeCore.rank, safeCore.cohortSize),
       tier: safeCore.tier ?? null,
       weightsLabel: "Profit 60% · Safety 25% · Stability 15%",
@@ -322,8 +330,18 @@ export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirab
       note: "Supporting input to Opening Desirability (CA7); not a separate Overall RIP weight.",
     },
     overallRip: {
+      // `score` is the ABSOLUTE model score (the 90/10 blend result) that the
+      // contribution math above sums to. `relativeScore` is the PUBLIC
+      // standardized score derived from it by cohort min-max — shown as the
+      // separate standardization step, never as a contribution input.
       score: overallScore,
       scoreLabel: formatScore(overallScore),
+      relativeScore: overallRelativeScore,
+      relativeScoreLabel: formatScore(overallRelativeScore),
+      standardizationNote:
+        overallRelativeScore === null
+          ? null
+          : `Standardized against the eligible Overall cohort → ${overallRelativeScore.toFixed(1)} / 100 public score`,
       rankLabel: formatRank(safeRip.rank, safeRip.cohortSize),
       tier: safeRip.tier ?? null,
     },

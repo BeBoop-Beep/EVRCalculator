@@ -681,14 +681,19 @@ def _rank_within_cohort(cohort_rows: List[Dict[str, Any]], *, cohort_size: int) 
 
 
 def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
-    """Cohort-relative 0-100 scores for Overall RIP and Financial RIP.
+    """Cohort-relative 0-100 scores for Overall RIP, Financial RIP and pillars.
 
     The ABSOLUTE score is the direct formula result (``rip.score`` /
-    ``ripCore.score``). The RELATIVE score is its min-max position within THIS
-    fixed public cohort, computed alongside the ranks so the relative score, the
-    rank, and the cohort denominator always describe the same population. Written
-    as ``relativeScore`` on each object, distinct from the absolute ``score`` and
-    never overwriting it.
+    ``ripCore.score`` / a pillar ``.score``). The RELATIVE score is its min-max
+    position within THIS fixed public cohort, computed with the same canonical
+    ``_compute_relative_scores`` helper and alongside the ranks so the relative
+    score, the rank, and the cohort denominator always describe the same
+    population. Written as ``relativeScore`` on each object, distinct from the
+    absolute ``score`` and never overwriting it.
+
+    Overall/Financial relative are min-max of the FINAL absolute formula outputs
+    (``rip.score`` / ``ripCore.score``), never a blend of already-relative
+    inputs — the extractors read the authoritative absolute scores directly.
     """
     for extractor, obj_key in ((_rank_rip, "rip"), (_rank_rip_core, "ripCore")):
         scratch = [
@@ -702,6 +707,32 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
                 continue
             relative = relatives.get(str(row.get("target_id")))
             obj["relativeScore"] = round(relative, 2) if relative is not None else None
+
+    # The three Financial RIP pillars also carry a cohort-relative public score,
+    # restoring main's `relative_profit_score`/`relative_safety_score`/
+    # `relative_stability_score` presentation. Each pillar lives in TWO places
+    # (ripCore.components and rip.financialRip.components) from two calls to
+    # compute_financial_rip; both are written so neither surface can disagree.
+    for pillar, extractor in (
+        ("profit", _rank_profit),
+        ("safety", _rank_safety),
+        ("stability", _rank_stability),
+    ):
+        scratch = [
+            {"target_id": row.get("target_id"), "_score": extractor(row)}
+            for row in cohort_rows
+        ]
+        relatives = _compute_relative_scores(scratch, "_score")
+        for row in cohort_rows:
+            relative = relatives.get(str(row.get("target_id")))
+            rounded = round(relative, 2) if relative is not None else None
+            for components in (
+                (row.get("ripCore") or {}).get("components") or {},
+                ((row.get("rip") or {}).get("financialRip") or {}).get("components") or {},
+            ):
+                component = components.get(pillar)
+                if isinstance(component, dict):
+                    component["relativeScore"] = rounded
 
 
 def _apply_rank(

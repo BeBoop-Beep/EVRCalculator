@@ -12,11 +12,15 @@ import {
 } from "./ripHeroScoreMode.mjs";
 
 // Canonical backend objects, shaped like the explore/insights contract.
+// `score` is the raw formula output (the model/absolute score); `relativeScore`
+// is the cohort-relative 0-100 PUBLIC score. The hero must surface RELATIVE as
+// its primary `score` and keep the absolute as a secondary diagnostic.
 // Legacy fields are ALSO present, with deliberately different values, so every
 // test doubles as proof that the legacy fields are not being read.
 const target = {
   rip: {
     score: 82.2094,
+    relativeScore: 96.7,
     rank: 1,
     tier: "S",
     cohortSize: 21,
@@ -24,6 +28,7 @@ const target = {
   },
   ripCore: {
     score: 83.11,
+    relativeScore: 90.4,
     rank: 2,
     tier: "S",
     cohortSize: 21,
@@ -41,10 +46,16 @@ const target = {
   rip_rank_with_desirability: 77,
 };
 
-test("RIP Score hero reads canonical rip.score/rank/tier with the cohort denominator", () => {
+test("RIP Score hero surfaces the RELATIVE public score, absolute stays secondary", () => {
   const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target });
 
-  assert.equal(selected.score, 82.2094);
+  // Primary public score is the cohort-relative number.
+  assert.equal(selected.score, 96.7);
+  assert.equal(selected.relativeScore, 96.7);
+  // The raw 90/10 formula output remains available as a secondary diagnostic,
+  // never promoted to the primary `score`.
+  assert.equal(selected.absoluteScore, 82.2094);
+  assert.notEqual(selected.score, selected.absoluteScore);
   assert.equal(selected.rank, 1);
   assert.equal(selected.tier, "S");
   assert.equal(selected.cohortSize, 21);
@@ -53,16 +64,18 @@ test("RIP Score hero reads canonical rip.score/rank/tier with the cohort denomin
   assert.match(selected.helper, /Collector Appeal/);
   // Legacy values must not leak through under any label.
   assert.notEqual(selected.score, 98.4);
-  assert.notEqual(selected.score, 12.3);
+  assert.notEqual(selected.absoluteScore, 12.3);
   assert.notEqual(selected.rank, 99);
   assert.notEqual(selected.rank, 77);
 });
 
-test("RIP Core hero reads canonical ripCore with its own separately calculated placement", () => {
+test("RIP Core hero surfaces the RELATIVE public score with its own placement", () => {
   const selected = selectRipHeroScoreMode({ mode: RIP_CORE_MODE, target });
 
   assert.equal(selected.mode, RIP_CORE_MODE);
-  assert.equal(selected.score, 83.11);
+  assert.equal(selected.score, 90.4);
+  assert.equal(selected.relativeScore, 90.4);
+  assert.equal(selected.absoluteScore, 83.11);
   assert.equal(selected.rank, 2);
   assert.equal(selected.tier, "S");
   assert.equal(selected.cohortSize, 21);
@@ -84,15 +97,29 @@ test("a missing canonical contract renders unavailable — never the legacy scor
   const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, summary: legacyOnly });
 
   assert.equal(selected.score, null);
+  assert.equal(selected.relativeScore, null);
+  assert.equal(selected.absoluteScore, null);
   assert.equal(selected.rank, null);
   assert.equal(selected.tier, null);
   assert.equal(selected.available, false);
   assert.equal(hasCanonicalRipContract(legacyOnly), false);
 });
 
+test("a present absolute but missing relative renders unavailable, never promoting the model score", () => {
+  // A stale payload carrying only the raw formula output must NOT silently show
+  // the model score as the public number.
+  const stale = { rip: { score: 82.2, rank: 1, tier: "S", cohortSize: 21 } };
+  const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target: stale });
+
+  assert.equal(selected.score, null);
+  assert.equal(selected.relativeScore, null);
+  assert.equal(selected.absoluteScore, 82.2);
+  assert.equal(selected.available, false);
+});
+
 test("an unavailable canonical RIP carries the backend's status through", () => {
   const hidden = {
-    rip: { score: null, status: "incomplete_missing_desirability" },
+    rip: { score: null, relativeScore: null, status: "incomplete_missing_desirability" },
   };
   const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target: hidden });
 
@@ -102,21 +129,23 @@ test("an unavailable canonical RIP carries the backend's status through", () => 
 });
 
 test("RIP Core mode falls back to RIP Score MODE when core is absent, without inventing a score", () => {
-  const ripOnly = { rip: { score: 70.0, rank: 5, tier: "A", cohortSize: 21 } };
+  const ripOnly = { rip: { score: 70.0, relativeScore: 88.0, rank: 5, tier: "A", cohortSize: 21 } };
   const selected = selectRipHeroScoreMode({ mode: RIP_CORE_MODE, target: ripOnly });
 
   assert.equal(selected.mode, RIP_SCORE_MODE);
-  assert.equal(selected.score, 70.0);
+  assert.equal(selected.score, 88.0);
+  assert.equal(selected.absoluteScore, 70.0);
   assert.equal(hasRipCorePresentationContract(ripOnly), false);
 });
 
 test("the payload source (set-page snapshot) is honored alongside the target", () => {
   const selected = selectRipHeroScoreMode({
     mode: RIP_SCORE_MODE,
-    payload: { rip: { score: 56.7918, rank: 21, tier: "F", cohortSize: 21 } },
+    payload: { rip: { score: 56.7918, relativeScore: 12.5, rank: 21, tier: "F", cohortSize: 21 } },
   });
 
-  assert.equal(selected.score, 56.7918);
+  assert.equal(selected.score, 12.5);
+  assert.equal(selected.absoluteScore, 56.7918);
   assert.equal(selected.rank, 21);
   assert.equal(selected.cohortSize, 21);
 });

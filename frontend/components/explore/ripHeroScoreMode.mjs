@@ -78,31 +78,45 @@ export function selectRipHeroScoreMode({ mode = RIP_SCORE_MODE, summary = {}, ta
   const resolvedMode = mode === RIP_CORE_MODE && coreAvailable ? RIP_CORE_MODE : RIP_SCORE_MODE;
 
   if (resolvedMode === RIP_CORE_MODE) {
+    // `score` is the PUBLIC cohort-relative 0-100 score (the production scoring
+    // language). The raw 60/25/15 formula output is the model/absolute score,
+    // surfaced separately and never promoted to the primary number. When the
+    // relative score is missing we render unavailable rather than silently
+    // showing the absolute in its place.
+    const coreRelative = toNumber(ripCore.relativeScore);
     return {
       mode: RIP_CORE_MODE,
       label: "RIP Core",
       helper: RIP_CORE_HELPER,
-      score: toNumber(ripCore.score),
+      score: coreRelative,
+      relativeScore: coreRelative,
+      absoluteScore: toNumber(ripCore.score),
       rank: toNumber(ripCore.rank),
       tier: ripCore.tier ?? null,
       cohortSize: toNumber(ripCore.cohortSize),
-      available: coreAvailable,
+      available: coreRelative !== null,
       status: ripCore.status ?? null,
       interpretation: interpretationOf(ripCore, sources, "rip_core", "ripCore"),
       coreAvailable,
     };
   }
 
-  const available = toNumber(rip.score) !== null;
+  // `score` is the PUBLIC cohort-relative 0-100 Overall RIP; the raw 90/10 blend
+  // is the model/absolute score. Availability is keyed on the relative score so
+  // a stale payload carrying only the absolute renders unavailable rather than
+  // silently promoting the model score to the public number.
+  const relative = toNumber(rip.relativeScore);
   return {
     mode: RIP_SCORE_MODE,
     label: "RIP Score",
     helper: RIP_SCORE_HELPER,
-    score: toNumber(rip.score),
+    score: relative,
+    relativeScore: relative,
+    absoluteScore: toNumber(rip.score),
     rank: toNumber(rip.rank),
     tier: rip.tier ?? null,
     cohortSize: toNumber(rip.cohortSize),
-    available,
+    available: relative !== null,
     // When the canonical RIP is unavailable the backend says why
     // (e.g. incomplete_missing_desirability); the UI renders that state
     // rather than substituting a legacy score.

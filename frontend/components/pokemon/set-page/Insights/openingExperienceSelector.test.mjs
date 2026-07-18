@@ -226,12 +226,13 @@ test("unavailable reasons pass through from backend coverage", () => {
 // Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 (no cap, no adjustment).
 // ---------------------------------------------------------------------------
 
-const RIP_CORE = { score: 22.3155, rank: 4, cohortSize: 21, tier: "A" };
+const RIP_CORE = { score: 22.3155, relativeScore: 83.7, rank: 4, cohortSize: 21, tier: "A" };
 const RIP_OPENING_EXPERIENCE = {
   collectorAppeal: { score: 89.8659, rank: 3, cohortSize: 21, tier: "A" },
 };
 const RIP = {
   score: 29.0705, // 0.9*22.3155 + 0.1*89.8659
+  relativeScore: 98.4,
   rank: 2,
   cohortSize: 21,
   tier: "S",
@@ -292,6 +293,24 @@ test("missing CA7 makes Overall RIP unavailable but keeps Financial + Set Desira
   assert.ok(model.openingDesirability.unavailableReason);
   assert.equal(model.financialRip.scoreLabel, "22.3");
   assert.equal(model.setDesirability.scoreLabel, "95.5");
+});
+
+test("contribution math uses ABSOLUTE scores; relative is a separate standardization step", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
+
+  // Contribution math is on the absolute (model) scores, never the relatives.
+  assert.equal(model.financialRip.score, 22.3155);
+  assert.equal(model.overallRip.score, 29.0705);
+  assert.ok(model.financialRip.contributionLabel.includes("20.1")); // 22.3155 * 0.9
+  // The public relative scores are exposed as a distinct standardization result.
+  assert.equal(model.financialRip.relativeScore, 83.7);
+  assert.equal(model.financialRip.relativeScoreLabel, "83.7");
+  assert.equal(model.overallRip.relativeScore, 98.4);
+  assert.equal(model.overallRip.relativeScoreLabel, "98.4");
+  assert.ok(model.overallRip.standardizationNote.includes("98.4"));
+  assert.ok(model.overallRip.standardizationNote.toLowerCase().includes("standardized"));
+  // The relative public score is NOT the contribution sum (proves no blending).
+  assert.notEqual(model.overallRip.relativeScore, model.overallRip.score);
 });
 
 test("breakdown never presents Set Desirability as a weighted RIP pillar", () => {

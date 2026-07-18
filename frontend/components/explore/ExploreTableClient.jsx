@@ -145,36 +145,51 @@ function readModeScore(target, modeId) {
   };
 }
 
+// Tooltip explaining the relative-vs-model distinction the cells present.
+const RELATIVE_SCORE_TOOLTIP =
+  "Relative scores standardize each set against the current eligible cohort on a 0–100 scale. " +
+  "Model scores are the underlying formula outputs used before standardization.";
+
 /**
- * Desktop score cell: absolute on top, then "relative · #rank of n" beneath.
- * A null absolute renders an explicit Unavailable state (never zero). Ratio-only
- * modes have no relative score, so the meta line degrades to just the rank.
+ * Desktop score cell.
+ *
+ * The RELATIVE score is the public number and is rendered prominently. The raw
+ * formula output (the "model score") is the small supporting line beneath,
+ * alongside "#rank of n". Ratio-only and legacy-relative modes expose no
+ * separate relative field, so their single score stays the prominent value and
+ * no "Model score" line is shown. A null primary renders an explicit
+ * Unavailable state (never a fabricated zero) rather than promoting the model
+ * score in place of a missing relative one.
  */
 function ScoreCell({ target, modeId }) {
   const config = getModeConfig(modeId);
   const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
 
-  if (absolute === null) {
+  const hasRelative = relative !== null;
+  const primaryText = hasRelative
+    ? formatRelative(relative)
+    : absolute === null
+    ? null
+    : formatModeScore(absolute, config?.scoreFormat);
+
+  if (primaryText === null) {
     return (
       <span className="text-sm font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>
     );
   }
 
-  const relativeText = formatRelative(relative);
   const rankText = formatRankText(rank, cohort);
   const metaParts = [];
-  if (relativeText !== null) {
-    metaParts.push(`${relativeText} rel`);
-  }
   if (rankText !== null) {
     metaParts.push(rankText);
   }
+  if (hasRelative && absolute !== null) {
+    metaParts.push(`Model ${formatModeScore(absolute, config?.scoreFormat)}`);
+  }
 
   return (
-    <div className="flex min-w-0 flex-col leading-tight">
-      <span className="text-sm font-semibold text-[var(--text-primary)]">
-        {formatModeScore(absolute, config?.scoreFormat)}
-      </span>
+    <div className="flex min-w-0 flex-col leading-tight" title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}>
+      <span className="text-sm font-semibold text-[var(--text-primary)]">{primaryText}</span>
       {metaParts.length > 0 ? (
         <span className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{metaParts.join(" · ")}</span>
       ) : null}
@@ -183,26 +198,36 @@ function ScoreCell({ target, modeId }) {
 }
 
 /**
- * Mobile score block: labelled family (Overall / Financial) with a single
- * compact "abs · rel · #rank/n" line. Financial is never hidden on mobile.
+ * Mobile score block: labelled family (Overall / Financial). Preserves the same
+ * hierarchy as desktop — RELATIVE score prominent, "#rank/n" and the model
+ * score as the small supporting line. Financial is never hidden on mobile.
  */
 function MobileScoreBlock({ target, modeId, label }) {
   const config = getModeConfig(modeId);
   const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
 
+  const hasRelative = relative !== null;
+  const primaryText = hasRelative
+    ? formatRelative(relative)
+    : absolute === null
+    ? null
+    : formatModeScore(absolute, config?.scoreFormat);
+  const rankText = formatRankText(rank, cohort, { compact: true });
+
   return (
-    <div className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5">
+    <div
+      className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5"
+      title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}
+    >
       <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</div>
-      {absolute === null ? (
+      {primaryText === null ? (
         <div className="mt-0.5 text-xs font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</div>
       ) : (
         <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[11px] text-[var(--text-secondary)]">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">
-            {formatModeScore(absolute, config?.scoreFormat)}
-          </span>
-          {formatRelative(relative) !== null ? <span>· {formatRelative(relative)} rel</span> : null}
-          {formatRankText(rank, cohort, { compact: true }) !== null ? (
-            <span>· {formatRankText(rank, cohort, { compact: true })}</span>
+          <span className="text-sm font-semibold text-[var(--text-primary)]">{primaryText}</span>
+          {rankText !== null ? <span>· {rankText}</span> : null}
+          {hasRelative && absolute !== null ? (
+            <span>· Model {formatModeScore(absolute, config?.scoreFormat)}</span>
           ) : null}
         </div>
       )}

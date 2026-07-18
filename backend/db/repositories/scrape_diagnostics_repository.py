@@ -13,6 +13,7 @@ this module only performs safe database I/O.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from ..clients.supabase_client import supabase
@@ -20,6 +21,22 @@ from ..clients.supabase_client import supabase
 logger = logging.getLogger(__name__)
 
 _DIAG_TAG = "[scrape-diagnostics]"
+
+# Bounded exponential backoff for transient diagnostic write failures (Phase 5).
+_DIAG_MAX_ATTEMPTS = 3
+_DIAG_BASE_BACKOFF_SECONDS = 0.5
+
+
+def _is_transient_db_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "timeout", "timed out", "temporarily unavailable", "connection",
+            "reset", "econnreset", "502", "503", "504", "gateway",
+            "could not connect", "server closed", "ssl",
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +106,47 @@ def update_scrape_job_run(run_id: str, run_data: Dict[str, Any]) -> Optional[Dic
     except Exception as exc:
         logger.error("%s update_scrape_job_run id=%s failed: %s", _DIAG_TAG, run_id, exc)
         return None
+
+
+def finalize_scrape_job_run(run_id: str, run_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Finalize a diagnostic run with bounded retries, surfacing the outcome.
+
+    Unlike :func:`update_scrape_job_run` (which returns ``None`` on failure and can
+    silently hide a divergence), this returns an explicit ``{"ok": bool, ...}`` so
+    the caller can alert and let the lease watchdog reconcile the queue job. It
+    retries transient database/PostgREST errors with exponential backoff.
+    """
+    last_exc: Optional[Exception] = None
+    for attempt in range(1, _DIAG_MAX_ATTEMPTS + 1):
+        try:
+            result = (
+                supabase.table("scrape_job_runs")
+                .update(run_data)
+                .eq("id", run_id)
+                .execute()
+            )
+            if result and result.data:
+                return {"ok": True, "run_id": run_id, "row": result.data[0]}
+            # No row updated is not a transient error — surface it clearly.
+            logger.error(
+                "%s finalize_scrape_job_run id=%s updated no rows", _DIAG_TAG, run_id
+            )
+            return {"ok": False, "run_id": run_id, "reason": "no_rows_updated"}
+        except Exception as exc:
+            last_exc = exc
+            if not _is_transient_db_error(exc) or attempt == _DIAG_MAX_ATTEMPTS:
+                break
+            backoff = _DIAG_BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            logger.warning(
+                "%s transient finalize_scrape_job_run failure id=%s attempt %s/%s: %s; retrying in %.1fs",
+                _DIAG_TAG, run_id, attempt, _DIAG_MAX_ATTEMPTS, exc, backoff,
+            )
+            time.sleep(backoff)
+
+    logger.error(
+        "%s finalize_scrape_job_run id=%s permanently failed: %s", _DIAG_TAG, run_id, last_exc
+    )
+    return {"ok": False, "run_id": run_id, "reason": "db_error", "error": str(last_exc)}
 
 
 # ---------------------------------------------------------------------------
