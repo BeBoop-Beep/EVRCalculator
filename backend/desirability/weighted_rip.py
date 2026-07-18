@@ -34,7 +34,9 @@ from backend.desirability.scoring_config import (
     FINANCIAL_RIP_V2_LEGACY_VERSION,
     FINANCIAL_RIP_V2_VERSION,
     FINANCIAL_RIP_WEIGHTS,
-    OVERALL_RIP_V3_VERSION,
+    OVERALL_RIP_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_WEIGHTS,
     RIP_V3_VERSION,
     SET_VALUE_ASSOCIATION_DISCLOSURE,
     SET_VALUE_ASSOCIATION_PRIOR_BENCHMARK,
@@ -342,12 +344,13 @@ def compute_desirability_adjustment(
     *,
     cap: float = DESIRABILITY_ADJUSTMENT_CAP,
 ) -> Dict[str, Any]:
-    """``clamp((D - 50) / 10, -cap, +cap)``, with the clamp reported.
+    """SUPERSEDED. ``clamp((D - 50) / 10, -cap, +cap)``, with the clamp reported.
 
-    Returned as a payload rather than a bare float so a caller can show WHY the
-    adjustment is what it is - a set whose raw adjustment was clamped is a
-    materially different story from one that landed inside the cap, and the two
-    are indistinguishable from the final number alone.
+    This was the additive, capped desirability adjustment of the retired Overall
+    RIP v3. It is NO LONGER part of the authoritative scoring path:
+    :func:`compute_overall_rip` now blends Financial RIP with CA7 and never calls
+    this. The function is retained ONLY for the historical cap-selection research
+    (``build_desirability_cap_study.py``); do not wire it back into scoring.
     """
     score = _as_float(universal_desirability_score)
     if score is None:
@@ -372,53 +375,83 @@ def compute_desirability_adjustment(
 
 def compute_overall_rip(
     pillar_scores: Mapping[str, Any],
-    universal_desirability_score: Any,
+    opening_desirability_score: Any,
     *,
-    cap: float = DESIRABILITY_ADJUSTMENT_CAP,
     weights: Optional[Mapping[str, float]] = None,
 ) -> Dict[str, Any]:
-    """Overall RIP = clamp(Financial RIP + desirability_adjustment, 0, 100).
+    """Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 Opening Desirability.
 
-    Requires a valid Financial RIP and a valid Universal Set Desirability. It
-    deliberately does NOT require CA7, pull-accessible favorite exposure, or
-    special-pack appeal: those describe how a set is opened, and Overall RIP is
-    a financial score adjusted by how desirable the roster is. A set whose pull
-    model cannot be loaded still has both inputs this needs, so the old
-    ``incomplete_missing_desirability`` state - which nulled RIP for every set
-    the moment CA7 was unavailable - has no analogue here and is not reachable.
+    A weighted blend, with NO cap, NO recentering, and NO additive adjustment.
+    The full internal precision of both inputs is preserved; the final score is
+    clamped to 0-100 purely as a numeric safety net, never as an influence cap.
+
+    REQUIRES BOTH a valid Financial RIP and a valid CA7 Opening Desirability
+    score (already on the 0-100 scale). When CA7 is missing, Overall RIP is
+    UNAVAILABLE with a precise reason - it deliberately does NOT fall back to
+    Universal Set Desirability. Universal Set Desirability already enters Overall
+    RIP once, as CA7's D base; substituting it for CA7 would both double-count it
+    and mix two different constructs in one leaderboard column.
+
+    ``opening_desirability_score`` is the CA7 score (0-100), the SAME number the
+    Collector Appeal service publishes under ``collectorAppeal.score``. The
+    financial-only Financial RIP and the Universal Set Desirability score both
+    remain available to a caller even when this returns unavailable.
     """
     financial = compute_financial_rip(pillar_scores, weights=weights)
-    adjustment_payload = compute_desirability_adjustment(universal_desirability_score, cap=cap)
-
     financial_score = financial.get("score")
-    adjustment = adjustment_payload.get("adjustment")
+    ca7_score = _as_float(opening_desirability_score)
 
-    if financial_score is None or adjustment is None:
+    w_financial = OVERALL_RIP_WEIGHTS["financial_rip"]
+    w_ca7 = OVERALL_RIP_WEIGHTS["opening_desirability"]
+
+    if financial_score is None or ca7_score is None:
         missing = list(financial.get("missingPillars") or [])
-        if adjustment is None:
-            missing.append("universal_set_desirability")
+        if ca7_score is None:
+            missing.append("opening_desirability_ca7")
         return {
             "score": None,
-            "version": OVERALL_RIP_V3_VERSION,
+            "version": OVERALL_RIP_V4_VERSION,
             "status": "unavailable_missing_input",
             "statusReason": (
-                "Overall RIP needs a valid Financial RIP and a valid Universal Set "
-                "Desirability. Missing: " + ", ".join(missing) + "."
+                "Overall RIP needs a valid Financial RIP and a valid CA7 Opening "
+                "Desirability score. Missing: " + ", ".join(missing) + ". CA7 is "
+                "never substituted with Universal Set Desirability."
             ),
             "missingInputs": missing,
             "financialRip": financial,
-            "desirabilityAdjustment": adjustment_payload,
+            "openingDesirability": {"score": ca7_score},
             "rankable": False,
         }
 
-    score = max(0.0, min(100.0, financial_score + adjustment))
+    financial_contribution = w_financial * financial_score
+    ca7_contribution = w_ca7 * ca7_score
+    score = max(0.0, min(100.0, financial_contribution + ca7_contribution))
     return {
         "score": round(score, 4),
-        "version": OVERALL_RIP_V3_VERSION,
+        "version": OVERALL_RIP_V4_VERSION,
         "financialRip": financial,
-        "universalSetDesirabilityScore": _as_float(universal_desirability_score),
-        "desirabilityAdjustment": adjustment_payload,
-        "formula": "clamp(financial_rip + clamp((desirability - 50) / 10, -cap, +cap), 0, 100)",
+        "openingDesirability": {
+            "score": round(ca7_score, 4),
+            "weight": round(w_ca7, 6),
+            "contribution": round(ca7_contribution, 4),
+        },
+        "components": {
+            "financialRip": {
+                "score": round(financial_score, 4),
+                "weight": round(w_financial, 6),
+                "contribution": round(financial_contribution, 4),
+            },
+            "openingDesirability": {
+                "score": round(ca7_score, 4),
+                "weight": round(w_ca7, 6),
+                "contribution": round(ca7_contribution, 4),
+            },
+        },
+        "weights": {key: round(value, 6) for key, value in OVERALL_RIP_WEIGHTS.items()},
+        "effectiveWeights": {
+            key: round(value, 6) for key, value in OVERALL_RIP_EFFECTIVE_WEIGHTS.items()
+        },
+        "formula": "0.90 * financial_rip + 0.10 * opening_desirability_ca7",
         "rankable": True,
     }
 

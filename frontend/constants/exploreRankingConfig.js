@@ -8,11 +8,21 @@
  * are a cohort min-max presentation over the old 33-set population and must not
  * power public ranking again. Fields are dot-paths resolved by getFieldValue.
  *
- * The pillars moved out of `rip.components.*` when Overall RIP became Financial
- * RIP plus a desirability adjustment: RIP is no longer a weighted average of
- * four pillars, so it has no `components` of its own. The desirability lens
- * reads `universalSetDesirability`, the authoritative score — not CA7, which is
- * a simulation-only diagnostic and is absent wherever a pull model is.
+ * The pillars live on `rip.financialRip.components.*`. Overall RIP is
+ * `0.90 * Financial RIP + 0.10 * CA7 Opening Desirability`; the desirability
+ * lens reads `universalSetDesirability`, the authoritative simulation-independent
+ * score (all-set rank of 135), NOT CA7, which needs a pull model.
+ *
+ * ABSOLUTE vs RELATIVE
+ * --------------------
+ * Every score-bearing mode exposes two numbers where both exist:
+ *   - `absoluteScoreField` — the direct 0-100 formula result (`rip.score`,
+ *     `ripCore.score`, a pillar `.score`). It does not move when the cohort does.
+ *   - `relativeScoreField` — the backend cohort-relative 0-100 position
+ *     (`rip.relativeScore`, `ripCore.relativeScore`), computed over the same
+ *     fixed public cohort the `rankField` is quoted against.
+ * `scoreField` is retained as the absolute field for backward compatibility.
+ * Ratio-only modes (EV/P99 to cost) have no relative score and expose neither.
  */
 
 function toNumber(value) {
@@ -47,10 +57,32 @@ export const EXPLORE_RANKING_MODES = {
     scoreLabel: "RIP SCORE",
     tierLabel: "TIER",
     scoreField: "rip.score",
+    absoluteScoreField: "rip.score",
+    relativeScoreField: "rip.relativeScore",
+    absoluteScoreLabel: "Absolute",
+    relativeScoreLabel: "Relative",
     rankField: "rip.rank",
     tierField: "rip.tier",
     scoreFormat: "decimal",
-    description: "Overall RIP score combines all factors for a comprehensive ranking.",
+    description: "Overall RIP = 90% Financial RIP + 10% Opening Desirability (CA7).",
+  },
+  financial: {
+    id: "financial",
+    label: "Financial RIP",
+    title: "Strongest Financial Opening",
+    subtitle: "Sets ranked by Financial RIP alone (Profit, Safety, Stability), before Opening Desirability.",
+    tooltip: "Financial RIP = 60% Profit + 25% Safety + 15% Stability. It excludes Opening Desirability.",
+    scoreLabel: "FINANCIAL RIP",
+    tierLabel: "TIER",
+    scoreField: "ripCore.score",
+    absoluteScoreField: "ripCore.score",
+    relativeScoreField: "ripCore.relativeScore",
+    absoluteScoreLabel: "Absolute",
+    relativeScoreLabel: "Relative",
+    rankField: "ripCore.rank",
+    tierField: "ripCore.tier",
+    scoreFormat: "decimal",
+    description: "Financial RIP is the financial-only opening quality: 60/25/15 Profit/Safety/Stability.",
   },
   profit: {
     id: "profit",
@@ -201,6 +233,25 @@ export function getTierField(modeId) {
 
 export function getScoreForMode(target, modeId) {
   return toNumber(getFieldValue(target, getScoreField(modeId)));
+}
+
+export function getAbsoluteScoreField(modeId) {
+  const config = getModeConfig(modeId);
+  return config.absoluteScoreField || config.scoreField || null;
+}
+
+export function getRelativeScoreField(modeId) {
+  return getModeConfig(modeId).relativeScoreField || null;
+}
+
+export function getAbsoluteScoreForMode(target, modeId) {
+  const field = getAbsoluteScoreField(modeId);
+  return field ? toNumber(getFieldValue(target, field)) : null;
+}
+
+export function getRelativeScoreForMode(target, modeId) {
+  const field = getRelativeScoreField(modeId);
+  return field ? toNumber(getFieldValue(target, field)) : null;
 }
 
 export function getRankForMode(target, modeId) {

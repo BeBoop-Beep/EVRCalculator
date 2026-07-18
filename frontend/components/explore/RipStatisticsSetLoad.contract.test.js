@@ -1277,19 +1277,24 @@ test("30D top chase UI selection does not require a 30d dashboard snapshot", () 
   assert.ok(!source.includes("prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW })"));
 });
 
-test("RIP breakdown strip shows Financial RIP, Set Desirability, adjustment and Overall RIP", () => {
+test("RIP breakdown strip shows Financial RIP, Opening Desirability (CA7) and Overall RIP", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // Overall RIP = Financial RIP + a bounded additive adjustment.
+  // Overall RIP = 0.90 Financial RIP + 0.10 CA7 Opening Desirability (a blend).
   assert.ok(source.includes("function RipDesirabilityBreakdownStrip"));
   assert.ok(source.includes('label: "Financial RIP"'));
-  assert.ok(source.includes('label: "Set Desirability"'));
-  assert.ok(source.includes('label: "Desirability Adjustment"'));
+  assert.ok(source.includes('label: "Opening Desirability / CA7"'));
   assert.ok(source.includes('label: "Overall RIP"'));
+  assert.ok(source.includes("90% Financial RIP + 10% Opening Desirability"));
+  assert.ok(source.includes("Effective final weights"));
   assert.ok(source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
 
-  // The retired CA7-as-a-weighted-pillar framing is gone: Set Desirability is
-  // added to Financial RIP, not averaged into it at a 10% weight.
+  // The retired capped-adjustment framing is gone: there is no "Desirability
+  // Adjustment" row and no cap copy.
+  assert.ok(!source.includes('label: "Desirability Adjustment"'));
+  assert.ok(!source.includes('label: "Set Desirability"'));
+
+  // The retired CA7-as-a-weighted-financial-pillar framing is also gone.
   assert.ok(!source.includes("function CollectorAppealImpactStrip"));
   assert.ok(!source.includes('label: "Collector Appeal Weight"'));
   assert.ok(!source.includes('label: "Direct RIP Contribution"'));

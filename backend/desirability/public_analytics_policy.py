@@ -201,6 +201,65 @@ def build_public_cohort(sets: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
     }
 
 
+# Overall-ranked cohort status codes. The Overall RIP ranking is a stricter
+# population than the eligible cohort: it needs a valid CA7 under ONE version.
+OVERALL_RANKED_OK = "overall_ranked_ok"
+OVERALL_RANKED_INCOMPLETE_MISSING_CA7 = "overall_ranked_incomplete_missing_ca7"
+OVERALL_RANKED_CA7_VERSION_MISMATCH = "overall_ranked_ca7_version_mismatch"
+
+
+def audit_overall_ranked_cohort(
+    eligible_set_ids: Iterable[str],
+    overall_available_by_set: Mapping[str, bool],
+    ca7_version_by_set: Mapping[str, Optional[str]],
+) -> Dict[str, Any]:
+    """Which eligible sets may enter the Overall RIP ranking, and is it coherent?
+
+    Overall RIP = 0.90 Financial + 0.10 CA7, so a set joins the Overall ranking
+    only with a valid CA7 (``overall_available_by_set[set_id]`` True). A set
+    without CA7 is FLAGGED, never dropped silently and never given a fabricated
+    Overall RIP: it keeps its Financial RIP and Universal Set Desirability on the
+    page but is not counted in the Overall denominator.
+
+    Mixed CA7 versions among ranked sets FAIL CLOSED
+    (``OVERALL_RANKED_CA7_VERSION_MISMATCH``): two Overall RIPs computed under
+    different CA7 formulas are not comparable, so a leaderboard mixing them is
+    self-inconsistent. This is the fail-closed condition a publication guard must
+    refuse on.
+    """
+    ranked: List[str] = []
+    missing_ca7: List[str] = []
+    versions: Dict[str, int] = {}
+    for set_id in eligible_set_ids:
+        set_id = str(set_id)
+        if overall_available_by_set.get(set_id):
+            ranked.append(set_id)
+            version = ca7_version_by_set.get(set_id)
+            if version is not None:
+                versions[str(version)] = versions.get(str(version), 0) + 1
+        else:
+            missing_ca7.append(set_id)
+
+    distinct_versions = sorted(versions)
+    if len(distinct_versions) > 1:
+        status = OVERALL_RANKED_CA7_VERSION_MISMATCH
+    elif missing_ca7:
+        status = OVERALL_RANKED_INCOMPLETE_MISSING_CA7
+    else:
+        status = OVERALL_RANKED_OK
+
+    return {
+        "status": status,
+        "rankedSetIds": sorted(ranked),
+        "rankedSetCount": len(ranked),
+        "missingCa7SetIds": sorted(missing_ca7),
+        "missingCa7Count": len(missing_ca7),
+        "ca7Version": distinct_versions[0] if len(distinct_versions) == 1 else None,
+        "ca7Versions": distinct_versions,
+        "publishable": status != OVERALL_RANKED_CA7_VERSION_MISMATCH,
+    }
+
+
 class PublicCohortIntegrityError(RuntimeError):
     """An analytics_ready set has no Collector Appeal.
 

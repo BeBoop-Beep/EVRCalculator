@@ -5,16 +5,20 @@ behaviour is tested without a database.
 
 THE ARCHITECTURE THESE PIN
 --------------------------
-Universal Set Desirability is the authoritative desirability score. It needs no
-simulation and no CA7. Financial RIP is exactly 60/25/15 over the simulation
-pillars. Overall RIP is Financial RIP plus a bounded desirability adjustment.
+Financial RIP is exactly 60/25/15 over the simulation pillars. Overall RIP is
+0.90 * Financial RIP + 0.10 * CA7 Opening Desirability - a weighted blend with no
+cap and no additive adjustment. CA7 is the SOLE desirability input to Overall
+RIP, and it already consumes Universal Set Desirability as its D base, so the
+universal score enters Overall RIP exactly once (through CA7) and is never added
+again.
 
-CA7 is NOT a RIP pillar. It is a Simulation Opening Experience diagnostic that
-exists only where a pull model loads, so its absence is an expected state - not
-a reason to null a RIP. The previous suite asserted the opposite on every count
-(a 58/20/12/10 blend, CA7 as the 10% pillar, and
-``incomplete_missing_desirability`` whenever CA7 was missing); those assertions
-are retired with the model they described.
+CA7 is required for Overall RIP. Where a pull model does not load, CA7 is
+unavailable, and Overall RIP is unavailable with a reason - it never falls back
+to Universal Set Desirability. Universal Set Desirability and Financial RIP stay
+published in that case; they are simply not blended into an Overall RIP.
+
+Universal Set Desirability remains the authoritative simulation-independent
+roster score, published separately with its own all-set rank.
 """
 
 from __future__ import annotations
@@ -27,8 +31,9 @@ from backend.desirability.public_analytics_policy import (
     SWORD_AND_SHIELD_ERA_ID,
 )
 from backend.desirability.scoring_config import (
-    DESIRABILITY_ADJUSTMENT_CAP,
     FINANCIAL_RIP_WEIGHTS,
+    OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_WEIGHTS,
 )
 
 SV_ERA = "dfb0dfa1-6a8e-4335-850f-e003867e19ee"
@@ -115,8 +120,8 @@ def _universal(score):
     }
 
 
-@pytest.fixture
-def targets(monkeypatch):
+def _build_scenario():
+    """Construct (rows, payloads) for the 21 ready + 12 hidden sets."""
     rows = []
     payloads = {}
     for name, (era_id, ca7, profit, safety, stability, usd) in READY.items():
@@ -156,7 +161,12 @@ def targets(monkeypatch):
             }
         )
         payloads[name] = _unavailable_payload(name)
+    return rows, payloads
 
+
+@pytest.fixture
+def targets(monkeypatch):
+    rows, payloads = _build_scenario()
     monkeypatch.setattr(
         service, "get_collector_appeal_bundle", lambda **_: {"payloads": payloads}
     )
@@ -283,17 +293,21 @@ def test_financial_rip_is_unavailable_when_a_pillar_is_missing(targets):
 
 
 # ---------------------------------------------------------------------------
-# Overall RIP = Financial RIP + bounded desirability adjustment
+# Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 Opening Desirability
 # ---------------------------------------------------------------------------
 
-def test_overall_rip_is_financial_plus_adjustment(targets):
+def test_overall_rip_is_financial_90_plus_ca7_10(targets):
     _attach(targets)
     row = _row(targets, "Ascended Heroes")
     financial = 0.60 * 90.0 + 0.25 * 80.0 + 0.15 * 70.0
-    raw = (95.4809 - 50.0) / 10.0
-    adjustment = min(raw, DESIRABILITY_ADJUSTMENT_CAP)
-    assert row["rip"]["score"] == pytest.approx(financial + adjustment, abs=1e-3)
-    assert row["rip"]["desirabilityAdjustment"]["adjustment"] == pytest.approx(adjustment, abs=1e-4)
+    ca7 = 96.0942  # collectorAppeal.score from the fixture
+    expected = OVERALL_RIP_WEIGHTS["financial_rip"] * financial + OVERALL_RIP_WEIGHTS["opening_desirability"] * ca7
+    assert row["rip"]["score"] == pytest.approx(expected, abs=1e-3)
+    comps = row["rip"]["components"]
+    assert comps["financialRip"]["weight"] == pytest.approx(0.90)
+    assert comps["openingDesirability"]["weight"] == pytest.approx(0.10)
+    assert comps["openingDesirability"]["score"] == pytest.approx(ca7, abs=5e-4)
+    assert "desirabilityAdjustment" not in row["rip"]
 
 
 def test_overall_rip_reports_the_financial_rip_it_used(targets):
@@ -302,58 +316,68 @@ def test_overall_rip_reports_the_financial_rip_it_used(targets):
     assert row["rip"]["financialRip"]["score"] == pytest.approx(row["ripCore"]["score"], abs=1e-6)
 
 
-def test_overall_rip_version_is_the_new_model(targets):
+def test_overall_rip_version_is_the_v4_blend(targets):
     _attach(targets)
     row = _row(targets, "Ascended Heroes")
-    assert row["rip"]["version"] == "overall_rip_v3_financial_plus_universal_desirability"
+    assert row["rip"]["version"] == OVERALL_RIP_V4_VERSION
     assert row["ripCore"]["version"] == "financial_rip_v2_60_25_15"
 
 
 # ---------------------------------------------------------------------------
-# CA7 is not required anywhere
+# CA7 is required for Overall RIP; its absence never falls back to Universal
 # ---------------------------------------------------------------------------
 
-def test_missing_ca7_does_not_null_overall_rip(targets):
-    """The regression that nulled every RIP the moment the pull model failed."""
+def test_missing_ca7_nulls_overall_rip_but_keeps_financial(targets):
+    """CA7 absent -> Overall RIP unavailable, but Financial RIP is still present.
+
+    There is no Universal fallback: the set keeps its Financial RIP and its
+    Universal Set Desirability, but no Overall RIP is fabricated for it.
+    """
     _attach(targets)
     hidden = _row(targets, "Evolving Skies")
     assert hidden["openingExperience"]["collectorAppeal"]["score"] is None
-    assert hidden["rip"]["score"] is not None
+    assert hidden["rip"]["score"] is None
+    assert hidden["rip"]["missingInputs"] == ["opening_desirability_ca7"]
     assert hidden["ripCore"]["score"] is not None
 
 
-def test_incomplete_missing_desirability_is_unreachable(targets):
+def test_missing_ca7_does_not_receive_a_universal_fallback(targets):
     _attach(targets)
-    for row in targets:
-        assert row["rip"].get("status") != "incomplete_missing_desirability", row["name"]
+    hidden = _row(targets, "Evolving Skies")
+    # Universal Set Desirability is present (70.0) but must NOT become Overall RIP.
+    assert (hidden["universalSetDesirability"] or {}).get("score") == pytest.approx(70.0)
+    assert hidden["rip"]["score"] is None
 
 
-def test_overall_rip_needs_no_ca7_when_universal_desirability_is_present(targets):
+def test_overall_rip_uses_ca7_directly(targets):
     from backend.desirability.weighted_rip import compute_overall_rip
 
     result = compute_overall_rip(
-        {"profit": 90.0, "safety": 80.0, "stability": 70.0}, 95.4809
+        {"profit": 90.0, "safety": 80.0, "stability": 70.0}, 88.0
     )
     assert result["score"] is not None
     assert result["rankable"] is True
+    assert result["openingDesirability"]["score"] == pytest.approx(88.0)
 
 
-def test_overall_rip_is_unavailable_without_universal_desirability(targets):
+def test_overall_rip_is_unavailable_without_ca7(targets):
     from backend.desirability.weighted_rip import compute_overall_rip
 
     result = compute_overall_rip({"profit": 90.0, "safety": 80.0, "stability": 70.0}, None)
     assert result["score"] is None
-    assert "universal_set_desirability" in result["missingInputs"]
+    assert "opening_desirability_ca7" in result["missingInputs"]
 
 
-def test_ca7_is_not_the_authoritative_rip_pillar(targets):
-    """CA7 must appear only as an Opening Experience diagnostic."""
+def test_ca7_is_the_authoritative_desirability_input(targets):
+    """CA7 is the sole desirability input to Overall RIP; the universal score is
+    NOT blended in separately (it enters once, as CA7's D base)."""
     _attach(targets)
     row = _row(targets, "Ascended Heroes")
     assert "desirability" not in (row["ripCore"].get("components") or {})
-    assert "components" not in row["rip"] or "desirability" not in (row["rip"].get("components") or {})
-    # CA7 (96.0942) is NOT what moved Overall RIP; the universal score (95.4809) is.
-    assert row["rip"]["universalSetDesirabilityScore"] == pytest.approx(95.4809, abs=1e-4)
+    # Overall RIP's only desirability lever is CA7 (96.0942), not the raw universal
+    # score (95.4809), and the universal score is never re-blended as a component.
+    assert "universalSetDesirabilityScore" not in row["rip"]
+    assert row["rip"]["openingDesirability"]["score"] == pytest.approx(96.0942, abs=5e-4)
     assert row["openingExperience"]["collectorAppeal"]["score"] == pytest.approx(96.0942, abs=5e-4)
 
 
@@ -393,6 +417,71 @@ def test_legacy_collector_appeal_score_is_not_silently_redefined(targets):
     _attach(targets)
     row = _row(targets, "Ascended Heroes")
     assert row.get("collector_appeal_score") != row["openingExperience"]["collectorAppeal"]["score"]
+
+
+# ---------------------------------------------------------------------------
+# Overall-ranked cohort: CA7-gated, version-coherent, fail-closed on mixes
+# ---------------------------------------------------------------------------
+
+def test_overall_and_financial_carry_distinct_absolute_and_relative_scores(targets):
+    _attach(targets)
+    # The cohort has a spread, so min-max relative scores hit 0 and 100 at the
+    # extremes while the absolute formula scores do not.
+    rip_relatives = [r["rip"]["relativeScore"] for r in targets if r["name"] in READY]
+    core_relatives = [r["ripCore"]["relativeScore"] for r in targets if r["name"] in READY]
+    assert all(value is not None for value in rip_relatives)
+    assert all(value is not None for value in core_relatives)
+    assert max(rip_relatives) == pytest.approx(100.0)
+    assert min(rip_relatives) == pytest.approx(0.0)
+    # Absolute and relative are distinct fields; the absolute score is never the
+    # min-max relative one.
+    ascended = _row(targets, "Ascended Heroes")
+    assert ascended["rip"]["score"] != ascended["rip"]["relativeScore"]
+    assert ascended["ripCore"]["score"] != ascended["ripCore"]["relativeScore"]
+
+
+def test_overall_ranked_cohort_is_ca7_complete_when_all_21_have_ca7(targets):
+    cohort, warnings = _attach(targets)
+    audit = cohort["overallRanked"]
+    assert audit["status"] == "overall_ranked_ok"
+    assert audit["rankedSetCount"] == 21
+    assert audit["missingCa7Count"] == 0
+    assert audit["ca7Version"] == "collector_appeal_ca7_v1"
+    assert audit["publishable"] is True
+
+
+def test_eligible_set_without_ca7_is_flagged_out_of_overall_ranking(monkeypatch):
+    rows, payloads = _build_scenario()
+    # Chaos Rising is analytics_ready but loses its pull model -> no CA7.
+    payloads["Chaos Rising"] = _unavailable_payload("Chaos Rising")
+    monkeypatch.setattr(service, "get_collector_appeal_bundle", lambda **_: {"payloads": payloads})
+
+    cohort, warnings = _attach(rows)
+    audit = cohort["overallRanked"]
+    assert audit["status"] == "overall_ranked_incomplete_missing_ca7"
+    assert audit["rankedSetCount"] == 20
+    assert "Chaos Rising" in audit["missingCa7SetIds"]
+    assert any("excluded from the Overall RIP ranking" in w for w in warnings)
+
+    chaos = _row(rows, "Chaos Rising")
+    # No Overall RIP, but Financial RIP and Universal Set Desirability survive.
+    assert chaos["rip"]["score"] is None
+    assert chaos["ripCore"]["score"] is not None
+    assert (chaos["universalSetDesirability"] or {}).get("score") is not None
+
+
+def test_mixed_ca7_versions_fail_closed(monkeypatch):
+    rows, payloads = _build_scenario()
+    # One ranked set computed under a different CA7 formula version.
+    payloads["Black Bolt"]["collectorAppeal"]["version"] = "collector_appeal_ca8_v1"
+    monkeypatch.setattr(service, "get_collector_appeal_bundle", lambda **_: {"payloads": payloads})
+
+    cohort, warnings = _attach(rows)
+    audit = cohort["overallRanked"]
+    assert audit["status"] == "overall_ranked_ca7_version_mismatch"
+    assert audit["publishable"] is False
+    assert cohort["status"] == "integrity_error"
+    assert any("mixes multiple CA7 versions" in w for w in warnings)
 
 
 def test_cohort_integrity_keys_on_universal_desirability_not_ca7(targets, monkeypatch):

@@ -961,9 +961,9 @@ const SIMPLE_PILLAR_INFO_COPY = {
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   "Set Desirability":
-    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It is not a weighted pillar of the RIP Score: Overall RIP is Financial RIP plus a bounded adjustment from this score.",
+    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It is not itself an Overall RIP weight: it enters Overall RIP only through Opening Desirability (CA7), which uses it as its roster base.",
   "Collector Appeal":
-    "Collector Appeal is a Simulation Opening Experience diagnostic: desirability combined with a bounded bonus for Dual-Path Depth, the share of desirable Pokémon offering both a realistically pullable printing and an elite chase. It needs the set's modeled pull structure, and it is not a pillar of the RIP Score.",
+    "Opening Desirability (CA7) combines the set's universal roster appeal with how obtainable its desirable subjects are and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices. Overall RIP is 90% Financial RIP and 10% Opening Desirability.",
   // Legacy key kept only for stale render paths.
   Desirability:
     "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value.",
@@ -5818,14 +5818,13 @@ function CompactPillarSignalTile({
 }
 
 function RipDesirabilityBreakdownStrip({ breakdown }) {
-  // Overall RIP = Financial RIP + a bounded desirability adjustment.
+  // Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 Opening Desirability.
   //
-  // Deliberately NOT presented as a four-way weighted blend: Set Desirability is
-  // added to Financial RIP, not averaged into it, and the retired strip's
-  // "Collector Appeal Weight 10% / Direct RIP Contribution" framing described a
-  // weighted pillar that no longer exists. The adjustment comes from the backend
-  // payload rather than `rip.score - ripCore.score`, which disagrees with it
-  // wherever either score hits its 0/100 clamp.
+  // A weighted blend, backend-computed, with NO cap and NO additive adjustment.
+  // Each input shows its contribution (score x weight); the effective per-pillar
+  // weights are shown below. Set Desirability is a SUPPORTING input to CA7 (it is
+  // CA7's roster base), not a separate Overall RIP weight, so it is not given a
+  // weighted row - it keeps its own section.
   if (!breakdown) {
     return null;
   }
@@ -5834,19 +5833,14 @@ function RipDesirabilityBreakdownStrip({ breakdown }) {
     {
       label: "Financial RIP",
       value: breakdown.financialRip.scoreLabel,
-      detail: breakdown.financialRip.weightsLabel,
+      detail: breakdown.financialRip.contributionLabel,
     },
     {
-      label: "Set Desirability",
-      value: breakdown.setDesirability.scoreLabel,
-      detail: breakdown.setDesirability.rankLabel,
-    },
-    {
-      label: "Desirability Adjustment",
-      value: breakdown.desirabilityAdjustment.label,
-      detail: breakdown.desirabilityAdjustment.clamped
-        ? `${breakdown.desirabilityAdjustment.capLabel} (clamped)`
-        : breakdown.desirabilityAdjustment.capLabel,
+      label: "Opening Desirability / CA7",
+      value: breakdown.openingDesirability.scoreLabel,
+      detail:
+        breakdown.openingDesirability.contributionLabel ??
+        breakdown.openingDesirability.unavailableReason,
     },
     {
       label: "Overall RIP",
@@ -5861,17 +5855,33 @@ function RipDesirabilityBreakdownStrip({ breakdown }) {
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
           How Overall RIP Is Built
         </p>
-        <span className="text-[11px] text-[var(--text-secondary)]">Financial RIP + Desirability Adjustment</span>
+        <span className="text-[11px] text-[var(--text-secondary)]">
+          90% Financial RIP + 10% Opening Desirability
+        </span>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {metrics.map((metric) => (
           <div key={`rip-desirability-breakdown:${metric.label}`} className="min-w-0">
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{metric.label}</p>
             <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{metric.value ?? "—"}</p>
-            {metric.detail ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{metric.detail}</p> : null}
+            {metric.detail ? <p className="text-[11px] leading-snug text-[var(--text-secondary)]">{metric.detail}</p> : null}
           </div>
         ))}
       </div>
+      {Array.isArray(breakdown.effectiveWeights) && breakdown.effectiveWeights.length > 0 ? (
+        <div className="mt-3 border-t border-[var(--border-subtle)] pt-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            Effective final weights
+          </p>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            {breakdown.effectiveWeights.map((weight) => (
+              <span key={`eff-weight:${weight.label}`} className="text-[11px] text-[var(--text-secondary)]">
+                {weight.label} <span className="font-semibold text-[var(--text-primary)]">{weight.valueLabel ?? "—"}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {breakdown.unavailableReason ? (
         <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{breakdown.unavailableReason}</p>
       ) : null}
@@ -8970,8 +8980,20 @@ export default function RipStatisticsPageClient({
     ]
   );
   const ripDesirabilityBreakdown = useMemo(
-    () => selectRipDesirabilityBreakdown(canonicalRip, canonicalRipCore, canonicalUniversalSetDesirability),
-    [canonicalRip, canonicalRipCore, canonicalUniversalSetDesirability]
+    () =>
+      selectRipDesirabilityBreakdown(
+        canonicalRip,
+        canonicalRipCore,
+        canonicalUniversalSetDesirability,
+        explorePayload?.openingExperience || selectedTarget?.openingExperience || null
+      ),
+    [
+      canonicalRip,
+      canonicalRipCore,
+      canonicalUniversalSetDesirability,
+      explorePayload?.openingExperience,
+      selectedTarget?.openingExperience,
+    ]
   );
   const desirabilitySummary = getDesirabilitySummary(summary);
   const topDesirabilityCards = getTopCollectorAppealDrivers(
@@ -10405,10 +10427,11 @@ export default function RipStatisticsPageClient({
       metrics: stabilityPillarMetrics,
       infoText: getFormattedTooltip("Stability"),
     },
-    // No fourth pillar. Financial RIP is 60/25/15 over these three; Set
-    // Desirability is an additive adjustment to Overall RIP, shown in the
-    // "How Overall RIP Is Built" strip and its own section. A fourth weighted
-    // tile here would state a blend the backend does not compute.
+    // No fourth pillar. Financial RIP is 60/25/15 over these three. Opening
+    // Desirability (CA7) enters OVERALL RIP as the 10% term (Overall = 90%
+    // Financial + 10% CA7), shown in the "How Overall RIP Is Built" strip and its
+    // own section - it is not a weighted pillar OF Financial RIP. A fourth
+    // financial tile here would state a blend the backend does not compute.
   ];
   const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
   const initialModuleSetValueHistories =

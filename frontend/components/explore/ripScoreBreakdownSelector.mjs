@@ -11,12 +11,13 @@
 //
 // THREE PILLARS, NOT FOUR
 // -----------------------
-// There is no fourth "Collector Appeal" pillar any more. Financial RIP is
-// exactly 60/25/15 over Profit/Safety/Stability, and Set Desirability is not a
-// weighted pillar of it — it enters Overall RIP as a bounded additive
-// adjustment. Rendering it as a fourth weighted card would describe arithmetic
-// the backend does not perform. Set Desirability has its own card; see
-// `selectRipDesirabilityBreakdown` in openingExperienceSelector.mjs.
+// There is no fourth "Collector Appeal" pillar here. Financial RIP is exactly
+// 60/25/15 over Profit/Safety/Stability. Opening Desirability (CA7) is not a
+// weighted pillar OF Financial RIP — it enters OVERALL RIP as the 10% term
+// (Overall = 90% Financial + 10% CA7). Rendering it as a fourth financial card
+// would describe arithmetic the backend does not perform. Opening Desirability
+// has its own breakdown; see `selectRipDesirabilityBreakdown` in
+// openingExperienceSelector.mjs.
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;

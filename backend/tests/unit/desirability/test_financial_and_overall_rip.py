@@ -1,6 +1,8 @@
-"""Financial RIP (60/25/15) and Overall RIP (financial + bounded adjustment).
+"""Financial RIP (60/25/15) and Overall RIP (0.90 financial + 0.10 CA7).
 
 Unit-level proofs for the two shipping formulas, independent of the service.
+The capped additive-adjustment model (Overall RIP v3) has been retired; these
+tests pin the weighted blend and prove no authoritative cap survives.
 """
 
 from __future__ import annotations
@@ -8,19 +10,21 @@ from __future__ import annotations
 import pytest
 
 from backend.desirability.scoring_config import (
-    DESIRABILITY_ADJUSTMENT_BASELINE,
-    DESIRABILITY_ADJUSTMENT_CAP,
-    DESIRABILITY_ADJUSTMENT_DIVISOR,
     FINANCIAL_RIP_WEIGHTS,
+    OVERALL_RIP_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_WEIGHTS,
 )
 from backend.desirability.weighted_rip import (
-    compute_desirability_adjustment,
     compute_financial_rip,
     compute_overall_rip,
 )
 
 PILLARS = {"profit": 24.51, "safety": 21.40, "stability": 15.08}
 ASCENDED_FINANCIAL = 0.60 * 24.51 + 0.25 * 21.40 + 0.15 * 15.08  # ~22.32
+# A representative CA7 Opening Desirability score (0-100), the same scale the
+# Collector Appeal service publishes under collectorAppeal.score.
+CA7_SCORE = 78.0
 
 
 # ---------------------------------------------------------------------------
@@ -78,80 +82,80 @@ def test_financial_rip_ignores_a_desirability_input():
 
 
 # ---------------------------------------------------------------------------
-# Desirability adjustment
+# Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 Opening Desirability
 # ---------------------------------------------------------------------------
 
-def test_adjustment_is_zero_at_the_baseline():
-    assert compute_desirability_adjustment(DESIRABILITY_ADJUSTMENT_BASELINE)["adjustment"] == 0.0
+def test_overall_rip_weights_are_90_10():
+    assert OVERALL_RIP_WEIGHTS == {"financial_rip": 0.90, "opening_desirability": 0.10}
+    assert sum(OVERALL_RIP_WEIGHTS.values()) == pytest.approx(1.0)
 
 
-def test_adjustment_is_desirability_minus_50_over_10():
-    result = compute_desirability_adjustment(74.0, cap=5.0)
-    assert result["rawAdjustment"] == pytest.approx((74.0 - 50.0) / 10.0)
-    assert result["adjustment"] == pytest.approx(2.4)
-    assert result["clamped"] is False
+def test_overall_rip_effective_weights_are_54_225_135_10():
+    assert OVERALL_RIP_EFFECTIVE_WEIGHTS["profit"] == pytest.approx(0.54)
+    assert OVERALL_RIP_EFFECTIVE_WEIGHTS["safety"] == pytest.approx(0.225)
+    assert OVERALL_RIP_EFFECTIVE_WEIGHTS["stability"] == pytest.approx(0.135)
+    assert OVERALL_RIP_EFFECTIVE_WEIGHTS["opening_desirability"] == pytest.approx(0.10)
+    assert sum(OVERALL_RIP_EFFECTIVE_WEIGHTS.values()) == pytest.approx(1.0)
 
 
-@pytest.mark.parametrize(
-    "score, cap, expected",
-    [
-        (100.0, 3.0, 3.0),    # raw +5.0 -> clamped to +3
-        (100.0, 5.0, 5.0),    # raw +5.0 -> exactly at cap
-        (0.0, 3.0, -3.0),     # raw -5.0 -> clamped to -3
-        (0.0, 5.0, -5.0),     # raw -5.0 -> exactly at cap
-        (80.0, 3.0, 3.0),     # raw +3.0 -> at cap
-        (80.0, 5.0, 3.0),     # raw +3.0 -> inside cap 5
-        (95.4809, 3.0, 3.0),  # Ascended Heroes clamps under cap 3
-        (95.4809, 5.0, 4.54809),
-    ],
-)
-def test_cap_3_and_cap_5_clamp_correctly(score, cap, expected):
-    result = compute_desirability_adjustment(score, cap=cap)
-    assert result["adjustment"] == pytest.approx(expected, abs=1e-4)
-    assert abs(result["adjustment"]) <= cap + 1e-9
+def test_overall_rip_is_exactly_90_financial_plus_10_ca7():
+    result = compute_overall_rip(PILLARS, CA7_SCORE)
+    expected = 0.90 * ASCENDED_FINANCIAL + 0.10 * CA7_SCORE
+    assert result["score"] == pytest.approx(expected, abs=1e-4)
+    assert result["version"] == OVERALL_RIP_V4_VERSION
 
 
-def test_clamped_flag_distinguishes_a_capped_set_from_one_inside_the_cap():
-    assert compute_desirability_adjustment(100.0, cap=3.0)["clamped"] is True
-    assert compute_desirability_adjustment(74.0, cap=3.0)["clamped"] is False
+def test_overall_rip_contributions_sum_to_the_score():
+    result = compute_overall_rip(PILLARS, CA7_SCORE)
+    components = result["components"]
+    total = (
+        components["financialRip"]["contribution"]
+        + components["openingDesirability"]["contribution"]
+    )
+    assert total == pytest.approx(result["score"], abs=1e-3)
 
 
-def test_adjustment_divisor_and_baseline_are_config_driven():
-    assert DESIRABILITY_ADJUSTMENT_BASELINE == 50.0
-    assert DESIRABILITY_ADJUSTMENT_DIVISOR == 10.0
+def test_overall_rip_has_no_cap_and_can_move_more_than_5_points():
+    """The capped +/-3 adjustment is gone; a high CA7 moves Overall well past 5."""
+    financial = compute_financial_rip(PILLARS)["score"]
+    result = compute_overall_rip(PILLARS, 100.0)
+    # 0.9*F + 0.1*100 - F = 0.1*(100 - F); with F ~= 22.3 that is ~7.8 points.
+    assert result["score"] - financial > 5.0
+    assert "desirabilityAdjustment" not in result
+    assert "cap" not in result
+    assert "adjustmentCap" not in result
 
 
-def test_missing_desirability_yields_no_adjustment():
-    assert compute_desirability_adjustment(None)["adjustment"] is None
+def test_overall_rip_desirability_can_overtake_a_financial_gap():
+    """Intentional under the blend: both scores are published side by side."""
+    behind = compute_overall_rip({"profit": 50.0, "safety": 50.0, "stability": 50.0}, 100.0)
+    ahead = compute_overall_rip({"profit": 60.0, "safety": 60.0, "stability": 60.0}, 0.0)
+    # Financial: behind = 50, ahead = 60. Overall: behind = 55, ahead = 54.
+    assert behind["financialRip"]["score"] == pytest.approx(50.0)
+    assert ahead["financialRip"]["score"] == pytest.approx(60.0)
+    assert behind["score"] == pytest.approx(55.0)
+    assert ahead["score"] == pytest.approx(54.0)
+    assert behind["score"] > ahead["score"]
 
 
-# ---------------------------------------------------------------------------
-# Overall RIP
-# ---------------------------------------------------------------------------
-
-def test_overall_rip_is_financial_plus_capped_adjustment():
-    result = compute_overall_rip(PILLARS, 95.4809, cap=5.0)
-    assert result["score"] == pytest.approx(ASCENDED_FINANCIAL + 4.54809, abs=1e-3)
+def test_overall_rip_requires_ca7():
+    result = compute_overall_rip(PILLARS, None)
+    assert result["score"] is None
+    assert result["missingInputs"] == ["opening_desirability_ca7"]
+    assert result["rankable"] is False
 
 
-def test_overall_rip_does_not_require_ca7():
-    """No CA7 is passed anywhere; a score is still produced."""
-    result = compute_overall_rip(PILLARS, 95.4809)
-    assert result["score"] is not None
-    assert result["rankable"] is True
-    assert result.get("status") != "incomplete_missing_desirability"
+def test_overall_rip_does_not_fall_back_to_universal_when_ca7_missing():
+    """CA7 absent -> Overall unavailable, but Financial RIP stays available."""
+    result = compute_overall_rip(PILLARS, None)
+    assert result["score"] is None
+    assert result["financialRip"]["score"] == pytest.approx(ASCENDED_FINANCIAL, abs=1e-4)
 
 
 def test_overall_rip_requires_financial_rip():
-    result = compute_overall_rip({"profit": 90.0, "safety": None, "stability": 70.0}, 95.0)
+    result = compute_overall_rip({"profit": 90.0, "safety": None, "stability": 70.0}, CA7_SCORE)
     assert result["score"] is None
     assert "safety" in result["missingInputs"]
-
-
-def test_overall_rip_requires_universal_desirability():
-    result = compute_overall_rip(PILLARS, None)
-    assert result["score"] is None
-    assert result["missingInputs"] == ["universal_set_desirability"]
 
 
 def test_overall_rip_is_clamped_to_0_100():
@@ -161,33 +165,10 @@ def test_overall_rip_is_clamped_to_0_100():
     assert low["score"] == 0.0
 
 
-def test_overall_rip_uses_the_default_cap_from_config():
-    result = compute_overall_rip(PILLARS, 100.0)
-    assert result["desirabilityAdjustment"]["cap"] == DESIRABILITY_ADJUSTMENT_CAP
-    assert result["desirabilityAdjustment"]["adjustment"] == pytest.approx(
-        min(5.0, DESIRABILITY_ADJUSTMENT_CAP)
-    )
-
-
-def test_a_perfect_desirability_cannot_rescue_a_weak_financial_set():
-    """Guardrail 3, at the formula level."""
-    result = compute_overall_rip({"profit": 39.0, "safety": 39.0, "stability": 39.0}, 100.0)
-    assert result["financialRip"]["score"] == pytest.approx(39.0)
-    assert result["score"] <= 39.0 + DESIRABILITY_ADJUSTMENT_CAP
-    assert result["score"] <= 50.0
-
-
-@pytest.mark.parametrize("cap", [3.0, 5.0])
-def test_desirability_cannot_close_a_10_point_financial_gap(cap):
-    """Guardrail 4, at the formula level.
-
-    The maximum swing between two sets is 2*cap, so at cap 5 a 10-point gap
-    closes to exactly a tie and never a strict overtake; at cap 3 it cannot even
-    close. Passed explicitly rather than relying on the shipping default, so
-    this keeps proving the property if the cap is retuned.
-    """
-    behind = compute_overall_rip({"profit": 50.0, "safety": 50.0, "stability": 50.0}, 100.0, cap=cap)
-    ahead = compute_overall_rip({"profit": 60.0, "safety": 60.0, "stability": 60.0}, 0.0, cap=cap)
-    assert behind["score"] == pytest.approx(50.0 + cap)
-    assert ahead["score"] == pytest.approx(60.0 - cap)
-    assert behind["score"] <= ahead["score"], "desirability must never overtake a 10-point gap"
+def test_overall_rip_does_not_double_count_universal_desirability():
+    """Universal Set Desirability enters ONLY through CA7, so a separate high
+    universal score cannot influence Overall RIP - only the CA7 input does."""
+    ca7_low = compute_overall_rip(PILLARS, 10.0)
+    ca7_high = compute_overall_rip(PILLARS, 90.0)
+    # The ONLY desirability lever is the CA7 argument. Nothing else is accepted.
+    assert ca7_high["score"] - ca7_low["score"] == pytest.approx(0.10 * (90.0 - 10.0), abs=1e-4)

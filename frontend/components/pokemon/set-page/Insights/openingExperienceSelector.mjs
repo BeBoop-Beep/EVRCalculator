@@ -238,18 +238,51 @@ function signed(value, digits = 1) {
  * `rip.score - ripCore.score`: the two are clamped independently, so at the
  * 0/100 bounds subtraction silently disagrees with the real adjustment.
  */
-export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirability) {
+// Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 Opening Desirability.
+//
+// A weighted blend, backend-computed, with NO cap and NO additive adjustment.
+// The strip shows each input's contribution (score x weight) and the effective
+// per-pillar weights. Set Desirability (the universal score) is a SUPPORTING
+// input to CA7, shown for context, never a separate Overall RIP weight - so it
+// is not given a weighted row here. Every number is read from the backend `rip`
+// object; nothing is recomputed.
+export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirability, openingExperience) {
   const safeRip = toObject(rip);
   const safeCore = toObject(ripCore);
   const universal = toObject(universalSetDesirability);
-  const adjustmentPayload = toObject(safeRip.desirabilityAdjustment);
+  const opening = toObject(openingExperience);
+  const components = toObject(safeRip.components);
+  const financialComponent = toObject(components.financialRip);
+  const openingComponent = toObject(components.openingDesirability ?? safeRip.openingDesirability);
+  const collectorAppeal = toObject(opening.collectorAppeal);
 
   const overallScore = toNumber(safeRip.score);
-  const financialScore = toNumber(safeCore.score ?? toObject(safeRip.financialRip).score);
-  const desirabilityScore = toNumber(universal.score ?? safeRip.universalSetDesirabilityScore);
-  if (overallScore === null && financialScore === null && desirabilityScore === null) return null;
+  const financialScore = toNumber(
+    safeCore.score ?? toObject(safeRip.financialRip).score ?? financialComponent.score
+  );
+  const ca7Score = toNumber(openingComponent.score ?? collectorAppeal.score);
+  const desirabilityScore = toNumber(universal.score);
+  if (overallScore === null && financialScore === null && ca7Score === null && desirabilityScore === null) {
+    return null;
+  }
 
-  const adjustment = toNumber(adjustmentPayload.adjustment);
+  const financialWeight = toNumber(financialComponent.weight) ?? 0.9;
+  const openingWeight = toNumber(openingComponent.weight) ?? 0.1;
+  const financialContribution =
+    toNumber(financialComponent.contribution) ??
+    (financialScore === null ? null : financialScore * financialWeight);
+  const openingContribution =
+    toNumber(openingComponent.contribution) ??
+    (ca7Score === null ? null : ca7Score * openingWeight);
+
+  const eff = toObject(safeRip.effectiveWeights);
+  const effectiveWeights = [
+    { label: "Profit", value: toNumber(eff.profit) ?? 0.54 },
+    { label: "Safety", value: toNumber(eff.safety) ?? 0.225 },
+    { label: "Stability", value: toNumber(eff.stability) ?? 0.135 },
+    { label: "Opening Desirability", value: toNumber(eff.opening_desirability) ?? 0.1 },
+  ].map((row) => ({ ...row, valueLabel: formatPercent(row.value * 100, 1) }));
+
   return {
     financialRip: {
       score: financialScore,
@@ -257,23 +290,36 @@ export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirab
       rankLabel: formatRank(safeCore.rank, safeCore.cohortSize),
       tier: safeCore.tier ?? null,
       weightsLabel: "Profit 60% · Safety 25% · Stability 15%",
+      weight: financialWeight,
+      weightLabel: formatPercent(financialWeight * 100, 0),
+      contribution: financialContribution,
+      contributionLabel:
+        financialContribution === null
+          ? null
+          : `Financial RIP × ${Math.round(financialWeight * 100)}% = ${financialContribution.toFixed(1)} pts`,
+    },
+    openingDesirability: {
+      score: ca7Score,
+      scoreLabel: formatScore(ca7Score),
+      rankLabel: formatRank(collectorAppeal.rank, collectorAppeal.cohortSize),
+      tier: collectorAppeal.tier ?? null,
+      weight: openingWeight,
+      weightLabel: formatPercent(openingWeight * 100, 0),
+      contribution: openingContribution,
+      contributionLabel:
+        openingContribution === null
+          ? null
+          : `Opening Desirability × ${Math.round(openingWeight * 100)}% = ${openingContribution.toFixed(1)} pts`,
+      unavailableReason:
+        ca7Score === null
+          ? "Opening Desirability (CA7) is unavailable for this set, so Overall RIP cannot be computed. Financial RIP and Set Desirability remain available."
+          : null,
     },
     setDesirability: {
       score: desirabilityScore,
       scoreLabel: formatScore(desirabilityScore),
       rankLabel: formatRank(universal.rank, universal.rankedSetCount),
-    },
-    desirabilityAdjustment: {
-      value: adjustment,
-      label: adjustment === null ? null : `${signed(adjustment)} pts`,
-      cap: toNumber(adjustmentPayload.cap),
-      capLabel:
-        toNumber(adjustmentPayload.cap) === null
-          ? null
-          : `capped at ±${toNumber(adjustmentPayload.cap).toFixed(0)}`,
-      clamped: adjustmentPayload.clamped === true,
-      rawValue: toNumber(adjustmentPayload.rawAdjustment),
-      formula: adjustmentPayload.formula ?? null,
+      note: "Supporting input to Opening Desirability (CA7); not a separate Overall RIP weight.",
     },
     overallRip: {
       score: overallScore,
@@ -281,6 +327,7 @@ export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirab
       rankLabel: formatRank(safeRip.rank, safeRip.cohortSize),
       tier: safeRip.tier ?? null,
     },
+    effectiveWeights,
     unavailableReason: overallScore === null ? safeRip.statusReason ?? null : null,
   };
 }

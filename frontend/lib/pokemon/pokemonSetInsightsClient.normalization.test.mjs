@@ -21,7 +21,16 @@ function makeInsightsPayload(overrides = {}) {
     historyTrend: [{ date: "2026-06-01", meanValue: 5.0 }],
     desirability: { openingDesirabilityScore: 77 },
     desirabilityValidation: { cardAppealScore: 91.2 },
-    rip: { score: 82.2, rank: 1, tier: "S", cohortSize: 21, components: { desirability: { score: 96.09 } } },
+    rip: {
+      score: 82.2,
+      rank: 1,
+      tier: "S",
+      cohortSize: 21,
+      components: {
+        financialRip: { score: 80.7, weight: 0.9, contribution: 72.63 },
+        openingDesirability: { score: 96.09, weight: 0.1, contribution: 9.609 },
+      },
+    },
     ripCore: { score: 83.1, rank: 2, tier: "S", cohortSize: 21 },
     openingExperience: { status: "available", collectorAppeal: { score: 96.09, rank: 1 } },
     publicAnalyticsCohort: { eligibleSetCount: 21 },
@@ -65,7 +74,8 @@ test("normalizePokemonSetInsightsPayload carries the canonical contract and drop
   assert.equal(normalized.desirability.openingDesirabilityScore, 77);
   // The canonical contract passes through untouched.
   assert.equal(normalized.rip.score, 82.2);
-  assert.equal(normalized.rip.components.desirability.score, 96.09);
+  assert.equal(normalized.rip.components.openingDesirability.score, 96.09);
+  assert.equal(normalized.rip.components.financialRip.score, 80.7);
   assert.equal(normalized.ripCore.rank, 2);
   assert.equal(normalized.openingExperience.collectorAppeal.score, 96.09);
   assert.equal(normalized.publicAnalyticsCohort.eligibleSetCount, 21);

@@ -222,77 +222,81 @@ test("unavailable reasons pass through from backend coverage", () => {
 });
 
 // ---------------------------------------------------------------------------
-// RIP breakdown: Financial RIP, Set Desirability, adjustment, Overall RIP
+// RIP breakdown: Financial RIP, Opening Desirability (CA7), Overall RIP
+// Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 (no cap, no adjustment).
 // ---------------------------------------------------------------------------
 
 const RIP_CORE = { score: 22.3155, rank: 4, cohortSize: 21, tier: "A" };
+const RIP_OPENING_EXPERIENCE = {
+  collectorAppeal: { score: 89.8659, rank: 3, cohortSize: 21, tier: "A" },
+};
 const RIP = {
-  score: 26.8636,
+  score: 29.0705, // 0.9*22.3155 + 0.1*89.8659
   rank: 2,
   cohortSize: 21,
   tier: "S",
-  version: "overall_rip_v3_financial_plus_universal_desirability",
-  universalSetDesirabilityScore: 95.4809,
+  version: "overall_rip_v4_90_financial_10_ca7",
   financialRip: { score: 22.3155 },
-  desirabilityAdjustment: {
-    adjustment: 4.5481,
-    rawAdjustment: 4.5481,
-    clamped: false,
-    cap: 5.0,
-    formula: "clamp((universal_set_desirability - 50) / 10, -cap, +cap)",
+  openingDesirability: { score: 89.8659, weight: 0.1, contribution: 8.98659 },
+  components: {
+    financialRip: { score: 22.3155, weight: 0.9, contribution: 20.08395 },
+    openingDesirability: { score: 89.8659, weight: 0.1, contribution: 8.98659 },
   },
+  effectiveWeights: { profit: 0.54, safety: 0.225, stability: 0.135, opening_desirability: 0.1 },
 };
 
-test("breakdown shows Financial RIP, Set Desirability, adjustment and Overall RIP", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
+test("breakdown shows Financial RIP, Opening Desirability and Overall RIP", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
 
   assert.equal(model.financialRip.scoreLabel, "22.3");
+  assert.equal(model.openingDesirability.scoreLabel, "89.9");
+  assert.equal(model.openingDesirability.rankLabel, "#3 of 21");
   assert.equal(model.setDesirability.scoreLabel, "95.5");
   assert.equal(model.setDesirability.rankLabel, "#1 of 135");
-  assert.equal(model.desirabilityAdjustment.label, "+4.5 pts");
-  assert.equal(model.overallRip.scoreLabel, "26.9");
+  assert.equal(model.overallRip.scoreLabel, "29.1");
 });
 
 test("breakdown states the 60/25/15 financial weights", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
   assert.equal(model.financialRip.weightsLabel, "Profit 60% · Safety 25% · Stability 15%");
 });
 
-test("the adjustment is read from the backend, never derived by subtraction", () => {
-  // Overall RIP and Financial RIP are clamped independently, so at the 0/100
-  // bounds `rip.score - ripCore.score` disagrees with the real adjustment.
-  const clampedAtZero = selectRipDesirabilityBreakdown(
-    {
-      score: 0,
-      financialRip: { score: 1.0 },
-      universalSetDesirabilityScore: 10.0,
-      desirabilityAdjustment: { adjustment: -4.0, rawAdjustment: -4.0, clamped: false, cap: 5.0 },
-    },
-    { score: 1.0 },
-    { score: 10.0 }
-  );
-  assert.equal(clampedAtZero.desirabilityAdjustment.label, "-4.0 pts");
-  const naive = 0 - 1.0;
-  assert.notEqual(clampedAtZero.desirabilityAdjustment.value, naive);
+test("Overall RIP is 90% Financial + 10% CA7, contributions read from the backend", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
+  assert.equal(model.financialRip.weightLabel, "90%");
+  assert.equal(model.openingDesirability.weightLabel, "10%");
+  assert.ok(model.financialRip.contributionLabel.includes("20.1"));
+  assert.ok(model.openingDesirability.contributionLabel.includes("9.0"));
+  // No cap and no additive adjustment anywhere in the model.
+  assert.ok(!("desirabilityAdjustment" in model));
 });
 
-test("breakdown reports the cap and whether the adjustment was clamped", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
-  assert.equal(model.desirabilityAdjustment.capLabel, "capped at ±5");
-  assert.equal(model.desirabilityAdjustment.clamped, false);
+test("breakdown exposes the effective final weights", () => {
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
+  const byLabel = Object.fromEntries(model.effectiveWeights.map((w) => [w.label, w.valueLabel]));
+  assert.equal(byLabel.Profit, "54.0%");
+  assert.equal(byLabel.Safety, "22.5%");
+  assert.equal(byLabel.Stability, "13.5%");
+  assert.equal(byLabel["Opening Desirability"], "10.0%");
+});
 
-  const clamped = selectRipDesirabilityBreakdown(
-    { ...RIP, desirabilityAdjustment: { ...RIP.desirabilityAdjustment, adjustment: 5.0, rawAdjustment: 6.2, clamped: true } },
+test("missing CA7 makes Overall RIP unavailable but keeps Financial + Set Desirability", () => {
+  const model = selectRipDesirabilityBreakdown(
+    { score: null, financialRip: { score: 22.3155 }, statusReason: "no ca7" },
     RIP_CORE,
-    UNIVERSAL
+    UNIVERSAL,
+    { collectorAppeal: { score: null } }
   );
-  assert.equal(clamped.desirabilityAdjustment.clamped, true);
-  assert.equal(clamped.desirabilityAdjustment.rawValue, 6.2);
+  assert.equal(model.overallRip.scoreLabel, null);
+  assert.equal(model.openingDesirability.scoreLabel, null);
+  assert.ok(model.openingDesirability.unavailableReason);
+  assert.equal(model.financialRip.scoreLabel, "22.3");
+  assert.equal(model.setDesirability.scoreLabel, "95.5");
 });
 
 test("breakdown never presents Set Desirability as a weighted RIP pillar", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL);
-  assert.ok(!("weight" in model.setDesirability), "Set Desirability is additive, not weighted");
+  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
+  assert.ok(!("weight" in model.setDesirability), "Set Desirability is a supporting input, not a weight");
   assert.ok(!("contribution" in model.setDesirability));
 });
 

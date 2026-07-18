@@ -18,12 +18,16 @@ from backend.db.services.universal_set_desirability_service import (
 from backend.desirability.public_analytics_policy import (
     PublicCohortIntegrityError,
     assert_cohort_integrity,
+    audit_overall_ranked_cohort,
     build_public_cohort,
     public_analytics_status,
 )
 from backend.desirability.scoring_config import (
-    DESIRABILITY_ADJUSTMENT_CAP,
+    FINANCIAL_RIP_V2_VERSION,
     FINANCIAL_RIP_WEIGHTS,
+    OVERALL_RIP_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_WEIGHTS,
     WEIGHTS_DISCLOSURE,
 )
 from backend.desirability.universal_set_desirability import assess_simulation_coverage
@@ -561,9 +565,10 @@ def _attach_public_rip_contract(
     )
     cohort_ids = set(cohort["eligibleSetIds"])
 
-    # 2. Every row's scores. Universal Set Desirability is the authoritative
-    #    desirability input; CA7 is a Simulation Opening Experience diagnostic
-    #    and is never required to produce a RIP.
+    # 2. Every row's scores. Overall RIP is 0.90 * Financial RIP + 0.10 * CA7
+    #    Opening Desirability. CA7 is the sole desirability input to Overall RIP,
+    #    and it already consumes Universal Set Desirability as its D base - so the
+    #    universal score is NEVER blended in a second time here.
     for target in targets:
         collector = _resolve_collector_payload(target, collector_payloads)
         pillars = {
@@ -571,15 +576,15 @@ def _attach_public_rip_contract(
             "safety": target.get("safety_score"),
             "stability": target.get("stability_score"),
         }
-        universal_score = ((target.get("universalSetDesirability") or {}).get("score"))
+        # CA7 Opening Desirability on the 0-100 scale, the SAME number the
+        # Collector Appeal service publishes. When it is missing, Overall RIP is
+        # unavailable with a reason and does NOT fall back to Universal Set
+        # Desirability; Financial RIP and Universal Set Desirability stay published.
+        ca7_score = (collector.get("collectorAppeal") or {}).get("score")
 
         target["openingExperience"] = _build_opening_experience(target, collector, cohort)
         target["ripCore"] = compute_financial_rip(pillars)
-        # Overall RIP = Financial RIP + a bounded desirability adjustment. It
-        # reads the universal score, so an unavailable CA7 no longer nulls it -
-        # that was `incomplete_missing_desirability`, which fired for every set
-        # the moment the pull model could not be read.
-        target["rip"] = compute_overall_rip(pillars, universal_score)
+        target["rip"] = compute_overall_rip(pillars, ca7_score)
         target["publicAnalyticsStatus"] = public_analytics_status(
             {"name": target.get("name"), "era_id": target.get("era_id"), "era": target.get("era")}
         )
@@ -608,6 +613,51 @@ def _attach_public_rip_contract(
     # 4. Ranks - only now, and only within the cohort.
     cohort_rows = [target for target in targets if str(target.get("target_id")) in cohort_ids]
     _rank_within_cohort(cohort_rows, cohort_size=len(cohort_ids))
+
+    # 5. Overall-ranked cohort audit. Overall RIP needs a valid CA7, so the
+    #    Overall ranking is a stricter population than the eligible cohort: an
+    #    eligible set without CA7 keeps Financial RIP + Universal Set Desirability
+    #    but is flagged out of the Overall denominator (never dropped silently,
+    #    never given a fabricated Overall RIP). Mixed CA7 versions fail closed.
+    overall_available = {
+        str(target.get("target_id")): (target.get("rip") or {}).get("score") is not None
+        for target in cohort_rows
+    }
+    ca7_version_by_set = {
+        str(target.get("target_id")): (
+            ((target.get("openingExperience") or {}).get("collectorAppeal") or {}).get("version")
+        )
+        for target in cohort_rows
+    }
+    overall_audit = audit_overall_ranked_cohort(
+        cohort.get("eligibleSetIds") or [], overall_available, ca7_version_by_set
+    )
+    cohort["overallRanked"] = overall_audit
+    if overall_audit["status"] == "overall_ranked_ca7_version_mismatch":
+        # Fail closed: two Overall RIPs under different CA7 formulas are not
+        # comparable, so this leaderboard is not fit to publish as one cohort.
+        logger.error(
+            "[rip-statistics-targets] Overall RIP cohort mixes CA7 versions %s; "
+            "not publishable as one ranking.",
+            overall_audit["ca7Versions"],
+        )
+        warnings.append(
+            "Overall RIP ranking mixes multiple CA7 versions "
+            f"({', '.join(overall_audit['ca7Versions'])}); the cohort is not comparable."
+        )
+        cohort["status"] = "integrity_error"
+    elif overall_audit["missingCa7Count"]:
+        logger.warning(
+            "[rip-statistics-targets] %s eligible set(s) excluded from the Overall "
+            "RIP ranking for missing CA7: %s",
+            overall_audit["missingCa7Count"],
+            overall_audit["missingCa7SetIds"],
+        )
+        warnings.append(
+            f"{overall_audit['missingCa7Count']} eligible set(s) have no CA7 and are "
+            "excluded from the Overall RIP ranking (Financial RIP and Universal Set "
+            "Desirability remain available)."
+        )
     return cohort
 
 
@@ -623,6 +673,31 @@ def _rank_within_cohort(cohort_rows: List[Dict[str, Any]], *, cohort_size: int) 
         for row in cohort_rows:
             entry = ranked.get(str(row.get("target_id"))) or {}
             _apply_rank(row, contract_key, entry, cohort_size=cohort_size)
+    _attach_relative_scores(cohort_rows)
+
+
+def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
+    """Cohort-relative 0-100 scores for Overall RIP and Financial RIP.
+
+    The ABSOLUTE score is the direct formula result (``rip.score`` /
+    ``ripCore.score``). The RELATIVE score is its min-max position within THIS
+    fixed public cohort, computed alongside the ranks so the relative score, the
+    rank, and the cohort denominator always describe the same population. Written
+    as ``relativeScore`` on each object, distinct from the absolute ``score`` and
+    never overwriting it.
+    """
+    for extractor, obj_key in ((_rank_rip, "rip"), (_rank_rip_core, "ripCore")):
+        scratch = [
+            {"target_id": row.get("target_id"), "_score": extractor(row)}
+            for row in cohort_rows
+        ]
+        relatives = _compute_relative_scores(scratch, "_score")
+        for row in cohort_rows:
+            obj = row.get(obj_key)
+            if not isinstance(obj, dict):
+                continue
+            relative = relatives.get(str(row.get("target_id")))
+            obj["relativeScore"] = round(relative, 2) if relative is not None else None
 
 
 def _apply_rank(
@@ -1276,12 +1351,13 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             "ripWeightsConfig": {
                 "financialRip": {
                     "weights": dict(FINANCIAL_RIP_WEIGHTS),
-                    "version": "financial_rip_v2_60_25_15",
+                    "version": FINANCIAL_RIP_V2_VERSION,
                 },
                 "overallRip": {
-                    "formula": "clamp(financial_rip + clamp((desirability - 50) / 10, -cap, +cap), 0, 100)",
-                    "desirabilityAdjustmentCap": DESIRABILITY_ADJUSTMENT_CAP,
-                    "version": "overall_rip_v3_financial_plus_universal_desirability",
+                    "formula": "0.90 * financial_rip + 0.10 * opening_desirability_ca7",
+                    "weights": dict(OVERALL_RIP_WEIGHTS),
+                    "effectiveWeights": dict(OVERALL_RIP_EFFECTIVE_WEIGHTS),
+                    "version": OVERALL_RIP_V4_VERSION,
                 },
                 "weightsLabel": WEIGHTS_DISCLOSURE,
                 "configVersion": "scoring_config_v1",
@@ -1294,6 +1370,10 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "eligibleSetCount": cohort.get("eligibleSetCount"),
                 "status": cohort.get("status"),
                 "excludedCountsByReason": cohort.get("excludedCountsByReason"),
+                # The Overall RIP ranking is CA7-gated, so its denominator can be
+                # smaller than the eligible cohort. Surfaced so a client quotes
+                # "#x of <overallRankedSetCount>" for Overall RIP, not "of 21".
+                "overallRanked": cohort.get("overallRanked"),
             },
             "deprecatedFields": {
                 "pack_score": "Legacy 45/25/20/10 blend; superseded by the versioned `rip` object. Do not read.",

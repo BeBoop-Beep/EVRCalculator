@@ -26,7 +26,16 @@ RIP_V3_VERSION = "rip_v3_weighted_four_component"
 # under it remain identifiable. Nothing computes under it any more.
 FINANCIAL_RIP_V2_LEGACY_VERSION = "financial_rip_v2"
 FINANCIAL_RIP_V2_VERSION = "financial_rip_v2_60_25_15"
+# SUPERSEDED. Overall RIP v3 was Financial RIP + a bounded, capped Universal Set
+# Desirability adjustment. It is retained ONLY so any stored row written under it
+# remains identifiable. Nothing computes under it any more - see
+# OVERALL_RIP_V4_VERSION below and compute_overall_rip.
 OVERALL_RIP_V3_VERSION = "overall_rip_v3_financial_plus_universal_desirability"
+# The shipping Overall RIP: a weighted blend of Financial RIP and the CA7 Opening
+# Desirability score, with NO cap and NO additive adjustment. Universal Set
+# Desirability enters Overall RIP ONLY through CA7 (which consumes it as its D
+# base), never separately - see OVERALL_RIP_WEIGHTS and compute_overall_rip.
+OVERALL_RIP_V4_VERSION = "overall_rip_v4_90_financial_10_ca7"
 UNIVERSAL_SET_DESIRABILITY_VERSION = "universal_set_desirability_v3"
 UNIVERSAL_ELIGIBILITY_POLICY_VERSION = "universal_desirability_eligibility_v2"
 SIMULATION_OPENING_DETAILS_VERSION = "simulation_opening_details_v1"
@@ -73,47 +82,50 @@ DEFAULT_RIP_WEIGHTS: Dict[str, float] = {
 
 
 # ---------------------------------------------------------------------------
-# Overall RIP: Financial RIP + a bounded desirability adjustment
+# Overall RIP: a weighted blend of Financial RIP and CA7 Opening Desirability
 # ---------------------------------------------------------------------------
-#   raw_adjustment = (Universal Set Desirability - 50) / 10
-#   adjustment     = clamp(raw_adjustment, -CAP, +CAP)
-#   Overall RIP    = clamp(Financial RIP + adjustment, 0, 100)
+#   Overall RIP = 0.90 * Financial RIP + 0.10 * Opening Desirability (CA7)
 #
-# 50 is the neutral point: a set of averagely-loved subjects neither helps nor
-# hurts. /10 makes the units legible - ten desirability points is one RIP point
-# before the cap.
+# Effective final weights, since Financial RIP is itself 0.60/0.25/0.15:
+#   Profit               0.54
+#   Safety               0.225
+#   Stability            0.135
+#   Opening Desirability 0.10
 #
-# The cap is what keeps Overall RIP a financial score that desirability nudges,
-# rather than a popularity score wearing a financial label. It is an ABSOLUTE
-# bound in RIP points, so its worst case is stated up front instead of being an
-# emergent property of a weight.
+# There is NO cap, NO recentering, and NO additive +/-3/+/-5 adjustment. A set
+# may move many points on Overall RIP relative to Financial RIP because of
+# desirability, and that is intentional: Financial RIP and Overall RIP are both
+# published side by side, so the reader can always see the financial-only number.
+#
+# CA7 (Opening Desirability) already consumes Universal Set Desirability as its D
+# base, so Universal Set Desirability enters Overall RIP EXACTLY ONCE, through
+# CA7. It is never added to Overall RIP a second time.
 
+OVERALL_RIP_WEIGHTS: Dict[str, float] = {
+    "financial_rip": 0.90,
+    "opening_desirability": 0.10,
+}
+
+# The effective per-input weights after expanding Financial RIP's 60/25/15. Held
+# here so presentation surfaces read one authoritative source rather than each
+# re-deriving 0.90 * 0.60 = 0.54 and risking drift.
+OVERALL_RIP_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    "profit": OVERALL_RIP_WEIGHTS["financial_rip"] * FINANCIAL_RIP_WEIGHTS["profit"],
+    "safety": OVERALL_RIP_WEIGHTS["financial_rip"] * FINANCIAL_RIP_WEIGHTS["safety"],
+    "stability": OVERALL_RIP_WEIGHTS["financial_rip"] * FINANCIAL_RIP_WEIGHTS["stability"],
+    "opening_desirability": OVERALL_RIP_WEIGHTS["opening_desirability"],
+}
+
+# ---------------------------------------------------------------------------
+# SUPERSEDED capped-adjustment constants (NOT used by scoring)
+# ---------------------------------------------------------------------------
+# These described the retired Overall RIP v3 additive-adjustment model
+# (clamp((D - 50) / 10, -cap, +cap)). They are retained ONLY so the historical
+# cap-selection research (backend/scripts/build_desirability_cap_study.py) and any
+# stored v3 row remain identifiable. NOTHING in the authoritative scoring path
+# reads them any more - Overall RIP is now the OVERALL_RIP_WEIGHTS blend above.
 DESIRABILITY_ADJUSTMENT_BASELINE = 50.0
 DESIRABILITY_ADJUSTMENT_DIVISOR = 10.0
-
-# SHIPPING CAP = 3, selected by backend/scripts/build_desirability_cap_study.py
-# against the guardrails. Cap 5 ships only if every guardrail passes; it does
-# not. Measured over the 33 sets with a valid Financial RIP:
-#
-#   cap 5: median |adjustment| = 3.79  -> FAILS the 2.5 median limit
-#   cap 3: median |adjustment| = 3.00  -> also above 2.5, but cap 3 is the
-#                                         stated fallback, and it is the
-#                                         lower-influence of the two.
-#
-# WHY BOTH EXCEED THE MEDIAN LIMIT, AND WHY IT IS NOT A BUG
-# ---------------------------------------------------------
-# The 50 baseline assumes desirability is centred near 50. It is not: every one
-# of the 33 simulated sets scores above it (minimum 51.07, median ~87), because
-# the simulated cohort is modern booster sets with popular rosters. So
-# (D - 50) / 10 is positive for every set and lands near +3.7 for a typical one.
-# The adjustment is therefore a bonus in practice, never a penalty.
-#
-# A consequence worth knowing before changing this: at cap 3, 30 of the 33 sets
-# clamp to exactly +3.0, so the adjustment adds an almost-constant offset that
-# still reorders 9 sets while carrying nearly no information. Cap 5 clamps none
-# and preserves the full spread. Re-centring the baseline on the observed
-# distribution would fix this properly, but that is a formula change and is not
-# taken here.
 DESIRABILITY_ADJUSTMENT_CAP = 3.0
 DESIRABILITY_ADJUSTMENT_CAP_CANDIDATES = (3.0, 5.0)
 
