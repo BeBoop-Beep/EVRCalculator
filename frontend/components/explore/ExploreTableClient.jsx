@@ -1,6 +1,17 @@
 /**
  * Client component for Explore page table with ranking mode dropdown.
  * Handles dynamic ranking mode selection and table sorting.
+ *
+ * SCORE PRESENTATION (Phase 2-4 — absolute / relative / rank)
+ * -----------------------------------------------------------
+ * Every score-bearing cell reads AUTHORITATIVE backend fields only (never a
+ * frontend-derived score): the absolute 0-100 formula result, the cohort
+ * relative 0-100 position, and the rank within its ranked-set cohort. The
+ * default "Best Sets to Rip Right Now" mode surfaces BOTH Overall RIP and
+ * Financial RIP columns on desktop; every other mode shows a single
+ * mode-scoped score cell. Mobile always shows both Overall and Financial score
+ * families so Financial RIP is never hidden on small screens. Missing values
+ * render an explicit "Unavailable" state — never a fabricated zero.
  */
 
 "use client";
@@ -12,11 +23,13 @@ import SetIdentity from "@/components/explore/SetIdentity";
 import InfoPopover from "@/components/ui/InfoPopover";
 import {
   EXPLORE_RANKING_MODES,
-  getScoreForMode,
+  getModeConfig,
+  getAbsoluteScoreForMode,
+  getRelativeScoreForMode,
   getRankForMode,
+  getRankedSetCountForMode,
   getTierForMode,
   formatModeScore,
-
 } from "@/constants/exploreRankingConfig";
 import { getDangerValueStyle } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
@@ -27,6 +40,9 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+const DEFAULT_MODE = "overall";
+const UNAVAILABLE_LABEL = "Unavailable";
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -58,6 +74,23 @@ function formatPercent(value, probability = false) {
   }
   const normalized = probability ? normalizeProbability(parsed) * 100 : parsed;
   return `${normalized.toFixed(1)}%`;
+}
+
+function formatRelative(value) {
+  const parsed = toNumber(value);
+  return parsed === null ? null : parsed.toFixed(1);
+}
+
+function formatRankText(rank, cohort, { compact = false } = {}) {
+  const parsedRank = toNumber(rank);
+  if (parsedRank === null) {
+    return null;
+  }
+  const parsedCohort = toNumber(cohort);
+  if (parsedCohort === null) {
+    return `#${parsedRank}`;
+  }
+  return compact ? `#${parsedRank}/${parsedCohort}` : `#${parsedRank} of ${parsedCohort}`;
 }
 
 function estimateAverageLoss(target) {
@@ -100,41 +133,143 @@ function shortenCanonicalLabel(value) {
 }
 
 /**
- * Sort targets by ranking mode.
- * Rank-driven modes sort by ascending rank first (null ranks last),
- * then fall back to descending score (null scores last).
+ * Read the authoritative absolute / relative / rank / cohort quartet for one
+ * mode from a target. Never derives a score; only reads backend fields.
  */
+function readModeScore(target, modeId) {
+  return {
+    absolute: getAbsoluteScoreForMode(target, modeId),
+    relative: getRelativeScoreForMode(target, modeId),
+    rank: getRankForMode(target, modeId),
+    cohort: getRankedSetCountForMode(target, modeId),
+  };
+}
+
+/**
+ * Desktop score cell: absolute on top, then "relative · #rank of n" beneath.
+ * A null absolute renders an explicit Unavailable state (never zero). Ratio-only
+ * modes have no relative score, so the meta line degrades to just the rank.
+ */
+function ScoreCell({ target, modeId }) {
+  const config = getModeConfig(modeId);
+  const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
+
+  if (absolute === null) {
+    return (
+      <span className="text-sm font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>
+    );
+  }
+
+  const relativeText = formatRelative(relative);
+  const rankText = formatRankText(rank, cohort);
+  const metaParts = [];
+  if (relativeText !== null) {
+    metaParts.push(`${relativeText} rel`);
+  }
+  if (rankText !== null) {
+    metaParts.push(rankText);
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col leading-tight">
+      <span className="text-sm font-semibold text-[var(--text-primary)]">
+        {formatModeScore(absolute, config?.scoreFormat)}
+      </span>
+      {metaParts.length > 0 ? (
+        <span className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{metaParts.join(" · ")}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Mobile score block: labelled family (Overall / Financial) with a single
+ * compact "abs · rel · #rank/n" line. Financial is never hidden on mobile.
+ */
+function MobileScoreBlock({ target, modeId, label }) {
+  const config = getModeConfig(modeId);
+  const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
+
+  return (
+    <div className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</div>
+      {absolute === null ? (
+        <div className="mt-0.5 text-xs font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</div>
+      ) : (
+        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[11px] text-[var(--text-secondary)]">
+          <span className="text-sm font-semibold text-[var(--text-primary)]">
+            {formatModeScore(absolute, config?.scoreFormat)}
+          </span>
+          {formatRelative(relative) !== null ? <span>· {formatRelative(relative)} rel</span> : null}
+          {formatRankText(rank, cohort, { compact: true }) !== null ? (
+            <span>· {formatRankText(rank, cohort, { compact: true })}</span>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sort targets by the selected ranking mode.
+ *
+ * Contract (Phase 2): canonical rank → relative score → absolute score → name.
+ * Nulls always sort last within each tier. The rank, relative, and absolute
+ * fields all come from the SAME mode config, so the displayed rank/cohort and
+ * the sort key describe one cohort and one score version.
+ */
+function compareRankAsc(left, right) {
+  if (left !== null && right !== null) {
+    return left === right ? 0 : left - right;
+  }
+  if (left !== null) {
+    return -1;
+  }
+  if (right !== null) {
+    return 1;
+  }
+  return 0;
+}
+
+function compareScoreDesc(left, right) {
+  if (left !== null && right !== null) {
+    return left === right ? 0 : right - left;
+  }
+  if (left !== null) {
+    return -1;
+  }
+  if (right !== null) {
+    return 1;
+  }
+  return 0;
+}
+
 function sortTargetsByMode(targets, modeId) {
   const mode = EXPLORE_RANKING_MODES[modeId] || EXPLORE_RANKING_MODES.overall;
   const hasRankField = Boolean(mode?.rankField);
 
   return [...targets].sort((left, right) => {
     if (hasRankField) {
-      const leftRank = getRankForMode(left, modeId);
-      const rightRank = getRankForMode(right, modeId);
-
-      if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
-        return leftRank - rightRank;
-      }
-      if (leftRank !== null && rightRank === null) {
-        return -1;
-      }
-      if (leftRank === null && rightRank !== null) {
-        return 1;
+      const rankCmp = compareRankAsc(getRankForMode(left, modeId), getRankForMode(right, modeId));
+      if (rankCmp !== 0) {
+        return rankCmp;
       }
     }
 
-    const leftScore = getScoreForMode(left, modeId);
-    const rightScore = getScoreForMode(right, modeId);
+    const relativeCmp = compareScoreDesc(
+      getRelativeScoreForMode(left, modeId),
+      getRelativeScoreForMode(right, modeId)
+    );
+    if (relativeCmp !== 0) {
+      return relativeCmp;
+    }
 
-    if (leftScore !== null && rightScore === null) {
-      return -1;
-    }
-    if (leftScore === null && rightScore !== null) {
-      return 1;
-    }
-    if (leftScore !== null && rightScore !== null && leftScore !== rightScore) {
-      return rightScore - leftScore;
+    const absoluteCmp = compareScoreDesc(
+      getAbsoluteScoreForMode(left, modeId),
+      getAbsoluteScoreForMode(right, modeId)
+    );
+    if (absoluteCmp !== 0) {
+      return absoluteCmp;
     }
 
     return String(left?.name || "").localeCompare(String(right?.name || ""));
@@ -142,7 +277,7 @@ function sortTargetsByMode(targets, modeId) {
 }
 
 export default function ExploreTableClient({ targets = [], loadError = false }) {
-  const [selectedMode, setSelectedMode] = useState("overall");
+  const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownContainerRef = useRef(null);
 
@@ -154,6 +289,13 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     currentModeConfig?.tooltip ||
     currentModeConfig?.description ||
     "Sets ranked by the strongest overall opening profile.";
+
+  // The default Overall mode surfaces Overall RIP AND Financial RIP side by
+  // side; every other mode collapses to a single mode-scoped score column.
+  const isOverallMode = selectedMode === DEFAULT_MODE;
+  const desktopGridClass = isOverallMode
+    ? "grid grid-cols-[minmax(0,2fr)_0.7fr_1.05fr_1.05fr_0.85fr_0.9fr] gap-3"
+    : "grid grid-cols-[minmax(0,2.3fr)_0.9fr_1.05fr_1fr_1.05fr] gap-3";
 
   useEffect(() => {
     if (!dropdownOpen) {
@@ -285,10 +427,17 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
         <>
           {/* Desktop table */}
           <div className="mt-4 hidden md:block">
-            <div className="grid grid-cols-[minmax(0,2.3fr)_0.9fr_0.8fr_1fr_1.05fr] gap-3 px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            <div className={`${desktopGridClass} px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]`}>
               <span>Set</span>
               <span>{currentModeConfig?.tierLabel || "Tier"}</span>
-              <span>{currentModeConfig?.scoreLabel || "Score"}</span>
+              {isOverallMode ? (
+                <>
+                  <span>Overall RIP</span>
+                  <span>Financial RIP</span>
+                </>
+              ) : (
+                <span>{currentModeConfig?.scoreLabel || "Score"}</span>
+              )}
               <span>Average Loss</span>
               <span>Chance to Beat Cost</span>
             </div>
@@ -296,7 +445,6 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             <div className={isScrollable ? `max-h-[34rem] space-y-2 overflow-y-auto pr-1 ${leaderboardScrollClass}` : "space-y-2"}>
               {sortedTargets.map((target) => {
                 const averageLoss = estimateAverageLoss(target);
-                const scoreForMode = getScoreForMode(target, selectedMode);
                 const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
                 const recommendationLabel = getLeaderboardRecommendationLabel(target);
                 const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
@@ -305,7 +453,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   <Link
                     key={`${target.target_type}:${target.target_id}`}
                     href={buildRipLink(target)}
-                    className="grid grid-cols-[minmax(0,2.3fr)_0.9fr_0.8fr_1fr_1.05fr] items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/65 px-4 py-3.5 transition-colors hover:bg-[var(--surface-hover)]"
+                    className={`${desktopGridClass} items-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/65 px-4 py-3.5 transition-colors hover:bg-[var(--surface-hover)]`}
                   >
                     <div className="min-w-0">
                       <SetIdentity
@@ -323,9 +471,14 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                         format="tier"
                       />
                     </div>
-                    <span className="text-sm font-semibold text-[var(--text-primary)]">
-                      {formatModeScore(scoreForMode, currentModeConfig?.scoreFormat)}
-                    </span>
+                    {isOverallMode ? (
+                      <>
+                        <ScoreCell target={target} modeId="overall" />
+                        <ScoreCell target={target} modeId="financial" />
+                      </>
+                    ) : (
+                      <ScoreCell target={target} modeId={selectedMode} />
+                    )}
                     <span className="text-sm font-semibold" style={getDangerValueStyle()}>
                       {formatLossCurrency(averageLoss)}
                     </span>
@@ -347,22 +500,28 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 <Link
                   key={`${target.target_type}:${target.target_id}`}
                   href={buildRipLink(target)}
-                  className="flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/65 p-3 transition-colors hover:bg-[var(--surface-hover)]"
+                  className="flex flex-col gap-2.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/65 p-3 transition-colors hover:bg-[var(--surface-hover)]"
                 >
-                  <SetIdentity
-                    target={target}
-                    interpretationLabel={displayRecommendationLabel}
-                    tier={tier}
-                    recommendationSeverity={target?.recommendation_severity || null}
-                    interpretationBadgeClassName="inline-flex max-w-full min-w-0 items-center whitespace-nowrap truncate px-3 py-1 text-[10px] leading-none tracking-[0.08em] sm:px-2.5 sm:py-1 sm:text-[11px]"
-                  />
-                  <div className="flex flex-none items-center self-start pt-1">
-                    <RankBadge
-                      rank={tier}
-                      title={currentModeConfig?.tierLabel || "Tier"}
-                      size="supporting"
-                      format="tier"
+                  <div className="flex items-start gap-3">
+                    <SetIdentity
+                      target={target}
+                      interpretationLabel={displayRecommendationLabel}
+                      tier={tier}
+                      recommendationSeverity={target?.recommendation_severity || null}
+                      interpretationBadgeClassName="inline-flex max-w-full min-w-0 items-center whitespace-nowrap truncate px-3 py-1 text-[10px] leading-none tracking-[0.08em] sm:px-2.5 sm:py-1 sm:text-[11px]"
                     />
+                    <div className="flex flex-none items-center self-start pt-1">
+                      <RankBadge
+                        rank={tier}
+                        title={currentModeConfig?.tierLabel || "Tier"}
+                        size="supporting"
+                        format="tier"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <MobileScoreBlock target={target} modeId="overall" label="Overall" />
+                    <MobileScoreBlock target={target} modeId="financial" label="Financial" />
                   </div>
                 </Link>
               );

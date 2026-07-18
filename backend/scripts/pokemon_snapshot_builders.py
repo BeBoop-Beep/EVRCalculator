@@ -406,6 +406,10 @@ def _merge_canonical_rip_contract_into_set_payload(
     for key in (
         "rip",
         "ripCore",
+        # Compact public v4 contract (absoluteScore/relativeScore/rank/
+        # rankedSetCount per block; CA7-gated Overall). Lifted verbatim so the
+        # set page and Explore read one object, never two that can disagree.
+        "publicRipContractV4",
         "openingExperience",
         "publicAnalyticsStatus",
         # The authoritative desirability score and the two coverage axes. The

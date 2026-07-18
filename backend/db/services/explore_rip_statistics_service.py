@@ -30,6 +30,10 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_WEIGHTS,
     WEIGHTS_DISCLOSURE,
 )
+from backend.desirability.public_rip_contract_v4 import (
+    PUBLIC_RIP_CONTRACT_V4_KEY,
+    build_public_rip_contract_v4,
+)
 from backend.desirability.universal_set_desirability import assess_simulation_coverage
 from backend.desirability.weighted_rip import compute_financial_rip, compute_overall_rip
 from backend.interpretation.rips import build_rip_interpretation
@@ -1325,6 +1329,14 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         target["simulationCoverage"] = assess_simulation_coverage(target)
 
     cohort = _attach_public_rip_contract(targets, sources=sources, warnings=warnings)
+
+    # Compact public v4 projection: ONE object both Explore and the set page read,
+    # lifted verbatim from the canonical rip/ripCore/universalSetDesirability/
+    # openingExperience objects above (nothing recomputed). Attached to every
+    # target so hidden sets still snapshot a (mostly-null) contract for their set
+    # page, and the leaderboard reads the cohort-ranked one.
+    for target in targets:
+        target[PUBLIC_RIP_CONTRACT_V4_KEY] = build_public_rip_contract_v4(target)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),

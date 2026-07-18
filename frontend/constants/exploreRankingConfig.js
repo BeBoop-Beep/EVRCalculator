@@ -62,6 +62,7 @@ export const EXPLORE_RANKING_MODES = {
     absoluteScoreLabel: "Absolute",
     relativeScoreLabel: "Relative",
     rankField: "rip.rank",
+    rankedSetCountField: "rip.cohortSize",
     tierField: "rip.tier",
     scoreFormat: "decimal",
     description: "Overall RIP = 90% Financial RIP + 10% Opening Desirability (CA7).",
@@ -80,6 +81,7 @@ export const EXPLORE_RANKING_MODES = {
     absoluteScoreLabel: "Absolute",
     relativeScoreLabel: "Relative",
     rankField: "ripCore.rank",
+    rankedSetCountField: "ripCore.cohortSize",
     tierField: "ripCore.tier",
     scoreFormat: "decimal",
     description: "Financial RIP is the financial-only opening quality: 60/25/15 Profit/Safety/Stability.",
@@ -94,6 +96,7 @@ export const EXPLORE_RANKING_MODES = {
     tierLabel: "PROFIT TIER",
     scoreField: "rip.financialRip.components.profit.score",
     rankField: "rip.financialRip.components.profit.rank",
+    rankedSetCountField: "rip.financialRip.components.profit.cohortSize",
     tierField: "rip.financialRip.components.profit.tier",
     scoreFormat: "decimal",
     description: "Profit score focuses on return potential and margin above pack cost.",
@@ -108,6 +111,7 @@ export const EXPLORE_RANKING_MODES = {
     tierLabel: "SAFETY TIER",
     scoreField: "rip.financialRip.components.safety.score",
     rankField: "rip.financialRip.components.safety.rank",
+    rankedSetCountField: "rip.financialRip.components.safety.cohortSize",
     tierField: "rip.financialRip.components.safety.tier",
     scoreFormat: "decimal",
     description: "Safety score emphasizes protection from downside and loss mitigation.",
@@ -125,6 +129,7 @@ export const EXPLORE_RANKING_MODES = {
     // pull model; this does not, so this lens covers every scored set.
     scoreField: "universalSetDesirability.score",
     rankField: "universalSetDesirability.rank",
+    rankedSetCountField: "universalSetDesirability.rankedSetCount",
     tierField: null,
     scoreFormat: "decimal",
     description: "Set Desirability measures how popular and deep a set's Pokémon roster is, independent of price.",
@@ -139,6 +144,7 @@ export const EXPLORE_RANKING_MODES = {
     tierLabel: "STABILITY TIER",
     scoreField: "rip.financialRip.components.stability.score",
     rankField: "rip.financialRip.components.stability.rank",
+    rankedSetCountField: "rip.financialRip.components.stability.cohortSize",
     tierField: "rip.financialRip.components.stability.tier",
     scoreFormat: "decimal",
     description: "Stability score measures consistency and predictability of outcomes.",
@@ -256,6 +262,18 @@ export function getRelativeScoreForMode(target, modeId) {
 
 export function getRankForMode(target, modeId) {
   const field = getRankField(modeId);
+  if (!field) {
+    return null;
+  }
+  return toNumber(getFieldValue(target, field));
+}
+
+export function getRankedSetCountField(modeId) {
+  return getModeConfig(modeId).rankedSetCountField || null;
+}
+
+export function getRankedSetCountForMode(target, modeId) {
+  const field = getRankedSetCountField(modeId);
   if (!field) {
     return null;
   }
