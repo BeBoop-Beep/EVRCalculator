@@ -79,14 +79,6 @@ class StabilityInterpretation:
 
 
 @dataclass(frozen=True)
-class DesirabilityInterpretation:
-    summary: str
-    signals: Dict[str, Any]
-    score: Optional[float] = None
-    meta: Optional[SectionInterpretation] = None
-
-
-@dataclass(frozen=True)
 class PackScoreInterpretation:
     summary: str
     strongest_pillar: str

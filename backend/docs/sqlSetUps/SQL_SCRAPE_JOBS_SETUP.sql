@@ -1,5 +1,19 @@
 -- SQL setup for single-job Pokemon scrape dispatcher
 --
+-- NOTE (July-17 hardening): This file describes the ORIGINAL queue. It is
+-- superseded/extended by migrations:
+--   047_add_pokemon_scrape_batches_and_lease_columns.sql  — batch manifest +
+--         lease/batch/retry columns + diagnostics linkage.
+--   048_scrape_queue_batch_lease_orchestration.sql        — reconcile / create
+--         batch / lease-aware claim / heartbeat / transactional finalize /
+--         completeness checker.
+--   049_requeue_missing_scrape_jobs_for_batch.sql         — cohort repair.
+-- Apply 047 → 048 → 049 in order. The daily queue is now created by the SCHEDULED
+-- create_daily_scrape_batch() (America/Phoenix market date), not by the worker.
+-- The idx_scrape_jobs_one_active_per_set index below is retained, but stale
+-- active rows are reclaimed by reconcile_stale_scrape_jobs() before each batch/
+-- claim so they can no longer silently exclude a set.
+--
 -- This file contains:
 -- 1. Table: public.scrape_jobs
 -- 2. Indexes for cron-safe queue processing

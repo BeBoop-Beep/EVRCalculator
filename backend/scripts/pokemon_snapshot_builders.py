@@ -15,6 +15,7 @@ from postgrest.types import ReturnMethod
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.explore_page_service import (
     DEFAULT_TOP_HITS_LIMIT,
+    ExplorePageError,
     get_explore_page_payload,
 )
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
@@ -35,9 +36,7 @@ from backend.db.services.pokemon_set_market_service import (
     get_pokemon_set_value_history_payload,
 )
 from backend.desirability.set_validation import (
-    build_desirability_validation_payload,
     build_opening_set_audit,
-    is_complete_desirability_validation,
     is_opening_set_row,
 )
 from backend.scripts.set_value_scope_invariants import validate_histories_by_scope
@@ -374,6 +373,61 @@ def _target_rank_context_fields(target: Optional[Dict[str, Any]]) -> Dict[str, A
         elif key in summary and summary.get(key) is not None:
             fields[key] = summary.get(key)
     return fields
+
+
+def _merge_canonical_rip_contract_into_set_payload(
+    *,
+    payload: Dict[str, Any],
+    set_id: str,
+    set_row: Dict[str, Any],
+    rankings_payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Copy the canonical public contract from the rankings target into the set page.
+
+    The same backend bundle powers both surfaces BY CONSTRUCTION: these objects
+    are lifted verbatim from the row ``get_rip_statistics_targets_payload``
+    ranked, so the Explore leaderboard and the set Insights page cannot disagree
+    about a score, a rank, or a denominator - they are reading one object.
+
+    Nothing is recomputed here, and the legacy summary fields are left exactly
+    as they were: they remain for backward compatibility and are listed in the
+    payload's deprecation metadata.
+    """
+    target_rows = rankings_payload.get("targets") or []
+    matching_target = _find_matching_rankings_target(
+        set_id=set_id,
+        set_row=set_row,
+        payload=payload,
+        target_rows=target_rows,
+    )
+    if not isinstance(matching_target, dict):
+        return payload
+
+    next_payload = dict(payload)
+    for key in (
+        "rip",
+        "ripCore",
+        # Compact public v4 contract (absoluteScore/relativeScore/rank/
+        # rankedSetCount per block; CA7-gated Overall). Lifted verbatim so the
+        # set page and Explore read one object, never two that can disagree.
+        "publicRipContractV4",
+        "openingExperience",
+        "publicAnalyticsStatus",
+        # The authoritative desirability score and the two coverage axes. The
+        # set page renders Set Desirability from `universalSetDesirability`
+        # directly, so omitting it here left the section with nothing to read
+        # even when the rankings target carried a full score.
+        "universalSetDesirability",
+        "desirabilityCoverage",
+        "simulationCoverage",
+    ):
+        value = matching_target.get(key)
+        if value is not None:
+            next_payload[key] = value
+    cohort = (rankings_payload.get("meta") or {}).get("publicAnalyticsCohort")
+    if isinstance(cohort, dict):
+        next_payload["publicAnalyticsCohort"] = cohort
+    return next_payload
 
 
 def _merge_rip_desirability_comparison_into_set_payload(
@@ -941,36 +995,21 @@ def _merge_last_known_good_snapshot_sections(
             reason="no valid card appeal market-price validation has been captured yet",
         )
 
-    new_desirability = next_payload.get("desirabilityValidation") or next_payload.get("desirability_validation")
-    old_desirability = old_payload.get("desirabilityValidation") or old_payload.get("desirability_validation")
-    new_desirability_valid = is_complete_desirability_validation(new_desirability)
-    old_desirability_valid = is_complete_desirability_validation(old_desirability)
-    desirability_source = _section_source(next_payload, fallback="pokemon_explore_rankings_snapshot_latest")
-    if new_desirability_valid:
-        section_freshness["desirabilityValidation"] = _fresh_section_status(
-            next_payload,
-            section_key="desirabilityValidation",
-            built_at=built_at,
-            source=desirability_source,
-        )
-    elif old_desirability_valid:
-        validation = old_payload.get("desirabilityValidation") or old_payload.get("desirability_validation")
-        next_payload["desirabilityValidation"] = validation
-        next_payload["desirability_validation"] = validation
-        section_freshness["desirabilityValidation"] = _stale_section_status(
-            old_payload,
-            section_key="desirabilityValidation",
-            attempted_at=built_at,
-            source=_section_source(old_payload, fallback="pokemon_explore_rankings_snapshot_latest"),
-            reason="current snapshot build did not include a complete canonical desirability comparison",
-            old_row=existing_row,
-        )
-    else:
-        section_freshness["desirabilityValidation"] = _missing_section_status(
-            built_at=built_at,
-            source=desirability_source,
-            reason="no complete canonical desirability comparison has been captured yet",
-        )
+    # desirabilityValidation is RETIRED, not merely absent. The carry-forward
+    # branch that used to live here would resurrect the legacy rank-alignment
+    # payload from the previous snapshot row on every rebuild, so the section
+    # could never actually die. New snapshots drop the keys; the freshness entry
+    # says why, so a staleness audit reads "retired" instead of "broken".
+    next_payload.pop("desirabilityValidation", None)
+    next_payload.pop("desirability_validation", None)
+    section_freshness["desirabilityValidation"] = {
+        "status": "retired",
+        "builtAt": built_at,
+        "reason": (
+            "The Desirability Evidence section was replaced by Opening Experience "
+            "(Collector Appeal); its validation payload is no longer produced."
+        ),
+    }
 
     meta["sectionFreshness"] = section_freshness
     next_payload["meta"] = meta
@@ -1126,10 +1165,142 @@ def _finalize_snapshot_completeness(
     return {**payload, "meta": meta}
 
 
+# Sections of the set-page payload that cannot be produced without a simulation
+# run. When simulation data is unavailable these are published as explicitly
+# empty/null with coverage metadata rather than rejecting the whole page.
+SIMULATION_DEPENDENT_SECTIONS = (
+    "summary",
+    "rankings",
+    "rip_statistics",
+    "percentiles",
+    "distribution_bins",
+    "threshold_bins",
+    "top_hits",
+    "history_trend",
+    "interpretation",
+    "pull_rate_assumptions",
+    "openingProfitVsCost",
+)
+SIMULATION_UNAVAILABLE_WARNING = (
+    "Simulation data is unavailable for this set; simulation-derived sections "
+    "(Opening Profit vs Cost, RIP metrics, pull rates, simulation drivers) are "
+    "published as unavailable. Identity, Cards, set value, market, and "
+    "desirability sections are published independently when available."
+)
+
+
+def _is_simulation_unavailable_error(exc: Exception) -> bool:
+    """True when a set has no simulation/RIP run yet (not a genuine failure).
+
+    Mirrors the CLI's missing-data classifier so a set with no simulation data
+    degrades to a partial page instead of raising. Real 5xx failures (summary /
+    derived query errors) are NOT treated as missing and must still propagate.
+    """
+    if isinstance(exc, ExplorePageError):
+        return (
+            getattr(exc, "status_code", None) == 404
+            or getattr(exc, "code", None) == "TARGET_NOT_FOUND"
+            or "no simulation data" in str(getattr(exc, "message", exc)).lower()
+        )
+    return "no simulation data" in str(exc).lower()
+
+
+def _build_partial_set_page_payload(
+    set_row: Dict[str, Any], *, set_id: str, reason: str
+) -> Dict[str, Any]:
+    """Base payload when simulation/RIP aggregation is unavailable.
+
+    Mirrors ``get_explore_page_payload``'s shape but leaves every
+    simulation-derived section empty/null. Downstream merges still populate
+    identity, Cards, desirability, and RIP fields from their independent sources
+    when those exist, so a meaningful page is published instead of skipped.
+    """
+    return {
+        "target": {
+            "target_type": "set",
+            "target_id": set_id,
+            "id": set_id,
+            "name": set_row.get("name"),
+            "canonical_key": set_row.get("canonical_key"),
+        },
+        "summary": {},
+        "rankings": [],
+        "rip_statistics": {"pack_paths": {}, "normal_pack_states": {}},
+        "percentiles": [],
+        "distribution_bins": [],
+        "threshold_bins": [],
+        "top_hits": [],
+        "history_trend": [],
+        "interpretation": None,
+        "openingDesirability": None,
+        "pull_rate_assumptions": None,
+        "meta": {
+            "request": {"target_type": "set", "target_id": set_id},
+            "sources": {
+                "explore_rip_statistics_latest": "NO_ROW",
+                "simulation_latest_by_target": "NO_ROW",
+            },
+            "warnings": [SIMULATION_UNAVAILABLE_WARNING],
+        },
+    }
+
+
+def _apply_simulation_availability_metadata(
+    payload: Dict[str, Any], *, available: bool, reason: Optional[str] = None
+) -> Dict[str, Any]:
+    """Attach explicit coverage metadata describing simulation availability.
+
+    ``carryForward`` reflects whether any simulation-derived section was served
+    from the previous good snapshot (labeled ``stale`` in ``sectionFreshness``),
+    so consumers can tell "unavailable" apart from "carried forward, clearly
+    dated" per the product's carry-forward contract.
+    """
+    meta = dict(payload.get("meta") or {})
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    as_of = first_non_empty(summary.get("run_at"), meta.get("asOfDate")) if available else None
+    section_freshness = meta.get("sectionFreshness") if isinstance(meta.get("sectionFreshness"), dict) else {}
+    carried_forward_sections = sorted(
+        key
+        for key, status in section_freshness.items()
+        if isinstance(status, dict) and str(status.get("status")).lower() == "stale"
+    )
+    unavailable_sections = (
+        [] if available else [section for section in SIMULATION_DEPENDENT_SECTIONS]
+    )
+    meta["simulationAvailability"] = {
+        "available": available,
+        "reason": reason,
+        "asOfDate": as_of,
+        "unavailableSections": unavailable_sections,
+        "carryForward": bool(carried_forward_sections),
+        "carriedForwardSections": carried_forward_sections,
+    }
+    meta["simulation_availability"] = meta["simulationAvailability"]
+    payload = {**payload, "meta": meta}
+    return payload
+
+
 def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
-    payload = get_explore_page_payload("set", set_id)
+    simulation_available = True
+    simulation_unavailable_reason: Optional[str] = None
+    try:
+        payload = get_explore_page_payload("set", set_id)
+    except ExplorePageError as exc:
+        if not _is_simulation_unavailable_error(exc):
+            # Genuine backend failure (summary/derived query error) — do not mask.
+            raise
+        simulation_available = False
+        simulation_unavailable_reason = str(getattr(exc, "message", exc))
+        logger.warning(
+            "set page snapshot publishing without simulation set_id=%s reason=%s",
+            set_id,
+            simulation_unavailable_reason,
+        )
+        payload = _build_partial_set_page_payload(
+            set_row, set_id=set_id, reason=simulation_unavailable_reason
+        )
     payload = _complete_snapshot_top_hits(payload, set_id=set_id, client=client)
     try:
         rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
@@ -1146,20 +1317,26 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             set_row=set_row,
             target_rows=target_rows,
         )
-        desirability_validation = build_desirability_validation_payload(
+        payload = _merge_canonical_rip_contract_into_set_payload(
+            payload=payload,
             set_id=set_id,
-            set_payload=payload,
-            target_rows=target_rows,
+            set_row=set_row,
+            rankings_payload=rankings_payload,
         )
-        payload["desirabilityValidation"] = desirability_validation
-        payload["desirability_validation"] = desirability_validation
+        # The legacy desirabilityValidation payload (rank-alignment bars,
+        # set-value scatter, market agree/conflict verdicts) is no longer
+        # produced: its only consumer was the public Desirability Evidence
+        # section, which the Opening Experience section replaced. Pure Roster
+        # Desirability is price-independent by construction, so validating it
+        # against set value was never the right proof for the construct.
+        # backend/desirability/set_validation.py remains for research use.
     except Exception as exc:
         if is_transient_data_service_error(exc):
             raise
-        logger.warning("desirability validation build failed set_id=%s", set_id, exc_info=True)
+        logger.warning("canonical RIP contract merge failed set_id=%s", set_id, exc_info=True)
         meta = dict(payload.get("meta") or {})
         warnings = list(meta.get("warnings") or [])
-        warnings.append("Desirability validation could not be generated for this snapshot.")
+        warnings.append("Canonical RIP contract could not be merged into this snapshot.")
         meta["warnings"] = warnings
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
@@ -1167,6 +1344,11 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     existing_row = _load_existing_set_page_snapshot_row(client, set_id) if client is not None else None
     payload = _merge_last_known_good_snapshot_sections(payload, existing_row=existing_row, built_at=built_at)
     payload = _finalize_snapshot_completeness(payload, set_id=set_id, client=client, built_at=built_at)
+    payload = _apply_simulation_availability_metadata(
+        payload,
+        available=simulation_available,
+        reason=simulation_unavailable_reason,
+    )
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 
     set_identity = {
@@ -1398,6 +1580,54 @@ def _has_top_chase_history_points(history_by_card: Dict[str, List[Dict[str, Any]
 
 def _top_chase_history_counts(history_by_card: Dict[str, List[Dict[str, Any]]]) -> List[int]:
     return [len(history) for history in history_by_card.values() if isinstance(history, list)]
+
+
+def top_chase_point_date(point: Any) -> Optional[str]:
+    """Normalized ``YYYY-MM-DD`` date of a Top Chase history point (or None)."""
+    if not isinstance(point, dict):
+        return None
+    return parse_date_key(
+        first_non_empty(point.get("date"), point.get("captured_at"), point.get("capturedAt"))
+    )
+
+
+def is_observed_top_chase_point(point: Any) -> bool:
+    """True only for a GENUINELY OBSERVED Top Chase point.
+
+    Forward-fill carries the last real observation to the canonical market
+    boundary so the display history has no holes. Those synthetic points must
+    never advance an "observed" date field — a dashboard reporting
+    ``topChaseSourceDate = 2026-07-16`` alongside
+    ``topChaseHistoryLatestObservedDate = 2026-07-25`` is the exact
+    contradiction this helper exists to prevent. Both camelCase and snake_case
+    flags are honoured because histories are assembled from payloads written in
+    either convention.
+
+    This is the single source of truth for "observed": every observed date,
+    count, and section source date must be derived through it.
+    """
+    if not isinstance(point, dict):
+        return False
+    if not top_chase_point_date(point):
+        return False
+    if point.get("isObserved") is False or point.get("is_observed") is False:
+        return False
+    if point.get("isCarriedForward") is True or point.get("is_carried_forward") is True:
+        return False
+    return True
+
+
+def observed_top_chase_dates(history_by_card: Dict[str, List[Dict[str, Any]]]) -> List[str]:
+    """Sorted distinct dates of the genuinely observed points across all cards."""
+    return sorted(
+        {
+            top_chase_point_date(point)
+            for history in (history_by_card or {}).values()
+            if isinstance(history, list)
+            for point in history
+            if is_observed_top_chase_point(point)
+        }
+    )
 
 
 def _top_chase_histories_cover_source_window(
@@ -1811,6 +2041,16 @@ def _history_by_card(cards: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, An
             if source_date:
                 compact_point["sourceDate"] = str(source_date)[:10]
                 compact_point["source_date"] = str(source_date)[:10]
+            # Preserve any UPSTREAM observation flags. Compacting them away let a
+            # point that the source explicitly marked carried-forward (or not
+            # observed) be reconstructed as a real observation further down the
+            # pipeline, which is exactly how a synthetic point could advance an
+            # "observed" date.
+            if not is_observed_top_chase_point(point):
+                compact_point["isObserved"] = False
+                compact_point["is_observed"] = False
+                compact_point["isCarriedForward"] = True
+                compact_point["is_carried_forward"] = True
             compact_history.append(compact_point)
         if compact_history:
             history_by_card[str(key)] = compact_history
@@ -1845,6 +2085,8 @@ def _forward_fill_history_through_date(
             carried_forward = bool(
                 observed.get("isCarriedForward")
                 or observed.get("is_carried_forward")
+                or observed.get("isObserved") is False
+                or observed.get("is_observed") is False
                 or source_date < date_key
             )
             last_point = {
@@ -2065,14 +2307,12 @@ def _top_chase_raw_movement_histories(
     for key, points in histories.items():
         usable = []
         for point in points if isinstance(points, list) else []:
-            point_date = parse_date_key(
-                first_non_empty(point.get("date"), point.get("captured_at"), point.get("capturedAt"))
-            )
-            if not point_date or point_date < cutoff or point_date > end_date_key:
+            # Movement is computed from RAW observations only — same canonical
+            # "observed" definition the observed-date metadata uses.
+            if not is_observed_top_chase_point(point):
                 continue
-            if point.get("isObserved") is False or point.get("is_observed") is False:
-                continue
-            if point.get("isCarriedForward") is True or point.get("is_carried_forward") is True:
+            point_date = top_chase_point_date(point)
+            if point_date < cutoff or point_date > end_date_key:
                 continue
             usable.append(point)
         if usable:
@@ -2128,6 +2368,144 @@ def build_top_chase_history_rows(
     return rows
 
 
+# Section labels for stale-section warnings on the market dashboard.
+_DASHBOARD_SECTION_LABELS = {
+    "setValue": "Set Value",
+    "topChase": "Top Chase",
+    "cards": "Cards",
+    "simulation": "Opening Profit vs Cost",
+    "page": "Page",
+}
+
+
+def resolve_market_freshness_reference_date(
+    *,
+    advertised_market_date: Optional[str],
+    set_value_source_date: Optional[str] = None,
+    top_chase_source_date: Optional[str] = None,
+    cards_snapshot_source_date: Optional[str] = None,
+) -> Optional[str]:
+    """The authoritative market boundary a section's freshness is judged against.
+
+    This is a MARKET date, never a publication timestamp. The advertised market
+    date wins when it parses; otherwise the newest valid market-source date is
+    used. The UTC page build date is deliberately NOT a candidate: a snapshot
+    built at 18:00 in Phoenix on July 25 carries a July 26 UTC build date, and
+    letting that advance the reference would mark every genuinely current
+    July-25 market section stale. The simulation date is also excluded — it is
+    compared against this boundary but must never advance it.
+    """
+    advertised = parse_date_key(advertised_market_date)
+    if advertised:
+        return advertised
+    candidates = (
+        parse_date_key(set_value_source_date),
+        parse_date_key(top_chase_source_date),
+        parse_date_key(cards_snapshot_source_date),
+    )
+    return max((value for value in candidates if value), default=None)
+
+
+def _build_dashboard_section_freshness(
+    *,
+    built_at: str,
+    advertised_market_date: Optional[str],
+    set_value_source_date: Optional[str],
+    top_chase_source_date: Optional[str],
+    cards_snapshot_source_date: Optional[str],
+    simulation_source_date: Optional[str],
+) -> Dict[str, Any]:
+    """Per-section source dates + stale flags for the market dashboard.
+
+    A single ``latest_market_date`` must never imply that every embedded section
+    (Set Value, Top Chase, Cards, Opening Profit vs Cost) is equally fresh. Each
+    section reports its own real source date and a ``current`` / ``stale`` /
+    ``unavailable`` status against the newest available market date, so a July 25
+    dashboard carrying July 16 Top Chase data is explicitly visible rather than
+    silently uniform.
+
+    ``pageSourceDate`` stays exposed as PUBLICATION metadata (when the snapshot
+    row was written, UTC) and is reported under the ``page`` section with its own
+    ``published`` status — it is not a market date and never participates in the
+    market freshness reference.
+    """
+    page_source_date = utc_date_key(built_at)
+    reference_date = resolve_market_freshness_reference_date(
+        advertised_market_date=advertised_market_date,
+        set_value_source_date=set_value_source_date,
+        top_chase_source_date=top_chase_source_date,
+        cards_snapshot_source_date=cards_snapshot_source_date,
+    )
+
+    def _status(source_date: Optional[str]) -> Dict[str, Any]:
+        resolved = parse_date_key(source_date)
+        if not resolved:
+            return {"sourceDate": None, "status": "unavailable", "referenceDate": reference_date}
+        if reference_date and resolved < reference_date:
+            return {"sourceDate": resolved, "status": "stale", "referenceDate": reference_date}
+        return {"sourceDate": resolved, "status": "current", "referenceDate": reference_date}
+
+    sections = {
+        "setValue": _status(set_value_source_date),
+        "topChase": _status(top_chase_source_date),
+        "cards": _status(cards_snapshot_source_date),
+        "simulation": _status(simulation_source_date),
+        # Publication metadata, NOT market freshness: this section answers "when
+        # was the row written" and deliberately uses a different status
+        # vocabulary so no consumer can read it as a market-data status.
+        "page": {
+            "sourceDate": page_source_date,
+            "publishedDate": page_source_date,
+            "status": "published" if page_source_date else "unknown",
+            "referenceDate": reference_date,
+            "kind": "publication",
+        },
+    }
+
+    warnings: List[str] = []
+    for key in ("setValue", "topChase", "cards"):
+        status = sections[key]
+        label = _DASHBOARD_SECTION_LABELS[key]
+        if status["status"] == "stale":
+            warnings.append(
+                f"{label} data is stale: source {status['sourceDate']} is older than "
+                f"the latest market date {status['referenceDate']}."
+            )
+        elif status["status"] == "unavailable":
+            warnings.append(f"{label} source date is unavailable for this dashboard.")
+    simulation_status = sections["simulation"]
+    if simulation_status["status"] == "stale":
+        warnings.append(
+            "Opening Profit vs Cost is stale: it reflects simulation "
+            f"{simulation_status['sourceDate']}, older than the latest market date "
+            f"{simulation_status['referenceDate']}. A new simulation is required."
+        )
+    elif simulation_status["status"] == "unavailable":
+        warnings.append("Opening Profit vs Cost is unavailable: no simulation data exists for this set.")
+
+    market_sections_current = all(
+        sections[key]["status"] == "current" for key in ("setValue", "topChase", "cards")
+    )
+    uniformly_current = market_sections_current and simulation_status["status"] == "current"
+
+    return {
+        "referenceDate": reference_date,
+        "setValueSourceDate": sections["setValue"]["sourceDate"],
+        "topChaseSourceDate": sections["topChase"]["sourceDate"],
+        "cardsSnapshotSourceDate": sections["cards"]["sourceDate"],
+        "simulationSourceDate": sections["simulation"]["sourceDate"],
+        "pageSourceDate": sections["page"]["sourceDate"],
+        "sections": sections,
+        "marketSectionsUniformlyCurrent": market_sections_current,
+        "uniformlyCurrent": uniformly_current,
+        "warnings": warnings,
+        "openingProfitVsCost": {
+            "sourceDate": simulation_status["sourceDate"],
+            "status": simulation_status["status"],
+        },
+    }
+
+
 def build_market_dashboard_snapshot_rows(
     set_row: Dict[str, Any],
     *,
@@ -2137,8 +2515,10 @@ def build_market_dashboard_snapshot_rows(
     generation_id: Optional[str] = None,
     built_at: Optional[str] = None,
     selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+    latest_market_date: Optional[str] = None,
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     built_at = built_at or utc_now_iso()
+    coordinated_market_date = utc_date_key(latest_market_date)
     generation_id = generation_id or str(uuid4())
     set_id = str(set_row["id"])
     histories_by_scope: Dict[str, List[Dict[str, Any]]] = {}
@@ -2189,7 +2569,11 @@ def build_market_dashboard_snapshot_rows(
         utc_date_key(row.get("captured_at"))
         for row in (top_chase_canonical_context.get("selected_price_by_canonical_id") or {}).values()
     ]
-    canonical_market_date = max(
+    # The coordinated boundary (shared with Cards and Market Movers) is
+    # authoritative when supplied. Deriving it from only the Top Chase subset
+    # produced an earlier end date than the set-wide Cards/Movers boundary, which
+    # was the root cause of the coordinated movement parity failures.
+    canonical_market_date = coordinated_market_date or max(
         (value for value in selected_market_dates if value),
         default=latest_set_value_history_date,
     )
@@ -2282,18 +2666,12 @@ def build_market_dashboard_snapshot_rows(
         if selected_variant_id and history:
             top_chase_card_histories[selected_variant_id] = history
     top_chase_history_counts = _top_chase_history_counts(top_chase_card_histories)
-    top_chase_observed_dates = [
-        str(point.get("date"))[:10]
-        for history in top_chase_card_histories.values()
-        if isinstance(history, list)
-        for point in history
-        if parse_date_key(point.get("date"))
-    ]
     movement_windows_payload = build_pokemon_set_card_movements_by_window_payload(
         set_id=set_id,
         window_days=tuple(MARKET_MOVERS_WINDOWS_DAYS.values()),
         client=client,
         selected_price_rows=selected_price_rows,
+        latest_market_date=canonical_market_date,
     )
     market_movers_by_window = movement_windows_payload.get("marketMoversByWindow") or {}
     market_movers_by_window_snake = movement_windows_payload.get("market_movers_by_window") or {}
@@ -2312,6 +2690,41 @@ def build_market_dashboard_snapshot_rows(
         default=latest_set_value_history_date,
     )
     latest_market_date = canonical_market_date or latest_set_value_history_date
+    # Per-section source dates. The advertised latest_market_date must not imply
+    # uniform freshness: Top Chase reports its ACTUAL newest observed date, Cards
+    # reports the canonical selected-price date the coordinated build used, and
+    # Opening Profit vs Cost reports its simulation date. A section older than
+    # the newest market date is flagged stale rather than published as current.
+    # Only genuinely OBSERVED points count as Top Chase freshness. Forward-fill
+    # carries the last value forward to the canonical date, so the raw max date
+    # would falsely report the dashboard as current — this is precisely the
+    # July 16-observed / July 25-carried misrepresentation being repaired. Every
+    # observed-date field below is derived from this ONE list so the authoritative
+    # source date and the legacy first/latest fields can never contradict.
+    top_chase_observed_dates = observed_top_chase_dates(top_chase_card_histories)
+    top_chase_source_date = top_chase_observed_dates[-1] if top_chase_observed_dates else None
+    top_chase_observed_point_count = sum(
+        1
+        for history in top_chase_card_histories.values()
+        if isinstance(history, list)
+        for point in history
+        if is_observed_top_chase_point(point)
+    )
+    top_chase_carried_forward_point_count = sum(
+        1
+        for history in top_chase_card_histories.values()
+        if isinstance(history, list)
+        for point in history
+        if isinstance(point, dict) and not is_observed_top_chase_point(point)
+    )
+    section_freshness = _build_dashboard_section_freshness(
+        built_at=built_at,
+        advertised_market_date=latest_market_date,
+        set_value_source_date=latest_set_value_history_date,
+        top_chase_source_date=top_chase_source_date,
+        cards_snapshot_source_date=canonical_market_date,
+        simulation_source_date=latest_performance_date,
+    )
     dashboard_payload = {
         "set": top_payload.get("set")
         or {
@@ -2360,18 +2773,35 @@ def build_market_dashboard_snapshot_rows(
             },
             "latestPerformanceDate": latest_performance_date,
             "latest_performance_date": latest_performance_date,
+            # Section-level freshness: never let one latest_market_date imply that
+            # every embedded section is equally current.
+            "sectionFreshness": section_freshness,
+            "section_freshness": section_freshness,
+            "setValueSourceDate": section_freshness["setValueSourceDate"],
+            "topChaseSourceDate": section_freshness["topChaseSourceDate"],
+            "cardsSnapshotSourceDate": section_freshness["cardsSnapshotSourceDate"],
+            "simulationSourceDate": section_freshness["simulationSourceDate"],
+            "pageSourceDate": section_freshness["pageSourceDate"],
+            "sectionsUniformlyCurrent": section_freshness["uniformlyCurrent"],
+            "openingProfitVsCost": section_freshness["openingProfitVsCost"],
             "warnings": (
                 list(standard_meta.get("warnings") or [])
                 + list((top_payload.get("meta") or {}).get("warnings") or [])
                 + ([] if perf_history else ["Simulation performance history is unavailable for this set."])
                 + top_chase_movement_warnings
+                + section_freshness["warnings"]
             ),
             "topChaseHistorySource": TOP_CHASE_HISTORY_SOURCE,
             "topChaseHistorySourceWindowDays": TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
             "topChaseHistoryMinPoints": min(top_chase_history_counts) if top_chase_history_counts else 0,
             "topChaseHistoryMaxPoints": max(top_chase_history_counts) if top_chase_history_counts else 0,
-            "topChaseHistoryFirstObservedDate": min(top_chase_observed_dates) if top_chase_observed_dates else None,
-            "topChaseHistoryLatestObservedDate": max(top_chase_observed_dates) if top_chase_observed_dates else None,
+            # Legacy compatibility fields. They are computed from the SAME
+            # observed-point helper as topChaseSourceDate, so a forward-filled
+            # display point can never make them disagree with it.
+            "topChaseHistoryFirstObservedDate": top_chase_observed_dates[0] if top_chase_observed_dates else None,
+            "topChaseHistoryLatestObservedDate": top_chase_source_date,
+            "topChaseObservedPointCount": top_chase_observed_point_count,
+            "topChaseCarriedForwardPointCount": top_chase_carried_forward_point_count,
             "topChaseHistoryHydratedFromDailyTable": False,
             "windowConvention": WINDOW_CONVENTION,
             "movementQueryDiagnostics": movement_windows_payload.get("meta") or {},
@@ -2580,6 +3010,32 @@ def _last_observation_on_or_before(rows: List[Dict[str, Any]], boundary: str) ->
     return matches[-1] if matches else None
 
 
+def _canonical_latest_market_date(
+    selected_price_rows: Optional[List[Dict[str, Any]]],
+    *,
+    client: Any = None,
+    set_id: Optional[str] = None,
+) -> Optional[str]:
+    """Single set-wide window boundary shared by Cards, Movers, and Top Chase.
+
+    Derived as the newest UTC capture date across the whole set's canonical
+    selected prices (rows with a usable market price). All coordinated surfaces
+    must use this identical end date, otherwise the per-surface boundaries drift
+    and the movement contracts disagree.
+    """
+    dates = [
+        date_key
+        for row in (selected_price_rows or [])
+        if to_optional_float(row.get("market_price")) is not None
+        and (date_key := utc_date_key(row.get("captured_at")))
+    ]
+    if dates:
+        return max(dates)
+    if client is not None and set_id is not None:
+        return _latest_market_date_for_set(client, set_id)
+    return None
+
+
 def _movement_contract(
     *,
     price: Dict[str, Any],
@@ -2605,14 +3061,19 @@ def _enrich_cards_with_authoritative_prices_and_movements(
     set_id: str,
     prices_by_card: Dict[str, Dict[str, Any]],
     client: Any,
+    latest_market_date: Optional[str] = None,
 ) -> Dict[str, Any]:
-    price_dates = [utc_date_key(price.get("captured_at")) for price in prices_by_card.values()]
-    available_price_dates = [date_key for date_key in price_dates if date_key]
-    latest_market_date = None
-    if available_price_dates:
-        latest_market_date = max(available_price_dates)
-    elif prices_by_card:
-        latest_market_date = _latest_market_date_for_set(client, set_id)
+    # A supplied ``latest_market_date`` is the coordinated window boundary shared
+    # with Market Movers and Top Chase; it is authoritative so every surface uses
+    # the identical end date. Only derive it here when building Cards standalone.
+    latest_market_date = utc_date_key(latest_market_date)
+    if latest_market_date is None:
+        price_dates = [utc_date_key(price.get("captured_at")) for price in prices_by_card.values()]
+        available_price_dates = [date_key for date_key in price_dates if date_key]
+        if available_price_dates:
+            latest_market_date = max(available_price_dates)
+        elif prices_by_card:
+            latest_market_date = _latest_market_date_for_set(client, set_id)
     observations_by_card = (
         _load_selected_price_observations(
             client,
@@ -2782,6 +3243,7 @@ def build_cards_snapshot_row(
     generation_id: Optional[str] = None,
     built_at: Optional[str] = None,
     selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+    latest_market_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     set_id = str(set_row["id"])
     client = client or get_client()
@@ -2799,6 +3261,7 @@ def build_cards_snapshot_row(
         set_id=set_id,
         prices_by_card=prices_by_card,
         client=client,
+        latest_market_date=latest_market_date,
     )
     payload = enrich_cards_payload_with_desirability(payload, prices_by_card=prices_by_card)
     payload = _with_cards_pricing_contract_diagnostics(payload)
@@ -2899,12 +3362,21 @@ def build_coordinated_set_market_snapshot_rows(
             "captured_at,source,price_selection_reason,refreshed_at"
         ).eq("set_id", set_id),
     )
+    # One set-wide window boundary for every surface. Passing it explicitly keeps
+    # Cards, Market Movers, and Top Chase on an identical end date so the shared
+    # movement contract cannot diverge across surfaces.
+    latest_market_date = _canonical_latest_market_date(
+        selected_price_rows,
+        client=client,
+        set_id=set_id,
+    )
     cards_row = build_cards_snapshot_row(
         set_row,
         client=client,
         generation_id=generation_id,
         built_at=built_at,
         selected_price_rows=selected_price_rows,
+        latest_market_date=latest_market_date,
     )
     dashboard_row, top_chase_history_rows = build_market_dashboard_snapshot_rows(
         set_row,
@@ -2914,6 +3386,7 @@ def build_coordinated_set_market_snapshot_rows(
         generation_id=generation_id,
         built_at=built_at,
         selected_price_rows=selected_price_rows,
+        latest_market_date=latest_market_date,
     )
     validate_coordinated_movement_parity(cards_row, dashboard_row)
     return cards_row, dashboard_row, top_chase_history_rows
@@ -2934,6 +3407,20 @@ def build_explore_rankings_snapshot_row(*, limit: int = DEFAULT_RANKINGS_LIMIT) 
     meta["openingSetAudit"] = opening_set_audit
     meta["opening_set_audit"] = opening_set_audit
     payload = {**payload, "targets": opening_targets, "meta": meta}
+
+    # A desirability read that FAILED renders every set "unavailable". Publishing
+    # that overwrites good stored rows with a statement about the sets that the
+    # failure never justified - and it looks exactly like a successful build, so
+    # nothing downstream can tell it apart. Refuse instead: the previous snapshot
+    # stays served, and the non-zero exit is the signal.
+    if meta.get("desirabilityBundleStatus") != "ok":
+        raise RuntimeError(
+            "Refusing to publish the Explore rankings snapshot: the Universal Set "
+            "Desirability bundle failed to build, so every set would be published "
+            "as desirability-unavailable. The previous snapshot is left in place. "
+            "Re-run once the source reads succeed."
+        )
+
     comparison_diagnostics = meta.get("ripDesirabilityComparison") or meta.get("rip_desirability_comparison") or {}
     logger.info(
         "[pokemon-snapshot] RIP desirability comparison valid=%s/%s opening_targets=%s",

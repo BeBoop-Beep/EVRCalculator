@@ -232,7 +232,15 @@ When manual runs are useful:
 
 ## 8. Automated Execution (Cron)
 
-Nightly scraper runs should be controlled by cron on the VM user that owns the repo.
+The daily scrape now has THREE scheduled roles that must be kept separate. The
+worker must never implicitly create the daily queue — batch creation is its own
+scheduled step keyed on the **America/Phoenix** market date (Arizona has no DST).
+
+| Role | Command | Schedule (UTC) | Schedule (Arizona) |
+|------|---------|----------------|--------------------|
+| Batch creation | `python backend/scripts/create_daily_scrape_batch.py` | `0 10 * * *` | 03:00 |
+| Worker dispatch | `python backend/scripts/run_next_scrape_job.py` | `* * * * *` | every minute |
+| Batch-missing monitor | `python backend/scripts/create_daily_scrape_batch.py --check-only` | `30 11 * * *` | 04:30 |
 
 Open crontab:
 
@@ -240,16 +248,29 @@ Open crontab:
 crontab -e
 ```
 
-Example nightly entry:
+Recommended entries (adjust absolute paths to your VM):
 
 ```cron
-0 3 * * * /home/ubuntu/repos/EVRCalculator/run_scraper.sh >> /home/ubuntu/repos/EVRCalculator/scraper.log 2>&1
+# 1. Create the daily batch at 03:00 America/Phoenix (10:00 UTC). Reconciles stale
+#    jobs first, derives the cohort dynamically, enqueues one job per ready set.
+0 10 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py >> scraper.log 2>&1
+
+# 2. Worker dispatch — claim + run ONE job per minute under a lease. Creates no batch.
+#    When the queue drains it runs the batch completeness/cohort-repair check.
+* * * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/run_next_scrape_job.py >> scraper.log 2>&1
+
+# 3. Alert if the batch was not created by the deadline.
+30 11 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py --check-only >> scraper.log 2>&1
 ```
 
-What this does:
+Scheduled dispatcher runs record diagnostics as `trigger_source=scheduled`.
+Manual targeted recovery runs (Section 7 / 11) remain `trigger_source=manual`.
 
-- Runs daily at `03:00` server time.
-- Appends both stdout and stderr to `scraper.log`.
+Crash safety: each claimed job holds a **lease** (`SCRAPE_LEASE_SECONDS`, default
+1800s). If a worker is SIGKILLed/OOMed, the next batch creation or claim reclaims
+the expired lease automatically — a stale prior-day job can no longer block a
+future batch. A stale prior-day job is terminally failed; a current-day job with
+attempts remaining is requeued with bounded backoff.
 
 List current cron jobs:
 
@@ -257,12 +278,20 @@ List current cron jobs:
 crontab -l
 ```
 
-Recommended `run_scraper.sh` behavior:
+### One-time / incident recovery commands
 
-- `cd` to repo root.
-- Activate `.venv`.
-- Export `PYTHONPATH=.` if needed.
-- Run scraper command.
+```bash
+# Reconcile stale queue + diagnostic rows (dry-run first, then commit).
+python backend/scripts/reconcile_stale_scrape_jobs.py
+python backend/scripts/reconcile_stale_scrape_jobs.py --commit
+
+# Manually (re)create today's batch (e.g. after an incident). Keeps prior complete
+# market date public until the cohort is observation-complete.
+python backend/scripts/create_daily_scrape_batch.py
+
+# Evaluate/repair a specific market date's batch.
+python backend/scripts/complete_scrape_batch.py --market-date 2026-07-18
+```
 
 ---
 

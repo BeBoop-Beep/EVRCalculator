@@ -67,6 +67,50 @@ def _reset_public_read_circuit_breaker_for_tests() -> None:
     _close_circuit()
 
 
+def run_batch_read_with_retry(
+    operation: Callable[[], T],
+    *,
+    operation_name: str,
+    max_attempts: int = 4,
+    sleep: Callable[[float], None] = time.sleep,
+    jitter: Callable[[float, float], float] = random.uniform,
+) -> T:
+    """Retry a read on the BATCH path with bounded exponential backoff + jitter.
+
+    Distinct from :func:`run_public_read_with_retry`, which serves a
+    latency-sensitive HTTP request and therefore abandons the retry once ~1s has
+    elapsed and trips a shared circuit breaker. Neither behaviour suits batch
+    work: the reads here legitimately take seconds (a cold TOAST read or the
+    ~6s `explore_rip_statistics_latest` view against an 8s statement_timeout),
+    so the elapsed-time budget would forbid the retry precisely when it is the
+    thing that would succeed, and one snapshot build's slow read must not open a
+    circuit against live traffic.
+
+    Transience is decided by the shared classifier, never by matching text here.
+    A non-transient error raises on the first attempt: a schema or permission
+    fault does not improve by being asked again.
+    """
+    attempts = max(1, int(max_attempts))
+    for attempt in range(1, attempts + 1):
+        try:
+            return operation()
+        except Exception as exc:
+            failure = classify_data_service_error(exc)
+            final = attempt >= attempts or not failure.transient
+            logger.log(
+                logging.ERROR if final else logging.WARNING,
+                "batch read failed operation=%s attempt=%s/%s error_type=%s "
+                "error_code=%s status=%s transient=%s final=%s",
+                operation_name, attempt, attempts, failure.error_type, failure.code,
+                failure.status_code, failure.transient, str(final).lower(),
+            )
+            if final:
+                raise
+            base_delay = min(4.0, 0.5 * (2 ** (attempt - 1)))
+            sleep(max(0.0, base_delay + jitter(0.0, base_delay * 0.5)))
+    raise AssertionError("unreachable")
+
+
 def run_public_read_with_retry(
     operation: Callable[[Any], T],
     *,

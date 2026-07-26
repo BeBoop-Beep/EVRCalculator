@@ -370,6 +370,10 @@ def test_multi_window_builder_loads_context_and_observations_once(monkeypatch):
         "selectedVariantCount": 1,
         "observationPageCount": 1,
         "windowsCalculated": 3,
+        # Shared window boundary is recorded for cross-surface parity debugging.
+        # No coordinated override here, so it is derived from the selected cohort.
+        "latestMarketDate": "2026-07-13",
+        "latestMarketDateSource": "selected_price_cohort",
         "sources": {},
         "warnings": [],
     }

@@ -18,4 +18,6 @@ from backend.scripts.build_pokemon_market_dashboard_snapshots import main
 
 
 if __name__ == "__main__":
-    main()
+    # main() returns the process exit code (0 success / 1 hard failure /
+    # 3 publication deferred); the delegating entry point must propagate it.
+    raise SystemExit(main())

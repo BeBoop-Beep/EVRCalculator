@@ -3027,7 +3027,7 @@ def test_contract_includes_structured_pillars_payload():
     pillars = result["meta"]["pillars"]
 
     assert isinstance(pillars, list)
-    assert {p["key"] for p in pillars} == {"profit", "safety", "desirability", "stability"}
+    assert {p["key"] for p in pillars} == {"profit", "safety", "stability"}
 
     for pillar in pillars:
         assert set(pillar.keys()) == {
@@ -3047,13 +3047,12 @@ def test_contract_includes_structured_pillars_payload():
         )
 
 
-def test_pack_score_interpretation_uses_four_pillar_weights():
+def test_pack_score_interpretation_uses_three_pillar_weights():
     result = build_rip_interpretation(
         {
             "summary": _make_summary(
                 profit_score=80.0,
                 safety_score=60.0,
-                desirability_score=90.0,
                 stability_score=50.0,
                 pack_score=74.0,
             ),
@@ -3067,9 +3066,8 @@ def test_pack_score_interpretation_uses_four_pillar_weights():
     weights = result["meta"]["packScore"]["signals"]["interpretation_weights"]
     assert weights == {
         "profit": pytest.approx(0.45),
-        "safety": pytest.approx(0.25),
-        "desirability": pytest.approx(0.20),
-        "stability": pytest.approx(0.10),
+        "safety": pytest.approx(0.30),
+        "stability": pytest.approx(0.25),
     }
 
 

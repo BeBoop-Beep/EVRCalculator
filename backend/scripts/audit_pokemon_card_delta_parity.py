@@ -96,7 +96,32 @@ def audit_payloads(
     )
     mismatches: List[Dict[str, Any]] = []
 
-    def report(kind: str, left_name: str, right_name: str, key: Tuple[str, str], left: Any, right: Any) -> None:
+    def _context(record: Any) -> Dict[str, Any]:
+        record = record if isinstance(record, dict) else {}
+        return {
+            "cardVariantId": _value(record, "cardVariantId", "card_variant_id"),
+            "conditionId": _value(record, "conditionId", "condition_id"),
+            "targetStartDate": _value(record, "targetStartDate", "target_start_date"),
+            "startDate": _value(record, "startDate", "start_date"),
+            "endDate": _value(record, "endDate", "end_date"),
+            "startSourceDate": _value(record, "startSourceDate", "start_source_date"),
+            "endSourceDate": _value(record, "endSourceDate", "end_source_date"),
+            "currentPrice": _value(record, "currentPrice", "current_price"),
+            "changeAmount": _value(record, "changeAmount", "change_amount"),
+            "changePercent": _value(record, "changePercent", "change_percent"),
+        }
+
+    def report(
+        kind: str,
+        left_name: str,
+        right_name: str,
+        key: Tuple[str, str],
+        left: Any,
+        right: Any,
+        *,
+        left_record: Any = None,
+        right_record: Any = None,
+    ) -> None:
         mismatches.append({
             "setId": set_id,
             "type": kind,
@@ -106,6 +131,10 @@ def audit_payloads(
             "rightSurface": right_name,
             "left": left,
             "right": right,
+            # Full identity/date context so a single mismatch line names the
+            # card, window, variant, condition, source dates, and values.
+            "leftContext": _context(left_record),
+            "rightContext": _context(right_record),
         })
 
     for left_name, right_name in comparisons:
@@ -138,6 +167,8 @@ def audit_payloads(
                     (left_card_id, market_identity[2]),
                     left_card_id,
                     right_card_id,
+                    left_record=left_rows.get((left_card_id, market_identity[2])),
+                    right_record=right_rows.get((right_card_id, market_identity[2])),
                 )
         for key in sorted(set(left_rows).intersection(right_rows)):
             left = left_rows[key]
@@ -170,7 +201,16 @@ def audit_payloads(
                         and abs(left_number - right_number) <= tolerance
                     )
                 if not equal:
-                    report(kind, left_name, right_name, key, left_value, right_value)
+                    report(
+                        kind,
+                        left_name,
+                        right_name,
+                        key,
+                        left_value,
+                        right_value,
+                        left_record=left,
+                        right_record=right,
+                    )
     return mismatches
 
 

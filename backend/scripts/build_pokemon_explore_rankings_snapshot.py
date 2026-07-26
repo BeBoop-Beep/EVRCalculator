@@ -9,6 +9,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from backend.db.services.publication_gate import (
+    add_publication_gate_args,
+    enforce_cli_publication_gate,
+)
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_RANKINGS_LIMIT,
     build_explore_rankings_snapshot_row,
@@ -26,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode_group.add_argument("--dry-run", action="store_true", help="Build and log without writing")
     mode_group.add_argument("--commit", action="store_true", help="Upsert snapshot row")
     parser.add_argument("--limit", type=int, default=DEFAULT_RANKINGS_LIMIT)
+    add_publication_gate_args(parser)
     return parser
 
 
@@ -33,13 +38,27 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args()
     client = get_client()
+    commit = should_commit(args)
+
+    # Batch-cohort gate: evaluated once per invocation. A closed gate in --commit
+    # mode defers with the dedicated exit code and writes nothing.
+    gate = enforce_cli_publication_gate(
+        client,
+        commit=commit,
+        market_date=args.market_date,
+        override=args.force_publish,
+        entry_point="explore rankings snapshot",
+    )
+    if not gate.proceed:
+        raise SystemExit(gate.exit_code)
+
     row = build_explore_rankings_snapshot_row(limit=args.limit)
     upsert_row(
         client,
         "pokemon_explore_rankings_snapshot_latest",
         row,
         on_conflict="tcg,scope",
-        commit=should_commit(args),
+        commit=commit,
     )
 
 

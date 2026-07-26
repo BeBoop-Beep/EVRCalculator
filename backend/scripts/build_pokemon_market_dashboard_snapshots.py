@@ -12,6 +12,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.db.services.pokemon_set_market_service import PokemonSetMarketError
 from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.db.services.publication_gate import (
+    add_publication_gate_args,
+    enforce_cli_publication_gate,
+)
+from backend.db.services.set_publication_revalidation import notify_set_publication
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
@@ -47,6 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=3,
         help="Stop an --all build after this many consecutive exhausted transient failures",
     )
+    add_publication_gate_args(parser)
     return parser
 
 
@@ -72,13 +78,27 @@ def _error_message(exc: Exception) -> str:
     return str(getattr(exc, "message", exc))
 
 
-def main() -> None:
+def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args()
     commit = should_commit(args)
+
+    # Batch-cohort gate: evaluated once per invocation (never per set). A closed
+    # gate in --commit mode defers with the dedicated exit code and writes nothing.
+    gate = enforce_cli_publication_gate(
+        get_client(),
+        commit=commit,
+        market_date=args.market_date,
+        override=args.force_publish,
+        entry_point="cards + market dashboard snapshots",
+    )
+    if not gate.proceed:
+        return gate.exit_code
+
     built_count = 0
     skipped_count = 0
     failed_count = 0
+    revalidated: set[str] = set()
 
     target_sets = run_snapshot_operation_with_retry(
         lambda fresh_client: resolve_target_sets(fresh_client, args),
@@ -134,6 +154,10 @@ def main() -> None:
             )
             built_count += 1
             consecutive_transient_failures = 0
+            # Cards + Top Chase history + dashboard all committed for this set:
+            # invalidate the frontend seed cache exactly once, and never on a
+            # dry-run or after a partial coordinated write.
+            notify_set_publication(set_row, window=args.window, commit=commit, seen=revalidated)
         except Exception as exc:
             if _is_missing_data_error(exc):
                 skipped_count += 1
@@ -169,7 +193,11 @@ def main() -> None:
     summary = f"market dashboard snapshot summary built={built_count} skipped={skipped_count} failed={failed_count}"
     logging.info(summary)
     print(summary)
+    # Graceful skips (documented missing-data sets) keep the run successful;
+    # a genuine failure must not be hidden by the sets that did succeed,
+    # because build_pokemon_public_snapshots.py trusts this exit code.
+    return 1 if failed_count else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

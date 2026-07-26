@@ -1,6 +1,28 @@
 /**
  * Configuration for Explore page ranking mode dropdown.
- * Public Explore score modes must use relative score fields only.
+ *
+ * RIP-contract modes read the CANONICAL backend objects — `rip` (Overall RIP),
+ * `rip.financialRip.components.*` (the three Financial RIP pillars), and
+ * `universalSetDesirability` — actual scores with ranks/tiers computed against
+ * the backend-authorized public cohort. The legacy relative/pack score fields
+ * are a cohort min-max presentation over the old 33-set population and must not
+ * power public ranking again. Fields are dot-paths resolved by getFieldValue.
+ *
+ * The pillars live on `rip.financialRip.components.*`. Overall RIP is
+ * `0.90 * Financial RIP + 0.10 * CA7 Opening Desirability`; the desirability
+ * lens reads `universalSetDesirability`, the authoritative simulation-independent
+ * score (all-set rank of 135), NOT CA7, which needs a pull model.
+ *
+ * ABSOLUTE vs RELATIVE
+ * --------------------
+ * Every score-bearing mode exposes two numbers where both exist:
+ *   - `absoluteScoreField` — the direct 0-100 formula result (`rip.score`,
+ *     `ripCore.score`, a pillar `.score`). It does not move when the cohort does.
+ *   - `relativeScoreField` — the backend cohort-relative 0-100 position
+ *     (`rip.relativeScore`, `ripCore.relativeScore`), computed over the same
+ *     fixed public cohort the `rankField` is quoted against.
+ * `scoreField` is retained as the absolute field for backward compatibility.
+ * Ratio-only modes (EV/P99 to cost) have no relative score and expose neither.
  */
 
 function toNumber(value) {
@@ -9,6 +31,20 @@ function toNumber(value) {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function getFieldValue(target, fieldPath) {
+  if (!target || !fieldPath) {
+    return null;
+  }
+  let value = target;
+  for (const key of String(fieldPath).split(".")) {
+    if (value === null || value === undefined || typeof value !== "object") {
+      return null;
+    }
+    value = value[key];
+  }
+  return value === undefined ? null : value;
 }
 
 export const EXPLORE_RANKING_MODES = {
@@ -20,11 +56,35 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by the strongest overall opening profile.",
     scoreLabel: "RIP SCORE",
     tierLabel: "TIER",
-    scoreField: "relative_pack_score",
-    rankField: "pack_rank",
-    tierField: "pack_tier",
+    scoreField: "rip.score",
+    absoluteScoreField: "rip.score",
+    relativeScoreField: "rip.relativeScore",
+    absoluteScoreLabel: "Absolute",
+    relativeScoreLabel: "Relative",
+    rankField: "rip.rank",
+    rankedSetCountField: "rip.cohortSize",
+    tierField: "rip.tier",
     scoreFormat: "decimal",
-    description: "Overall RIP score combines all factors for a comprehensive ranking.",
+    description: "Overall RIP = 90% Financial RIP + 10% Opening Desirability (CA7).",
+  },
+  financial: {
+    id: "financial",
+    label: "Financial RIP",
+    title: "Strongest Financial Opening",
+    subtitle: "Sets ranked by Financial RIP alone (Profit, Safety, Stability), before Opening Desirability.",
+    tooltip: "Financial RIP = 60% Profit + 25% Safety + 15% Stability. It excludes Opening Desirability.",
+    scoreLabel: "FINANCIAL RIP",
+    tierLabel: "TIER",
+    scoreField: "ripCore.score",
+    absoluteScoreField: "ripCore.score",
+    relativeScoreField: "ripCore.relativeScore",
+    absoluteScoreLabel: "Absolute",
+    relativeScoreLabel: "Relative",
+    rankField: "ripCore.rank",
+    rankedSetCountField: "ripCore.cohortSize",
+    tierField: "ripCore.tier",
+    scoreFormat: "decimal",
+    description: "Financial RIP is the financial-only opening quality: 60/25/15 Profit/Safety/Stability.",
   },
   profit: {
     id: "profit",
@@ -34,9 +94,14 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by their profit profile, including chance to beat cost, Expected Value, and upside.",
     scoreLabel: "PROFIT SCORE",
     tierLabel: "PROFIT TIER",
-    scoreField: "relative_profit_score",
-    rankField: "profit_rank",
-    tierField: "profit_tier",
+    scoreField: "rip.financialRip.components.profit.score",
+    absoluteScoreField: "rip.financialRip.components.profit.score",
+    relativeScoreField: "rip.financialRip.components.profit.relativeScore",
+    absoluteScoreLabel: "Absolute",
+    relativeScoreLabel: "Relative",
+    rankField: "rip.financialRip.components.profit.rank",
+    rankedSetCountField: "rip.financialRip.components.profit.cohortSize",
+    tierField: "rip.financialRip.components.profit.tier",
     scoreFormat: "decimal",
     description: "Profit score focuses on return potential and margin above pack cost.",
   },
@@ -48,25 +113,34 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how well they protect against rough openings.",
     scoreLabel: "SAFETY SCORE",
     tierLabel: "SAFETY TIER",
-    scoreField: "relative_safety_score",
-    rankField: "safety_rank",
-    tierField: "safety_tier",
+    scoreField: "rip.financialRip.components.safety.score",
+    absoluteScoreField: "rip.financialRip.components.safety.score",
+    relativeScoreField: "rip.financialRip.components.safety.relativeScore",
+    absoluteScoreLabel: "Absolute",
+    relativeScoreLabel: "Relative",
+    rankField: "rip.financialRip.components.safety.rank",
+    rankedSetCountField: "rip.financialRip.components.safety.cohortSize",
+    tierField: "rip.financialRip.components.safety.tier",
     scoreFormat: "decimal",
     description: "Safety score emphasizes protection from downside and loss mitigation.",
   },
   desirability: {
     id: "desirability",
-    label: "Opening Desirability",
-    title: "Best Opening Desirability",
-    subtitle: "Sets ranked by Opening Desirability, including Collector Appeal and Chase Appeal.",
-    tooltip: "Opening Desirability combines Collector Appeal and Chase Appeal to estimate how compelling the set is to open.",
-    scoreLabel: "OPENING DESIRABILITY",
-    tierLabel: "DESIRABILITY TIER",
-    scoreField: "relative_desirability_score",
-    rankField: "desirability_rank",
-    tierField: "desirability_tier",
+    label: "Set Desirability",
+    title: "Most Desirable Sets",
+    subtitle: "Sets ranked by the popularity and depth of the Pokémon subjects they contain, independent of price.",
+    tooltip: "Set Desirability measures the popularity and depth of the Pokémon subjects represented in a set. It does not use card prices or predict future value.",
+    scoreLabel: "SET DESIRABILITY",
+    tierLabel: "TIER",
+    // The authoritative score, and its ALL-SET rank (of 135) rather than the
+    // 21-set simulated cohort rank the retired CA7 lens quoted. CA7 needs a
+    // pull model; this does not, so this lens covers every scored set.
+    scoreField: "universalSetDesirability.score",
+    rankField: "universalSetDesirability.rank",
+    rankedSetCountField: "universalSetDesirability.rankedSetCount",
+    tierField: null,
     scoreFormat: "decimal",
-    description: "Opening Desirability combines Collector Appeal and Chase Appeal.",
+    description: "Set Desirability measures how popular and deep a set's Pokémon roster is, independent of price.",
   },
   stability: {
     id: "stability",
@@ -76,9 +150,14 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how steady their opening profile is across many simulated packs.",
     scoreLabel: "STABILITY SCORE",
     tierLabel: "STABILITY TIER",
-    scoreField: "relative_stability_score",
-    rankField: "stability_rank",
-    tierField: "stability_tier",
+    scoreField: "rip.financialRip.components.stability.score",
+    absoluteScoreField: "rip.financialRip.components.stability.score",
+    relativeScoreField: "rip.financialRip.components.stability.relativeScore",
+    absoluteScoreLabel: "Absolute",
+    relativeScoreLabel: "Relative",
+    rankField: "rip.financialRip.components.stability.rank",
+    rankedSetCountField: "rip.financialRip.components.stability.cohortSize",
+    tierField: "rip.financialRip.components.stability.tier",
     scoreFormat: "decimal",
     description: "Stability score measures consistency and predictability of outcomes.",
   },
@@ -167,12 +246,30 @@ export function getRankField(modeId) {
 }
 
 export function getTierField(modeId) {
-  return getModeConfig(modeId).tierField || "pack_tier";
+  return getModeConfig(modeId).tierField || "rip.tier";
 }
 
 export function getScoreForMode(target, modeId) {
-  const field = getScoreField(modeId);
-  return toNumber(target?.[field]);
+  return toNumber(getFieldValue(target, getScoreField(modeId)));
+}
+
+export function getAbsoluteScoreField(modeId) {
+  const config = getModeConfig(modeId);
+  return config.absoluteScoreField || config.scoreField || null;
+}
+
+export function getRelativeScoreField(modeId) {
+  return getModeConfig(modeId).relativeScoreField || null;
+}
+
+export function getAbsoluteScoreForMode(target, modeId) {
+  const field = getAbsoluteScoreField(modeId);
+  return field ? toNumber(getFieldValue(target, field)) : null;
+}
+
+export function getRelativeScoreForMode(target, modeId) {
+  const field = getRelativeScoreField(modeId);
+  return field ? toNumber(getFieldValue(target, field)) : null;
 }
 
 export function getRankForMode(target, modeId) {
@@ -180,7 +277,24 @@ export function getRankForMode(target, modeId) {
   if (!field) {
     return null;
   }
-  return toNumber(target?.[field]);
+  return toNumber(getFieldValue(target, field));
+}
+
+export function getRankedSetCountField(modeId) {
+  return getModeConfig(modeId).rankedSetCountField || null;
+}
+
+export function getRankedSetCountForMode(target, modeId) {
+  const field = getRankedSetCountField(modeId);
+  if (!field) {
+    return null;
+  }
+  return toNumber(getFieldValue(target, field));
+}
+
+export function getTierForMode(target, modeId) {
+  const value = getFieldValue(target, getTierField(modeId));
+  return value === null || value === undefined ? null : String(value);
 }
 
 export function formatModeScore(value, format = "decimal") {

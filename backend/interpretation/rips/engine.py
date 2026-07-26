@@ -8,7 +8,6 @@ from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 from .models import SectionInterpretation
-from .pillars.desirability import interpret_desirability
 from .pillars.profit import interpret_profit
 from .pillars.safety import interpret_safety
 from .pillars.stability import interpret_stability
@@ -1558,7 +1557,6 @@ def validate_interpretation_consistency(
     pack_score: Any,
     profit: Any,
     safety: Any,
-    desirability: Any,
     stability: Any,
     advanced_metrics: SectionInterpretation,
 ) -> None:
@@ -1569,7 +1567,6 @@ def validate_interpretation_consistency(
 
     profit_tier = get_tier(summary_data, "profit_tier")
     safety_tier = get_tier(summary_data, "safety_tier")
-    desirability_tier = get_tier(summary_data, "desirability_tier")
     stability_tier = get_tier(summary_data, "stability_tier")
 
     if safety.meta and _is_safety_guardrail_tier(safety_tier):
@@ -1586,9 +1583,6 @@ def validate_interpretation_consistency(
             stability.meta.summary = f"{stability.meta.summary} It is still better than most sets in this category."
         stability.meta.severity = "neutral"
 
-    if desirability.meta and _is_high_tier(desirability_tier) and desirability.meta.severity in {"negative", "caution"}:
-        desirability.meta.severity = "neutral"
-
     if decision_category in {"elite_open", "strong_but_risky"}:
         advanced_metrics.summary = (
             "The deeper numbers support the main read, with a catch: weaker packs can still hurt."
@@ -1599,7 +1593,7 @@ def validate_interpretation_consistency(
             advanced_metrics.severity = "caution"
 
     if decision_category == "weak_open":
-        for pillar in (profit.meta, safety.meta, desirability.meta, stability.meta):
+        for pillar in (profit.meta, safety.meta, stability.meta):
             if pillar and pillar.severity == "positive":
                 pillar.severity = "neutral"
                 pillar.summary = f"{pillar.summary} This helps, but it is not enough to offset the weak overall open profile."
@@ -1614,10 +1608,9 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     profit = interpret_profit(data)
     safety = interpret_safety(data)
-    desirability = interpret_desirability(data)
     stability = interpret_stability(data)
 
-    pack_score = interpret_pack_score(profit, safety, desirability, stability, data)
+    pack_score = interpret_pack_score(profit, safety, stability, data)
 
     outcome_dist = interpret_outcome_distribution(data)
     hist_trend = interpret_historical_trend(data)
@@ -1625,12 +1618,11 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
     top_ev = interpret_top_ev_drivers(data)
     rarity_contrib = interpret_rarity_contribution(data)
     adv_metrics = interpret_advanced_metrics(data, _section_to_dict(pack_score.meta) if pack_score.meta else None)
-    validate_interpretation_consistency(data, pack_score, profit, safety, desirability, stability, adv_metrics)
+    validate_interpretation_consistency(data, pack_score, profit, safety, stability, adv_metrics)
 
     summary_data = get_summary_data(data)
     profit_tier = get_tier(summary_data, "profit_tier")
     safety_tier = get_tier(summary_data, "safety_tier")
-    desirability_tier = get_tier(summary_data, "desirability_tier")
     stability_tier = get_tier(summary_data, "stability_tier")
 
     value_source_signals = _build_value_source_signals(data)
@@ -1672,7 +1664,6 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
         pack_score_summary = str(pack_meta.get("summary") or pack_score_summary)
     profit_meta = _section_to_dict(profit.meta) if profit.meta else None
     safety_meta = _section_to_dict(safety.meta) if safety.meta else None
-    desirability_meta = _section_to_dict(desirability.meta) if desirability.meta else None
     stability_meta = _section_to_dict(stability.meta) if stability.meta else None
 
     # Build meta — structured dicts for every section and pillar.
@@ -1680,7 +1671,6 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
         "packScore": pack_meta,
         "profit": profit_meta,
         "safety": safety_meta,
-        "desirability": desirability_meta,
         "stability": stability_meta,
         "outcomeDistribution": _section_to_dict(outcome_dist),
         "historicalTrend": _section_to_dict(hist_trend),
@@ -1698,7 +1688,6 @@ def build_rip_interpretation(data: Dict[str, Any]) -> Dict[str, Any]:
         "pillars": [
             _build_pillar_contract("profit", "Profit", profit_meta, profit_tier),
             _build_pillar_contract("safety", "Safety", safety_meta, safety_tier),
-            _build_pillar_contract("desirability", "Desirability", desirability_meta, desirability_tier),
             _build_pillar_contract("stability", "Stability", stability_meta, stability_tier),
         ],
         "set_intelligence": set_intelligence,

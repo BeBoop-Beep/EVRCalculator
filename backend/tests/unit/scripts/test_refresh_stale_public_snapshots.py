@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from backend.scripts import refresh_stale_public_snapshots as refresh
+from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
 
 
 def _iso(dt):
@@ -20,8 +23,11 @@ def _row(set_id: str, set_updated: str, rankings_embedded: str, *, include_ranks
         "set_id": set_id,
         "updated_at": set_updated,
         "payload_json": {
+            "target": {"target_type": "set", "target_id": set_id, "id": set_id, "name": "Set"},
             "summary": summary,
             "meta": {
+                "snapshot": {"type": "pokemon_set_page", "builtAt": set_updated},
+                "simulationAvailability": {"available": True, "unavailableSections": []},
                 "snapshotCompleteness": {
                     "explore_rankings_snapshot_updated_at": rankings_embedded,
                 },
@@ -461,3 +467,308 @@ def test_one_failed_set_page_rebuild_does_not_prevent_later_sets(monkeypatch):
     assert summary.rebuilt_sets["set_page"] == ["healthySet"]
     assert len(summary.failed_sets["set_page"]) == 1
     assert summary.failed_sets["set_page"][0].startswith("failingSet:")
+
+
+# ---------------------------------------------------------------------------
+# I/O-safe resumable recovery: nonzero exit on failure, batch-gated promotion
+# ---------------------------------------------------------------------------
+
+
+def test_has_hard_failures_true_when_any_set_failed():
+    summary = refresh.RefreshSummary()
+    summary.failed_sets["set_page"].append("failingSet: boom")
+    assert refresh._has_hard_failures(summary) is True
+
+
+def test_has_hard_failures_true_when_global_failed():
+    summary = refresh.RefreshSummary()
+    summary.global_failed.append("explore_rankings: boom")
+    assert refresh._has_hard_failures(summary) is True
+
+
+def test_has_hard_failures_false_for_only_staleness_warnings():
+    summary = refresh.RefreshSummary()
+    summary.warnings_remaining = ["set-1: rankings snapshot rebuilt after set page snapshot"]
+    summary.stale_snapshot_families.add("set_page")
+    assert refresh._has_hard_failures(summary) is False
+
+
+def _patch_main_pipeline(monkeypatch, *, gate_allowed=True, override=False, fail_set=False):
+    """Stub the whole main() pipeline so exit-status/gating logic can be exercised."""
+    monkeypatch.setattr(refresh, "get_client", lambda: object())
+    monkeypatch.setattr(
+        refresh,
+        "evaluate_publication_gate",
+        lambda _client, **_kwargs: _GateDecision(allowed=gate_allowed, override=override),
+    )
+    monkeypatch.setattr(refresh, "_resolve_sets", lambda _client, set_id=None: [{"id": "set-1", "canonical_key": "alpha"}])
+
+    def _build_plan(_client, *, set_rows, window):
+        plan = refresh.SetRefreshPlan(
+            set_row=set_rows[0],
+            cards=refresh.FreshnessResult("cards", True, "stale"),
+            market_dashboard=refresh.FreshnessResult("market_dashboard", False, "fresh"),
+            set_page=refresh.FreshnessResult("set_page", False, "fresh"),
+        )
+        return [plan], refresh.FreshnessResult("explore_rankings", False, "fresh"), refresh.FreshnessResult("desirability_validation", False, "fresh"), 0
+
+    monkeypatch.setattr(refresh, "_build_plan", _build_plan)
+
+    def _rebuild_coordinated(_client, plan, *, commit, days, window, summary):
+        if fail_set:
+            summary.failed_sets["cards"].append("alpha: boom")
+        else:
+            summary.rebuilt_sets["cards"].append("alpha")
+
+    monkeypatch.setattr(refresh, "_maybe_rebuild_coordinated_market", _rebuild_coordinated)
+    monkeypatch.setattr(refresh, "_maybe_rebuild_rankings", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_maybe_rebuild_set_page", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_build_validation_snapshot", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_verify_after_build", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_audit_set_page_freshness", lambda *_a, **_k: refresh.SetPageFreshnessAudit(total=1, fresh=1))
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_a, **_k: None)
+
+
+class _GateDecision:
+    def __init__(self, *, allowed=True, override=False):
+        self.allowed = allowed
+        self.override = override
+        self.reason = "test"
+        self.reason_code = "allowed_complete" if allowed else "blocked_incomplete"
+        self.mode = "required"
+        self.market_date = "2026-07-25"
+        self.batch_status = "complete" if allowed else "incomplete"
+        self.missing_set_count = None if allowed else 3
+        self.expected_set_count = 166
+        self.promoted_at = "2026-07-25T09:00:00Z" if allowed else None
+
+
+def test_main_exits_nonzero_when_a_set_fails_even_without_strict(monkeypatch):
+    _patch_main_pipeline(monkeypatch, fail_set=True)
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+    try:
+        refresh.main()
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:
+        raise AssertionError("expected nonzero exit on a failed set")
+
+
+def test_main_exits_zero_on_clean_commit(monkeypatch):
+    _patch_main_pipeline(monkeypatch, fail_set=False)
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+    # No SystemExit(1) means a clean success.
+    refresh.main()
+
+
+def test_main_gate_closed_defers_with_exit_3_and_skips_rebuild(monkeypatch, capsys):
+    # A closed gate DEFERS publication: exit code 3 (not 0, not 1), zero writes,
+    # previous good snapshots preserved.
+    rebuilt = []
+    _patch_main_pipeline(monkeypatch, gate_allowed=False)
+    monkeypatch.setattr(
+        refresh,
+        "_maybe_rebuild_coordinated_market",
+        lambda *_a, **_k: rebuilt.append("should-not-run"),
+    )
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+
+    with pytest.raises(SystemExit) as excinfo:
+        refresh.main()
+
+    assert excinfo.value.code == refresh.GATE_DEFERRED_EXIT_CODE == 3
+    out = capsys.readouterr().out
+    assert "publication gate CLOSED" in out
+    assert "PUBLICATION_DEFERRED" in out
+    assert rebuilt == []
+
+
+def test_main_dry_run_reports_gate_decision_and_performs_no_writes(monkeypatch, capsys):
+    # Dry-run reports what the gate decision WOULD be and never enters the
+    # commit-only deferral branch (exit 0, no rebuild attempted with commit=True).
+    _patch_main_pipeline(monkeypatch, gate_allowed=False)
+    committed = []
+    monkeypatch.setattr(
+        refresh,
+        "_maybe_rebuild_coordinated_market",
+        lambda _client, plan, *, commit, **_k: committed.append(commit),
+    )
+    monkeypatch.setattr("sys.argv", ["refresh", "--dry-run"])
+
+    refresh.main()
+
+    out = capsys.readouterr().out
+    assert "publication gate decision (dry-run)" in out
+    # The pipeline ran read-only: every rebuild call saw commit=False.
+    assert committed and all(value is False for value in committed)
+
+
+# ===========================================================================
+# Simulation-aware strict set-page verification (Area 4).
+# A partial page explicitly labeled simulation-unavailable must PASS; a page
+# that claims availability keeps the stricter checks; malformed pages fail.
+# ===========================================================================
+
+_UNAVAILABLE_WARNING = (
+    "Simulation data is unavailable for this set; simulation-derived sections "
+    "are published as unavailable."
+)
+
+
+def _partial_page_row(set_id="set-1", *, updated="2026-07-25T00:00:00+00:00", carried=False, **meta_overrides):
+    availability = {
+        "available": False,
+        "reason": "No simulation data found for this target",
+        "asOfDate": None,
+        # The REAL declaration list the set-page builder writes. Imported rather
+        # than hand-listed so the fixture cannot drift from production.
+        "unavailableSections": list(SIMULATION_DEPENDENT_SECTIONS),
+        "carryForward": carried,
+        "carriedForwardSections": (["simulationDrivers"] if carried else []),
+    }
+    section_freshness = {
+        "simulationDrivers": (
+            {"status": "stale", "dataAsOf": "2026-07-17T00:00:00+00:00", "source": "simulation_input_cards"}
+            if carried
+            else {"status": "missing", "dataAsOf": None}
+        )
+    }
+    meta = {
+        "snapshot": {"type": "pokemon_set_page", "builtAt": updated},
+        "snapshotCompleteness": {"ok": True},
+        "sectionFreshness": section_freshness,
+        "simulationAvailability": availability,
+        "sources": {"simulation_input_cards": "NO_ROW"},
+        "warnings": [_UNAVAILABLE_WARNING],
+    }
+    meta.update(meta_overrides)
+    return {
+        "set_id": set_id,
+        "updated_at": updated,
+        "payload_json": {
+            "target": {"target_type": "set", "target_id": set_id, "id": set_id, "name": "Alpha"},
+            "summary": {},
+            "top_hits": [],
+            "meta": meta,
+        },
+    }
+
+
+def _patch_page_row(monkeypatch, row):
+    monkeypatch.setattr(
+        refresh,
+        "_read_snapshot_row",
+        lambda _client, table, _sel, _filters: (row if table == "pokemon_set_page_snapshot_latest" else None),
+    )
+    monkeypatch.setattr(refresh, "_has_known_stale_warning", lambda _warnings: False)
+    monkeypatch.setattr(refresh, "_source_rows_exist_for_set_page", lambda _client, _set_id: False)
+
+
+def _verify(row_or_none):
+    return refresh._verify_set_page(None, {"id": "set-1", "canonical_key": "alpha"}, rankings_updated_at=None)
+
+
+# 24 + 25. A valid simulation-unavailable partial page passes strict verification;
+# empty top_hits / NO_ROW simulation source do not fail when available is false.
+def test_24_valid_partial_page_passes_strict(monkeypatch):
+    _patch_page_row(monkeypatch, _partial_page_row())
+    assert _verify(None) == []
+
+
+def test_25_empty_simulation_sections_ok_when_unavailable(monkeypatch):
+    row = _partial_page_row()
+    # Explicitly the empty/unavailable simulation drivers.
+    assert row["payload_json"]["top_hits"] == []
+    assert row["payload_json"]["meta"]["sources"]["simulation_input_cards"] == "NO_ROW"
+    _patch_page_row(monkeypatch, row)
+    assert _verify(None) == []
+
+
+# 26. The same empty sections FAIL when simulation availability is true.
+def test_26_empty_sections_fail_when_available_true(monkeypatch):
+    row = _partial_page_row()
+    row["payload_json"]["meta"]["simulationAvailability"]["available"] = True
+    row["payload_json"]["meta"]["simulationAvailability"]["unavailableSections"] = []
+    row["payload_json"]["meta"]["sources"]["simulation_input_cards"] = "NO_ROWS"
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("top_hits missing" in p for p in problems)
+    assert any("simulation_input_cards source=NO_ROWS" in p for p in problems)
+
+
+# 27. Missing simulationAvailability metadata fails for a partial page.
+def test_27_missing_availability_metadata_fails(monkeypatch):
+    row = _partial_page_row()
+    del row["payload_json"]["meta"]["simulationAvailability"]
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("simulationAvailability metadata missing" in p for p in problems)
+
+
+# 28. Missing unavailable-section declarations fail.
+def test_28_missing_unavailable_sections_fail(monkeypatch):
+    row = _partial_page_row()
+    row["payload_json"]["meta"]["simulationAvailability"]["unavailableSections"] = []
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("unavailableSections must be nonempty" in p for p in problems)
+
+
+def test_28b_incomplete_unavailable_sections_fail(monkeypatch):
+    row = _partial_page_row()
+    # Declares only one section — misses the required simulation-derived ones.
+    row["payload_json"]["meta"]["simulationAvailability"]["unavailableSections"] = ["pull_rate_assumptions"]
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("unavailableSections missing" in p for p in problems)
+
+
+# 29. A supposedly unavailable page containing fresh/current simulation fields fails.
+def test_29_unavailable_page_with_fresh_simulation_section_fails(monkeypatch):
+    row = _partial_page_row()
+    row["payload_json"]["meta"]["sectionFreshness"]["simulationDrivers"] = {
+        "status": "fresh",
+        "dataAsOf": "2026-07-25T00:00:00+00:00",
+    }
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("labeled fresh while simulation is unavailable" in p for p in problems)
+
+
+# 30. A carried-forward simulation section passes only when marked stale with a date.
+def test_30_carried_forward_stale_with_source_date_passes(monkeypatch):
+    _patch_page_row(monkeypatch, _partial_page_row(carried=True))
+    assert _verify(None) == []
+
+
+def test_30b_carried_forward_not_stale_fails(monkeypatch):
+    row = _partial_page_row(carried=True)
+    row["payload_json"]["meta"]["sectionFreshness"]["simulationDrivers"]["status"] = "current"
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("not labeled stale" in p for p in problems)
+
+
+def test_30c_carried_forward_stale_without_source_date_fails(monkeypatch):
+    row = _partial_page_row(carried=True)
+    row["payload_json"]["meta"]["sectionFreshness"]["simulationDrivers"]["dataAsOf"] = None
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("has no source/data-as-of date" in p for p in problems)
+
+
+# 31. A malformed / identity-less partial page fails.
+def test_31_identityless_partial_page_fails(monkeypatch):
+    row = _partial_page_row()
+    row["payload_json"]["target"] = {}
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("set identity missing" in p for p in problems)
+
+
+def test_31b_missing_snapshot_marker_fails(monkeypatch):
+    row = _partial_page_row()
+    del row["payload_json"]["meta"]["snapshot"]
+    _patch_page_row(monkeypatch, row)
+    problems = _verify(None)
+    assert any("meta.snapshot missing" in p for p in problems)

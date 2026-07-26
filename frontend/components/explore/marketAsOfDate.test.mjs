@@ -2,10 +2,39 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  chooseFresherMarketPayload,
   clampHistoryPointsToDate,
   getMarketDateSourceFromPayload,
+  isServerSeedStale,
   resolveMarketAsOfDate,
 } from "./marketAsOfDate.mjs";
+
+const seedJul16 = { latestMarketDate: "2026-07-16", meta: { snapshot: { marketAsOfDate: "2026-07-16" } } };
+const liveJul25 = { latestMarketDate: "2026-07-25", meta: { snapshot: { marketAsOfDate: "2026-07-25" } } };
+
+test("client hydration rejects an older server seed when a newer live response exists", () => {
+  const chosen = chooseFresherMarketPayload(seedJul16, liveJul25);
+  assert.equal(chosen, liveJul25);
+  assert.equal(isServerSeedStale(seedJul16, liveJul25), true);
+});
+
+test("client hydration keeps a newer seed over a stale-while-revalidate live response", () => {
+  const chosen = chooseFresherMarketPayload(liveJul25, seedJul16);
+  assert.equal(chosen, liveJul25);
+  assert.equal(isServerSeedStale(liveJul25, seedJul16), false);
+});
+
+test("client hydration prefers the live response on equal dates or unknown seed date", () => {
+  const liveTie = { latestMarketDate: "2026-07-16" };
+  assert.equal(chooseFresherMarketPayload(seedJul16, liveTie), liveTie); // tie -> live wins
+  const unknownSeed = { foo: "bar" };
+  assert.equal(chooseFresherMarketPayload(unknownSeed, liveJul25), liveJul25);
+});
+
+test("client hydration falls back to the seed when no live payload exists", () => {
+  assert.equal(chooseFresherMarketPayload(seedJul16, null), seedJul16);
+  assert.equal(chooseFresherMarketPayload(null, null), null);
+});
 
 test("one coordinated generation resolves to its single shared marketAsOfDate", () => {
   const resolution = resolveMarketAsOfDate([

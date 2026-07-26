@@ -1,0 +1,382 @@
+set_name,subject_name,subject_demand,demand_share_q_s,printing_count,selected_easiest_card,selected_rarest_card,reachable_access,elite_scarcity,dual_path,contribution,same_card_both_paths,elite_tie_count
+Mega Evolution,Lucario,75.572,0.144362,4,Mega Lucario ex #77 (Double Rare),Mega Lucario ex #179 (Special Illustration Rare),0.659379,1.0,0.659379,0.09519,False,2
+Mega Evolution,Absol,72.1605,0.125103,3,Mega Absol ex #86 (Double Rare),Mega Absol ex #180 (Special Illustration Rare),0.659379,1.0,0.659379,0.082491,False,1
+Mega Evolution,Gardevoir,70.8255,0.117567,4,Mega Gardevoir ex #60 (Double Rare),Mega Gardevoir ex #178 (Special Illustration Rare),0.659379,1.0,0.659379,0.077521,False,2
+Mega Evolution,Mawile,69.0039,0.107283,2,Mega Mawile ex #94 (Double Rare),Mega Mawile ex #162 (Ultra Rare),0.659379,0.713256,0.470306,0.050456,False,0
+Mega Evolution,Bulbasaur,73.7634,0.134152,1,Bulbasaur #133 (Illustration Rare),Bulbasaur #133 (Illustration Rare),0.347324,0.652676,0.22669,0.030411,True,0
+Mega Evolution,Latias,56.1733,0.03485,3,Mega Latias ex #100 (Double Rare),Mega Latias ex #181 (Special Illustration Rare),0.659379,1.0,0.659379,0.02298,False,1
+Mega Evolution,Vulpix,66.6074,0.093754,1,Vulpix #138 (Illustration Rare),Vulpix #138 (Illustration Rare),0.347324,0.652676,0.22669,0.021253,True,0
+Mega Evolution,Venusaur,54.5988,0.025962,3,Mega Venusaur ex #3 (Double Rare),Mega Venusaur ex #177 (Special Illustration Rare),0.659379,1.0,0.659379,0.017119,False,1
+Mega Evolution,Marshadow,61.0792,0.062546,1,Marshadow #146 (Illustration Rare),Marshadow #146 (Illustration Rare),0.347324,0.652676,0.22669,0.014178,True,0
+Mega Evolution,Shuckle,61.0013,0.062106,1,Shuckle #136 (Illustration Rare),Shuckle #136 (Illustration Rare),0.347324,0.652676,0.22669,0.014079,True,0
+Mega Evolution,Shedinja,58.8085,0.049727,1,Shedinja #144 (Illustration Rare),Shedinja #144 (Illustration Rare),0.347324,0.652676,0.22669,0.011273,True,0
+Mega Evolution,Steelix,54.5082,0.02545,1,Steelix #150 (Illustration Rare),Steelix #150 (Illustration Rare),0.347324,0.652676,0.22669,0.005769,True,0
+Mega Evolution,Inteleon,51.5156,0.008556,1,Inteleon #142 (Illustration Rare),Inteleon #142 (Illustration Rare),0.347324,0.652676,0.22669,0.00194,True,0
+Mega Evolution,Spiritomb,50.9393,0.005303,1,Spiritomb #148 (Illustration Rare),Spiritomb #148 (Illustration Rare),0.347324,0.652676,0.22669,0.001202,True,0
+Mega Evolution,Ivysaur,50.5807,0.003278,1,Ivysaur #134 (Illustration Rare),Ivysaur #134 (Illustration Rare),0.347324,0.652676,0.22669,0.000743,True,0
+Prismatic Evolutions,Pikachu,86.6387,0.108249,2,Pikachu ex #28 (Double Rare),Pikachu ex #179 (Hyper Rare),0.487347,0.977121,0.476197,0.051548,False,0
+Prismatic Evolutions,Eevee,81.323,0.092543,2,Eevee ex #75 (Double Rare),Eevee ex #167 (Special Illustration Rare),0.487347,1.0,0.487347,0.045101,False,1
+Prismatic Evolutions,Sylveon,75.5845,0.075589,2,Sylveon ex #41 (Double Rare),Sylveon ex #156 (Special Illustration Rare),0.487347,1.0,0.487347,0.036838,False,1
+Prismatic Evolutions,Umbreon,74.8369,0.07338,2,Umbreon ex #60 (Double Rare),Umbreon ex #161 (Special Illustration Rare),0.487347,1.0,0.487347,0.035762,False,1
+Prismatic Evolutions,Espeon,69.4916,0.057588,2,Espeon ex #34 (Double Rare),Espeon ex #155 (Special Illustration Rare),0.487347,1.0,0.487347,0.028065,False,1
+Prismatic Evolutions,Vaporeon,66.0464,0.047409,2,Vaporeon ex #23 (Double Rare),Vaporeon ex #149 (Special Illustration Rare),0.487347,1.0,0.487347,0.023105,False,1
+Prismatic Evolutions,Jolteon,66.0173,0.047323,2,Jolteon ex #30 (Double Rare),Jolteon ex #153 (Special Illustration Rare),0.487347,1.0,0.487347,0.023063,False,1
+Prismatic Evolutions,Glaceon,65.0731,0.044533,2,Glaceon ex #26 (Double Rare),Glaceon ex #150 (Special Illustration Rare),0.487347,1.0,0.487347,0.021703,False,1
+Prismatic Evolutions,Leafeon,64.8421,0.043851,2,Leafeon ex #6 (Double Rare),Leafeon ex #144 (Special Illustration Rare),0.487347,1.0,0.487347,0.021371,False,1
+Prismatic Evolutions,Dragapult,63.4932,0.039865,2,Dragapult ex #73 (Double Rare),Dragapult ex #165 (Special Illustration Rare),0.487347,1.0,0.487347,0.019428,False,1
+Prismatic Evolutions,Lucario,75.572,0.075552,1,Lucario ex #51 (Double Rare),Lucario ex #51 (Double Rare),0.487347,0.512653,0.24984,0.018876,True,0
+Prismatic Evolutions,Snorlax,74.1993,0.071497,1,Snorlax ex #76 (Double Rare),Snorlax ex #76 (Double Rare),0.487347,0.512653,0.24984,0.017863,True,0
+Prismatic Evolutions,Flareon,60.0811,0.029784,2,Flareon ex #14 (Double Rare),Flareon ex #146 (Special Illustration Rare),0.487347,1.0,0.487347,0.014515,False,1
+Prismatic Evolutions,Noivern,65.7217,0.04645,1,Noivern ex #91 (Double Rare),Noivern ex #91 (Double Rare),0.487347,0.512653,0.24984,0.011605,True,0
+Prismatic Evolutions,Tyranitar,65.5556,0.045959,1,Tyranitar ex #64 (Double Rare),Tyranitar ex #64 (Double Rare),0.487347,0.512653,0.24984,0.011482,True,0
+Prismatic Evolutions,Lugia,63.6314,0.040274,1,Lugia ex #82 (Double Rare),Lugia ex #82 (Double Rare),0.487347,0.512653,0.24984,0.010062,True,0
+Prismatic Evolutions,Ogerpon,55.8239,0.017207,9,Teal Mask Ogerpon ex #12 (Double Rare),Teal Mask Ogerpon ex #145 (Special Illustration Rare),0.487347,1.0,0.487347,0.008386,False,4
+Prismatic Evolutions,Ceruledge,62.501,0.036934,1,Ceruledge ex #147 (Special Illustration Rare),Ceruledge ex #147 (Special Illustration Rare),0.0,1.0,0.0,0.0,True,1
+Prismatic Evolutions,Gholdengo,52.0353,0.006013,1,Gholdengo ex #164 (Special Illustration Rare),Gholdengo ex #164 (Special Illustration Rare),0.0,1.0,0.0,0.0,True,1
+Chaos Rising,Greninja,75.1085,0.277747,4,Mega Greninja ex #22 (double rare),Mega Greninja ex #122 (mega hyper rare),0.654902,0.990229,0.648503,0.18012,False,0
+Chaos Rising,Ampharos,68.8516,0.208534,1,Ampharos #90 (illustration rare),Ampharos #90 (illustration rare),0.493581,0.506419,0.249959,0.052125,True,0
+Chaos Rising,Crobat,63.8304,0.15299,1,Crobat #93 (illustration rare),Crobat #93 (illustration rare),0.493581,0.506419,0.249959,0.038241,True,0
+Chaos Rising,Gallade,62.9074,0.14278,1,Mega Gallade ex #48 (double rare),Mega Gallade ex #48 (double rare),0.654902,0.345098,0.226005,0.032269,True,0
+Chaos Rising,Beedrill,54.9472,0.054725,2,Beedrill ex #3 (double rare),Beedrill ex #98 (ultra rare),0.654902,0.66823,0.437625,0.023949,False,0
+Chaos Rising,Krookodile,58.2669,0.091447,1,Krookodile ex #55 (double rare),Krookodile ex #55 (double rare),0.654902,0.345098,0.226005,0.020668,True,0
+Chaos Rising,Chespin,52.9972,0.033155,1,Chespin #87 (illustration rare),Chespin #87 (illustration rare),0.493581,0.506419,0.249959,0.008287,True,0
+Chaos Rising,Cinccino,51.2614,0.013953,3,Cinccino ex #73 (double rare),Cinccino ex #119 (special illustration rare),0.654902,0.847741,0.555187,0.007747,False,0
+Chaos Rising,Xerneas,51.5379,0.017012,1,Xerneas #91 (illustration rare),Xerneas #91 (illustration rare),0.493581,0.506419,0.249959,0.004252,True,0
+Chaos Rising,Dragalge,50.6922,0.007657,3,Mega Dragalge ex #65 (double rare),Mega Dragalge ex #118 (special illustration rare),0.654902,0.847741,0.555187,0.004251,False,0
+Phantasmal Flames,Charizard,87.9598,0.183883,4,Mega Charizard X ex #13 (Double Rare),Mega Charizard X ex #130 (Mega Hyper Rare),0.659379,1.0,0.659379,0.121249,False,1
+Phantasmal Flames,Gengar,83.4567,0.162069,1,Mega Gengar ex #56 (Double Rare),Mega Gengar ex #56 (Double Rare),0.659379,0.340621,0.224598,0.036401,True,0
+Phantasmal Flames,Heracross,65.038,0.072846,2,Mega Heracross ex #4 (Double Rare),Mega Heracross ex #108 (Ultra Rare),0.659379,0.662141,0.436602,0.031805,False,0
+Phantasmal Flames,Rotom,58.9416,0.043315,3,Rotom ex #29 (Double Rare),Rotom ex #126 (Special Illustration Rare),0.659379,0.80103,0.528183,0.022878,False,0
+Phantasmal Flames,Mismagius,60.4903,0.050817,2,Mismagius ex #36 (Double Rare),Mismagius ex #112 (Ultra Rare),0.659379,0.662141,0.436602,0.022187,False,0
+Phantasmal Flames,Piplup,68.3767,0.08902,1,Piplup #98 (Illustration Rare),Piplup #98 (Illustration Rare),0.464059,0.535941,0.248708,0.02214,True,0
+Phantasmal Flames,Flygon,68.2501,0.088406,1,Flygon #101 (Illustration Rare),Flygon #101 (Illustration Rare),0.464059,0.535941,0.248708,0.021987,True,0
+Phantasmal Flames,Empoleon,60.2726,0.049762,2,Empoleon ex #70 (Double Rare),Empoleon ex #114 (Ultra Rare),0.659379,0.662141,0.436602,0.021726,False,0
+Phantasmal Flames,Wooper,67.6001,0.085258,1,Paldean Wooper #102 (Illustration Rare),Paldean Wooper #102 (Illustration Rare),0.464059,0.535941,0.248708,0.021204,True,0
+Phantasmal Flames,Toxtricity Amped,61.7283,0.056814,1,Toxtricity #103 (Illustration Rare),Toxtricity #103 (Illustration Rare),0.464059,0.535941,0.248708,0.01413,True,0
+Phantasmal Flames,Lopunny,55.0226,0.02433,3,Mega Lopunny ex #84 (Double Rare),Mega Lopunny ex #128 (Special Illustration Rare),0.659379,0.80103,0.528183,0.012851,False,0
+Phantasmal Flames,Meowth,59.3884,0.045479,1,Meowth #106 (Illustration Rare),Meowth #106 (Illustration Rare),0.464059,0.535941,0.248708,0.011311,True,0
+Phantasmal Flames,Ludicolo,56.0919,0.02951,1,Ludicolo #95 (Illustration Rare),Ludicolo #95 (Illustration Rare),0.464059,0.535941,0.248708,0.007339,True,0
+Phantasmal Flames,Diancie,53.8172,0.018491,1,Mega Diancie ex #41 (Double Rare),Mega Diancie ex #41 (Double Rare),0.659379,0.340621,0.224598,0.004153,True,0
+Surging Sparks,Pikachu,86.6387,0.213053,4,Pikachu ex #57 (Double Rare),Pikachu ex #247 (Hyper Rare),0.487347,1.0,0.487347,0.103831,False,1
+Surging Sparks,Flygon,68.2501,0.106124,2,Flygon ex #106 (Double Rare),Flygon ex #222 (Ultra Rare),0.487347,0.747077,0.364086,0.038638,False,0
+Surging Sparks,Sylveon,75.5845,0.148773,1,Sylveon ex #86 (Double Rare),Sylveon ex #86 (Double Rare),0.487347,0.512653,0.24984,0.03717,True,0
+Surging Sparks,Hydreigon,61.883,0.069099,3,Hydreigon ex #119 (Double Rare),Hydreigon ex #240 (Special Illustration Rare),0.487347,0.991136,0.483027,0.033377,False,0
+Surging Sparks,Milotic,61.7857,0.068534,3,Milotic ex #42 (Double Rare),Milotic ex #237 (Special Illustration Rare),0.487347,0.991136,0.483027,0.033104,False,0
+Surging Sparks,Durant,60.1252,0.058878,3,Durant ex #4 (Double Rare),Durant ex #236 (Special Illustration Rare),0.487347,0.991136,0.483027,0.02844,False,0
+Surging Sparks,Ceruledge,62.501,0.072693,2,Ceruledge ex #36 (Double Rare),Ceruledge #197 (Illustration Rare),0.487347,0.738561,0.359935,0.026165,False,0
+Surging Sparks,Latias,56.1733,0.035898,3,Latias ex #76 (Double Rare),Latias ex #239 (Special Illustration Rare),0.487347,0.991136,0.483027,0.01734,False,0
+Surging Sparks,Spheal,64.1434,0.082244,1,Spheal #199 (Illustration Rare),Spheal #199 (Illustration Rare),0.261439,0.738561,0.193089,0.01588,True,0
+Surging Sparks,Appletun,59.2505,0.053791,1,Appletun #211 (Illustration Rare),Appletun #211 (Illustration Rare),0.261439,0.738561,0.193089,0.010387,True,0
+Surging Sparks,Skarmory,56.7853,0.039456,1,Skarmory #209 (Illustration Rare),Skarmory #209 (Illustration Rare),0.261439,0.738561,0.193089,0.007619,True,0
+Surging Sparks,Phanpy,54.2265,0.024577,1,Phanpy #205 (Illustration Rare),Phanpy #205 (Illustration Rare),0.261439,0.738561,0.193089,0.004746,True,0
+Surging Sparks,Bruxish,52.7422,0.015946,1,Bruxish #200 (Illustration Rare),Bruxish #200 (Illustration Rare),0.261439,0.738561,0.193089,0.003079,True,0
+Surging Sparks,Latios,51.5172,0.008822,1,Latios #203 (Illustration Rare),Latios #203 (Illustration Rare),0.261439,0.738561,0.193089,0.001704,True,0
+Surging Sparks,Stunfisk,50.363,0.002111,1,Stunfisk #202 (Illustration Rare),Stunfisk #202 (Illustration Rare),0.261439,0.738561,0.193089,0.000408,True,0
+Perfect Order,Decidueye,62.8154,0.118963,2,Decidueye ex #12 (Double Rare),Decidueye ex #100 (Ultra Rare),0.683266,0.662141,0.452418,0.053821,False,0
+Perfect Order,Meowth,59.3884,0.087151,3,Meowth ex #62 (Double Rare),Meowth ex #121 (Special Illustration Rare),0.683266,0.843764,0.576515,0.050244,False,0
+Perfect Order,Rowlet,68.261,0.169514,1,Rowlet #90 (Illustration Rare),Rowlet #90 (Illustration Rare),0.504387,0.495613,0.249981,0.042375,True,0
+Perfect Order,Espurr,67.1471,0.159174,1,Espurr #95 (Illustration Rare),Espurr #95 (Illustration Rare),0.504387,0.495613,0.249981,0.03979,True,0
+Perfect Order,Lapras,64.8141,0.137517,1,Lapras ex #22 (Double Rare),Lapras ex #22 (Double Rare),0.683266,0.316734,0.216414,0.029761,True,0
+Perfect Order,Skarmory,56.7853,0.062987,2,Mega Skarmory ex #55 (Double Rare),Mega Skarmory ex #106 (Ultra Rare),0.683266,0.662141,0.452418,0.028496,False,0
+Perfect Order,Yveltal,55.8461,0.054268,2,Yveltal ex #53 (Double Rare),Yveltal ex #105 (Ultra Rare),0.683266,0.662141,0.452418,0.024552,False,0
+Perfect Order,Starmie,54.5781,0.042498,3,Mega Starmie ex #21 (Double Rare),Mega Starmie ex #118 (Special Illustration Rare),0.683266,0.843764,0.576515,0.024501,False,0
+Perfect Order,Clefairy,57.4096,0.068782,1,Clefairy #94 (Illustration Rare),Clefairy #94 (Illustration Rare),0.504387,0.495613,0.249981,0.017194,True,0
+Perfect Order,Zygarde 50,52.4605,0.02284,4,Mega Zygarde ex #47 (Double Rare),Mega Zygarde ex #124 (Mega Hyper Rare),0.683266,1.0,0.683266,0.015606,False,1
+Perfect Order,Dedenne,54.8862,0.045358,1,Dedenne #93 (Illustration Rare),Dedenne #93 (Illustration Rare),0.504387,0.495613,0.249981,0.011339,True,0
+Perfect Order,Talonflame,52.7705,0.025718,1,Talonflame #91 (Illustration Rare),Talonflame #91 (Illustration Rare),0.504387,0.495613,0.249981,0.006429,True,0
+Perfect Order,Clefable,50.5634,0.00523,3,Mega Clefable ex #31 (Double Rare),Mega Clefable ex #119 (Special Illustration Rare),0.683266,0.843764,0.576515,0.003015,False,0
+Scarlet and Violet Base Set,Gardevoir,70.8255,0.206497,3,Gardevoir ex #86 (Double Rare),Gardevoir ex #245 (Special Illustration Rare),0.53024,0.751214,0.398324,0.082253,False,0
+Scarlet and Violet Base Set,Arcanine,70.5984,0.204245,2,Arcanine ex #32 (Double Rare),Arcanine ex #224 (Ultra Rare),0.53024,0.744979,0.395018,0.08068,False,0
+Scarlet and Violet Base Set,Banette,63.7875,0.136711,2,Banette ex #88 (Double Rare),Banette ex #229 (Ultra Rare),0.53024,0.744979,0.395018,0.054003,False,0
+Scarlet and Violet Base Set,Gyarados,60.9528,0.108603,2,Gyarados ex #45 (Double Rare),Gyarados ex #225 (Ultra Rare),0.53024,0.744979,0.395018,0.0429,False,0
+Scarlet and Violet Base Set,Slowpoke,65.6317,0.154997,1,Slowpoke #204 (Illustration Rare),Slowpoke #204 (Illustration Rare),0.252228,0.747772,0.188609,0.029234,True,0
+Scarlet and Violet Base Set,Toxicroak,52.3821,0.02362,2,Toxicroak ex #131 (Double Rare),Toxicroak ex #232 (Ultra Rare),0.53024,0.744979,0.395018,0.00933,False,0
+Scarlet and Violet Base Set,Riolu,54.907,0.048656,1,Riolu #215 (Illustration Rare),Riolu #215 (Illustration Rare),0.252228,0.747772,0.188609,0.009177,True,0
+Scarlet and Violet Base Set,Ralts,54.8321,0.047913,1,Ralts #211 (Illustration Rare),Ralts #211 (Illustration Rare),0.252228,0.747772,0.188609,0.009037,True,0
+Scarlet and Violet Base Set,Pachirisu,54.7632,0.04723,1,Pachirisu #208 (Illustration Rare),Pachirisu #208 (Illustration Rare),0.252228,0.747772,0.188609,0.008908,True,0
+Scarlet and Violet Base Set,Magnezone,52.1712,0.021529,2,Magnezone ex #65 (Double Rare),Magnezone ex #226 (Ultra Rare),0.53024,0.744979,0.395018,0.008504,False,0
+Twilight Masquerade,Greninja,75.1085,0.185124,3,Greninja ex #106 (Double Rare),Greninja ex #214 (Special Illustration Rare),0.540461,0.986795,0.533324,0.098731,False,0
+Twilight Masquerade,Luxray,68.1912,0.134123,2,Luxray ex #68 (Double Rare),Luxray ex #195 (Ultra Rare),0.540461,0.751214,0.406002,0.054454,False,0
+Twilight Masquerade,Eevee,81.323,0.230944,1,Eevee #188 (Illustration Rare),Eevee #188 (Illustration Rare),0.282716,0.717284,0.202787,0.046833,True,0
+Twilight Masquerade,Dragapult,63.4932,0.099485,2,Dragapult ex #130 (Double Rare),Dragapult ex #200 (Ultra Rare),0.540461,0.751214,0.406002,0.040391,False,0
+Twilight Masquerade,Ogerpon,55.8239,0.042939,13,Teal Mask Ogerpon ex #25 (Double Rare),Teal Mask Ogerpon ex #211 (Special Illustration Rare),0.540461,0.986795,0.533324,0.022901,False,0
+Twilight Masquerade,Infernape,64.8651,0.1096,1,Infernape #173 (Illustration Rare),Infernape #173 (Illustration Rare),0.282716,0.717284,0.202787,0.022226,True,0
+Twilight Masquerade,Froslass,61.2803,0.083169,1,Froslass #174 (Illustration Rare),Froslass #174 (Illustration Rare),0.282716,0.717284,0.202787,0.016866,True,0
+Twilight Masquerade,Growlithe,60.0575,0.074154,1,Hisuian Growlithe #181 (Illustration Rare),Hisuian Growlithe #181 (Illustration Rare),0.282716,0.717284,0.202787,0.015037,True,0
+Twilight Masquerade,Cramorant,52.991,0.022053,1,Cramorant #176 (Illustration Rare),Cramorant #176 (Illustration Rare),0.282716,0.717284,0.202787,0.004472,True,0
+Twilight Masquerade,Chimecho,51.4129,0.010417,1,Chimecho #179 (Illustration Rare),Chimecho #179 (Illustration Rare),0.282716,0.717284,0.202787,0.002112,True,0
+Twilight Masquerade,Applin,50.6874,0.005068,1,Applin #185 (Illustration Rare),Applin #185 (Illustration Rare),0.282716,0.717284,0.202787,0.001028,True,0
+Twilight Masquerade,Chansey,50.3964,0.002923,1,Chansey #187 (Illustration Rare),Chansey #187 (Illustration Rare),0.282716,0.717284,0.202787,0.000593,True,0
+Destined Rivals,Garchomp,70.9731,0.095632,4,Cynthia's Garchomp ex #104 (Double Rare),Cynthia's Garchomp ex #232 (Special Illustration Rare),0.532751,1.0,0.532751,0.050948,False,1
+Destined Rivals,Mewtwo,70.6367,0.094098,4,Team Rocket's Mewtwo ex #81 (Double Rare),Team Rocket's Mewtwo ex #231 (Special Illustration Rare),0.532751,1.0,0.532751,0.050131,False,1
+Destined Rivals,Crobat,63.8304,0.063063,4,Team Rocket's Crobat ex #122 (Double Rare),Team Rocket's Crobat ex #234 (Special Illustration Rare),0.532751,1.0,0.532751,0.033597,False,1
+Destined Rivals,Nidoking,60.6343,0.048489,3,Team Rocket's Nidoking ex #119 (Double Rare),Team Rocket's Nidoking ex #233 (Special Illustration Rare),0.532751,1.0,0.532751,0.025833,False,1
+Destined Rivals,Persian,63.6831,0.062391,2,Team Rocket's Persian ex #150 (Double Rare),Team Rocket's Persian ex #219 (Ultra Rare),0.532751,0.768279,0.409301,0.025537,False,0
+Destined Rivals,Metagross,66.3634,0.074613,1,Steven's Metagross ex #145 (Double Rare),Steven's Metagross ex #145 (Double Rare),0.532751,0.467249,0.248927,0.018573,True,0
+Destined Rivals,Psyduck,70.2734,0.092441,1,Misty's Psyduck #193 (Illustration Rare),Misty's Psyduck #193 (Illustration Rare),0.277978,0.722022,0.200706,0.018553,True,0
+Destined Rivals,Blaziken,68.246,0.083197,1,Blaziken #192 (Illustration Rare),Blaziken #192 (Illustration Rare),0.277978,0.722022,0.200706,0.016698,True,0
+Destined Rivals,Typhlosion,66.4657,0.075079,1,Ethan's Typhlosion #190 (Illustration Rare),Ethan's Typhlosion #190 (Illustration Rare),0.277978,0.722022,0.200706,0.015069,True,0
+Destined Rivals,Lapras,64.8141,0.067548,1,Misty's Lapras #194 (Illustration Rare),Misty's Lapras #194 (Illustration Rare),0.277978,0.722022,0.200706,0.013557,True,0
+Destined Rivals,Houndoom,62.2207,0.055723,1,Team Rocket's Houndoom #191 (Illustration Rare),Team Rocket's Houndoom #191 (Illustration Rare),0.277978,0.722022,0.200706,0.011184,True,0
+Destined Rivals,Shaymin Land,61.6704,0.053214,1,Shaymin #185 (Illustration Rare),Shaymin #185 (Illustration Rare),0.277978,0.722022,0.200706,0.01068,True,0
+Destined Rivals,Meowth,59.3884,0.042808,1,Team Rocket's Meowth #203 (Illustration Rare),Team Rocket's Meowth #203 (Illustration Rare),0.277978,0.722022,0.200706,0.008592,True,0
+Destined Rivals,Rotom,58.9416,0.040771,1,Rotom #197 (Illustration Rare),Rotom #197 (Illustration Rare),0.277978,0.722022,0.200706,0.008183,True,0
+Destined Rivals,Electivire,53.8844,0.017712,2,Electivire ex #69 (Double Rare),Electivire ex #212 (Ultra Rare),0.532751,0.768279,0.409301,0.007249,False,0
+Destined Rivals,Murkrow,54.9158,0.022415,1,Team Rocket's Murkrow #200 (Illustration Rare),Team Rocket's Murkrow #200 (Illustration Rare),0.277978,0.722022,0.200706,0.004499,True,0
+Destined Rivals,Roserade,51.5053,0.006864,1,Cynthia's Roserade #184 (Illustration Rare),Cynthia's Roserade #184 (Illustration Rare),0.277978,0.722022,0.200706,0.001378,True,0
+Destined Rivals,Rapidash,50.8648,0.003943,1,Rapidash #189 (Illustration Rare),Rapidash #189 (Illustration Rare),0.277978,0.722022,0.200706,0.000791,True,0
+Journey Together,Zoroark,67.3809,0.108392,4,N's Zoroark ex #98 (Double Rare),N's Zoroark ex #185 (Special Illustration Rare),0.551186,0.857165,0.472458,0.051211,False,0
+Journey Together,Mimikyu Disguised,78.4841,0.177634,1,Mimikyu ex #69 (Double Rare),Mimikyu ex #69 (Double Rare),0.551186,0.448814,0.24738,0.043943,True,0
+Journey Together,Blaziken,68.246,0.113787,1,Blaziken ex #24 (Double Rare),Blaziken ex #24 (Double Rare),0.551186,0.448814,0.24738,0.028149,True,0
+Journey Together,Salamence,58.7091,0.054312,3,Salamence ex #114 (Double Rare),Salamence ex #187 (Special Illustration Rare),0.551186,0.857165,0.472458,0.02566,False,0
+Journey Together,Clefairy,57.4096,0.046208,3,Lillie's Clefairy ex #56 (Double Rare),Lillie's Clefairy ex #184 (Special Illustration Rare),0.551186,0.857165,0.472458,0.021831,False,0
+Journey Together,Reshiram,60.4651,0.065263,2,Reshiram ex #30 (Double Rare),N's Reshiram #167 (Illustration Rare),0.551186,0.555295,0.306071,0.019975,False,0
+Journey Together,Clodsire,61.9341,0.074424,1,Paldean Clodsire ex #94 (Double Rare),Paldean Clodsire ex #94 (Double Rare),0.551186,0.448814,0.24738,0.018411,True,0
+Journey Together,Furret,59.8755,0.061586,1,Furret #168 (Illustration Rare),Furret #168 (Illustration Rare),0.444705,0.555295,0.246942,0.015208,True,0
+Journey Together,Alcremie,58.5371,0.05324,1,Alcremie ex #75 (Double Rare),Alcremie ex #75 (Double Rare),0.551186,0.448814,0.24738,0.01317,True,0
+Journey Together,Lycanroc Midday,58.1747,0.05098,1,Lycanroc #166 (Illustration Rare),Lycanroc #166 (Illustration Rare),0.444705,0.555295,0.246942,0.012589,True,0
+Journey Together,Maractus,56.5654,0.040944,1,Maractus #160 (Illustration Rare),Maractus #160 (Illustration Rare),0.444705,0.555295,0.246942,0.010111,True,0
+Journey Together,Noibat,55.5666,0.034715,1,Noibat #169 (Illustration Rare),Noibat #169 (Illustration Rare),0.444705,0.555295,0.246942,0.008573,True,0
+Journey Together,Articuno,54.5235,0.02821,1,Articuno #161 (Illustration Rare),Articuno #161 (Illustration Rare),0.444705,0.555295,0.246942,0.006966,True,0
+Journey Together,Wooloo,54.1836,0.02609,1,Hop's Wooloo #170 (Illustration Rare),Hop's Wooloo #170 (Illustration Rare),0.444705,0.555295,0.246942,0.006443,True,0
+Journey Together,Wailord,53.8282,0.023874,1,Wailord #162 (Illustration Rare),Wailord #162 (Illustration Rare),0.444705,0.555295,0.246942,0.005895,True,0
+Journey Together,Ribombee,53.2219,0.020093,1,Lillie's Ribombee #164 (Illustration Rare),Lillie's Ribombee #164 (Illustration Rare),0.444705,0.555295,0.246942,0.004962,True,0
+Journey Together,Mamoswine,51.6235,0.010125,2,Mamoswine ex #79 (Double Rare),Mamoswine ex #174 (Ultra Rare),0.551186,0.612655,0.337687,0.003419,False,0
+Journey Together,Swinub,51.6234,0.010124,1,Swinub #165 (Illustration Rare),Swinub #165 (Illustration Rare),0.444705,0.555295,0.246942,0.0025,True,0
+Paradox Rift,Garchomp,70.9731,0.128399,4,Garchomp ex #38 (Double Rare),Garchomp ex #245 (Special Illustration Rare),0.446395,0.92624,0.413469,0.053089,False,0
+Paradox Rift,Altaria,63.3084,0.081475,3,Altaria ex #140 (Double Rare),Altaria ex #253 (Special Illustration Rare),0.446395,0.92624,0.413469,0.033687,False,0
+Paradox Rift,Golisopod,63.2126,0.080889,3,Golisopod ex #50 (Double Rare),Golisopod ex #246 (Special Illustration Rare),0.446395,0.92624,0.413469,0.033445,False,0
+Paradox Rift,Mewtwo,70.6367,0.126339,1,Mewtwo ex #58 (Double Rare),Mewtwo ex #58 (Double Rare),0.446395,0.553605,0.247127,0.031222,True,0
+Paradox Rift,Aegislash Shield,62.6311,0.077329,3,Aegislash ex #135 (Double Rare),Aegislash #210 (Illustration Rare),0.446395,0.822711,0.367254,0.028399,False,0
+Paradox Rift,Toxtricity Amped,61.7283,0.071802,2,Toxtricity ex #100 (Double Rare),Toxtricity ex #227 (Ultra Rare),0.446395,0.812141,0.362536,0.026031,False,0
+Paradox Rift,Froslass,61.2803,0.069059,2,Froslass ex #3 (Double Rare),Froslass ex #217 (Ultra Rare),0.446395,0.812141,0.362536,0.025036,False,0
+Paradox Rift,Joltik,64.3057,0.087581,1,Joltik #196 (Illustration Rare),Joltik #196 (Illustration Rare),0.177289,0.822711,0.145858,0.012774,True,0
+Paradox Rift,Hoopa,54.8793,0.029871,2,Hoopa ex #98 (Double Rare),Hoopa ex #226 (Ultra Rare),0.446395,0.812141,0.362536,0.010829,False,0
+Paradox Rift,Porygon Z,58.3249,0.050966,1,Porygon-Z #214 (Illustration Rare),Porygon-Z #214 (Illustration Rare),0.177289,0.822711,0.145858,0.007434,True,0
+Paradox Rift,Yveltal,55.8461,0.03579,1,Yveltal #205 (Illustration Rare),Yveltal #205 (Illustration Rare),0.177289,0.822711,0.145858,0.00522,True,0
+Paradox Rift,Gholdengo,52.0353,0.01246,3,Gholdengo ex #139 (Double Rare),Gholdengo ex #252 (Special Illustration Rare),0.446395,0.92624,0.413469,0.005152,False,0
+Paradox Rift,Maushold Family Of Four,52.0945,0.012823,2,Maushold ex #155 (Double Rare),Maushold ex #233 (Ultra Rare),0.446395,0.812141,0.362536,0.004649,False,0
+Paradox Rift,Aipom,54.9422,0.030257,1,Aipom #211 (Illustration Rare),Aipom #211 (Illustration Rare),0.177289,0.822711,0.145858,0.004413,True,0
+Paradox Rift,Minior Red Meteor,54.7376,0.029004,1,Minior #201 (Illustration Rare),Minior #201 (Illustration Rare),0.177289,0.822711,0.145858,0.00423,True,0
+Paradox Rift,Groudon,54.7049,0.028804,1,Groudon #199 (Illustration Rare),Groudon #199 (Illustration Rare),0.177289,0.822711,0.145858,0.004201,True,0
+Paradox Rift,Steelix,54.5082,0.0276,1,Steelix #208 (Illustration Rare),Steelix #208 (Illustration Rare),0.177289,0.822711,0.145858,0.004026,True,0
+Paradox Rift,Cofagrigus,51.2058,0.007382,2,Cofagrigus ex #76 (Double Rare),Cofagrigus ex #224 (Ultra Rare),0.446395,0.812141,0.362536,0.002676,False,0
+Paradox Rift,Swablu,51.1952,0.007317,1,Swablu #213 (Illustration Rare),Swablu #213 (Illustration Rare),0.177289,0.822711,0.145858,0.001067,True,0
+Paradox Rift,Slither Wing,50.6504,0.003982,1,Slither Wing #203 (Illustration Rare),Slither Wing #203 (Illustration Rare),0.177289,0.822711,0.145858,0.000581,True,0
+Paradox Rift,Snorunt,50.1427,0.000874,1,Snorunt #188 (Illustration Rare),Snorunt #188 (Illustration Rare),0.177289,0.822711,0.145858,0.000127,True,0
+Temporal Forces,Gengar,83.4567,0.238423,2,Gengar ex #104 (Double Rare),Gengar ex #193 (Ultra Rare),0.525305,0.715682,0.375951,0.089636,False,0
+Temporal Forces,Scizor,67.0596,0.121572,2,Scizor ex #111 (Double Rare),Scizor ex #195 (Ultra Rare),0.525305,0.715682,0.375951,0.045705,False,0
+Temporal Forces,Torterra,63.5527,0.096581,2,Torterra ex #12 (Double Rare),Torterra ex #185 (Ultra Rare),0.525305,0.715682,0.375951,0.03631,False,0
+Temporal Forces,Metagross,66.3634,0.116611,1,Metagross #178 (Illustration Rare),Metagross #178 (Illustration Rare),0.272578,0.727422,0.198279,0.023122,True,0
+Temporal Forces,Incineroar,58.4995,0.06057,2,Incineroar ex #34 (Double Rare),Incineroar ex #187 (Ultra Rare),0.525305,0.715682,0.375951,0.022771,False,0
+Temporal Forces,Reuniclus,64.7087,0.104819,1,Reuniclus #171 (Illustration Rare),Reuniclus #171 (Illustration Rare),0.272578,0.727422,0.198279,0.020783,True,0
+Temporal Forces,Snom,63.4585,0.09591,1,Snom #168 (Illustration Rare),Snom #168 (Illustration Rare),0.272578,0.727422,0.198279,0.019017,True,0
+Temporal Forces,Litten,57.7238,0.055042,1,Litten #167 (Illustration Rare),Litten #167 (Illustration Rare),0.272578,0.727422,0.198279,0.010914,True,0
+Temporal Forces,Excadrill,54.5943,0.03274,1,Excadrill #174 (Illustration Rare),Excadrill #174 (Illustration Rare),0.272578,0.727422,0.198279,0.006492,True,0
+Temporal Forces,Minccino,52.8912,0.020604,1,Minccino #182 (Illustration Rare),Minccino #182 (Illustration Rare),0.272578,0.727422,0.198279,0.004085,True,0
+Temporal Forces,Mudsdale,52.8675,0.020435,1,Mudsdale #175 (Illustration Rare),Mudsdale #175 (Illustration Rare),0.272578,0.727422,0.198279,0.004052,True,0
+Temporal Forces,Charjabug,52.0069,0.014302,1,Charjabug #169 (Illustration Rare),Charjabug #169 (Illustration Rare),0.272578,0.727422,0.198279,0.002836,True,0
+Temporal Forces,Cinccino,51.2614,0.008989,1,Cinccino #183 (Illustration Rare),Cinccino #183 (Illustration Rare),0.272578,0.727422,0.198279,0.001782,True,0
+Temporal Forces,Drampa,51.1668,0.008315,1,Drampa #184 (Illustration Rare),Drampa #184 (Illustration Rare),0.272578,0.727422,0.198279,0.001649,True,0
+Temporal Forces,Chatot,50.7137,0.005086,1,Chatot #181 (Illustration Rare),Chatot #181 (Illustration Rare),0.272578,0.727422,0.198279,0.001008,True,0
+Scarlet and Violet 151,Charizard,87.9598,0.145293,3,Charizard ex #6 (Double Rare),Charizard ex #183 (Ultra Rare),0.522879,0.697226,0.364565,0.052969,False,0
+Scarlet and Violet 151,Mew,80.674,0.117406,3,Mew ex #151 (Double Rare),Mew ex #193 (Ultra Rare),0.522879,0.697226,0.364565,0.042802,False,0
+Scarlet and Violet 151,Pikachu,86.6387,0.140236,1,Pikachu #173 (Illustration Rare),Pikachu #173 (Illustration Rare),0.362921,0.637079,0.231209,0.032424,True,0
+Scarlet and Violet 151,Ninetales,65.3163,0.058624,2,Ninetales ex #38 (Double Rare),Ninetales ex #186 (Ultra Rare),0.522879,0.697226,0.364565,0.021372,False,0
+Scarlet and Violet 151,Bulbasaur,73.7634,0.090955,1,Bulbasaur #166 (Illustration Rare),Bulbasaur #166 (Illustration Rare),0.362921,0.637079,0.231209,0.02103,True,0
+Scarlet and Violet 151,Blastoise,63.7357,0.052574,3,Blastoise ex #9 (Double Rare),Blastoise ex #184 (Ultra Rare),0.522879,0.697226,0.364565,0.019167,False,0
+Scarlet and Violet 151,Psyduck,70.2734,0.077597,1,Psyduck #175 (Illustration Rare),Psyduck #175 (Illustration Rare),0.362921,0.637079,0.231209,0.017941,True,0
+Scarlet and Violet 151,Squirtle,67.2322,0.065957,1,Squirtle #170 (Illustration Rare),Squirtle #170 (Illustration Rare),0.362921,0.637079,0.231209,0.01525,True,0
+Scarlet and Violet 151,Alakazam,59.9155,0.037952,3,Alakazam ex #65 (Double Rare),Alakazam ex #188 (Ultra Rare),0.522879,0.697226,0.364565,0.013836,False,0
+Scarlet and Violet 151,Charmander,61.7106,0.044823,1,Charmander #168 (Illustration Rare),Charmander #168 (Illustration Rare),0.362921,0.637079,0.231209,0.010363,True,0
+Scarlet and Violet 151,Nidoking,60.6343,0.040703,1,Nidoking #174 (Illustration Rare),Nidoking #174 (Illustration Rare),0.362921,0.637079,0.231209,0.009411,True,0
+Scarlet and Violet 151,Dragonair,57.898,0.03023,1,Dragonair #181 (Illustration Rare),Dragonair #181 (Illustration Rare),0.362921,0.637079,0.231209,0.006989,True,0
+Scarlet and Violet 151,Poliwhirl,57.3321,0.028064,1,Poliwhirl #176 (Illustration Rare),Poliwhirl #176 (Illustration Rare),0.362921,0.637079,0.231209,0.006489,True,0
+Scarlet and Violet 151,Venusaur,54.5988,0.017602,3,Venusaur ex #3 (Double Rare),Venusaur ex #182 (Ultra Rare),0.522879,0.697226,0.364565,0.006417,False,0
+Scarlet and Violet 151,Tangela,53.4116,0.013058,1,Tangela #178 (Illustration Rare),Tangela #178 (Illustration Rare),0.362921,0.637079,0.231209,0.003019,True,0
+Scarlet and Violet 151,Wartortle,52.9863,0.01143,1,Wartortle #171 (Illustration Rare),Wartortle #171 (Illustration Rare),0.362921,0.637079,0.231209,0.002643,True,0
+Scarlet and Violet 151,Mr Mime,52.8675,0.010975,1,Mr. Mime #179 (Illustration Rare),Mr. Mime #179 (Illustration Rare),0.362921,0.637079,0.231209,0.002538,True,0
+Scarlet and Violet 151,Jynx,51.5512,0.005937,2,Jynx ex #124 (Double Rare),Jynx ex #191 (Ultra Rare),0.522879,0.697226,0.364565,0.002165,False,0
+Scarlet and Violet 151,Caterpie,51.467,0.005615,1,Caterpie #172 (Illustration Rare),Caterpie #172 (Illustration Rare),0.362921,0.637079,0.231209,0.001298,True,0
+Scarlet and Violet 151,Zapdos,50.7173,0.002745,3,Zapdos ex #145 (Double Rare),Zapdos ex #192 (Ultra Rare),0.522879,0.697226,0.364565,0.001001,False,0
+Scarlet and Violet 151,Ivysaur,50.5807,0.002223,1,Ivysaur #167 (Illustration Rare),Ivysaur #167 (Illustration Rare),0.362921,0.637079,0.231209,0.000514,True,0
+Ascended Heroes,Charizard,87.9598,0.075488,2,Mega Charizard Y ex #22 (Double Rare),Mega Charizard Y ex #294 (Mega Hyper Rare),0.359483,1.0,0.359483,0.027137,False,1
+Ascended Heroes,Pikachu,86.6387,0.07286,3,Pikachu ex #57 (Double Rare),Pikachu ex #276 (Special Illustration Rare),0.359483,1.0,0.359483,0.026192,False,2
+Ascended Heroes,Gengar,83.4567,0.066533,3,Mega Gengar ex #125 (Double Rare),Mega Gengar ex #284 (Special Illustration Rare),0.359483,1.0,0.359483,0.023917,False,1
+Ascended Heroes,Dragonite,74.4633,0.048648,4,Mega Dragonite ex #152 (Double Rare),Mega Dragonite ex #290 (Special Illustration Rare),0.359483,1.0,0.359483,0.017488,False,2
+Ascended Heroes,Mewtwo,70.6367,0.041039,2,Team Rocket's Mewtwo ex #79 (Double Rare),Team Rocket's Mewtwo ex #281 (Special Illustration Rare),0.359483,1.0,0.359483,0.014753,False,1
+Ascended Heroes,Zoroark,67.3809,0.034564,2,N's Zoroark ex #137 (Double Rare),N's Zoroark ex #286 (Special Illustration Rare),0.359483,1.0,0.359483,0.012425,False,1
+Ascended Heroes,Lucario,75.572,0.050853,1,Mega Lucario ex #113 (Double Rare),Mega Lucario ex #113 (Double Rare),0.359483,0.640517,0.230255,0.011709,True,0
+Ascended Heroes,Mimikyu Disguised,78.4841,0.056644,1,Team Rocket's Mimikyu #238 (Illustration Rare),Team Rocket's Mimikyu #238 (Illustration Rare),0.266566,0.733434,0.195509,0.011074,True,0
+Ascended Heroes,Garchomp,70.9731,0.041707,1,Cynthia's Garchomp ex #111 (Double Rare),Cynthia's Garchomp ex #111 (Double Rare),0.359483,0.640517,0.230255,0.009603,True,0
+Ascended Heroes,Gardevoir,70.8255,0.041414,1,Mega Gardevoir ex #89 (Double Rare),Mega Gardevoir ex #89 (Double Rare),0.359483,0.640517,0.230255,0.009536,True,0
+Ascended Heroes,Froslass,61.2803,0.022432,3,Mega Froslass ex #47 (Double Rare),Mega Froslass ex #275 (Special Illustration Rare),0.359483,1.0,0.359483,0.008064,False,1
+Ascended Heroes,Psyduck,70.2734,0.040316,1,Psyduck #226 (Illustration Rare),Psyduck #226 (Illustration Rare),0.266566,0.733434,0.195509,0.007882,True,0
+Ascended Heroes,Mawile,69.0039,0.037792,1,Mawile #246 (Illustration Rare),Mawile #246 (Illustration Rare),0.266566,0.733434,0.195509,0.007389,True,0
+Ascended Heroes,Feraligatr,58.9084,0.017715,2,Mega Feraligatr ex #43 (Double Rare),Mega Feraligatr ex #274 (Special Illustration Rare),0.359483,1.0,0.359483,0.006368,False,1
+Ascended Heroes,Dragapult,63.4932,0.026833,1,Dragapult ex #160 (Double Rare),Dragapult ex #160 (Double Rare),0.359483,0.640517,0.230255,0.006178,True,0
+Ascended Heroes,Cinderace,62.2793,0.024419,1,Cinderace ex #38 (Double Rare),Cinderace ex #38 (Double Rare),0.359483,0.640517,0.230255,0.005623,True,0
+Ascended Heroes,Hawlucha,57.6225,0.015158,3,Mega Hawlucha ex #116 (Double Rare),Mega Hawlucha ex #283 (Special Illustration Rare),0.359483,1.0,0.359483,0.005449,False,1
+Ascended Heroes,Banette,63.7875,0.027418,1,Banette #234 (Illustration Rare),Banette #234 (Illustration Rare),0.266566,0.733434,0.195509,0.00536,True,0
+Ascended Heroes,Clefairy,57.4096,0.014735,2,Lillie's Clefairy ex #76 (Double Rare),Lillie's Clefairy ex #280 (Special Illustration Rare),0.359483,1.0,0.359483,0.005297,False,1
+Ascended Heroes,Dunsparce,61.142,0.022157,1,Larry's Dudunsparce ex #164 (Double Rare),Larry's Dudunsparce ex #164 (Double Rare),0.359483,0.640517,0.230255,0.005102,True,0
+Ascended Heroes,Scrafty,57.0256,0.013971,3,Mega Scrafty ex #135 (Double Rare),Mega Scrafty ex #285 (Special Illustration Rare),0.359483,1.0,0.359483,0.005022,False,1
+Ascended Heroes,Togekiss,59.4514,0.018795,1,Togekiss #235 (Illustration Rare),Togekiss #235 (Illustration Rare),0.266566,0.733434,0.195509,0.003675,True,0
+Ascended Heroes,Rotom,58.9416,0.017781,1,Fan Rotom #250 (Illustration Rare),Fan Rotom #250 (Illustration Rare),0.266566,0.733434,0.195509,0.003476,True,0
+Ascended Heroes,Weavile,58.7436,0.017388,1,Weavile #228 (Illustration Rare),Weavile #228 (Illustration Rare),0.266566,0.733434,0.195509,0.003399,True,0
+Ascended Heroes,Zangoose,57.1665,0.014251,1,Zangoose ex #167 (Double Rare),Zangoose ex #167 (Double Rare),0.359483,0.640517,0.230255,0.003281,True,0
+Ascended Heroes,Sprigatito,57.509,0.014933,1,Sprigatito ex #251 (Ultra Rare),Sprigatito ex #251 (Ultra Rare),0.268054,0.731946,0.196201,0.00293,True,0
+Ascended Heroes,Audino,55.3761,0.010691,2,Mega Audino ex #172 (Double Rare),Mega Audino ex #253 (Ultra Rare),0.359483,0.731946,0.263123,0.002813,False,0
+Ascended Heroes,Eelektross,53.8844,0.007725,3,Mega Eelektross ex #61 (Double Rare),Mega Eelektross ex #278 (Special Illustration Rare),0.359483,1.0,0.359483,0.002777,False,1
+Ascended Heroes,Diancie,53.8172,0.007591,2,Mega Diancie ex #267 (MEGA_ATTACK_RARE),Mega Diancie ex #282 (Special Illustration Rare),0.347324,1.0,0.347324,0.002637,False,1
+Ascended Heroes,Scorbunny,56.5706,0.013066,1,Scorbunny #225 (Illustration Rare),Scorbunny #225 (Illustration Rare),0.266566,0.733434,0.195509,0.002555,True,0
+Ascended Heroes,Misdreavus,55.5916,0.01112,1,Misdreavus #233 (Illustration Rare),Misdreavus #233 (Illustration Rare),0.266566,0.733434,0.195509,0.002174,True,0
+Ascended Heroes,Meganium,52.5986,0.005168,2,Mega Meganium ex #10 (Double Rare),Mega Meganium ex #272 (Special Illustration Rare),0.359483,1.0,0.359483,0.001858,False,1
+Ascended Heroes,Mightyena,53.63,0.007219,1,Mightyena #243 (Illustration Rare),Mightyena #243 (Illustration Rare),0.266566,0.733434,0.195509,0.001411,True,0
+Ascended Heroes,Marill,52.632,0.005234,2,Azumarill ex #84 (Double Rare),Marill #232 (Illustration Rare),0.359483,0.733434,0.263657,0.00138,False,0
+Ascended Heroes,Emboar,51.9233,0.003825,2,Mega Emboar ex #31 (Double Rare),Mega Emboar ex #273 (Special Illustration Rare),0.359483,1.0,0.359483,0.001375,False,1
+Ascended Heroes,Tangela,53.4116,0.006784,1,Erika's Tangela #218 (Illustration Rare),Erika's Tangela #218 (Illustration Rare),0.266566,0.733434,0.195509,0.001326,True,0
+Ascended Heroes,Vileplume,52.3901,0.004753,1,Erika's Vileplume ex #3 (Double Rare),Erika's Vileplume ex #3 (Double Rare),0.359483,0.640517,0.230255,0.001094,True,0
+Ascended Heroes,Trevenant,51.6603,0.003302,1,Hop's Trevenant #237 (Illustration Rare),Hop's Trevenant #237 (Illustration Rare),0.266566,0.733434,0.195509,0.000646,True,0
+Ascended Heroes,Spiritomb,50.9393,0.001868,1,Cynthia's Spiritomb #244 (Illustration Rare),Cynthia's Spiritomb #244 (Illustration Rare),0.266566,0.733434,0.195509,0.000365,True,0
+Ascended Heroes,Staraptor,50.7137,0.001419,1,Larry's Staraptor #249 (Illustration Rare),Larry's Staraptor #249 (Illustration Rare),0.266566,0.733434,0.195509,0.000277,True,0
+Ascended Heroes,Stunfisk,50.363,0.000722,2,Stunfisk ex #114 (Double Rare),Stunfisk ex #252 (Ultra Rare),0.359483,0.731946,0.263123,0.00019,False,0
+Ascended Heroes,Dreepy,50.4251,0.000845,1,Dreepy #247 (Illustration Rare),Dreepy #247 (Illustration Rare),0.266566,0.733434,0.195509,0.000165,True,0
+Ascended Heroes,Snorunt,50.1427,0.000284,1,Snorunt #227 (Illustration Rare),Snorunt #227 (Illustration Rare),0.266566,0.733434,0.195509,5.5e-05,True,0
+Ascended Heroes,Metagross,66.3634,0.032541,1,Steven's Metagross ex #289 (Special Illustration Rare),Steven's Metagross ex #289 (Special Illustration Rare),0.0,1.0,0.0,0.0,True,1
+Stellar Crown,Lucario,75.572,0.150344,1,Lucario ex #82 (Double Rare),Lucario ex #82 (Double Rare),0.487347,0.512653,0.24984,0.037562,True,0
+Stellar Crown,Greninja,75.1085,0.147619,1,Greninja ex #41 (Double Rare),Greninja ex #41 (Double Rare),0.487347,0.512653,0.24984,0.036881,True,0
+Stellar Crown,Bulbasaur,73.7634,0.139711,1,Bulbasaur #143 (Illustration Rare),Bulbasaur #143 (Illustration Rare),0.388642,0.611358,0.237599,0.033195,True,0
+Stellar Crown,Lapras,64.8141,0.087096,2,Lapras ex #32 (Double Rare),Lapras ex #158 (Ultra Rare),0.487347,0.606094,0.295378,0.025726,False,0
+Stellar Crown,Squirtle,67.2322,0.101312,1,Squirtle #148 (Illustration Rare),Squirtle #148 (Illustration Rare),0.388642,0.611358,0.237599,0.024072,True,0
+Stellar Crown,Cinderace,62.2793,0.072193,2,Cinderace ex #28 (Double Rare),Cinderace ex #157 (Ultra Rare),0.487347,0.606094,0.295378,0.021324,False,0
+Stellar Crown,Blastoise,63.7357,0.080755,1,Blastoise ex #30 (Double Rare),Blastoise ex #30 (Double Rare),0.487347,0.512653,0.24984,0.020176,True,0
+Stellar Crown,Joltik,64.3057,0.084107,1,Joltik #150 (Illustration Rare),Joltik #150 (Illustration Rare),0.388642,0.611358,0.237599,0.019984,True,0
+Stellar Crown,Galvantula,56.8411,0.04022,3,Galvantula ex #51 (Double Rare),Galvantula ex #168 (Special Illustration Rare),0.487347,0.866197,0.422139,0.016979,False,0
+Stellar Crown,Zeraora,61.8394,0.069607,1,Zeraora #151 (Illustration Rare),Zeraora #151 (Illustration Rare),0.388642,0.611358,0.237599,0.016538,True,0
+Stellar Crown,Venusaur,54.5988,0.027037,1,Venusaur ex #1 (Double Rare),Venusaur ex #1 (Double Rare),0.487347,0.512653,0.24984,0.006755,True,0
+Obsidian Flames,Charizard,87.9598,0.220564,4,Charizard ex #125 (Double Rare),Charizard ex #223 (Special Illustration Rare),0.40624,0.641651,0.260664,0.057493,False,0
+Obsidian Flames,Dragonite,74.4633,0.142143,1,Dragonite ex #159 (Double Rare),Dragonite ex #159 (Double Rare),0.40624,0.59376,0.241209,0.034286,True,0
+Obsidian Flames,Absol,72.1605,0.128763,2,Absol ex #135 (Double Rare),Absol ex #214 (Ultra Rare),0.40624,0.628839,0.255459,0.032894,False,0
+Obsidian Flames,Scizor,67.0596,0.099124,1,Scizor #205 (Illustration Rare),Scizor #205 (Illustration Rare),0.400671,0.599329,0.240134,0.023803,True,0
+Obsidian Flames,Tyranitar,65.5556,0.090385,2,Tyranitar ex #66 (Double Rare),Tyranitar ex #211 (Ultra Rare),0.40624,0.628839,0.255459,0.02309,False,0
+Obsidian Flames,Ninetales,65.3163,0.088995,1,Ninetales #199 (Illustration Rare),Ninetales #199 (Illustration Rare),0.400671,0.599329,0.240134,0.021371,True,0
+Obsidian Flames,Decidueye,62.8154,0.074463,1,Decidueye ex #15 (Double Rare),Decidueye ex #15 (Double Rare),0.40624,0.59376,0.241209,0.017961,True,0
+Obsidian Flames,Victini,62.6298,0.073385,1,Victini ex #33 (Double Rare),Victini ex #33 (Double Rare),0.40624,0.59376,0.241209,0.017701,True,0
+Obsidian Flames,Houndoom,62.2207,0.071008,1,Houndoom ex #134 (Double Rare),Houndoom ex #134 (Double Rare),0.40624,0.59376,0.241209,0.017128,True,0
+Obsidian Flames,Gloom,50.8843,0.005138,1,Gloom #198 (Illustration Rare),Gloom #198 (Illustration Rare),0.400671,0.599329,0.240134,0.001234,True,0
+Obsidian Flames,Clefable,50.5634,0.003274,1,Clefable ex #82 (Double Rare),Clefable ex #82 (Double Rare),0.40624,0.59376,0.241209,0.00079,True,0
+Obsidian Flames,Larvitar,50.4746,0.002758,1,Larvitar #203 (Illustration Rare),Larvitar #203 (Illustration Rare),0.400671,0.599329,0.240134,0.000662,True,0
+Shrouded Fable,Zorua,66.0552,0.342169,1,Zorua #75 (Illustration Rare),Zorua #75 (Illustration Rare),0.372364,0.627636,0.233709,0.079968,True,0
+Shrouded Fable,Persian,63.6831,0.291614,1,Persian #78 (Illustration Rare),Persian #78 (Illustration Rare),0.372364,0.627636,0.233709,0.068153,True,0
+Shrouded Fable,Houndoom,62.2207,0.260448,1,Houndoom #66 (Illustration Rare),Houndoom #66 (Illustration Rare),0.372364,0.627636,0.233709,0.060869,True,0
+Shrouded Fable,Bewear,52.6664,0.056826,1,Bewear #79 (Illustration Rare),Bewear #79 (Illustration Rare),0.372364,0.627636,0.233709,0.013281,True,0
+Shrouded Fable,Duskull,52.2965,0.048943,1,Duskull #68 (Illustration Rare),Duskull #68 (Illustration Rare),0.372364,0.627636,0.233709,0.011438,True,0
+Paldea Evolved,Pikachu,86.6387,0.165502,1,Pikachu ex #63 (Double Rare),Pikachu ex #63 (Double Rare),0.453289,0.546711,0.247818,0.041014,True,0
+Paldea Evolved,Noivern,65.7217,0.071017,2,Noivern ex #153 (Double Rare),Noivern ex #246 (Ultra Rare),0.453289,0.796088,0.360858,0.025627,False,0
+Paldea Evolved,Clodsire,61.9341,0.053908,2,Paldean Clodsire ex #130 (Double Rare),Paldean Clodsire ex #244 (Ultra Rare),0.453289,0.796088,0.360858,0.019453,False,0
+Paldea Evolved,Meowscarada,59.7146,0.043882,4,Meowscarada ex #15 (Double Rare),Meowscarada ex #271 (Hyper Rare),0.453289,0.854635,0.387397,0.017,False,0
+Paldea Evolved,Lycanroc Midday,58.1747,0.036926,2,Lycanroc ex #117 (Double Rare),Lycanroc ex #241 (Ultra Rare),0.453289,0.796088,0.360858,0.013325,False,0
+Paldea Evolved,Tinkaton,65.8399,0.071551,2,Tinkaton ex #240 (Ultra Rare),Tinkaton ex #262 (Special Illustration Rare),0.203912,0.835123,0.170291,0.012185,False,0
+Paldea Evolved,Raichu,69.1266,0.086398,1,Raichu #211 (Illustration Rare),Raichu #211 (Illustration Rare),0.162569,0.837431,0.136141,0.011762,True,0
+Paldea Evolved,Wooper,67.6001,0.079502,1,Paldean Wooper #221 (Illustration Rare),Paldean Wooper #221 (Illustration Rare),0.162569,0.837431,0.136141,0.010823,True,0
+Paldea Evolved,Tyranitar,65.5556,0.070267,1,Tyranitar #222 (Illustration Rare),Tyranitar #222 (Illustration Rare),0.162569,0.837431,0.136141,0.009566,True,0
+Paldea Evolved,Heracross,65.038,0.067929,1,Heracross #194 (Illustration Rare),Heracross #194 (Illustration Rare),0.162569,0.837431,0.136141,0.009248,True,0
+Paldea Evolved,Dedenne,54.8862,0.022072,2,Dedenne ex #93 (Double Rare),Dedenne ex #239 (Ultra Rare),0.453289,0.796088,0.360858,0.007965,False,0
+Paldea Evolved,Magikarp,62.6204,0.057008,1,Magikarp #203 (Illustration Rare),Magikarp #203 (Illustration Rare),0.162569,0.837431,0.136141,0.007761,True,0
+Paldea Evolved,Mismagius,60.4903,0.047386,1,Mismagius #212 (Illustration Rare),Mismagius #212 (Illustration Rare),0.162569,0.837431,0.136141,0.006451,True,0
+Paldea Evolved,Sprigatito,57.509,0.033919,1,Sprigatito #196 (Illustration Rare),Sprigatito #196 (Illustration Rare),0.162569,0.837431,0.136141,0.004618,True,0
+Paldea Evolved,Fuecoco,57.4108,0.033476,1,Fuecoco #201 (Illustration Rare),Fuecoco #201 (Illustration Rare),0.162569,0.837431,0.136141,0.004557,True,0
+Paldea Evolved,Tropius,55.4626,0.024675,1,Tropius #195 (Illustration Rare),Tropius #195 (Illustration Rare),0.162569,0.837431,0.136141,0.003359,True,0
+Paldea Evolved,Sudowoodo,52.929,0.013231,1,Sudowoodo #219 (Illustration Rare),Sudowoodo #219 (Illustration Rare),0.162569,0.837431,0.136141,0.001801,True,0
+Paldea Evolved,Marill,52.632,0.011889,1,Marill #204 (Illustration Rare),Marill #204 (Illustration Rare),0.162569,0.837431,0.136141,0.001619,True,0
+Paldea Evolved,Maushold Family Of Four,52.0945,0.009461,1,Maushold #226 (Illustration Rare),Maushold #226 (Illustration Rare),0.162569,0.837431,0.136141,0.001288,True,0
+Paldean Fates,Charizard,87.9598,0.068179,2,Charizard ex #54 (Double Rare),Charizard ex #234 (Special Illustration Rare),0.60033,0.833726,0.500511,0.034124,False,0
+Paldean Fates,Gardevoir,70.8255,0.037404,3,Gardevoir ex #29 (Double Rare),Gardevoir ex #233 (Special Illustration Rare),0.60033,0.833726,0.500511,0.018721,False,0
+Paldean Fates,Mew,80.674,0.055093,2,Mew ex #216 (Shiny Ultra Rare),Mew ex #232 (Special Illustration Rare),0.404834,0.833726,0.337521,0.018595,False,0
+Paldean Fates,Noivern,65.7217,0.028237,2,Noivern ex #69 (Double Rare),Noivern ex #220 (Shiny Ultra Rare),0.60033,0.595166,0.357296,0.010089,False,0
+Paldean Fates,Pikachu,86.6387,0.065806,1,Pikachu #131 (Shiny Rare),Pikachu #131 (Shiny Rare),0.163029,0.836971,0.136451,0.008979,True,0
+Paldean Fates,Clodsire,61.9341,0.021435,2,Paldean Clodsire ex #59 (Double Rare),Paldean Clodsire ex #219 (Shiny Ultra Rare),0.60033,0.595166,0.357296,0.007659,False,0
+Paldean Fates,Mimikyu Disguised,78.4841,0.05116,1,Mimikyu #160 (Shiny Rare),Mimikyu #160 (Shiny Rare),0.163029,0.836971,0.136451,0.006981,True,0
+Paldean Fates,Lucario,75.572,0.045929,1,Lucario #174 (Shiny Rare),Lucario #174 (Shiny Rare),0.163029,0.836971,0.136451,0.006267,True,0
+Paldean Fates,Snorlax,74.1993,0.043464,1,Snorlax #202 (Shiny Rare),Snorlax #202 (Shiny Rare),0.163029,0.836971,0.136451,0.005931,True,0
+Paldean Fates,Ditto,70.9756,0.037674,1,Ditto #201 (Shiny Rare),Ditto #201 (Shiny Rare),0.163029,0.836971,0.136451,0.005141,True,0
+Paldean Fates,Sableye,69.4946,0.035014,1,Sableye #184 (Shiny Rare),Sableye #184 (Shiny Rare),0.163029,0.836971,0.136451,0.004778,True,0
+Paldean Fates,Raichu,69.1266,0.034353,1,Raichu #132 (Shiny Rare),Raichu #132 (Shiny Rare),0.163029,0.836971,0.136451,0.004687,True,0
+Paldean Fates,Luxray,68.1912,0.032673,1,Luxray #137 (Shiny Rare),Luxray #137 (Shiny Rare),0.163029,0.836971,0.136451,0.004458,True,0
+Paldean Fates,Wooper,67.6001,0.031611,1,Paldean Wooper #180 (Shiny Rare),Paldean Wooper #180 (Shiny Rare),0.163029,0.836971,0.136451,0.004313,True,0
+Paldean Fates,Alakazam,59.9155,0.017809,1,Alakazam ex #215 (Shiny Ultra Rare),Alakazam ex #215 (Shiny Ultra Rare),0.404834,0.595166,0.240943,0.004291,True,0
+Paldean Fates,Scizor,67.0596,0.03064,1,Scizor #191 (Shiny Rare),Scizor #191 (Shiny Rare),0.163029,0.836971,0.136451,0.004181,True,0
+Paldean Fates,Tinkaton,65.8399,0.02845,1,Tinkaton #167 (Shiny Rare),Tinkaton #167 (Shiny Rare),0.163029,0.836971,0.136451,0.003882,True,0
+Paldean Fates,Slowpoke,65.6317,0.028076,1,Slowpoke #116 (Shiny Rare),Slowpoke #116 (Shiny Rare),0.163029,0.836971,0.136451,0.003831,True,0
+Paldean Fates,Ceruledge,62.501,0.022453,1,Ceruledge #162 (Shiny Rare),Ceruledge #162 (Shiny Rare),0.163029,0.836971,0.136451,0.003064,True,0
+Paldean Fates,Toxtricity Amped,61.7283,0.021065,1,Toxtricity #141 (Shiny Rare),Toxtricity #141 (Shiny Rare),0.163029,0.836971,0.136451,0.002874,True,0
+Paldean Fates,Charmander,61.7106,0.021033,1,Charmander #109 (Shiny Rare),Charmander #109 (Shiny Rare),0.163029,0.836971,0.136451,0.00287,True,0
+Paldean Fates,Shinx,61.6033,0.02084,1,Shinx #135 (Shiny Rare),Shinx #135 (Shiny Rare),0.163029,0.836971,0.136451,0.002844,True,0
+Paldean Fates,Scyther,61.5013,0.020657,1,Scyther #95 (Shiny Rare),Scyther #95 (Shiny Rare),0.163029,0.836971,0.136451,0.002819,True,0
+Paldean Fates,Jigglypuff,60.8036,0.019404,1,Jigglypuff #198 (Shiny Rare),Jigglypuff #198 (Shiny Rare),0.163029,0.836971,0.136451,0.002648,True,0
+Paldean Fates,Oddish,60.4565,0.018781,1,Oddish #92 (Shiny Rare),Oddish #92 (Shiny Rare),0.163029,0.836971,0.136451,0.002563,True,0
+Paldean Fates,Weavile,58.7436,0.015704,1,Weavile #183 (Shiny Rare),Weavile #183 (Shiny Rare),0.163029,0.836971,0.136451,0.002143,True,0
+Paldean Fates,Hawlucha,57.6225,0.013691,1,Hawlucha #175 (Shiny Rare),Hawlucha #175 (Shiny Rare),0.163029,0.836971,0.136451,0.001868,True,0
+Paldean Fates,Abra,56.801,0.012215,1,Abra #148 (Shiny Rare),Abra #148 (Shiny Rare),0.163029,0.836971,0.136451,0.001667,True,0
+Paldean Fates,Klefki,56.2979,0.011312,1,Klefki #159 (Shiny Rare),Klefki #159 (Shiny Rare),0.163029,0.836971,0.136451,0.001543,True,0
+Paldean Fates,Sneasel,56.2679,0.011258,1,Sneasel #182 (Shiny Rare),Sneasel #182 (Shiny Rare),0.163029,0.836971,0.136451,0.001536,True,0
+Paldean Fates,Bisharp,55.9913,0.010761,1,Bisharp #186 (Shiny Rare),Bisharp #186 (Shiny Rare),0.163029,0.836971,0.136451,0.001468,True,0
+Paldean Fates,Drifloon,55.9721,0.010726,1,Drifloon #155 (Shiny Rare),Drifloon #155 (Shiny Rare),0.163029,0.836971,0.136451,0.001464,True,0
+Paldean Fates,Noibat,55.5666,0.009998,1,Noibat #194 (Shiny Rare),Noibat #194 (Shiny Rare),0.163029,0.836971,0.136451,0.001364,True,0
+Paldean Fates,Slowbro,55.5314,0.009935,1,Slowbro #117 (Shiny Rare),Slowbro #117 (Shiny Rare),0.163029,0.836971,0.136451,0.001356,True,0
+Paldean Fates,Murkrow,54.9158,0.008829,1,Murkrow #181 (Shiny Rare),Murkrow #181 (Shiny Rare),0.163029,0.836971,0.136451,0.001205,True,0
+Paldean Fates,Riolu,54.907,0.008813,1,Riolu #173 (Shiny Rare),Riolu #173 (Shiny Rare),0.163029,0.836971,0.136451,0.001203,True,0
+Paldean Fates,Ralts,54.8321,0.008679,1,Ralts #153 (Shiny Rare),Ralts #153 (Shiny Rare),0.163029,0.836971,0.136451,0.001184,True,0
+Paldean Fates,Pachirisu,54.7632,0.008555,1,Pachirisu #138 (Shiny Rare),Pachirisu #138 (Shiny Rare),0.163029,0.836971,0.136451,0.001167,True,0
+Paldean Fates,Starmie,54.5781,0.008223,1,Starmie #119 (Shiny Rare),Starmie #119 (Shiny Rare),0.163029,0.836971,0.136451,0.001122,True,0
+Paldean Fates,Vileplume,52.3901,0.004293,1,Vileplume #94 (Shiny Rare),Vileplume #94 (Shiny Rare),0.163029,0.836971,0.136451,0.000586,True,0
+Paldean Fates,Maushold Family Of Four,52.0945,0.003762,1,Maushold #210 (Shiny Rare),Maushold #210 (Shiny Rare),0.163029,0.836971,0.136451,0.000513,True,0
+Paldean Fates,Spiritomb,50.9393,0.001687,1,Spiritomb #158 (Shiny Rare),Spiritomb #158 (Shiny Rare),0.163029,0.836971,0.136451,0.00023,True,0
+Paldean Fates,Gloom,50.8843,0.001588,1,Gloom #93 (Shiny Rare),Gloom #93 (Shiny Rare),0.163029,0.836971,0.136451,0.000217,True,0
+Paldean Fates,Natu,50.8652,0.001554,1,Natu #151 (Shiny Rare),Natu #151 (Shiny Rare),0.163029,0.836971,0.136451,0.000212,True,0
+Paldean Fates,Entei,50.3947,0.000709,1,Entei #112 (Shiny Rare),Entei #112 (Shiny Rare),0.163029,0.836971,0.136451,9.7e-05,True,0
+Paldean Fates,Smoliv,50.2599,0.000467,1,Smoliv #102 (Shiny Rare),Smoliv #102 (Shiny Rare),0.163029,0.836971,0.136451,6.4e-05,True,0
+Black Bolt,Serperior,59.3977,0.070961,3,Serperior ex #3 (Double Rare),Serperior ex #164 (Special Illustration Rare),0.622063,1.0,0.622063,0.044142,False,1
+Black Bolt,Zekrom,54.6198,0.034884,4,Zekrom ex #34 (Double Rare),Zekrom ex #166 (Special Illustration Rare),0.622063,1.0,0.622063,0.0217,False,2
+Black Bolt,Excadrill,54.5943,0.034691,3,Excadrill ex #46 (Double Rare),Excadrill ex #168 (Special Illustration Rare),0.622063,1.0,0.622063,0.02158,False,1
+Black Bolt,Meloetta Aria,54.0101,0.03028,3,Meloetta ex #44 (Double Rare),Meloetta ex #167 (Special Illustration Rare),0.622063,1.0,0.622063,0.018836,False,1
+Black Bolt,Volcarona,65.1077,0.114077,1,Volcarona #100 (Illustration Rare),Volcarona #100 (Illustration Rare),0.035802,0.964198,0.03452,0.003938,True,0
+Black Bolt,Scolipede,64.56,0.109941,1,Scolipede #134 (Illustration Rare),Scolipede #134 (Illustration Rare),0.035802,0.964198,0.03452,0.003795,True,0
+Black Bolt,Golurk,62.6634,0.09562,1,Golurk #123 (Illustration Rare),Golurk #123 (Illustration Rare),0.035802,0.964198,0.03452,0.003301,True,0
+Black Bolt,Snivy,61.5233,0.087012,1,Snivy #87 (Illustration Rare),Snivy #87 (Illustration Rare),0.035802,0.964198,0.03452,0.003004,True,0
+Black Bolt,Haxorus,58.8715,0.066988,1,Haxorus #147 (Illustration Rare),Haxorus #147 (Illustration Rare),0.035802,0.964198,0.03452,0.002312,True,0
+Black Bolt,Krookodile,58.2669,0.062423,1,Krookodile #137 (Illustration Rare),Krookodile #137 (Illustration Rare),0.035802,0.964198,0.03452,0.002155,True,0
+Black Bolt,Lilligant,57.4882,0.056543,1,Lilligant #92 (Illustration Rare),Lilligant #92 (Illustration Rare),0.035802,0.964198,0.03452,0.001952,True,0
+Black Bolt,Maractus,56.5654,0.049575,1,Maractus #93 (Illustration Rare),Maractus #93 (Illustration Rare),0.035802,0.964198,0.03452,0.001711,True,0
+Black Bolt,Bisharp,55.9913,0.04524,1,Bisharp #143 (Illustration Rare),Bisharp #143 (Illustration Rare),0.035802,0.964198,0.03452,0.001562,True,0
+Black Bolt,Genesect,50.3035,0.002292,3,Genesect ex #67 (Double Rare),Genesect ex #169 (Special Illustration Rare),0.622063,1.0,0.622063,0.001426,False,1
+Black Bolt,Audino,55.3761,0.040594,1,Audino #151 (Illustration Rare),Audino #151 (Illustration Rare),0.035802,0.964198,0.03452,0.001401,True,0
+Black Bolt,Emolga,55.058,0.038193,1,Emolga #112 (Illustration Rare),Emolga #112 (Illustration Rare),0.035802,0.964198,0.03452,0.001318,True,0
+Black Bolt,Eelektross,53.8844,0.029331,1,Eelektross #115 (Illustration Rare),Eelektross #115 (Illustration Rare),0.035802,0.964198,0.03452,0.001013,True,0
+Black Bolt,Minccino,52.8912,0.021831,1,Minccino #152 (Illustration Rare),Minccino #152 (Illustration Rare),0.035802,0.964198,0.03452,0.000754,True,0
+Black Bolt,Cinccino,51.2614,0.009525,1,Cinccino #153 (Illustration Rare),Cinccino #153 (Illustration Rare),0.035802,0.964198,0.03452,0.000329,True,0
+White Flare,Hydreigon,61.883,0.062033,3,Hydreigon ex #67 (Double Rare),Hydreigon ex #169 (Special Illustration Rare),0.622063,1.0,0.622063,0.038589,False,1
+White Flare,Reshiram,60.4651,0.054632,4,Reshiram ex #20 (Double Rare),Reshiram ex #166 (Special Illustration Rare),0.622063,1.0,0.622063,0.033984,False,2
+White Flare,Whimsicott,60.4599,0.054604,3,Whimsicott ex #5 (Double Rare),Whimsicott ex #165 (Special Illustration Rare),0.622063,1.0,0.622063,0.033967,False,1
+White Flare,Chandelure,69.1672,0.10006,1,Chandelure #103 (Illustration Rare),Chandelure #103 (Illustration Rare),0.035802,0.964198,0.03452,0.003454,True,0
+White Flare,Zoroark,67.3809,0.090734,1,Zoroark #143 (Illustration Rare),Zoroark #143 (Illustration Rare),0.035802,0.964198,0.03452,0.003132,True,0
+White Flare,Oshawott,67.0868,0.089199,1,Oshawott #105 (Illustration Rare),Oshawott #105 (Illustration Rare),0.035802,0.964198,0.03452,0.003079,True,0
+White Flare,Zorua,66.0552,0.083814,1,Zorua #142 (Illustration Rare),Zorua #142 (Illustration Rare),0.035802,0.964198,0.03452,0.002893,True,0
+White Flare,Joltik,64.3057,0.074681,1,Joltik #116 (Illustration Rare),Joltik #116 (Illustration Rare),0.035802,0.964198,0.03452,0.002578,True,0
+White Flare,Trubbish,61.9701,0.062488,1,Trubbish #140 (Illustration Rare),Trubbish #140 (Illustration Rare),0.035802,0.964198,0.03452,0.002157,True,0
+White Flare,Durant,60.1252,0.052857,1,Durant #150 (Illustration Rare),Durant #150 (Illustration Rare),0.035802,0.964198,0.03452,0.001825,True,0
+White Flare,Litwick,59.5779,0.05,1,Litwick #101 (Illustration Rare),Litwick #101 (Illustration Rare),0.035802,0.964198,0.03452,0.001726,True,0
+White Flare,Scrafty,57.0256,0.036676,1,Scrafty #139 (Illustration Rare),Scrafty #139 (Illustration Rare),0.035802,0.964198,0.03452,0.001266,True,0
+White Flare,Galvantula,56.8411,0.035713,1,Galvantula #117 (Illustration Rare),Galvantula #117 (Illustration Rare),0.035802,0.964198,0.03452,0.001233,True,0
+White Flare,Scraggy,56.2733,0.032749,1,Scraggy #138 (Illustration Rare),Scraggy #138 (Illustration Rare),0.035802,0.964198,0.03452,0.001131,True,0
+White Flare,Samurott,55.8291,0.03043,1,Samurott #107 (Illustration Rare),Samurott #107 (Illustration Rare),0.035802,0.964198,0.03452,0.00105,True,0
+White Flare,Tepig,55.2269,0.027286,1,Tepig #96 (Illustration Rare),Tepig #96 (Illustration Rare),0.035802,0.964198,0.03452,0.000942,True,0
+White Flare,Dewott,52.2765,0.011884,1,Dewott #106 (Illustration Rare),Dewott #106 (Illustration Rare),0.035802,0.964198,0.03452,0.00041,True,0
+White Flare,Leavanny,52.1157,0.011045,1,Leavanny #89 (Illustration Rare),Leavanny #89 (Illustration Rare),0.035802,0.964198,0.03452,0.000381,True,0
+White Flare,Sigilyph,52.0615,0.010762,1,Sigilyph #121 (Illustration Rare),Sigilyph #121 (Illustration Rare),0.035802,0.964198,0.03452,0.000371,True,0
+White Flare,Emboar,51.9233,0.01004,1,Emboar #98 (Illustration Rare),Emboar #98 (Illustration Rare),0.035802,0.964198,0.03452,0.000347,True,0
+White Flare,Archeops,51.7124,0.008939,1,Archeops #132 (Illustration Rare),Archeops #132 (Illustration Rare),0.035802,0.964198,0.03452,0.000309,True,0
+White Flare,Cofagrigus,51.2058,0.006295,1,Cofagrigus #123 (Illustration Rare),Cofagrigus #123 (Illustration Rare),0.035802,0.964198,0.03452,0.000217,True,0
+White Flare,Stunfisk,50.363,0.001895,1,Stunfisk #118 (Illustration Rare),Stunfisk #118 (Illustration Rare),0.035802,0.964198,0.03452,6.5e-05,True,0
+White Flare,Sewaddle,50.2266,0.001183,1,Sewaddle #87 (Illustration Rare),Sewaddle #87 (Illustration Rare),0.035802,0.964198,0.03452,4.1e-05,True,0
