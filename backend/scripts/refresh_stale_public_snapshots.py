@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +18,7 @@ from backend.db.services.publication_gate import (
     evaluate_publication_gate,
     gate_decision_report,
 )
-from backend.db.services.set_publication_revalidation import notify_set_snapshot_published
+from backend.db.services.set_publication_revalidation import notify_set_publication
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
 from backend.scripts.build_pokemon_desirability_validation_snapshots import (
@@ -60,8 +61,111 @@ RANKINGS_STALE_THRESHOLD_SECONDS = 300
 # claims every section is current must still fail on the usual staleness checks.
 # unavailableSections must at least name these flagship simulation-derived areas.
 _REQUIRED_UNAVAILABLE_SECTIONS = frozenset({"summary", "top_hits", "openingProfitVsCost"})
-# sectionFreshness keys that describe simulation-derived content.
-_SIMULATION_SECTION_FRESHNESS_KEYS = ("simulationDrivers",)
+
+
+@dataclass(frozen=True)
+class SimulationDerivedSection:
+    """One simulation-derived surface of a published set page.
+
+    ``freshness_keys``  — every ``meta.sectionFreshness`` alias the section may
+                          be labeled under.
+    ``payload_paths``   — every payload location the section's data may occupy.
+    ``declaration_keys``— every alias that counts as declaring the section in
+                          ``simulationAvailability.unavailableSections``.
+
+    Both camelCase and snake_case aliases are listed on purpose: the set-page
+    builder writes snake_case payload sections while the slim normalizers
+    (pokemon_public_snapshot_service) re-emit the same content camelCased. The
+    verifier must recognise either without a second schema.
+    """
+
+    key: str
+    freshness_keys: Tuple[str, ...]
+    payload_paths: Tuple[Tuple[str, ...], ...]
+    declaration_keys: Tuple[str, ...]
+
+
+# The COMPLETE simulation-derived surface. Verification walks these directly
+# rather than trusting the payload's own carriedForwardSections list, so a page
+# cannot hide a section simply by omitting it from that list.
+SIMULATION_DERIVED_SECTIONS: Tuple[SimulationDerivedSection, ...] = (
+    SimulationDerivedSection(
+        key="simulationSummary",
+        freshness_keys=("simulationSummary", "simulation_summary", "summary"),
+        payload_paths=(("summary",),),
+        declaration_keys=("summary", "simulationSummary", "simulation_summary"),
+    ),
+    SimulationDerivedSection(
+        key="simulationDrivers",
+        freshness_keys=("simulationDrivers", "simulation_drivers", "topHits", "top_hits"),
+        payload_paths=(("top_hits",), ("topHits",), ("simulationDrivers",)),
+        declaration_keys=("top_hits", "topHits", "simulationDrivers", "simulation_drivers"),
+    ),
+    SimulationDerivedSection(
+        key="openingProfitVsCost",
+        freshness_keys=("openingProfitVsCost", "opening_profit_vs_cost"),
+        payload_paths=(("openingProfitVsCost",), ("opening_profit_vs_cost",)),
+        declaration_keys=("openingProfitVsCost", "opening_profit_vs_cost"),
+    ),
+    SimulationDerivedSection(
+        key="outcomeDistribution",
+        freshness_keys=("outcomeDistribution", "outcome_distribution"),
+        payload_paths=(
+            ("outcomeDistribution",),
+            ("distribution_bins",),
+            ("threshold_bins",),
+            ("percentiles",),
+        ),
+        declaration_keys=(
+            "outcomeDistribution",
+            "outcome_distribution",
+            "distribution_bins",
+            "threshold_bins",
+            "percentiles",
+        ),
+    ),
+    SimulationDerivedSection(
+        key="simulationMetrics",
+        freshness_keys=("simulationMetrics", "simulation_metrics", "ripStatistics", "rip_statistics"),
+        payload_paths=(("rip_statistics",), ("ripStatistics",)),
+        declaration_keys=("rip_statistics", "ripStatistics", "simulationMetrics", "simulation_metrics"),
+    ),
+    SimulationDerivedSection(
+        key="valueStructure",
+        freshness_keys=("valueStructure", "value_structure", "rarityContribution", "rarity_contribution"),
+        payload_paths=(("rankings",), ("rarityContribution",), ("rarity_contribution",)),
+        declaration_keys=("rankings", "rarityContribution", "rarity_contribution", "valueStructure"),
+    ),
+    SimulationDerivedSection(
+        key="packPaths",
+        freshness_keys=("packPaths", "pack_paths", "packBreakdown", "pack_breakdown"),
+        payload_paths=(
+            ("rip_statistics", "pack_paths"),
+            ("ripStatistics", "packPaths"),
+            ("packPaths",),
+        ),
+        # Pack paths live INSIDE rip_statistics, so declaring that parent
+        # section is what the builder does and what the contract accepts.
+        declaration_keys=("rip_statistics", "ripStatistics", "packPaths", "pack_paths"),
+    ),
+    SimulationDerivedSection(
+        key="historyTrend",
+        freshness_keys=("historyTrend", "history_trend"),
+        payload_paths=(("history_trend",), ("historyTrend",)),
+        declaration_keys=("history_trend", "historyTrend"),
+    ),
+    SimulationDerivedSection(
+        key="pullRateAssumptions",
+        freshness_keys=("pullRateAssumptions", "pull_rate_assumptions"),
+        payload_paths=(("pull_rate_assumptions",), ("pullRateAssumptions",)),
+        declaration_keys=("pull_rate_assumptions", "pullRateAssumptions"),
+    ),
+)
+# Flat sectionFreshness key list kept for the "must never be labeled current"
+# sweep.
+_SIMULATION_SECTION_FRESHNESS_KEYS = tuple(
+    key for section in SIMULATION_DERIVED_SECTIONS for key in section.freshness_keys
+)
 # simulation_input_cards source values that legitimately mean "no simulation row".
 _SIMULATION_UNAVAILABLE_SOURCE_VALUES = frozenset(
     {"NO_ROW", "NO_ROWS", "MISSING", "UNAVAILABLE", "UNAVAILABLE_FALLBACK"}
@@ -159,7 +263,74 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Manual-recovery override: promote even when the scrape batch cohort is incomplete (loudly logged)",
     )
+    parser.add_argument(
+        "--gate-wait-attempts",
+        type=int,
+        default=0,
+        help=(
+            "Bounded automatic retry: re-evaluate a CLOSED publication gate this many extra times "
+            "before deferring, so a cohort that completes shortly after this run starts still "
+            "publishes in the same daily window (0 = defer immediately)"
+        ),
+    )
+    parser.add_argument(
+        "--gate-wait-seconds",
+        type=float,
+        default=600.0,
+        help="Delay between bounded gate re-evaluations (default 600s)",
+    )
     return parser
+
+
+def _await_open_publication_gate(
+    client: Any,
+    *,
+    market_date: Optional[str],
+    override: bool,
+    attempts: int,
+    delay_seconds: float,
+    sleep=time.sleep,
+):
+    """Evaluate the publication gate, with a BOUNDED automatic retry.
+
+    The daily order is scrape -> batch completion -> simulations -> publication.
+    When publication starts while the day's cohort is still finishing, the gate
+    correctly refuses to publish — but deferring immediately leaves the site a
+    full day stale even though the cohort completes minutes later, and requires
+    an operator to rerun the command by hand.
+
+    So a closed gate is re-evaluated a bounded number of times, minutes apart.
+    This is deliberately NOT a polling loop: attempts are capped, the delay is
+    measured in minutes, and each attempt is a single indexed batch-row read, so
+    the added database load is a handful of reads per day. Exhausting the
+    attempts defers exactly as before (dedicated exit code, nothing written).
+    """
+    gate = evaluate_publication_gate(client, market_date=market_date, override=override)
+    remaining = max(0, int(attempts))
+    attempt = 0
+    while not gate.allowed and remaining > 0:
+        attempt += 1
+        logger.warning(
+            "[publication-gate] closed [%s]: %s; automatic re-evaluation %s/%s in %.0fs",
+            gate.reason_code,
+            gate.reason,
+            attempt,
+            int(attempts),
+            delay_seconds,
+        )
+        print(
+            f"publication gate closed [{gate.reason_code}]; awaiting cohort completion "
+            f"(automatic re-evaluation {attempt}/{int(attempts)} in {delay_seconds:.0f}s)"
+        )
+        sleep(max(0.0, float(delay_seconds)))
+        remaining -= 1
+        gate = evaluate_publication_gate(client, market_date=market_date, override=override)
+        if gate.allowed:
+            logger.info(
+                "[publication-gate] reopened after %s automatic re-evaluation(s); publishing", attempt
+            )
+            print(f"publication gate OPENED after {attempt} automatic re-evaluation(s); publishing")
+    return gate
 
 
 def _to_text(value: Any) -> Optional[str]:
@@ -870,9 +1041,10 @@ def _maybe_rebuild_coordinated_market(
         )
         summary.rebuilt_sets["cards"].append(canonical_key)
         summary.rebuilt_sets["market_dashboard"].append(canonical_key)
-        # Bust the frontend seed cache so the new market date replaces any older
-        # cached shell/overview response (best-effort, no-op when unconfigured).
-        notify_set_snapshot_published(set_row.get("canonical_key"), set_row.get("id"))
+        # Every coordinated write committed — bust the frontend seed cache so the
+        # new market date replaces any older cached shell/overview response
+        # (best-effort, no-op when unconfigured).
+        notify_set_publication(set_row, window=window, commit=True)
     except Exception as exc:
         logger.exception("failed coordinated cards/market snapshot refresh %s", _set_label(set_row))
         summary.failed_sets["cards"].append(f"{canonical_key}: {exc}")
@@ -940,7 +1112,7 @@ def _maybe_rebuild_set_page(
         )
         summary.rebuilt_sets["set_page"].append(canonical_key)
         # Invalidate the frontend shell/overview seed cache on a fresh publish.
-        notify_set_snapshot_published(set_row.get("canonical_key"), set_row.get("id"))
+        notify_set_publication(set_row, commit=True)
     except Exception as exc:
         logger.exception("failed set page snapshot refresh %s", _set_label(set_row))
         summary.failed_sets["set_page"].append(f"{canonical_key}: {exc}")
@@ -991,6 +1163,129 @@ def _set_page_has_identity(payload: Dict[str, Any]) -> bool:
     return bool(_to_text(target.get("target_id") or target.get("id")))
 
 
+def _has_content(value: Any) -> bool:
+    """True when a payload node carries real data.
+
+    Container skeletons count as EMPTY: the partial set-page builder publishes
+    ``rip_statistics = {"pack_paths": {}, "normal_pack_states": {}}``, which is a
+    truthy dict but holds nothing. Treating it as populated would make every
+    legitimately-unavailable page fail strict mode.
+    """
+    if value is None or isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_content(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_has_content(item) for item in value)
+    return True
+
+
+def _payload_at(payload: Dict[str, Any], path: Tuple[str, ...]) -> Any:
+    node: Any = payload
+    for key in path:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return node
+
+
+def _section_is_populated(payload: Dict[str, Any], section: SimulationDerivedSection) -> bool:
+    return any(_has_content(_payload_at(payload, path)) for path in section.payload_paths)
+
+
+def _section_freshness_entries(
+    section_freshness: Dict[str, Any], section: SimulationDerivedSection
+) -> List[Tuple[str, Dict[str, Any]]]:
+    entries: List[Tuple[str, Dict[str, Any]]] = []
+    for key in section.freshness_keys:
+        entry = section_freshness.get(key)
+        if isinstance(entry, dict):
+            entries.append((key, entry))
+    return entries
+
+
+def _verify_simulation_derived_sections_absent(
+    canonical_key: str,
+    payload: Dict[str, Any],
+    availability: Dict[str, Any],
+    section_freshness: Dict[str, Any],
+) -> List[str]:
+    """The complete simulation-unavailable surface contract.
+
+    Independent of ``carriedForwardSections``: every known simulation-derived
+    section is inspected directly, so a page cannot pass by simply not
+    mentioning a section it is misrepresenting.
+    """
+    problems: List[str] = []
+    declared = {str(section) for section in (availability.get("unavailableSections") or [])}
+
+    for section in SIMULATION_DERIVED_SECTIONS:
+        entries = _section_freshness_entries(section_freshness, section)
+        statuses = {key: str(entry.get("status") or "").lower() for key, entry in entries}
+        populated = _section_is_populated(payload, section)
+
+        for key, status in statuses.items():
+            if status in ("fresh", "current"):
+                problems.append(
+                    f"{canonical_key}: simulation section {key} labeled {status} while simulation is unavailable"
+                )
+
+        stale_entries = [(key, entry) for key, entry in entries if statuses.get(key) == "stale"]
+        if populated and not stale_entries:
+            problems.append(
+                f"{canonical_key}: simulation section {section.key} is populated but not labeled stale "
+                "while simulation is unavailable"
+            )
+        # Carried-forward content must be dated; an undated "stale" section is
+        # indistinguishable from current data to every downstream consumer.
+        for key, entry in stale_entries:
+            if not _to_text(entry.get("dataAsOf") or entry.get("sourceDate") or entry.get("source_date")):
+                problems.append(
+                    f"{canonical_key}: carried-forward section {key} has no source/data-as-of date"
+                )
+
+        if not populated and not (declared & set(section.declaration_keys)):
+            problems.append(
+                f"{canonical_key}: unavailableSections missing absent simulation section {section.key} "
+                f"(accepted aliases {sorted(section.declaration_keys)})"
+            )
+
+    return problems
+
+
+def _verify_no_current_simulation_advertisement(
+    canonical_key: str, payload: Dict[str, Any], meta: Dict[str, Any], availability: Dict[str, Any]
+) -> List[str]:
+    """A page with no simulation must not advertise a run id or an as-of date."""
+    problems: List[str] = []
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    request = meta.get("request") if isinstance(meta.get("request"), dict) else {}
+    run_id = _to_text(
+        summary.get("calculation_run_id")
+        or summary.get("run_id")
+        or request.get("calculation_run_id")
+        or payload.get("calculation_run_id")
+    )
+    if run_id:
+        problems.append(
+            f"{canonical_key}: simulation run id {run_id} advertised while simulation is unavailable"
+        )
+    for label, value in (
+        ("simulationAvailability.asOfDate", availability.get("asOfDate")),
+        ("summary.run_at", summary.get("run_at")),
+        ("meta.simulationSourceDate", meta.get("simulationSourceDate")),
+    ):
+        if _to_text(value):
+            problems.append(
+                f"{canonical_key}: {label}={_to_text(value)} advertised while simulation is unavailable"
+            )
+    return problems
+
+
 def _verify_partial_set_page(
     canonical_key: str,
     payload: Dict[str, Any],
@@ -1023,16 +1318,19 @@ def _verify_partial_set_page(
     if not any("simulation" in warning and "unavailable" in warning for warning in warnings):
         problems.append(f"{canonical_key}: simulation-unavailable warning missing")
 
-    # No simulation-derived section may be labeled fresh/current while unavailable.
-    for key in _SIMULATION_SECTION_FRESHNESS_KEYS:
-        status = str((section_freshness.get(key) or {}).get("status") or "").lower()
-        if status in ("fresh", "current"):
-            problems.append(
-                f"{canonical_key}: simulation section {key} labeled {status} while simulation is unavailable"
-            )
+    # The COMPLETE simulation-derived surface, inspected directly (never only via
+    # the payload's own carriedForwardSections list).
+    problems.extend(
+        _verify_simulation_derived_sections_absent(
+            canonical_key, payload, availability, section_freshness
+        )
+    )
+    problems.extend(
+        _verify_no_current_simulation_advertisement(canonical_key, payload, meta, availability)
+    )
 
-    # Any carried-forward simulation section must be labeled stale with a
-    # defensible source/data-as-of date (never silently presented as current).
+    # Sections the payload itself declares carried-forward must also hold up:
+    # labeled stale, with a defensible source/data-as-of date.
     for key in availability.get("carriedForwardSections") or []:
         section = section_freshness.get(key) if isinstance(section_freshness.get(key), dict) else {}
         status = str(section.get("status") or "").lower()
@@ -1042,7 +1340,7 @@ def _verify_partial_set_page(
             )
         elif not _to_text(section.get("dataAsOf") or section.get("sourceDate")):
             problems.append(f"{canonical_key}: carried-forward section {key} has no source/data-as-of date")
-    return problems
+    return sorted(set(problems), key=problems.index)
 
 
 def _verify_available_set_page(
@@ -1307,10 +1605,13 @@ def main() -> None:
     # fails closed on every failure class. A closed gate DEFERS publication with
     # a dedicated exit code (distinct from a build failure) so the scheduler
     # never treats "nothing published" as success. Dry-run reports the decision.
-    gate = evaluate_publication_gate(
+    gate = _await_open_publication_gate(
         client,
         market_date=args.market_date,
         override=args.force_publish,
+        # Only a committing run may wait: a dry-run must stay fast and read-only.
+        attempts=args.gate_wait_attempts if commit else 0,
+        delay_seconds=args.gate_wait_seconds,
     )
     if not commit:
         print(

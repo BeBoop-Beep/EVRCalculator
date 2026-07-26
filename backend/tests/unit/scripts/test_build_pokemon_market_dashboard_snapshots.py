@@ -129,9 +129,10 @@ def test_cards_market_defers_with_exit_3_when_gate_closed(monkeypatch, capsys):
     monkeypatch.setattr(command, "upsert_row", lambda *_a, **_k: None)
     monkeypatch.setattr(command, "upsert_rows", lambda *_a, **_k: None)
 
-    with pytest.raises(SystemExit) as excinfo:
-        command.main()
+    # main() returns the process exit code (the __main__ guard raises SystemExit
+    # with it), matching build_pokemon_set_page_snapshots.py.
+    code = command.main()
 
-    assert excinfo.value.code == 3
+    assert code == 3
     assert built == []
     assert "publication gate CLOSED" in capsys.readouterr().out

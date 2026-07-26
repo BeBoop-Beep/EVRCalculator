@@ -1582,6 +1582,54 @@ def _top_chase_history_counts(history_by_card: Dict[str, List[Dict[str, Any]]]) 
     return [len(history) for history in history_by_card.values() if isinstance(history, list)]
 
 
+def top_chase_point_date(point: Any) -> Optional[str]:
+    """Normalized ``YYYY-MM-DD`` date of a Top Chase history point (or None)."""
+    if not isinstance(point, dict):
+        return None
+    return parse_date_key(
+        first_non_empty(point.get("date"), point.get("captured_at"), point.get("capturedAt"))
+    )
+
+
+def is_observed_top_chase_point(point: Any) -> bool:
+    """True only for a GENUINELY OBSERVED Top Chase point.
+
+    Forward-fill carries the last real observation to the canonical market
+    boundary so the display history has no holes. Those synthetic points must
+    never advance an "observed" date field — a dashboard reporting
+    ``topChaseSourceDate = 2026-07-16`` alongside
+    ``topChaseHistoryLatestObservedDate = 2026-07-25`` is the exact
+    contradiction this helper exists to prevent. Both camelCase and snake_case
+    flags are honoured because histories are assembled from payloads written in
+    either convention.
+
+    This is the single source of truth for "observed": every observed date,
+    count, and section source date must be derived through it.
+    """
+    if not isinstance(point, dict):
+        return False
+    if not top_chase_point_date(point):
+        return False
+    if point.get("isObserved") is False or point.get("is_observed") is False:
+        return False
+    if point.get("isCarriedForward") is True or point.get("is_carried_forward") is True:
+        return False
+    return True
+
+
+def observed_top_chase_dates(history_by_card: Dict[str, List[Dict[str, Any]]]) -> List[str]:
+    """Sorted distinct dates of the genuinely observed points across all cards."""
+    return sorted(
+        {
+            top_chase_point_date(point)
+            for history in (history_by_card or {}).values()
+            if isinstance(history, list)
+            for point in history
+            if is_observed_top_chase_point(point)
+        }
+    )
+
+
 def _top_chase_histories_cover_source_window(
     history_by_card: Dict[str, List[Dict[str, Any]]],
     *,
@@ -1993,6 +2041,16 @@ def _history_by_card(cards: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, An
             if source_date:
                 compact_point["sourceDate"] = str(source_date)[:10]
                 compact_point["source_date"] = str(source_date)[:10]
+            # Preserve any UPSTREAM observation flags. Compacting them away let a
+            # point that the source explicitly marked carried-forward (or not
+            # observed) be reconstructed as a real observation further down the
+            # pipeline, which is exactly how a synthetic point could advance an
+            # "observed" date.
+            if not is_observed_top_chase_point(point):
+                compact_point["isObserved"] = False
+                compact_point["is_observed"] = False
+                compact_point["isCarriedForward"] = True
+                compact_point["is_carried_forward"] = True
             compact_history.append(compact_point)
         if compact_history:
             history_by_card[str(key)] = compact_history
@@ -2027,6 +2085,8 @@ def _forward_fill_history_through_date(
             carried_forward = bool(
                 observed.get("isCarriedForward")
                 or observed.get("is_carried_forward")
+                or observed.get("isObserved") is False
+                or observed.get("is_observed") is False
                 or source_date < date_key
             )
             last_point = {
@@ -2247,14 +2307,12 @@ def _top_chase_raw_movement_histories(
     for key, points in histories.items():
         usable = []
         for point in points if isinstance(points, list) else []:
-            point_date = parse_date_key(
-                first_non_empty(point.get("date"), point.get("captured_at"), point.get("capturedAt"))
-            )
-            if not point_date or point_date < cutoff or point_date > end_date_key:
+            # Movement is computed from RAW observations only — same canonical
+            # "observed" definition the observed-date metadata uses.
+            if not is_observed_top_chase_point(point):
                 continue
-            if point.get("isObserved") is False or point.get("is_observed") is False:
-                continue
-            if point.get("isCarriedForward") is True or point.get("is_carried_forward") is True:
+            point_date = top_chase_point_date(point)
+            if point_date < cutoff or point_date > end_date_key:
                 continue
             usable.append(point)
         if usable:
@@ -2320,6 +2378,34 @@ _DASHBOARD_SECTION_LABELS = {
 }
 
 
+def resolve_market_freshness_reference_date(
+    *,
+    advertised_market_date: Optional[str],
+    set_value_source_date: Optional[str] = None,
+    top_chase_source_date: Optional[str] = None,
+    cards_snapshot_source_date: Optional[str] = None,
+) -> Optional[str]:
+    """The authoritative market boundary a section's freshness is judged against.
+
+    This is a MARKET date, never a publication timestamp. The advertised market
+    date wins when it parses; otherwise the newest valid market-source date is
+    used. The UTC page build date is deliberately NOT a candidate: a snapshot
+    built at 18:00 in Phoenix on July 25 carries a July 26 UTC build date, and
+    letting that advance the reference would mark every genuinely current
+    July-25 market section stale. The simulation date is also excluded — it is
+    compared against this boundary but must never advance it.
+    """
+    advertised = parse_date_key(advertised_market_date)
+    if advertised:
+        return advertised
+    candidates = (
+        parse_date_key(set_value_source_date),
+        parse_date_key(top_chase_source_date),
+        parse_date_key(cards_snapshot_source_date),
+    )
+    return max((value for value in candidates if value), default=None)
+
+
 def _build_dashboard_section_freshness(
     *,
     built_at: str,
@@ -2337,19 +2423,19 @@ def _build_dashboard_section_freshness(
     ``unavailable`` status against the newest available market date, so a July 25
     dashboard carrying July 16 Top Chase data is explicitly visible rather than
     silently uniform.
+
+    ``pageSourceDate`` stays exposed as PUBLICATION metadata (when the snapshot
+    row was written, UTC) and is reported under the ``page`` section with its own
+    ``published`` status — it is not a market date and never participates in the
+    market freshness reference.
     """
     page_source_date = utc_date_key(built_at)
-    market_dates = [
-        parse_date_key(value)
-        for value in (
-            advertised_market_date,
-            set_value_source_date,
-            top_chase_source_date,
-            cards_snapshot_source_date,
-            page_source_date,
-        )
-    ]
-    reference_date = max((value for value in market_dates if value), default=None)
+    reference_date = resolve_market_freshness_reference_date(
+        advertised_market_date=advertised_market_date,
+        set_value_source_date=set_value_source_date,
+        top_chase_source_date=top_chase_source_date,
+        cards_snapshot_source_date=cards_snapshot_source_date,
+    )
 
     def _status(source_date: Optional[str]) -> Dict[str, Any]:
         resolved = parse_date_key(source_date)
@@ -2364,7 +2450,16 @@ def _build_dashboard_section_freshness(
         "topChase": _status(top_chase_source_date),
         "cards": _status(cards_snapshot_source_date),
         "simulation": _status(simulation_source_date),
-        "page": _status(page_source_date),
+        # Publication metadata, NOT market freshness: this section answers "when
+        # was the row written" and deliberately uses a different status
+        # vocabulary so no consumer can read it as a market-data status.
+        "page": {
+            "sourceDate": page_source_date,
+            "publishedDate": page_source_date,
+            "status": "published" if page_source_date else "unknown",
+            "referenceDate": reference_date,
+            "kind": "publication",
+        },
     }
 
     warnings: List[str] = []
@@ -2571,13 +2666,6 @@ def build_market_dashboard_snapshot_rows(
         if selected_variant_id and history:
             top_chase_card_histories[selected_variant_id] = history
     top_chase_history_counts = _top_chase_history_counts(top_chase_card_histories)
-    top_chase_observed_dates = [
-        str(point.get("date"))[:10]
-        for history in top_chase_card_histories.values()
-        if isinstance(history, list)
-        for point in history
-        if parse_date_key(point.get("date"))
-    ]
     movement_windows_payload = build_pokemon_set_card_movements_by_window_payload(
         set_id=set_id,
         window_days=tuple(MARKET_MOVERS_WINDOWS_DAYS.values()),
@@ -2610,20 +2698,25 @@ def build_market_dashboard_snapshot_rows(
     # Only genuinely OBSERVED points count as Top Chase freshness. Forward-fill
     # carries the last value forward to the canonical date, so the raw max date
     # would falsely report the dashboard as current — this is precisely the
-    # July 16-observed / July 25-carried misrepresentation being repaired.
-    top_chase_observed_only_dates = [
-        parse_date_key(point.get("date"))
+    # July 16-observed / July 25-carried misrepresentation being repaired. Every
+    # observed-date field below is derived from this ONE list so the authoritative
+    # source date and the legacy first/latest fields can never contradict.
+    top_chase_observed_dates = observed_top_chase_dates(top_chase_card_histories)
+    top_chase_source_date = top_chase_observed_dates[-1] if top_chase_observed_dates else None
+    top_chase_observed_point_count = sum(
+        1
         for history in top_chase_card_histories.values()
         if isinstance(history, list)
         for point in history
-        if isinstance(point, dict)
-        and point.get("isObserved") is not False
-        and point.get("is_observed") is not False
-        and point.get("isCarriedForward") is not True
-        and point.get("is_carried_forward") is not True
-        and parse_date_key(point.get("date"))
-    ]
-    top_chase_source_date = max(top_chase_observed_only_dates) if top_chase_observed_only_dates else None
+        if is_observed_top_chase_point(point)
+    )
+    top_chase_carried_forward_point_count = sum(
+        1
+        for history in top_chase_card_histories.values()
+        if isinstance(history, list)
+        for point in history
+        if isinstance(point, dict) and not is_observed_top_chase_point(point)
+    )
     section_freshness = _build_dashboard_section_freshness(
         built_at=built_at,
         advertised_market_date=latest_market_date,
@@ -2702,8 +2795,13 @@ def build_market_dashboard_snapshot_rows(
             "topChaseHistorySourceWindowDays": TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
             "topChaseHistoryMinPoints": min(top_chase_history_counts) if top_chase_history_counts else 0,
             "topChaseHistoryMaxPoints": max(top_chase_history_counts) if top_chase_history_counts else 0,
-            "topChaseHistoryFirstObservedDate": min(top_chase_observed_dates) if top_chase_observed_dates else None,
-            "topChaseHistoryLatestObservedDate": max(top_chase_observed_dates) if top_chase_observed_dates else None,
+            # Legacy compatibility fields. They are computed from the SAME
+            # observed-point helper as topChaseSourceDate, so a forward-filled
+            # display point can never make them disagree with it.
+            "topChaseHistoryFirstObservedDate": top_chase_observed_dates[0] if top_chase_observed_dates else None,
+            "topChaseHistoryLatestObservedDate": top_chase_source_date,
+            "topChaseObservedPointCount": top_chase_observed_point_count,
+            "topChaseCarriedForwardPointCount": top_chase_carried_forward_point_count,
             "topChaseHistoryHydratedFromDailyTable": False,
             "windowConvention": WINDOW_CONVENTION,
             "movementQueryDiagnostics": movement_windows_payload.get("meta") or {},

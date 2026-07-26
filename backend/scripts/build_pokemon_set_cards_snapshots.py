@@ -26,6 +26,7 @@ from backend.db.services.publication_gate import (
     add_publication_gate_args,
     enforce_cli_publication_gate,
 )
+from backend.db.services.set_publication_revalidation import notify_set_publication
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 
 
@@ -48,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
+def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args()
     commit = should_commit(args)
@@ -62,10 +63,11 @@ def main() -> None:
         entry_point="set cards snapshots",
     )
     if not gate.proceed:
-        raise SystemExit(gate.exit_code)
+        return gate.exit_code
 
     built_count = 0
     failed_count = 0
+    revalidated: set[str] = set()
     target_sets = run_snapshot_operation_with_retry(
         lambda fresh_client: resolve_target_sets(fresh_client, args),
         operation_name="resolve cards snapshot targets",
@@ -118,6 +120,9 @@ def main() -> None:
             )
             built_count += 1
             consecutive_transient_failures = 0
+            # Every write for this set committed — only now may the frontend
+            # seed cache be invalidated (no-op on dry-run, once per set).
+            notify_set_publication(set_row, commit=commit, seen=revalidated)
         except Exception as exc:
             failed_count += 1
             logging.exception("failed cards snapshot set_id=%s", set_row.get("id"))
@@ -138,7 +143,11 @@ def main() -> None:
     summary = f"cards snapshot summary built={built_count} failed={failed_count}"
     logging.info(summary)
     print(summary)
+    # A set that genuinely failed to build must fail the CLI: the orchestration
+    # script trusts child exit codes, so returning 0 here would let a partial
+    # run be reported as a fully successful publication.
+    return 1 if failed_count else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

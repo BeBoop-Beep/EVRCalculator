@@ -76,7 +76,15 @@ REFRESH_EXIT=0
 #   0 = published / no work needed after an open gate
 #   3 = publication DEFERRED by the batch-cohort gate (cohort not ready)
 #   other nonzero = genuine refresh/build failure
-python backend/scripts/refresh_stale_public_snapshots.py --commit --strict >> logs/refresh_public_snapshots.log 2>&1 || REFRESH_EXIT=$?
+# --gate-wait-attempts/--gate-wait-seconds give the day ONE deterministic,
+# bounded automatic retry path: publication starts after the simulations, and if
+# the day's scrape cohort is still finishing, the gate is re-evaluated up to 6
+# times 10 minutes apart (<= 1 extra hour, inside the same daily window, a
+# handful of indexed reads) instead of deferring the whole day until an operator
+# reruns the command by hand. Exhausting the attempts still defers with exit 3.
+python backend/scripts/refresh_stale_public_snapshots.py --commit --strict \
+  --gate-wait-attempts 6 --gate-wait-seconds 600 \
+  >> logs/refresh_public_snapshots.log 2>&1 || REFRESH_EXIT=$?
 REFRESH_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
 if [ "$REFRESH_EXIT" -eq 0 ]; then

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from backend.scripts import refresh_stale_public_snapshots as refresh
+from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
 
 
 def _iso(dt):
@@ -619,7 +620,9 @@ def _partial_page_row(set_id="set-1", *, updated="2026-07-25T00:00:00+00:00", ca
         "available": False,
         "reason": "No simulation data found for this target",
         "asOfDate": None,
-        "unavailableSections": ["summary", "top_hits", "openingProfitVsCost", "pull_rate_assumptions"],
+        # The REAL declaration list the set-page builder writes. Imported rather
+        # than hand-listed so the fixture cannot drift from production.
+        "unavailableSections": list(SIMULATION_DEPENDENT_SECTIONS),
         "carryForward": carried,
         "carriedForwardSections": (["simulationDrivers"] if carried else []),
     }

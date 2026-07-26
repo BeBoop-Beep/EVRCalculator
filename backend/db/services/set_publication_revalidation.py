@@ -22,12 +22,23 @@ import json
 import logging
 import os
 import urllib.request
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, MutableSet, Optional
 
 logger = logging.getLogger(__name__)
 
 _TAG = "[set-revalidation]"
 _TIMEOUT_SECONDS = 5
+
+# Overview cache-tag windows the frontend seeds a set page from. Mirrors
+# OVERVIEW_WINDOWS in frontend/app/api/internal/revalidate-set/route.js: every
+# publication invalidates the whole family so no window can keep serving an
+# older market date than its siblings.
+DEFAULT_OVERVIEW_WINDOWS = ("365d", "180d", "90d", "30d", "7d")
+
+# Identity columns the frontend may address a set by. All of them are
+# invalidated because the seed's cache tag is built from whichever identifier
+# the incoming route used.
+_SET_IDENTIFIER_FIELDS = ("canonical_key", "id", "set_id", "pokemon_api_set_id")
 
 
 def _dedupe(identifiers: Iterable[Optional[str]]) -> List[str]:
@@ -39,6 +50,70 @@ def _dedupe(identifiers: Iterable[Optional[str]]) -> List[str]:
             seen.add(text)
             resolved.append(text)
     return resolved
+
+
+def is_revalidation_configured() -> bool:
+    """True when both the frontend URL and the shared secret are configured."""
+    return bool(
+        str(os.getenv("SET_REVALIDATION_URL", "")).strip()
+        and str(os.getenv("SET_REVALIDATION_SECRET", "")).strip()
+    )
+
+
+def resolve_set_revalidation_identifiers(set_row: Any) -> List[str]:
+    """Every identifier the frontend may address this set by, deduped."""
+    if isinstance(set_row, dict):
+        return _dedupe(set_row.get(field) for field in _SET_IDENTIFIER_FIELDS)
+    return _dedupe([set_row])
+
+
+def resolve_revalidation_windows(window: Optional[str] = None) -> List[str]:
+    """The requested window (when given) plus the standard Overview windows."""
+    return _dedupe([window, *DEFAULT_OVERVIEW_WINDOWS])
+
+
+def notify_set_publication(
+    set_row: Any,
+    *,
+    window: Optional[str] = None,
+    commit: bool = True,
+    seen: Optional[MutableSet[str]] = None,
+) -> bool:
+    """Publish-success cache invalidation for ONE fully published set.
+
+    This is the single entry point every publisher calls. Contract:
+
+    * Call it only AFTER every write required for that set has committed —
+      never between the Cards write and the dashboard write of one coordinated
+      operation, so a later failure can never leave a "revalidated" claim
+      behind a partial publication.
+    * ``commit=False`` (dry-run) is a hard no-op: a run that wrote nothing must
+      never touch the cache.
+    * ``seen`` de-duplicates within a single process run, so one set published
+      once is invalidated once no matter how many writes it involved.
+
+    Best-effort and non-fatal by design: an unreachable frontend logs a visible
+    warning but leaves the publication successful.
+    """
+    if not commit:
+        return False
+    identifiers = resolve_set_revalidation_identifiers(set_row)
+    if not identifiers:
+        return False
+    if seen is not None:
+        if identifiers[0] in seen:
+            return False
+        seen.add(identifiers[0])
+
+    ok = notify_set_snapshot_published(*identifiers, windows=resolve_revalidation_windows(window))
+    if not ok and is_revalidation_configured():
+        logger.warning(
+            "%s cache invalidation FAILED for published set=%s; the publication itself succeeded "
+            "and the frontend will serve the older cached seed until its timer elapses",
+            _TAG,
+            identifiers[0],
+        )
+    return ok
 
 
 def notify_set_snapshot_published(
@@ -55,6 +130,7 @@ def notify_set_snapshot_published(
     base_url = str(os.getenv("SET_REVALIDATION_URL", "")).strip()
     secret = str(os.getenv("SET_REVALIDATION_SECRET", "")).strip()
     if not base_url or not secret:
+        logger.info("%s not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation", _TAG)
         return False
 
     any_ok = False

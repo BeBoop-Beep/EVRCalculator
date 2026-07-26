@@ -14,6 +14,7 @@ from backend.db.services.publication_gate import (
     add_publication_gate_args,
     enforce_cli_publication_gate,
 )
+from backend.db.services.set_publication_revalidation import notify_set_publication
 from backend.scripts.pokemon_snapshot_builders import (
     add_target_set_args,
     build_set_page_snapshot_row,
@@ -74,6 +75,7 @@ def main() -> int:
     built_count = 0
     skipped_count = 0
     failed_count = 0
+    revalidated: set[str] = set()
 
     for set_row in resolve_target_sets(client, args):
         logging.info("building set page snapshot %s", _set_label(set_row))
@@ -87,6 +89,8 @@ def main() -> int:
                 commit=commit,
             )
             built_count += 1
+            # Published: invalidate the frontend seed cache (no-op on dry-run).
+            notify_set_publication(set_row, commit=commit, seen=revalidated)
         except ExplorePageError as exc:
             if _is_missing_data_error(exc):
                 skipped_count += 1
