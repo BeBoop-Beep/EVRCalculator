@@ -12,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from backend.db.services.publication_gate import evaluate_publication_gate
+from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
 from backend.scripts.build_pokemon_desirability_validation_snapshots import (
     _audit_row,
@@ -48,6 +50,29 @@ KNOWN_SET_PAGE_STALE_WARNING_PATTERNS = (
     "skipped live repair during route render",
 )
 RANKINGS_STALE_THRESHOLD_SECONDS = 300
+# Bounded per-set rebuild retries. Only transient data-service errors are
+# retried (classified inside run_snapshot_operation_with_retry) with exponential
+# backoff, so a momentary Supabase timeout does not fail an otherwise-recoverable
+# set — while a genuine error still fails fast after the bound. Kept small to
+# avoid amplifying disk I/O during recovery. Sequential by design (no parallel
+# DB-heavy snapshot generation).
+_REBUILD_MAX_ATTEMPTS = 3
+
+
+def _rebuild_with_bounded_retry(operation, *, operation_name: str, set_id: str, client: Any):
+    """Run a rebuild with bounded, transient-only retries against one client.
+
+    The shared client is reused (no parallelism, no client churn) so recovery
+    stays I/O-safe. Non-transient errors raise immediately for the caller's
+    per-set failure handling.
+    """
+    return run_snapshot_operation_with_retry(
+        operation,
+        operation_name=operation_name,
+        set_id=set_id,
+        max_attempts=_REBUILD_MAX_ATTEMPTS,
+        client_factory=lambda: client,
+    )
 
 
 @dataclass
@@ -109,6 +134,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tcg", default="pokemon", help="TCG to refresh; only pokemon is supported for now")
     parser.add_argument("--days", type=int, default=DEFAULT_DASHBOARD_DAYS, help="Market dashboard history days")
     parser.add_argument("--window", default=DEFAULT_DASHBOARD_WINDOW, help="Market dashboard window key")
+    parser.add_argument(
+        "--market-date",
+        help="America/Phoenix market date whose scrape batch gates promotion (default: newest batch)",
+    )
+    parser.add_argument(
+        "--force-publish",
+        action="store_true",
+        help="Manual-recovery override: promote even when the scrape batch cohort is incomplete (loudly logged)",
+    )
     return parser
 
 
@@ -781,34 +815,42 @@ def _maybe_rebuild_coordinated_market(
         summary.skipped_sets["cards"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
         summary.skipped_sets["market_dashboard"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
         return
-    try:
-        refresh_canonical_card_market_prices_for_set(client, str(set_row["id"]), commit=True)
+    def _operation(op_client: Any) -> None:
+        refresh_canonical_card_market_prices_for_set(op_client, str(set_row["id"]), commit=True)
         cards_row, dashboard_row, history_rows = build_coordinated_set_market_snapshot_rows(
             set_row,
             days=days,
             window=window,
-            client=client,
+            client=op_client,
         )
         upsert_row(
-            client,
+            op_client,
             "pokemon_set_cards_snapshot_latest",
             cards_row,
             on_conflict="set_id",
             commit=True,
         )
         upsert_rows(
-            client,
+            op_client,
             "pokemon_set_top_chase_card_daily_history",
             history_rows,
             on_conflict="set_id,snapshot_date,rank",
             commit=True,
         )
         upsert_row(
-            client,
+            op_client,
             "pokemon_set_market_dashboard_snapshot_latest",
             dashboard_row,
             on_conflict="set_id,window_key",
             commit=True,
+        )
+
+    try:
+        _rebuild_with_bounded_retry(
+            _operation,
+            operation_name="coordinated_cards_market",
+            set_id=str(set_row["id"]),
+            client=client,
         )
         summary.rebuilt_sets["cards"].append(canonical_key)
         summary.rebuilt_sets["market_dashboard"].append(canonical_key)
@@ -866,9 +908,17 @@ def _maybe_rebuild_set_page(
     if not commit:
         summary.skipped_sets["set_page"].append(f"{canonical_key}: dry-run dependency/set page stale")
         return
+    def _operation(op_client: Any) -> None:
+        row = build_set_page_snapshot_row(set_row, client=op_client)
+        upsert_row(op_client, "pokemon_set_page_snapshot_latest", row, on_conflict="set_id", commit=True)
+
     try:
-        row = build_set_page_snapshot_row(set_row, client=client)
-        upsert_row(client, "pokemon_set_page_snapshot_latest", row, on_conflict="set_id", commit=True)
+        _rebuild_with_bounded_retry(
+            _operation,
+            operation_name="set_page",
+            set_id=str(set_row["id"]),
+            client=client,
+        )
         summary.rebuilt_sets["set_page"].append(canonical_key)
     except Exception as exc:
         logger.exception("failed set page snapshot refresh %s", _set_label(set_row))
@@ -1047,6 +1097,20 @@ def _audit_set_page_freshness(client: Any, set_rows: List[Dict[str, Any]]) -> Se
     return audit
 
 
+def _has_hard_failures(summary: RefreshSummary) -> bool:
+    """A requested set (or global family) build actually failed.
+
+    Distinct from staleness/verification warnings: these are builds that raised
+    or were caught-and-recorded by an inner builder. The CLI must return nonzero
+    on these regardless of --strict so a scheduler never treats a partial
+    recovery as success.
+    """
+    return bool(
+        summary.global_failed
+        or any(summary.failed_sets[family] for family in summary.failed_sets)
+    )
+
+
 def _strict_should_fail(summary: RefreshSummary, *, commit: bool) -> bool:
     audit = summary.set_page_audit
     return bool(
@@ -1094,6 +1158,25 @@ def main() -> None:
 
     commit = bool(args.commit)
     client = get_client()
+
+    # Batch-cohort gate: downstream promotion only when the day's scrape cohort
+    # is observation-complete. Blocking preserves the previous good snapshots.
+    # Enforced only when actually committing; dry-run always reports the plan.
+    gate = evaluate_publication_gate(
+        client,
+        market_date=args.market_date,
+        override=args.force_publish,
+    )
+    if commit and not gate.allowed:
+        print("public snapshot refresh gated")
+        print(f"publication gate CLOSED: {gate.reason}")
+        print("preserving previous good public snapshots; no promotion performed")
+        if gate.missing_set_count is not None:
+            print(f"batch missing_set_count: {gate.missing_set_count}")
+        return
+    if gate.override:
+        print(f"publication gate OVERRIDDEN (manual recovery): {gate.reason}")
+
     set_rows = _resolve_sets(client, set_id=args.set_id)
     plans, rankings, validation, source_checks = _build_plan(client, set_rows=set_rows, window=args.window)
 
@@ -1147,7 +1230,9 @@ def main() -> None:
     summary.set_page_audit = _audit_set_page_freshness(client, set_rows)
     _print_summary(summary)
 
-    if args.strict and _strict_should_fail(summary, commit=commit):
+    # A hard build failure always fails the run so the scheduler never treats a
+    # partial recovery as success; --strict additionally fails on staleness.
+    if _has_hard_failures(summary) or (args.strict and _strict_should_fail(summary, commit=commit)):
         raise SystemExit(1)
 
 

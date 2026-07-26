@@ -1939,3 +1939,133 @@ def test_build_market_dashboard_performance_history_updates_when_simulation_chan
     perf_v2_sv100 = make_row(sim_rows_v2, 100.0)
     assert perf_v2_sv100 != perf_v1_sv100, "simulation change must update performanceVsCostHistory"
     assert perf_v2_sv100[0]["simulated_mean_pack_value_vs_pack_cost"] == 0.80
+
+
+# ---------------------------------------------------------------------------
+# Fail-graceful set page snapshots (missing simulation must not reject the page)
+# ---------------------------------------------------------------------------
+
+from backend.db.services.explore_page_service import ExplorePageError  # noqa: E402
+
+
+def _fail_graceful_client(*, cards_rows=None, page_rows=None):
+    return _Client(
+        {
+            "simulation_input_cards_with_near_mint_price": lambda _q: [],
+            "simulation_input_cards": lambda _q: [],
+            "pokemon_set_cards_snapshot_latest": lambda _q: cards_rows or [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _q: [],
+            "explore_rip_statistics_latest": lambda _q: [],
+            "simulation_latest_by_target": lambda _q: [],
+            "pokemon_set_page_snapshot_latest": lambda _q: page_rows or [],
+        }
+    )
+
+
+def test_set_page_publishes_partial_when_no_simulation_data(monkeypatch):
+    """A set with no simulation/RIP row must still publish identity + markers."""
+    def _raise_missing(target_type, set_id):
+        raise ExplorePageError(
+            status_code=404,
+            message="No simulation data found for this target",
+            code="TARGET_NOT_FOUND",
+        )
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_explore_page_payload", _raise_missing)
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        {"id": "set-1", "name": "Alpha", "canonical_key": "alpha"}, client=client
+    )
+
+    # Identity + title publish independently of simulation.
+    assert row["set_identity_json"]["id"] == "set-1"
+    assert row["set_identity_json"]["name"] == "Alpha"
+    assert row["title_card_json"]["id"] == "set-1"
+
+    availability = row["payload_json"]["meta"]["simulationAvailability"]
+    assert availability["available"] is False
+    assert "summary" in availability["unavailableSections"]
+    assert "openingProfitVsCost" in availability["unavailableSections"]
+    assert "pull_rate_assumptions" in availability["unavailableSections"]
+
+    warnings = row["payload_json"]["meta"]["warnings"]
+    assert any("Simulation data is unavailable" in str(w) for w in warnings)
+
+    # Simulation-derived summaries are explicitly empty, not fabricated.
+    assert row["market_summary_json"] == {}
+    assert row["rip_summary_json"] == {}
+
+
+def test_set_page_full_data_marks_simulation_available(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {
+                "calculation_run_id": "run-1",
+                "run_at": "2026-07-17T00:00:00+00:00",
+                "pack_cost": 4.0,
+                "mean_value": 5.0,
+                "median_value": 4.5,
+                "prob_profit": 0.6,
+                "pack_rank": 3,
+            },
+            "top_hits": [{"card_name": "Chase", "ev_contribution": 2.0}],
+            "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+
+    availability = row["payload_json"]["meta"]["simulationAvailability"]
+    assert availability["available"] is True
+    assert availability["unavailableSections"] == []
+    assert availability["asOfDate"] == "2026-07-17T00:00:00+00:00"
+    assert row["market_summary_json"]["pack_cost"] == 4.0
+    assert row["market_summary_json"]["mean_value"] == 5.0
+    assert not any("Simulation data is unavailable" in str(w) for w in row["payload_json"]["meta"]["warnings"])
+
+
+def test_set_page_partial_market_data_publishes_present_fields_only(monkeypatch):
+    # Simulation present but summary only carries some market fields (partial).
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-9", "pack_cost": 4.0, "mean_value": 5.0},
+            "top_hits": [],
+            "meta": {"sources": {"simulation_input_cards": "NO_ROWS"}, "warnings": []},
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+
+    market = row["market_summary_json"]
+    assert market["pack_cost"] == 4.0
+    assert market["mean_value"] == 5.0
+    # A field never provided must not be fabricated with a placeholder value.
+    assert "median_value" not in market
+    assert row["payload_json"]["meta"]["simulationAvailability"]["available"] is True
+
+
+def test_set_page_genuine_backend_failure_is_not_masked(monkeypatch):
+    """A real 5xx (not missing data) must still propagate — never a silent partial."""
+    def _raise_server_error(target_type, set_id):
+        raise ExplorePageError(
+            status_code=500,
+            message="Failed to load required summary statistics",
+            code="SUMMARY_QUERY_FAILED",
+        )
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_explore_page_payload", _raise_server_error)
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    with pytest.raises(ExplorePageError):
+        pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)

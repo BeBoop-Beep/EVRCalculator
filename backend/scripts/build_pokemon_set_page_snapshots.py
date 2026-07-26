@@ -48,7 +48,7 @@ def _error_message(exc: Exception) -> str:
     return str(getattr(exc, "message", exc))
 
 
-def main() -> None:
+def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args()
     client = get_client()
@@ -107,7 +107,10 @@ def main() -> None:
     summary = f"set page snapshot summary built={built_count} skipped={skipped_count} failed={failed_count}"
     logging.info(summary)
     print(summary)
+    # A genuine build failure (not a graceful skip) must fail the CLI so a
+    # scheduler never treats a partial run as success.
+    return 1 if failed_count else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

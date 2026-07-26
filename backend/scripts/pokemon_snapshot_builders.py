@@ -15,6 +15,7 @@ from postgrest.types import ReturnMethod
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.explore_page_service import (
     DEFAULT_TOP_HITS_LIMIT,
+    ExplorePageError,
     get_explore_page_payload,
 )
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
@@ -1164,10 +1165,142 @@ def _finalize_snapshot_completeness(
     return {**payload, "meta": meta}
 
 
+# Sections of the set-page payload that cannot be produced without a simulation
+# run. When simulation data is unavailable these are published as explicitly
+# empty/null with coverage metadata rather than rejecting the whole page.
+SIMULATION_DEPENDENT_SECTIONS = (
+    "summary",
+    "rankings",
+    "rip_statistics",
+    "percentiles",
+    "distribution_bins",
+    "threshold_bins",
+    "top_hits",
+    "history_trend",
+    "interpretation",
+    "pull_rate_assumptions",
+    "openingProfitVsCost",
+)
+SIMULATION_UNAVAILABLE_WARNING = (
+    "Simulation data is unavailable for this set; simulation-derived sections "
+    "(Opening Profit vs Cost, RIP metrics, pull rates, simulation drivers) are "
+    "published as unavailable. Identity, Cards, set value, market, and "
+    "desirability sections are published independently when available."
+)
+
+
+def _is_simulation_unavailable_error(exc: Exception) -> bool:
+    """True when a set has no simulation/RIP run yet (not a genuine failure).
+
+    Mirrors the CLI's missing-data classifier so a set with no simulation data
+    degrades to a partial page instead of raising. Real 5xx failures (summary /
+    derived query errors) are NOT treated as missing and must still propagate.
+    """
+    if isinstance(exc, ExplorePageError):
+        return (
+            getattr(exc, "status_code", None) == 404
+            or getattr(exc, "code", None) == "TARGET_NOT_FOUND"
+            or "no simulation data" in str(getattr(exc, "message", exc)).lower()
+        )
+    return "no simulation data" in str(exc).lower()
+
+
+def _build_partial_set_page_payload(
+    set_row: Dict[str, Any], *, set_id: str, reason: str
+) -> Dict[str, Any]:
+    """Base payload when simulation/RIP aggregation is unavailable.
+
+    Mirrors ``get_explore_page_payload``'s shape but leaves every
+    simulation-derived section empty/null. Downstream merges still populate
+    identity, Cards, desirability, and RIP fields from their independent sources
+    when those exist, so a meaningful page is published instead of skipped.
+    """
+    return {
+        "target": {
+            "target_type": "set",
+            "target_id": set_id,
+            "id": set_id,
+            "name": set_row.get("name"),
+            "canonical_key": set_row.get("canonical_key"),
+        },
+        "summary": {},
+        "rankings": [],
+        "rip_statistics": {"pack_paths": {}, "normal_pack_states": {}},
+        "percentiles": [],
+        "distribution_bins": [],
+        "threshold_bins": [],
+        "top_hits": [],
+        "history_trend": [],
+        "interpretation": None,
+        "openingDesirability": None,
+        "pull_rate_assumptions": None,
+        "meta": {
+            "request": {"target_type": "set", "target_id": set_id},
+            "sources": {
+                "explore_rip_statistics_latest": "NO_ROW",
+                "simulation_latest_by_target": "NO_ROW",
+            },
+            "warnings": [SIMULATION_UNAVAILABLE_WARNING],
+        },
+    }
+
+
+def _apply_simulation_availability_metadata(
+    payload: Dict[str, Any], *, available: bool, reason: Optional[str] = None
+) -> Dict[str, Any]:
+    """Attach explicit coverage metadata describing simulation availability.
+
+    ``carryForward`` reflects whether any simulation-derived section was served
+    from the previous good snapshot (labeled ``stale`` in ``sectionFreshness``),
+    so consumers can tell "unavailable" apart from "carried forward, clearly
+    dated" per the product's carry-forward contract.
+    """
+    meta = dict(payload.get("meta") or {})
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    as_of = first_non_empty(summary.get("run_at"), meta.get("asOfDate")) if available else None
+    section_freshness = meta.get("sectionFreshness") if isinstance(meta.get("sectionFreshness"), dict) else {}
+    carried_forward_sections = sorted(
+        key
+        for key, status in section_freshness.items()
+        if isinstance(status, dict) and str(status.get("status")).lower() == "stale"
+    )
+    unavailable_sections = (
+        [] if available else [section for section in SIMULATION_DEPENDENT_SECTIONS]
+    )
+    meta["simulationAvailability"] = {
+        "available": available,
+        "reason": reason,
+        "asOfDate": as_of,
+        "unavailableSections": unavailable_sections,
+        "carryForward": bool(carried_forward_sections),
+        "carriedForwardSections": carried_forward_sections,
+    }
+    meta["simulation_availability"] = meta["simulationAvailability"]
+    payload = {**payload, "meta": meta}
+    return payload
+
+
 def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
-    payload = get_explore_page_payload("set", set_id)
+    simulation_available = True
+    simulation_unavailable_reason: Optional[str] = None
+    try:
+        payload = get_explore_page_payload("set", set_id)
+    except ExplorePageError as exc:
+        if not _is_simulation_unavailable_error(exc):
+            # Genuine backend failure (summary/derived query error) — do not mask.
+            raise
+        simulation_available = False
+        simulation_unavailable_reason = str(getattr(exc, "message", exc))
+        logger.warning(
+            "set page snapshot publishing without simulation set_id=%s reason=%s",
+            set_id,
+            simulation_unavailable_reason,
+        )
+        payload = _build_partial_set_page_payload(
+            set_row, set_id=set_id, reason=simulation_unavailable_reason
+        )
     payload = _complete_snapshot_top_hits(payload, set_id=set_id, client=client)
     try:
         rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
@@ -1211,6 +1344,11 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     existing_row = _load_existing_set_page_snapshot_row(client, set_id) if client is not None else None
     payload = _merge_last_known_good_snapshot_sections(payload, existing_row=existing_row, built_at=built_at)
     payload = _finalize_snapshot_completeness(payload, set_id=set_id, client=client, built_at=built_at)
+    payload = _apply_simulation_availability_metadata(
+        payload,
+        available=simulation_available,
+        reason=simulation_unavailable_reason,
+    )
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 
     set_identity = {
@@ -2181,8 +2319,10 @@ def build_market_dashboard_snapshot_rows(
     generation_id: Optional[str] = None,
     built_at: Optional[str] = None,
     selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+    latest_market_date: Optional[str] = None,
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     built_at = built_at or utc_now_iso()
+    coordinated_market_date = utc_date_key(latest_market_date)
     generation_id = generation_id or str(uuid4())
     set_id = str(set_row["id"])
     histories_by_scope: Dict[str, List[Dict[str, Any]]] = {}
@@ -2233,7 +2373,11 @@ def build_market_dashboard_snapshot_rows(
         utc_date_key(row.get("captured_at"))
         for row in (top_chase_canonical_context.get("selected_price_by_canonical_id") or {}).values()
     ]
-    canonical_market_date = max(
+    # The coordinated boundary (shared with Cards and Market Movers) is
+    # authoritative when supplied. Deriving it from only the Top Chase subset
+    # produced an earlier end date than the set-wide Cards/Movers boundary, which
+    # was the root cause of the coordinated movement parity failures.
+    canonical_market_date = coordinated_market_date or max(
         (value for value in selected_market_dates if value),
         default=latest_set_value_history_date,
     )
@@ -2338,6 +2482,7 @@ def build_market_dashboard_snapshot_rows(
         window_days=tuple(MARKET_MOVERS_WINDOWS_DAYS.values()),
         client=client,
         selected_price_rows=selected_price_rows,
+        latest_market_date=canonical_market_date,
     )
     market_movers_by_window = movement_windows_payload.get("marketMoversByWindow") or {}
     market_movers_by_window_snake = movement_windows_payload.get("market_movers_by_window") or {}
@@ -2624,6 +2769,32 @@ def _last_observation_on_or_before(rows: List[Dict[str, Any]], boundary: str) ->
     return matches[-1] if matches else None
 
 
+def _canonical_latest_market_date(
+    selected_price_rows: Optional[List[Dict[str, Any]]],
+    *,
+    client: Any = None,
+    set_id: Optional[str] = None,
+) -> Optional[str]:
+    """Single set-wide window boundary shared by Cards, Movers, and Top Chase.
+
+    Derived as the newest UTC capture date across the whole set's canonical
+    selected prices (rows with a usable market price). All coordinated surfaces
+    must use this identical end date, otherwise the per-surface boundaries drift
+    and the movement contracts disagree.
+    """
+    dates = [
+        date_key
+        for row in (selected_price_rows or [])
+        if to_optional_float(row.get("market_price")) is not None
+        and (date_key := utc_date_key(row.get("captured_at")))
+    ]
+    if dates:
+        return max(dates)
+    if client is not None and set_id is not None:
+        return _latest_market_date_for_set(client, set_id)
+    return None
+
+
 def _movement_contract(
     *,
     price: Dict[str, Any],
@@ -2649,14 +2820,19 @@ def _enrich_cards_with_authoritative_prices_and_movements(
     set_id: str,
     prices_by_card: Dict[str, Dict[str, Any]],
     client: Any,
+    latest_market_date: Optional[str] = None,
 ) -> Dict[str, Any]:
-    price_dates = [utc_date_key(price.get("captured_at")) for price in prices_by_card.values()]
-    available_price_dates = [date_key for date_key in price_dates if date_key]
-    latest_market_date = None
-    if available_price_dates:
-        latest_market_date = max(available_price_dates)
-    elif prices_by_card:
-        latest_market_date = _latest_market_date_for_set(client, set_id)
+    # A supplied ``latest_market_date`` is the coordinated window boundary shared
+    # with Market Movers and Top Chase; it is authoritative so every surface uses
+    # the identical end date. Only derive it here when building Cards standalone.
+    latest_market_date = utc_date_key(latest_market_date)
+    if latest_market_date is None:
+        price_dates = [utc_date_key(price.get("captured_at")) for price in prices_by_card.values()]
+        available_price_dates = [date_key for date_key in price_dates if date_key]
+        if available_price_dates:
+            latest_market_date = max(available_price_dates)
+        elif prices_by_card:
+            latest_market_date = _latest_market_date_for_set(client, set_id)
     observations_by_card = (
         _load_selected_price_observations(
             client,
@@ -2826,6 +3002,7 @@ def build_cards_snapshot_row(
     generation_id: Optional[str] = None,
     built_at: Optional[str] = None,
     selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+    latest_market_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     set_id = str(set_row["id"])
     client = client or get_client()
@@ -2843,6 +3020,7 @@ def build_cards_snapshot_row(
         set_id=set_id,
         prices_by_card=prices_by_card,
         client=client,
+        latest_market_date=latest_market_date,
     )
     payload = enrich_cards_payload_with_desirability(payload, prices_by_card=prices_by_card)
     payload = _with_cards_pricing_contract_diagnostics(payload)
@@ -2943,12 +3121,21 @@ def build_coordinated_set_market_snapshot_rows(
             "captured_at,source,price_selection_reason,refreshed_at"
         ).eq("set_id", set_id),
     )
+    # One set-wide window boundary for every surface. Passing it explicitly keeps
+    # Cards, Market Movers, and Top Chase on an identical end date so the shared
+    # movement contract cannot diverge across surfaces.
+    latest_market_date = _canonical_latest_market_date(
+        selected_price_rows,
+        client=client,
+        set_id=set_id,
+    )
     cards_row = build_cards_snapshot_row(
         set_row,
         client=client,
         generation_id=generation_id,
         built_at=built_at,
         selected_price_rows=selected_price_rows,
+        latest_market_date=latest_market_date,
     )
     dashboard_row, top_chase_history_rows = build_market_dashboard_snapshot_rows(
         set_row,
@@ -2958,6 +3145,7 @@ def build_coordinated_set_market_snapshot_rows(
         generation_id=generation_id,
         built_at=built_at,
         selected_price_rows=selected_price_rows,
+        latest_market_date=latest_market_date,
     )
     validate_coordinated_movement_parity(cards_row, dashboard_row)
     return cards_row, dashboard_row, top_chase_history_rows

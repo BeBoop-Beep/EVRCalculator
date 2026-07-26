@@ -461,3 +461,106 @@ def test_one_failed_set_page_rebuild_does_not_prevent_later_sets(monkeypatch):
     assert summary.rebuilt_sets["set_page"] == ["healthySet"]
     assert len(summary.failed_sets["set_page"]) == 1
     assert summary.failed_sets["set_page"][0].startswith("failingSet:")
+
+
+# ---------------------------------------------------------------------------
+# I/O-safe resumable recovery: nonzero exit on failure, batch-gated promotion
+# ---------------------------------------------------------------------------
+
+
+def test_has_hard_failures_true_when_any_set_failed():
+    summary = refresh.RefreshSummary()
+    summary.failed_sets["set_page"].append("failingSet: boom")
+    assert refresh._has_hard_failures(summary) is True
+
+
+def test_has_hard_failures_true_when_global_failed():
+    summary = refresh.RefreshSummary()
+    summary.global_failed.append("explore_rankings: boom")
+    assert refresh._has_hard_failures(summary) is True
+
+
+def test_has_hard_failures_false_for_only_staleness_warnings():
+    summary = refresh.RefreshSummary()
+    summary.warnings_remaining = ["set-1: rankings snapshot rebuilt after set page snapshot"]
+    summary.stale_snapshot_families.add("set_page")
+    assert refresh._has_hard_failures(summary) is False
+
+
+def _patch_main_pipeline(monkeypatch, *, gate_allowed=True, override=False, fail_set=False):
+    """Stub the whole main() pipeline so exit-status/gating logic can be exercised."""
+    monkeypatch.setattr(refresh, "get_client", lambda: object())
+    monkeypatch.setattr(
+        refresh,
+        "evaluate_publication_gate",
+        lambda _client, **_kwargs: _GateDecision(allowed=gate_allowed, override=override),
+    )
+    monkeypatch.setattr(refresh, "_resolve_sets", lambda _client, set_id=None: [{"id": "set-1", "canonical_key": "alpha"}])
+
+    def _build_plan(_client, *, set_rows, window):
+        plan = refresh.SetRefreshPlan(
+            set_row=set_rows[0],
+            cards=refresh.FreshnessResult("cards", True, "stale"),
+            market_dashboard=refresh.FreshnessResult("market_dashboard", False, "fresh"),
+            set_page=refresh.FreshnessResult("set_page", False, "fresh"),
+        )
+        return [plan], refresh.FreshnessResult("explore_rankings", False, "fresh"), refresh.FreshnessResult("desirability_validation", False, "fresh"), 0
+
+    monkeypatch.setattr(refresh, "_build_plan", _build_plan)
+
+    def _rebuild_coordinated(_client, plan, *, commit, days, window, summary):
+        if fail_set:
+            summary.failed_sets["cards"].append("alpha: boom")
+        else:
+            summary.rebuilt_sets["cards"].append("alpha")
+
+    monkeypatch.setattr(refresh, "_maybe_rebuild_coordinated_market", _rebuild_coordinated)
+    monkeypatch.setattr(refresh, "_maybe_rebuild_rankings", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_maybe_rebuild_set_page", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_build_validation_snapshot", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_verify_after_build", lambda *_a, **_k: None)
+    monkeypatch.setattr(refresh, "_audit_set_page_freshness", lambda *_a, **_k: refresh.SetPageFreshnessAudit(total=1, fresh=1))
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_a, **_k: None)
+
+
+class _GateDecision:
+    def __init__(self, *, allowed=True, override=False):
+        self.allowed = allowed
+        self.override = override
+        self.reason = "test"
+        self.missing_set_count = None if allowed else 3
+
+
+def test_main_exits_nonzero_when_a_set_fails_even_without_strict(monkeypatch):
+    _patch_main_pipeline(monkeypatch, fail_set=True)
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+    try:
+        refresh.main()
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:
+        raise AssertionError("expected nonzero exit on a failed set")
+
+
+def test_main_exits_zero_on_clean_commit(monkeypatch):
+    _patch_main_pipeline(monkeypatch, fail_set=False)
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+    # No SystemExit(1) means a clean success.
+    refresh.main()
+
+
+def test_main_gate_closed_preserves_previous_good_and_skips_rebuild(monkeypatch, capsys):
+    rebuilt = []
+    _patch_main_pipeline(monkeypatch, gate_allowed=False)
+    monkeypatch.setattr(
+        refresh,
+        "_maybe_rebuild_coordinated_market",
+        lambda *_a, **_k: rebuilt.append("should-not-run"),
+    )
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+
+    refresh.main()
+
+    out = capsys.readouterr().out
+    assert "publication gate CLOSED" in out
+    assert rebuilt == []

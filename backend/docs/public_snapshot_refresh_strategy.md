@@ -49,6 +49,77 @@ The daily simulation job (`infra/local/run_simulations_task.bat` → `infra/loca
 
 Running `refresh_stale_public_snapshots.py --commit` additionally (e.g. hourly) remains safe and idempotent: overnight scrapes, later simulations, and future sources such as additional price vendors, graded pricing, sealed pricing, or other TCG imports can land whenever they finish. The refresh job will rebuild only the stale snapshot families and sets it detects.
 
+## Batch-Gated Promotion (scrape cohort contract)
+
+Downstream promotion is gated on the day's scrape cohort being
+observation-complete. The authority is `public.pokemon_scrape_batches`
+(migrations 047–049): `complete_scrape_batch_if_ready()` stamps `promoted_at`
+and flips `status='complete'` only when every expected set has a valid Near Mint
+observation for the market date.
+
+`refresh_stale_public_snapshots.py` consults
+`backend/db/services/publication_gate.evaluate_publication_gate` before it
+promotes anything in `--commit` mode:
+
+- **Batch `complete`** → gate open, promote as normal.
+- **Batch pending/running/incomplete/failed** → gate closed. The run prints
+  `publication gate CLOSED`, promotes nothing, and **preserves the previous good
+  public snapshots**. This is a success (exit 0), not a failure — the day simply
+  is not ready to promote yet. Missing sets are requeued by the scrape pipeline
+  (`requeue_missing_scrape_jobs_for_batch`, migration 049), not by this refresh.
+- **No batch row / batch tables not applied** → gate is *ungated* (open) so
+  environments without the batch system (local/dev, or prod before 047–049 is
+  applied) keep working unchanged.
+
+Flags:
+
+```powershell
+# Gate on a specific America/Phoenix market date's batch.
+python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-07-25
+
+# Manual recovery ONLY: promote even if the cohort is incomplete (loudly logged).
+python backend/scripts/refresh_stale_public_snapshots.py --commit --force-publish
+```
+
+`--force-publish` is never part of the normal schedule.
+
+## Exit Status and I/O-Safe Resumable Recovery
+
+`refresh_stale_public_snapshots.py` plans work from **source freshness**, so it
+only rebuilds the missing/stale/failed sets — not the full 166-set catalog.
+A set that was rebuilt successfully becomes fresh and is skipped on the next
+run, which is what makes reruns resumable (completion state is *derived*, not a
+broad retry). This is the specific defense against the "full refresh caused high
+Disk I/O and Supabase statement timeouts" incident: recovery is sequential (no
+parallel DB-heavy snapshot generation) with bounded, transient-only retries and
+exponential backoff per set (`_REBUILD_MAX_ATTEMPTS`, via
+`snapshot_query_retry.run_snapshot_operation_with_retry`).
+
+Exit status:
+
+- The CLI returns **nonzero whenever any requested set (or global family) build
+  fails** — even without `--strict`, and even when an inner builder catches its
+  own exception and records it. A scheduler therefore never treats a partial
+  recovery as success.
+- `--strict` additionally fails the run on staleness/verification warnings and
+  on the post-run set-page freshness audit.
+- A closed publication gate is not a failure (exit 0).
+
+## Fail-Graceful Set Pages
+
+`build_set_page_snapshot_row` no longer rejects a whole set page when simulation
+data is missing. If the simulation/RIP aggregate is unavailable
+(`get_explore_page_payload` raises `TARGET_NOT_FOUND` / "no simulation data"),
+the builder publishes a **partial page**: identity, title, Cards, set value,
+market, desirability, and RIP fields are published independently when their
+sources exist, while simulation-dependent sections (Opening Profit vs Cost, RIP
+metrics, pull rates, Simulation Drivers) are exposed as unavailable with a
+warning and `meta.simulationAvailability` coverage metadata
+(`available`, `unavailableSections`, `carryForward`, `carriedForwardSections`).
+Genuine backend 5xx failures still propagate — only the missing-data case
+degrades gracefully. Previous good simulation sections are only carried forward
+under the existing, clearly-labeled `sectionFreshness` (stale) contract.
+
 ## Coordinated Movement Snapshots
 
 Cards and Market Dashboard are one movement snapshot family. Rebuilding either
@@ -99,3 +170,67 @@ Public route render remains read-only:
 - never perform live repair during route render
 
 When a page shows stale warnings, fix the source snapshot by running the refresh or full rebuild script. Do not hide stale data in the frontend.
+
+## Simulation Recovery (canonical command, scheduler, and the 2026-07-17 stop)
+
+### Canonical command and scheduler entry
+
+The daily simulation is `backend/scripts/run_all_v2_sets.py`. It is not a cron
+job — it runs on the **Windows** host via **Task Scheduler task "Run Simulation
+Jobs Daily"**, which launches `infra/local/run_simulations_task.bat` →
+Git Bash → `infra/local/run_simulations.sh`. That shell script chains, in order:
+
+1. `python backend/scripts/run_all_v2_sets.py` (the simulation batch)
+2. `python backend/scripts/refresh_stale_public_snapshots.py --commit --strict`
+   (public snapshot promotion — runs even if the batch partially failed)
+
+The scrape pipeline that feeds simulation inputs is a **separate** host: the
+Oracle Ubuntu VM crontab (see `scraper_vm_operations.md` §8 — batch creation
+03:00 America/Phoenix, per-minute worker dispatch, batch-missing monitor).
+
+### Per-set isolation and exit status (already correct — verified)
+
+`run_all_v2_sets.py` runs each set in `run_single_set`, which wraps
+`orchestrator.run(...)` in its own `try/except`; a set that raises is recorded
+as failed and the batch continues to the next set. The process returns nonzero
+iff any set failed (`return 0 if all(success) else 1`) and prints a failed-set
+summary. No code change was needed here; the isolation and exit contract are
+covered by the batch-summary logic.
+
+### Why simulations stopped producing runs after 2026-07-17 (diagnosis)
+
+Two compounding causes, both now addressed:
+
+1. **Scrape-queue stale-job exclusion (root, upstream).** A stale prior-day
+   `running` `scrape_jobs` row satisfied the partial unique index
+   `idx_scrape_jobs_one_active_per_set`, so the daily enqueue's
+   `ON CONFLICT DO NOTHING` silently excluded that set from the next cohort
+   (documented in migration `047`). Fresh Near Mint observations stopped landing
+   for excluded sets, starving the simulation inputs. Fixed by migrations
+   047–049 (lease-based, batch-aware queue: reconcile-first batch creation,
+   crash-safe leases, cohort completeness, bounded requeue) — **implemented in
+   repo, still pending application to production.**
+2. **Unbounded full refresh (amplifier, downstream).** After any gap, *every*
+   set is stale, so the old `refresh_stale_public_snapshots.py --commit` step
+   rebuilt all 166 sets' coordinated snapshots in a single sequential pass →
+   "high Disk I/O and Supabase statement timeouts," which failed the strict
+   refresh step and left the scheduled task exiting nonzero. Addressed by the
+   I/O-safe resumable recovery above (missing/stale/failed-only planning,
+   bounded per-set retries) and the batch gate (does not attempt promotion for
+   an incomplete cohort).
+
+### Recovery / deployment procedure
+
+1. Apply migrations `047`, `048`, `049` in the Supabase SQL editor (in order).
+2. On the scraper VM, confirm the batch cron from `scraper_vm_operations.md` §8.
+3. On the Windows sim host, run once manually to recover, watching I/O:
+   ```bash
+   ./.venv/Scripts/python.exe backend/scripts/run_all_v2_sets.py
+   ./.venv/Scripts/python.exe backend/scripts/refresh_stale_public_snapshots.py --commit --strict
+   ```
+   The refresh now only rebuilds stale/failed sets, sequentially, with backoff,
+   and preserves the previous good snapshots if the day's batch is incomplete.
+4. Re-enable / confirm the "Run Simulation Jobs Daily" Task Scheduler task.
+
+Do not run production simulations as part of code changes; the above is the
+operator deployment step.
