@@ -12,7 +12,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from backend.db.services.publication_gate import evaluate_publication_gate
+from backend.db.services.publication_gate import (
+    GATE_DEFERRED_EXIT_CODE,
+    evaluate_publication_gate,
+    gate_decision_report,
+)
 from backend.db.services.set_publication_revalidation import notify_set_snapshot_published
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
@@ -51,6 +55,17 @@ KNOWN_SET_PAGE_STALE_WARNING_PATTERNS = (
     "skipped live repair during route render",
 )
 RANKINGS_STALE_THRESHOLD_SECONDS = 300
+# Set-page strict verification is simulation-aware. A partial page that is
+# explicitly labeled simulation-unavailable must PASS strict mode; a page that
+# claims every section is current must still fail on the usual staleness checks.
+# unavailableSections must at least name these flagship simulation-derived areas.
+_REQUIRED_UNAVAILABLE_SECTIONS = frozenset({"summary", "top_hits", "openingProfitVsCost"})
+# sectionFreshness keys that describe simulation-derived content.
+_SIMULATION_SECTION_FRESHNESS_KEYS = ("simulationDrivers",)
+# simulation_input_cards source values that legitimately mean "no simulation row".
+_SIMULATION_UNAVAILABLE_SOURCE_VALUES = frozenset(
+    {"NO_ROW", "NO_ROWS", "MISSING", "UNAVAILABLE", "UNAVAILABLE_FALLBACK"}
+)
 # Bounded per-set rebuild retries. Only transient data-service errors are
 # retried (classified inside run_snapshot_operation_with_retry) with exponential
 # backoff, so a momentary Supabase timeout does not fail an otherwise-recoverable
@@ -971,28 +986,83 @@ def _build_validation_snapshot(client: Any, *, commit: bool, summary: RefreshSum
         summary.global_failed.append(f"desirability_validation: {exc}")
 
 
-def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_at: Optional[str]) -> List[str]:
-    set_id = str(set_row["id"])
-    canonical_key = str(set_row.get("canonical_key") or set_id)
-    row = _read_snapshot_row(
-        client,
-        "pokemon_set_page_snapshot_latest",
-        "set_id,payload_json,updated_at",
-        (("set_id", set_id),),
-    )
-    if not row:
-        return [f"{canonical_key}: set page snapshot missing"]
-    payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+def _set_page_has_identity(payload: Dict[str, Any]) -> bool:
+    target = payload.get("target") if isinstance(payload.get("target"), dict) else {}
+    return bool(_to_text(target.get("target_id") or target.get("id")))
+
+
+def _verify_partial_set_page(
+    canonical_key: str,
+    payload: Dict[str, Any],
+    meta: Dict[str, Any],
+    availability: Dict[str, Any],
+    section_freshness: Dict[str, Any],
+) -> List[str]:
+    """Contract for a set page explicitly labeled simulation-unavailable.
+
+    Empty simulation-derived sections (top_hits, OPvC, run id, simulation source
+    NO_ROW/MISSING) are EXPECTED here and must not fail. Instead the page must
+    truthfully declare its unavailability and never label absent simulation data
+    as fresh/current.
+    """
+    problems: List[str] = []
+    if not _to_text(availability.get("reason")):
+        problems.append(f"{canonical_key}: simulationAvailability.reason missing for unavailable page")
+
+    unavailable = availability.get("unavailableSections")
+    if not isinstance(unavailable, list) or not unavailable:
+        problems.append(f"{canonical_key}: unavailableSections must be nonempty for an unavailable page")
+    else:
+        missing_declarations = _REQUIRED_UNAVAILABLE_SECTIONS - {str(section) for section in unavailable}
+        if missing_declarations:
+            problems.append(
+                f"{canonical_key}: unavailableSections missing simulation-derived sections {sorted(missing_declarations)}"
+            )
+
+    warnings = [str(warning).lower() for warning in (meta.get("warnings") or [])]
+    if not any("simulation" in warning and "unavailable" in warning for warning in warnings):
+        problems.append(f"{canonical_key}: simulation-unavailable warning missing")
+
+    # No simulation-derived section may be labeled fresh/current while unavailable.
+    for key in _SIMULATION_SECTION_FRESHNESS_KEYS:
+        status = str((section_freshness.get(key) or {}).get("status") or "").lower()
+        if status in ("fresh", "current"):
+            problems.append(
+                f"{canonical_key}: simulation section {key} labeled {status} while simulation is unavailable"
+            )
+
+    # Any carried-forward simulation section must be labeled stale with a
+    # defensible source/data-as-of date (never silently presented as current).
+    for key in availability.get("carriedForwardSections") or []:
+        section = section_freshness.get(key) if isinstance(section_freshness.get(key), dict) else {}
+        status = str(section.get("status") or "").lower()
+        if status != "stale":
+            problems.append(
+                f"{canonical_key}: carried-forward section {key} not labeled stale (status={status or 'missing'})"
+            )
+        elif not _to_text(section.get("dataAsOf") or section.get("sourceDate")):
+            problems.append(f"{canonical_key}: carried-forward section {key} has no source/data-as-of date")
+    return problems
+
+
+def _verify_available_set_page(
+    client: Any,
+    set_id: str,
+    canonical_key: str,
+    payload: Dict[str, Any],
+    meta: Dict[str, Any],
+    row: Dict[str, Any],
+    section_freshness: Dict[str, Any],
+    rankings_updated_at: Optional[str],
+) -> List[str]:
+    """Stricter contract for a page that claims simulation data is available."""
+    problems: List[str] = []
     sources = meta.get("sources") if isinstance(meta.get("sources"), dict) else {}
     warnings = list(meta.get("warnings") or [])
-    problems: List[str] = []
     if len(payload.get("top_hits") or []) <= 0:
         problems.append(f"{canonical_key}: top_hits missing")
     if sources.get("simulation_input_cards") != "OK":
         problems.append(f"{canonical_key}: simulation_input_cards source={sources.get('simulation_input_cards')}")
-    if not isinstance(meta.get("snapshotCompleteness") or meta.get("snapshot_completeness"), dict):
-        problems.append(f"{canonical_key}: snapshotCompleteness missing")
     if _has_known_stale_warning(warnings) and _source_rows_exist_for_set_page(client, set_id):
         problems.append(f"{canonical_key}: stale warning remains")
     if rankings_updated_at and not _set_page_has_rank_fields(payload):
@@ -1000,7 +1070,7 @@ def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_a
 
     set_page_updated_at = _to_text(row.get("updated_at"))
     embedded_rankings_updated_at = _extract_embedded_rankings_updated_at(payload)
-    decision_signal_ranks = _extract_section_freshness(payload).get("decisionSignalRanks")
+    decision_signal_ranks = section_freshness.get("decisionSignalRanks")
     decision_signal_rank_status = (
         _to_text(decision_signal_ranks.get("status"))
         if isinstance(decision_signal_ranks, dict)
@@ -1013,6 +1083,73 @@ def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_a
         problems.append(f"{canonical_key}: set page embedded rankings snapshot is stale")
     elif decision_signal_rank_status and decision_signal_rank_status.lower() == "stale" and rankings_updated_at and embedded_rankings_updated_at and _is_newer(rankings_updated_at, embedded_rankings_updated_at):
         problems.append(f"{canonical_key}: decision signal ranks marked stale with newer rankings snapshot available")
+
+    return problems
+
+
+def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_at: Optional[str]) -> List[str]:
+    """Simulation-aware strict verification for a published set-page snapshot.
+
+    The set-page builder can intentionally publish a partial page for a set with
+    no simulation run (``meta.simulationAvailability.available == false``). Such a
+    page has empty simulation-derived sections BY DESIGN and must pass strict
+    mode as long as it truthfully declares its unavailability. A page that claims
+    simulation is available is held to the stricter (original) expectations. A
+    malformed/identity-less page fails either way.
+    """
+    set_id = str(set_row["id"])
+    canonical_key = str(set_row.get("canonical_key") or set_id)
+    row = _read_snapshot_row(
+        client,
+        "pokemon_set_page_snapshot_latest",
+        "set_id,payload_json,updated_at",
+        (("set_id", set_id),),
+    )
+    if not row:
+        return [f"{canonical_key}: set page snapshot missing"]
+    payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    problems: List[str] = []
+
+    # Structural markers required for EVERY published page, partial or not.
+    if not _set_page_has_identity(payload):
+        problems.append(f"{canonical_key}: set identity missing")
+    if not isinstance(meta.get("snapshot"), dict):
+        problems.append(f"{canonical_key}: meta.snapshot missing")
+    if not isinstance(meta.get("snapshotCompleteness") or meta.get("snapshot_completeness"), dict):
+        problems.append(f"{canonical_key}: snapshotCompleteness missing")
+
+    availability = meta.get("simulationAvailability")
+    if not isinstance(availability, dict):
+        availability = meta.get("simulation_availability")
+    if not isinstance(availability, dict):
+        # A partial (or any) page must declare simulation availability.
+        problems.append(f"{canonical_key}: simulationAvailability metadata missing")
+        return problems
+
+    section_freshness = _extract_section_freshness(payload)
+    available = availability.get("available")
+    if available is False:
+        problems.extend(
+            _verify_partial_set_page(canonical_key, payload, meta, availability, section_freshness)
+        )
+    elif available is True:
+        problems.extend(
+            _verify_available_set_page(
+                client,
+                set_id,
+                canonical_key,
+                payload,
+                meta,
+                row,
+                section_freshness,
+                rankings_updated_at,
+            )
+        )
+    else:
+        problems.append(
+            f"{canonical_key}: simulationAvailability.available must be a boolean, got {available!r}"
+        )
 
     return problems
 
@@ -1166,22 +1303,28 @@ def main() -> None:
     client = get_client()
 
     # Batch-cohort gate: downstream promotion only when the day's scrape cohort
-    # is observation-complete. Blocking preserves the previous good snapshots.
-    # Enforced only when actually committing; dry-run always reports the plan.
+    # is observation-complete. In required mode (production default) the gate
+    # fails closed on every failure class. A closed gate DEFERS publication with
+    # a dedicated exit code (distinct from a build failure) so the scheduler
+    # never treats "nothing published" as success. Dry-run reports the decision.
     gate = evaluate_publication_gate(
         client,
         market_date=args.market_date,
         override=args.force_publish,
     )
-    if commit and not gate.allowed:
+    if not commit:
+        print(
+            "stale public snapshot refresh: publication gate decision (dry-run) "
+            f"[{gate.reason_code}] allowed={gate.allowed}: {gate.reason}"
+        )
+    elif not gate.allowed:
         print("public snapshot refresh gated")
-        print(f"publication gate CLOSED: {gate.reason}")
-        print("preserving previous good public snapshots; no promotion performed")
-        if gate.missing_set_count is not None:
-            print(f"batch missing_set_count: {gate.missing_set_count}")
-        return
-    if gate.override:
-        print(f"publication gate OVERRIDDEN (manual recovery): {gate.reason}")
+        for line in gate_decision_report(gate, entry_point="stale public snapshot refresh"):
+            print(line)
+        print("operator action: resolve/requeue the incomplete scrape batch, then rerun the refresh")
+        raise SystemExit(GATE_DEFERRED_EXIT_CODE)
+    elif gate.override:
+        print(f"publication gate OVERRIDDEN (manual recovery) [{gate.reason_code}]: {gate.reason}")
 
     set_rows = _resolve_sets(client, set_id=args.set_id)
     plans, rankings, validation, source_checks = _build_plan(client, set_rows=set_rows, window=args.window)

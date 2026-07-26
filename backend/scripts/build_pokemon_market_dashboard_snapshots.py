@@ -12,6 +12,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.db.services.pokemon_set_market_service import PokemonSetMarketError
 from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.db.services.publication_gate import (
+    add_publication_gate_args,
+    enforce_cli_publication_gate,
+)
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
@@ -47,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=3,
         help="Stop an --all build after this many consecutive exhausted transient failures",
     )
+    add_publication_gate_args(parser)
     return parser
 
 
@@ -76,6 +81,19 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args()
     commit = should_commit(args)
+
+    # Batch-cohort gate: evaluated once per invocation (never per set). A closed
+    # gate in --commit mode defers with the dedicated exit code and writes nothing.
+    gate = enforce_cli_publication_gate(
+        get_client(),
+        commit=commit,
+        market_date=args.market_date,
+        override=args.force_publish,
+        entry_point="cards + market dashboard snapshots",
+    )
+    if not gate.proceed:
+        raise SystemExit(gate.exit_code)
+
     built_count = 0
     skipped_count = 0
     failed_count = 0

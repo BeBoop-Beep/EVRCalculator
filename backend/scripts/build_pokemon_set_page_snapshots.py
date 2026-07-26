@@ -10,6 +10,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from backend.db.services.explore_page_service import ExplorePageError
+from backend.db.services.publication_gate import (
+    add_publication_gate_args,
+    enforce_cli_publication_gate,
+)
 from backend.scripts.pokemon_snapshot_builders import (
     add_target_set_args,
     build_set_page_snapshot_row,
@@ -23,6 +27,7 @@ from backend.scripts.pokemon_snapshot_builders import (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build page-ready Pokemon set page snapshots")
     add_target_set_args(parser)
+    add_publication_gate_args(parser)
     return parser
 
 
@@ -53,6 +58,19 @@ def main() -> int:
     args = build_parser().parse_args()
     client = get_client()
     commit = should_commit(args)
+
+    # Batch-cohort gate: evaluated once per invocation (never per set). A closed
+    # gate in --commit mode defers with the dedicated exit code and writes nothing.
+    gate = enforce_cli_publication_gate(
+        client,
+        commit=commit,
+        market_date=args.market_date,
+        override=args.force_publish,
+        entry_point="set page snapshots",
+    )
+    if not gate.proceed:
+        return gate.exit_code
+
     built_count = 0
     skipped_count = 0
     failed_count = 0

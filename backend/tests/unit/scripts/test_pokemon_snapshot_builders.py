@@ -2198,3 +2198,42 @@ def test_dashboard_top_chase_source_date_ignores_forward_filled_carry(monkeypatc
     assert meta["sectionsUniformlyCurrent"] is False
     assert meta["openingProfitVsCost"]["status"] == "stale"
     assert any("Top Chase data is stale" in w for w in meta["warnings"])
+
+
+def test_mixed_freshness_july_16_17_25_full_contract():
+    """Regression fixture (Area 6, requirement 38): the exact incident dates.
+
+    dashboard/set value = 2026-07-25, Cards/Top Chase = 2026-07-16,
+    simulation/OPvC = 2026-07-17. The section-freshness contract must:
+      * NOT report uniform current freshness,
+      * identify each section's true source date,
+      * reject stale data labeled current (each lagging section => "stale"),
+      * permit explicitly stale simulation data (present, labeled stale).
+    """
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T12:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-16",
+        cards_snapshot_source_date="2026-07-16",
+        simulation_source_date="2026-07-17",
+    )
+
+    # Not uniform.
+    assert fresh["uniformlyCurrent"] is False
+    assert fresh["marketSectionsUniformlyCurrent"] is False
+
+    # Each section's true source date is identified.
+    assert fresh["setValueSourceDate"] == "2026-07-25"
+    assert fresh["topChaseSourceDate"] == "2026-07-16"
+    assert fresh["cardsSnapshotSourceDate"] == "2026-07-16"
+    assert fresh["simulationSourceDate"] == "2026-07-17"
+
+    # No lagging section inherits the newest (2026-07-25) date as "current".
+    assert fresh["sections"]["setValue"]["status"] == "current"
+    assert fresh["sections"]["topChase"]["status"] == "stale"
+    assert fresh["sections"]["cards"]["status"] == "stale"
+    assert fresh["sections"]["simulation"]["status"] == "stale"
+
+    # Explicitly stale simulation data is permitted (present, dated, labeled).
+    assert fresh["openingProfitVsCost"] == {"sourceDate": "2026-07-17", "status": "stale"}

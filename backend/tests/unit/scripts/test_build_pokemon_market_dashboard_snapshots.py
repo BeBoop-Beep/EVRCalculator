@@ -1,4 +1,6 @@
 import sys
+
+import pytest
 from postgrest.exceptions import APIError
 
 from backend.scripts import build_pokemon_market_dashboard_snapshots as command
@@ -9,6 +11,9 @@ def test_one_bad_set_does_not_stop_later_dashboard_sets(monkeypatch, capsys):
     built = []
     upserted = []
 
+    # Sanctioned local/test gate mode so the fail-closed gate does not block the
+    # object() client used to exercise the build loop.
+    monkeypatch.setenv("PUBLICATION_GATE_MODE", "disabled")
     monkeypatch.setattr(
         sys,
         "argv",
@@ -60,6 +65,7 @@ def test_consecutive_transient_retry_exhaustion_stops_all_set_build(monkeypatch,
     attempted = []
     real_retry = command.run_snapshot_operation_with_retry
 
+    monkeypatch.setenv("PUBLICATION_GATE_MODE", "disabled")
     monkeypatch.setattr(
         sys,
         "argv",
@@ -108,3 +114,24 @@ def test_consecutive_transient_retry_exhaustion_stops_all_set_build(monkeypatch,
 
     assert attempted == ["bad-1"] * 3 + ["bad-2"] * 3
     assert "built=0 skipped=0 failed=2" in capsys.readouterr().out
+
+
+def test_cards_market_defers_with_exit_3_when_gate_closed(monkeypatch, capsys):
+    # A closed (required-mode) gate must defer before any build/write happens.
+    built = []
+    monkeypatch.delenv("PUBLICATION_GATE_MODE", raising=False)
+    monkeypatch.setattr(sys, "argv", ["build_pokemon_market_dashboard_snapshots.py", "--all", "--commit"])
+    monkeypatch.setattr(command, "get_client", lambda: object())  # no batch authority => closed
+    monkeypatch.setattr(command, "should_commit", lambda _args: True)
+    monkeypatch.setattr(command, "resolve_target_sets", lambda _c, _a: [{"id": "set-1"}])
+    monkeypatch.setattr(command, "build_coordinated_set_market_snapshot_rows", lambda *_a, **_k: built.append(1))
+    monkeypatch.setattr(command, "refresh_canonical_card_market_prices_for_set", lambda *_a, **_k: None)
+    monkeypatch.setattr(command, "upsert_row", lambda *_a, **_k: None)
+    monkeypatch.setattr(command, "upsert_rows", lambda *_a, **_k: None)
+
+    with pytest.raises(SystemExit) as excinfo:
+        command.main()
+
+    assert excinfo.value.code == 3
+    assert built == []
+    assert "publication gate CLOSED" in capsys.readouterr().out

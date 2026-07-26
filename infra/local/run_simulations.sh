@@ -70,27 +70,53 @@ fi
 # than its simulation/market dependencies afterward.
 REFRESH_START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 REFRESH_FAILED=0
-if python backend/scripts/refresh_stale_public_snapshots.py --commit --strict >> logs/refresh_public_snapshots.log 2>&1; then
-  REFRESH_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+REFRESH_DEFERRED=0
+REFRESH_EXIT=0
+# Capture the exit code without tripping `set -e`. Exit codes:
+#   0 = published / no work needed after an open gate
+#   3 = publication DEFERRED by the batch-cohort gate (cohort not ready)
+#   other nonzero = genuine refresh/build failure
+python backend/scripts/refresh_stale_public_snapshots.py --commit --strict >> logs/refresh_public_snapshots.log 2>&1 || REFRESH_EXIT=$?
+REFRESH_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
+if [ "$REFRESH_EXIT" -eq 0 ]; then
   notify_slack "✅ Public snapshot refresh completed
 Host: $HOSTNAME_VALUE
 Script: backend/scripts/refresh_stale_public_snapshots.py --commit --strict
 Started: $REFRESH_START_TIME
 Completed: $REFRESH_END_TIME
 Log: logs/refresh_public_snapshots.log"
+elif [ "$REFRESH_EXIT" -eq 3 ]; then
+  # Publication DEFERRED, not a build exception: the day's scrape cohort is not
+  # observation-complete, so nothing was published and the previous good public
+  # snapshots are preserved. This must NOT send the success message.
+  REFRESH_DEFERRED=1
+  DEFERRED_LINE=$(grep -a 'PUBLICATION_DEFERRED' logs/refresh_public_snapshots.log | tail -n 1 || true)
+
+  notify_slack "⏸️ Public snapshot publication DEFERRED (cohort not ready; previous good snapshots preserved)
+Host: $HOSTNAME_VALUE
+Script: backend/scripts/refresh_stale_public_snapshots.py --commit --strict
+Started: $REFRESH_START_TIME
+Deferred: $REFRESH_END_TIME
+Details: ${DEFERRED_LINE:-see log}
+Action: resolve/requeue the incomplete scrape batch, then rerun the refresh
+Log: logs/refresh_public_snapshots.log"
 else
   REFRESH_FAILED=1
-  REFRESH_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
   notify_slack "❌ Public snapshot refresh FAILED (stale snapshots may remain)
 Host: $HOSTNAME_VALUE
 Script: backend/scripts/refresh_stale_public_snapshots.py --commit --strict
 Started: $REFRESH_START_TIME
 Failed: $REFRESH_END_TIME
+Exit: $REFRESH_EXIT
 Log: logs/refresh_public_snapshots.log"
 fi
 
-if [ "$SIMULATIONS_FAILED" -ne 0 ] || [ "$REFRESH_FAILED" -ne 0 ]; then
+# A deferred publication and a hard failure are distinct events (distinct Slack
+# messages), but neither is a successful publication: the scheduled task must
+# stay visibly non-successful so an operator acts before the next run. The
+# simulation batch result is preserved independently above.
+if [ "$SIMULATIONS_FAILED" -ne 0 ] || [ "$REFRESH_FAILED" -ne 0 ] || [ "$REFRESH_DEFERRED" -ne 0 ]; then
   exit 1
 fi

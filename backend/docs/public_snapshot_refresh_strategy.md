@@ -57,19 +57,55 @@ observation-complete. The authority is `public.pokemon_scrape_batches`
 and flips `status='complete'` only when every expected set has a valid Near Mint
 observation for the market date.
 
-`refresh_stale_public_snapshots.py` consults
-`backend/db/services/publication_gate.evaluate_publication_gate` before it
-promotes anything in `--commit` mode:
+Every commit-capable public-snapshot entry point (the stale-refresh, the
+coordinated Cards + Market Dashboard builder, the Explore rankings builder, the
+set-page builder, and the full `build_pokemon_public_snapshots` orchestration)
+routes through the shared
+`backend/db/services/publication_gate.enforce_cli_publication_gate` before it
+promotes anything in `--commit` mode. The gate is evaluated **once per
+invocation** (never per set) and the decision is reused.
 
-- **Batch `complete`** → gate open, promote as normal.
-- **Batch pending/running/incomplete/failed** → gate closed. The run prints
-  `publication gate CLOSED`, promotes nothing, and **preserves the previous good
-  public snapshots**. This is a success (exit 0), not a failure — the day simply
-  is not ready to promote yet. Missing sets are requeued by the scrape pipeline
+### Operating modes (fail-closed by default)
+
+The gate is selected by `PUBLICATION_GATE_MODE`:
+
+- **`required`** (default; used for every production command) — the gate
+  **fails closed**. Publication is allowed only when a valid batch row satisfies
+  the *complete promotion contract*:
+  `status == "complete"`, `promoted_at is not null`, `missing_set_count == 0`,
+  `expected_set_count > 0`, a valid id, a valid market date, and (when
+  `--market-date` is given) an exact market-date match. Everything else blocks:
+  a query timeout, an auth/permission failure, a PostgREST/network error, a
+  missing batch table, a missing batch row, a malformed response, a contradictory
+  `complete` row, a pending/running/incomplete/failed batch, or any unclassified
+  exception. **A failed database operation is never permission to publish, and
+  never disables the gate.**
+- **`disabled`** — ungated. Permitted **only** for explicitly configured
+  local/test environments. It must be set deliberately; it is never inferred
+  from a failed query.
+
+An omitted or invalid mode resolves to `required`. Every decision carries a
+structured `reason_code` (`allowed_complete`, `blocked_incomplete`,
+`blocked_no_batch`, `blocked_authority_unavailable`,
+`blocked_invalid_batch_contract`, `disabled_explicitly`, `manual_override`).
+
+> **Deployment note:** because `required` fails closed, migrations 047–049 must
+> be applied in production before the scheduled refresh will publish. Until they
+> are applied the gate blocks (authority unavailable / no batch) and the refresh
+> **defers** — set `PUBLICATION_GATE_MODE=disabled` deliberately only as a
+> documented temporary bridge for an environment without the batch system.
+
+### Behaviour
+
+- **Batch `complete` (contract satisfied)** → gate open, promote as normal.
+- **Anything else, in `--commit`** → gate closed. The run prints
+  `publication gate CLOSED [reason_code]`, a machine-readable
+  `PUBLICATION_DEFERRED …` line, promotes nothing, **preserves the previous good
+  public snapshots**, and exits with the dedicated **deferred exit code `3`**
+  (not `0`, not `1`). Missing sets are requeued by the scrape pipeline
   (`requeue_missing_scrape_jobs_for_batch`, migration 049), not by this refresh.
-- **No batch row / batch tables not applied** → gate is *ungated* (open) so
-  environments without the batch system (local/dev, or prod before 047–049 is
-  applied) keep working unchanged.
+- **`--dry-run`** → read-only; reports what the gate decision *would* be and
+  performs no writes.
 
 Flags:
 
@@ -77,11 +113,13 @@ Flags:
 # Gate on a specific America/Phoenix market date's batch.
 python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-07-25
 
-# Manual recovery ONLY: promote even if the cohort is incomplete (loudly logged).
+# Manual recovery ONLY: promote even if the cohort is incomplete (loudly logged,
+# recorded as reason_code=manual_override). Never part of the normal schedule.
 python backend/scripts/refresh_stale_public_snapshots.py --commit --force-publish
 ```
 
-`--force-publish` is never part of the normal schedule.
+`--force-publish` can never be activated implicitly and is never part of the
+normal schedule.
 
 ## Exit Status and I/O-Safe Resumable Recovery
 
@@ -103,7 +141,39 @@ Exit status:
   recovery as success.
 - `--strict` additionally fails the run on staleness/verification warnings and
   on the post-run set-page freshness audit.
-- A closed publication gate is not a failure (exit 0).
+- A closed publication gate is **deferred, not failed**: it exits with the
+  dedicated code `3` (distinct from `0` success and `1` build failure) so the
+  scheduler wrapper can send a "publication DEFERRED" warning instead of a
+  success message, while staying visibly non-successful.
+
+### Scheduler wrapper (`infra/local/run_simulations.sh`)
+
+The wrapper captures the refresh exit code and branches:
+
+- `0` → ✅ success message.
+- `3` → ⏸️ "Public snapshot publication DEFERRED" warning (market date, batch
+  status, missing-set count from the `PUBLICATION_DEFERRED` log line, and the
+  operator action). It is **not** the success message and **not** the build-
+  failure message, and the task stays non-successful (final `exit 1`).
+- other nonzero → ❌ build-failure message.
+
+The simulation-batch result is reported independently, so a simulation failure
+and a publication deferral remain separately visible.
+
+### Set-page strict verification is simulation-aware
+
+`_verify_set_page` recognizes the `meta.simulationAvailability` contract. A page
+explicitly labeled `available == false` may have empty `top_hits`,
+`simulation_input_cards` source `NO_ROW`/`MISSING`/`NO_ROWS`, empty
+simulation-derived sections, and no current OPvC / run id — and still passes
+strict mode, provided it truthfully declares itself: valid identity,
+`meta.snapshot`, `meta.snapshotCompleteness`, `meta.simulationAvailability`
+with `available == false`, a `reason`, a non-empty `unavailableSections`
+naming the simulation-derived sections, the simulation-unavailable warning, no
+simulation-derived section falsely labeled fresh/current, and any carried-forward
+section labeled `stale` with a source/data-as-of date. A page that claims
+`available == true` keeps the stricter expectations; a malformed/identity-less
+page still fails.
 
 ## Fail-Graceful Set Pages
 
