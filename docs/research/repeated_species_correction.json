@@ -1,0 +1,684 @@
+{
+  "generated_at": "2026-07-15T17:24:09.698593+00:00",
+  "study": "repeated_species_correction_v1",
+  "sample": {
+    "pooled_modern_cards": 3608,
+    "pooled_modern_sets": 21,
+    "pooled_modern_species": 933,
+    "era_card_counts": {
+      "Mega Evolution": 693,
+      "Scarlet and Violet": 2915
+    },
+    "era_share": {
+      "Mega Evolution": 0.192,
+      "Scarlet and Violet": 0.808
+    },
+    "dropped_counts": {
+      "no_appeal_link": 705,
+      "no_pull_rate_for_rarity": 69
+    }
+  },
+  "spec_a_set_cluster": {
+    "columns": [
+      "is_secret",
+      "is_mechanic_card",
+      "is_stage2",
+      "appeal_c",
+      "pull_scarcity_c",
+      "appeal_x_scarcity",
+      "treatment_prestige"
+    ],
+    "dropped_collinear_columns": [
+      "log_release_age",
+      "is_promo"
+    ],
+    "coefficients": {
+      "is_secret": 0.785774503108702,
+      "is_mechanic_card": -0.5074977257989075,
+      "is_stage2": -0.06339675340830689,
+      "appeal_c": 0.022732665793503748,
+      "pull_scarcity_c": 1.928658130227677,
+      "appeal_x_scarcity": 0.023997352113694748,
+      "treatment_prestige": 2.424647476330746
+    },
+    "cluster_robust_se": {
+      "is_secret": 0.30975291203071376,
+      "is_mechanic_card": 0.1668233327433734,
+      "is_stage2": 0.04412365022606952,
+      "appeal_c": 0.0015485261879528247,
+      "pull_scarcity_c": 0.1949162179240927,
+      "appeal_x_scarcity": 0.002482288065952051,
+      "treatment_prestige": 0.4414895934575441
+    },
+    "t_stats": {
+      "is_secret": 2.5367784210880573,
+      "is_mechanic_card": -3.042126766401425,
+      "is_stage2": -1.4367975696364819,
+      "appeal_c": 14.680194607206921,
+      "pull_scarcity_c": 9.894805833851985,
+      "appeal_x_scarcity": 9.667432415621294,
+      "treatment_prestige": 5.491969714035655
+    },
+    "n": 3608,
+    "n_sets": 21,
+    "within_r2": 0.9097378066253865
+  },
+  "spec_b_two_way_cluster": {
+    "columns": [
+      "is_secret",
+      "is_mechanic_card",
+      "is_stage2",
+      "appeal_c",
+      "pull_scarcity_c",
+      "appeal_x_scarcity",
+      "treatment_prestige"
+    ],
+    "dropped_collinear_columns": [
+      "log_release_age",
+      "is_promo"
+    ],
+    "coefficients": {
+      "is_secret": 0.785774503108702,
+      "is_mechanic_card": -0.5074977257989075,
+      "is_stage2": -0.06339675340830689,
+      "appeal_c": 0.022732665793503748,
+      "pull_scarcity_c": 1.928658130227677,
+      "appeal_x_scarcity": 0.023997352113694748,
+      "treatment_prestige": 2.424647476330746
+    },
+    "two_way_se": {
+      "is_secret": 0.3259299460116379,
+      "is_mechanic_card": 0.16950928525593448,
+      "is_stage2": 0.060128533827886535,
+      "appeal_c": 0.0020260991470321906,
+      "pull_scarcity_c": 0.20468937255017536,
+      "appeal_x_scarcity": 0.0027384085088716205,
+      "treatment_prestige": 0.4423336791675657
+    },
+    "t_stats": {
+      "is_secret": 2.410869307113758,
+      "is_mechanic_card": -2.9939228699634914,
+      "is_stage2": -1.054353887786045,
+      "appeal_c": 11.219917755161353,
+      "pull_scarcity_c": 9.422365734962163,
+      "appeal_x_scarcity": 8.763247717040953,
+      "treatment_prestige": 5.48148963220193
+    },
+    "se_set_only": {
+      "is_secret": 0.30859141517931443,
+      "is_mechanic_card": 0.1661977864831266,
+      "is_stage2": 0.04395819744477409,
+      "appeal_c": 0.0015427195975326559,
+      "pull_scarcity_c": 0.1941853302887793,
+      "appeal_x_scarcity": 0.0024729800993086777,
+      "treatment_prestige": 0.43983411661516425
+    },
+    "se_species_only": {
+      "is_secret": 0.18145840255037354,
+      "is_mechanic_card": 0.08130890186307142,
+      "is_stage2": 0.061136720584437323,
+      "appeal_c": 0.0017420904658726612,
+      "pull_scarcity_c": 0.12028728851584601,
+      "appeal_x_scarcity": 0.0022044245508186303,
+      "treatment_prestige": 0.18705092837178158
+    },
+    "n": 3608,
+    "n_sets": 21,
+    "n_species": 933,
+    "non_psd_terms": [],
+    "finite_cluster_note": "Two-way clustering with only 21 set clusters is the binding limitation: cluster-robust inference is asymptotic in the NUMBER OF CLUSTERS, and ~20 is few. Species clusters are plentiful (~900) but sets are not, so the set dimension dominates the uncertainty. Treat these SEs as indicative, and prefer the wild cluster bootstrap by set."
+  },
+  "spec_c_crossed_mixed_effects": {
+    "available": true,
+    "converged": true,
+    "dropped_constant_columns": [
+      "is_promo"
+    ],
+    "n": 3608,
+    "coefficients": {
+      "log_release_age": -0.027909598490225878,
+      "is_secret": 0.7363480992085696,
+      "is_mechanic_card": -0.5407843005027818,
+      "is_stage2": -0.09510244477887911,
+      "appeal_c": 0.022042722713119443,
+      "pull_scarcity_c": 1.8897362113229672,
+      "appeal_x_scarcity": 0.022646004685968085,
+      "treatment_prestige": 2.578438694248403
+    },
+    "std_errors": {
+      "log_release_age": 0.06866361486582051,
+      "is_secret": 0.06305948255119184,
+      "is_mechanic_card": 0.0403164218723407,
+      "is_stage2": 0.047461247456547145,
+      "appeal_c": 0.0013131054808403402,
+      "pull_scarcity_c": 0.05141985852884986,
+      "appeal_x_scarcity": 0.0013183708578310086,
+      "treatment_prestige": 0.10719529118703562
+    },
+    "t_stats": {
+      "log_release_age": -0.40646852841589565,
+      "is_secret": 11.677039985394748,
+      "is_mechanic_card": -13.413499397717878,
+      "is_stage2": -2.003791511505246,
+      "appeal_c": 16.78671137600682,
+      "pull_scarcity_c": 36.75109705451063,
+      "appeal_x_scarcity": 17.17726431182302,
+      "treatment_prestige": 24.053656328518315
+    },
+    "variance_components": {
+      "set": 0.05993,
+      "species": 0.09515
+    },
+    "residual_variance": 0.32235,
+    "variance_share": {
+      "set": 0.1255,
+      "species": 0.1993,
+      "residual": 0.6752
+    },
+    "method": "MixedLM REML, crossed variance components for set and species"
+  },
+  "wild_cluster_bootstrap_by_set": {
+    "appeal_c": {
+      "point": 0.022733,
+      "ci_low": 0.01981,
+      "ci_high": 0.025506,
+      "share_positive": 1.0,
+      "draws": 400
+    },
+    "pull_scarcity_c": {
+      "point": 1.928658,
+      "ci_low": 1.571914,
+      "ci_high": 2.283897,
+      "share_positive": 1.0,
+      "draws": 400
+    },
+    "appeal_x_scarcity": {
+      "point": 0.023997,
+      "ci_low": 0.019209,
+      "ci_high": 0.02854,
+      "share_positive": 1.0,
+      "draws": 400
+    },
+    "treatment_prestige": {
+      "point": 2.424647,
+      "ci_low": 1.689099,
+      "ci_high": 3.216869,
+      "share_positive": 1.0,
+      "draws": 400
+    }
+  },
+  "era_diagnostics": {
+    "fit_with_era_interactions": {
+      "columns": [
+        "is_secret",
+        "is_mechanic_card",
+        "is_stage2",
+        "appeal_c",
+        "pull_scarcity_c",
+        "appeal_x_scarcity",
+        "treatment_prestige",
+        "era_x_scarcity",
+        "era_x_prestige"
+      ],
+      "dropped_collinear_columns": [
+        "log_release_age",
+        "is_promo"
+      ],
+      "coefficients": {
+        "is_secret": 0.7287742073158648,
+        "is_mechanic_card": -0.5989790421427789,
+        "is_stage2": -0.06507571912518792,
+        "appeal_c": 0.022608013929082682,
+        "pull_scarcity_c": 1.8060645903329466,
+        "appeal_x_scarcity": 0.022596540497935552,
+        "treatment_prestige": 2.912528288314312,
+        "era_x_scarcity": 1.3570276291081154,
+        "era_x_prestige": -3.000635658613088
+      },
+      "cluster_robust_se": {
+        "is_secret": 0.29114822639505805,
+        "is_mechanic_card": 0.14869933097553886,
+        "is_stage2": 0.042996702366191755,
+        "appeal_c": 0.0015982765034163134,
+        "pull_scarcity_c": 0.2084322350988157,
+        "appeal_x_scarcity": 0.002239841237287191,
+        "treatment_prestige": 0.3669739699805806,
+        "era_x_scarcity": 0.6109210233641962,
+        "era_x_prestige": 1.1888568326381723
+      },
+      "t_stats": {
+        "is_secret": 2.503103715723803,
+        "is_mechanic_card": -4.0281219707794875,
+        "is_stage2": -1.5135048862806946,
+        "appeal_c": 14.145245757388093,
+        "pull_scarcity_c": 8.664996513023569,
+        "appeal_x_scarcity": 10.088456325281165,
+        "treatment_prestige": 7.936607297973848,
+        "era_x_scarcity": 2.2212816014012553,
+        "era_x_prestige": -2.5239672063409246
+      },
+      "n": 3608,
+      "n_sets": 21,
+      "within_r2": 0.9119812205154411
+    },
+    "wild_bootstrap": {
+      "era_x_scarcity": {
+        "point": 1.357028,
+        "ci_low": 0.37559,
+        "ci_high": 2.410068,
+        "share_positive": 1.0,
+        "draws": 400
+      },
+      "era_x_prestige": {
+        "point": -3.000636,
+        "ci_low": -4.89872,
+        "ci_high": -1.01554,
+        "share_positive": 0.0,
+        "draws": 400
+      },
+      "appeal_c": {
+        "point": 0.022608,
+        "ci_low": 0.01957,
+        "ci_high": 0.025329,
+        "share_positive": 1.0,
+        "draws": 400
+      },
+      "appeal_x_scarcity": {
+        "point": 0.022597,
+        "ci_low": 0.018229,
+        "ci_high": 0.02691,
+        "share_positive": 1.0,
+        "draws": 400
+      }
+    },
+    "note": "Diagnostic only. A single pooled modern model is retained; no separate production formula is built per era."
+  },
+  "validation": {
+    "leave_whole_set_out": {
+      "without_appeal": {
+        "n": 3608,
+        "n_folds": 21,
+        "mae_card_weighted": 0.59451,
+        "rmse_card_weighted": 0.8304,
+        "spearman": 0.7848,
+        "r2": 0.8616,
+        "macro_avg_fold_mae": 0.59833,
+        "median_fold_mae": 0.5897,
+        "set_balanced_mae": 0.59833,
+        "per_set_mae": {
+          "Ascended Heroes": 0.648,
+          "Black Bolt": 0.5371,
+          "Chaos Rising": 0.444,
+          "Destined Rivals": 0.5897,
+          "Journey Together": 0.4119,
+          "Mega Evolution": 0.6209,
+          "Obsidian Flames": 0.4126,
+          "Paldea Evolved": 0.6478,
+          "Paldean Fates": 0.8839,
+          "Paradox Rift": 0.4929,
+          "Perfect Order": 0.478,
+          "Phantasmal Flames": 0.68,
+          "Prismatic Evolutions": 0.7318,
+          "Scarlet and Violet 151": 0.7583,
+          "Scarlet and Violet Base Set": 0.4719,
+          "Shrouded Fable": 0.9461,
+          "Stellar Crown": 0.4908,
+          "Surging Sparks": 0.6408,
+          "Temporal Forces": 0.594,
+          "Twilight Masquerade": 0.526,
+          "White Flare": 0.5585
+        }
+      },
+      "with_appeal": {
+        "n": 3608,
+        "n_folds": 21,
+        "mae_card_weighted": 0.5559,
+        "rmse_card_weighted": 0.75817,
+        "spearman": 0.8162,
+        "r2": 0.8846,
+        "macro_avg_fold_mae": 0.56302,
+        "median_fold_mae": 0.54733,
+        "set_balanced_mae": 0.56302,
+        "per_set_mae": {
+          "Ascended Heroes": 0.5586,
+          "Black Bolt": 0.5473,
+          "Chaos Rising": 0.4379,
+          "Destined Rivals": 0.552,
+          "Journey Together": 0.4031,
+          "Mega Evolution": 0.5446,
+          "Obsidian Flames": 0.3753,
+          "Paldea Evolved": 0.6153,
+          "Paldean Fates": 0.7662,
+          "Paradox Rift": 0.5153,
+          "Perfect Order": 0.4271,
+          "Phantasmal Flames": 0.649,
+          "Prismatic Evolutions": 0.6065,
+          "Scarlet and Violet 151": 0.632,
+          "Scarlet and Violet Base Set": 0.4803,
+          "Shrouded Fable": 1.0334,
+          "Stellar Crown": 0.4653,
+          "Surging Sparks": 0.6085,
+          "Temporal Forces": 0.5682,
+          "Twilight Masquerade": 0.5177,
+          "White Flare": 0.5197
+        }
+      },
+      "appeal_lift": {
+        "available": true,
+        "mae_card_weighted_reduction_pct": 6.494,
+        "set_balanced_mae_reduction_pct": 5.901,
+        "macro_fold_mae_reduction_pct": 5.901,
+        "spearman_gain": 0.0314,
+        "sets_improved": 17,
+        "sets_total": 21,
+        "pct_sets_improved": 81.0,
+        "largest_improvements": [
+          {
+            "set": "Scarlet and Violet 151",
+            "mae_delta": 0.1263
+          },
+          {
+            "set": "Prismatic Evolutions",
+            "mae_delta": 0.1253
+          },
+          {
+            "set": "Paldean Fates",
+            "mae_delta": 0.1177
+          },
+          {
+            "set": "Ascended Heroes",
+            "mae_delta": 0.0894
+          },
+          {
+            "set": "Mega Evolution",
+            "mae_delta": 0.0763
+          }
+        ],
+        "largest_regressions": [
+          {
+            "set": "Shrouded Fable",
+            "mae_delta": -0.0873
+          },
+          {
+            "set": "Paradox Rift",
+            "mae_delta": -0.0224
+          },
+          {
+            "set": "Black Bolt",
+            "mae_delta": -0.0102
+          },
+          {
+            "set": "Scarlet and Violet Base Set",
+            "mae_delta": -0.0084
+          },
+          {
+            "set": "Chaos Rising",
+            "mae_delta": 0.0061
+          }
+        ]
+      }
+    },
+    "grouped_species_10_fold": {
+      "without_appeal": {
+        "n": 3608,
+        "n_folds": 10,
+        "mae_card_weighted": 0.57898,
+        "rmse_card_weighted": 0.81394,
+        "spearman": 0.7918,
+        "r2": 0.867,
+        "macro_avg_fold_mae": 0.57863,
+        "median_fold_mae": 0.56852,
+        "set_balanced_mae": 0.58262,
+        "per_set_mae": {
+          "Ascended Heroes": 0.612,
+          "Black Bolt": 0.529,
+          "Chaos Rising": 0.4146,
+          "Destined Rivals": 0.5769,
+          "Journey Together": 0.406,
+          "Mega Evolution": 0.6248,
+          "Obsidian Flames": 0.4146,
+          "Paldea Evolved": 0.634,
+          "Paldean Fates": 0.819,
+          "Paradox Rift": 0.4867,
+          "Perfect Order": 0.4747,
+          "Phantasmal Flames": 0.6421,
+          "Prismatic Evolutions": 0.7193,
+          "Scarlet and Violet 151": 0.7151,
+          "Scarlet and Violet Base Set": 0.4686,
+          "Shrouded Fable": 0.9082,
+          "Stellar Crown": 0.4887,
+          "Surging Sparks": 0.6295,
+          "Temporal Forces": 0.5938,
+          "Twilight Masquerade": 0.5219,
+          "White Flare": 0.5556
+        }
+      },
+      "with_appeal": {
+        "n": 3608,
+        "n_folds": 10,
+        "mae_card_weighted": 0.53906,
+        "rmse_card_weighted": 0.73931,
+        "spearman": 0.823,
+        "r2": 0.8903,
+        "macro_avg_fold_mae": 0.53825,
+        "median_fold_mae": 0.54172,
+        "set_balanced_mae": 0.54625,
+        "per_set_mae": {
+          "Ascended Heroes": 0.511,
+          "Black Bolt": 0.5404,
+          "Chaos Rising": 0.4032,
+          "Destined Rivals": 0.5359,
+          "Journey Together": 0.4,
+          "Mega Evolution": 0.546,
+          "Obsidian Flames": 0.3788,
+          "Paldea Evolved": 0.606,
+          "Paldean Fates": 0.6849,
+          "Paradox Rift": 0.5099,
+          "Perfect Order": 0.4248,
+          "Phantasmal Flames": 0.6109,
+          "Prismatic Evolutions": 0.5997,
+          "Scarlet and Violet 151": 0.5928,
+          "Scarlet and Violet Base Set": 0.476,
+          "Shrouded Fable": 0.9899,
+          "Stellar Crown": 0.4653,
+          "Surging Sparks": 0.5933,
+          "Temporal Forces": 0.567,
+          "Twilight Masquerade": 0.5152,
+          "White Flare": 0.5201
+        }
+      },
+      "appeal_lift": {
+        "available": true,
+        "mae_card_weighted_reduction_pct": 6.895,
+        "set_balanced_mae_reduction_pct": 6.242,
+        "macro_fold_mae_reduction_pct": 6.979,
+        "spearman_gain": 0.0312,
+        "sets_improved": 17,
+        "sets_total": 21,
+        "pct_sets_improved": 81.0,
+        "largest_improvements": [
+          {
+            "set": "Paldean Fates",
+            "mae_delta": 0.1341
+          },
+          {
+            "set": "Scarlet and Violet 151",
+            "mae_delta": 0.1223
+          },
+          {
+            "set": "Prismatic Evolutions",
+            "mae_delta": 0.1196
+          },
+          {
+            "set": "Ascended Heroes",
+            "mae_delta": 0.101
+          },
+          {
+            "set": "Mega Evolution",
+            "mae_delta": 0.0788
+          }
+        ],
+        "largest_regressions": [
+          {
+            "set": "Shrouded Fable",
+            "mae_delta": -0.0817
+          },
+          {
+            "set": "Paradox Rift",
+            "mae_delta": -0.0232
+          },
+          {
+            "set": "Black Bolt",
+            "mae_delta": -0.0114
+          },
+          {
+            "set": "Scarlet and Violet Base Set",
+            "mae_delta": -0.0074
+          },
+          {
+            "set": "Journey Together",
+            "mae_delta": 0.006
+          }
+        ]
+      }
+    },
+    "grouped_species_20_fold": {
+      "without_appeal": {
+        "n": 3608,
+        "n_folds": 20,
+        "mae_card_weighted": 0.57909,
+        "rmse_card_weighted": 0.81413,
+        "spearman": 0.7912,
+        "r2": 0.8669,
+        "macro_avg_fold_mae": 0.57812,
+        "median_fold_mae": 0.57531,
+        "set_balanced_mae": 0.58285,
+        "per_set_mae": {
+          "Ascended Heroes": 0.6105,
+          "Black Bolt": 0.5302,
+          "Chaos Rising": 0.415,
+          "Destined Rivals": 0.5782,
+          "Journey Together": 0.4055,
+          "Mega Evolution": 0.6231,
+          "Obsidian Flames": 0.4152,
+          "Paldea Evolved": 0.6349,
+          "Paldean Fates": 0.8193,
+          "Paradox Rift": 0.4867,
+          "Perfect Order": 0.4761,
+          "Phantasmal Flames": 0.6428,
+          "Prismatic Evolutions": 0.7216,
+          "Scarlet and Violet 151": 0.7144,
+          "Scarlet and Violet Base Set": 0.4671,
+          "Shrouded Fable": 0.9093,
+          "Stellar Crown": 0.4909,
+          "Surging Sparks": 0.6292,
+          "Temporal Forces": 0.5922,
+          "Twilight Masquerade": 0.5231,
+          "White Flare": 0.5548
+        }
+      },
+      "with_appeal": {
+        "n": 3608,
+        "n_folds": 20,
+        "mae_card_weighted": 0.53882,
+        "rmse_card_weighted": 0.7391,
+        "spearman": 0.823,
+        "r2": 0.8903,
+        "macro_avg_fold_mae": 0.53752,
+        "median_fold_mae": 0.5366,
+        "set_balanced_mae": 0.54599,
+        "per_set_mae": {
+          "Ascended Heroes": 0.5099,
+          "Black Bolt": 0.5396,
+          "Chaos Rising": 0.4045,
+          "Destined Rivals": 0.5359,
+          "Journey Together": 0.3992,
+          "Mega Evolution": 0.5455,
+          "Obsidian Flames": 0.3787,
+          "Paldea Evolved": 0.6071,
+          "Paldean Fates": 0.6852,
+          "Paradox Rift": 0.5094,
+          "Perfect Order": 0.4248,
+          "Phantasmal Flames": 0.6099,
+          "Prismatic Evolutions": 0.5982,
+          "Scarlet and Violet 151": 0.5913,
+          "Scarlet and Violet Base Set": 0.476,
+          "Shrouded Fable": 0.9893,
+          "Stellar Crown": 0.4664,
+          "Surging Sparks": 0.5942,
+          "Temporal Forces": 0.5657,
+          "Twilight Masquerade": 0.5154,
+          "White Flare": 0.5192
+        }
+      },
+      "appeal_lift": {
+        "available": true,
+        "mae_card_weighted_reduction_pct": 6.954,
+        "set_balanced_mae_reduction_pct": 6.324,
+        "macro_fold_mae_reduction_pct": 7.023,
+        "spearman_gain": 0.0318,
+        "sets_improved": 17,
+        "sets_total": 21,
+        "pct_sets_improved": 81.0,
+        "largest_improvements": [
+          {
+            "set": "Paldean Fates",
+            "mae_delta": 0.1341
+          },
+          {
+            "set": "Prismatic Evolutions",
+            "mae_delta": 0.1234
+          },
+          {
+            "set": "Scarlet and Violet 151",
+            "mae_delta": 0.1231
+          },
+          {
+            "set": "Ascended Heroes",
+            "mae_delta": 0.1006
+          },
+          {
+            "set": "Mega Evolution",
+            "mae_delta": 0.0776
+          }
+        ],
+        "largest_regressions": [
+          {
+            "set": "Shrouded Fable",
+            "mae_delta": -0.08
+          },
+          {
+            "set": "Paradox Rift",
+            "mae_delta": -0.0227
+          },
+          {
+            "set": "Black Bolt",
+            "mae_delta": -0.0094
+          },
+          {
+            "set": "Scarlet and Violet Base Set",
+            "mae_delta": -0.0089
+          },
+          {
+            "set": "Journey Together",
+            "mae_delta": 0.0063
+          }
+        ]
+      }
+    }
+  },
+  "lost_origin_holdout": {
+    "available": true,
+    "set": "Lost Origin",
+    "n_cards": 108,
+    "mae": 0.47123,
+    "rmse": 0.57899,
+    "spearman": 0.5156,
+    "mean_bias_log_price": 0.34128,
+    "note": "Directional only. One Sword & Shield set is NOT an era model and this result must not be generalized to the Sword & Shield era."
+  },
+  "prohibitions": [
+    "No coefficient here may be transferred into RIP or Opening Appeal weights.",
+    "Contemporaneous price explanation only; this is not future-price prediction."
+  ]
+}

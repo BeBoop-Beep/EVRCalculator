@@ -6,9 +6,8 @@ from typing import Any, Optional
 
 PILLAR_INTERPRETATION_WEIGHTS = {
     "profit": 0.45,
-    "safety": 0.25,
-    "desirability": 0.20,
-    "stability": 0.10,
+    "safety": 0.30,
+    "stability": 0.25,
 }
 
 INTERPRETATION_TIER_STRENGTH = {
@@ -141,10 +140,6 @@ def build_safety_context(summary_data: dict[str, Any]) -> dict[str, Any]:
 
 def build_stability_context(summary_data: dict[str, Any]) -> dict[str, Any]:
     return _build_pillar_context(summary_data, "stability")
-
-
-def build_desirability_context(summary_data: dict[str, Any]) -> dict[str, Any]:
-    return _build_pillar_context(summary_data, "desirability")
 
 
 def build_pack_context(summary_data: dict[str, Any]) -> dict[str, Any]:

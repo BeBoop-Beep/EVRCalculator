@@ -49,6 +49,44 @@ export function getMarketDateSourceFromPayload(key, payload) {
 }
 
 /**
+ * Client-hydration freshness guard.
+ *
+ * Given a server-provided seed payload and a client/API-fetched live payload for
+ * the same surface, return whichever carries the newer market as-of date. A
+ * stale server seed (e.g. a cached /overview response ending an older market
+ * date) must never win over a newer live response. On ties, or when either date
+ * is unknown, the freshly-fetched live payload wins because it is the
+ * authoritative just-fetched value. Pure: never mutates its inputs.
+ */
+export function chooseFresherMarketPayload(seedPayload, livePayload) {
+  if (!livePayload) {
+    return seedPayload || null;
+  }
+  if (!seedPayload) {
+    return livePayload;
+  }
+  const seedDate = getMarketDateSourceFromPayload("seed", seedPayload)?.marketAsOfDate || null;
+  const liveDate = getMarketDateSourceFromPayload("live", livePayload)?.marketAsOfDate || null;
+  if (seedDate && liveDate && seedDate > liveDate) {
+    return seedPayload;
+  }
+  return livePayload;
+}
+
+/**
+ * True when a server seed is strictly older (by market as-of date) than a live
+ * payload — i.e. the seed must be rejected in favor of the newer response.
+ */
+export function isServerSeedStale(seedPayload, livePayload) {
+  const seedDate = getMarketDateSourceFromPayload("seed", seedPayload)?.marketAsOfDate || null;
+  const liveDate = getMarketDateSourceFromPayload("live", livePayload)?.marketAsOfDate || null;
+  if (!seedDate || !liveDate) {
+    return false;
+  }
+  return seedDate < liveDate;
+}
+
+/**
  * Resolve the shared canonical market as-of date from the loaded market
  * datasets. `sources` is an array of { key, generationId, marketAsOfDate }
  * (null entries are ignored).

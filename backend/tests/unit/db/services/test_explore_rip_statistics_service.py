@@ -1,6 +1,39 @@
 from backend.db.services import explore_rip_statistics_service as service
 
 
+class _AnySetCollectorPayloads(dict):
+    """An available Collector Appeal payload for whatever set id is asked for.
+
+    These tests exercise target discovery/enrichment, not Collector Appeal, so
+    the bundle is stubbed rather than built - the real build reads the pull
+    model and card links from the network, which a unit test must not. Serving
+    an available payload for every id keeps the public-cohort integrity check
+    satisfied for each fixture's arbitrary set ids.
+    """
+
+    def get(self, key, default=None):
+        return {
+            "setId": key,
+            "setName": key,
+            "status": "available",
+            "asOf": "2026-01-01T00:00:00Z",
+            "rosterDesirability": {"score": 90.0, "version": "universal_set_desirability_v3"},
+            "dualPathDepth": {"rawValue": 0.25, "displayPercent": 25.0, "version": "dual_path_depth_v1"},
+            "collectorAppeal": {"score": 92.5, "rawValue": 0.925, "version": "collector_appeal_ca7_v1"},
+            "chaseAppeal": {"score": 70.0, "rawValue": 0.70, "version": "chase_appeal_ca2_v1"},
+            "topSubjects": [],
+            "coverage": {"status": "available", "reasons": []},
+        }
+
+
+def _stub_collector_appeal_bundle(monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "get_collector_appeal_bundle",
+        lambda **_: {"payloads": _AnySetCollectorPayloads()},
+    )
+
+
 class _Result:
     def __init__(self, data):
         self.data = data
@@ -196,6 +229,7 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     handlers = _build_handlers()
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
 
     def _mock_interpretation(summary_row):
         if summary_row.get("pack_score") == 89.0:
@@ -260,6 +294,7 @@ def test_targets_endpoint_includes_canonical_checklist_set_value_for_validation(
     handlers = _build_handlers()
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
     monkeypatch.setattr(
         service,
         "build_rip_interpretation",
@@ -285,6 +320,7 @@ def test_targets_endpoint_without_rows_raises_404(monkeypatch):
     handlers["explore_rip_statistics_latest"] = lambda _q: []
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
 
     try:
         service.get_rip_statistics_targets_payload()
@@ -303,6 +339,7 @@ def test_set_enrichment_failure_falls_back_to_target_id(monkeypatch):
     handlers["sets"] = _sets_fail
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
 
     payload = service.get_rip_statistics_targets_payload()
 
@@ -315,6 +352,7 @@ def test_limit_is_safely_clamped(monkeypatch):
     handlers = _build_handlers()
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
 
     payload = service.get_rip_statistics_targets_payload(limit="999")
 
@@ -368,6 +406,7 @@ def test_all_scored_opening_desirability_rows_join_into_canonical_comparison(mon
     }
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
     monkeypatch.setattr(
         service,
         "build_rip_interpretation",
@@ -393,6 +432,7 @@ def test_top_10_card_value_sorts_before_aggregation_and_reports_unavailable_pric
     ]
     client = _Client({"pokemon_canonical_card_market_prices_latest": lambda _q: rows})
     monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
     sources = {}
     warnings = []
 

@@ -18,6 +18,7 @@ def test_cards_build_stops_after_consecutive_transient_retry_exhaustion(monkeypa
     attempted = []
     real_retry = command.run_snapshot_operation_with_retry
 
+    monkeypatch.setenv("PUBLICATION_GATE_MODE", "disabled")
     monkeypatch.setattr(
         sys,
         "argv",

@@ -21,6 +21,35 @@ def test_transient_classifier_prefers_structured_postgrest_and_http_statuses():
     ).transient
 
 
+def test_statement_timeout_is_transient():
+    """57014 cancels the statement, not the connection.
+
+    A cold TOAST read can exceed the statement timeout and then succeed on a
+    retry once the pages are cached, so classifying it permanent turned a
+    recoverable read into an empty published payload.
+    """
+    assert is_transient_data_service_error(
+        APIError(
+            {
+                "message": "canceling statement due to statement timeout",
+                "code": "57014",
+                "hint": None,
+                "details": None,
+            }
+        )
+    )
+
+
+def test_http_520_is_transient_like_its_neighbours():
+    """520 sat outside the set while 521/522 were inside it."""
+    request = httpx.Request("GET", "https://example.test/rest/v1/table")
+    for status in (502, 503, 504, 520, 521, 522):
+        response = httpx.Response(status, request=request)
+        assert is_transient_data_service_error(
+            httpx.HTTPStatusError("gateway", request=request, response=response)
+        ), f"HTTP {status} must be transient"
+
+
 def test_offline_snapshot_retry_uses_a_fresh_client_for_pgrst002():
     clients = []
     sleeps = []

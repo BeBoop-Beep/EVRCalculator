@@ -52,7 +52,9 @@ export function normalizePokemonSetInsightsSecondaryPayload(payload) {
     rarityContribution: toArray(payload?.rarityContribution),
     historyTrend: toArray(payload?.historyTrend),
     desirability: toPlainObject(payload?.desirability),
-    desirabilityValidation: toPlainObject(payload?.desirabilityValidation),
+    // desirabilityValidation is retired: the backend no longer serves it and
+    // the Desirability Evidence section it fed was replaced by Opening
+    // Experience.
     meta: payload?.meta || { warnings: [] },
   };
 }

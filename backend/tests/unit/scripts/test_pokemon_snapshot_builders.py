@@ -1115,7 +1115,7 @@ def test_market_dashboard_snapshot_uses_corrected_local_set_value_history_date(m
     assert dashboard_row["payload_json"]["setValueHistoriesByScope"]["hits"][0]["date"] == "2026-06-26"
 
 
-def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatch):
+def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_explore_page_payload",
@@ -1162,6 +1162,19 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
                     "rip_desirability_impact_label": "Rank lift",
                     "rip_desirability_comparison_version": "rip_desirability_comparison_v1",
                     "top_hits": [{"marketPrice": 100}],
+                    "rip": {
+                        "score": 82.61,
+                        "rank": 1,
+                        "tier": "S",
+                        "cohortSize": 21,
+                        "components": {"desirability": {"score": 96.09, "weight": 0.10}},
+                    },
+                    "ripCore": {"score": 74.25, "rank": 3, "tier": "A", "cohortSize": 21},
+                    "openingExperience": {
+                        "status": "available",
+                        "collectorAppeal": {"score": 96.09, "rank": 1, "cohortSize": 21},
+                    },
+                    "publicAnalyticsStatus": "analytics_ready",
                 },
                 {
                     "id": "set-2",
@@ -1178,7 +1191,14 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
                     },
                     "top_hits": [{"marketPrice": 25}],
                 },
-            ]
+            ],
+            "meta": {
+                "publicAnalyticsCohort": {
+                    "version": "public_analytics_policy_v1_era_gated",
+                    "eligibleSetCount": 21,
+                    "status": "analytics_ready",
+                }
+            },
         },
     )
 
@@ -1199,10 +1219,18 @@ def test_build_set_page_snapshot_row_includes_desirability_validation(monkeypatc
         assert row["payload_json"]["set"][key] == expected
         assert row["rip_summary_json"][key] == expected
 
-    validation = row["payload_json"]["desirabilityValidation"]
-    assert validation["formula_version"] == "desirability_validation_v2"
-    assert validation["desirability_impact_band"] in {"lift", "drag", "neutral"}
-    assert row["payload_json"]["desirability_validation"] == validation
+    # The canonical contract travels from the rankings target into the set-page
+    # snapshot verbatim - the same object powers both surfaces.
+    payload = row["payload_json"]
+    assert payload["rip"]["score"] == 82.61
+    assert payload["rip"]["cohortSize"] == 21
+    assert payload["ripCore"]["score"] == 74.25
+    assert payload["openingExperience"]["collectorAppeal"]["score"] == 96.09
+    assert payload["publicAnalyticsStatus"] == "analytics_ready"
+    assert payload["publicAnalyticsCohort"]["eligibleSetCount"] == 21
+    # The legacy validation payload is retired: new snapshots never carry it.
+    assert "desirabilityValidation" not in payload
+    assert "desirability_validation" not in payload
 
 
 def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(monkeypatch):
@@ -1526,7 +1554,10 @@ def test_build_set_page_snapshot_row_preserves_previous_card_appeal_correlation_
     assert payload["meta"]["sectionFreshness"]["cardAppealValidation"]["status"] == "stale"
 
 
-def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_validation_missing(monkeypatch):
+def test_build_set_page_snapshot_row_retires_previous_desirability_validation(monkeypatch):
+    """A legacy validation payload on the EXISTING snapshot row must not be
+    carried forward - the retired section would otherwise resurrect itself from
+    the last-known-good merge on every rebuild, forever."""
     monkeypatch.setattr(pokemon_snapshot_builders, "utc_now_iso", lambda: "2026-06-25T12:00:00+00:00")
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1538,11 +1569,8 @@ def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_vali
         },
     )
     monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
-
-    def _raise_validation_error(**_kwargs):
-        raise RuntimeError("validation unavailable")
-
-    monkeypatch.setattr(pokemon_snapshot_builders, "build_desirability_validation_payload", _raise_validation_error)
+    # The legacy payload builder must be gone from this module entirely.
+    assert not hasattr(pokemon_snapshot_builders, "build_desirability_validation_payload")
 
     validation = {"formula_version": "desirability_validation_v1", "summary": {"sampleCount": 12}}
     client = _Client(
@@ -1572,7 +1600,7 @@ def test_build_set_page_snapshot_row_marks_incomplete_previous_desirability_vali
 
     assert "desirabilityValidation" not in payload
     assert "desirability_validation" not in payload
-    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "missing"
+    assert payload["meta"]["sectionFreshness"]["desirabilityValidation"]["status"] == "retired"
 
 
 def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapshot(monkeypatch):
@@ -1911,3 +1939,301 @@ def test_build_market_dashboard_performance_history_updates_when_simulation_chan
     perf_v2_sv100 = make_row(sim_rows_v2, 100.0)
     assert perf_v2_sv100 != perf_v1_sv100, "simulation change must update performanceVsCostHistory"
     assert perf_v2_sv100[0]["simulated_mean_pack_value_vs_pack_cost"] == 0.80
+
+
+# ---------------------------------------------------------------------------
+# Fail-graceful set page snapshots (missing simulation must not reject the page)
+# ---------------------------------------------------------------------------
+
+from backend.db.services.explore_page_service import ExplorePageError  # noqa: E402
+
+
+def _fail_graceful_client(*, cards_rows=None, page_rows=None):
+    return _Client(
+        {
+            "simulation_input_cards_with_near_mint_price": lambda _q: [],
+            "simulation_input_cards": lambda _q: [],
+            "pokemon_set_cards_snapshot_latest": lambda _q: cards_rows or [],
+            "pokemon_explore_rankings_snapshot_latest": lambda _q: [],
+            "explore_rip_statistics_latest": lambda _q: [],
+            "simulation_latest_by_target": lambda _q: [],
+            "pokemon_set_page_snapshot_latest": lambda _q: page_rows or [],
+        }
+    )
+
+
+def test_set_page_publishes_partial_when_no_simulation_data(monkeypatch):
+    """A set with no simulation/RIP row must still publish identity + markers."""
+    def _raise_missing(target_type, set_id):
+        raise ExplorePageError(
+            status_code=404,
+            message="No simulation data found for this target",
+            code="TARGET_NOT_FOUND",
+        )
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_explore_page_payload", _raise_missing)
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        {"id": "set-1", "name": "Alpha", "canonical_key": "alpha"}, client=client
+    )
+
+    # Identity + title publish independently of simulation.
+    assert row["set_identity_json"]["id"] == "set-1"
+    assert row["set_identity_json"]["name"] == "Alpha"
+    assert row["title_card_json"]["id"] == "set-1"
+
+    availability = row["payload_json"]["meta"]["simulationAvailability"]
+    assert availability["available"] is False
+    assert "summary" in availability["unavailableSections"]
+    assert "openingProfitVsCost" in availability["unavailableSections"]
+    assert "pull_rate_assumptions" in availability["unavailableSections"]
+
+    warnings = row["payload_json"]["meta"]["warnings"]
+    assert any("Simulation data is unavailable" in str(w) for w in warnings)
+
+    # Simulation-derived summaries are explicitly empty, not fabricated.
+    assert row["market_summary_json"] == {}
+    assert row["rip_summary_json"] == {}
+
+
+def test_set_page_full_data_marks_simulation_available(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {
+                "calculation_run_id": "run-1",
+                "run_at": "2026-07-17T00:00:00+00:00",
+                "pack_cost": 4.0,
+                "mean_value": 5.0,
+                "median_value": 4.5,
+                "prob_profit": 0.6,
+                "pack_rank": 3,
+            },
+            "top_hits": [{"card_name": "Chase", "ev_contribution": 2.0}],
+            "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+
+    availability = row["payload_json"]["meta"]["simulationAvailability"]
+    assert availability["available"] is True
+    assert availability["unavailableSections"] == []
+    assert availability["asOfDate"] == "2026-07-17T00:00:00+00:00"
+    assert row["market_summary_json"]["pack_cost"] == 4.0
+    assert row["market_summary_json"]["mean_value"] == 5.0
+    assert not any("Simulation data is unavailable" in str(w) for w in row["payload_json"]["meta"]["warnings"])
+
+
+def test_set_page_partial_market_data_publishes_present_fields_only(monkeypatch):
+    # Simulation present but summary only carries some market fields (partial).
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: {
+            "summary": {"calculation_run_id": "run-9", "pack_cost": 4.0, "mean_value": 5.0},
+            "top_hits": [],
+            "meta": {"sources": {"simulation_input_cards": "NO_ROWS"}, "warnings": []},
+        },
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+
+    market = row["market_summary_json"]
+    assert market["pack_cost"] == 4.0
+    assert market["mean_value"] == 5.0
+    # A field never provided must not be fabricated with a placeholder value.
+    assert "median_value" not in market
+    assert row["payload_json"]["meta"]["simulationAvailability"]["available"] is True
+
+
+def test_set_page_genuine_backend_failure_is_not_masked(monkeypatch):
+    """A real 5xx (not missing data) must still propagate — never a silent partial."""
+    def _raise_server_error(target_type, set_id):
+        raise ExplorePageError(
+            status_code=500,
+            message="Failed to load required summary statistics",
+            code="SUMMARY_QUERY_FAILED",
+        )
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_explore_page_payload", _raise_server_error)
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+
+    client = _fail_graceful_client()
+    with pytest.raises(ExplorePageError):
+        pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+
+
+# ---------------------------------------------------------------------------
+# Section-level freshness: a single latest_market_date must not imply that every
+# embedded dashboard section is equally current (July-25 / July-16 incident).
+# ---------------------------------------------------------------------------
+
+
+def test_dashboard_section_freshness_mixed_dates_not_uniformly_current():
+    # Exact incident dates: set value/dashboard July 25, Cards/Top Chase July 16,
+    # simulation July 17. The contract must NOT report uniform currency.
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T12:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-16",
+        cards_snapshot_source_date="2026-07-16",
+        simulation_source_date="2026-07-17",
+    )
+
+    assert fresh["referenceDate"] == "2026-07-25"
+    assert fresh["setValueSourceDate"] == "2026-07-25"
+    assert fresh["topChaseSourceDate"] == "2026-07-16"
+    assert fresh["cardsSnapshotSourceDate"] == "2026-07-16"
+    assert fresh["simulationSourceDate"] == "2026-07-17"
+    assert fresh["pageSourceDate"] == "2026-07-25"
+
+    assert fresh["uniformlyCurrent"] is False
+    assert fresh["marketSectionsUniformlyCurrent"] is False
+    assert fresh["sections"]["setValue"]["status"] == "current"
+    assert fresh["sections"]["topChase"]["status"] == "stale"
+    assert fresh["sections"]["cards"]["status"] == "stale"
+    assert fresh["sections"]["simulation"]["status"] == "stale"
+    assert fresh["openingProfitVsCost"] == {"sourceDate": "2026-07-17", "status": "stale"}
+
+    joined = " | ".join(fresh["warnings"])
+    assert "Top Chase data is stale" in joined
+    assert "Cards data is stale" in joined
+    assert "Opening Profit vs Cost is stale" in joined
+
+
+def test_dashboard_section_freshness_all_current_when_uniform():
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T00:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-25",
+        cards_snapshot_source_date="2026-07-25",
+        simulation_source_date="2026-07-25",
+    )
+    assert fresh["uniformlyCurrent"] is True
+    assert fresh["warnings"] == []
+
+
+def test_dashboard_section_freshness_marks_missing_simulation_unavailable():
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T00:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-25",
+        cards_snapshot_source_date="2026-07-25",
+        simulation_source_date=None,
+    )
+    assert fresh["openingProfitVsCost"]["status"] == "unavailable"
+    assert fresh["uniformlyCurrent"] is False
+    assert any("Opening Profit vs Cost is unavailable" in w for w in fresh["warnings"])
+
+
+def test_dashboard_top_chase_source_date_ignores_forward_filled_carry(monkeypatch):
+    # Top Chase observations end July 16; forward-fill carries them to the July 25
+    # canonical boundary. topChaseSourceDate must report the OBSERVED July 16,
+    # not the carried July 25, and the dashboard must not read as uniform.
+    histories = {
+        "standard": [{"date": "2026-07-25", "setValue": 1000.0}],
+        "hits": [{"date": "2026-07-25", "setValue": 700.0}],
+        "top10": [{"date": "2026-07-25", "setValue": 500.0}],
+    }
+    top_cards = [{
+        "cardVariantId": "variant-1",
+        "name": "Chase",
+        "priceHistory": [
+            {"date": "2026-07-10", "marketPrice": 100.0},
+            {"date": "2026-07-16", "marketPrice": 110.0},
+        ],
+    }]
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": histories[value_scope],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": top_cards, "meta": {"warnings": []}},
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "_build_top_chase_canonical_history_context", lambda *a, **k: {})
+    monkeypatch.setattr(pokemon_snapshot_builders, "_load_top_chase_histories_from_observations", lambda *a, **k: {})
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
+    )
+    # Simulation performance ends July 17.
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "_load_simulation_performance_history",
+        lambda *_args: [{"date": "2026-07-17", "meanValueToCostRatio": 1.1}],
+    )
+
+    dashboard_row, _history = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1", "name": "Alpha"},
+        days=365,
+        window="365d",
+        client=_Client({"card_variant_price_observations": lambda _q: []}),
+        built_at="2026-07-25T00:00:00+00:00",
+        latest_market_date="2026-07-25",
+    )
+
+    meta = dashboard_row["payload_json"]["meta"]
+    assert meta["setValueSourceDate"] == "2026-07-25"
+    assert meta["topChaseSourceDate"] == "2026-07-16"
+    assert meta["simulationSourceDate"] == "2026-07-17"
+    assert meta["sectionsUniformlyCurrent"] is False
+    assert meta["openingProfitVsCost"]["status"] == "stale"
+    assert any("Top Chase data is stale" in w for w in meta["warnings"])
+
+
+def test_mixed_freshness_july_16_17_25_full_contract():
+    """Regression fixture (Area 6, requirement 38): the exact incident dates.
+
+    dashboard/set value = 2026-07-25, Cards/Top Chase = 2026-07-16,
+    simulation/OPvC = 2026-07-17. The section-freshness contract must:
+      * NOT report uniform current freshness,
+      * identify each section's true source date,
+      * reject stale data labeled current (each lagging section => "stale"),
+      * permit explicitly stale simulation data (present, labeled stale).
+    """
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T12:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-16",
+        cards_snapshot_source_date="2026-07-16",
+        simulation_source_date="2026-07-17",
+    )
+
+    # Not uniform.
+    assert fresh["uniformlyCurrent"] is False
+    assert fresh["marketSectionsUniformlyCurrent"] is False
+
+    # Each section's true source date is identified.
+    assert fresh["setValueSourceDate"] == "2026-07-25"
+    assert fresh["topChaseSourceDate"] == "2026-07-16"
+    assert fresh["cardsSnapshotSourceDate"] == "2026-07-16"
+    assert fresh["simulationSourceDate"] == "2026-07-17"
+
+    # No lagging section inherits the newest (2026-07-25) date as "current".
+    assert fresh["sections"]["setValue"]["status"] == "current"
+    assert fresh["sections"]["topChase"]["status"] == "stale"
+    assert fresh["sections"]["cards"]["status"] == "stale"
+    assert fresh["sections"]["simulation"]["status"] == "stale"
+
+    # Explicitly stale simulation data is permitted (present, dated, labeled).
+    assert fresh["openingProfitVsCost"] == {"sourceDate": "2026-07-17", "status": "stale"}

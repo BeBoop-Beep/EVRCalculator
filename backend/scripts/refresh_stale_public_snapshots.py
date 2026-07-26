@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from backend.db.services.publication_gate import (
+    GATE_DEFERRED_EXIT_CODE,
+    evaluate_publication_gate,
+    gate_decision_report,
+)
+from backend.db.services.set_publication_revalidation import notify_set_publication
+from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
 from backend.scripts.build_pokemon_desirability_validation_snapshots import (
     _audit_row,
@@ -48,6 +56,143 @@ KNOWN_SET_PAGE_STALE_WARNING_PATTERNS = (
     "skipped live repair during route render",
 )
 RANKINGS_STALE_THRESHOLD_SECONDS = 300
+# Set-page strict verification is simulation-aware. A partial page that is
+# explicitly labeled simulation-unavailable must PASS strict mode; a page that
+# claims every section is current must still fail on the usual staleness checks.
+# unavailableSections must at least name these flagship simulation-derived areas.
+_REQUIRED_UNAVAILABLE_SECTIONS = frozenset({"summary", "top_hits", "openingProfitVsCost"})
+
+
+@dataclass(frozen=True)
+class SimulationDerivedSection:
+    """One simulation-derived surface of a published set page.
+
+    ``freshness_keys``  — every ``meta.sectionFreshness`` alias the section may
+                          be labeled under.
+    ``payload_paths``   — every payload location the section's data may occupy.
+    ``declaration_keys``— every alias that counts as declaring the section in
+                          ``simulationAvailability.unavailableSections``.
+
+    Both camelCase and snake_case aliases are listed on purpose: the set-page
+    builder writes snake_case payload sections while the slim normalizers
+    (pokemon_public_snapshot_service) re-emit the same content camelCased. The
+    verifier must recognise either without a second schema.
+    """
+
+    key: str
+    freshness_keys: Tuple[str, ...]
+    payload_paths: Tuple[Tuple[str, ...], ...]
+    declaration_keys: Tuple[str, ...]
+
+
+# The COMPLETE simulation-derived surface. Verification walks these directly
+# rather than trusting the payload's own carriedForwardSections list, so a page
+# cannot hide a section simply by omitting it from that list.
+SIMULATION_DERIVED_SECTIONS: Tuple[SimulationDerivedSection, ...] = (
+    SimulationDerivedSection(
+        key="simulationSummary",
+        freshness_keys=("simulationSummary", "simulation_summary", "summary"),
+        payload_paths=(("summary",),),
+        declaration_keys=("summary", "simulationSummary", "simulation_summary"),
+    ),
+    SimulationDerivedSection(
+        key="simulationDrivers",
+        freshness_keys=("simulationDrivers", "simulation_drivers", "topHits", "top_hits"),
+        payload_paths=(("top_hits",), ("topHits",), ("simulationDrivers",)),
+        declaration_keys=("top_hits", "topHits", "simulationDrivers", "simulation_drivers"),
+    ),
+    SimulationDerivedSection(
+        key="openingProfitVsCost",
+        freshness_keys=("openingProfitVsCost", "opening_profit_vs_cost"),
+        payload_paths=(("openingProfitVsCost",), ("opening_profit_vs_cost",)),
+        declaration_keys=("openingProfitVsCost", "opening_profit_vs_cost"),
+    ),
+    SimulationDerivedSection(
+        key="outcomeDistribution",
+        freshness_keys=("outcomeDistribution", "outcome_distribution"),
+        payload_paths=(
+            ("outcomeDistribution",),
+            ("distribution_bins",),
+            ("threshold_bins",),
+            ("percentiles",),
+        ),
+        declaration_keys=(
+            "outcomeDistribution",
+            "outcome_distribution",
+            "distribution_bins",
+            "threshold_bins",
+            "percentiles",
+        ),
+    ),
+    SimulationDerivedSection(
+        key="simulationMetrics",
+        freshness_keys=("simulationMetrics", "simulation_metrics", "ripStatistics", "rip_statistics"),
+        payload_paths=(("rip_statistics",), ("ripStatistics",)),
+        declaration_keys=("rip_statistics", "ripStatistics", "simulationMetrics", "simulation_metrics"),
+    ),
+    SimulationDerivedSection(
+        key="valueStructure",
+        freshness_keys=("valueStructure", "value_structure", "rarityContribution", "rarity_contribution"),
+        payload_paths=(("rankings",), ("rarityContribution",), ("rarity_contribution",)),
+        declaration_keys=("rankings", "rarityContribution", "rarity_contribution", "valueStructure"),
+    ),
+    SimulationDerivedSection(
+        key="packPaths",
+        freshness_keys=("packPaths", "pack_paths", "packBreakdown", "pack_breakdown"),
+        payload_paths=(
+            ("rip_statistics", "pack_paths"),
+            ("ripStatistics", "packPaths"),
+            ("packPaths",),
+        ),
+        # Pack paths live INSIDE rip_statistics, so declaring that parent
+        # section is what the builder does and what the contract accepts.
+        declaration_keys=("rip_statistics", "ripStatistics", "packPaths", "pack_paths"),
+    ),
+    SimulationDerivedSection(
+        key="historyTrend",
+        freshness_keys=("historyTrend", "history_trend"),
+        payload_paths=(("history_trend",), ("historyTrend",)),
+        declaration_keys=("history_trend", "historyTrend"),
+    ),
+    SimulationDerivedSection(
+        key="pullRateAssumptions",
+        freshness_keys=("pullRateAssumptions", "pull_rate_assumptions"),
+        payload_paths=(("pull_rate_assumptions",), ("pullRateAssumptions",)),
+        declaration_keys=("pull_rate_assumptions", "pullRateAssumptions"),
+    ),
+)
+# Flat sectionFreshness key list kept for the "must never be labeled current"
+# sweep.
+_SIMULATION_SECTION_FRESHNESS_KEYS = tuple(
+    key for section in SIMULATION_DERIVED_SECTIONS for key in section.freshness_keys
+)
+# simulation_input_cards source values that legitimately mean "no simulation row".
+_SIMULATION_UNAVAILABLE_SOURCE_VALUES = frozenset(
+    {"NO_ROW", "NO_ROWS", "MISSING", "UNAVAILABLE", "UNAVAILABLE_FALLBACK"}
+)
+# Bounded per-set rebuild retries. Only transient data-service errors are
+# retried (classified inside run_snapshot_operation_with_retry) with exponential
+# backoff, so a momentary Supabase timeout does not fail an otherwise-recoverable
+# set — while a genuine error still fails fast after the bound. Kept small to
+# avoid amplifying disk I/O during recovery. Sequential by design (no parallel
+# DB-heavy snapshot generation).
+_REBUILD_MAX_ATTEMPTS = 3
+
+
+def _rebuild_with_bounded_retry(operation, *, operation_name: str, set_id: str, client: Any):
+    """Run a rebuild with bounded, transient-only retries against one client.
+
+    The shared client is reused (no parallelism, no client churn) so recovery
+    stays I/O-safe. Non-transient errors raise immediately for the caller's
+    per-set failure handling.
+    """
+    return run_snapshot_operation_with_retry(
+        operation,
+        operation_name=operation_name,
+        set_id=set_id,
+        max_attempts=_REBUILD_MAX_ATTEMPTS,
+        client_factory=lambda: client,
+    )
 
 
 @dataclass
@@ -109,7 +254,83 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tcg", default="pokemon", help="TCG to refresh; only pokemon is supported for now")
     parser.add_argument("--days", type=int, default=DEFAULT_DASHBOARD_DAYS, help="Market dashboard history days")
     parser.add_argument("--window", default=DEFAULT_DASHBOARD_WINDOW, help="Market dashboard window key")
+    parser.add_argument(
+        "--market-date",
+        help="America/Phoenix market date whose scrape batch gates promotion (default: newest batch)",
+    )
+    parser.add_argument(
+        "--force-publish",
+        action="store_true",
+        help="Manual-recovery override: promote even when the scrape batch cohort is incomplete (loudly logged)",
+    )
+    parser.add_argument(
+        "--gate-wait-attempts",
+        type=int,
+        default=0,
+        help=(
+            "Bounded automatic retry: re-evaluate a CLOSED publication gate this many extra times "
+            "before deferring, so a cohort that completes shortly after this run starts still "
+            "publishes in the same daily window (0 = defer immediately)"
+        ),
+    )
+    parser.add_argument(
+        "--gate-wait-seconds",
+        type=float,
+        default=600.0,
+        help="Delay between bounded gate re-evaluations (default 600s)",
+    )
     return parser
+
+
+def _await_open_publication_gate(
+    client: Any,
+    *,
+    market_date: Optional[str],
+    override: bool,
+    attempts: int,
+    delay_seconds: float,
+    sleep=time.sleep,
+):
+    """Evaluate the publication gate, with a BOUNDED automatic retry.
+
+    The daily order is scrape -> batch completion -> simulations -> publication.
+    When publication starts while the day's cohort is still finishing, the gate
+    correctly refuses to publish — but deferring immediately leaves the site a
+    full day stale even though the cohort completes minutes later, and requires
+    an operator to rerun the command by hand.
+
+    So a closed gate is re-evaluated a bounded number of times, minutes apart.
+    This is deliberately NOT a polling loop: attempts are capped, the delay is
+    measured in minutes, and each attempt is a single indexed batch-row read, so
+    the added database load is a handful of reads per day. Exhausting the
+    attempts defers exactly as before (dedicated exit code, nothing written).
+    """
+    gate = evaluate_publication_gate(client, market_date=market_date, override=override)
+    remaining = max(0, int(attempts))
+    attempt = 0
+    while not gate.allowed and remaining > 0:
+        attempt += 1
+        logger.warning(
+            "[publication-gate] closed [%s]: %s; automatic re-evaluation %s/%s in %.0fs",
+            gate.reason_code,
+            gate.reason,
+            attempt,
+            int(attempts),
+            delay_seconds,
+        )
+        print(
+            f"publication gate closed [{gate.reason_code}]; awaiting cohort completion "
+            f"(automatic re-evaluation {attempt}/{int(attempts)} in {delay_seconds:.0f}s)"
+        )
+        sleep(max(0.0, float(delay_seconds)))
+        remaining -= 1
+        gate = evaluate_publication_gate(client, market_date=market_date, override=override)
+        if gate.allowed:
+            logger.info(
+                "[publication-gate] reopened after %s automatic re-evaluation(s); publishing", attempt
+            )
+            print(f"publication gate OPENED after {attempt} automatic re-evaluation(s); publishing")
+    return gate
 
 
 def _to_text(value: Any) -> Optional[str]:
@@ -781,37 +1002,49 @@ def _maybe_rebuild_coordinated_market(
         summary.skipped_sets["cards"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
         summary.skipped_sets["market_dashboard"].append(f"{canonical_key}: dry-run coordinated rebuild {reason}")
         return
-    try:
-        refresh_canonical_card_market_prices_for_set(client, str(set_row["id"]), commit=True)
+    def _operation(op_client: Any) -> None:
+        refresh_canonical_card_market_prices_for_set(op_client, str(set_row["id"]), commit=True)
         cards_row, dashboard_row, history_rows = build_coordinated_set_market_snapshot_rows(
             set_row,
             days=days,
             window=window,
-            client=client,
+            client=op_client,
         )
         upsert_row(
-            client,
+            op_client,
             "pokemon_set_cards_snapshot_latest",
             cards_row,
             on_conflict="set_id",
             commit=True,
         )
         upsert_rows(
-            client,
+            op_client,
             "pokemon_set_top_chase_card_daily_history",
             history_rows,
             on_conflict="set_id,snapshot_date,rank",
             commit=True,
         )
         upsert_row(
-            client,
+            op_client,
             "pokemon_set_market_dashboard_snapshot_latest",
             dashboard_row,
             on_conflict="set_id,window_key",
             commit=True,
         )
+
+    try:
+        _rebuild_with_bounded_retry(
+            _operation,
+            operation_name="coordinated_cards_market",
+            set_id=str(set_row["id"]),
+            client=client,
+        )
         summary.rebuilt_sets["cards"].append(canonical_key)
         summary.rebuilt_sets["market_dashboard"].append(canonical_key)
+        # Every coordinated write committed — bust the frontend seed cache so the
+        # new market date replaces any older cached shell/overview response
+        # (best-effort, no-op when unconfigured).
+        notify_set_publication(set_row, window=window, commit=True)
     except Exception as exc:
         logger.exception("failed coordinated cards/market snapshot refresh %s", _set_label(set_row))
         summary.failed_sets["cards"].append(f"{canonical_key}: {exc}")
@@ -866,10 +1099,20 @@ def _maybe_rebuild_set_page(
     if not commit:
         summary.skipped_sets["set_page"].append(f"{canonical_key}: dry-run dependency/set page stale")
         return
+    def _operation(op_client: Any) -> None:
+        row = build_set_page_snapshot_row(set_row, client=op_client)
+        upsert_row(op_client, "pokemon_set_page_snapshot_latest", row, on_conflict="set_id", commit=True)
+
     try:
-        row = build_set_page_snapshot_row(set_row, client=client)
-        upsert_row(client, "pokemon_set_page_snapshot_latest", row, on_conflict="set_id", commit=True)
+        _rebuild_with_bounded_retry(
+            _operation,
+            operation_name="set_page",
+            set_id=str(set_row["id"]),
+            client=client,
+        )
         summary.rebuilt_sets["set_page"].append(canonical_key)
+        # Invalidate the frontend shell/overview seed cache on a fresh publish.
+        notify_set_publication(set_row, commit=True)
     except Exception as exc:
         logger.exception("failed set page snapshot refresh %s", _set_label(set_row))
         summary.failed_sets["set_page"].append(f"{canonical_key}: {exc}")
@@ -915,28 +1158,209 @@ def _build_validation_snapshot(client: Any, *, commit: bool, summary: RefreshSum
         summary.global_failed.append(f"desirability_validation: {exc}")
 
 
-def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_at: Optional[str]) -> List[str]:
-    set_id = str(set_row["id"])
-    canonical_key = str(set_row.get("canonical_key") or set_id)
-    row = _read_snapshot_row(
-        client,
-        "pokemon_set_page_snapshot_latest",
-        "set_id,payload_json,updated_at",
-        (("set_id", set_id),),
+def _set_page_has_identity(payload: Dict[str, Any]) -> bool:
+    target = payload.get("target") if isinstance(payload.get("target"), dict) else {}
+    return bool(_to_text(target.get("target_id") or target.get("id")))
+
+
+def _has_content(value: Any) -> bool:
+    """True when a payload node carries real data.
+
+    Container skeletons count as EMPTY: the partial set-page builder publishes
+    ``rip_statistics = {"pack_paths": {}, "normal_pack_states": {}}``, which is a
+    truthy dict but holds nothing. Treating it as populated would make every
+    legitimately-unavailable page fail strict mode.
+    """
+    if value is None or isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_content(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_has_content(item) for item in value)
+    return True
+
+
+def _payload_at(payload: Dict[str, Any], path: Tuple[str, ...]) -> Any:
+    node: Any = payload
+    for key in path:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return node
+
+
+def _section_is_populated(payload: Dict[str, Any], section: SimulationDerivedSection) -> bool:
+    return any(_has_content(_payload_at(payload, path)) for path in section.payload_paths)
+
+
+def _section_freshness_entries(
+    section_freshness: Dict[str, Any], section: SimulationDerivedSection
+) -> List[Tuple[str, Dict[str, Any]]]:
+    entries: List[Tuple[str, Dict[str, Any]]] = []
+    for key in section.freshness_keys:
+        entry = section_freshness.get(key)
+        if isinstance(entry, dict):
+            entries.append((key, entry))
+    return entries
+
+
+def _verify_simulation_derived_sections_absent(
+    canonical_key: str,
+    payload: Dict[str, Any],
+    availability: Dict[str, Any],
+    section_freshness: Dict[str, Any],
+) -> List[str]:
+    """The complete simulation-unavailable surface contract.
+
+    Independent of ``carriedForwardSections``: every known simulation-derived
+    section is inspected directly, so a page cannot pass by simply not
+    mentioning a section it is misrepresenting.
+    """
+    problems: List[str] = []
+    declared = {str(section) for section in (availability.get("unavailableSections") or [])}
+
+    for section in SIMULATION_DERIVED_SECTIONS:
+        entries = _section_freshness_entries(section_freshness, section)
+        statuses = {key: str(entry.get("status") or "").lower() for key, entry in entries}
+        populated = _section_is_populated(payload, section)
+
+        for key, status in statuses.items():
+            if status in ("fresh", "current"):
+                problems.append(
+                    f"{canonical_key}: simulation section {key} labeled {status} while simulation is unavailable"
+                )
+
+        stale_entries = [(key, entry) for key, entry in entries if statuses.get(key) == "stale"]
+        if populated and not stale_entries:
+            problems.append(
+                f"{canonical_key}: simulation section {section.key} is populated but not labeled stale "
+                "while simulation is unavailable"
+            )
+        # Carried-forward content must be dated; an undated "stale" section is
+        # indistinguishable from current data to every downstream consumer.
+        for key, entry in stale_entries:
+            if not _to_text(entry.get("dataAsOf") or entry.get("sourceDate") or entry.get("source_date")):
+                problems.append(
+                    f"{canonical_key}: carried-forward section {key} has no source/data-as-of date"
+                )
+
+        if not populated and not (declared & set(section.declaration_keys)):
+            problems.append(
+                f"{canonical_key}: unavailableSections missing absent simulation section {section.key} "
+                f"(accepted aliases {sorted(section.declaration_keys)})"
+            )
+
+    return problems
+
+
+def _verify_no_current_simulation_advertisement(
+    canonical_key: str, payload: Dict[str, Any], meta: Dict[str, Any], availability: Dict[str, Any]
+) -> List[str]:
+    """A page with no simulation must not advertise a run id or an as-of date."""
+    problems: List[str] = []
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    request = meta.get("request") if isinstance(meta.get("request"), dict) else {}
+    run_id = _to_text(
+        summary.get("calculation_run_id")
+        or summary.get("run_id")
+        or request.get("calculation_run_id")
+        or payload.get("calculation_run_id")
     )
-    if not row:
-        return [f"{canonical_key}: set page snapshot missing"]
-    payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
-    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    if run_id:
+        problems.append(
+            f"{canonical_key}: simulation run id {run_id} advertised while simulation is unavailable"
+        )
+    for label, value in (
+        ("simulationAvailability.asOfDate", availability.get("asOfDate")),
+        ("summary.run_at", summary.get("run_at")),
+        ("meta.simulationSourceDate", meta.get("simulationSourceDate")),
+    ):
+        if _to_text(value):
+            problems.append(
+                f"{canonical_key}: {label}={_to_text(value)} advertised while simulation is unavailable"
+            )
+    return problems
+
+
+def _verify_partial_set_page(
+    canonical_key: str,
+    payload: Dict[str, Any],
+    meta: Dict[str, Any],
+    availability: Dict[str, Any],
+    section_freshness: Dict[str, Any],
+) -> List[str]:
+    """Contract for a set page explicitly labeled simulation-unavailable.
+
+    Empty simulation-derived sections (top_hits, OPvC, run id, simulation source
+    NO_ROW/MISSING) are EXPECTED here and must not fail. Instead the page must
+    truthfully declare its unavailability and never label absent simulation data
+    as fresh/current.
+    """
+    problems: List[str] = []
+    if not _to_text(availability.get("reason")):
+        problems.append(f"{canonical_key}: simulationAvailability.reason missing for unavailable page")
+
+    unavailable = availability.get("unavailableSections")
+    if not isinstance(unavailable, list) or not unavailable:
+        problems.append(f"{canonical_key}: unavailableSections must be nonempty for an unavailable page")
+    else:
+        missing_declarations = _REQUIRED_UNAVAILABLE_SECTIONS - {str(section) for section in unavailable}
+        if missing_declarations:
+            problems.append(
+                f"{canonical_key}: unavailableSections missing simulation-derived sections {sorted(missing_declarations)}"
+            )
+
+    warnings = [str(warning).lower() for warning in (meta.get("warnings") or [])]
+    if not any("simulation" in warning and "unavailable" in warning for warning in warnings):
+        problems.append(f"{canonical_key}: simulation-unavailable warning missing")
+
+    # The COMPLETE simulation-derived surface, inspected directly (never only via
+    # the payload's own carriedForwardSections list).
+    problems.extend(
+        _verify_simulation_derived_sections_absent(
+            canonical_key, payload, availability, section_freshness
+        )
+    )
+    problems.extend(
+        _verify_no_current_simulation_advertisement(canonical_key, payload, meta, availability)
+    )
+
+    # Sections the payload itself declares carried-forward must also hold up:
+    # labeled stale, with a defensible source/data-as-of date.
+    for key in availability.get("carriedForwardSections") or []:
+        section = section_freshness.get(key) if isinstance(section_freshness.get(key), dict) else {}
+        status = str(section.get("status") or "").lower()
+        if status != "stale":
+            problems.append(
+                f"{canonical_key}: carried-forward section {key} not labeled stale (status={status or 'missing'})"
+            )
+        elif not _to_text(section.get("dataAsOf") or section.get("sourceDate")):
+            problems.append(f"{canonical_key}: carried-forward section {key} has no source/data-as-of date")
+    return sorted(set(problems), key=problems.index)
+
+
+def _verify_available_set_page(
+    client: Any,
+    set_id: str,
+    canonical_key: str,
+    payload: Dict[str, Any],
+    meta: Dict[str, Any],
+    row: Dict[str, Any],
+    section_freshness: Dict[str, Any],
+    rankings_updated_at: Optional[str],
+) -> List[str]:
+    """Stricter contract for a page that claims simulation data is available."""
+    problems: List[str] = []
     sources = meta.get("sources") if isinstance(meta.get("sources"), dict) else {}
     warnings = list(meta.get("warnings") or [])
-    problems: List[str] = []
     if len(payload.get("top_hits") or []) <= 0:
         problems.append(f"{canonical_key}: top_hits missing")
     if sources.get("simulation_input_cards") != "OK":
         problems.append(f"{canonical_key}: simulation_input_cards source={sources.get('simulation_input_cards')}")
-    if not isinstance(meta.get("snapshotCompleteness") or meta.get("snapshot_completeness"), dict):
-        problems.append(f"{canonical_key}: snapshotCompleteness missing")
     if _has_known_stale_warning(warnings) and _source_rows_exist_for_set_page(client, set_id):
         problems.append(f"{canonical_key}: stale warning remains")
     if rankings_updated_at and not _set_page_has_rank_fields(payload):
@@ -944,7 +1368,7 @@ def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_a
 
     set_page_updated_at = _to_text(row.get("updated_at"))
     embedded_rankings_updated_at = _extract_embedded_rankings_updated_at(payload)
-    decision_signal_ranks = _extract_section_freshness(payload).get("decisionSignalRanks")
+    decision_signal_ranks = section_freshness.get("decisionSignalRanks")
     decision_signal_rank_status = (
         _to_text(decision_signal_ranks.get("status"))
         if isinstance(decision_signal_ranks, dict)
@@ -957,6 +1381,73 @@ def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_a
         problems.append(f"{canonical_key}: set page embedded rankings snapshot is stale")
     elif decision_signal_rank_status and decision_signal_rank_status.lower() == "stale" and rankings_updated_at and embedded_rankings_updated_at and _is_newer(rankings_updated_at, embedded_rankings_updated_at):
         problems.append(f"{canonical_key}: decision signal ranks marked stale with newer rankings snapshot available")
+
+    return problems
+
+
+def _verify_set_page(client: Any, set_row: Dict[str, Any], *, rankings_updated_at: Optional[str]) -> List[str]:
+    """Simulation-aware strict verification for a published set-page snapshot.
+
+    The set-page builder can intentionally publish a partial page for a set with
+    no simulation run (``meta.simulationAvailability.available == false``). Such a
+    page has empty simulation-derived sections BY DESIGN and must pass strict
+    mode as long as it truthfully declares its unavailability. A page that claims
+    simulation is available is held to the stricter (original) expectations. A
+    malformed/identity-less page fails either way.
+    """
+    set_id = str(set_row["id"])
+    canonical_key = str(set_row.get("canonical_key") or set_id)
+    row = _read_snapshot_row(
+        client,
+        "pokemon_set_page_snapshot_latest",
+        "set_id,payload_json,updated_at",
+        (("set_id", set_id),),
+    )
+    if not row:
+        return [f"{canonical_key}: set page snapshot missing"]
+    payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    problems: List[str] = []
+
+    # Structural markers required for EVERY published page, partial or not.
+    if not _set_page_has_identity(payload):
+        problems.append(f"{canonical_key}: set identity missing")
+    if not isinstance(meta.get("snapshot"), dict):
+        problems.append(f"{canonical_key}: meta.snapshot missing")
+    if not isinstance(meta.get("snapshotCompleteness") or meta.get("snapshot_completeness"), dict):
+        problems.append(f"{canonical_key}: snapshotCompleteness missing")
+
+    availability = meta.get("simulationAvailability")
+    if not isinstance(availability, dict):
+        availability = meta.get("simulation_availability")
+    if not isinstance(availability, dict):
+        # A partial (or any) page must declare simulation availability.
+        problems.append(f"{canonical_key}: simulationAvailability metadata missing")
+        return problems
+
+    section_freshness = _extract_section_freshness(payload)
+    available = availability.get("available")
+    if available is False:
+        problems.extend(
+            _verify_partial_set_page(canonical_key, payload, meta, availability, section_freshness)
+        )
+    elif available is True:
+        problems.extend(
+            _verify_available_set_page(
+                client,
+                set_id,
+                canonical_key,
+                payload,
+                meta,
+                row,
+                section_freshness,
+                rankings_updated_at,
+            )
+        )
+    else:
+        problems.append(
+            f"{canonical_key}: simulationAvailability.available must be a boolean, got {available!r}"
+        )
 
     return problems
 
@@ -1047,6 +1538,20 @@ def _audit_set_page_freshness(client: Any, set_rows: List[Dict[str, Any]]) -> Se
     return audit
 
 
+def _has_hard_failures(summary: RefreshSummary) -> bool:
+    """A requested set (or global family) build actually failed.
+
+    Distinct from staleness/verification warnings: these are builds that raised
+    or were caught-and-recorded by an inner builder. The CLI must return nonzero
+    on these regardless of --strict so a scheduler never treats a partial
+    recovery as success.
+    """
+    return bool(
+        summary.global_failed
+        or any(summary.failed_sets[family] for family in summary.failed_sets)
+    )
+
+
 def _strict_should_fail(summary: RefreshSummary, *, commit: bool) -> bool:
     audit = summary.set_page_audit
     return bool(
@@ -1094,6 +1599,34 @@ def main() -> None:
 
     commit = bool(args.commit)
     client = get_client()
+
+    # Batch-cohort gate: downstream promotion only when the day's scrape cohort
+    # is observation-complete. In required mode (production default) the gate
+    # fails closed on every failure class. A closed gate DEFERS publication with
+    # a dedicated exit code (distinct from a build failure) so the scheduler
+    # never treats "nothing published" as success. Dry-run reports the decision.
+    gate = _await_open_publication_gate(
+        client,
+        market_date=args.market_date,
+        override=args.force_publish,
+        # Only a committing run may wait: a dry-run must stay fast and read-only.
+        attempts=args.gate_wait_attempts if commit else 0,
+        delay_seconds=args.gate_wait_seconds,
+    )
+    if not commit:
+        print(
+            "stale public snapshot refresh: publication gate decision (dry-run) "
+            f"[{gate.reason_code}] allowed={gate.allowed}: {gate.reason}"
+        )
+    elif not gate.allowed:
+        print("public snapshot refresh gated")
+        for line in gate_decision_report(gate, entry_point="stale public snapshot refresh"):
+            print(line)
+        print("operator action: resolve/requeue the incomplete scrape batch, then rerun the refresh")
+        raise SystemExit(GATE_DEFERRED_EXIT_CODE)
+    elif gate.override:
+        print(f"publication gate OVERRIDDEN (manual recovery) [{gate.reason_code}]: {gate.reason}")
+
     set_rows = _resolve_sets(client, set_id=args.set_id)
     plans, rankings, validation, source_checks = _build_plan(client, set_rows=set_rows, window=args.window)
 
@@ -1147,7 +1680,9 @@ def main() -> None:
     summary.set_page_audit = _audit_set_page_freshness(client, set_rows)
     _print_summary(summary)
 
-    if args.strict and _strict_should_fail(summary, commit=commit):
+    # A hard build failure always fails the run so the scheduler never treats a
+    # partial recovery as success; --strict additionally fails on staleness.
+    if _has_hard_failures(summary) or (args.strict and _strict_should_fail(summary, commit=commit)):
         raise SystemExit(1)
 
 

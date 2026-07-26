@@ -1306,15 +1306,22 @@ def build_pokemon_set_card_movements_by_window_payload(
     limit: int = DEFAULT_CARD_MOVERS_LIMIT,
     client: Any = None,
     selected_price_rows: Optional[List[Dict[str, Any]]] = None,
+    latest_market_date: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Build every requested mover window from one canonical market context."""
+    """Build every requested mover window from one canonical market context.
+
+    ``latest_market_date`` is the shared window boundary. When the coordinated
+    snapshot builder supplies it, every mover window uses the identical end date
+    as the Cards and Top Chase surfaces so movement parity holds. When omitted
+    (standalone use) it is derived from the set-wide selected-price cohort.
+    """
 
     resolved_windows = tuple(dict.fromkeys(max(1, int(value)) for value in window_days))
     if not resolved_windows:
         resolved_windows = (DEFAULT_CARD_MOVERS_WINDOW_DAYS,)
     warnings: List[str] = []
     sources: Dict[str, str] = {}
-    diagnostics: Dict[str, int] = {
+    diagnostics: Dict[str, Any] = {
         "observationQueryCount": 0,
         "observationRowsLoaded": 0,
         "selectedVariantCount": 0,
@@ -1359,13 +1366,17 @@ def build_pokemon_set_card_movements_by_window_payload(
             variant_id = _to_optional_str(row.get("card_variant_id"))
             if variant_id:
                 observations_by_variant.setdefault(variant_id, []).append(row)
-        latest_market_date = max(
+        resolved_latest_market_date = utc_date_key(latest_market_date) or max(
             (
                 date_key
                 for row in selected_by_card.values()
                 if (date_key := utc_date_key(row.get("captured_at")))
             ),
             default=None,
+        )
+        diagnostics["latestMarketDate"] = resolved_latest_market_date
+        diagnostics["latestMarketDateSource"] = (
+            "coordinated_override" if latest_market_date else "selected_price_cohort"
         )
         for requested_days in resolved_windows:
             movements = _build_card_movements_from_context(
@@ -1375,7 +1386,7 @@ def build_pokemon_set_card_movements_by_window_payload(
                 sources=sources,
                 client=active_client,
                 observations_by_variant=observations_by_variant,
-                latest_market_date=latest_market_date,
+                latest_market_date=resolved_latest_market_date,
             )
             key = f"{requested_days}D"
             payloads_by_window[key] = _movement_payload_for_window(

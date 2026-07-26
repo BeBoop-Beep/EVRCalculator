@@ -10,13 +10,19 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from backend.desirability.composite import COMPOSITE_SCORING_VERSION  # noqa: E402
+from backend.desirability.product_support import (  # noqa: E402
+    PARTIAL_BOOSTER_SET,
+    PRODUCT_SUPPORT_VERSION,
+    classify_product_support,
+)
+from backend.desirability.rankability import RANKABLE_STATUSES  # noqa: E402
 from backend.desirability.rarity_buckets import HIT_POLICY_VERSION  # noqa: E402
 from backend.desirability.set_components import (  # noqa: E402
     SCORING_VERSION,
@@ -41,6 +47,16 @@ logger = logging.getLogger(__name__)
 COMPONENT_TABLE = "pokemon_set_desirability_component_scores"
 LINK_TABLE = "pokemon_card_desirability_links"
 UPSERT_BATCH_SIZE = 25
+
+# v2: product support is classified from set metadata BEFORE any data-quality
+# check, so fixed-contents products are reported as unsupported_product_type
+# instead of being misdiagnosed as unavailable_missing_rarity. Reason codes
+# renamed accordingly (missing_rarity -> missing_rarity_mapping; a supported
+# booster set with no hit ladder is now no_eligible_hit_structure).
+METRIC_STATUS_VERSION = "set_metric_status_v2"
+# Below this rarity/subject-link coverage a set's components are computed from
+# too little of its checklist to be treated as a clean measurement.
+PARTIAL_COVERAGE_THRESHOLD = 0.50
 LEGACY_COVERAGE_AUDIT_SET_KEYS = frozenset(
     {
         "celebrations",
@@ -156,7 +172,8 @@ class PokemonSetDesirabilityComponentsRepository:
                     self.client.table(COMPONENT_TABLE)
                     .select(
                         "id,set_id,scoring_version,hit_policy_version,"
-                        "composite_scoring_version,fan_popularity_snapshot_id,config_fingerprint"
+                        "composite_scoring_version,fan_popularity_snapshot_id,config_fingerprint,"
+                        "current_trend_snapshot_ids"
                     )
                     .in_("set_id", list(chunk))
                     .eq("scoring_version", scoring_version)
@@ -197,7 +214,21 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--commit", action="store_true", help="Write rows to Supabase")
 
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--force", action="store_true", help="Rebuild rows even if a matching row exists")
+
+    # Scheduled runs must use --rebuild-changed. A full rebuild is a manual,
+    # deliberate act: it rewrites every set row against the current sources.
+    rebuild = parser.add_mutually_exclusive_group()
+    rebuild.add_argument(
+        "--rebuild-changed",
+        action="store_true",
+        help="Rebuild only sets whose desirability inputs changed (THE DEFAULT).",
+    )
+    rebuild.add_argument(
+        "--rebuild-all",
+        action="store_true",
+        help="Rebuild every selected set regardless of input changes. Manual use only.",
+    )
+    rebuild.add_argument("--force", action="store_true", help="Deprecated alias for --rebuild-all.")
     parser.add_argument("--scoring-version", default=SCORING_VERSION)
     parser.add_argument("--hit-policy-version", default=HIT_POLICY_VERSION)
     parser.add_argument("--composite-scoring-version", default=COMPOSITE_SCORING_VERSION)
@@ -228,7 +259,7 @@ def main() -> int:
         set_id=args.set_id,
         canonical_key=canonical_key,
         limit=args.limit,
-        force=args.force,
+        force=bool(args.rebuild_all or args.force),
         scoring_version=args.scoring_version,
         hit_policy_version=args.hit_policy_version,
         composite_scoring_version=args.composite_scoring_version,
@@ -355,11 +386,11 @@ def build_component_scores_report(
             composite_scoring_version=composite_scoring_version,
             fan_popularity_snapshot_id=selection["metadata"].get("fan_popularity_snapshot_id"),
         )
-    existing_keys = {(str(row.get("set_id")), str(row.get("config_fingerprint"))) for row in existing_rows}
+    existing_keys = {_source_identity_key(row) for row in existing_rows}
     rows_to_write = [
         row
         for row in rows
-        if force or (str(row.get("set_id")), str(row.get("config_fingerprint"))) not in existing_keys
+        if force or _source_identity_key(row) not in existing_keys
     ]
     insert_or_update_count = len(rows_to_write)
     skipped_existing_count = len(rows) - insert_or_update_count
@@ -382,6 +413,8 @@ def build_component_scores_report(
         "rows_to_write": 0 if dry_run else insert_or_update_count,
         "written_rows_returned": len(written_rows),
         "force": force,
+        "rebuild_mode": "rebuild_all" if force else "rebuild_changed",
+        "staleness_key": "set_id + config_fingerprint + current_trend_snapshot_ids",
         "scoring_version": scoring_version,
         "hit_policy_version": hit_policy_version,
         "composite_scoring_version": composite_scoring_version,
@@ -390,6 +423,8 @@ def build_component_scores_report(
         "legacy_coverage_audit_rows": _legacy_coverage_audit_rows(rows),
         "zero_or_near_zero_rows": _zero_or_near_zero_rows(rows),
         "warning_category_counts": _warning_category_counts(rows),
+        "metric_status_counts": _metric_status_counts(rows),
+        "unrankable_sets": _unrankable_sets(rows),
     }
 
 
@@ -419,6 +454,9 @@ def build_set_component_score_row(
     config_trace = _config_trace(set_config)
     warnings = sorted(set(fact_warnings + list(components.get("warnings_json") or [])))
     coverage_audit = build_set_coverage_audit(set_row=set_row, cards=cards, card_facts=card_facts)
+    metric_status = build_metric_status(coverage_audit, set_row)
+    if not metric_status["rankable"]:
+        warnings = sorted(set(warnings + [f"{metric_status['metric_status']}: {metric_status['availability_reason']}"]))
     db_count_fields = {
         "hit_eligible_card_count",
         "scored_hit_eligible_card_count",
@@ -460,11 +498,148 @@ def build_set_component_score_row(
             "card_fact_count": len(card_facts),
             "config_trace": config_trace,
             "coverage_audit": coverage_audit,
+            # Consumers MUST check metric_status before ranking a set: an
+            # unavailable set scores 0.0 on every component and would otherwise
+            # rank as the least appealing product in the catalogue.
+            **metric_status,
         },
         "warnings_json": warnings,
         "built_at": built_at,
         "updated_at": built_at,
     }
+
+
+def build_metric_status(coverage_audit: Dict[str, Any], set_row: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Classify why a set's components look the way they do.
+
+    A set whose cards cannot be classified scores 0.0 on every component, which
+    is indistinguishable from a genuinely unappealing set and ranks it as the
+    worst product in the catalogue. The score is not evidence of low appeal; it
+    is the absence of evidence. Callers must read metric_status before ranking.
+
+    ORDER MATTERS. Product support is decided FIRST, from set metadata, before
+    any data-quality check runs. The previous version checked data first and so
+    reported ``unavailable_missing_rarity`` for all 36 affected production sets
+    - blaming a rarity mapping that is not broken. Those sets have full rarity
+    data and resolved subject links; they have no hit-eligible cards because a
+    Trainer Kit or McDonald's Collection has no booster pack. Diagnosing product
+    type from a data symptom sends someone to fix data that is already correct.
+
+    The two families stay strictly separate:
+      unsupported_product_type -> outside the model, permanent, not a defect.
+      unavailable_*            -> should be supported, data is incomplete, fix it.
+
+    pull_rate_coverage_pct is intentionally None: pull rates are not resolved at
+    this layer, so there is nothing to measure yet. Reporting a number here would
+    be fabrication.
+    """
+    canonical = int(coverage_audit.get("canonical_card_count") or 0)
+    unknown_rarity = int(coverage_audit.get("unknown_rarity_count") or 0)
+    hit_eligible = int(coverage_audit.get("hit_like_card_count") or 0)
+    linked_hits = int(coverage_audit.get("pokemon_linked_hit_count") or 0)
+    classified = max(canonical - unknown_rarity, 0)
+
+    rarity_coverage = (classified / canonical) if canonical else None
+    link_coverage = (linked_hits / hit_eligible) if hit_eligible else None
+
+    support = classify_product_support(
+        set_canonical_key=(set_row or {}).get("canonical_key"),
+        set_name=(set_row or {}).get("name"),
+        set_series=(set_row or {}).get("series"),
+    )
+
+    if not support["supported"]:
+        # Decided from metadata alone; the data checks below are not consulted.
+        status, reason = "unsupported_product_type", support["product_support_reason"]
+        product_support_type = support["product_support_type"]
+    elif canonical == 0:
+        status, reason = "unsupported_product_type", "No canonical cards are mapped for this set."
+        product_support_type = support["product_support_type"]
+    elif classified == 0:
+        status, reason = (
+            "unavailable_missing_rarity_mapping",
+            f"All {canonical} canonical cards have unknown rarity; components cannot be computed.",
+        )
+        product_support_type = support["product_support_type"]
+    elif hit_eligible == 0:
+        # A SUPPORTED booster set with no hit-eligible card is a real defect:
+        # unlike the unsupported cohort above, this set should have a hit ladder.
+        status, reason = (
+            "unavailable_no_eligible_hit_structure",
+            f"This booster set has no card in any hit rarity bucket ({unknown_rarity}/{canonical} "
+            "unknown rarity). Expected a hit ladder for a supported product.",
+        )
+        product_support_type = support["product_support_type"]
+    elif linked_hits == 0:
+        status, reason = (
+            "unavailable_missing_subject_links",
+            f"None of the {hit_eligible} hit-eligible cards resolve to a Pokemon subject.",
+        )
+        product_support_type = support["product_support_type"]
+    elif (rarity_coverage or 0) < PARTIAL_COVERAGE_THRESHOLD or (link_coverage or 0) < PARTIAL_COVERAGE_THRESHOLD:
+        status, reason = (
+            "partial",
+            f"Coverage below {PARTIAL_COVERAGE_THRESHOLD:.0%}: rarity={_pct(rarity_coverage)}, subject links={_pct(link_coverage)}.",
+        )
+        product_support_type = PARTIAL_BOOSTER_SET
+    else:
+        status, reason = "valid", None
+        product_support_type = support["product_support_type"]
+
+    return {
+        "metric_status": status,
+        "availability_reason": reason,
+        "rankable": status in RANKABLE_STATUSES,
+        "product_support_type": product_support_type,
+        "product_family": support["product_family"],
+        "product_support_reason": support["product_support_reason"],
+        "product_support_matched_on": support["matched_on"],
+        "product_support_version": PRODUCT_SUPPORT_VERSION,
+        "canonical_card_count": canonical,
+        "classified_card_count": classified,
+        "hit_eligible_card_count": hit_eligible,
+        "rarity_coverage_pct": round(rarity_coverage * 100, 2) if rarity_coverage is not None else None,
+        "subject_link_coverage_pct": round(link_coverage * 100, 2) if link_coverage is not None else None,
+        "pull_rate_coverage_pct": None,
+        "status_version": METRIC_STATUS_VERSION,
+    }
+
+
+def _pct(value: Optional[float]) -> str:
+    return "n/a" if value is None else f"{value:.0%}"
+
+
+def _normalized_snapshot_ids(value: Any) -> str:
+    """Order-independent, storage-shape-independent rendering of snapshot ids.
+
+    Existing rows arrive from Supabase as jsonb; freshly built rows hold a plain
+    list. Both must key identically or every set looks stale on every run.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    if isinstance(value, (list, tuple, set)):
+        return ",".join(sorted(str(item) for item in value))
+    return str(value)
+
+
+def _source_identity_key(row: Dict[str, Any]) -> Tuple[str, str, str]:
+    """Identity of the *inputs* a component row was built from.
+
+    config_fingerprint hashes only the static per-set Python config, so it never
+    changes when desirability source data changes. Keying staleness on it alone
+    meant a refreshed Trends snapshot could not invalidate a single set row.
+    The trend snapshot ids are part of the identity for that reason.
+    """
+    return (
+        str(row.get("set_id")),
+        str(row.get("config_fingerprint")),
+        _normalized_snapshot_ids(row.get("current_trend_snapshot_ids")),
+    )
 
 
 def _config_trace(set_config: Any) -> Dict[str, Any]:
@@ -508,6 +683,35 @@ def _summary_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         }
         for row in sorted(rows, key=lambda item: item.get("set_desirability_score") or 0.0, reverse=True)
     ]
+
+
+def _metric_status_counts(rows: Sequence[Dict[str, Any]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for row in rows:
+        status = str(((row.get("diagnostics_json") or {}).get("metric_status")) or "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _unrankable_sets(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sets that must be excluded from appeal rankings rather than shown as 0.0."""
+    unrankable = []
+    for row in rows:
+        diagnostics = row.get("diagnostics_json") or {}
+        if diagnostics.get("rankable", True):
+            continue
+        unrankable.append(
+            {
+                "set_name": row.get("set_name"),
+                "set_canonical_key": row.get("set_canonical_key"),
+                "metric_status": diagnostics.get("metric_status"),
+                "availability_reason": diagnostics.get("availability_reason"),
+                "canonical_card_count": diagnostics.get("canonical_card_count"),
+                "rarity_coverage_pct": diagnostics.get("rarity_coverage_pct"),
+                "set_desirability_score": row.get("set_desirability_score"),
+            }
+        )
+    return sorted(unrankable, key=lambda item: str(item.get("set_canonical_key") or ""))
 
 
 def _legacy_coverage_audit_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:

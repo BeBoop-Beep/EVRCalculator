@@ -633,6 +633,23 @@ def _write_report(report: Dict[str, Any], report_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Main orchestrator
 # ---------------------------------------------------------------------------
+def _market_date_iso(timezone_name: str = "America/Phoenix", now: Optional[datetime] = None) -> str:
+    """Return the market-day ISO date in the given timezone.
+
+    The market day is derived from the local (America/Phoenix) wall clock, NOT
+    from UTC midnight — a scrape at 01:00 UTC belongs to the previous Arizona day.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+
+        instant = now or datetime.now(timezone.utc)
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=timezone.utc)
+        return instant.astimezone(ZoneInfo(timezone_name)).date().isoformat()
+    except Exception:  # pragma: no cover - zoneinfo/tzdata missing
+        return (now or datetime.now(timezone.utc)).date().isoformat()
+
+
 def run_scraper(
     dry_run: bool,
     era_filter: Optional[str],
@@ -641,10 +658,18 @@ def run_scraper(
     enable_db_ingestion: bool,
     shuffle_within_date: bool,
     report_path: Path = DEFAULT_REPORT_PATH,
+    queue_job_id: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """Orchestrate the full scrape run: select targets, execute, throttle, report."""
+    """Orchestrate the full scrape run: select targets, execute, throttle, report.
+
+    When ``queue_job_id`` is supplied (dispatcher path), the diagnostic run row is
+    linked to the queue job and its terminal status is finalized transactionally by
+    the caller via ``finalize_scrape_job`` (so queue and diagnostic status cannot
+    diverge). Standalone/manual runs keep finalizing their own diagnostic row.
+    """
     from backend.db.repositories.scrape_diagnostics_repository import (
         create_scrape_job_run,
+        finalize_scrape_job_run,
         insert_scrape_job_run_failures,
         update_scrape_job_run,
     )
@@ -814,6 +839,7 @@ def run_scraper(
     # ------------------------------------------------------------------
     # DB diagnostics — insert run row at apply-mode start
     # ------------------------------------------------------------------
+    market_date_iso = _market_date_iso()
     diag_run_id: Optional[str] = None
     if not dry_run:
         trigger_source = os.getenv("SCRAPE_TRIGGER_SOURCE", "manual")
@@ -827,6 +853,9 @@ def run_scraper(
             "host": _get_host(),
             "started_at": started_at.isoformat(),
             "kill_switch_enabled": kill_switch_enabled,
+            # Durable association to the queue job (replaces metadata-only linkage).
+            "queue_job_id": queue_job_id,
+            "market_date": market_date_iso,
             "metadata": {
                 "era_filter": era_filter,
                 "set_filter": set_key_filter,
@@ -834,6 +863,8 @@ def run_scraper(
                 "shuffle_within_date": shuffle_within_date,
                 "db_ingestion_enabled": enable_db_ingestion,
                 "items_selected": total,
+                "queue_job_id": queue_job_id,
+                "market_date": market_date_iso,
             },
         })
         if run_row:
@@ -1113,6 +1144,10 @@ def run_scraper(
         "kill_switch_enabled": kill_switch_enabled,
         "run_aborted_early": run_aborted_early,
         "run_abort_reason": run_abort_reason,
+        # Surfaced for the dispatcher's transactional finalizer.
+        "diag_run_id": diag_run_id,
+        "market_date": market_date_iso,
+        "queue_job_id": queue_job_id,
     }
     _write_report(report, report_path)
 
@@ -1127,28 +1162,40 @@ def run_scraper(
         else:
             final_status = "success"
 
-        update_scrape_job_run(diag_run_id, {
-            "status": final_status,
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "elapsed_seconds": round(elapsed, 2),
-            "items_selected": total,
-            "items_attempted": len(results),
-            "items_succeeded": succeeded,
-            "items_failed": failed,
-            "items_skipped": len(skipped_no_config),
-            "http_requests_total": request_metrics.get("http_requests_total", 0),
-            "http_requests_cache_hits": cache_hits,
-            "http_requests_cache_misses": cache_misses,
-            "http_requests_skipped_redundant": request_metrics.get("http_requests_skipped_redundant", 0),
-            "rate_limit_events": request_metrics.get("rate_limit_events", 0),
-            "retry_count_total": request_metrics.get("retry_count_total", 0),
-            "aborted": run_aborted_early,
-            "aborted_due_to_request_cap": request_metrics.get("aborted_due_to_request_cap", False),
-            "aborted_due_to_rate_limit": request_metrics.get("aborted_due_to_rate_limit", False),
-            "kill_switch_enabled": kill_switch_enabled,
-            "report_path": str(report_path),
-            "error_summary": run_abort_reason if run_aborted_early else None,
-        })
+        # Dispatcher path: the queue job + diagnostic run + batch counters are
+        # finalized together by finalize_scrape_job (single transaction) so they
+        # cannot silently diverge. Skip the standalone terminal write here.
+        if queue_job_id is None:
+            diag_result = finalize_scrape_job_run(diag_run_id, {
+                "status": final_status,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "elapsed_seconds": round(elapsed, 2),
+                "items_selected": total,
+                "items_attempted": len(results),
+                "items_succeeded": succeeded,
+                "items_failed": failed,
+                "items_skipped": len(skipped_no_config),
+                "http_requests_total": request_metrics.get("http_requests_total", 0),
+                "http_requests_cache_hits": cache_hits,
+                "http_requests_cache_misses": cache_misses,
+                "http_requests_skipped_redundant": request_metrics.get("http_requests_skipped_redundant", 0),
+                "rate_limit_events": request_metrics.get("rate_limit_events", 0),
+                "retry_count_total": request_metrics.get("retry_count_total", 0),
+                "aborted": run_aborted_early,
+                "aborted_due_to_request_cap": request_metrics.get("aborted_due_to_request_cap", False),
+                "aborted_due_to_rate_limit": request_metrics.get("aborted_due_to_rate_limit", False),
+                "kill_switch_enabled": kill_switch_enabled,
+                "report_path": str(report_path),
+                "error_summary": run_abort_reason if run_aborted_early else None,
+            })
+            if not diag_result.get("ok"):
+                logger.error(
+                    "%s diagnostic run finalization failed for run_id=%s: %s",
+                    RUNNER_TAG,
+                    diag_run_id,
+                    diag_result.get("error") or diag_result.get("reason"),
+                )
+        report["diag_final_status"] = final_status
 
         # Insert failure detail rows for every set that did not succeed
         failed_results = [r for r in results if r.get("status") not in ("success",)]
