@@ -171,6 +171,50 @@ Public route render remains read-only:
 
 When a page shows stale warnings, fix the source snapshot by running the refresh or full rebuild script. Do not hide stale data in the frontend.
 
+## Section-Level Freshness (one latest_market_date must not imply uniform currency)
+
+The market dashboard's single `latest_market_date` describes the newest market
+date available, not the freshness of every embedded section. The dashboard meta
+now carries per-section source dates and a status for each:
+
+- `setValueSourceDate` — newest set-value history date.
+- `topChaseSourceDate` — newest genuinely **observed** Top Chase date. Forward-
+  fill carry points are excluded, so a July-25 dashboard carrying July-16
+  observed Top Chase reports `2026-07-16`, not the carried `2026-07-25`.
+- `cardsSnapshotSourceDate` — the canonical selected-price date the coordinated
+  Cards build used.
+- `simulationSourceDate` — the Opening Profit vs Cost simulation date.
+- `pageSourceDate` — the publication (build) date.
+
+`meta.sectionFreshness` marks each section `current` / `stale` / `unavailable`
+against the newest market date, `meta.sectionsUniformlyCurrent` is false whenever
+any section lags, `meta.openingProfitVsCost` exposes the simulation date and its
+stale/unavailable status, and a human-readable warning is appended for every
+stale/unavailable section. The movement-parity guard is unchanged; this makes a
+stale Cards/Top Chase section explicitly visible rather than silently uniform.
+
+## Publish-time cache invalidation and client hydration guard
+
+Two frontend-facing protections keep a newer published source from being
+shadowed by an older cached/seeded response:
+
+- **Invalidate on publish.** After a successful coordinated Cards/Market or set-
+  page rebuild, `refresh_stale_public_snapshots.py` calls
+  `notify_set_snapshot_published(...)`
+  (`backend/db/services/set_publication_revalidation.py`), which POSTs to the
+  Next.js route `app/api/internal/revalidate-set` to `revalidateTag` the
+  `pokemon-set-shell:<setId>` and `pokemon-set-overview:<setId>:<window>` cache
+  tags. It is best-effort and a no-op unless `SET_REVALIDATION_URL` and
+  `SET_REVALIDATION_SECRET` are set (the route also requires the secret via the
+  `x-revalidate-secret` header). Configure both on the sim host `.env` and set
+  the same secret on the frontend deployment.
+- **Client hydration guard.** `chooseFresherMarketPayload` (in
+  `components/explore/marketAsOfDate.mjs`) compares the server seed and the live
+  client/API response by market as-of date; the set-detail client displays the
+  fresher-dated payload, so a stale server seed can never override a newer live
+  response (and a stale-while-revalidate live response never overrides a newer
+  seed).
+
 ## Simulation Recovery (canonical command, scheduler, and the 2026-07-17 stop)
 
 ### Canonical command and scheduler entry

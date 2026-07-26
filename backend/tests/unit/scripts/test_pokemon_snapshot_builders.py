@@ -2069,3 +2069,132 @@ def test_set_page_genuine_backend_failure_is_not_masked(monkeypatch):
     client = _fail_graceful_client()
     with pytest.raises(ExplorePageError):
         pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
+
+
+# ---------------------------------------------------------------------------
+# Section-level freshness: a single latest_market_date must not imply that every
+# embedded dashboard section is equally current (July-25 / July-16 incident).
+# ---------------------------------------------------------------------------
+
+
+def test_dashboard_section_freshness_mixed_dates_not_uniformly_current():
+    # Exact incident dates: set value/dashboard July 25, Cards/Top Chase July 16,
+    # simulation July 17. The contract must NOT report uniform currency.
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T12:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-16",
+        cards_snapshot_source_date="2026-07-16",
+        simulation_source_date="2026-07-17",
+    )
+
+    assert fresh["referenceDate"] == "2026-07-25"
+    assert fresh["setValueSourceDate"] == "2026-07-25"
+    assert fresh["topChaseSourceDate"] == "2026-07-16"
+    assert fresh["cardsSnapshotSourceDate"] == "2026-07-16"
+    assert fresh["simulationSourceDate"] == "2026-07-17"
+    assert fresh["pageSourceDate"] == "2026-07-25"
+
+    assert fresh["uniformlyCurrent"] is False
+    assert fresh["marketSectionsUniformlyCurrent"] is False
+    assert fresh["sections"]["setValue"]["status"] == "current"
+    assert fresh["sections"]["topChase"]["status"] == "stale"
+    assert fresh["sections"]["cards"]["status"] == "stale"
+    assert fresh["sections"]["simulation"]["status"] == "stale"
+    assert fresh["openingProfitVsCost"] == {"sourceDate": "2026-07-17", "status": "stale"}
+
+    joined = " | ".join(fresh["warnings"])
+    assert "Top Chase data is stale" in joined
+    assert "Cards data is stale" in joined
+    assert "Opening Profit vs Cost is stale" in joined
+
+
+def test_dashboard_section_freshness_all_current_when_uniform():
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T00:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-25",
+        cards_snapshot_source_date="2026-07-25",
+        simulation_source_date="2026-07-25",
+    )
+    assert fresh["uniformlyCurrent"] is True
+    assert fresh["warnings"] == []
+
+
+def test_dashboard_section_freshness_marks_missing_simulation_unavailable():
+    fresh = pokemon_snapshot_builders._build_dashboard_section_freshness(
+        built_at="2026-07-25T00:00:00+00:00",
+        advertised_market_date="2026-07-25",
+        set_value_source_date="2026-07-25",
+        top_chase_source_date="2026-07-25",
+        cards_snapshot_source_date="2026-07-25",
+        simulation_source_date=None,
+    )
+    assert fresh["openingProfitVsCost"]["status"] == "unavailable"
+    assert fresh["uniformlyCurrent"] is False
+    assert any("Opening Profit vs Cost is unavailable" in w for w in fresh["warnings"])
+
+
+def test_dashboard_top_chase_source_date_ignores_forward_filled_carry(monkeypatch):
+    # Top Chase observations end July 16; forward-fill carries them to the July 25
+    # canonical boundary. topChaseSourceDate must report the OBSERVED July 16,
+    # not the carried July 25, and the dashboard must not read as uniform.
+    histories = {
+        "standard": [{"date": "2026-07-25", "setValue": 1000.0}],
+        "hits": [{"date": "2026-07-25", "setValue": 700.0}],
+        "top10": [{"date": "2026-07-25", "setValue": 500.0}],
+    }
+    top_cards = [{
+        "cardVariantId": "variant-1",
+        "name": "Chase",
+        "priceHistory": [
+            {"date": "2026-07-10", "marketPrice": 100.0},
+            {"date": "2026-07-16", "marketPrice": 110.0},
+        ],
+    }]
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": histories[value_scope],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": top_cards, "meta": {"warnings": []}},
+    )
+    monkeypatch.setattr(pokemon_snapshot_builders, "_build_top_chase_canonical_history_context", lambda *a, **k: {})
+    monkeypatch.setattr(pokemon_snapshot_builders, "_load_top_chase_histories_from_observations", lambda *a, **k: {})
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movements_by_window_payload",
+        lambda set_id, **_kwargs: _empty_movement_windows_payload(),
+    )
+    # Simulation performance ends July 17.
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "_load_simulation_performance_history",
+        lambda *_args: [{"date": "2026-07-17", "meanValueToCostRatio": 1.1}],
+    )
+
+    dashboard_row, _history = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1", "name": "Alpha"},
+        days=365,
+        window="365d",
+        client=_Client({"card_variant_price_observations": lambda _q: []}),
+        built_at="2026-07-25T00:00:00+00:00",
+        latest_market_date="2026-07-25",
+    )
+
+    meta = dashboard_row["payload_json"]["meta"]
+    assert meta["setValueSourceDate"] == "2026-07-25"
+    assert meta["topChaseSourceDate"] == "2026-07-16"
+    assert meta["simulationSourceDate"] == "2026-07-17"
+    assert meta["sectionsUniformlyCurrent"] is False
+    assert meta["openingProfitVsCost"]["status"] == "stale"
+    assert any("Top Chase data is stale" in w for w in meta["warnings"])

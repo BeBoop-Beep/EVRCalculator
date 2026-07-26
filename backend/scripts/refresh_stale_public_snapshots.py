@@ -13,6 +13,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from backend.db.services.publication_gate import evaluate_publication_gate
+from backend.db.services.set_publication_revalidation import notify_set_snapshot_published
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
 from backend.scripts.build_pokemon_desirability_validation_snapshots import (
@@ -854,6 +855,9 @@ def _maybe_rebuild_coordinated_market(
         )
         summary.rebuilt_sets["cards"].append(canonical_key)
         summary.rebuilt_sets["market_dashboard"].append(canonical_key)
+        # Bust the frontend seed cache so the new market date replaces any older
+        # cached shell/overview response (best-effort, no-op when unconfigured).
+        notify_set_snapshot_published(set_row.get("canonical_key"), set_row.get("id"))
     except Exception as exc:
         logger.exception("failed coordinated cards/market snapshot refresh %s", _set_label(set_row))
         summary.failed_sets["cards"].append(f"{canonical_key}: {exc}")
@@ -920,6 +924,8 @@ def _maybe_rebuild_set_page(
             client=client,
         )
         summary.rebuilt_sets["set_page"].append(canonical_key)
+        # Invalidate the frontend shell/overview seed cache on a fresh publish.
+        notify_set_snapshot_published(set_row.get("canonical_key"), set_row.get("id"))
     except Exception as exc:
         logger.exception("failed set page snapshot refresh %s", _set_label(set_row))
         summary.failed_sets["set_page"].append(f"{canonical_key}: {exc}")

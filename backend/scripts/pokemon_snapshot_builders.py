@@ -2310,6 +2310,107 @@ def build_top_chase_history_rows(
     return rows
 
 
+# Section labels for stale-section warnings on the market dashboard.
+_DASHBOARD_SECTION_LABELS = {
+    "setValue": "Set Value",
+    "topChase": "Top Chase",
+    "cards": "Cards",
+    "simulation": "Opening Profit vs Cost",
+    "page": "Page",
+}
+
+
+def _build_dashboard_section_freshness(
+    *,
+    built_at: str,
+    advertised_market_date: Optional[str],
+    set_value_source_date: Optional[str],
+    top_chase_source_date: Optional[str],
+    cards_snapshot_source_date: Optional[str],
+    simulation_source_date: Optional[str],
+) -> Dict[str, Any]:
+    """Per-section source dates + stale flags for the market dashboard.
+
+    A single ``latest_market_date`` must never imply that every embedded section
+    (Set Value, Top Chase, Cards, Opening Profit vs Cost) is equally fresh. Each
+    section reports its own real source date and a ``current`` / ``stale`` /
+    ``unavailable`` status against the newest available market date, so a July 25
+    dashboard carrying July 16 Top Chase data is explicitly visible rather than
+    silently uniform.
+    """
+    page_source_date = utc_date_key(built_at)
+    market_dates = [
+        parse_date_key(value)
+        for value in (
+            advertised_market_date,
+            set_value_source_date,
+            top_chase_source_date,
+            cards_snapshot_source_date,
+            page_source_date,
+        )
+    ]
+    reference_date = max((value for value in market_dates if value), default=None)
+
+    def _status(source_date: Optional[str]) -> Dict[str, Any]:
+        resolved = parse_date_key(source_date)
+        if not resolved:
+            return {"sourceDate": None, "status": "unavailable", "referenceDate": reference_date}
+        if reference_date and resolved < reference_date:
+            return {"sourceDate": resolved, "status": "stale", "referenceDate": reference_date}
+        return {"sourceDate": resolved, "status": "current", "referenceDate": reference_date}
+
+    sections = {
+        "setValue": _status(set_value_source_date),
+        "topChase": _status(top_chase_source_date),
+        "cards": _status(cards_snapshot_source_date),
+        "simulation": _status(simulation_source_date),
+        "page": _status(page_source_date),
+    }
+
+    warnings: List[str] = []
+    for key in ("setValue", "topChase", "cards"):
+        status = sections[key]
+        label = _DASHBOARD_SECTION_LABELS[key]
+        if status["status"] == "stale":
+            warnings.append(
+                f"{label} data is stale: source {status['sourceDate']} is older than "
+                f"the latest market date {status['referenceDate']}."
+            )
+        elif status["status"] == "unavailable":
+            warnings.append(f"{label} source date is unavailable for this dashboard.")
+    simulation_status = sections["simulation"]
+    if simulation_status["status"] == "stale":
+        warnings.append(
+            "Opening Profit vs Cost is stale: it reflects simulation "
+            f"{simulation_status['sourceDate']}, older than the latest market date "
+            f"{simulation_status['referenceDate']}. A new simulation is required."
+        )
+    elif simulation_status["status"] == "unavailable":
+        warnings.append("Opening Profit vs Cost is unavailable: no simulation data exists for this set.")
+
+    market_sections_current = all(
+        sections[key]["status"] == "current" for key in ("setValue", "topChase", "cards")
+    )
+    uniformly_current = market_sections_current and simulation_status["status"] == "current"
+
+    return {
+        "referenceDate": reference_date,
+        "setValueSourceDate": sections["setValue"]["sourceDate"],
+        "topChaseSourceDate": sections["topChase"]["sourceDate"],
+        "cardsSnapshotSourceDate": sections["cards"]["sourceDate"],
+        "simulationSourceDate": sections["simulation"]["sourceDate"],
+        "pageSourceDate": sections["page"]["sourceDate"],
+        "sections": sections,
+        "marketSectionsUniformlyCurrent": market_sections_current,
+        "uniformlyCurrent": uniformly_current,
+        "warnings": warnings,
+        "openingProfitVsCost": {
+            "sourceDate": simulation_status["sourceDate"],
+            "status": simulation_status["status"],
+        },
+    }
+
+
 def build_market_dashboard_snapshot_rows(
     set_row: Dict[str, Any],
     *,
@@ -2501,6 +2602,36 @@ def build_market_dashboard_snapshot_rows(
         default=latest_set_value_history_date,
     )
     latest_market_date = canonical_market_date or latest_set_value_history_date
+    # Per-section source dates. The advertised latest_market_date must not imply
+    # uniform freshness: Top Chase reports its ACTUAL newest observed date, Cards
+    # reports the canonical selected-price date the coordinated build used, and
+    # Opening Profit vs Cost reports its simulation date. A section older than
+    # the newest market date is flagged stale rather than published as current.
+    # Only genuinely OBSERVED points count as Top Chase freshness. Forward-fill
+    # carries the last value forward to the canonical date, so the raw max date
+    # would falsely report the dashboard as current — this is precisely the
+    # July 16-observed / July 25-carried misrepresentation being repaired.
+    top_chase_observed_only_dates = [
+        parse_date_key(point.get("date"))
+        for history in top_chase_card_histories.values()
+        if isinstance(history, list)
+        for point in history
+        if isinstance(point, dict)
+        and point.get("isObserved") is not False
+        and point.get("is_observed") is not False
+        and point.get("isCarriedForward") is not True
+        and point.get("is_carried_forward") is not True
+        and parse_date_key(point.get("date"))
+    ]
+    top_chase_source_date = max(top_chase_observed_only_dates) if top_chase_observed_only_dates else None
+    section_freshness = _build_dashboard_section_freshness(
+        built_at=built_at,
+        advertised_market_date=latest_market_date,
+        set_value_source_date=latest_set_value_history_date,
+        top_chase_source_date=top_chase_source_date,
+        cards_snapshot_source_date=canonical_market_date,
+        simulation_source_date=latest_performance_date,
+    )
     dashboard_payload = {
         "set": top_payload.get("set")
         or {
@@ -2549,11 +2680,23 @@ def build_market_dashboard_snapshot_rows(
             },
             "latestPerformanceDate": latest_performance_date,
             "latest_performance_date": latest_performance_date,
+            # Section-level freshness: never let one latest_market_date imply that
+            # every embedded section is equally current.
+            "sectionFreshness": section_freshness,
+            "section_freshness": section_freshness,
+            "setValueSourceDate": section_freshness["setValueSourceDate"],
+            "topChaseSourceDate": section_freshness["topChaseSourceDate"],
+            "cardsSnapshotSourceDate": section_freshness["cardsSnapshotSourceDate"],
+            "simulationSourceDate": section_freshness["simulationSourceDate"],
+            "pageSourceDate": section_freshness["pageSourceDate"],
+            "sectionsUniformlyCurrent": section_freshness["uniformlyCurrent"],
+            "openingProfitVsCost": section_freshness["openingProfitVsCost"],
             "warnings": (
                 list(standard_meta.get("warnings") or [])
                 + list((top_payload.get("meta") or {}).get("warnings") or [])
                 + ([] if perf_history else ["Simulation performance history is unavailable for this set."])
                 + top_chase_movement_warnings
+                + section_freshness["warnings"]
             ),
             "topChaseHistorySource": TOP_CHASE_HISTORY_SOURCE,
             "topChaseHistorySourceWindowDays": TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,

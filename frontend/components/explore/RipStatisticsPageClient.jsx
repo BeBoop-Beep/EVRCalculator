@@ -134,6 +134,7 @@ import {
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { forwardFillDailyHistoryThroughDate, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
 import {
+  chooseFresherMarketPayload,
   getMarketDateSourceFromPayload,
   resolveMarketAsOfDate,
   warnOnMixedMarketDates,
@@ -9084,15 +9085,26 @@ export default function RipStatisticsPageClient({
   // where the reducer initializer can't re-run, and a failed refresh whose
   // seed is still perfectly renderable) — same pattern as
   // seededMarketDashboardPayload above.
-  const activeOverviewState =
-    !guardedOverviewState.payload && seededOverviewPayload
-      ? createMarketDashboardState({
-          status: "success",
-          setId: resolvedSetResourceId,
-          payload: seededOverviewPayload,
-          sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
-        })
-      : guardedOverviewState;
+  // Client-hydration freshness guard (source-date aware): a stale server seed
+  // must never override a newer live response, and a stale-while-revalidate live
+  // response must never override a newer seed. When a live payload exists we
+  // display the fresher-dated of (seed, live); until it does we fall back to the
+  // identity-checked server seed.
+  const activeOverviewState = !guardedOverviewState.payload
+    ? (seededOverviewPayload
+        ? createMarketDashboardState({
+            status: "success",
+            setId: resolvedSetResourceId,
+            payload: seededOverviewPayload,
+            sourceWindow: DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW,
+          })
+        : guardedOverviewState)
+    : (() => {
+        const fresher = chooseFresherMarketPayload(seededOverviewPayload, guardedOverviewState.payload);
+        return fresher === guardedOverviewState.payload
+          ? guardedOverviewState
+          : { ...guardedOverviewState, payload: fresher };
+      })();
   const activeOverviewDerivedState = useMemo(
     () => buildMarketDashboardStateFromPayload(activeOverviewState.payload),
     [activeOverviewState.payload]
