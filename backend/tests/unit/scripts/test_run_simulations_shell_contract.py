@@ -1,11 +1,10 @@
 """Contract checks for the scheduler wrapper infra/local/run_simulations.sh.
 
 The wrapper cannot run under pytest (it needs bash + the VM environment), so we
-assert the deferred-publication contract at the source level: a closed gate
-(exit 3) must produce a distinct DEFERRED warning, keep the task non-successful,
-and stay independent of the simulation-batch result.
+assert its fail-closed source contracts: unsafe checkouts must be rejected before
+simulation/publication, and a closed publication gate must remain a distinct
+non-successful outcome.
 """
-
 from pathlib import Path
 
 import pytest
@@ -17,6 +16,37 @@ SCRIPT = REPO_ROOT / "infra" / "local" / "run_simulations.sh"
 @pytest.fixture(scope="module")
 def script_text():
     return SCRIPT.read_text(encoding="utf-8")
+
+
+def test_wrapper_supports_isolated_production_checkout(script_text):
+    assert 'REPO_DIR="${EVR_PRODUCTION_REPO_DIR:-/d/EVRCalculator}"' in script_text
+    assert 'cd "$REPO_DIR"' in script_text
+
+
+def test_wrapper_verifies_main_clean_and_synced_before_work(script_text):
+    assert "verify_publication_checkout" in script_text
+    assert 'EXPECTED_PUBLICATION_BRANCH="${EXPECTED_PUBLICATION_BRANCH:-main}"' in script_text
+    assert "git symbolic-ref --short -q HEAD" in script_text
+    assert 'refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH' in script_text
+    assert 'git status --porcelain --untracked-files=no' in script_text
+    assert 'verify_publication_checkout\n\nnotify_slack "🚀 Simulation job started' in script_text
+
+
+def test_wrapper_checkout_guard_fails_closed_with_explicit_emergency_override(script_text):
+    assert 'ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT="${ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT:-0}"' in script_text
+    assert 'if [ "$ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT" = "1" ]' in script_text
+    assert "REFUSED unsafe checkout" in script_text
+    assert "return 2" in script_text
+
+
+def test_wrapper_can_optionally_fetch_origin_before_verification(script_text):
+    assert 'PUBLICATION_FETCH_ORIGIN="${PUBLICATION_FETCH_ORIGIN:-0}"' in script_text
+    assert 'git fetch --quiet origin "$EXPECTED_PUBLICATION_BRANCH"' in script_text
+
+
+def test_wrapper_logs_commit_in_job_notifications(script_text):
+    assert "[publication-checkout]" in script_text
+    assert "Commit: $(git rev-parse HEAD)" in script_text
 
 
 def test_wrapper_captures_refresh_exit_code(script_text):

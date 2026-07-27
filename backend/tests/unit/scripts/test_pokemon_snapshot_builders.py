@@ -34,8 +34,11 @@ class _Query:
         self.gt_filters = []
         self.lt_filters = []
         self.range_filter = None
+        self.select_fields = None
+        self.order_fields = []
 
     def select(self, _fields):
+        self.select_fields = _fields
         return self
 
     def eq(self, _field, _value):
@@ -63,6 +66,7 @@ class _Query:
         return self
 
     def order(self, _field, desc=False):
+        self.order_fields.append((_field, desc))
         return self
 
     def limit(self, _value):
@@ -104,7 +108,7 @@ def _stub_market_dashboard_dependencies(monkeypatch, histories_by_scope):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+        lambda set_id, limit, days, **_kwargs: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -650,6 +654,249 @@ def test_top_chase_movement_history_uses_raw_45_day_context_and_excludes_carries
     assert [point["date"] for point in result["variant-1"]] == ["2026-06-01", "2026-07-13"]
 
 
+def test_ascended_heroes_coordinated_builder_paginates_top_chase_and_preserves_1d_parity(monkeypatch):
+    condition_id = "condition-nm"
+    selected_price_rows = [{
+        "canonical_card_id": "canonical-card",
+        "set_id": "ascended-heroes",
+        "card_variant_id": "selected-variant",
+        "condition_id": condition_id,
+        "printing_type": "normal",
+        "market_price": 120.0,
+        "captured_at": "2026-07-27T18:00:00+00:00",
+        "source": "tcgplayer",
+    }]
+    observations = [
+        {
+            "id": index + 1,
+            "card_variant_id": "selected-variant",
+            "condition_id": condition_id,
+            "captured_at": (
+                "2026-07-26T12:00:00+00:00"
+                if index == 1000
+                else "2026-07-27T12:00:00+00:00"
+                if index == 1001
+                else "2026-07-22T12:00:00+00:00"
+            ),
+            "market_price": 108.0 if index == 1000 else 120.0 if index == 1001 else 100.0,
+            "source": "tcgplayer",
+        }
+        for index in range(1002)
+    ]
+    history_queries = []
+
+    def read_observations(query):
+        history_queries.append(query)
+        start, end = query.range_filter
+        return observations[start : end + 1]
+
+    client = _Client({"card_variant_price_observations": read_observations})
+    canonical_context = {
+        "canonical_by_id": {"canonical-card": {"id": "canonical-card"}},
+        "variant_to_canonical_id": {"selected-variant": "canonical-card"},
+        "display_key_to_canonical_id": {"display-variant": "canonical-card"},
+        "selected_price_by_canonical_id": {"canonical-card": selected_price_rows[0]},
+        "condition_by_variant": {"selected-variant": condition_id},
+        "variant_ids": ["selected-variant"],
+    }
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "_query_rows",
+        lambda *_args, **_kwargs: selected_price_rows,
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_value_history_payload",
+        lambda set_id, days, value_scope: {
+            "history": [{
+                "date": "2026-07-27",
+                "setValue": {"standard": 100.0, "hits": 80.0, "top10": 50.0}[value_scope],
+            }],
+            "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
+        },
+    )
+    complete_service_history = [
+        {
+            "date": row["captured_at"][:10],
+            "marketPrice": row["market_price"],
+            "isObserved": True,
+            "sourceVariantId": row["card_variant_id"],
+        }
+        for row in observations
+    ]
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_pokemon_set_top_market_cards_payload",
+        lambda set_id, limit, days, **_kwargs: {
+            "set": {"id": set_id, "name": "Ascended Heroes"},
+            "cards": [{
+                "cardId": "canonical-card",
+                "cardVariantId": "display-variant",
+                "conditionId": condition_id,
+                "name": "Ascended Hero ex",
+                "marketPrice": 120.0,
+                "priceHistory": complete_service_history,
+            }],
+            "meta": {"warnings": []},
+        },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "_build_top_chase_canonical_history_context",
+        lambda *_args, **_kwargs: canonical_context,
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "_load_simulation_performance_history",
+        lambda *_args, **_kwargs: [],
+    )
+
+    def movement(window_days):
+        return pokemon_snapshot_builders.calculate_pokemon_card_market_delta(
+            observations=observations,
+            selected_current_price=120.0,
+            selected_variant_id="selected-variant",
+            selected_condition_id=condition_id,
+            latest_market_date="2026-07-27",
+            requested_window_days=window_days,
+            selected_current_source_date="2026-07-27",
+            selected_current_source="tcgplayer",
+        )
+
+    movements = {f"{days}D": movement(days) for days in (1, 7, 30)}
+
+    def movement_payload(set_id, *, window_days, **_kwargs):
+        camel = {
+            key: {
+                "window": key,
+                "windowDays": days,
+                "heatingUp": [movements[key]],
+                "heating_up": [movements[key]],
+                "coolingOff": [],
+                "cooling_off": [],
+                "all": [movements[key]],
+            }
+            for key, days in (("1D", 1), ("7D", 7), ("30D", 30))
+            if days in window_days
+        }
+        snake = {
+            key: {
+                "window": key,
+                "window_days": value["windowDays"],
+                "heating_up": value["heatingUp"],
+                "cooling_off": [],
+                "all": value["all"],
+            }
+            for key, value in camel.items()
+        }
+        return {
+            "marketMoversByWindow": camel,
+            "market_movers_by_window": snake,
+            "meta": {
+                "observationQueryCount": 2,
+                "observationRowsLoaded": len(observations),
+                "selectedVariantCount": 1,
+                "observationPageCount": 2,
+                "windowsCalculated": len(camel),
+            },
+        }
+
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "build_pokemon_set_card_movements_by_window_payload",
+        movement_payload,
+    )
+
+    def build_cards(set_row, **kwargs):
+        return {
+            "set_id": set_row["id"],
+            "generation_id": kwargs["generation_id"],
+            "cards_json": [{
+                "id": "canonical-card",
+                "canonicalCardId": "canonical-card",
+                "cardVariantId": "selected-variant",
+                "conditionId": condition_id,
+                "movement1d": movement(1),
+                "movement7d": movement(7),
+                "movement30d": movement(30),
+            }],
+            "payload_json": {
+                "meta": {"snapshot": {"generationId": kwargs["generation_id"]}},
+            },
+        }
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "build_cards_snapshot_row", build_cards)
+
+    cards_row, dashboard_row, _history_rows = (
+        pokemon_snapshot_builders.build_coordinated_set_market_snapshot_rows(
+            {"id": "ascended-heroes", "name": "Ascended Heroes"},
+            client=client,
+        )
+    )
+
+    assert [query.range_filter for query in history_queries] == [(0, 999), (1000, 1999)]
+    assert all(
+        query.select_fields == "id,card_variant_id,condition_id,captured_at,market_price"
+        for query in history_queries
+    )
+    assert all(
+        query.order_fields == [("captured_at", False), ("id", False)]
+        for query in history_queries
+    )
+    top_chase_1d = dashboard_row["payload_json"]["topChaseCards"][0]["marketDeltaWindows"]["1D"]
+    mover_1d = dashboard_row["payload_json"]["marketMoversByWindow"]["1D"]["all"][0]
+    assert top_chase_1d["startDate"] == "2026-07-26"
+    assert top_chase_1d["endDate"] == "2026-07-27"
+    for field in ("changeAmount", "changePercent", "cardVariantId", "conditionId"):
+        assert top_chase_1d[field] == mover_1d[field]
+    assert top_chase_1d["cardVariantId"] == "selected-variant"
+    assert top_chase_1d["conditionId"] == condition_id
+    pokemon_snapshot_builders.validate_coordinated_movement_parity(cards_row, dashboard_row)
+    assert (
+        cards_row["payload_json"]["meta"]["snapshot"]["generationId"]
+        == dashboard_row["payload_json"]["meta"]["snapshot"]["generationId"]
+    )
+
+
+def test_legacy_top_chase_observation_fallback_is_paginated():
+    observations = [
+        {
+            "id": index + 1,
+            "card_variant_id": "legacy-variant",
+            "condition_id": pokemon_snapshot_builders.TOP_CHASE_NEAR_MINT_CONDITION_ID,
+            "captured_at": (
+                "2026-07-26T12:00:00+00:00"
+                if index == 1000
+                else "2026-07-27T12:00:00+00:00"
+                if index == 1001
+                else "2026-07-22T12:00:00+00:00"
+            ),
+            "market_price": 120.0 if index == 1001 else 108.0,
+        }
+        for index in range(1002)
+    ]
+    queries = []
+
+    def read_observations(query):
+        queries.append(query)
+        start, end = query.range_filter
+        return observations[start : end + 1]
+
+    histories = pokemon_snapshot_builders._load_top_chase_histories_from_observations(
+        _Client({"card_variant_price_observations": read_observations}),
+        set_id="legacy-set",
+        cards=[],
+        variant_ids=["legacy-variant"],
+        latest_date_key="2026-07-27",
+        days=30,
+        canonical_context={},
+    )
+
+    assert [query.range_filter for query in queries] == [(0, 999), (1000, 1999)]
+    assert histories["legacy-variant"][-1]["date"] == "2026-07-27"
+
+
 def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(monkeypatch):
     history = [
         {"date": "2026-06-01", "marketPrice": 10.0, "sourceDate": "2026-06-01", "isCarriedForward": False},
@@ -666,7 +913,7 @@ def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(m
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {
+        lambda set_id, limit, days, **_kwargs: {
             "set": {"id": set_id, "name": "Snapshot Set"},
             "cards": [
                 {
@@ -762,7 +1009,7 @@ def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+        lambda set_id, limit, days, **_kwargs: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
     )
 
     movement_calls = []
@@ -854,7 +1101,7 @@ def test_build_market_dashboard_snapshot_row_hydrates_top_chase_history_from_raw
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {
+        lambda set_id, limit, days, **_kwargs: {
             "set": {"id": set_id, "name": "Snapshot Set"},
             "cards": [
                 {
@@ -965,7 +1212,7 @@ def test_build_market_dashboard_snapshot_row_uses_365d_top_chase_source_when_day
             "meta": {"availableScopes": [{"key": value_scope, "label": value_scope}]},
         }
 
-    def top_payload(set_id, limit, days):
+    def top_payload(set_id, limit, days, **_kwargs):
         top_card_days.append(days)
         return {
             "set": {"id": set_id, "name": "Snapshot Set"},
@@ -1036,7 +1283,7 @@ def test_build_market_dashboard_snapshot_row_writes_set_value_freshness_metadata
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {
+        lambda set_id, limit, days, **_kwargs: {
             "set": {"id": set_id, "name": "Snapshot Set"},
             "cards": [],
             "meta": {"warnings": []},
@@ -1090,7 +1337,7 @@ def test_market_dashboard_snapshot_uses_corrected_local_set_value_history_date(m
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {
+        lambda set_id, limit, days, **_kwargs: {
             "set": {"id": set_id, "name": "Chaos Rising"},
             "cards": [],
             "meta": {"warnings": []},
@@ -1761,7 +2008,7 @@ def test_build_market_dashboard_performance_history_comes_from_simulation_not_se
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+        lambda set_id, limit, days, **_kwargs: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1821,7 +2068,7 @@ def test_build_market_dashboard_set_value_history_stays_in_scope_not_performance
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+        lambda set_id, limit, days, **_kwargs: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1854,7 +2101,7 @@ def test_build_market_dashboard_sources_meta_identifies_simulation_history_sourc
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+        lambda set_id, limit, days, **_kwargs: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
     )
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1913,7 +2160,7 @@ def test_build_market_dashboard_performance_history_updates_when_simulation_chan
         monkeypatch.setattr(
             pokemon_snapshot_builders,
             "get_pokemon_set_top_market_cards_payload",
-            lambda set_id, limit, days: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
+            lambda set_id, limit, days, **_kwargs: {"set": {"id": set_id}, "cards": [], "meta": {"warnings": []}},
         )
         monkeypatch.setattr(
             pokemon_snapshot_builders,
@@ -2166,7 +2413,7 @@ def test_dashboard_top_chase_source_date_ignores_forward_filled_carry(monkeypatc
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {"set": {"id": set_id}, "cards": top_cards, "meta": {"warnings": []}},
+        lambda set_id, limit, days, **_kwargs: {"set": {"id": set_id}, "cards": top_cards, "meta": {"warnings": []}},
     )
     monkeypatch.setattr(pokemon_snapshot_builders, "_build_top_chase_canonical_history_context", lambda *a, **k: {})
     monkeypatch.setattr(pokemon_snapshot_builders, "_load_top_chase_histories_from_observations", lambda *a, **k: {})

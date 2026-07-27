@@ -15,15 +15,25 @@ def test_coordinated_builder_reuses_one_generation_and_build_timestamp(monkeypat
 
     def build_cards(set_row, **kwargs):
         calls["cards"] = kwargs
-        return {"set_id": set_row["id"], "cards_json": [], "payload_json": {"cards": []}}
+        return {
+            "set_id": set_row["id"],
+            "generation_id": kwargs["generation_id"],
+            "cards_json": [],
+            "payload_json": {"cards": [], "generationId": kwargs["generation_id"]},
+        }
 
     def build_dashboard(set_row, **kwargs):
         calls["dashboard"] = kwargs
         return (
             {
                 "set_id": set_row["id"],
+                "generation_id": kwargs["generation_id"],
                 "window_key": kwargs["window"],
-                "payload_json": {"marketMoversByWindow": {}, "topChaseCards": []},
+                "payload_json": {
+                    "generationId": kwargs["generation_id"],
+                    "marketMoversByWindow": {},
+                    "topChaseCards": [],
+                },
             },
             [],
         )
@@ -32,17 +42,21 @@ def test_coordinated_builder_reuses_one_generation_and_build_timestamp(monkeypat
     monkeypatch.setattr(builders, "build_market_dashboard_snapshot_rows", build_dashboard)
     monkeypatch.setattr(builders, "_query_rows", lambda *_args, **_kwargs: selected_price_rows)
 
+    coordinated_client = object()
     cards_row, dashboard_row, history_rows = builders.build_coordinated_set_market_snapshot_rows(
         {"id": "set-1"},
-        client=object(),
+        client=coordinated_client,
     )
 
     assert cards_row["set_id"] == dashboard_row["set_id"] == "set-1"
     assert history_rows == []
     assert calls["cards"]["generation_id"] == calls["dashboard"]["generation_id"]
+    assert cards_row["generation_id"] == dashboard_row["generation_id"]
+    assert cards_row["payload_json"]["generationId"] == dashboard_row["payload_json"]["generationId"]
     assert calls["cards"]["built_at"] == calls["dashboard"]["built_at"]
     assert calls["cards"]["selected_price_rows"] is selected_price_rows
     assert calls["dashboard"]["selected_price_rows"] is selected_price_rows
+    assert calls["cards"]["client"] is calls["dashboard"]["client"] is coordinated_client
     UUID(calls["cards"]["generation_id"])
 
 
