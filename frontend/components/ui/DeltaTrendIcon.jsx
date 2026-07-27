@@ -9,6 +9,7 @@ export default function DeltaTrendIcon({
   size = "sm",
   className = "",
   title = null,
+  color = null,
 }) {
   const resolvedDirection = direction || getDeltaTrendDirection(value);
 
@@ -22,7 +23,7 @@ export default function DeltaTrendIcon({
   return (
     <span
       className={["inline-flex flex-none items-center leading-none", sizeClassName, className].filter(Boolean).join(" ")}
-      style={{ color: resolvedDirection === "up" ? POSITIVE_VALUE_COLOR : NEGATIVE_VALUE_COLOR }}
+      style={{ color: color || (resolvedDirection === "up" ? POSITIVE_VALUE_COLOR : NEGATIVE_VALUE_COLOR) }}
       aria-label={label}
       title={label}
     >

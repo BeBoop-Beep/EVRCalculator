@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
   CartesianGrid,
@@ -338,6 +338,7 @@ export default function PackValueHistoryChart({
   variant = "market",
   marketAsOfDate = null,
 }) {
+  const chartId = useId().replace(/:/g, "");
   const [showMeanLine,   setShowMeanLine]   = useState(true);
   const [showMedianLine, setShowMedianLine] = useState(true);
   const [showP95Line,    setShowP95Line]    = useState(true);
@@ -431,6 +432,7 @@ export default function PackValueHistoryChart({
   const yAxisTicks      = useMemo(() => buildRatioTicks(yAxisUpperBound), [yAxisUpperBound]);
 
   const latestDataIndex = chartData.length - 1;
+  const lineGlowFilterId = `opening-profit-line-glow-${chartId}`;
 
   const breakEvenLabel = useMemo(() => {
     const cost = toNumber(packCost);
@@ -486,6 +488,11 @@ export default function PackValueHistoryChart({
       <ChartFrame className={flush ? "mt-3 min-h-[24rem] w-full flex-1" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 10, right: 112, left: 6, bottom: 14 }}>
+            <defs>
+              <filter id={lineGlowFilterId} x="-10%" y="-16%" width="120%" height="132%">
+                <feGaussianBlur stdDeviation="1.6" />
+              </filter>
+            </defs>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
 
             <XAxis
@@ -524,6 +531,55 @@ export default function PackValueHistoryChart({
                 fontSize: 11,
               }}
             />
+
+            {hasP95Data && showP95Line ? (
+              <Line
+                type="monotone"
+                dataKey="p95CostRatio"
+                stroke={HISTORICAL_TREND_COLORS.p95ToCost}
+                strokeWidth={6}
+                strokeOpacity={0.12}
+                filter={`url(#${lineGlowFilterId})`}
+                dot={false}
+                activeDot={false}
+                legendType="none"
+                tooltipType="none"
+                connectNulls
+                isAnimationActive={false}
+              />
+            ) : null}
+            {showMeanLine ? (
+              <Line
+                type="monotone"
+                dataKey="meanCostRatio"
+                stroke={HISTORICAL_TREND_COLORS.meanToCost}
+                strokeWidth={7}
+                strokeOpacity={0.18}
+                filter={`url(#${lineGlowFilterId})`}
+                dot={false}
+                activeDot={false}
+                legendType="none"
+                tooltipType="none"
+                connectNulls
+                isAnimationActive={false}
+              />
+            ) : null}
+            {showMedianLine ? (
+              <Line
+                type="monotone"
+                dataKey="medianCostRatio"
+                stroke={HISTORICAL_TREND_COLORS.medianToCost}
+                strokeWidth={5}
+                strokeOpacity={0.1}
+                filter={`url(#${lineGlowFilterId})`}
+                dot={false}
+                activeDot={false}
+                legendType="none"
+                tooltipType="none"
+                connectNulls
+                isAnimationActive={false}
+              />
+            ) : null}
 
             {/* Big Hit Upside rendered below Expected Value so Expected Value stays visually on top. */}
             {hasP95Data && showP95Line ? (

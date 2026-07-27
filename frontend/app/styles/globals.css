@@ -568,3 +568,73 @@ body::-webkit-scrollbar-thumb:hover {
   z-index: 30;
 }
 
+/* Set identity and tabs travel as one invariant sticky shell. Its ancestors
+   intentionally avoid overflow containment, keeping the viewport as the
+   sticky containing block at every supported breakpoint. */
+.set-detail-context-shell {
+  position: sticky;
+  top: var(--app-header-offset, 64px);
+  z-index: 40;
+}
+
+[data-set-context-header] {
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+}
+
+.set-detail-sticky-tabs {
+  position: relative;
+  z-index: 1;
+}
+
+.set-page-atmosphere-artwork {
+  --set-artwork-y-offset: 20px;
+  opacity: 0.055;
+  transform: translateY(var(--set-artwork-y-offset));
+}
+
+.set-page-atmosphere::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: radial-gradient(
+    ellipse at center calc(50% + var(--set-artwork-y-offset, 20px)),
+    rgba(148, 163, 184, 0.055) 0%,
+    rgba(99, 102, 241, 0.025) 34%,
+    transparent 68%
+  );
+  opacity: 0.4;
+  animation: set-page-atmosphere-breathe 14s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@keyframes set-page-atmosphere-breathe {
+  0%,
+  100% {
+    opacity: 0.34;
+  }
+
+  50% {
+    opacity: 0.52;
+  }
+}
+
+@media (min-width: 1024px) {
+  .set-page-atmosphere-artwork {
+    --set-artwork-y-offset: 28px;
+    opacity: 0.07;
+  }
+
+  .set-page-atmosphere {
+    --set-artwork-y-offset: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .set-page-atmosphere::after {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
