@@ -21,7 +21,7 @@ const HEADER_INFO_TEXT = (
 
 export function PullRateTable({ groups }) {
   return (
-    <div className="w-full max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45">
+    <div className="set-glass-inner w-full max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
       <table className="w-full min-w-full table-fixed divide-y divide-[var(--border-subtle)] text-left">
         <colgroup>
           <col className="w-[34%]" />
@@ -29,7 +29,7 @@ export function PullRateTable({ groups }) {
           <col className="w-[24%]" />
           <col className="w-[26%]" />
         </colgroup>
-        <thead className="bg-[var(--surface-page)]/70">
+        <thead className="set-glass-table-header">
           <tr>
             <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Rarity / Slot</th>
             <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Card Pool</th>
@@ -39,7 +39,7 @@ export function PullRateTable({ groups }) {
         </thead>
         {groups.map((group) => (
           <tbody key={`group:${group.key || group.label}`} className="divide-y divide-[var(--border-subtle)]">
-            <tr className="bg-[var(--surface-page)]/30">
+            <tr className="set-glass-table-group">
               <th colSpan={4} className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
                 {group.label || formatGroupLabel(group.key)}
               </th>
@@ -68,7 +68,7 @@ export function PullRateMobileRows({ groups }) {
           {group.rows.map((row) => (
             <div
               key={`${group.key || group.label}:${row.rarity}:${row.slotLabel || ""}:mobile`}
-              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3"
+              className="set-glass-inner rounded-xl border border-[var(--border-subtle)] p-3"
             >
               <p className="text-sm font-semibold text-[var(--text-primary)]">{formatRarityLabel(row.rarity)}</p>
               <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs">

@@ -3348,6 +3348,14 @@ test("Phase 11: PullRatesTab composes 4 priority-ordered SectionBoundary section
 
   const sectionBoundaryCount = (source.match(/<SectionBoundary/g) || []).length;
   assert.equal(sectionBoundaryCount, 4, `PullRatesTab must render exactly 4 section boundaries (found ${sectionBoundaryCount})`);
+  assert.ok(
+    source.includes('className="set-glass-surface scroll-mt-24'),
+    "Pull Rates must retain the shared standard translucent glass treatment"
+  );
+  const assumptionsSource = fs.readFileSync(pullRateAssumptionsCardPath, "utf8").replace(/\r\n/g, "\n");
+  assert.ok(assumptionsSource.includes('className="set-glass-inner w-full'));
+  assert.ok(assumptionsSource.includes('className="set-glass-table-header"'));
+  assert.ok(assumptionsSource.includes('className="set-glass-table-group"'));
 
   const errorBoundaryCount = (source.match(/<SectionErrorBoundary/g) || []).length;
   assert.equal(errorBoundaryCount, 4, `each of the 4 sections must be wrapped in its own SectionErrorBoundary (found ${errorBoundaryCount})`);

@@ -48,7 +48,7 @@ export default async function RootLayout({ children }) {
           <AuthProvider initialUser={initialUser}>
             <StickyNav />
             <RouteTransitionFeedback />
-            <main className="flex-1 w-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
+            <main className="app-canvas flex-1 w-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
             <GlobalMobileBottomNav />
           </AuthProvider>
         </CartContextProvider>
