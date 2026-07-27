@@ -3,6 +3,7 @@
 import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Area,
   CartesianGrid,
   Cell,
   ComposedChart,
@@ -18,6 +19,7 @@ import {
 } from "recharts";
 
 import ChartFrame from "@/components/explore/ChartFrame";
+import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import CompactRankedBarChart from "@/components/explore/CompactRankedBarChart";
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
@@ -2299,6 +2301,7 @@ function SetValueTooltip({ active, payload }) {
 function CompactSparkline({ points, valueKey = "value", trendDirection = "neutral", className = "", showTooltip = true, emptyLabel = "Awaiting trend" }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipX, setTooltipX] = useState(null);
+  const chartId = useId().replace(/:/g, "");
   const chartPoints = Array.isArray(points)
     ? points.map((point, index) => ({
         index,
@@ -2362,13 +2365,18 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
   const xRange = chartPoints.length - 1 || numericPoints.length - 1 || 1;
   const polylinePoints = numericPoints
     .map((point) => {
-      const x = (point.index / xRange) * 100;
-      const y = 38 - ((point.y - minY) / yRange) * 30;
+      const x = 2 + (point.index / xRange) * 96;
+      const y = 36 - ((point.y - minY) / yRange) * 28;
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     })
     .join(" ");
-  const activeX = activePoint ? (activePoint.index / xRange) * 100 : null;
-  const activeY = activePoint ? 38 - ((activePoint.y - minY) / yRange) * 30 : null;
+  const areaPath = numericPoints.length > 0
+    ? `M ${polylinePoints.replaceAll(" ", " L ")} L 98 40 L 2 40 Z`
+    : "";
+  const activeX = activePoint ? 2 + (activePoint.index / xRange) * 96 : null;
+  const activeY = activePoint ? 36 - ((activePoint.y - minY) / yRange) * 28 : null;
+  const gradientId = `compact-sparkline-gradient-${chartId}`;
+  const glowId = `compact-sparkline-glow-${chartId}`;
 
   return (
     <div
@@ -2396,15 +2404,35 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
         preserveAspectRatio="none"
         className="h-full w-full overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42"
       >
-        <path d="M0 36H100" stroke="rgba(255,255,255,0.08)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        <polyline points={polylinePoints} fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
+          </linearGradient>
+          <filter id={glowId} x="-10%" y="-25%" width="120%" height="150%">
+            <feGaussianBlur stdDeviation="1.4" />
+          </filter>
+        </defs>
+        {[8, 22, 36].map((y) => (
+          <path key={y} d={`M2 ${y}H98`} stroke="rgba(255,255,255,0.045)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        ))}
+        <path d={areaPath} fill={`url(#${gradientId})`} />
+        <polyline points={polylinePoints} fill="none" stroke={strokeColor} strokeWidth="6" strokeOpacity="0.1" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" filter={`url(#${glowId})`} />
+        <polyline points={polylinePoints} fill="none" stroke={strokeColor} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         {activePoint && activeX !== null && activeY !== null ? (
-          <>
-            <line x1={activeX} x2={activeX} y1="5" y2="38" stroke="rgba(255,255,255,0.16)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            <circle cx={activeX} cy={activeY} r="3" fill={strokeColor} stroke="rgba(2,6,23,0.95)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-          </>
+          <line x1={activeX} x2={activeX} y1="6" y2="38" stroke="rgba(255,255,255,0.12)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         ) : null}
       </svg>
+      {activePoint && activeX !== null && activeY !== null ? (
+        <span
+          data-compact-sparkline-marker
+          aria-hidden="true"
+          className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-current bg-[rgba(2,6,23,0.78)] shadow-[0_0_8px_currentColor]"
+          style={{ left: `${activeX}%`, top: `${(activeY / 42) * 100}%`, color: strokeColor }}
+        >
+          <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current" />
+        </span>
+      ) : null}
       {showTooltip && activePoint && tooltipX !== null ? (
         <SetValueCompactTooltipCard
           data-compact-sparkline-tooltip
@@ -2537,6 +2565,7 @@ function getCanonicalChecklistSetValueMetrics({
 }
 
 function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "Checklist" }) {
+  const chartId = useId().replace(/:/g, "");
   let previousValuedPoint = null;
   const numericPoints = (Array.isArray(points) ? points : [])
     .map((point, index) => {
@@ -2588,12 +2617,36 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
       : trendDirection === "positive"
       ? POSITIVE_VALUE_COLOR
       : "rgba(148,163,184,0.9)";
+  const fillGradientId = `set-value-fill-${chartId}`;
+  const glowFilterId = `set-value-glow-${chartId}`;
 
   return (
     <div className="min-h-[21rem] w-full">
       <ChartFrame className="h-[21rem] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={numericPoints} margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
+          <ComposedChart data={numericPoints} margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
+            <defs>
+              <linearGradient id={fillGradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={trendColor} stopOpacity="0.13" />
+                <stop offset="68%" stopColor={trendColor} stopOpacity="0.035" />
+                <stop offset="100%" stopColor={trendColor} stopOpacity="0" />
+              </linearGradient>
+              <filter id={glowFilterId} x="-12%" y="-18%" width="124%" height="136%">
+                <feGaussianBlur stdDeviation="1.8" />
+              </filter>
+            </defs>
+            <Area
+              type="linear"
+              dataKey="setValue"
+              baseValue={yMin}
+              fill={`url(#${fillGradientId})`}
+              stroke="none"
+              dot={false}
+              activeDot={false}
+              legendType="none"
+              tooltipType="none"
+              isAnimationActive={false}
+            />
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
             <XAxis
               dataKey="date"
@@ -2618,6 +2671,19 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
             <Line
               type="linear"
               dataKey="setValue"
+              stroke={trendColor}
+              strokeWidth={7}
+              strokeOpacity={0.16}
+              filter={`url(#${glowFilterId})`}
+              dot={false}
+              activeDot={false}
+              legendType="none"
+              tooltipType="none"
+              isAnimationActive={false}
+            />
+            <Line
+              type="linear"
+              dataKey="setValue"
               name={`${scopeLabel} Set Value`}
               stroke={trendColor}
               strokeWidth={2.5}
@@ -2625,7 +2691,7 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
               activeDot={{ r: 4.5, stroke: "var(--surface-page)", strokeWidth: 2 }}
               isAnimationActive={false}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </ChartFrame>
     </div>
@@ -3479,6 +3545,35 @@ function TrendIndicator({ trend, className = "" }) {
         )}
       </svg>
     </span>
+  );
+}
+
+function OpeningMetricTrendIndicator({ trend, neutral = false }) {
+  if (!trend || trend.trend === "unknown") {
+    return null;
+  }
+
+  if (trend.trend !== "up" && trend.trend !== "down") {
+    return (
+      <span
+        className="inline-flex h-4 w-4 flex-none items-center justify-center leading-none text-[var(--text-secondary)]"
+        title="Unchanged from previous snapshot"
+        aria-label="Unchanged from previous snapshot"
+      >
+        {"\u2014"}
+      </span>
+    );
+  }
+
+  const directionText = trend.trend === "up" ? "Up" : "Down";
+  return (
+    <DeltaTrendIcon
+      direction={trend.trend}
+      size="md"
+      className="h-4 w-4 justify-center"
+      color={neutral ? "var(--text-primary)" : null}
+      title={`${directionText} from previous snapshot`}
+    />
   );
 }
 
@@ -4885,6 +4980,7 @@ function RipScoreModeToggle({ value, onChange, coreAvailable }) {
   return (
     <SegmentedControl
       compact
+      className="inline-flex w-max min-w-[132px] flex-none shrink-0 whitespace-nowrap [&>div]:w-max [&>div]:min-w-[132px] [&>div]:max-w-none [&>div]:flex-none [&>div]:shrink-0 [&>div]:overflow-visible [&_button]:min-w-max [&_button]:flex-none [&_button]:shrink-0 [&_span]:overflow-visible [&_span]:whitespace-nowrap"
       ariaLabel="RIP score mode"
       options={[
         { value: RIP_SCORE_MODE, label: "RIP Score", disabled: false },
@@ -5901,6 +5997,10 @@ function RipScoreBreakdownModule({
   pillars,
   titleInfoText,
   ripDesirabilityBreakdown = null,
+  scoreMode,
+  onScoreModeChange,
+  coreAvailable = false,
+  openingOutlook = null,
 }) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const parsedRank = toNumber(rankValue);
@@ -5917,6 +6017,9 @@ function RipScoreBreakdownModule({
               {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
             </div>
             <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">The verdict — how this set scores and why.</p>
+            <div className="mt-2">
+              <RipScoreModeToggle value={scoreMode} onChange={onScoreModeChange} coreAvailable={coreAvailable} />
+            </div>
           </div>
           <button
             type="button"
@@ -5966,6 +6069,15 @@ function RipScoreBreakdownModule({
           {pillars.map((pillar) => (
             <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
           ))}
+        </div>
+        <div data-insights-opening-outlook className="mt-5 border-t border-[var(--border-subtle)] pt-4">
+          <div className="flex items-center gap-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Opening Outlook</p>
+            <InfoPopover text="This outlook evaluates the experience of opening packs. It does not evaluate sealed-product appreciation or provide buy, sell, or hold guidance." />
+          </div>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--text-primary)]">
+            {openingOutlook || "No opening outlook is available for this set yet."}
+          </p>
         </div>
         <RipDesirabilityBreakdownStrip breakdown={ripDesirabilityBreakdown} />
       </article>
@@ -8594,7 +8706,10 @@ export default function RipStatisticsPageClient({
     const subNav = document.querySelector('nav[aria-label="Profile section navigation"]');
     const subNavHeight = subNav instanceof HTMLElement ? subNav.offsetHeight : 0;
 
-    return headerOffset + subNavHeight + 8;
+    const setContextShell = setDetailMode ? document.querySelector("[data-set-context-shell]") : null;
+    const setContextShellHeight = setContextShell instanceof HTMLElement ? setContextShell.offsetHeight : 0;
+
+    return headerOffset + subNavHeight + setContextShellHeight + 8;
   };
 
   const resolveActiveSectionFromScroll = () => {
@@ -9014,6 +9129,8 @@ export default function RipStatisticsPageClient({
   const desirabilityOverviewMetrics = getDesirabilityOverviewMetrics(normalizedOpeningDesirability);
   const heroLogoUrl =
     selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
+  const ambientSetArtworkUrl =
+    selectedTarget?.hero_image_url || selectedTarget?.logo_image_url || selectedTarget?.symbol_image_url || null;
 
   const recommendationSummary =
     heroScoreSelection.mode === RIP_CORE_MODE
@@ -10319,11 +10436,12 @@ export default function RipStatisticsPageClient({
   const headerDecisionMetrics = [
     { label: RIP_COPY.simpleMetrics.currentPackCost, value: formatHeaderMetric(setHeaderSummary.packCost, formatCurrency), trend: trendByMetricKey.packCost },
     { label: RIP_COPY.simpleMetrics.averagePackValue, value: formatHeaderMetric(setHeaderSummary.expectedValue, formatCurrency), trend: trendByMetricKey.averagePackValue },
-    { label: RIP_COPY.simpleMetrics.averageHitValue, value: formatHeaderMetric(setHeaderSummary.averageHitValue, formatCurrency), trend: trendByMetricKey.averageHitValue },
-    { label: RIP_COPY.simpleMetrics.averageLoss, value: formatHeaderMetric(setHeaderSummary.averageLoss, formatSignedCurrency), trend: trendByMetricKey.averageLoss },
     { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatHeaderMetric(setHeaderSummary.chanceToBeatPackCost, (v) => formatPercent(v, { probability: true })), trend: trendByMetricKey.chanceToBeatPackCost },
-    { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatHeaderMetric(setHeaderSummary.chanceAtBigPull, (v) => formatPercent(v, { probability: true })), trend: trendByMetricKey.chanceAtBigPull },
   ];
+  const headerExpectedLossText =
+    setHeaderSummary.averageLoss === null || setHeaderSummary.averageLoss === undefined
+      ? null
+      : `${formatSignedCurrency(setHeaderSummary.averageLoss)} versus pack price`;
   const primaryDecisionMetricOrder = [
     RIP_COPY.simpleMetrics.currentPackCost,
     RIP_COPY.simpleMetrics.averagePackValue,
@@ -11750,25 +11868,6 @@ export default function RipStatisticsPageClient({
     canFetchSetDetailModules,
   ]);
 
-  const setDetailSidebarContent = (
-    <SetPageNavigationRail
-      targets={switcherTargets}
-      requestedTargetId={displayedTargetId}
-      selectedTarget={selectedTarget}
-      selectedName={selectedName}
-      isPending={isPending}
-      isSwitchingTarget={Boolean(pendingTargetId)}
-      activeTab={setDetailTab}
-      activeCardsSubTab={cardsSubTab}
-      activeCardsSection={cardsSection}
-      activeGraphMode={graphMode}
-      showTopMarketCards={shouldShowTopMarketCards}
-      onTargetChange={handleTargetChange}
-      onTargetPrefetch={handleTargetPrefetch}
-      onNavigate={handleSetDetailNavSelect}
-    />
-  );
-
   const desktopSidebarContent = (
     <div className="space-y-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/72 p-4 backdrop-blur-sm">
       <div>
@@ -11901,7 +12000,7 @@ export default function RipStatisticsPageClient({
         mode="public"
         sectionItems={[]}
         mobileNavItems={[]}
-        desktopSidebarContent={setDetailMode ? setDetailSidebarContent : desktopSidebarContent}
+        desktopSidebarContent={setDetailMode ? null : desktopSidebarContent}
         mobileToolsPanelContent={setDetailMode ? null : renderMobileToolsPanelContent}
         mobileToolsTitle="Explore Filters & Navigation"
         mobileToolsDescription="Switch TCG and set filters."
@@ -11910,12 +12009,13 @@ export default function RipStatisticsPageClient({
         mobileToolsTriggerTitle="Open filters and navigation"
         useFloatingToolsOnTablet={!setDetailMode}
         forceCompactToolsBelow2xl={!setDetailMode}
-        centerContentIgnoringSidebar={!setDetailMode}
-        desktopSidebarClassName={setDetailMode ? "xl:w-[244px] xl:min-w-[244px] xl:pl-4 xl:pr-3" : ""}
+        centerContentIgnoringSidebar
+        desktopSidebarClassName=""
         desktopContentOffsetClassName="xl:flex xl:justify-center"
         contentShellClassName={setDetailMode ? "lg:w-full lg:max-w-[1440px] lg:px-4 2xl:px-5" : undefined}
         wrapDesktopContentInFrame={false}
         mobileBottomNavVariant="flat"
+        hideDesktopSidebar={setDetailMode}
         mobileBottomNavContent={() => (
           !setDetailMode && effectiveViewMode === "expert" ? (
             <CompactBottomSectionNav
@@ -11926,12 +12026,27 @@ export default function RipStatisticsPageClient({
         )}
       >
         <div
-          className={`dashboard-container w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
+          className={`dashboard-container relative isolate w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
             setDetailMode
               ? "mx-auto max-w-[1400px] space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
               : "space-y-8 xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border"
           }`}
         >
+        {setDetailMode && ambientSetArtworkUrl ? (
+          <div
+            data-set-ambient-artwork
+            aria-hidden="true"
+            className="set-page-atmosphere pointer-events-none fixed inset-0 -z-10 hidden select-none overflow-hidden bg-no-repeat sm:block"
+          >
+            <img
+              src={ambientSetArtworkUrl}
+              alt=""
+              className="set-page-atmosphere-artwork h-full w-full object-contain object-center [filter:grayscale(0.3)_saturate(0.65)_blur(1px)] [mask-image:linear-gradient(to_bottom,black_0%,rgba(0,0,0,0.72)_24%,rgba(0,0,0,0.3)_62%,transparent_100%)]"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
+        ) : null}
         {pageError ? (
           <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6">
             <p className="text-base font-semibold text-[var(--text-primary)]">RIP Statistics unavailable</p>
@@ -11943,209 +12058,136 @@ export default function RipStatisticsPageClient({
           <>
             {setDetailMode ? (
               <>
-                <section className="page-hero-panel relative overflow-visible rounded-xl px-4 py-4 md:rounded-2xl md:px-6 md:py-5">
-                  <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-xl md:rounded-2xl">
-                    {heroLogoUrl ? (
-                      <div className="absolute left-1/2 top-1/2 h-[112%] w-[112%] -translate-x-1/2 -translate-y-1/2 select-none">
-                        <img
-                          src={heroLogoUrl}
-                          alt=""
-                          aria-hidden="true"
-                          className="h-full w-full object-contain opacity-[0.08] [filter:drop-shadow(0_0_20px_rgba(148,163,184,0.12))]"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="relative z-10 mx-auto flex w-full max-w-[1360px] flex-col gap-4">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] lg:items-stretch">
-                      <div className="flex h-full min-h-full flex-col gap-3">
-                      <div ref={heroSetPickerRef} data-hero-picker className="relative z-20 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px]">
-                        <div className="space-y-4">
-                          <div>
-                            <button
-                              type="button"
-                              onClick={() => setHeroSetPickerOpen((open) => !open)}
-                              disabled={isPending || switcherTargets.length === 0}
-                              aria-expanded={heroSetPickerOpen}
-                              aria-haspopup="listbox"
-                              aria-controls="hero-set-picker-list"
-                              className="flex w-full min-w-0 items-start justify-between gap-3 rounded-lg text-left text-xl font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] md:text-2xl disabled:cursor-not-allowed disabled:opacity-90"
-                              title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
-                            >
-                              <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight">{selectedName}</span>
-                              <span aria-hidden="true" className="mt-1 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/70">
-                                <svg
-                                  aria-hidden="true"
-                                  viewBox="0 0 20 20"
-                                  className={`h-4 w-4 flex-none text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
-                                  fill="currentColor"
-                                >
-                                  <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
-                                </svg>
-                              </span>
-                            </button>
-
-                            {heroSetPickerOpen ? (
-                              <div
-                                id="hero-set-picker-list"
-                                role="listbox"
-                                aria-label="Available sets"
-                                className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full max-w-full overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
-                              >
-                                {switcherTargets.map((target) => {
-                                  const isSelected = String(target.target_id) === String(requestedTargetId || "");
-                                  return (
-                                    <button
-                                      key={`hero-set-option:${target.target_type}:${target.target_id}`}
-                                      type="button"
-                                      role="option"
-                                      aria-selected={isSelected}
-                                      onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
-                                      onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
-                                      onClick={() => {
-                                        handleTargetIdChange(String(target.target_id || ""));
-                                        setHeroSetPickerOpen(false);
-                                      }}
-                                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
-                                        isSelected
-                                          ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
-                                          : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
-                                      }`}
-                                    >
-                                      <span className="min-w-0 flex-1 truncate whitespace-nowrap">{target.name}</span>
-                                      {isSelected ? (
-                                        <span className="shrink-0 text-xs font-medium text-[var(--accent)]">Current</span>
-                                      ) : null}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : null}
-                          </div>
-
-                          <div className="space-y-3">
-                            <RipScoreModeToggle
-                              value={heroScoreSelection.mode}
-                              onChange={setHeroScoreMode}
-                              coreAvailable={heroScoreSelection.coreAvailable}
-                            />
-                            <div className="flex items-end gap-2">
-                              {titleCardMetricsPending && setHeaderSummary.score === null ? (
-                                <span
-                                  aria-label="Loading RIP score"
-                                  className="inline-block h-12 w-24 animate-pulse rounded-lg bg-[rgba(148,163,184,0.12)] md:h-14"
-                                />
-                              ) : (
-                                <span className="inline-flex items-end gap-1.5 text-5xl font-semibold leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-6xl">
-                                  <span>{displayedTopScore}</span>
-                                  <span className="pb-1 text-xs font-medium tracking-normal text-[var(--text-secondary)]">/100</span>
-                                  {heroScoreSelection.mode === RIP_SCORE_MODE ? (
-                                    <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-1 md:mb-1.5" />
-                                  ) : null}
-                                </span>
-                              )}
-                            </div>
-                            <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
-                            {displayedHeroModelScore !== null ? (
-                              <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
-                                Underlying model score: {displayedHeroModelScore}
-                              </p>
-                            ) : null}
-                            <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} interpretation={recommendationBadge} />
-                            {/* Static qualifier — hardcoded copy, deliberately not wired to the
-                                interpretation/recommendation engine. */}
-                            <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
-                              {heroScoreSelection.helper}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
-                              className="inline-flex w-fit items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-                            >
-                              View RIP Breakdown
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="relative flex min-h-[9.5rem] flex-1 flex-col rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_8px_20px_rgba(2,6,23,0.12)] backdrop-blur-[2px] has-[[data-compact-sparkline-tooltip]]:z-30">
-                        <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[minmax(0,0.95fr)_minmax(9rem,1fr)] sm:items-stretch">
-                          <div className="flex min-w-0 flex-col justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-primary)_72%,var(--text-secondary))]">Set Value Trend</p>
-                                <InfoPopover text="Tracks the selected set-value scope using daily Near Mint card market observations." />
-                              </div>
-                              {setHeaderSummary.setValue.current === null && !titleCardMetricsPending ? (
-                                <p className="mt-2 text-xl font-bold text-[var(--text-primary)]">Coming soon</p>
-                              ) : (
-                                <MarketValueChange
-                                  className="mt-2 [text-shadow:0_1px_1px_rgba(2,6,23,0.18)]"
-                                  value={setHeaderSummary.setValue.current}
-                                  changeAmount={setHeaderSummary.setValue.delta30dAmount}
-                                  changePercent={setHeaderSummary.setValue.delta30dPercent}
-                                  windowLabel="30D"
-                                  loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}
-                                  variant="hero"
-                                  accessibleLabel="Set Value Trend"
-                                />
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleViewSetValueTrend}
-                              className="inline-flex w-fit items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-                            >
-                              View Set Value Trend
-                            </button>
-                          </div>
-
-                          <div className="flex min-w-0 flex-col justify-center gap-2">
-                            <CompactSparkline
-                              points={setHeaderSummary.setValue.sparklinePoints}
-                              valueKey="setValue"
-                              trendDirection={
-                                setHeaderSummary.setValue.delta30dAmount === null
-                                  ? "neutral"
-                                  : setHeaderSummary.setValue.delta30dAmount < 0
-                                  ? "negative"
-                                  : setHeaderSummary.setValue.delta30dAmount > 0
-                                  ? "positive"
-                                  : "neutral"
-                              }
-                              className="h-14 w-full"
-                              emptyLabel="History pending"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      </div>
-
-                      <div className="flex h-full flex-col justify-between gap-2.5">
-                        <div
-                          className="rounded-xl border-l-2 border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-4 py-3"
-                          style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: heroScoreSelection.tier })}
+                <div data-set-context-shell className="set-detail-context-shell overflow-visible rounded-xl md:rounded-2xl">
+                <section
+                  data-set-context-header
+                  className="page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-panel)_94%,transparent)] shadow-[0_10px_28px_rgba(2,6,23,0.2)] backdrop-blur-md md:rounded-t-2xl"
+                >
+                  <div className="mx-auto grid min-h-[88px] w-full max-w-[1360px] grid-cols-2 items-center md:grid-cols-[minmax(0,46fr)_minmax(0,27fr)_minmax(0,27fr)]">
+                    <div ref={heroSetPickerRef} data-compact-set-picker className="relative z-20 col-span-2 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:col-span-1 md:gap-7 md:px-5">
+                      {heroLogoUrl ? (
+                        <span className="flex h-14 w-24 flex-none items-center justify-center sm:h-16 sm:w-28">
+                          <img
+                            src={heroLogoUrl}
+                            alt=""
+                            aria-hidden="true"
+                            className="max-h-14 w-auto max-w-24 object-contain opacity-95 sm:max-h-16 sm:max-w-28"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        </span>
+                      ) : null}
+                      <div className="flex min-w-0 flex-1 items-center">
+                        <button
+                          type="button"
+                          onClick={() => setHeroSetPickerOpen((open) => !open)}
+                          disabled={isPending || switcherTargets.length === 0}
+                          aria-expanded={heroSetPickerOpen}
+                          aria-haspopup="listbox"
+                          aria-controls="compact-set-picker-list"
+                          className="flex min-h-12 max-w-full items-center gap-2.5 rounded-lg text-left text-lg font-bold tracking-[-0.01em] text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-90 md:text-xl"
+                          title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
                         >
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
-                          <p className="mt-1.5 text-sm text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
-                        </div>
-
-                        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                          {headerDecisionMetrics.map((metric) => (
-                            <HeroMetricTile key={`set-compact-${metric.label}`} label={metric.label} value={metric.value} trend={metric.trend} />
-                          ))}
-                        </div>
+                          <span className="min-w-0 py-0.5">
+                            <span className="block truncate leading-tight">{selectedName}</span>
+                            {selectedTarget?.era ? (
+                              <span className="mt-1 block truncate text-xs font-medium leading-tight tracking-normal text-[var(--text-secondary)]">{selectedTarget.era}</span>
+                            ) : null}
+                          </span>
+                          <span aria-hidden="true" className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/70">
+                            <svg
+                              viewBox="0 0 20 20"
+                              className={`h-4 w-4 text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
+                              fill="currentColor"
+                            >
+                              <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+                            </svg>
+                          </span>
+                        </button>
+                        {heroSetPickerOpen ? (
+                          <div
+                            id="compact-set-picker-list"
+                            role="listbox"
+                            aria-label="Available sets"
+                            className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
+                          >
+                            {switcherTargets.map((target) => {
+                              const isSelected = String(target.target_id) === String(requestedTargetId || "");
+                              return (
+                                <button
+                                  key={`compact-set-option:${target.target_type}:${target.target_id}`}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={isSelected}
+                                  onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
+                                  onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
+                                  onClick={() => {
+                                    handleTargetIdChange(String(target.target_id || ""));
+                                    setHeroSetPickerOpen(false);
+                                  }}
+                                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
+                                    isSelected
+                                      ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
+                                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                                  }`}
+                                >
+                                  <span className="min-w-0 flex-1 truncate whitespace-nowrap">{target.name}</span>
+                                  {isSelected ? <span className="shrink-0 text-xs font-medium text-[var(--accent)]">Current</span> : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                       </div>
+                    </div>
+
+                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Set Value</p>
+                        <MarketValueChange
+                          className="mt-1"
+                          value={setHeaderSummary.setValue.current}
+                          changeAmount={setHeaderSummary.setValue.delta30dAmount}
+                          changePercent={setHeaderSummary.setValue.delta30dPercent}
+                          windowLabel="30D"
+                          loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}
+                          variant="table-row"
+                          accessibleLabel="Current set value"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleViewSetValueTrend}
+                          className="mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                        >
+                          View trend
+                        </button>
+                    </div>
+                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Opening RIP</p>
+                        <p className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                          <span>{displayedTopScore}</span>
+                          {heroScoreSelection.tier ? <span className="text-[var(--accent)]">· {String(heroScoreSelection.tier).replace(/\s+tier$/i, "")} Tier</span> : null}
+                          {toNumber(heroScoreSelection.rank) !== null ? <span className="text-[var(--text-secondary)]">· Rank #{Math.round(toNumber(heroScoreSelection.rank))}</span> : null}
+                        </p>
+                        {recommendationBadge ? <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{recommendationBadge}</p> : null}
+                        <button
+                          type="button"
+                          onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
+                          className="mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                        >
+                          View verdict
+                        </button>
                     </div>
                   </div>
                 </section>
 
-                <div id="set-detail-content" className="scroll-mt-24 md:scroll-mt-28" aria-busy={isTabNavPending}>
+                <div
+                  id="set-detail-content"
+                  data-set-detail-sticky-tabs
+                  className="set-detail-sticky-tabs !mt-0 min-h-10 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
+                  aria-busy={isTabNavPending}
+                >
                   <SectionViewTabs
-                    className={`mt-2 transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
+                    className={`transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
                     value={setDetailTab}
                     onChange={handleSetDetailTabChange}
                     variant="primary"
@@ -12156,6 +12198,7 @@ export default function RipStatisticsPageClient({
                       { value: "insights", label: "Insights" },
                     ]}
                   />
+                </div>
                 </div>
 
                 {setDetailTab === "overview" ? (
@@ -12222,6 +12265,41 @@ export default function RipStatisticsPageClient({
                             >
                               <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} marketAsOfDate={marketAsOfDate} flush />
                             </SectionBoundary>
+                            <div data-overview-opening-economics className="mt-4 border-t border-[var(--border-subtle)] pt-3">
+                              <dl className="grid grid-cols-2 sm:grid-cols-3 sm:grid-rows-[auto_auto_auto]">
+                                {headerDecisionMetrics.map((metric, metricIndex) => (
+                                  <div
+                                    key={`overview-opening-${metric.label}`}
+                                    className={`grid min-w-0 grid-rows-[minmax(3rem,auto)_minmax(1.5rem,auto)_minmax(0.875rem,auto)] px-3 py-2 first:pl-0 sm:row-span-3 sm:grid-rows-subgrid sm:last:pr-0 ${
+                                      metricIndex > 0 ? "border-l border-[var(--border-subtle)]" : ""
+                                    } ${metricIndex === 2 ? "col-span-2 mt-2 border-l-0 border-t border-[var(--border-subtle)] pt-3 sm:col-span-1 sm:mt-0 sm:border-l sm:border-t-0 sm:pt-2" : ""}`}
+                                  >
+                                    <dt className="flex min-w-0 items-start gap-1.5 text-[11px] font-medium leading-tight text-[var(--text-secondary)] md:items-center md:whitespace-nowrap">
+                                      <span>{getFriendlyMetricLabel(metric.label)}</span>
+                                      {getMetricTooltip(metric.label) ? <InfoPopover text={getMetricTooltip(metric.label)} /> : null}
+                                    </dt>
+                                    <dd className="text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                                      <span className="inline-flex items-center gap-1.5">
+                                        {metric.value}
+                                        <OpeningMetricTrendIndicator
+                                          trend={metric.trend}
+                                          neutral={metric.label === RIP_COPY.simpleMetrics.currentPackCost}
+                                        />
+                                      </span>
+                                    </dd>
+                                    <dd className="text-[11px] font-normal leading-tight text-[var(--text-secondary)]">
+                                      {metric.label === RIP_COPY.simpleMetrics.averagePackValue && headerExpectedLossText
+                                        ? (
+                                        <span>
+                                          {headerExpectedLossText.replace("versus", "vs")}
+                                        </span>
+                                        )
+                                        : <span aria-hidden="true">&nbsp;</span>}
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </div>
                           </SectionCard>
                         </SectionErrorBoundary>
                       </div>
@@ -12785,6 +12863,10 @@ export default function RipStatisticsPageClient({
                     pillars={ripPillarTiles}
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
                     ripDesirabilityBreakdown={ripDesirabilityBreakdown}
+                    scoreMode={heroScoreSelection.mode}
+                    onScoreModeChange={setHeroScoreMode}
+                    coreAvailable={heroScoreSelection.coreAvailable}
+                    openingOutlook={recommendationSummary}
                   />
                 </SectionErrorBoundary>
 

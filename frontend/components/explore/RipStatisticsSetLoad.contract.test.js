@@ -1424,20 +1424,14 @@ test("compact sparkline tooltip is local to the sparkline wrapper", () => {
   assert.ok(!compactSource.includes("event.clientY"));
 });
 
-test("header set value compact sparkline shows the simple date/value/delta hover tooltip", () => {
+test("persistent header omits the compact sparkline and delegates trend evidence to Overview", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const labelIndex = source.indexOf(">Set Value Trend</p>");
-  const sparklineStart = source.indexOf("<CompactSparkline", labelIndex);
-  const sparklineEnd = source.indexOf("/>", sparklineStart);
-  const setValueSparklineSource = source.slice(sparklineStart, sparklineEnd);
-
-  assert.ok(labelIndex >= 0);
-  assert.ok(sparklineStart > labelIndex);
-  assert.ok(setValueSparklineSource.includes("points={setHeaderSummary.setValue.sparklinePoints}"));
-  assert.ok(setValueSparklineSource.includes('valueKey="setValue"'));
-  // CompactSparkline's default tooltip already renders exactly date/value/delta
-  // (see its own showTooltip block) — the title card must not opt back out of it.
-  assert.ok(!setValueSparklineSource.includes("showTooltip={false}"));
+  const shellStart = source.indexOf("<div data-set-context-shell");
+  const shellEnd = source.indexOf('{setDetailTab === "overview" ? (', shellStart);
+  const shellSource = source.slice(shellStart, shellEnd);
+  assert.ok(shellStart >= 0 && shellEnd > shellStart);
+  assert.ok(!shellSource.includes("<CompactSparkline"));
+  assert.ok(source.includes("<SetValueTrendCard"));
 });
 
 test("dropdown set switch can hydrate from a cached 365d market dashboard payload", async () => {
@@ -2107,7 +2101,7 @@ test("Explore/profile navigation is not routed through set-detail tab navigation
   // rail — never to the shared PublicProfileLocalScaffold shell that owns
   // Explore/profile section navigation via profileBaseHref + <Link>.
   const wiringCount = (source.match(/onNavigate=\{handleSetDetailNavSelect\}/g) || []).length;
-  assert.equal(wiringCount, 1, "handleSetDetailNavSelect must be wired to exactly one nav surface (the set-detail rail)");
+  assert.equal(wiringCount, 0, "handleSetDetailNavSelect must not be wired to the retired set-detail rail");
 
   const scaffoldStart = source.indexOf("<PublicProfileLocalScaffold");
   const scaffoldOpenEnd = source.indexOf(">", scaffoldStart);
@@ -2206,7 +2200,7 @@ test("title/header card keeps stable Set Value data while its score follows the 
   // read from setHeaderSummary — never directly off setDetailTab, and never
   // bare `summary.pack_tier`/`recommendationBadge` inside that block, since
   // those are only as fresh as whatever tab happened to load.
-  const heroStart = source.indexOf("<RipScoreModeToggle");
+  const heroStart = source.indexOf("<div data-set-context-shell");
   const heroEnd = source.indexOf("set-detail-content", heroStart);
   const heroSource = source.slice(heroStart, heroEnd);
 
@@ -2215,11 +2209,11 @@ test("title/header card keeps stable Set Value data while its score follows the 
   assert.ok(heroSource.includes("heroScoreSelection.tier"), "header tier must come from the selected hero score contract");
   assert.ok(heroSource.includes("heroScoreSelection.rank"), "header rank must come from the selected hero score contract");
   assert.ok(heroSource.includes("recommendationBadge"), "header badge must follow the selected hero score mode");
-  assert.ok(heroSource.includes("recommendationSummary"), "header recommendation text must follow the selected hero score mode");
+  assert.ok(!heroSource.includes("recommendationSummary"), "full recommendation text must stay out of the persistent header");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.current"), "header set value must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.delta30dAmount"), "header set value delta must come from setHeaderSummary");
-  assert.ok(heroSource.includes("setHeaderSummary.setValue.sparklinePoints"), "header sparkline must come from setHeaderSummary");
-  assert.ok(heroSource.includes("headerDecisionMetrics.map("), "header metric tiles must come from headerDecisionMetrics, not the shared decisionMetrics array");
+  assert.ok(!heroSource.includes("setHeaderSummary.setValue.sparklinePoints"), "persistent header must not render a sparkline");
+  assert.ok(!heroSource.includes("headerDecisionMetrics.map("), "opening economics must stay out of the persistent header");
 });
 
 // ---------------------------------------------------------------------------
@@ -2331,77 +2325,26 @@ test("Patch 2: set-switch pending state exists and replaces placeholder metric v
   for (const field of [
     "setHeaderSummary.packCost",
     "setHeaderSummary.expectedValue",
-    "setHeaderSummary.averageHitValue",
-    "setHeaderSummary.averageLoss",
     "setHeaderSummary.chanceToBeatPackCost",
-    "setHeaderSummary.chanceAtBigPull",
   ]) {
     assert.ok(source.includes(`formatHeaderMetric(${field}`), `${field} must route through formatHeaderMetric`);
   }
-  // RIP score and set value get pending treatment too.
-  assert.ok(
-    source.includes("titleCardMetricsPending && setHeaderSummary.score === null ? ("),
-    "the RIP score must render a pending skeleton instead of a placeholder score during a switch"
-  );
+  // Set Value keeps the shared pending treatment in the persistent shell.
   assert.ok(
     source.includes("loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}"),
     "the shared set value stack must render its pending skeleton during a switch"
   );
 });
 
-test("title-card checklist set value sparkline has a hover tooltip like the Overview Set Value Trend chart", () => {
+test("persistent shell has no title-card sparkline", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-
-  const heroStart = source.indexOf("<RipScoreModeToggle");
-  const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
-  const sparklineEnd = source.indexOf("/>", sparklineStart);
-  const sparklineSource = source.slice(sparklineStart, sparklineEnd);
-
-  assert.ok(sparklineStart >= 0, "header CompactSparkline must exist");
-  assert.ok(
-    !sparklineSource.includes("showTooltip={false}"),
-    "header sparkline must not explicitly disable the built-in date/value/delta tooltip"
-  );
+  const shellStart = source.indexOf("<div data-set-context-shell");
+  const shellEnd = source.indexOf('{setDetailTab === "overview" ? (', shellStart);
+  assert.ok(!source.slice(shellStart, shellEnd).includes("<CompactSparkline"));
 });
 
-test("compact header sparkline tooltip floats above the RIP score/title card instead of being clipped", () => {
+test("Overview Set Value Trend keeps its compact tooltip behavior", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-
-  const heroStart = source.indexOf("<RipScoreModeToggle");
-  const sparklineStart = source.indexOf("<CompactSparkline", heroStart);
-  assert.ok(sparklineStart > heroStart, "header CompactSparkline must exist after the RIP score label");
-
-  const stackingTokenIndex = source.lastIndexOf("has-[[data-compact-sparkline-tooltip]]:z-30", sparklineStart);
-  const resolvedCardWrapperStart = source.lastIndexOf('<div className="', stackingTokenIndex);
-  const cardWrapperEnd = source.indexOf(">", resolvedCardWrapperStart);
-  const cardWrapperClassName = source.slice(resolvedCardWrapperStart, cardWrapperEnd);
-
-  assert.ok(resolvedCardWrapperStart >= 0, "Set Value card wrapping the header sparkline must exist");
-  assert.ok(
-    cardWrapperClassName.includes("has-[[data-compact-sparkline-tooltip]]:z-30"),
-    "Set Value card must raise its stacking context above the RIP score/title card (z-20) while its tooltip is showing"
-  );
-  assert.ok(
-    !cardWrapperClassName.includes("overflow-hidden"),
-    "Set Value card must not clip the sparkline tooltip"
-  );
-
-  const compactStart = source.indexOf("function CompactSparkline");
-  const compactEnd = source.indexOf("function normalizeSetValueHistoryPoints", compactStart);
-  const compactSource = source.slice(compactStart, compactEnd);
-
-  assert.ok(
-    compactSource.includes("overflow-visible"),
-    "sparkline container must allow its tooltip to escape the tiny chart box instead of clipping it"
-  );
-  assert.ok(
-    compactSource.includes("pointer-events-none absolute"),
-    "sparkline tooltip must not intercept pointer events"
-  );
-  assert.ok(
-    compactSource.includes("z-[9999]"),
-    "sparkline tooltip must use a high z-index so it floats above surrounding cards"
-  );
 
   // The Overview Set Value Trend chart must reuse the same compact tooltip shape.
   const overviewTooltipStart = source.indexOf("<RechartsTooltip content={<SetValueTooltip");
@@ -3220,12 +3163,12 @@ test("Phase 8B: every set-switcher surface renders switcherTargets while non-swi
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
-    source.includes("targets={switcherTargets}"),
-    "SetPageNavigationRail (set-detail rail) must receive the filtered switcher list"
+    !source.includes("targets={switcherTargets}"),
+    "the retired set-detail rail must not receive or render a duplicate switcher"
   );
 
-  // Explore-mode sidebar select, mobile tools select, and both hero set
-  // pickers (set-detail and Explore-mode) — 4 inline option renders total.
+  // Explore-mode sidebar select, mobile tools select, persistent set-detail
+  // picker, and Explore-mode hero picker.
   const switcherMapCount = (source.match(/switcherTargets\.map\(/g) || []).length;
   assert.equal(
     switcherMapCount,
@@ -3750,7 +3693,7 @@ test("Phase 10: bottom load-more state uses the branded inDex loader, and comple
   assert.ok(source.includes("cards loaded"), "completion must show a subtle all-loaded note");
 });
 
-test("Phase 10: the Cards section (all-cards | market-movers) is derived from the URL and drives the sidebar highlight and section tabs", () => {
+test("Phase 10: the Cards section (all-cards | market-movers) is derived from the URL and drives the section tabs", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(source.includes("const [cardsSection, setCardsSection] = useState("), "a cards-section state must exist");
@@ -3764,17 +3707,6 @@ test("Phase 10: the Cards section (all-cards | market-movers) is derived from th
   );
 
   // Sidebar rail: both sections listed, highlight driven by the section.
-  assert.ok(source.includes("activeCardsSection = \"all-cards\""), "the rail must accept the active cards section");
-  assert.ok(source.includes("activeCardsSection={cardsSection}"), "the rail must be driven by the page's cards section");
-  assert.ok(
-    source.includes('active: activeCardsSubTab === "checklist" && activeCardsSection !== "market-movers"'),
-    "All Cards must not be highlighted while the market-movers section is active"
-  );
-  assert.ok(
-    source.includes('active: activeCardsSubTab === "checklist" && activeCardsSection === "market-movers"'),
-    "Market Movers must be highlighted when its section is active"
-  );
-
   // Section tab strip inside the Cards tab mirrors the same state.
   assert.ok(source.includes('{ value: "all-cards", label: "All Cards" }'), "the section tab strip must include All Cards");
   assert.ok(source.includes('{ value: "market-movers", label: "Market Movers" }'), "the section tab strip must include Market Movers");

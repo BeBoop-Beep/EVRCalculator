@@ -64,6 +64,7 @@ export default function PublicProfileLocalScaffold({
   contentShellClassName = "lg:w-full lg:max-w-7xl lg:px-6",
   mobileBottomNavContent = null,
   mobileBottomNavVariant = "card",
+  hideDesktopSidebar = false,
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -399,8 +400,8 @@ export default function PublicProfileLocalScaffold({
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className={centerContentIgnoringSidebar ? "relative xl:block" : "xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start"}>
-        <aside
+      <div className={hideDesktopSidebar || centerContentIgnoringSidebar ? "relative xl:block" : "xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start"}>
+        {!hideDesktopSidebar ? <aside
           className={centerContentIgnoringSidebar
             ? `hidden xl:block xl:absolute xl:inset-y-0 xl:left-0 xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4 ${desktopSidebarVisibilityClass}`
             : `hidden xl:block xl:self-stretch xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4 ${desktopSidebarVisibilityClass}`}
@@ -443,7 +444,7 @@ export default function PublicProfileLocalScaffold({
               ) : null}
             </div>
           )}
-        </aside>
+        </aside> : null}
 
         <div className={`min-w-0 pb-4 lg:pb-0 ${desktopContentOffsetClassName}`}>
           <div className={contentShellClassName}>
