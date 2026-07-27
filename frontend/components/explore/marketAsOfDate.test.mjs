@@ -5,6 +5,7 @@ import {
   chooseFresherMarketPayload,
   clampHistoryPointsToDate,
   getMarketDateSourceFromPayload,
+  isMarketDateSourceCompatible,
   isServerSeedStale,
   resolveMarketAsOfDate,
 } from "./marketAsOfDate.mjs";
@@ -44,27 +45,64 @@ test("one coordinated generation resolves to its single shared marketAsOfDate", 
   ]);
 
   assert.equal(resolution.marketAsOfDate, "2026-07-13");
+  assert.equal(resolution.selectedSourceKey, "overview");
+  assert.equal(resolution.selectedGenerationId, "gen-1");
   assert.equal(resolution.isMixedGenerations, false);
   assert.equal(resolution.isMixedDates, false);
+  assert.equal(resolution.excludedSources.length, 0);
 });
 
-test("mixed legacy snapshots pick the MINIMUM authoritative market date as the shared cutoff", () => {
-  // Journey Together scenario: an older section still reports July 14 while
-  // the coordinated generation says July 13 — every surface clamps to July 13.
+test("mixed generations keep the primary Overview cohort instead of taking the global minimum", () => {
   const resolution = resolveMarketAsOfDate([
-    { key: "overview", generationId: "gen-2", marketAsOfDate: "2026-07-13" },
-    { key: "topChase", generationId: "gen-1", marketAsOfDate: "2026-07-14" },
+    { key: "overview", generationId: "gen-2", marketAsOfDate: "2026-07-26" },
+    { key: "topChase", generationId: "gen-2", marketAsOfDate: "2026-07-26" },
+    { key: "marketMovers", generationId: "gen-1", marketAsOfDate: "2026-07-16" },
+    { key: "cards", generationId: "gen-1", marketAsOfDate: "2026-07-16" },
   ]);
 
-  assert.equal(resolution.marketAsOfDate, "2026-07-13");
+  assert.equal(resolution.marketAsOfDate, "2026-07-26");
+  assert.equal(resolution.selectedGenerationId, "gen-2");
   assert.equal(resolution.isMixedGenerations, true);
   assert.equal(resolution.isMixedDates, true);
+  assert.deepEqual(resolution.excludedSources.map((source) => source.key), ["marketMovers", "cards"]);
+  assert.equal(isMarketDateSourceCompatible(resolution, "overview"), true);
+  assert.equal(isMarketDateSourceCompatible(resolution, "marketMovers"), false);
+});
+
+test("legacy July 26 dashboard does not roll back to a generated July 16 Cards snapshot", () => {
+  // Production regression: Overview + Top Chase were republished July 26 by a
+  // legacy dashboard path without generation metadata, while Cards/Movers still
+  // carried the July 16 coordinated generation.
+  const resolution = resolveMarketAsOfDate([
+    { key: "overview", generationId: null, marketAsOfDate: "2026-07-26" },
+    { key: "topChase", generationId: null, marketAsOfDate: "2026-07-26" },
+    { key: "marketMovers", generationId: "old-cards-generation", marketAsOfDate: "2026-07-16" },
+  ]);
+
+  assert.equal(resolution.marketAsOfDate, "2026-07-26");
+  assert.equal(resolution.selectedSourceKey, "overview");
+  assert.equal(resolution.selectedGenerationId, null);
+  assert.deepEqual(resolution.compatibleSources.map((source) => source.key), ["overview", "topChase"]);
+  assert.deepEqual(resolution.excludedSources.map((source) => source.key), ["marketMovers"]);
+});
+
+test("same-generation date disagreement remains conservative inside the selected cohort", () => {
+  const resolution = resolveMarketAsOfDate([
+    { key: "overview", generationId: "gen-2", marketAsOfDate: "2026-07-26" },
+    { key: "topChase", generationId: "gen-2", marketAsOfDate: "2026-07-25" },
+  ]);
+
+  assert.equal(resolution.marketAsOfDate, "2026-07-25");
+  assert.equal(resolution.isMixedGenerations, false);
+  assert.equal(resolution.isMixedDates, true);
+  assert.equal(resolution.excludedSources.length, 0);
 });
 
 test("missing sources resolve to null — never to runtime today", () => {
   const resolution = resolveMarketAsOfDate([]);
   assert.equal(resolution.marketAsOfDate, null);
   assert.equal(resolution.isMixedGenerations, false);
+  assert.deepEqual(resolution.excludedSources, []);
 });
 
 test("sources without a market date are ignored", () => {
