@@ -1867,6 +1867,63 @@ def _compact_top_chase_canonical_observation_rows(
     return histories_by_display_key
 
 
+def _load_paginated_top_chase_observation_rows(
+    client: Any,
+    *,
+    variant_ids: List[str],
+    condition_ids: List[str],
+    start_date: date,
+    end_date: date,
+    page_size: int = CARD_PRICE_OBSERVATION_PAGE_SIZE,
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    safe_page_size = max(1, int(page_size))
+    for chunk_start in range(0, len(variant_ids), CARD_PRICE_OBSERVATION_CHUNK_SIZE):
+        variant_chunk = variant_ids[chunk_start : chunk_start + CARD_PRICE_OBSERVATION_CHUNK_SIZE]
+        start = 0
+        while True:
+            query = (
+                client.table("card_variant_price_observations")
+                .select("id,card_variant_id,condition_id,captured_at,market_price")
+                .in_("card_variant_id", variant_chunk)
+            )
+            if len(condition_ids) == 1:
+                query = query.eq("condition_id", condition_ids[0])
+            elif condition_ids:
+                query = query.in_("condition_id", condition_ids)
+            result = (
+                query.gt("market_price", 0)
+                .gte("captured_at", start_date.isoformat())
+                .lt("captured_at", end_date.isoformat())
+                .order("captured_at", desc=False)
+                .order("id", desc=False)
+                .range(start, start + safe_page_size - 1)
+                .execute()
+            )
+            page = list(result.data or [])
+            for row in page:
+                dedupe_key = (
+                    ("id", row.get("id"))
+                    if row.get("id") is not None
+                    else (
+                        "value",
+                        row.get("card_variant_id"),
+                        row.get("condition_id"),
+                        row.get("captured_at"),
+                        row.get("market_price"),
+                    )
+                )
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                rows.append(row)
+            if len(page) < safe_page_size:
+                break
+            start += safe_page_size
+    return rows
+
+
 def _load_top_chase_histories_from_observations(
     client: Any,
     *,
@@ -1875,6 +1932,7 @@ def _load_top_chase_histories_from_observations(
     variant_ids: List[str],
     latest_date_key: Optional[str],
     days: int,
+    canonical_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     if not variant_ids:
         return {}
@@ -1907,54 +1965,22 @@ def _load_top_chase_histories_from_observations(
 
     start_date = latest_date - timedelta(days=max(days - 1, 0))
     end_date = latest_date + timedelta(days=1)
-    canonical_context: Dict[str, Any] = {}
-    try:
-        canonical_context = _build_top_chase_canonical_history_context(
-            client,
-            set_id=set_id,
-            cards=list(cards or []),
-        )
-    except Exception as exc:
-        if is_transient_data_service_error(exc):
-            raise
-        logger.warning("[pokemon-snapshot] canonical top chase history context failed set_id=%s", set_id, exc_info=True)
-        canonical_context = {}
+    canonical_context = dict(canonical_context or {})
 
     canonical_variant_ids = list(canonical_context.get("variant_ids") or [])
     if canonical_variant_ids:
         try:
             canonical_condition_by_variant = dict(canonical_context.get("condition_by_variant") or {})
             canonical_condition_ids = sorted(set(canonical_condition_by_variant.values()))
-            latest_result = (
-                client.table("card_variant_price_observations")
-                .select("captured_at")
-                .in_("card_variant_id", canonical_variant_ids)
-                .in_("condition_id", canonical_condition_ids)
-                .gt("market_price", 0)
-                .order("captured_at", desc=True)
-                .limit(1)
-                .execute()
-            )
-            canonical_latest_date_key = parse_date_key((list(latest_result.data or [])[:1] or [{}])[0].get("captured_at"))
-            if canonical_latest_date_key:
-                canonical_latest_date = date.fromisoformat(canonical_latest_date_key)
-                if canonical_latest_date > latest_date:
-                    latest_date = canonical_latest_date
-                    start_date = latest_date - timedelta(days=max(days - 1, 0))
-                    end_date = latest_date + timedelta(days=1)
-            result = (
-                client.table("card_variant_price_observations")
-                .select("card_variant_id,condition_id,captured_at,market_price")
-                .in_("card_variant_id", canonical_variant_ids)
-                .in_("condition_id", canonical_condition_ids)
-                .gt("market_price", 0)
-                .gte("captured_at", start_date.isoformat())
-                .lt("captured_at", end_date.isoformat())
-                .order("captured_at", desc=False)
-                .execute()
+            observation_rows = _load_paginated_top_chase_observation_rows(
+                client,
+                variant_ids=canonical_variant_ids,
+                condition_ids=canonical_condition_ids,
+                start_date=start_date,
+                end_date=end_date,
             )
             histories = _compact_top_chase_canonical_observation_rows(
-                list(result.data or []),
+                observation_rows,
                 variant_to_canonical_id=dict(canonical_context.get("variant_to_canonical_id") or {}),
                 display_key_to_canonical_id=dict(canonical_context.get("display_key_to_canonical_id") or {}),
                 condition_by_variant=canonical_condition_by_variant,
@@ -1973,16 +1999,12 @@ def _load_top_chase_histories_from_observations(
             logger.warning("canonical top chase observation history load failed set_id=%s", set_id, exc_info=True)
 
     try:
-        result = (
-            client.table("card_variant_price_observations")
-            .select("card_variant_id,captured_at,market_price")
-            .in_("card_variant_id", variant_ids)
-            .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
-            .gt("market_price", 0)
-            .gte("captured_at", start_date.isoformat())
-            .lt("captured_at", end_date.isoformat())
-            .order("captured_at", desc=False)
-            .execute()
+        observation_rows = _load_paginated_top_chase_observation_rows(
+            client,
+            variant_ids=variant_ids,
+            condition_ids=[TOP_CHASE_NEAR_MINT_CONDITION_ID],
+            start_date=start_date,
+            end_date=end_date,
         )
     except Exception as exc:
         if is_transient_data_service_error(exc):
@@ -1992,7 +2014,7 @@ def _load_top_chase_histories_from_observations(
 
     points_by_variant_date: Dict[str, Dict[str, Dict[str, Any]]] = {}
     captured_at_by_variant_date: Dict[str, Dict[str, str]] = {}
-    for row in result.data or []:
+    for row in observation_rows:
         variant_id = first_non_empty(row.get("card_variant_id"))
         captured_at = first_non_empty(row.get("captured_at"), row.get("capturedAt"))
         date_key = parse_date_key(captured_at)
@@ -2517,6 +2539,7 @@ def build_market_dashboard_snapshot_rows(
     selected_price_rows: Optional[List[Dict[str, Any]]] = None,
     latest_market_date: Optional[str] = None,
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    client = client or get_client()
     built_at = built_at or utc_now_iso()
     coordinated_market_date = utc_date_key(latest_market_date)
     generation_id = generation_id or str(uuid4())
@@ -2551,12 +2574,13 @@ def build_market_dashboard_snapshot_rows(
         set_id=set_id,
         limit=10,
         days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+        client=client,
     )
     top_cards = list(top_payload.get("cards") or [])
     top_chase_canonical_context: Dict[str, Any] = {}
     try:
         top_chase_canonical_context = _build_top_chase_canonical_history_context(
-            client or get_client(),
+            client,
             set_id=set_id,
             cards=top_cards,
             selected_price_rows=selected_price_rows,
@@ -2590,12 +2614,13 @@ def build_market_dashboard_snapshot_rows(
         history_variant_ids = canonical_variant_ids or variant_ids
         if history_variant_ids:
             loaded_histories = _load_top_chase_histories_from_observations(
-                client or get_client(),
+                client,
                 set_id=set_id,
                 cards=top_cards,
                 variant_ids=history_variant_ids,
                 latest_date_key=canonical_market_date,
                 days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
+                canonical_context=top_chase_canonical_context,
             )
             if loaded_histories:
                 top_chase_card_histories = {**top_chase_card_histories, **loaded_histories}

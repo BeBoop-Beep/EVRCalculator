@@ -194,7 +194,7 @@ def _top_chase_dashboard_meta(monkeypatch, *, price_history, built_at, latest_ma
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_pokemon_set_top_market_cards_payload",
-        lambda set_id, limit, days: {
+        lambda set_id, limit, days, **_kwargs: {
             "set": {"id": set_id},
             "cards": [
                 {"cardVariantId": "variant-1", "name": "Chase", "priceHistory": price_history}

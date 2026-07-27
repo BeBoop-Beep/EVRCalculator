@@ -504,25 +504,54 @@ def _load_price_observation_rows_for_window(
     end_date: date,
     sources: Dict[str, str],
     source_key: str,
+    client: Any = None,
+    page_size: int = CARD_MOVERS_OBSERVATION_PAGE_SIZE,
 ) -> List[Dict[str, Any]]:
     if not variant_ids or not condition_id:
         sources[source_key] = "NO_VARIANTS_OR_CONDITION"
         return []
 
+    active_client = client if client is not None else public_read_client
     rows: List[Dict[str, Any]] = []
-    for variant_id_chunk in _chunk(variant_ids):
-        result = (
-            public_read_client.table("card_variant_price_observations")
-            .select("card_variant_id,condition_id,market_price,source,captured_at")
-            .in_("card_variant_id", variant_id_chunk)
-            .eq("condition_id", condition_id)
-            .gt("market_price", 0)
-            .gte("captured_at", start_date.isoformat())
-            .lt("captured_at", end_date.isoformat())
-            .order("captured_at", desc=False)
-            .execute()
-        )
-        rows.extend(result.data or [])
+    seen: set[Tuple[Any, ...]] = set()
+    safe_page_size = max(1, int(page_size))
+    for variant_id_chunk in _chunk(variant_ids, size=CARD_MOVERS_OBSERVATION_CHUNK_SIZE):
+        start = 0
+        while True:
+            result = (
+                active_client.table("card_variant_price_observations")
+                .select("id,card_variant_id,condition_id,market_price,source,captured_at")
+                .in_("card_variant_id", variant_id_chunk)
+                .eq("condition_id", condition_id)
+                .gt("market_price", 0)
+                .gte("captured_at", start_date.isoformat())
+                .lt("captured_at", end_date.isoformat())
+                .order("captured_at", desc=False)
+                .order("id", desc=False)
+                .range(start, start + safe_page_size - 1)
+                .execute()
+            )
+            page = list(result.data or [])
+            for row in page:
+                dedupe_key = (
+                    ("id", row.get("id"))
+                    if row.get("id") is not None
+                    else (
+                        "value",
+                        row.get("card_variant_id"),
+                        row.get("condition_id"),
+                        row.get("market_price"),
+                        row.get("source"),
+                        row.get("captured_at"),
+                    )
+                )
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                rows.append(row)
+            if len(page) < safe_page_size:
+                break
+            start += safe_page_size
     sources[source_key] = "OK"
     return rows
 
@@ -1933,6 +1962,8 @@ def _load_canonical_top_chase_price_history(
     market_context: Dict[str, Any],
     sources: Dict[str, str],
     warnings: Optional[List[str]] = None,
+    *,
+    client: Any = None,
 ) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Dict[str, Any]], Dict[str, Any]]:
     display_variant_to_canonical_id: Dict[str, str] = {}
     for row in rows:
@@ -1982,6 +2013,7 @@ def _load_canonical_top_chase_price_history(
         end_date=window_end_exclusive,
         sources=sources,
         source_key="card_variant_price_observations_for_chase_trends",
+        client=client,
     )
 
     points_by_canonical_date: Dict[str, Dict[str, Dict[str, Any]]] = {}
@@ -2307,6 +2339,8 @@ def _load_simulation_top_market_cards_payload(
     history_days: int,
     warnings: List[str],
     sources: Dict[str, str],
+    *,
+    client: Any = None,
 ) -> Optional[Dict[str, Any]]:
     set_id = _to_optional_str(set_row.get("id")) or ""
     run_row = _load_latest_combined_set_run(set_id, sources)
@@ -2321,13 +2355,14 @@ def _load_simulation_top_market_cards_payload(
         return None
 
     variant_lookup, card_lookup = _load_simulation_card_image_context(rows, sources)
-    market_context = _build_market_context(set_row, warnings, sources)
+    market_context = _build_market_context(set_row, warnings, sources, client=client)
     history_by_variant, trend_diagnostics_by_variant, trend_window_meta = _load_canonical_top_chase_price_history(
         rows,
         history_days,
         market_context,
         sources,
         warnings,
+        client=client,
     )
     if not history_by_variant:
         history_by_variant, trend_diagnostics_by_variant, trend_window_meta = _load_variant_price_history(
@@ -2376,7 +2411,13 @@ def _load_simulation_top_market_cards_payload(
     }
 
 
-def get_pokemon_set_top_market_cards_payload(set_id: str, limit: Any = None, days: Any = None) -> Dict[str, Any]:
+def get_pokemon_set_top_market_cards_payload(
+    set_id: str,
+    limit: Any = None,
+    days: Any = None,
+    *,
+    client: Any = None,
+) -> Dict[str, Any]:
     started = time.perf_counter()
     warnings: List[str] = []
     sources: Dict[str, str] = {}
@@ -2384,7 +2425,14 @@ def get_pokemon_set_top_market_cards_payload(set_id: str, limit: Any = None, day
     clamped_limit = _sanitize_limit(limit)
     clamped_days = _sanitize_top_chase_history_days(days)
 
-    simulation_payload = _load_simulation_top_market_cards_payload(set_row, clamped_limit, clamped_days, warnings, sources)
+    simulation_payload = _load_simulation_top_market_cards_payload(
+        set_row,
+        clamped_limit,
+        clamped_days,
+        warnings,
+        sources,
+        client=client,
+    )
     if simulation_payload is not None:
         return {
             "set": simulation_payload["set"],
@@ -2408,7 +2456,7 @@ def get_pokemon_set_top_market_cards_payload(set_id: str, limit: Any = None, day
             },
         }
 
-    context = _build_market_context(set_row, warnings, sources)
+    context = _build_market_context(set_row, warnings, sources, client=client)
 
     latest_rows = _load_latest_price_rows(context["variant_ids"], context["condition_id"], sources)
     best_by_card: Dict[str, Dict[str, Any]] = {}

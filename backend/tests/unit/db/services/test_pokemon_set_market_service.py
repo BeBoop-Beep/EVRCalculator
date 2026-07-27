@@ -41,6 +41,8 @@ class _Query:
         self.eq_filters = []
         self.in_filters = []
         self.gte_filters = []
+        self.gt_filters = []
+        self.lt_filters = []
         self.order_fields = []
         self.limit_value = None
         self.range_value = None
@@ -59,6 +61,14 @@ class _Query:
 
     def gte(self, field, value):
         self.gte_filters.append((field, value))
+        return self
+
+    def gt(self, field, value):
+        self.gt_filters.append((field, value))
+        return self
+
+    def lt(self, field, value):
+        self.lt_filters.append((field, value))
         return self
 
     def order(self, field, desc=False):
@@ -85,6 +95,118 @@ class _Client:
         if table_name not in self.handlers:
             raise AssertionError(f"Unexpected table requested: {table_name}")
         return _Query(table_name, self.handlers)
+
+
+def test_top_chase_window_observations_paginate_past_postgrest_cap_and_keep_newest_rows():
+    observations = [
+        {
+            "id": index + 1,
+            "card_variant_id": "variant-1",
+            "condition_id": "condition-nm",
+            "market_price": 10.0 + index / 100,
+            "source": "tcgplayer",
+            "captured_at": (
+                "2026-07-26T12:00:00+00:00"
+                if index == 1000
+                else "2026-07-27T12:00:00+00:00"
+                if index == 1001
+                else "2026-07-22T12:00:00+00:00"
+            ),
+        }
+        for index in range(1002)
+    ]
+    queries = []
+
+    def read_observations(query):
+        queries.append(query)
+        start, end = query.range_value
+        return observations[start : end + 1]
+
+    sources = {}
+    rows = pokemon_set_market_service._load_price_observation_rows_for_window(
+        variant_ids=["variant-1"],
+        condition_id="condition-nm",
+        start_date=pokemon_set_market_service.date(2026, 6, 28),
+        end_date=pokemon_set_market_service.date(2026, 7, 28),
+        sources=sources,
+        source_key="top_chase_test",
+        client=_Client({"card_variant_price_observations": read_observations}),
+    )
+
+    assert len(rows) == 1002
+    assert [row["captured_at"][:10] for row in rows[-2:]] == ["2026-07-26", "2026-07-27"]
+    assert [query.range_value for query in queries] == [(0, 999), (1000, 1999)]
+    assert all(
+        query.select_fields == "id,card_variant_id,condition_id,market_price,source,captured_at"
+        for query in queries
+    )
+    assert all(query.order_fields == [("captured_at", False), ("id", False)] for query in queries)
+    assert all(query.eq_filters == [("condition_id", "condition-nm")] for query in queries)
+    assert all(query.gt_filters == [("market_price", 0)] for query in queries)
+    assert all(query.gte_filters == [("captured_at", "2026-06-28")] for query in queries)
+    assert all(query.lt_filters == [("captured_at", "2026-07-28")] for query in queries)
+    assert sources["top_chase_test"] == "OK"
+
+
+def test_canonical_top_chase_history_uses_paginated_newest_market_date():
+    observations = [
+        {
+            "id": index + 1,
+            "card_variant_id": "canonical-variant",
+            "condition_id": "condition-nm",
+            "market_price": 100.0 + index / 100,
+            "source": "tcgplayer",
+            "captured_at": (
+                "2026-07-26T12:00:00+00:00"
+                if index == 1000
+                else "2026-07-27T12:00:00+00:00"
+                if index == 1001
+                else "2026-07-22T12:00:00+00:00"
+            ),
+        }
+        for index in range(1002)
+    ]
+    queries = []
+
+    def read_observations(query):
+        queries.append(query)
+        start, end = query.range_value
+        return observations[start : end + 1]
+
+    client = _Client({"card_variant_price_observations": read_observations})
+    history_by_variant, diagnostics, meta = (
+        pokemon_set_market_service._load_canonical_top_chase_price_history(
+            [
+                {
+                    "card_id": "legacy-card",
+                    "card_variant_id": "display-variant",
+                    "condition_id": "condition-nm",
+                    "card_name": "Ascended Hero ex",
+                    "price_used": 110.01,
+                    "captured_at": "2026-07-27T18:00:00+00:00",
+                }
+            ],
+            30,
+            {
+                "set": {"id": "ascended-heroes"},
+                "condition_id": "condition-nm",
+                "legacy_card_to_canonical_id": {"legacy-card": "canonical-card"},
+                "variant_to_canonical_id": {
+                    "display-variant": "canonical-card",
+                    "canonical-variant": "canonical-card",
+                },
+            },
+            {},
+            [],
+            client=client,
+        )
+    )
+
+    assert len(queries) == 2
+    assert meta["asOfDate"] == meta["windowEnd"] == "2026-07-27"
+    assert history_by_variant["display-variant"][-1]["date"] == "2026-07-27"
+    assert diagnostics["display-variant"]["latestHistoryDate"] == "2026-07-27"
+    assert diagnostics["display-variant"]["matchingConditionObservationCount"] == 1002
 
 
 _CONDITION_ID = "condition-nm"
