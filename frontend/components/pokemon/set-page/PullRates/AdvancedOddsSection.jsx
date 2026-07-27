@@ -14,7 +14,7 @@ export default function AdvancedOddsSection({ pullRateAssumptions }) {
   }
 
   return (
-    <details className="group rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-3">
+    <details className="set-glass-inner group rounded-xl border border-[var(--border-subtle)] p-3">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-[var(--text-primary)]">
         Advanced &amp; Special-Pack Odds
         <svg

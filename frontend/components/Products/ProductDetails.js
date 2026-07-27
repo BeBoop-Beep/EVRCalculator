@@ -22,7 +22,7 @@ export default function ProductDetails({ product }) {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--surface-page)] py-10">
+    <div className="min-h-screen bg-[var(--app-background)] py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Increased the width and height of the container */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-[var(--surface-panel)] p-12 rounded-lg border border-[var(--border-subtle)]" style={{ minHeight: '600px' }}>
