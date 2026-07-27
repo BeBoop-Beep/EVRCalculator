@@ -4,22 +4,36 @@ import { getHistoryDateKey } from "./historyDateFormatting.mjs";
 // Canonical market as-of date resolution for the set-detail page.
 //
 // Every market-driven surface (hero sparkline, Set Value Trend, Opening
-// Profit vs Cost, Top Chase, Market Movers, Cards movement values) must end
-// on ONE canonical marketAsOfDate that comes from the coordinated snapshot
-// generation's own market observations — never from the browser's calendar
-// date, the server's UTC "today", request time, or snapshot updated_at.
+// Profit vs Cost, Top Chase, Market Movers, Cards movement values) should be
+// published from ONE coordinated snapshot generation. During a broken or
+// partially completed publication, however, a secondary module can temporarily
+// belong to an older generation.
 //
-// When mixed snapshot generations are temporarily loaded (older rows still
-// being replaced by a coordinated rebuild), the shared display cutoff is the
-// MINIMUM authoritative market date among the loaded market datasets, so no
-// section can display a day its siblings do not have. That is a
-// compatibility safeguard only; the normal state is one generation and one
-// marketAsOfDate.
+// The primary Overview generation is authoritative for the page cutoff. A stale
+// Market Movers or Cards response must be quarantined rather than allowed to
+// roll current Overview / Top Chase charts backward. When Overview is not loaded,
+// Top Chase is the next authority, followed by Market Movers and Cards.
 // ---------------------------------------------------------------------------
+
+const MARKET_SOURCE_PRIORITY = ["overview", "topChase", "marketMovers", "cards"];
 
 function toOptionalString(value) {
   const text = String(value || "").trim();
   return text || null;
+}
+
+function sourcePriority(source) {
+  const index = MARKET_SOURCE_PRIORITY.indexOf(source?.key);
+  return index >= 0 ? index : MARKET_SOURCE_PRIORITY.length;
+}
+
+function sourceCohortKey(source) {
+  if (source?.generationId) {
+    return `generation:${source.generationId}`;
+  }
+  // Legacy snapshots cannot prove common generation identity. Treat only
+  // legacy sources that advertise the same market date as compatible.
+  return `legacy-date:${source?.marketAsOfDate || "unknown"}`;
 }
 
 /**
@@ -87,18 +101,16 @@ export function isServerSeedStale(seedPayload, livePayload) {
 }
 
 /**
- * Resolve the shared canonical market as-of date from the loaded market
- * datasets. `sources` is an array of { key, generationId, marketAsOfDate }
- * (null entries are ignored).
+ * Resolve the canonical market date from loaded market datasets.
  *
- * Returns:
- *   marketAsOfDate — the shared display cutoff (null when nothing loaded);
- *   isMixedGenerations — more than one distinct generationId was seen;
- *   isMixedDates — sources disagree on their market date;
- *   sources — the accepted sources (for diagnostics).
+ * The highest-priority loaded source establishes the active publication cohort:
+ * Overview -> Top Chase -> Market Movers -> Cards. Sources from the same
+ * generation are compatible. Legacy sources with no generation id are only
+ * compatible when they report the same market date.
  *
- * With a single coordinated generation every source reports the same date and
- * that date is returned. With mixed generations/dates the minimum date wins.
+ * Sources outside the active cohort are returned in excludedSources and must
+ * not downgrade the shared page cutoff. This prevents a stale Cards-derived
+ * Market Movers response from rolling a current Overview back several days.
  */
 export function resolveMarketAsOfDate(sources = []) {
   const accepted = (Array.isArray(sources) ? sources : [])
@@ -112,24 +124,55 @@ export function resolveMarketAsOfDate(sources = []) {
   if (accepted.length === 0) {
     return {
       marketAsOfDate: null,
+      selectedSourceKey: null,
+      selectedGenerationId: null,
       isMixedGenerations: false,
       isMixedDates: false,
       sources: [],
+      compatibleSources: [],
+      excludedSources: [],
     };
   }
 
+  const selectedSource = [...accepted].sort((left, right) => sourcePriority(left) - sourcePriority(right))[0];
+  const selectedCohort = sourceCohortKey(selectedSource);
+  const compatibleSources = accepted.filter((source) => sourceCohortKey(source) === selectedCohort);
+  const excludedSources = accepted
+    .filter((source) => sourceCohortKey(source) !== selectedCohort)
+    .map((source) => ({
+      ...source,
+      reason:
+        source.generationId !== selectedSource.generationId
+          ? "generation_mismatch"
+          : "legacy_market_date_mismatch",
+    }));
+
+  const compatibleDates = [...new Set(compatibleSources.map((source) => source.marketAsOfDate))].sort();
   const distinctDates = [...new Set(accepted.map((source) => source.marketAsOfDate))].sort();
-  const distinctGenerations = [
-    ...new Set(accepted.map((source) => source.generationId).filter(Boolean)),
-  ];
 
   return {
-    // Shared compatibility cutoff: minimum authoritative market date.
-    marketAsOfDate: distinctDates[0],
-    isMixedGenerations: distinctGenerations.length > 1,
+    // Same-generation sources should agree. Keep the conservative minimum only
+    // inside the selected cohort; mismatched cohorts never control this cutoff.
+    marketAsOfDate: compatibleDates[0] || selectedSource.marketAsOfDate,
+    selectedSourceKey: selectedSource.key,
+    selectedGenerationId: selectedSource.generationId,
+    isMixedGenerations: excludedSources.some(
+      (source) => source.generationId !== selectedSource.generationId
+    ),
     isMixedDates: distinctDates.length > 1,
     sources: accepted,
+    compatibleSources,
+    excludedSources,
   };
+}
+
+/** Return true when a source key belongs to the active publication cohort. */
+export function isMarketDateSourceCompatible(resolution, sourceKey) {
+  const key = toOptionalString(sourceKey);
+  if (!key || !resolution) {
+    return false;
+  }
+  return (resolution.compatibleSources || []).some((source) => source.key === key);
 }
 
 /**
@@ -152,7 +195,10 @@ export function warnOnMixedMarketDates(setId, resolution) {
     marketDates: Object.fromEntries(
       (resolution.sources || []).map((source) => [source.key, source.marketAsOfDate])
     ),
+    selectedSourceKey: resolution.selectedSourceKey,
+    selectedGenerationId: resolution.selectedGenerationId,
     sharedCutoff: resolution.marketAsOfDate,
+    excludedSources: resolution.excludedSources || [],
   });
 }
 
