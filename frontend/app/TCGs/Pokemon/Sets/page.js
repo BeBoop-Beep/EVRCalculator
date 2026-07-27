@@ -167,7 +167,7 @@ export default async function SetsPage() {
   const groupedEras = groupSetsByEra(sets);
 
   return (
-    <div className="min-h-screen bg-[var(--surface-page)]">
+    <div className="min-h-screen bg-[var(--app-background)]">
       <SecondaryNav basePath="/TCGs/Pokemon" />
       <main className="w-full px-2 md:px-6 lg:px-10 py-8">
         <div className="max-w-6xl mx-auto">

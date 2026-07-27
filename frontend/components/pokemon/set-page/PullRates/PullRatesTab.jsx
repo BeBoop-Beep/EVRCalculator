@@ -50,7 +50,7 @@ export default function PullRatesTab({
   return (
     <section
       id="set-detail-pull-rates"
-      className="scroll-mt-24 space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/70 p-4 md:scroll-mt-28 md:p-5"
+      className="set-glass-surface scroll-mt-24 space-y-3 rounded-xl border p-4 md:scroll-mt-28 md:p-5"
     >
       <div>
         <p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>

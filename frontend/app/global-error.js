@@ -3,7 +3,7 @@
 export default function GlobalError({ error, reset }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center px-6 py-16">
+      <body className="min-h-screen bg-[var(--app-background)] flex items-center justify-center px-6 py-16">
         <div className="max-w-xl w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-8 text-center">
           <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-3">Application error</h2>
           <p className="text-[var(--text-secondary)] mb-6">A critical error occurred. Please try reloading.</p>

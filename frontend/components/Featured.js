@@ -92,7 +92,7 @@ export default function Featured({ products }) {
   }
 
   return (
-    <section className="relative w-full min-h-[540px] overflow-hidden bg-[#020817]">
+    <section className="relative w-full min-h-[540px] overflow-hidden bg-[var(--app-background)]">
       {/* Radial background gradient */}
       <div
         className="absolute inset-0"

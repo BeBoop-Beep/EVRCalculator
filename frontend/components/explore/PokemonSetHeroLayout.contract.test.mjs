@@ -40,7 +40,8 @@ test("context row uses the 46/27/27 identity, value, and Opening RIP structure",
   assert.ok(shell.includes("h-14 w-24"));
   assert.ok(shell.includes("sm:h-16 sm:w-28"));
   assert.ok(shell.includes("max-h-14 w-auto max-w-24 object-contain opacity-95"));
-  assert.ok(shell.includes("text-lg font-bold"));
+  assert.ok(shell.includes("set-context-identity"));
+  assert.ok(shell.includes("text-lg font-semibold"));
   assert.ok(shell.includes("md:text-xl"));
   assert.ok(shell.includes("text-xs font-medium leading-tight"));
   assert.ok(shell.includes("selectedName"));
@@ -59,6 +60,7 @@ test("persistent shell contains only concise context and deep-link actions", () 
   assert.ok(shell.includes("View trend"));
   assert.ok(shell.includes('tab: "insights", section: "rip-score", targetId: "set-detail-rip-score"'));
   assert.ok(shell.includes("View verdict"));
+  assert.equal((shell.match(/set-context-action/g) || []).length, 2);
   assert.ok(!shell.includes("<CompactSparkline"));
   assert.ok(!shell.includes("headerDecisionMetrics"));
   assert.ok(!shell.includes("Opening Outlook"));
@@ -72,16 +74,56 @@ test("set switching remains keyboard and pointer accessible in the persistent id
   assert.ok(shell.includes("switcherTargets.map("));
   assert.ok(shell.includes("onMouseEnter={() => handleTargetPrefetch"));
   assert.ok(shell.includes("onFocus={() => handleTargetPrefetch"));
-  assert.ok(shell.includes("handleTargetIdChange"));
+  assert.ok(shell.includes("handleHeroSetSelect"));
+  assert.ok(shell.includes("onKeyDown={handleSetPickerKeyDown}"));
+  assert.ok(source.includes('event.target.closest?.("[data-set-picker]")'));
+  const selectionStart = source.indexOf("const handleHeroSetSelect = (target) => {");
+  const selectionEnd = source.indexOf("const handleSetPickerKeyDown", selectionStart);
+  const selection = source.slice(selectionStart, selectionEnd);
+  assert.ok(selection.includes('handleTargetIdChange(String(target?.target_id || ""));'));
+  assert.ok(
+    selection.indexOf("handleTargetIdChange") < selection.indexOf("setHeroSetPickerOpen(false)"),
+    "canonical route navigation must be accepted before the menu closes"
+  );
 });
 
 test("context row and tabs stick together below global navigation", () => {
   assert.match(globals, /\.set-detail-context-shell[\s\S]+position: sticky;[\s\S]+top: var\(--app-header-offset, 64px\);[\s\S]+z-index: 40;/);
   assert.match(globals, /\[data-set-context-header\][\s\S]+position: relative;[\s\S]+z-index: 2;[\s\S]+overflow: visible;/);
   assert.match(globals, /\.set-detail-sticky-tabs[\s\S]+position: relative;[\s\S]+z-index: 1;/);
+  assert.ok(shellSource().includes("set-context-premium"));
+  assert.ok(globals.includes("--set-context-bg:"));
+  assert.ok(globals.includes("--set-context-wash:"));
+  assert.match(globals, /\.set-context-premium \{[\s\S]+background: var\(--set-context-bg\);[\s\S]+box-shadow:/);
+  assert.match(globals, /\.set-detail-context-shell::before \{[\s\S]+background: var\(--set-context-wash\);/);
   assert.ok(shellSource().includes("z-50 max-h-56"));
   assert.ok(source.includes('document.querySelector("[data-set-context-shell]")'));
   assert.ok(source.includes("headerOffset + subNavHeight + setContextShellHeight + 8"));
+});
+
+test("set-page content uses shared standard and dense glass surfaces without changing the sticky context card", () => {
+  const shell = shellSource();
+  assert.ok(source.includes("set-detail-glass-scope"));
+  assert.ok(source.includes('"set-glass-surface w-full max-w-full min-w-0"'));
+  assert.ok(source.includes('id="set-detail-cards" className="set-glass-surface-dense'));
+  assert.ok(globals.includes("--set-glass-bg: rgba(8, 17, 31, 0.40);"));
+  assert.ok(globals.includes("--set-glass-bg-dense: rgba(8, 17, 31, 0.52);"));
+  assert.ok(globals.includes("--set-glass-border: rgba(145, 174, 212, 0.14);"));
+  assert.ok(globals.includes("--set-glass-blur: 4px;"));
+  assert.ok(globals.includes("--set-glass-blur-dense: 6px;"));
+  assert.ok(globals.includes("--set-glass-inner-bg: rgba(8, 17, 31, 0.14);"));
+  assert.ok(globals.includes("--set-glass-inner-bg-dense: rgba(8, 17, 31, 0.20);"));
+  assert.ok(source.includes("set-glass-inner overflow-visible rounded-xl"));
+  assert.ok(source.includes("set-glass-inner mb-4 flex flex-col"));
+  assert.match(
+    globals,
+    /\.set-detail-glass-scope \.set-glass-surface,[\s\S]+-webkit-backdrop-filter: blur\(var\(--set-glass-blur\)\);[\s\S]+backdrop-filter: blur\(var\(--set-glass-blur\)\);/
+  );
+  assert.match(
+    globals,
+    /\.set-detail-glass-scope \.set-glass-surface-dense \{[\s\S]+backdrop-filter: blur\(var\(--set-glass-blur-dense\)\);/
+  );
+  assert.ok(!shell.includes("set-glass-surface"), "the persistent set-context title card must remain unchanged");
 });
 
 test("one fixed ambient artwork layer persists with a reduced-motion-safe low-cost glow", () => {
@@ -91,11 +133,11 @@ test("one fixed ambient artwork layer persists with a reduced-motion-safe low-co
   assert.ok(source.includes("set-page-atmosphere pointer-events-none fixed"));
   assert.ok(source.includes("object-contain object-center"));
   assert.ok(source.includes("set-page-atmosphere-artwork"));
-  assert.ok(source.includes("grayscale(0.3)_saturate(0.65)_blur(1px)"));
+  assert.ok(source.includes("grayscale(0.2)_brightness(1.14)_saturate(0.8)_blur(1px)"));
   assert.ok(source.includes("mask-image:linear-gradient"));
   assert.ok(!source.includes("data-set-ambient-artwork animate-"));
-  assert.match(globals, /\.set-page-atmosphere-artwork[\s\S]+--set-artwork-y-offset: 20px;[\s\S]+opacity: 0\.055;[\s\S]+transform: translateY\(var\(--set-artwork-y-offset\)\);/);
-  assert.match(globals, /@media \(min-width: 1024px\)[\s\S]+\.set-page-atmosphere-artwork[\s\S]+--set-artwork-y-offset: 28px;[\s\S]+opacity: 0\.07;/);
+  assert.match(globals, /\.set-page-atmosphere-artwork[\s\S]+--set-artwork-y-offset: 20px;[\s\S]+opacity: 0\.085;[\s\S]+transform: translateY\(var\(--set-artwork-y-offset\)\);/);
+  assert.match(globals, /@media \(min-width: 1024px\)[\s\S]+\.set-page-atmosphere-artwork[\s\S]+--set-artwork-y-offset: 28px;[\s\S]+opacity: 0\.105;/);
   assert.match(globals, /\.set-page-atmosphere::after[\s\S]+animation: set-page-atmosphere-breathe 14s ease-in-out infinite;/);
   assert.match(globals, /@keyframes set-page-atmosphere-breathe[\s\S]+opacity: 0\.34;[\s\S]+opacity: 0\.52;/);
   assert.match(globals, /@media \(prefers-reduced-motion: reduce\)[\s\S]+\.set-page-atmosphere::after[\s\S]+animation: none;/);

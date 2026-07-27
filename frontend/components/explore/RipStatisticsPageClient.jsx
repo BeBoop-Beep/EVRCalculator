@@ -2878,7 +2878,7 @@ function OverviewMetricTile({ label, value, trend = null, infoText = null }) {
 
 function OverviewReadPanel({ metrics, compactRead, detailRead }) {
   return (
-    <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
+    <article className="set-glass-surface w-full max-w-full min-w-0 rounded-2xl border p-4 sm:p-5">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">Overview Context</h2>
@@ -3060,7 +3060,7 @@ function TopMarketCardsContent({
         value={effectiveWindowKey}
         onChange={setSelectedWindowKey}
       />
-      <div className="overflow-visible rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42">
+      <div className="set-glass-inner overflow-visible rounded-xl border border-[var(--border-subtle)]">
         <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] items-center gap-3 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
           <span>Rank</span>
           <span>Card</span>
@@ -5224,7 +5224,7 @@ function SetIntelligenceSection({ summary, simpleMode = false, setIntelligenceMe
 
   return (
     <section id="set-detail-set-intelligence" className="scroll-mt-24 pt-4 md:scroll-mt-28 md:pt-5">
-      <article className="w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
+      <article className="set-glass-surface w-full max-w-full min-w-0 rounded-2xl border p-4 sm:p-5">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Set Intelligence</h2>
@@ -5380,7 +5380,7 @@ function ScorePillarCard({
   const keySignals = Array.isArray(simpleMetrics) ? simpleMetrics.slice(0, 2) : [];
 
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
+    <article className="set-glass-surface flex h-full flex-col rounded-2xl border p-4 sm:p-5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
@@ -5723,7 +5723,7 @@ function DecisionSignalRow({ signal }) {
   const summaryText = signal.summary || signal.detailSummary;
 
   return (
-    <article className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-3">
+    <article className="set-glass-inner min-w-0 rounded-xl border border-[var(--border-subtle)] px-3 py-3">
       <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem] sm:items-center">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{signal.label}</p>
@@ -5862,7 +5862,7 @@ function CompactPillarSignalTile({
   const parsedRank = toNumber(rankValue);
 
   return (
-    <article className="flex h-full flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+    <article className="set-glass-inner flex h-full flex-col rounded-xl border border-[var(--border-subtle)] p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -6008,7 +6008,7 @@ function RipScoreBreakdownModule({
 
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
-      <article className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5">
+      <article className="set-glass-surface rounded-2xl border p-4 sm:p-5">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <SectionEyebrow>01 · Verdict</SectionEyebrow>
@@ -6087,7 +6087,7 @@ function RipScoreBreakdownModule({
 
 function StatTile({ label, value, valueClassName = "text-lg", infoText = null, trend = null }) {
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4">
+    <div className="set-glass-inner rounded-xl border border-[var(--border-subtle)] p-4">
       <div className="flex min-w-0 items-start justify-between gap-2">
         <p className="min-w-0 flex-1 text-left text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-[var(--text-secondary)]">
           {label}
@@ -6120,10 +6120,10 @@ function SectionEyebrow({ children }) {
 function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "" }) {
   const toneClass =
     tone === "plain"
-      ? "rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.5),rgba(2,6,23,0.36))] p-4 sm:p-5"
-      : "rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5";
+      ? "rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5"
+      : "rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5";
   return (
-    <article className={["w-full max-w-full min-w-0", toneClass, className].filter(Boolean).join(" ")}>
+    <article className={["set-glass-surface w-full max-w-full min-w-0", toneClass, className].filter(Boolean).join(" ")}>
       <div>
         <SectionEyebrow>{eyebrow}</SectionEyebrow>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -6170,7 +6170,7 @@ const OPENING_EXPERIENCE_INFO_TEXT = [
 
 function OpeningExperienceMetricCard({ label, value, detail, infoText }) {
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+    <div className="set-glass-inner rounded-xl border border-[var(--border-subtle)] p-3">
       <div className="flex min-w-0 items-start justify-between gap-2">
         <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
         {infoText ? <InfoPopover text={infoText} /> : null}
@@ -6191,7 +6191,7 @@ function OpeningExperiencePathCard({ kind, path }) {
   }
   const showImage = Boolean(path.imageUrl) && !imageFailed;
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-2">
+    <div className="set-glass-inner flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-subtle)] p-2">
       <div className="h-12 w-9 flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5">
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -6221,7 +6221,7 @@ function OpeningExperiencePathCard({ kind, path }) {
 
 function OpeningExperienceSubjectRow({ subject }) {
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-3">
+    <div className="set-glass-inner rounded-xl border border-[var(--border-subtle)] p-3">
       <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2">
         <p className="min-w-0 truncate text-sm font-semibold text-[var(--text-primary)]">{subject.subjectName}</p>
         {subject.demandShare !== null ? (
@@ -6238,7 +6238,7 @@ function OpeningExperienceSubjectRow({ subject }) {
 
 function SetDesirabilitySubjectRow({ subject }) {
   return (
-    <div className="flex min-w-0 items-baseline justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2">
+    <div className="set-glass-inner flex min-w-0 items-baseline justify-between gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{subject.subjectName}</p>
         {subject.representativeCardName ? (
@@ -10669,6 +10669,32 @@ export default function RipStatisticsPageClient({
     });
   };
 
+  const handleHeroSetSelect = (target) => {
+    handleTargetIdChange(String(target?.target_id || ""));
+    setHeroSetPickerOpen(false);
+  };
+
+  const handleSetPickerKeyDown = (event) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      return;
+    }
+    const options = Array.from(event.currentTarget.querySelectorAll('[role="option"]:not(:disabled)'));
+    if (options.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    const currentIndex = options.indexOf(document.activeElement);
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? options.length - 1
+          : event.key === "ArrowDown"
+            ? (currentIndex + 1 + options.length) % options.length
+            : (currentIndex - 1 + options.length) % options.length;
+    options[nextIndex]?.focus();
+  };
+
   const handleTargetChange = (event, options = {}) => {
     const nextTargetId = String(event.target.value || "").trim();
     handleTargetIdChange(nextTargetId, options);
@@ -10696,7 +10722,7 @@ export default function RipStatisticsPageClient({
     }
 
     const handleOutsideClick = (event) => {
-      if (!event.target.closest?.('[data-hero-picker]')) {
+      if (!event.target.closest?.("[data-set-picker]")) {
         setHeroSetPickerOpen(false);
       }
     };
@@ -12028,7 +12054,7 @@ export default function RipStatisticsPageClient({
         <div
           className={`dashboard-container relative isolate w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
             setDetailMode
-              ? "mx-auto max-w-[1400px] space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
+              ? "set-detail-glass-scope mx-auto max-w-[1400px] space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
               : "space-y-8 xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border"
           }`}
         >
@@ -12041,7 +12067,7 @@ export default function RipStatisticsPageClient({
             <img
               src={ambientSetArtworkUrl}
               alt=""
-              className="set-page-atmosphere-artwork h-full w-full object-contain object-center [filter:grayscale(0.3)_saturate(0.65)_blur(1px)] [mask-image:linear-gradient(to_bottom,black_0%,rgba(0,0,0,0.72)_24%,rgba(0,0,0,0.3)_62%,transparent_100%)]"
+              className="set-page-atmosphere-artwork h-full w-full object-contain object-center [filter:grayscale(0.2)_brightness(1.14)_saturate(0.8)_blur(1px)] [mask-image:linear-gradient(to_bottom,black_0%,rgba(0,0,0,0.72)_24%,rgba(0,0,0,0.3)_62%,transparent_100%)]"
               loading="eager"
               decoding="async"
             />
@@ -12061,10 +12087,10 @@ export default function RipStatisticsPageClient({
                 <div data-set-context-shell className="set-detail-context-shell overflow-visible rounded-xl md:rounded-2xl">
                 <section
                   data-set-context-header
-                  className="page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-panel)_94%,transparent)] shadow-[0_10px_28px_rgba(2,6,23,0.2)] backdrop-blur-md md:rounded-t-2xl"
+                  className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border md:rounded-t-2xl"
                 >
                   <div className="mx-auto grid min-h-[88px] w-full max-w-[1360px] grid-cols-2 items-center md:grid-cols-[minmax(0,46fr)_minmax(0,27fr)_minmax(0,27fr)]">
-                    <div ref={heroSetPickerRef} data-compact-set-picker className="relative z-20 col-span-2 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:col-span-1 md:gap-7 md:px-5">
+                    <div ref={heroSetPickerRef} data-set-picker data-compact-set-picker className="relative z-20 col-span-2 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:col-span-1 md:gap-7 md:px-5">
                       {heroLogoUrl ? (
                         <span className="flex h-14 w-24 flex-none items-center justify-center sm:h-16 sm:w-28">
                           <img
@@ -12085,13 +12111,13 @@ export default function RipStatisticsPageClient({
                           aria-expanded={heroSetPickerOpen}
                           aria-haspopup="listbox"
                           aria-controls="compact-set-picker-list"
-                          className="flex min-h-12 max-w-full items-center gap-2.5 rounded-lg text-left text-lg font-bold tracking-[-0.01em] text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-90 md:text-xl"
+                          className="set-context-identity flex min-h-12 max-w-full items-center gap-2.5 rounded-lg text-left text-lg font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-90 md:text-xl"
                           title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
                         >
                           <span className="min-w-0 py-0.5">
                             <span className="block truncate leading-tight">{selectedName}</span>
                             {selectedTarget?.era ? (
-                              <span className="mt-1 block truncate text-xs font-medium leading-tight tracking-normal text-[var(--text-secondary)]">{selectedTarget.era}</span>
+                            <span className="mt-1.5 block truncate text-xs font-medium leading-tight tracking-[0.01em] text-[var(--text-secondary)]">{selectedTarget.era}</span>
                             ) : null}
                           </span>
                           <span aria-hidden="true" className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/70">
@@ -12109,6 +12135,7 @@ export default function RipStatisticsPageClient({
                             id="compact-set-picker-list"
                             role="listbox"
                             aria-label="Available sets"
+                            onKeyDown={handleSetPickerKeyDown}
                             className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
                           >
                             {switcherTargets.map((target) => {
@@ -12121,10 +12148,7 @@ export default function RipStatisticsPageClient({
                                   aria-selected={isSelected}
                                   onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
                                   onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
-                                  onClick={() => {
-                                    handleTargetIdChange(String(target.target_id || ""));
-                                    setHeroSetPickerOpen(false);
-                                  }}
+                                  onClick={() => handleHeroSetSelect(target)}
                                   className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
                                     isSelected
                                       ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
@@ -12142,7 +12166,7 @@ export default function RipStatisticsPageClient({
                     </div>
 
                     <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Set Value</p>
+                        <p className="set-context-eyebrow">Set Value</p>
                         <MarketValueChange
                           className="mt-1"
                           value={setHeaderSummary.setValue.current}
@@ -12156,23 +12180,23 @@ export default function RipStatisticsPageClient({
                         <button
                           type="button"
                           onClick={handleViewSetValueTrend}
-                          className="mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                          className="set-context-action mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         >
                           View trend
                         </button>
                     </div>
                     <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Opening RIP</p>
-                        <p className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                        <p className="set-context-eyebrow">Opening RIP</p>
+                        <p className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm font-semibold leading-tight tabular-nums text-[var(--text-primary)]">
                           <span>{displayedTopScore}</span>
                           {heroScoreSelection.tier ? <span className="text-[var(--accent)]">· {String(heroScoreSelection.tier).replace(/\s+tier$/i, "")} Tier</span> : null}
                           {toNumber(heroScoreSelection.rank) !== null ? <span className="text-[var(--text-secondary)]">· Rank #{Math.round(toNumber(heroScoreSelection.rank))}</span> : null}
                         </p>
-                        {recommendationBadge ? <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{recommendationBadge}</p> : null}
+                        {recommendationBadge ? <p className="mt-1 truncate text-[11px] leading-tight text-[var(--text-secondary)]">{recommendationBadge}</p> : null}
                         <button
                           type="button"
                           onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
-                          className="mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                          className="set-context-action mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         >
                           View verdict
                         </button>
@@ -12346,7 +12370,7 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {setDetailTab === "cards" ? (
-                  <section id="set-detail-cards" className="scroll-mt-24 space-y-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(2,6,23,0.68))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_54px_rgba(2,6,23,0.28)] backdrop-blur-md md:scroll-mt-28 md:p-6">
+                  <section id="set-detail-cards" className="set-glass-surface-dense scroll-mt-24 space-y-5 rounded-2xl border p-4 md:scroll-mt-28 md:p-6">
                     <SectionViewTabs
                       value={cardsSection}
                       onChange={(nextSection) =>
@@ -12404,7 +12428,7 @@ export default function RipStatisticsPageClient({
                         {effectiveCardsPageCards.length > 0 ? (
                           <>
                             {hasCardMovementData ? (
-                            <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3 sm:flex-row sm:items-end sm:justify-between">
+                            <div className="set-glass-inner mb-4 flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] p-3 sm:flex-row sm:items-end sm:justify-between">
                               <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
                                 <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
                                   <span className="mb-1 block uppercase tracking-[0.08em]">Sort</span>
@@ -12544,7 +12568,7 @@ export default function RipStatisticsPageClient({
                 </div>
               ) : null}
               <div className="relative z-10 mx-auto mt-2 flex w-full max-w-[42rem] flex-col items-center text-center">
-                <div ref={heroSetPickerRef} data-hero-picker className="relative w-full">
+                <div ref={heroSetPickerRef} data-set-picker data-hero-picker className="relative w-full">
                   <CenteredSuffixInline
                     as="button"
                     type="button"
@@ -12576,6 +12600,7 @@ export default function RipStatisticsPageClient({
                       id="hero-set-picker-list"
                       role="listbox"
                       aria-label="Available sets"
+                      onKeyDown={handleSetPickerKeyDown}
                       className="index-scrollbar absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
                     >
                       {switcherTargets.map((target) => {
@@ -12588,10 +12613,7 @@ export default function RipStatisticsPageClient({
                             aria-selected={isSelected}
                             onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
                             onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
-                            onClick={() => {
-                              handleTargetIdChange(String(target.target_id || ""));
-                              setHeroSetPickerOpen(false);
-                            }}
+                            onClick={() => handleHeroSetSelect(target)}
                             className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                               isSelected
                                 ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
@@ -12904,7 +12926,7 @@ export default function RipStatisticsPageClient({
                       collapse state to reveal. */}
                   <article
                     className={[
-                      "w-full max-w-full min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_44px_rgba(2,6,23,0.22)] sm:p-5",
+                      "set-glass-surface w-full max-w-full min-w-0 rounded-2xl border p-4 sm:p-5",
                       openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : "",
                     ].filter(Boolean).join(" ")}
                   >
@@ -13430,7 +13452,7 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {visibleSetPageWarnings.length > 0 ? (
-              <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">
+              <section className="set-glass-surface-dense rounded-2xl border p-4 sm:p-5">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Warnings</p>
                 <div className="mt-2 space-y-1">
                   {visibleSetPageWarnings.map((warning, index) => (
@@ -13441,7 +13463,7 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {showDebugTimings || showSetPageDiagnostics ? (
-              <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/60 p-4 sm:p-5">
+              <section className="set-glass-surface-dense rounded-2xl border p-4 sm:p-5">
                 {showDebugTimings ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Backend Timings</span>
