@@ -843,11 +843,12 @@ test("market dashboard payload exposes distinct 1D/7D/30D market mover rows for 
   assert.notDeepEqual(marketMoversByWindow["7D"], marketMoversByWindow["30D"]);
 });
 
-test("Market Movers module supports a 1D/7D/30D window selector defaulting to 30D", () => {
+test("Cards Market Movers exposes independent 7D/30D timeframe and direction controls", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(!source.includes("function MarketMoversModule("), "the standalone Cards movers module must be removed");
-  assert.ok(source.includes('{ value: "7d-movers", label: "Largest 7D Moves" }'));
+  assert.ok(source.includes("CARD_TIMEFRAMES.map((timeframe)"));
+  assert.ok(source.includes('direction === "gainers" ? "▲ Gainers" : "▼ Losers"'));
   assert.ok(source.includes('cardSort: "7d-movers"'));
   return;
 
@@ -3618,13 +3619,13 @@ test("Phase 10: duplicate and stale load-more fetches are prevented", () => {
   );
 });
 
-test("Phase 10: changing set/sort/search/movement filter rewinds to the first chunk", () => {
+test("Phase 10: changing the effective request scope rewinds to the first chunk", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   const resetStart = source.indexOf("setCardsPage(1);");
   assert.ok(resetStart >= 0, "a scope-reset effect must rewind the page counter");
   const resetSource = source.slice(source.lastIndexOf("useEffect(() => {", resetStart), source.indexOf("]);", resetStart) + 3);
-  for (const dep of ["cardSortMode", "cardMovementFilter", "cardSearchQuery", "cardRarityFilter", "resolvedSetResourceId"]) {
+  for (const dep of ["effectiveCardSortMode", "cardsRequest.sortDirection", "effectiveCardMovementSort", "effectiveCardMovementFilter", "cardSearchQuery", "effectiveCardRarityFilter", "resolvedSetResourceId"]) {
     assert.ok(resetSource.includes(dep), `the scope-reset effect must depend on ${dep}`);
   }
 });
@@ -3640,13 +3641,13 @@ test("Cards request identity includes snapshot contract, rarity, and every movem
     "PRICING_SNAPSHOT_CONTRACT_VERSION",
     "effectiveCardSortMode",
     "cardSearchQuery.trim()",
-    'cardRarityFilter || ""',
+    'effectiveCardRarityFilter || ""',
     "effectiveCardMovementFilter",
     "movementSortValue",
   ]) {
     assert.ok(effectSource.includes(token), `request identity missing ${token}`);
   }
-  assert.ok(effectSource.includes("rarity: cardRarityFilter"));
+  assert.ok(effectSource.includes("rarity: effectiveCardRarityFilter"));
 });
 
 test("Cards page one clears and replaces while later matching pages append", () => {
@@ -3729,8 +3730,8 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   const navSource = source.slice(navStart, navEnd);
   assert.ok(navStart >= 0 && navEnd > navStart, "handleSetDetailNavSelect must exist");
   assert.ok(
-    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortMode("7d-movers");'),
-    "entering Market Movers must preset the movers sort"
+    navSource.includes('setCardsSection("market-movers");') && navSource.includes('setCardSortDirection("gainers");'),
+    "entering Market Movers must preset the gainers direction"
   );
   assert.ok(
     navSource.includes('setCardsSection("all-cards");') && navSource.includes('setCardSortMode("set-number");'),
@@ -3750,6 +3751,7 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   assert.equal(cardsPageCallCount, 1, "one shared paginated fetch serves both cards sections");
   assert.ok(source.includes("movementFilter: effectiveCardMovementFilter,"), "the shared fetch must carry the movement filter");
   assert.ok(source.includes("movementSort: movementSortValue,"), "the shared fetch must carry the movement sort");
+  assert.ok(source.includes("sortDirection: cardsRequest.sortDirection,"), "the shared fetch must carry the selected movement direction");
 });
 
 test("Decision Signals has one fixed compact presentation and only renders tracked lens scores", () => {
@@ -3765,15 +3767,14 @@ test("Decision Signals has one fixed compact presentation and only renders track
   assert.ok(cardSource.includes("const hasScore = toNumber(resolvedScore.score) !== null"));
 });
 
-test("7D movers destination is URL-backed and reloads into the paginated Cards preset", () => {
+test("Market Movers destination is URL-backed and reloads into the paginated Cards preset", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(source.includes('nextParams.set("card_sort", cardSort);'));
   assert.ok(source.includes('nextParams.set("movement", movementFilter);'));
-  assert.ok(source.includes('getSetDetailSectionParam(searchParams) === "market-movers" ? "7d-movers" : "set-number"'));
-  assert.ok(source.includes('const routeSort = String(searchParams?.get?.("card_sort") || "")'));
-  assert.ok(source.includes('setCardSortMode(routeSort === "7d-movers" ? routeSort : "7d-movers");'));
-  assert.ok(source.includes('setCardMovementFilter(CARD_MOVEMENT_FILTER_OPTIONS.some((option) => option.value === routeMovement) ? routeMovement : "all");'));
+  assert.ok(source.includes('getSetDetailSectionParam(searchParams) === "market-movers" ? "gainers" : "asc"'));
+  assert.ok(source.includes('setCardsSection(nextSection === "market-movers" ? "market-movers" : "all-cards");'));
+  assert.ok(source.includes('setCardSortDirection("gainers");'));
   assert.ok(!source.includes('id="set-detail-cards-market-movers"'));
 });
 
@@ -3792,7 +3793,7 @@ test("Phase 11: ChecklistCardTile defers one stacked market block with reserved 
     "the page client must import the standalone startTransition function"
   );
 
-  const tileStart = source.indexOf('function ChecklistCardTile({ card, movementWindow = "30D" }) {');
+  const tileStart = source.indexOf('function ChecklistCardTile({ card, movementWindow = "7D" }) {');
   assert.ok(tileStart >= 0, "ChecklistCardTile must exist");
   const tileEnd = source.indexOf("\nfunction getChecklistCardMarketPrice", tileStart);
   const tileSource = source.slice(tileStart, tileEnd);

@@ -494,6 +494,7 @@ export function normalizePokemonSetCardsPagePayload(payload) {
       availableSorts: Array.isArray(filters?.availableSorts) ? filters.availableSorts.map(toOptionalString).filter(Boolean) : [],
       movementWindow: toOptionalString(filters?.movementWindow),
       sort: toOptionalString(filters?.sort),
+      sortDirection: toOptionalString(filters?.sortDirection),
       movementSort: toOptionalString(filters?.movementSort),
       movementFilter: toOptionalString(filters?.movementFilter),
       section: toOptionalString(filters?.section),
@@ -606,7 +607,7 @@ export async function getPokemonSetCardsValidation(setId, { maxCards = null, inc
 
 export async function getPokemonSetCardsPage(
   setId,
-  { page = 1, pageSize = 60, sort = "set-number", query = null, rarity = null, movementFilter = null, movementSort = null, section = null } = {}
+  { page = 1, pageSize = 60, sort = "set-number", sortDirection = "asc", query = null, rarity = null, movementFilter = null, movementSort = null, section = null } = {}
 ) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -623,6 +624,9 @@ export async function getPokemonSetCardsPage(
   }
   if (sort) {
     params.set("sort", String(sort));
+  }
+  if (sortDirection) {
+    params.set("sort_direction", String(sortDirection));
   }
   if (query) {
     params.set("q", String(query));

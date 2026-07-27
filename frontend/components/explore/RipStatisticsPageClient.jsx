@@ -41,6 +41,13 @@ import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import {
+  ALL_CARDS_SORT_OPTIONS,
+  CARD_TIMEFRAMES,
+  getAllCardsDirectionLabel,
+  getEffectiveRarityFilter,
+  resolveCardsRequest,
+} from "@/components/pokemon/set-page/Cards/cardsControls.mjs";
+import {
   getCardAppealSampleDiagnostics,
   hasUsableCardAppealCorrelation,
   resolvePreferredCardAppealCorrelation,
@@ -199,19 +206,6 @@ const SET_VALUE_SCOPE_OPTIONS = [
   { key: "standard", label: "Checklist" },
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
-];
-const CARD_BASE_SORT_OPTIONS = [
-  { value: "set-number", label: "Set Number" },
-];
-const CARD_MOVEMENT_SORT_OPTIONS = [
-  { value: "7d-movers", label: "Largest 7D Moves" },
-  { value: "30d-gainers", label: "Biggest 30D Gainers" },
-  { value: "30d-decliners", label: "Biggest 30D Decliners" },
-];
-const CARD_MOVEMENT_FILTER_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "heating", label: "Heating Up" },
-  { value: "cooling", label: "Cooling Off" },
 ];
 // Matches backend DEFAULT_CARDS_PAGE_SIZE (pokemon_public_snapshot_service.py).
 const CARDS_PAGE_SIZE = 60;
@@ -1834,7 +1828,7 @@ function CardImagePlaceholder({ shimmer = false, label = null }) {
   );
 }
 
-function ChecklistCardTile({ card, movementWindow = "30D" }) {
+function ChecklistCardTile({ card, movementWindow = "7D" }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
   const name = card?.name || "Unknown card";
   const number = card?.printedNumber || card?.cardNumber || null;
@@ -1877,11 +1871,19 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
   }, [cardMetaKey, hasPriceData]);
 
   return (
-    <article className="group h-full overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(2,6,23,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.22)] hover:bg-[rgba(15,23,42,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_28px_rgba(2,6,23,0.26)]">
-      <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-[rgba(2,6,23,0.46)] p-1">
+    // The tile shell is intentionally transparent: the set artwork behind the
+    // Cards grid must stay visible through the tile and through the metadata
+    // strip under the image. Only borders, the card art, and text carry weight
+    // here — no surface fill, no frost, no full-tile gradient. Hover keeps the
+    // lift and the accent border but must never paint an opaque fill back in.
+    <article className="group h-full overflow-hidden rounded-lg border border-[rgba(255,255,255,0.10)] bg-transparent backdrop-blur-none transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.40)]">
+      <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-transparent p-1">
         {imageUrl && !hasImageFailed ? (
           <>
             {!isImageLoaded ? <CardImagePlaceholder shimmer /> : null}
+            {/* The card art itself stays fully opaque and carries its own drop
+                shadow so it reads as a solid object floating over the set
+                artwork now that the tile behind it is transparent. */}
             <img
               ref={(node) => {
                 if (node && node.complete && node.naturalWidth > 0) {
@@ -1892,7 +1894,7 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
               alt={name}
               onLoad={() => setIsImageLoaded(true)}
               onError={() => setHasImageFailed(true)}
-              className={`h-full w-full object-contain transition-all duration-300 group-hover:scale-[1.01] ${isImageLoaded ? "opacity-100" : "opacity-0"}`}
+              className={`h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(2,6,23,0.55)] transition-all duration-300 group-hover:scale-[1.01] ${isImageLoaded ? "opacity-100" : "opacity-0"}`}
               loading="lazy"
               decoding="async"
             />
@@ -1901,13 +1903,15 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
           <CardImagePlaceholder label="Image unavailable" />
         )}
       </div>
-      <div className="min-h-[7.25rem] space-y-1.5 px-2.5 py-2.5">
-        <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
+      {/* Metadata sits directly on the set artwork — no plate, no frost. A
+          text-shadow (inherited by the name/number/price/movement/rarity
+          children) keeps it legible over bright artwork without reintroducing
+          a surface. */}
+      <div className="space-y-1 bg-transparent px-2.5 py-2 [text-shadow:0_1px_3px_rgba(2,6,23,0.9)]">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">{name}</p>
             {number ? <p className="truncate text-[11px] text-[var(--text-secondary)]">No. {number}</p> : null}
-            {rarity ? <p className="truncate text-[11px] text-[var(--text-secondary)]">{rarity}</p> : null}
-            {subtypeLabel ? <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">{subtypeLabel}</p> : null}
           </div>
           <div className="min-w-[7.5rem] shrink-0 text-right">
             {isMetaRevealed || !hasPriceData ? (
@@ -1932,6 +1936,11 @@ function ChecklistCardTile({ card, movementWindow = "30D" }) {
             )}
           </div>
         </div>
+        {rarity || subtypeLabel ? (
+          <p className="truncate text-[11px] text-[var(--text-secondary)]">
+            {[rarity, subtypeLabel].filter(Boolean).join(" · ")}
+          </p>
+        ) : null}
       </div>
     </article>
   );
@@ -8069,12 +8078,13 @@ export default function RipStatisticsPageClient({
   // Phase 9D.1: same keyed-timeout shape as insightsPendingTimeoutState, for
   // the Pull Rates loading shell (see pullRatesPendingTimedOut below).
   const [pullRatesPendingTimeoutState, setPullRatesPendingTimeoutState] = useState({ setId: null, timedOut: false });
-  const [cardSortMode, setCardSortMode] = useState(() =>
-    getSetDetailSectionParam(searchParams) === "market-movers" ? "7d-movers" : "set-number"
+  const [selectedTimeframe, setSelectedTimeframe] = useState("7D");
+  const [cardSortMode, setCardSortMode] = useState("set-number");
+  const [cardSortDirection, setCardSortDirection] = useState(() =>
+    getSetDetailSectionParam(searchParams) === "market-movers" ? "gainers" : "asc"
   );
-  const [cardMovementFilter, setCardMovementFilter] = useState("all");
   const [cardSearchQuery, setCardSearchQuery] = useState("");
-  const cardRarityFilter = null;
+  const [cardRarityFilter, setCardRarityFilter] = useState("");
   // Highest requested page for the current cards scope. Pages are appended
   // (infinite scroll) rather than swapped — the sentinel observer advances
   // this, and the scope-reset effect below rewinds it to 1.
@@ -8101,9 +8111,6 @@ export default function RipStatisticsPageClient({
     meta: null,
     error: null,
   }));
-  useEffect(() => {
-    setCardsPage(1);
-  }, [cardSortMode, cardMovementFilter, cardSearchQuery, cardRarityFilter, cardsSection, resolvedSetResourceId]);
   const initialSnapshotCards = initialSetPageDataSeed.cards;
   const initialSetValueLoadedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter(
     (scope) =>
@@ -8862,14 +8869,13 @@ export default function RipStatisticsPageClient({
     }
     if (section === "market-movers") {
       setCardsSection("market-movers");
-      setCardSortMode("7d-movers");
-      setCardMovementFilter("all");
+      setCardSortDirection("gainers");
     } else if (section === "all-cards") {
       // Entering All Cards restores the default checklist view so the
       // rendered controls always match the section the sidebar highlights.
       setCardsSection("all-cards");
       setCardSortMode("set-number");
-      setCardMovementFilter("all");
+      setCardSortDirection("asc");
     }
 
     if (nextGraphMode) {
@@ -8915,13 +8921,10 @@ export default function RipStatisticsPageClient({
       setCardsSubTab(sectionTarget.cardsSubTab);
     }
     if (nextSection === "market-movers") {
-      const routeSort = String(searchParams?.get?.("card_sort") || "").trim().toLowerCase();
-      const routeMovement = String(searchParams?.get?.("movement") || "").trim().toLowerCase();
-      setCardSortMode(routeSort === "7d-movers" ? routeSort : "7d-movers");
-      setCardMovementFilter(CARD_MOVEMENT_FILTER_OPTIONS.some((option) => option.value === routeMovement) ? routeMovement : "all");
+      setCardSortDirection("gainers");
     } else if (resolvedTab === "cards") {
       setCardSortMode("set-number");
-      setCardMovementFilter("all");
+      setCardSortDirection("asc");
     }
     if (resolvedTab === "cards") {
       // The URL is the source of truth for the active cards section — this
@@ -10237,9 +10240,29 @@ export default function RipStatisticsPageClient({
   // defaults true while page one is cold so a route-selected 7D sort cannot
   // be replaced before the first request is made.
   const hasCardMovementData = activeCardsPageState.filters?.availableSorts?.includes("7d-movers") ?? true;
-  const effectiveCardSortMode = cardSortMode;
-  const effectiveCardMovementFilter = cardMovementFilter;
-  const cardSortOptions = [...CARD_BASE_SORT_OPTIONS, ...CARD_MOVEMENT_SORT_OPTIONS];
+  const cardsRequest = resolveCardsRequest({
+    selectedSubTab: cardsSection,
+    selectedTimeframe,
+    activeSortMode: cardSortMode,
+    activeSortDirection: cardSortDirection,
+  });
+  const effectiveCardSortMode = cardsRequest.sort;
+  const effectiveCardMovementFilter = cardsRequest.movementFilter;
+  const effectiveCardMovementSort = cardsRequest.movementSort;
+  const availableCardRarities = activeCardsPageState.filters?.availableRarities || [];
+  const effectiveCardRarityFilter = getEffectiveRarityFilter(cardsSection, cardRarityFilter);
+  useEffect(() => {
+    setCardsPage(1);
+  }, [
+    effectiveCardSortMode,
+    cardsRequest.sortDirection,
+    effectiveCardMovementSort,
+    effectiveCardMovementFilter,
+    cardSearchQuery,
+    effectiveCardRarityFilter,
+    cardsSection,
+    resolvedSetResourceId,
+  ]);
   // Preserve endpoint order verbatim. Sorting only the accumulated browser
   // pages would corrupt the global 7D ranking as infinite-scroll chunks append.
   const displayedChecklistCards = effectiveCardsPageCards;
@@ -10273,8 +10296,8 @@ export default function RipStatisticsPageClient({
     const loadedMoversViewCards = activeCardsPageStateForDiagnostics.cards;
     const isCanonicalMoversCardsView =
       cardsSection === "market-movers" &&
-      cardSortMode === "7d-movers" &&
-      cardMovementFilter === "all" &&
+      effectiveCardMovementSort === "7d-movers" &&
+      effectiveCardMovementFilter === "all" &&
       loadedMoversViewCards.length > 0;
     const usedLegacyMoverList =
       moversMeta?.snapshot?.usedLegacyMoverList === true ||
@@ -10328,8 +10351,8 @@ export default function RipStatisticsPageClient({
     topMarketCardsWindowKey,
     cardsPageMetaForMarketDate,
     cardsSection,
-    cardSortMode,
-    cardMovementFilter,
+    effectiveCardMovementSort,
+    effectiveCardMovementFilter,
     activeCardsPageStateForDiagnostics,
   ]);
   // Infinite scroll (Phase 10): a sentinel below the grid advances cardsPage
@@ -11026,9 +11049,7 @@ export default function RipStatisticsPageClient({
     }
 
     const requestedPage = cardsPage;
-    const movementSortValue = CARD_MOVEMENT_SORT_OPTIONS.some((option) => option.value === effectiveCardSortMode)
-      ? effectiveCardSortMode
-      : null;
+    const movementSortValue = effectiveCardMovementSort;
     // Market Movers is the SAME canonical Cards dataset with mover-membership
     // filtering applied server-side (section=market-movers); All Cards keeps
     // the complete checklist. Same snapshot, same normalization, same
@@ -11044,8 +11065,9 @@ export default function RipStatisticsPageClient({
       PRICING_SNAPSHOT_CONTRACT_VERSION,
       cardsSectionValue,
       effectiveCardSortMode,
+      cardsRequest.sortDirection,
       cardSearchQuery.trim(),
-      cardRarityFilter || "",
+      effectiveCardRarityFilter || "",
       effectiveCardMovementFilter,
       movementSortValue,
     ].join("|");
@@ -11078,6 +11100,7 @@ export default function RipStatisticsPageClient({
       resolvedSetId: setId,
       page: requestedPage,
       sort: effectiveCardSortMode,
+      sortDirection: cardsRequest.sortDirection,
       movementFilter: effectiveCardMovementFilter,
     });
     setCardsPageState((previous) => {
@@ -11109,8 +11132,9 @@ export default function RipStatisticsPageClient({
       page: requestedPage,
       pageSize: CARDS_PAGE_SIZE,
       sort: effectiveCardSortMode,
+      sortDirection: cardsRequest.sortDirection,
       query: cardSearchQuery.trim() || null,
-      rarity: cardRarityFilter,
+      rarity: effectiveCardRarityFilter,
       movementFilter: effectiveCardMovementFilter,
       movementSort: movementSortValue,
       section: cardsSectionValue,
@@ -11220,9 +11244,11 @@ export default function RipStatisticsPageClient({
     cardsPageRetryNonce,
     cardsSection,
     effectiveCardSortMode,
+    cardsRequest.sortDirection,
+    effectiveCardMovementSort,
     effectiveCardMovementFilter,
     cardSearchQuery,
-    cardRarityFilter,
+    effectiveCardRarityFilter,
   ]);
 
   // Pull Rates tab fetch effect (Phase 4A): slim, dedicated fetch
@@ -12428,34 +12454,80 @@ export default function RipStatisticsPageClient({
                         {effectiveCardsPageCards.length > 0 ? (
                           <>
                             {hasCardMovementData ? (
-                            <div className="set-glass-inner mb-4 flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] p-3 sm:flex-row sm:items-end sm:justify-between">
-                              <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
-                                <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
+                            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/20 p-3">
+                              {cardsSection === "all-cards" ? (
+                                <>
+                                <div className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
                                   <span className="mb-1 block uppercase tracking-[0.08em]">Sort</span>
-                                  <select
-                                    value={cardSortMode}
-                                    onChange={(event) => setCardSortMode(event.target.value)}
-                                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                                  >
-                                    {cardSortOptions.map((option) => (
-                                      <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                  </select>
-                                </label>
+                                  <div className="flex flex-wrap gap-2">
+                                    <select
+                                      aria-label="Sort cards by"
+                                      value={cardSortMode}
+                                      onChange={(event) => setCardSortMode(event.target.value)}
+                                      className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                    >
+                                      {ALL_CARDS_SORT_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCardSortDirection((direction) => direction === "asc" ? "desc" : "asc")}
+                                      aria-label={`Sort ${ALL_CARDS_SORT_OPTIONS.find((option) => option.value === cardSortMode)?.label || "cards"} ${cardSortDirection === "asc" ? "ascending" : "descending"}. Activate to reverse order.`}
+                                      aria-pressed={cardSortDirection === "desc"}
+                                      className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                    >
+                                      {getAllCardsDirectionLabel(cardSortMode, cardSortDirection)}
+                                    </button>
+                                  </div>
+                                </div>
                                 <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
-                                  <span className="mb-1 block uppercase tracking-[0.08em]">Movement</span>
+                                  <span className="mb-1 block uppercase tracking-[0.08em]">Rarity</span>
                                   <select
-                                    value={cardMovementFilter}
-                                    onChange={(event) => setCardMovementFilter(event.target.value)}
-                                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                    value={cardRarityFilter}
+                                    onChange={(event) => setCardRarityFilter(event.target.value)}
+                                    className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                                   >
-                                    {CARD_MOVEMENT_FILTER_OPTIONS.map((option) => (
-                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    <option value="">All Rarities</option>
+                                    {availableCardRarities.map((rarityOption) => (
+                                      <option key={rarityOption} value={rarityOption}>{rarityOption}</option>
                                     ))}
                                   </select>
                                 </label>
+                                </>
+                              ) : (
+                                <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement direction">
+                                  {["gainers", "losers"].map((direction) => (
+                                    <button
+                                      key={direction}
+                                      type="button"
+                                      onClick={() => setCardSortDirection(direction)}
+                                      aria-pressed={cardSortDirection === direction}
+                                      className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                                        cardSortDirection === direction ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
+                                      }`}
+                                    >
+                                      {direction === "gainers" ? "▲ Gainers" : "▼ Losers"}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement timeframe">
+                                {CARD_TIMEFRAMES.map((timeframe) => (
+                                  <button
+                                    key={timeframe}
+                                    type="button"
+                                    onClick={() => setSelectedTimeframe(timeframe)}
+                                    aria-pressed={selectedTimeframe === timeframe}
+                                    className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                                      selectedTimeframe === timeframe ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
+                                    }`}
+                                  >
+                                    {timeframe}
+                                  </button>
+                                ))}
                               </div>
-                              <p className="text-xs text-[var(--text-secondary)]">
+                              <p className="ml-auto text-xs text-[var(--text-secondary)]">
                                 {displayedChecklistCards.length.toLocaleString("en-US")} of {(activeCardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
                               </p>
                             </div>
@@ -12470,7 +12542,7 @@ export default function RipStatisticsPageClient({
                                   <ChecklistCardTile
                                     key={`${card.id || card.cardNumber || card.name}`}
                                     card={card}
-                                    movementWindow={effectiveCardSortMode === "7d-movers" ? "7D" : "30D"}
+                                    movementWindow={selectedTimeframe}
                                   />
                                 ))}
                               </div>

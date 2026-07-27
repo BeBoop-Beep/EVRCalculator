@@ -2096,6 +2096,9 @@ def _sanitize_cards_movement_filter(value: Any) -> str:
     normalized = (_to_optional_str(value) or "all").strip().lower()
     return normalized if normalized in CARDS_PAGE_MOVEMENT_FILTERS else "all"
 
+def _sanitize_cards_sort_direction(value: Any) -> str:
+    return "desc" if (_to_optional_str(value) or "").strip().lower() == "desc" else "asc"
+
 
 def _sanitize_cards_section(value: Any) -> str:
     normalized = (_to_optional_str(value) or "all-cards").strip().lower()
@@ -2221,6 +2224,16 @@ def _largest_dollar_move_sort_key(card: Dict[str, Any], window_key: str) -> tupl
 def _sort_cards_by_largest_dollar_move(cards: List[Dict[str, Any]], window_key: str) -> List[Dict[str, Any]]:
     return sorted(cards, key=lambda card: _largest_dollar_move_sort_key(card, window_key))
 
+def _directional_movement_sort_key(card: Dict[str, Any], window_key: str, *, descending: bool) -> tuple:
+    suffix = _cards_page_movement_suffix(window_key)
+    amount, percent = _cards_page_movement_values(card, suffix)
+    metric = percent if percent is not None else amount
+    return (
+        metric is None,
+        -(metric or 0.0) if descending else (metric or 0.0),
+        _cards_page_stable_tie_key(card),
+    )
+
 
 def _cards_page_has_reliable_movement(card: Dict[str, Any], effective_sort: str) -> bool:
     if effective_sort == "7d-movers":
@@ -2295,13 +2308,13 @@ def _apply_cards_page_filters_and_sort(
     movement_filter: str,
     sort: str,
     movement_sort: Optional[str],
+    sort_direction: Optional[str] = None,
     section: str = "all-cards",
 ) -> List[Dict[str, Any]]:
     """Shared canonical Cards query used by /cards/page and /market/movers.
 
-    Market Movers is a query mode over the complete Cards dataset:
-    ``section="market-movers"`` narrows membership to cards with a valid
-    nonzero movement in the effective window (hasValidMovement + nonzero) and
+    Market Movers is a directional ordering over the complete Cards dataset.
+    It does not apply sign-based membership filters and
     never consults the reliability/mover-eligibility guardrails — those stay
     on the records as metadata only. ``section="all-cards"`` keeps every
     checklist card, including zero-movement and no-movement rows.
@@ -2319,16 +2332,20 @@ def _apply_cards_page_filters_and_sort(
     effective_sort = movement_sort if movement_sort in CARDS_PAGE_MOVEMENT_SORTS else sort
     movement_window_key = "7D" if effective_sort == "7d-movers" else "30D"
 
-    if section == "market-movers":
+    # Legacy Overview movers requests omit sort_direction and retain their
+    # established nonzero/sign-filtered ticker contract. The Cards tab sends
+    # an explicit direction and receives the complete, sign-agnostic list.
+    directional_market_view = section == "market-movers" and sort_direction in {"asc", "desc"}
+    if section == "market-movers" and not directional_market_view:
         filtered = [card for card in filtered if _cards_page_is_market_mover(card, movement_window_key)]
 
-    if movement_filter == "heating":
+    if not directional_market_view and movement_filter == "heating":
         filtered = [
             card for card in filtered
             if _cards_page_is_market_mover(card, movement_window_key)
             and _cards_page_movement_direction(card, movement_window_key) > 0
         ]
-    elif movement_filter == "cooling":
+    elif not directional_market_view and movement_filter == "cooling":
         filtered = [
             card for card in filtered
             if _cards_page_is_market_mover(card, movement_window_key)
@@ -2336,13 +2353,25 @@ def _apply_cards_page_filters_and_sort(
         ]
 
     if effective_sort == "name":
-        filtered.sort(key=lambda card: (_to_optional_str(card.get("name")) or "").lower())
+        filtered.sort(key=_cards_page_stable_tie_key)
+        filtered.sort(
+            key=lambda card: (_to_optional_str(card.get("name")) or "").lower(),
+            reverse=sort_direction == "desc",
+        )
     elif effective_sort == "rarity":
         filtered.sort(key=lambda card: ((_to_optional_str(card.get("rarity")) or "").lower(), _cards_page_number_sort_key(card)))
     elif effective_sort == "market-price-desc":
         filtered.sort(key=lambda card: (-(_to_optional_float(card.get("marketPrice")) if _to_optional_float(card.get("marketPrice")) is not None else -1.0), _cards_page_number_sort_key(card)))
     elif effective_sort == "market-price-asc":
         filtered.sort(key=lambda card: ((_to_optional_float(card.get("marketPrice")) if _to_optional_float(card.get("marketPrice")) is not None else float("inf")), _cards_page_number_sort_key(card)))
+    elif directional_market_view and effective_sort in CARDS_PAGE_MOVEMENT_SORTS:
+        filtered.sort(
+            key=lambda card: _directional_movement_sort_key(
+                card,
+                movement_window_key,
+                descending=sort_direction == "desc",
+            )
+        )
     elif effective_sort == "7d-movers":
         filtered.sort(key=lambda card: _largest_dollar_move_sort_key(card, "7D"))
     elif effective_sort == "30d-gainers":
@@ -2373,6 +2402,8 @@ def _apply_cards_page_filters_and_sort(
         )
     else:
         filtered.sort(key=_cards_page_number_sort_key)
+        if sort_direction == "desc":
+            filtered.reverse()
 
     return filtered
 
@@ -2386,6 +2417,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
     rarity: Any = None,
     movement_filter: Any = None,
     movement_sort: Any = None,
+    sort_direction: Any = None,
     section: Any = None,
 ) -> Dict[str, Any]:
     """Return a single paginated slice of a Pokemon set's checklist cards
@@ -2417,6 +2449,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
     page_size_value = _sanitize_cards_page_size(page_size)
     sort_value = _sanitize_cards_sort(sort)
     movement_sort_value = _sanitize_cards_movement_sort(movement_sort)
+    sort_direction_value = _sanitize_cards_sort_direction(sort_direction) if _to_optional_str(sort_direction) else None
     movement_filter_value = _sanitize_cards_movement_filter(movement_filter)
     section_value = _sanitize_cards_section(section)
     query_value = _to_optional_str(query)
@@ -2465,6 +2498,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
         movement_filter=movement_filter_value,
         sort=sort_value,
         movement_sort=movement_sort_value,
+        sort_direction=sort_direction_value,
         section=section_value,
     )
 
@@ -2507,6 +2541,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
             "availableSorts": list(CARDS_PAGE_SORT_OPTIONS),
             "movementWindow": movement_window_key,
             "sort": sort_value,
+            "sortDirection": sort_direction_value or "asc",
             "movementSort": movement_sort_value,
             "movementFilter": movement_filter_value,
             "section": section_value,

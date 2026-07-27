@@ -62,6 +62,22 @@ test("getPokemonSetCardsPage bypasses browser caches and requests pricing-v4", a
   }
 });
 
+test("getPokemonSetCardsPage forwards movement direction and keys requests by it", async () => {
+  const stub = stubFetchJson(() => makeCardsPagePayload());
+  try {
+    await Promise.all([
+      getPokemonSetCardsPage("set-direction", { movementSort: "7d-movers", section: "market-movers", sortDirection: "desc" }),
+      getPokemonSetCardsPage("set-direction", { movementSort: "7d-movers", section: "market-movers", sortDirection: "asc" }),
+    ]);
+    const urls = stub.getCalls().map(([url]) => url);
+    assert.equal(stub.getCallCount(), 2);
+    assert.ok(urls.some((url) => url.includes("sort_direction=desc")));
+    assert.ok(urls.some((url) => url.includes("sort_direction=asc")));
+  } finally {
+    stub.restore();
+  }
+});
+
 test("a completed fresh response replaces an older response for the same set", async () => {
   const stub = stubFetchJson((callCount) =>
     makeCardsPagePayload({

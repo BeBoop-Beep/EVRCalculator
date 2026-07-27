@@ -215,6 +215,62 @@ def test_cards_page_market_movers_percent_tiebreak_and_canonical_id_determinism(
 
     assert [card["id"] for card in movers["cards"]] == ["z-higher-percent", "a-card", "b-card"]
 
+def test_cards_tab_market_movers_orders_complete_list_by_direction_without_sign_filtering(monkeypatch):
+    cards = [
+        _movement_card("plus-40", amount=4.0, percent=40.0),
+        _movement_card("plus-10", amount=1.0, percent=10.0),
+        _movement_card("zero", amount=0.0, percent=0.0),
+        _movement_card("minus-5", amount=-0.5, percent=-5.0),
+        _movement_card("minus-20", amount=-2.0, percent=-20.0),
+        _movement_card("missing", amount=None, percent=None, history_points=None),
+    ]
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+
+    gainers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        movement_filter="heating",
+        sort_direction="desc",
+        section="market-movers",
+        page_size=20,
+    )
+    losers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        movement_filter="cooling",
+        sort_direction="asc",
+        section="market-movers",
+        page_size=20,
+    )
+
+    assert [card["change7dPercent"] for card in gainers["cards"][:-1]] == [40.0, 10.0, 0.0, -5.0, -20.0]
+    assert [card["change7dPercent"] for card in losers["cards"][:-1]] == [-20.0, -5.0, 0.0, 10.0, 40.0]
+    assert gainers["cards"][-1]["id"] == "missing"
+    assert losers["cards"][-1]["id"] == "missing"
+    assert gainers["pagination"]["totalCards"] == losers["pagination"]["totalCards"] == 6
+
+
+def test_cards_tab_market_movers_timeframe_selects_matching_field_and_reorders(monkeypatch):
+    first = _movement_card("first", amount=1.0, percent=30.0)
+    second = _movement_card("second", amount=2.0, percent=10.0)
+    first.update(change30dAmount=5.0, change30dPercent=-20.0, movement30d={"changeAmount": 5.0, "changePercent": -20.0})
+    second.update(change30dAmount=1.0, change30dPercent=40.0, movement30d={"changeAmount": 1.0, "changePercent": 40.0})
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _cards_snapshot_client([first, second]),
+    )
+
+    seven_day = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", sort_direction="desc", section="market-movers"
+    )
+    thirty_day = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="30d-gainers", sort_direction="desc", section="market-movers"
+    )
+
+    assert [card["id"] for card in seven_day["cards"]] == ["first", "second"]
+    assert [card["id"] for card in thirty_day["cards"]] == ["second", "first"]
+
 
 def test_cards_page_heating_and_cooling_filter_by_direction_only(monkeypatch):
     monkeypatch.setattr(

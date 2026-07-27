@@ -36,5 +36,7 @@ test("cards page route forwards page, page_size, sort, q, rarity, movement_filte
   assert.ok(source.includes('"rarity"'));
   assert.ok(source.includes('"movement_filter"'));
   assert.ok(source.includes('"movement_sort"'));
+  assert.ok(source.includes('"sort_direction"'));
+  assert.ok(source.includes('"section"'));
   assert.ok(source.includes("backendUrl.searchParams.set(param, value)"));
 });
