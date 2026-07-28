@@ -782,6 +782,27 @@ body::-webkit-scrollbar-thumb:hover {
   background: rgba(8, 17, 31, 0.10);
 }
 
+/* Opening Outlook edge highlight.
+   The callout's illumination is the horizontal wash on its own background plus
+   the tier rail on its left border. This adds the one missing premium cue: a
+   short lit run along the TOP edge starting at the upper-left corner, faded out
+   by a gradient mask before it reaches a quarter of the width — so the panel
+   reads as lit from one corner instead of outlined on all four sides.
+   Only `border-top` is painted, so nothing can appear on the right side or the
+   bottom-right corner, and the pseudo-element deliberately carries no
+   background or box-shadow of its own so it cannot duplicate the wash or draw a
+   second card behind the callout. The colour arrives as --rip-outlook-edge from
+   the shared tier presentation; with no tier it stays transparent. */
+.rip-outlook-callout::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  border-top: 1px solid var(--rip-outlook-edge, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.55) 9%, rgba(0, 0, 0, 0) 23%);
+  mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.55) 9%, rgba(0, 0, 0, 0) 23%);
+}
+
 /* Paint order inside the fixed layer, bottom to top:
    ::before  cool-blue ambient lift
    .bloom    blurred, upscaled copy of the artwork

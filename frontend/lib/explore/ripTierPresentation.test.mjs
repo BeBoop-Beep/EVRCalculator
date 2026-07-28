@@ -143,6 +143,32 @@ test("the rail is bright and its glow is clipped to the left of the rail", () =>
   assert.ok(spread < 0 && blur + spread <= 0, "the glow must not extend past the box on the trailing side");
   assert.ok(alphaOf(presentation.outlookRail.boxShadow) <= 0.6, "the glow stays restrained, never neon");
   assert.ok(!presentation.outlookRail.boxShadow.includes("inset"), "an inset ring would outline all four sides");
+  // `blur + spread <= 0` is what keeps this a rail halo. With a blur wider than
+  // the inset, the shadow reaches back out over the top and bottom edges across
+  // the FULL width of the callout — a perimeter outline, which is exactly the
+  // "neon outlined box" this treatment must never become.
+  assert.ok(Math.abs(offsetX) > 0, "some x-offset is needed or the halo is clipped away entirely");
+});
+
+test("the localized edge highlight is a tier colour the callout can mask", () => {
+  const presentation = buildRipTierPresentation({ tier: "A", accentColor: TIER_COLORS.A });
+
+  // The upper-left edge highlight (drawn by `.rip-outlook-callout::before` and
+  // faded out by a gradient mask) takes its colour from the same resolved
+  // accent as the rail, so the lit corner can never be a different tier's
+  // colour than the rail beside it.
+  assert.equal(tripletOf(presentation.outlookEdge), toRgbTriplet(TIER_COLORS.A));
+  assert.ok(alphaOf(presentation.outlookEdge) <= 0.6, "a 1px edge line stays restrained");
+  assert.ok(
+    alphaOf(presentation.outlookEdge) < alphaOf(presentation.outlookRail.borderLeftColor),
+    "the rail stays the brighter of the two, so the corner reads as a highlight and not a second rail"
+  );
+
+  // Every tier resolves its own edge colour; none falls back to the neutral.
+  for (const [tier, color] of Object.entries(TIER_COLORS)) {
+    const tierPresentation = buildRipTierPresentation({ tier, accentColor: color });
+    assert.equal(tripletOf(tierPresentation.outlookEdge), toRgbTriplet(color), `${tier} resolves its own edge colour`);
+  }
 });
 
 // ---------------------------------------------------------------------------
