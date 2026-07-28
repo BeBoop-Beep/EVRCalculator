@@ -1,4 +1,5 @@
 import { RANK_CONFIG } from "@/constants/rankConfig";
+import { buildRipTierPresentation } from "./ripTierPresentation.mjs";
 
 function withAlpha(color, alpha) {
   if (typeof color !== "string") {
@@ -209,6 +210,18 @@ export function getCalloutAccentStyle({ label, rankTier, severity } = {}) {
     boxShadow: tone.panelShadow,
     dotColor: tone.dotColor,
   };
+}
+
+/**
+ * The shared RIP tier presentation — the Opening Outlook rail/wash and the
+ * title-card tier / rank / verdict pills, all derived from the SAME accent this
+ * module already resolves for RankBadge and InterpretationBadge. Every RIP
+ * surface reads this one helper so a tier change (RIP Score B -> RIP Core C,
+ * say) repaints all of them together. See ripTierPresentation.mjs.
+ */
+export function getRipTierPresentation({ label, rankTier, severity } = {}) {
+  const tone = getInterpretationTone({ label, rankTier, severity });
+  return buildRipTierPresentation({ tier: normalizeTier(rankTier), accentColor: tone.accentColor });
 }
 
 export function getDangerValueStyle() {

@@ -27,7 +27,7 @@ test("cards page route fetch does not use Next's fetch-level cache (would cache 
   assert.ok(fetchSource.includes('cache: "no-store"'), "must pass cache: \"no-store\" to fetch so every request re-checks the backend");
 });
 
-test("cards page route forwards page, page_size, sort, q, rarity, movement_filter, movement_sort to the backend", () => {
+test("cards page route forwards page, page_size, sort, q, rarity, movement_filter, movement_sort, movement_metric to the backend", () => {
   assert.ok(source.includes('/tcgs/pokemon/sets/${encodeURIComponent(setId)}/cards/page'));
   assert.ok(source.includes('"page"'));
   assert.ok(source.includes('"page_size"'));
@@ -36,5 +36,10 @@ test("cards page route forwards page, page_size, sort, q, rarity, movement_filte
   assert.ok(source.includes('"rarity"'));
   assert.ok(source.includes('"movement_filter"'));
   assert.ok(source.includes('"movement_sort"'));
+  // Market Movers ranks percent-vs-dollar server-side (the list is paginated),
+  // so the metric has to survive the proxy hop.
+  assert.ok(source.includes('"movement_metric"'));
+  assert.ok(source.includes('"sort_direction"'));
+  assert.ok(source.includes('"section"'));
   assert.ok(source.includes("backendUrl.searchParams.set(param, value)"));
 });
