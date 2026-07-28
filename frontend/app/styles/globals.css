@@ -391,6 +391,39 @@ body::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* Ambient light spilling from the underside of the global navbar. It is a
+   single static decorative layer under the sticky shell — brightest at the
+   bottom edge, dimming toward the page and toward both ends so it reads as
+   light rather than as a rule or a second navbar. Negative z-index keeps it
+   behind the header itself and behind every dropdown the header opens. */
+.index-nav-shell::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 20px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    118% 100% at 50% 0%,
+    rgba(214, 228, 250, 0.05) 0%,
+    rgba(214, 228, 250, 0.022) 32%,
+    rgba(214, 228, 250, 0.007) 62%,
+    rgba(214, 228, 250, 0) 100%
+  );
+}
+
+[data-theme="light"] .index-nav-shell::after {
+  background: radial-gradient(
+    118% 100% at 50% 0%,
+    rgba(15, 23, 42, 0.03) 0%,
+    rgba(15, 23, 42, 0.013) 32%,
+    rgba(15, 23, 42, 0.004) 62%,
+    rgba(15, 23, 42, 0) 100%
+  );
+}
+
 .dropdown-enter {
   transform-origin: top center;
   animation: dropdown-enter 120ms ease-out;

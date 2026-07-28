@@ -12,12 +12,22 @@
  * mode-scoped score cell. Mobile always shows both Overall and Financial score
  * families so Financial RIP is never hidden on small screens. Missing values
  * render an explicit "Unavailable" state — never a fabricated zero.
+ *
+ * PRESENTATION (Explore refinement Phase 2)
+ * -----------------------------------------
+ * Desktop renders a real semantic <table> — caption, <th scope="col">, and
+ * aria-sort on the column the active ranking mode orders by. Sorting is still
+ * driven exclusively by that mode (see sortTargetsByMode); no per-column sort
+ * interaction was introduced, so the canonical rank -> relative -> absolute ->
+ * name contract is untouched. Row navigation stays a single real <a> per row,
+ * stretched over the row by a pseudo-element rather than nesting interactive
+ * elements. Mobile is a purpose-built compact row, not a shrunken table.
  */
 
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, createContext, useContext } from "react";
 import RankBadge from "@/components/ui/RankBadge";
 import SetIdentity from "@/components/explore/SetIdentity";
 import InfoPopover from "@/components/ui/InfoPopover";
@@ -31,8 +41,9 @@ import {
   getTierForMode,
   formatModeScore,
 } from "@/constants/exploreRankingConfig";
-import { getDangerValueStyle } from "@/lib/explore/interpretationTone";
+import { getDangerValueStyle, getTierTone } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import styles from "./explore.module.css";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -43,6 +54,18 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const DEFAULT_MODE = "overall";
 const UNAVAILABLE_LABEL = "Unavailable";
+/**
+ * The ranking-mode picker is HIDDEN, not removed: every alternate lens
+ * (Financial, Profit, Safety, Desirability, Chase, EV, Upside …) is planned to
+ * sit behind a paid tier. Flipping this back to `true` restores the dropdown
+ * exactly as it was — the modes, the sorting, and the mode-scoped columns all
+ * still work, they just have no trigger while this is false.
+ */
+const RANKING_MODE_PICKER_ENABLED = false;
+// Rows inside the top slice of the ladder get a narrow tier-tinted edge. The
+// rank numeral and the tier letter say the same thing in text, so the tint is
+// reinforcement and never the only signal.
+const LEAD_RANK_LIMIT = 3;
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -81,13 +104,18 @@ function formatRelative(value) {
   return parsed === null ? null : parsed.toFixed(1);
 }
 
-function formatRankText(rank, cohort, { compact = false } = {}) {
+/**
+ * Cohort size is stated once per module (the "N ranked sets" line), so the
+ * per-cell rank stays a bare "#4" unless a caller explicitly asks for the
+ * cohort — that keeps "of 21" from repeating on every row of every column.
+ */
+function formatRankText(rank, cohort, { compact = false, withCohort = true } = {}) {
   const parsedRank = toNumber(rank);
   if (parsedRank === null) {
     return null;
   }
   const parsedCohort = toNumber(cohort);
-  if (parsedCohort === null) {
+  if (parsedCohort === null || !withCohort) {
     return `#${parsedRank}`;
   }
   return compact ? `#${parsedRank}/${parsedCohort}` : `#${parsedRank} of ${parsedCohort}`;
@@ -145,24 +173,32 @@ function readModeScore(target, modeId) {
   };
 }
 
-// Tooltip explaining the relative-vs-model distinction the cells present.
+/**
+ * The mode whose rank the table's leading "#" column already shows. A score
+ * cell for that same mode omits its own "#rank" line, because the two would
+ * always print the same number on the same row. Every other column keeps its
+ * rank — Financial RIP genuinely ranks a set differently from Overall RIP.
+ */
+const RankColumnModeContext = createContext(null);
+
+// Tooltip explaining what the displayed score means.
 const RELATIVE_SCORE_TOOLTIP =
-  "Relative scores standardize each set against the current eligible cohort on a 0–100 scale. " +
-  "Model scores are the underlying formula outputs used before standardization.";
+  "Relative scores standardize each set against the current eligible cohort on a 0–100 scale.";
 
 /**
  * Desktop score cell.
  *
- * The RELATIVE score is the public number and is rendered prominently. The raw
- * formula output (the "model score") is the small supporting line beneath,
- * alongside "#rank of n". Ratio-only and legacy-relative modes expose no
- * separate relative field, so their single score stays the prominent value and
- * no "Model score" line is shown. A null primary renders an explicit
- * Unavailable state (never a fabricated zero) rather than promoting the model
- * score in place of a missing relative one.
+ * The RELATIVE score is the public number and the ONLY score shown; "#rank" is
+ * the small supporting line beneath it. The raw formula output (the "model
+ * score") is intentionally not displayed — it is an internal quantity that
+ * meant nothing to readers next to the standardized score. It is still read
+ * from the backend because ratio-only and legacy-relative modes expose no
+ * relative field and fall back to it as their single displayed score. A null
+ * primary renders an explicit Unavailable state, never a fabricated zero.
  */
 function ScoreCell({ target, modeId }) {
   const config = getModeConfig(modeId);
+  const rankColumnMode = useContext(RankColumnModeContext);
   const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
 
   const hasRelative = relative !== null;
@@ -174,24 +210,18 @@ function ScoreCell({ target, modeId }) {
 
   if (primaryText === null) {
     return (
-      <span className="text-sm font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>
+      <span className="text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>
     );
   }
 
-  const rankText = formatRankText(rank, cohort);
-  const metaParts = [];
-  if (rankText !== null) {
-    metaParts.push(rankText);
-  }
-  if (hasRelative && absolute !== null) {
-    metaParts.push(`Model ${formatModeScore(absolute, config?.scoreFormat)}`);
-  }
+  const rankText =
+    rankColumnMode === modeId ? null : formatRankText(rank, cohort, { withCohort: false });
 
   return (
-    <div className="flex min-w-0 flex-col leading-tight" title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}>
-      <span className="text-sm font-semibold text-[var(--text-primary)]">{primaryText}</span>
-      {metaParts.length > 0 ? (
-        <span className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{metaParts.join(" · ")}</span>
+    <div className="flex min-w-0 flex-col items-end leading-tight" title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}>
+      <span className="text-[14px] font-semibold text-[var(--text-primary)]">{primaryText}</span>
+      {rankText !== null ? (
+        <span className="mt-0.5 truncate text-[10px] text-[var(--text-secondary)]">{rankText}</span>
       ) : null}
     </div>
   );
@@ -199,11 +229,14 @@ function ScoreCell({ target, modeId }) {
 
 /**
  * Mobile score block: labelled family (Overall / Financial). Preserves the same
- * hierarchy as desktop — RELATIVE score prominent, "#rank/n" and the model
- * score as the small supporting line. Financial is never hidden on mobile.
+ * hierarchy as desktop — RELATIVE score prominent, "#rank" as the small
+ * supporting value, no model score. Financial is never hidden on mobile. No
+ * border per metric: the label carries the meaning, the shared row carries the
+ * frame.
  */
 function MobileScoreBlock({ target, modeId, label }) {
   const config = getModeConfig(modeId);
+  const rankColumnMode = useContext(RankColumnModeContext);
   const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
 
   const hasRelative = relative !== null;
@@ -212,23 +245,18 @@ function MobileScoreBlock({ target, modeId, label }) {
     : absolute === null
     ? null
     : formatModeScore(absolute, config?.scoreFormat);
-  const rankText = formatRankText(rank, cohort, { compact: true });
+  const rankText =
+    rankColumnMode === modeId ? null : formatRankText(rank, cohort, { compact: true, withCohort: false });
 
   return (
-    <div
-      className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5"
-      title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}
-    >
-      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</div>
+    <div className="min-w-0" title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}>
+      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{label}</div>
       {primaryText === null ? (
-        <div className="mt-0.5 text-xs font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</div>
+        <div className="mt-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</div>
       ) : (
-        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[11px] text-[var(--text-secondary)]">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">{primaryText}</span>
-          {rankText !== null ? <span>· {rankText}</span> : null}
-          {hasRelative && absolute !== null ? (
-            <span>· Model {formatModeScore(absolute, config?.scoreFormat)}</span>
-          ) : null}
+        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-[10px] text-[var(--text-secondary)]">
+          <span className="text-[13px] font-semibold text-[var(--text-primary)]">{primaryText}</span>
+          {rankText !== null ? <span>{rankText}</span> : null}
         </div>
       )}
     </div>
@@ -301,6 +329,24 @@ function sortTargetsByMode(targets, modeId) {
   });
 }
 
+/**
+ * The row's ladder position for the active mode. Falls back to the render
+ * order only for display, never for ordering — sortTargetsByMode already put
+ * the rows in canonical order, so the fallback index and the canonical rank
+ * agree whenever the backend supplies a rank.
+ */
+function RankMarker({ rank, tier, isLead }) {
+  const tone = isLead && tier ? getTierTone(tier) : null;
+  return (
+    <span
+      className={`text-[12px] font-semibold tabular-nums ${isLead ? "" : "text-[var(--text-secondary)]"}`}
+      style={tone ? { color: tone.textColor } : undefined}
+    >
+      {rank}
+    </span>
+  );
+}
+
 export default function ExploreTableClient({ targets = [], loadError = false }) {
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -308,19 +354,22 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
 
   const currentModeConfig = EXPLORE_RANKING_MODES[selectedMode];
   const sortedTargets = useMemo(() => sortTargetsByMode(targets, selectedMode), [targets, selectedMode]);
-  const isScrollable = sortedTargets.length > 5;
+  // Only the row lists that actually overflow get the bottom fade, so a short
+  // list never looks like it has been cut off.
+  const isScrollable = sortedTargets.length > 6;
   const leaderboardScrollClass = "index-scrollbar";
-  const modeInfoText =
+  // The relative-vs-model explanation lives here as well as on the cell
+  // titles: the stretched row link sits above the cells, so the module
+  // popover is the reliable keyboard- and touch-accessible route to it.
+  const modeInfoText = `${
     currentModeConfig?.tooltip ||
     currentModeConfig?.description ||
-    "Sets ranked by the strongest overall opening profile.";
+    "Sets ranked by the strongest overall opening profile."
+  } ${RELATIVE_SCORE_TOOLTIP}`;
 
   // The default Overall mode surfaces Overall RIP AND Financial RIP side by
   // side; every other mode collapses to a single mode-scoped score column.
   const isOverallMode = selectedMode === DEFAULT_MODE;
-  const desktopGridClass = isOverallMode
-    ? "grid grid-cols-[minmax(0,2fr)_0.7fr_1.05fr_1.05fr_0.85fr_0.9fr] gap-3"
-    : "grid grid-cols-[minmax(0,2.3fr)_0.9fr_1.05fr_1fr_1.05fr] gap-3";
 
   useEffect(() => {
     if (!dropdownOpen) {
@@ -348,102 +397,93 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     };
   }, [dropdownOpen]);
 
+  const modeTitle = currentModeConfig?.title || "Best Sets to Rip Right Now";
+  const tierLabel = currentModeConfig?.tierLabel || "Tier";
+  const scoreLabel = currentModeConfig?.scoreLabel || "Score";
+  const sortNote = RANKING_MODE_PICKER_ENABLED
+    ? `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
+    : `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first.`;
+
   return (
-    <section className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(16,26,40,0.95)_0%,rgba(10,16,28,0.95)_100%)] p-4 lg:p-6">
-      {/* Header section */}
-      <div className="border-b border-[var(--border-subtle)] pb-4">
-        <div className="flex flex-col gap-2 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
-          <div className="flex min-w-0 items-center justify-between gap-3 md:col-start-1 md:justify-start">
-            <div className="flex min-w-0 items-center gap-2">
-            <div className="relative min-w-0" ref={dropdownContainerRef}>
-              <button
-                type="button"
-                onClick={() => setDropdownOpen((open) => !open)}
-                aria-expanded={dropdownOpen}
-                aria-haspopup="listbox"
-                className="group inline-flex max-w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left text-lg font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-page)]"
-              >
-                <span className="truncate">{currentModeConfig?.title || "Best Sets to Rip Right Now"}</span>
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  aria-hidden="true"
-                  className={`h-3.5 w-3.5 flex-none opacity-70 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
-                >
-                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-
-              {/* Dropdown menu */}
-              {dropdownOpen && (
-                <div
-                  className="absolute left-0 top-full z-30 mt-2 max-h-80 w-[min(24rem,calc(100vw-2.5rem))] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)] index-scrollbar"
-                  role="listbox"
-                >
-                  <div className="p-1.5">
-                    {Object.entries(EXPLORE_RANKING_MODES).map(([modeId, mode]) => (
-                      <button
-                        key={modeId}
-                        type="button"
-                        role="option"
-                        aria-selected={selectedMode === modeId}
-                        onClick={() => {
-                          setSelectedMode(modeId);
-                          setDropdownOpen(false);
-                        }}
-                        className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                          selectedMode === modeId
-                            ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
-                            : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
-                        }`}
-                      >
-                        <div className="font-medium">{mode.title || mode.label}</div>
-                        <div className="mt-0.5 text-xs text-[var(--text-secondary)]">{mode.tooltip || mode.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <InfoPopover text={modeInfoText} />
-            </div>
-
-            <div className="flex justify-end md:hidden">
-              <div className="inline-flex items-center whitespace-nowrap rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,14,24,0.72)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                {sortedTargets.length} RANKED SETS
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-1 flex items-center justify-center md:col-start-2 md:mt-0">
-            <div className="inline-flex items-center justify-center gap-1.5 text-center text-xs text-[var(--text-secondary)]">
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              aria-hidden="true"
-              className="h-3.5 w-3.5 flex-none opacity-70"
+    <RankColumnModeContext.Provider value={selectedMode}>
+    <section className={`${styles.surface} flex min-w-0 flex-col`} aria-labelledby="explore-best-sets-heading">
+      {/* One compact control row: title menu, definition, hint, cohort size. */}
+      <div className={`${styles.divider} flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:px-4`}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="relative min-w-0" ref={dropdownContainerRef}>
+            <h2
+              id="explore-best-sets-heading"
+              className={
+                RANKING_MODE_PICKER_ENABLED
+                  ? "min-w-0"
+                  : "min-w-0 truncate text-[15px] font-semibold text-[var(--text-primary)] sm:text-base"
+              }
             >
-              <path
-                d="M4.75 2.75L9.8 14.2L11.95 9.95L16.2 7.8L4.75 2.75Z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path d="M14.4 2.9V4.7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-              <path d="M13.5 3.8H15.3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-              <path d="M16.2 5.8V6.9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-              <path d="M15.65 6.35H16.75" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
-            <span>Tap a set to see the full rip breakdown.</span>
-            </div>
-          </div>
+              {RANKING_MODE_PICKER_ENABLED ? (
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen((open) => !open)}
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="listbox"
+                  className="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-[15px] font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:text-base"
+                >
+                  <span className="truncate">{modeTitle}</span>
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`h-3.5 w-3.5 flex-none opacity-70 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
+                  >
+                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="sr-only">Change ranking</span>
+                </button>
+              ) : (
+                modeTitle
+              )}
+            </h2>
 
-          <div className="hidden md:flex md:col-start-3 md:justify-end">
-            <div className="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,14,24,0.72)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              {sortedTargets.length} RANKED SETS
-            </div>
+            {/* Dropdown menu */}
+            {RANKING_MODE_PICKER_ENABLED && dropdownOpen && (
+              <div
+                className="absolute left-0 top-full z-30 mt-2 max-h-80 w-[min(24rem,calc(100vw-2.5rem))] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)] index-scrollbar"
+                role="listbox"
+              >
+                <div className="p-1.5">
+                  {Object.entries(EXPLORE_RANKING_MODES).map(([modeId, mode]) => (
+                    <button
+                      key={modeId}
+                      type="button"
+                      role="option"
+                      aria-selected={selectedMode === modeId}
+                      onClick={() => {
+                        setSelectedMode(modeId);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                        selectedMode === modeId
+                          ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      <div className="font-medium">{mode.title || mode.label}</div>
+                      <div className="mt-0.5 text-xs text-[var(--text-secondary)]">{mode.tooltip || mode.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+          <InfoPopover text={modeInfoText} />
+        </div>
+
+        <div className="ml-auto flex items-center gap-3">
+          <span className="hidden text-[11px] text-[var(--text-secondary)] lg:inline">
+            Select a set for the full rip breakdown.
+          </span>
+          <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
+            <span className="tabular-nums text-[var(--text-primary)]">{sortedTargets.length}</span> ranked sets
+          </span>
         </div>
       </div>
 
@@ -451,120 +491,178 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
       {sortedTargets.length > 0 ? (
         <>
           {/* Desktop table */}
-          <div className="mt-4 hidden md:block">
-            <div className={`${desktopGridClass} px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]`}>
-              <span>Set</span>
-              <span>{currentModeConfig?.tierLabel || "Tier"}</span>
-              {isOverallMode ? (
-                <>
-                  <span>Overall RIP</span>
-                  <span>Financial RIP</span>
-                </>
-              ) : (
-                <span>{currentModeConfig?.scoreLabel || "Score"}</span>
-              )}
-              <span>Average Loss</span>
-              <span>Chance to Beat Cost</span>
-            </div>
+          <div className={`hidden md:block ${isScrollable ? styles.scrollShell : ""}`}>
+          <div className={`${styles.scrollBox} ${leaderboardScrollClass}`}>
+            <table className={styles.table}>
+              <caption className="sr-only">
+                {modeTitle}. {sortNote}
+              </caption>
+              {/*
+                Percentage widths on the data columns (rather than fixed rem)
+                so the numeric columns grow with the table instead of dumping
+                every extra pixel into the Set column when the module is full
+                width. Set stays auto and absorbs what is left.
+              */}
+              <colgroup>
+                <col style={{ width: "2.6rem" }} />
+                <col />
+                <col style={{ width: "9.5%" }} />
+                <col style={{ width: "12%" }} />
+                {isOverallMode ? <col style={{ width: "12%" }} /> : null}
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "13%" }} />
+              </colgroup>
+              <thead className={styles.head}>
+                <tr>
+                  <th scope="col" className={styles.numeric}>
+                    <span aria-hidden="true">#</span>
+                    <span className="sr-only">Rank</span>
+                  </th>
+                  <th scope="col">Set</th>
+                  <th scope="col">{tierLabel}</th>
+                  {isOverallMode ? (
+                    <>
+                      <th scope="col" className={styles.numeric} aria-sort="descending" title={sortNote}>
+                        <span>Overall RIP</span>
+                      </th>
+                      <th scope="col" className={styles.numeric}>
+                        <span>Financial RIP</span>
+                      </th>
+                    </>
+                  ) : (
+                    <th scope="col" className={styles.numeric} aria-sort="descending" title={sortNote}>
+                      <span>{scoreLabel}</span>
+                    </th>
+                  )}
+                  <th scope="col" className={styles.numeric}>
+                    Average Loss
+                  </th>
+                  <th scope="col" className={styles.numeric}>
+                    Chance to Beat Cost
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedTargets.map((target, index) => {
+                  const averageLoss = estimateAverageLoss(target);
+                  const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
+                  const recommendationLabel = getLeaderboardRecommendationLabel(target);
+                  const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
+                  const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
+                  const isLead = modeRank <= LEAD_RANK_LIMIT;
+                  const tone = isLead && tier ? getTierTone(tier) : null;
 
-            <div className={isScrollable ? `max-h-[34rem] space-y-2 overflow-y-auto pr-1 ${leaderboardScrollClass}` : "space-y-2"}>
-              {sortedTargets.map((target) => {
-                const averageLoss = estimateAverageLoss(target);
-                const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-                const recommendationLabel = getLeaderboardRecommendationLabel(target);
-                const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
+                  return (
+                    <tr
+                      key={`${target.target_type}:${target.target_id}`}
+                      className={`${styles.row} ${isLead ? styles.rowLead : ""}`}
+                      style={tone ? { "--ex-rank-accent": tone.accentColor } : undefined}
+                    >
+                      <td className={styles.numeric}>
+                        <RankMarker rank={modeRank} tier={tier} isLead={isLead} />
+                      </td>
+                      <td>
+                        <Link href={buildRipLink(target)} className={styles.rowLink}>
+                          <SetIdentity
+                            variant="compact"
+                            target={target}
+                            interpretationLabel={displayRecommendationLabel}
+                            tier={tier}
+                            recommendationSeverity={target?.recommendation_severity || null}
+                          />
+                        </Link>
+                      </td>
+                      <td>
+                        <RankBadge rank={tier} title={tierLabel} format="tier" />
+                      </td>
+                      {isOverallMode ? (
+                        <>
+                          <td className={styles.numeric}>
+                            <ScoreCell target={target} modeId="overall" />
+                          </td>
+                          <td className={styles.numeric}>
+                            <ScoreCell target={target} modeId="financial" />
+                          </td>
+                        </>
+                      ) : (
+                        <td className={styles.numeric}>
+                          <ScoreCell target={target} modeId={selectedMode} />
+                        </td>
+                      )}
+                      <td className={`${styles.numeric} text-[13px] font-semibold`} style={getDangerValueStyle()}>
+                        {formatLossCurrency(averageLoss)}
+                      </td>
+                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
+                        {formatPercent(target?.prob_profit, true)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          </div>
 
-                return (
-                  <Link
-                    key={`${target.target_type}:${target.target_id}`}
-                    href={buildRipLink(target)}
-                    className={`${desktopGridClass} items-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/65 px-4 py-3.5 transition-colors hover:bg-[var(--surface-hover)]`}
-                  >
-                    <div className="min-w-0">
+          {/* Mobile rows — a compact purpose-built layout, not a shrunken table. */}
+          <div className={`md:hidden ${isScrollable ? styles.scrollShell : ""}`}>
+          <div className={`${styles.scrollBox} ${leaderboardScrollClass}`}>
+            {sortedTargets.map((target, index) => {
+              const recommendationLabel = getLeaderboardRecommendationLabel(target);
+              const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
+              const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
+              const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
+              const isLead = modeRank <= LEAD_RANK_LIMIT;
+              const averageLoss = estimateAverageLoss(target);
+
+              return (
+                <Link
+                  key={`${target.target_type}:${target.target_id}`}
+                  href={buildRipLink(target)}
+                  className={styles.mobileRow}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-5 flex-none text-right">
+                      <RankMarker rank={modeRank} tier={tier} isLead={isLead} />
+                    </span>
+                    <div className="min-w-0 flex-1">
                       <SetIdentity
+                        variant="compact"
                         target={target}
                         interpretationLabel={displayRecommendationLabel}
                         tier={tier}
                         recommendationSeverity={target?.recommendation_severity || null}
                       />
                     </div>
-                    <div className="flex items-start">
-                      <RankBadge
-                        rank={tier}
-                        title={currentModeConfig?.tierLabel || "Tier"}
-                        size="supporting"
-                        format="tier"
-                      />
-                    </div>
-                    {isOverallMode ? (
-                      <>
-                        <ScoreCell target={target} modeId="overall" />
-                        <ScoreCell target={target} modeId="financial" />
-                      </>
-                    ) : (
-                      <ScoreCell target={target} modeId={selectedMode} />
-                    )}
-                    <span className="text-sm font-semibold" style={getDangerValueStyle()}>
-                      {formatLossCurrency(averageLoss)}
-                    </span>
-                    <span className="text-sm text-[var(--text-primary)]">{formatPercent(target?.prob_profit, true)}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Mobile cards */}
-          <div className={isScrollable ? `mt-4 grid max-h-[38rem] grid-cols-1 gap-2 overflow-y-auto pr-1 md:hidden ${leaderboardScrollClass}` : "mt-4 grid grid-cols-1 gap-2 md:hidden"}>
-            {sortedTargets.map((target) => {
-              const recommendationLabel = getLeaderboardRecommendationLabel(target);
-              const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
-              const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-
-              return (
-                <Link
-                  key={`${target.target_type}:${target.target_id}`}
-                  href={buildRipLink(target)}
-                  className="flex flex-col gap-2.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/65 p-3 transition-colors hover:bg-[var(--surface-hover)]"
-                >
-                  <div className="flex items-start gap-3">
-                    <SetIdentity
-                      target={target}
-                      interpretationLabel={displayRecommendationLabel}
-                      tier={tier}
-                      recommendationSeverity={target?.recommendation_severity || null}
-                      interpretationBadgeClassName="inline-flex max-w-full min-w-0 items-center whitespace-nowrap truncate px-3 py-1 text-[10px] leading-none tracking-[0.08em] sm:px-2.5 sm:py-1 sm:text-[11px]"
-                    />
-                    <div className="flex flex-none items-center self-start pt-1">
-                      <RankBadge
-                        rank={tier}
-                        title={currentModeConfig?.tierLabel || "Tier"}
-                        size="supporting"
-                        format="tier"
-                      />
-                    </div>
+                    <RankBadge rank={tier} title={tierLabel} format="tier" />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="mt-2 flex items-start gap-4 pl-[1.95rem]">
                     <MobileScoreBlock target={target} modeId="overall" label="Overall" />
                     <MobileScoreBlock target={target} modeId="financial" label="Financial" />
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
+                        Avg loss
+                      </div>
+                      <div className="mt-0.5 text-[13px] font-semibold" style={getDangerValueStyle()}>
+                        {formatLossCurrency(averageLoss)}
+                      </div>
+                    </div>
                   </div>
                 </Link>
               );
             })}
           </div>
+          </div>
         </>
       ) : loadError ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-xl border border-dashed border-[var(--color-danger,#f87171)]/60 bg-[var(--surface-page)]/45 px-4 py-5 text-sm text-[var(--text-secondary)]"
-        >
+        <p role="alert" className="px-4 py-6 text-sm text-[var(--text-secondary)]">
           Rankings are temporarily unavailable — the ranking service could not be reached. Please refresh in a moment.
         </p>
       ) : (
-        <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-4 py-5 text-sm text-[var(--text-secondary)]">
+        <p className="px-4 py-6 text-sm text-[var(--text-secondary)]">
           Ranking snapshots are still loading. Open any set in RIP Statistics once data is available.
         </p>
       )}
     </section>
+    </RankColumnModeContext.Provider>
   );
 }
