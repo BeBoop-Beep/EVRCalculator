@@ -215,6 +215,238 @@ def test_cards_page_market_movers_percent_tiebreak_and_canonical_id_determinism(
 
     assert [card["id"] for card in movers["cards"]] == ["z-higher-percent", "a-card", "b-card"]
 
+def test_cards_tab_market_movers_orders_complete_list_by_direction_without_sign_filtering(monkeypatch):
+    cards = [
+        _movement_card("plus-40", amount=4.0, percent=40.0),
+        _movement_card("plus-10", amount=1.0, percent=10.0),
+        _movement_card("zero", amount=0.0, percent=0.0),
+        _movement_card("minus-5", amount=-0.5, percent=-5.0),
+        _movement_card("minus-20", amount=-2.0, percent=-20.0),
+        _movement_card("missing", amount=None, percent=None, history_points=None),
+    ]
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+
+    gainers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        movement_filter="heating",
+        sort_direction="desc",
+        section="market-movers",
+        page_size=20,
+    )
+    losers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        movement_filter="cooling",
+        sort_direction="asc",
+        section="market-movers",
+        page_size=20,
+    )
+
+    assert [card["change7dPercent"] for card in gainers["cards"][:-1]] == [40.0, 10.0, 0.0, -5.0, -20.0]
+    assert [card["change7dPercent"] for card in losers["cards"][:-1]] == [-20.0, -5.0, 0.0, 10.0, 40.0]
+    assert gainers["cards"][-1]["id"] == "missing"
+    assert losers["cards"][-1]["id"] == "missing"
+    assert gainers["pagination"]["totalCards"] == losers["pagination"]["totalCards"] == 6
+
+
+def test_cards_tab_market_movers_timeframe_selects_matching_field_and_reorders(monkeypatch):
+    first = _movement_card("first", amount=1.0, percent=30.0)
+    second = _movement_card("second", amount=2.0, percent=10.0)
+    first.update(change30dAmount=5.0, change30dPercent=-20.0, movement30d={"changeAmount": 5.0, "changePercent": -20.0})
+    second.update(change30dAmount=1.0, change30dPercent=40.0, movement30d={"changeAmount": 1.0, "changePercent": 40.0})
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _cards_snapshot_client([first, second]),
+    )
+
+    seven_day = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", sort_direction="desc", section="market-movers"
+    )
+    thirty_day = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="30d-gainers", sort_direction="desc", section="market-movers"
+    )
+
+    assert [card["id"] for card in seven_day["cards"]] == ["first", "second"]
+    assert [card["id"] for card in thirty_day["cards"]] == ["second", "first"]
+
+
+def _metric_divergence_fixture():
+    """Percentage rank and dollar rank deliberately disagree.
+
+    A cheap card swinging +80% for $0.40 tops the percentage ranking; an
+    expensive card moving +$30 on +6% tops the dollar ranking.
+    """
+    return [
+        _movement_card("cheap-big-percent", amount=0.40, percent=80.0, price=0.9),
+        _movement_card("mid", amount=6.0, percent=20.0, price=35.0),
+        _movement_card("pricey-big-dollar", amount=30.0, percent=6.0, price=530.0),
+    ]
+
+
+def test_cards_tab_market_movers_defaults_to_percentage_ranking(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+    )
+
+    default_metric = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", sort_direction="desc", section="market-movers"
+    )
+    explicit_percent = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        sort_direction="desc",
+        section="market-movers",
+        movement_metric="percent",
+    )
+
+    assert [card["id"] for card in default_metric["cards"]] == ["cheap-big-percent", "mid", "pricey-big-dollar"]
+    assert [card["id"] for card in explicit_percent["cards"]] == [card["id"] for card in default_metric["cards"]]
+    assert default_metric["filters"]["movementMetric"] == "percent"
+
+
+def test_cards_tab_market_movers_dollar_metric_reranks_by_absolute_price_change(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+    )
+
+    gainers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        sort_direction="desc",
+        section="market-movers",
+        movement_metric="dollar",
+    )
+    losers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        sort_direction="asc",
+        section="market-movers",
+        movement_metric="dollar",
+    )
+
+    assert [card["id"] for card in gainers["cards"]] == ["pricey-big-dollar", "mid", "cheap-big-percent"]
+    assert [card["id"] for card in losers["cards"]] == ["cheap-big-percent", "mid", "pricey-big-dollar"]
+    assert gainers["filters"]["movementMetric"] == "dollar"
+
+
+def test_cards_tab_market_movers_metric_is_independent_of_direction_and_timeframe(monkeypatch):
+    first = _movement_card("first", amount=1.0, percent=30.0)
+    second = _movement_card("second", amount=2.0, percent=10.0)
+    first.update(change30dAmount=5.0, change30dPercent=-20.0, movement30d={"changeAmount": 5.0, "changePercent": -20.0})
+    second.update(change30dAmount=1.0, change30dPercent=40.0, movement30d={"changeAmount": 1.0, "changePercent": 40.0})
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client([first, second])
+    )
+
+    def _ids(movement_sort, sort_direction, movement_metric):
+        payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+            _TEST_UUID,
+            movement_sort=movement_sort,
+            sort_direction=sort_direction,
+            section="market-movers",
+            movement_metric=movement_metric,
+        )
+        return [card["id"] for card in payload["cards"]]
+
+    # 7D: percent ranks first > second; dollars rank second > first.
+    assert _ids("7d-movers", "desc", "percent") == ["first", "second"]
+    assert _ids("7d-movers", "desc", "dollar") == ["second", "first"]
+    # 30D reads the 30D fields under either metric, and losers stay the exact
+    # reverse of gainers — switching metric never flips direction or window.
+    assert _ids("30d-gainers", "desc", "percent") == ["second", "first"]
+    assert _ids("30d-decliners", "asc", "percent") == ["first", "second"]
+    assert _ids("30d-gainers", "desc", "dollar") == ["first", "second"]
+    assert _ids("30d-decliners", "asc", "dollar") == ["second", "first"]
+
+
+def test_cards_tab_market_movers_dollar_metric_never_falls_back_to_percentage(monkeypatch):
+    cards = [
+        _movement_card("has-dollars", amount=2.0, percent=1.0),
+        # Percentage only: comparable under % ranking, unrankable in dollars,
+        # so it sorts last rather than having its percent read as a $ amount.
+        _movement_card("percent-only", amount=None, percent=90.0),
+    ]
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+
+    by_percent = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", sort_direction="desc", section="market-movers", movement_metric="percent"
+    )
+    by_dollar = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, movement_sort="7d-movers", sort_direction="desc", section="market-movers", movement_metric="dollar"
+    )
+
+    assert [card["id"] for card in by_percent["cards"]] == ["percent-only", "has-dollars"]
+    assert [card["id"] for card in by_dollar["cards"]] == ["has-dollars", "percent-only"]
+
+
+@pytest.mark.parametrize("raw_metric", [None, "", "   ", "nonsense", "PERCENT", "Percent"])
+def test_cards_page_unknown_movement_metric_falls_back_to_percentage(monkeypatch, raw_metric):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID,
+        movement_sort="7d-movers",
+        sort_direction="desc",
+        section="market-movers",
+        movement_metric=raw_metric,
+    )
+
+    assert payload["filters"]["movementMetric"] == "percent"
+    assert [card["id"] for card in payload["cards"]] == ["cheap-big-percent", "mid", "pricey-big-dollar"]
+
+
+def test_cards_page_movement_metric_does_not_affect_membership_or_totals(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+    )
+
+    def _payload(movement_metric):
+        return pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+            _TEST_UUID,
+            movement_sort="7d-movers",
+            sort_direction="desc",
+            section="market-movers",
+            movement_metric=movement_metric,
+            page_size=60,
+        )
+
+    percent_payload = _payload("percent")
+    dollar_payload = _payload("dollar")
+
+    assert sorted(card["id"] for card in percent_payload["cards"]) == sorted(
+        card["id"] for card in dollar_payload["cards"]
+    )
+    assert percent_payload["pagination"]["totalCards"] == dollar_payload["pagination"]["totalCards"]
+    assert percent_payload["meta"]["movementTotals"] == dollar_payload["meta"]["movementTotals"]
+    # Ranking still differs — the $0.30 / +100% spike is top by percent and
+    # near-bottom by dollars.
+    assert percent_payload["cards"][0]["id"] == "tiny-spike"
+    assert dollar_payload["cards"][0]["id"] == "big-25"
+
+
+def test_overview_movers_banner_is_unaffected_by_the_cards_tab_metric(monkeypatch):
+    """The Overview ticker never sends sort_direction, so it keeps its own
+    largest-absolute-dollar-move contract regardless of the new parameter."""
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+    )
+
+    ranked = pokemon_public_snapshot_service._apply_cards_page_filters_and_sort(
+        _metric_divergence_fixture(),
+        query=None,
+        rarity=None,
+        movement_filter="all",
+        sort="set-number",
+        movement_sort="7d-movers",
+        section="market-movers",
+    )
+
+    assert [card["id"] for card in ranked] == ["pricey-big-dollar", "mid", "cheap-big-percent"]
+
 
 def test_cards_page_heating_and_cooling_filter_by_direction_only(monkeypatch):
     monkeypatch.setattr(

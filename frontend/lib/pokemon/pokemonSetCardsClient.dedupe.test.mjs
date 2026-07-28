@@ -62,6 +62,51 @@ test("getPokemonSetCardsPage bypasses browser caches and requests pricing-v4", a
   }
 });
 
+test("getPokemonSetCardsPage forwards movement direction and keys requests by it", async () => {
+  const stub = stubFetchJson(() => makeCardsPagePayload());
+  try {
+    await Promise.all([
+      getPokemonSetCardsPage("set-direction", { movementSort: "7d-movers", section: "market-movers", sortDirection: "desc" }),
+      getPokemonSetCardsPage("set-direction", { movementSort: "7d-movers", section: "market-movers", sortDirection: "asc" }),
+    ]);
+    const urls = stub.getCalls().map(([url]) => url);
+    assert.equal(stub.getCallCount(), 2);
+    assert.ok(urls.some((url) => url.includes("sort_direction=desc")));
+    assert.ok(urls.some((url) => url.includes("sort_direction=asc")));
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getPokemonSetCardsPage forwards the movement ranking metric and keys requests by it", async () => {
+  const stub = stubFetchJson(() => makeCardsPagePayload());
+  try {
+    await Promise.all([
+      getPokemonSetCardsPage("set-metric", { movementSort: "7d-movers", section: "market-movers", sortDirection: "desc", movementMetric: "percent" }),
+      getPokemonSetCardsPage("set-metric", { movementSort: "7d-movers", section: "market-movers", sortDirection: "desc", movementMetric: "dollar" }),
+    ]);
+    const urls = stub.getCalls().map(([url]) => url);
+    // Percent and dollar are different server-side rankings of a paginated
+    // list, so they must never be joined into one request.
+    assert.equal(stub.getCallCount(), 2);
+    assert.ok(urls.some((url) => url.includes("movement_metric=percent")));
+    assert.ok(urls.some((url) => url.includes("movement_metric=dollar")));
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getPokemonSetCardsPage omits movement_metric when no metric applies", async () => {
+  const stub = stubFetchJson(() => makeCardsPagePayload());
+  try {
+    await getPokemonSetCardsPage("set-all-cards", { page: 1, sort: "set-number", movementMetric: null });
+    const [[url]] = stub.getCalls();
+    assert.ok(!url.includes("movement_metric="));
+  } finally {
+    stub.restore();
+  }
+});
+
 test("a completed fresh response replaces an older response for the same set", async () => {
   const stub = stubFetchJson((callCount) =>
     makeCardsPagePayload({

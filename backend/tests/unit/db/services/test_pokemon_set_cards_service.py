@@ -320,7 +320,8 @@ def test_cards_page_30d_sorts_reliable_full_windows_before_partial_deltas(monkey
     assert [card["id"] for card in gainers] == [reliable["id"], partial["id"]]
     assert gainers[1]["movement30d"]["isPartialWindow"] is True
     assert gainers[1]["movement30d"]["fullWindowCoverage"] is False
-    assert [card["id"] for card in heating] == [reliable["id"]]
+    # Direction filters define membership; reliability only affects ordering.
+    assert [card["id"] for card in heating] == [reliable["id"], partial["id"]]
 
 
 def test_cards_page_payload_7d_movers_sort_is_global_and_paginated(monkeypatch):
@@ -432,6 +433,84 @@ def test_cards_page_payload_default_sort_is_set_number(monkeypatch):
 
     numbers = [int(card["cardNumber"]) for card in payload["cards"]]
     assert numbers == sorted(numbers)
+
+def test_cards_page_set_number_descending_is_numeric_and_deterministic(monkeypatch):
+    row = _cards_row(3)
+    row["cards_json"] = [_make_card(10), _make_card(2), _make_card(1)]
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, sort="set-number", sort_direction="desc", page_size=20
+    )
+
+    assert [card["cardNumber"] for card in payload["cards"]] == ["11", "3", "2"]
+
+
+def test_cards_page_name_sort_is_case_insensitive_with_number_tiebreaker(monkeypatch):
+    row = _cards_row(3)
+    row["cards_json"] = [
+        _make_card(3, name="beta"),
+        _make_card(2, name="Alpha"),
+        _make_card(1, name="alpha"),
+    ]
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, sort="name", page_size=20
+    )
+
+    assert [card["cardNumber"] for card in payload["cards"]] == ["2", "3", "4"]
+
+def test_cards_page_name_descending_reverses_primary_order_deterministically(monkeypatch):
+    row = _cards_row(3)
+    row["cards_json"] = [
+        _make_card(3, name="beta"),
+        _make_card(2, name="Alpha"),
+        _make_card(1, name="alpha"),
+    ]
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, sort="name", sort_direction="desc", page_size=20
+    )
+
+    assert [card["name"] for card in payload["cards"]] == ["beta", "alpha", "Alpha"]
+
+
+def test_cards_page_price_sort_keeps_missing_values_last_in_both_directions(monkeypatch):
+    row = _cards_row(3)
+    row["cards_json"] = [
+        _make_card(1, marketPrice=2.0),
+        _make_card(2, marketPrice=None),
+        _make_card(3, marketPrice=10.0),
+    ]
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "public_read_client",
+        _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
+    )
+
+    ascending = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, sort="market-price-asc", page_size=20
+    )
+    descending = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
+        _TEST_UUID, sort="market-price-desc", page_size=20
+    )
+
+    assert [card["marketPrice"] for card in ascending["cards"]] == [2.0, 10.0, None]
+    assert [card["marketPrice"] for card in descending["cards"]] == [10.0, 2.0, None]
 
 
 def test_cards_page_payload_reads_cards_json_not_payload_json(monkeypatch):

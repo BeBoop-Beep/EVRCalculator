@@ -651,6 +651,8 @@ def get_pokemon_set_cards_page(
     rarity: Optional[str] = Query(default=None),
     movement_filter: Optional[str] = Query(default=None),
     movement_sort: Optional[str] = Query(default=None),
+    movement_metric: Optional[str] = Query(default=None),
+    sort_direction: Optional[str] = Query(default=None),
     section: Optional[str] = Query(default=None),
 ):
     """Return a single paginated slice of checklist cards for a Pokemon set."""
@@ -664,6 +666,8 @@ def get_pokemon_set_cards_page(
             rarity=rarity,
             movement_filter=movement_filter,
             movement_sort=movement_sort,
+            movement_metric=movement_metric,
+            sort_direction=sort_direction,
             section=section,
         )
     except (PokemonSetCardsError, PokemonSetMarketError) as exc:
