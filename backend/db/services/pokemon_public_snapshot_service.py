@@ -1933,6 +1933,11 @@ CARDS_PAGE_SORT_OPTIONS = (
 CARDS_PAGE_MOVEMENT_SORTS = ("7d-movers", "30d-gainers", "30d-decliners")
 CARDS_PAGE_MOVEMENT_FILTERS = ("all", "heating", "cooling")
 CARDS_PAGE_SECTIONS = ("all-cards", "market-movers")
+# Which movement magnitude the directional Market Movers ordering ranks by.
+# "percent" is the established default; "dollar" ranks by absolute price
+# change instead. Ranking is server-side because Market Movers is paginated —
+# the metric has to reach the sort, not just the rendered page.
+CARDS_PAGE_MOVEMENT_METRICS = ("percent", "dollar")
 # Movement magnitudes at or below this epsilon count as "exactly zero" for
 # Market Movers membership (zero-movement cards stay in All Cards only).
 _MOVEMENT_ZERO_EPSILON = 1e-9
@@ -2092,6 +2097,13 @@ def _sanitize_cards_movement_sort(value: Any) -> Optional[str]:
     return normalized if normalized in CARDS_PAGE_MOVEMENT_SORTS else None
 
 
+def _sanitize_cards_movement_metric(value: Any) -> str:
+    normalized = (_to_optional_str(value) or "").strip().lower()
+    if normalized == "amount":
+        normalized = "dollar"
+    return normalized if normalized in CARDS_PAGE_MOVEMENT_METRICS else "percent"
+
+
 def _sanitize_cards_movement_filter(value: Any) -> str:
     normalized = (_to_optional_str(value) or "all").strip().lower()
     return normalized if normalized in CARDS_PAGE_MOVEMENT_FILTERS else "all"
@@ -2224,10 +2236,23 @@ def _largest_dollar_move_sort_key(card: Dict[str, Any], window_key: str) -> tupl
 def _sort_cards_by_largest_dollar_move(cards: List[Dict[str, Any]], window_key: str) -> List[Dict[str, Any]]:
     return sorted(cards, key=lambda card: _largest_dollar_move_sort_key(card, window_key))
 
-def _directional_movement_sort_key(card: Dict[str, Any], window_key: str, *, descending: bool) -> tuple:
+def _directional_movement_sort_key(
+    card: Dict[str, Any],
+    window_key: str,
+    *,
+    descending: bool,
+    movement_metric: str = "percent",
+) -> tuple:
     suffix = _cards_page_movement_suffix(window_key)
     amount, percent = _cards_page_movement_values(card, suffix)
-    metric = percent if percent is not None else amount
+    if movement_metric == "dollar":
+        # Dollar ranking never falls back to percentage — the two are
+        # different units, and a percentage standing in for a missing amount
+        # would interleave incomparable magnitudes. Cards without a dollar
+        # amount sort last, exactly as a missing metric already does.
+        metric = amount
+    else:
+        metric = percent if percent is not None else amount
     return (
         metric is None,
         -(metric or 0.0) if descending else (metric or 0.0),
@@ -2310,10 +2335,12 @@ def _apply_cards_page_filters_and_sort(
     movement_sort: Optional[str],
     sort_direction: Optional[str] = None,
     section: str = "all-cards",
+    movement_metric: str = "percent",
 ) -> List[Dict[str, Any]]:
     """Shared canonical Cards query used by /cards/page and /market/movers.
 
-    Market Movers is a directional ordering over the complete Cards dataset.
+    Market Movers is a directional ordering over the complete Cards dataset,
+    ranked by ``movement_metric`` ("percent" or "dollar").
     It does not apply sign-based membership filters and
     never consults the reliability/mover-eligibility guardrails — those stay
     on the records as metadata only. ``section="all-cards"`` keeps every
@@ -2370,6 +2397,7 @@ def _apply_cards_page_filters_and_sort(
                 card,
                 movement_window_key,
                 descending=sort_direction == "desc",
+                movement_metric=movement_metric,
             )
         )
     elif effective_sort == "7d-movers":
@@ -2419,6 +2447,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
     movement_sort: Any = None,
     sort_direction: Any = None,
     section: Any = None,
+    movement_metric: Any = None,
 ) -> Dict[str, Any]:
     """Return a single paginated slice of a Pokemon set's checklist cards
     (camelCase only, no duplicate snake_case aliases).
@@ -2451,6 +2480,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
     movement_sort_value = _sanitize_cards_movement_sort(movement_sort)
     sort_direction_value = _sanitize_cards_sort_direction(sort_direction) if _to_optional_str(sort_direction) else None
     movement_filter_value = _sanitize_cards_movement_filter(movement_filter)
+    movement_metric_value = _sanitize_cards_movement_metric(movement_metric)
     section_value = _sanitize_cards_section(section)
     query_value = _to_optional_str(query)
     rarity_value = _to_optional_str(rarity)
@@ -2500,6 +2530,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
         movement_sort=movement_sort_value,
         sort_direction=sort_direction_value,
         section=section_value,
+        movement_metric=movement_metric_value,
     )
 
     total_cards = len(filtered_cards)
@@ -2543,6 +2574,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
             "sort": sort_value,
             "sortDirection": sort_direction_value or "asc",
             "movementSort": movement_sort_value,
+            "movementMetric": movement_metric_value,
             "movementFilter": movement_filter_value,
             "section": section_value,
             "query": query_value,

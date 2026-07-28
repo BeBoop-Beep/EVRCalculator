@@ -1,8 +1,8 @@
 // Pure formatting/shaping helpers for pull-rate assumption rows. Extracted
-// from PullRateAssumptionsCard.jsx (sibling in this folder) so the new
-// section-level components (HitRateSummarySection, PullRateTableSection,
-// AdvancedOddsSection) can derive summaries from the same data without
-// duplicating the formatting logic.
+// from PullRateAssumptionsCard.jsx (sibling in this folder) so the condensed
+// Pull Rates tab table (PullRateAssumptionsTable + pullRateRowsSelector) and
+// the legacy grouped card render the same canonical values through the same
+// helpers instead of duplicating the formatting logic.
 
 export function toFiniteNumber(value) {
   const parsed = Number(value);
@@ -27,9 +27,19 @@ export function formatOddsDenominator(denominator) {
   return `1 in ${formatted} packs`;
 }
 
+// Missing / non-numeric / nonsensical negative pools fall back to the app's
+// unavailable-value convention ("—") rather than a misleading 0. An explicit
+// zero in the canonical payload is a real value and renders as 0.
+//
+// The null/"" guard is load-bearing: toFiniteNumber coerces via Number(), and
+// Number(null) and Number("") are both 0 — without it a missing card pool
+// would render as "0".
 export function formatCardCount(count) {
+  if (count === null || count === undefined || count === "") {
+    return "—";
+  }
   const parsed = toFiniteNumber(count);
-  if (parsed === null || parsed <= 0) {
+  if (parsed === null || parsed < 0) {
     return "—";
   }
   return String(Math.round(parsed));

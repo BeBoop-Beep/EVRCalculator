@@ -43,6 +43,8 @@ import SegmentedControl from "@/components/ui/SegmentedControl";
 import {
   ALL_CARDS_SORT_OPTIONS,
   CARD_TIMEFRAMES,
+  DEFAULT_MARKET_MOVER_METRIC,
+  MARKET_MOVER_METRIC_OPTIONS,
   getAllCardsDirectionLabel,
   getEffectiveRarityFilter,
   resolveCardsRequest,
@@ -92,7 +94,6 @@ import {
 } from "./ripHeroScoreMode.mjs";
 import {
   selectOpeningExperiencePresentation,
-  selectRipDesirabilityBreakdown,
   selectSetDesirabilityPresentation,
 } from "@/components/pokemon/set-page/Insights/openingExperienceSelector.mjs";
 import { RANK_CONFIG } from "@/constants/rankConfig";
@@ -103,6 +104,7 @@ import {
   getCalloutAccentStyle,
   getDangerValueStyle,
   getInterpretationTone,
+  getRipTierPresentation,
 } from "@/lib/explore/interpretationTone";
 import {
   getCachedPokemonSetCards,
@@ -1447,7 +1449,7 @@ function getFirstTextFromSources(sources, keys = []) {
 }
 
 // The legacy "Without/With Desirability" comparison helpers were retired with
-// the strip they fed; see RipDesirabilityBreakdownStrip.
+// the strip they fed, and that strip has since been retired too.
 function formatNumber(value, decimals = 2) {
   const parsed = toNumber(value);
   if (parsed === null) {
@@ -5923,77 +5925,12 @@ function CompactPillarSignalTile({
   );
 }
 
-function RipDesirabilityBreakdownStrip({ breakdown }) {
-  // Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 Opening Desirability.
-  //
-  // A weighted blend, backend-computed, with NO cap and NO additive adjustment.
-  // Each input shows its contribution (score x weight); the effective per-pillar
-  // weights are shown below. Set Desirability is a SUPPORTING input to CA7 (it is
-  // CA7's roster base), not a separate Overall RIP weight, so it is not given a
-  // weighted row - it keeps its own section.
-  if (!breakdown) {
-    return null;
-  }
-
-  const metrics = [
-    {
-      label: "Financial RIP",
-      value: breakdown.financialRip.scoreLabel,
-      detail: breakdown.financialRip.contributionLabel,
-    },
-    {
-      label: "Opening Desirability / CA7",
-      value: breakdown.openingDesirability.scoreLabel,
-      detail:
-        breakdown.openingDesirability.contributionLabel ??
-        breakdown.openingDesirability.unavailableReason,
-    },
-    {
-      label: "Overall RIP",
-      value: breakdown.overallRip.scoreLabel,
-      detail: breakdown.overallRip.rankLabel,
-    },
-  ];
-
-  return (
-    <div className="mt-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-3">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          How Overall RIP Is Built
-        </p>
-        <span className="text-[11px] text-[var(--text-secondary)]">
-          90% Financial RIP + 10% Opening Desirability
-        </span>
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {metrics.map((metric) => (
-          <div key={`rip-desirability-breakdown:${metric.label}`} className="min-w-0">
-            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{metric.label}</p>
-            <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{metric.value ?? "—"}</p>
-            {metric.detail ? <p className="text-[11px] leading-snug text-[var(--text-secondary)]">{metric.detail}</p> : null}
-          </div>
-        ))}
-      </div>
-      {Array.isArray(breakdown.effectiveWeights) && breakdown.effectiveWeights.length > 0 ? (
-        <div className="mt-3 border-t border-[var(--border-subtle)] pt-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-            Effective final weights
-          </p>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-            {breakdown.effectiveWeights.map((weight) => (
-              <span key={`eff-weight:${weight.label}`} className="text-[11px] text-[var(--text-secondary)]">
-                {weight.label} <span className="font-semibold text-[var(--text-primary)]">{weight.valueLabel ?? "—"}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {breakdown.unavailableReason ? (
-        <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{breakdown.unavailableReason}</p>
-      ) : null}
-    </div>
-  );
-}
+// The RIP construction strip (per-input contribution points, the blend formula
+// line, and the per-pillar final weights) was retired from this user-facing
+// section: it explained how the number is assembled rather than what the number
+// means. None of that arithmetic changed - it still lives in the backend
+// contract and in the openingExperienceSelector breakdown model, which keeps its
+// own tests for research and diagnostics use.
 
 function RipScoreBreakdownModule({
   score,
@@ -6005,7 +5942,6 @@ function RipScoreBreakdownModule({
   explanation,
   pillars,
   titleInfoText,
-  ripDesirabilityBreakdown = null,
   scoreMode,
   onScoreModeChange,
   coreAvailable = false,
@@ -6014,20 +5950,23 @@ function RipScoreBreakdownModule({
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const parsedRank = toNumber(rankValue);
   const parsedCohortSize = toNumber(cohortSize);
+  // The one shared RIP tier presentation — the same helper the title-card
+  // tier / rank / verdict pills read — so the outlook inherits the ACTIVE
+  // score's semantic tone (RIP Score or RIP Core) instead of inventing one.
+  const outlookAccent = getRipTierPresentation({ label: verdict, rankTier });
 
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
       <article className="set-glass-surface rounded-2xl border p-4 sm:p-5">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        {/* Header row: the chapter marker and title on the left, the details
+            disclosure on the right so it reads as controlling the whole
+            section rather than the pillar it happens to sit above. */}
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
             <SectionEyebrow>01 · Verdict</SectionEyebrow>
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
               {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
-            </div>
-            <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">The verdict — how this set scores and why.</p>
-            <div className="mt-2">
-              <RipScoreModeToggle value={scoreMode} onChange={onScoreModeChange} coreAvailable={coreAvailable} />
             </div>
           </div>
           <button
@@ -6048,47 +5987,61 @@ function RipScoreBreakdownModule({
           </button>
         </div>
 
-        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="inline-flex items-end gap-1.5 text-4xl font-semibold leading-none text-[var(--text-primary)]">
-                <span>{formatRawScore(score)}</span>
-                <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
-                <TrendIndicator trend={scoreTrend} className="mb-1" />
-              </p>
-              <RankBadge
-                rank={rankTier}
-                label="Rank"
-                size="supporting"
-                title={
-                  parsedRank === null
-                    ? "Rank unavailable"
-                    : parsedCohortSize === null
-                    ? `Rank #${Math.round(parsedRank)}`
-                    : `Rank #${Math.round(parsedRank)} of ${Math.round(parsedCohortSize)}`
-                }
-              />
-              <RecommendationBadge label={verdict} rankTier={rankTier} />
-              {explanation ? <InfoPopover text={explanation} /> : null}
-            </div>
-          </div>
+        <div className="mt-3">
+          <RipScoreModeToggle value={scoreMode} onChange={onScoreModeChange} coreAvailable={coreAvailable} />
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {pillars.map((pillar) => (
-            <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
-          ))}
+        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-3">
+          <p className="inline-flex items-end gap-1.5 text-4xl font-semibold leading-none text-[var(--text-primary)]">
+            <span>{formatRawScore(score)}</span>
+            <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
+            <TrendIndicator trend={scoreTrend} className="mb-1" />
+          </p>
+          <RankBadge
+            rank={rankTier}
+            label="Rank"
+            size="supporting"
+            title={
+              parsedRank === null
+                ? "Rank unavailable"
+                : parsedCohortSize === null
+                ? `Rank #${Math.round(parsedRank)}`
+                : `Rank #${Math.round(parsedRank)} of ${Math.round(parsedCohortSize)}`
+            }
+          />
+          <RecommendationBadge label={verdict} rankTier={rankTier} />
+          {explanation ? <InfoPopover text={explanation} /> : null}
         </div>
-        <div data-insights-opening-outlook className="mt-5 border-t border-[var(--border-subtle)] pt-4">
+
+        {/* The plain-language read of the score above, so it is seen before the
+            individual pillars. Text stays canonical (backend-generated); only
+            the treatment changed - a narrow tier-coloured rail with a wash that
+            fades to nothing well before the right edge, so the outlook reads as
+            part of the breakdown rather than as a filled alert banner. The copy
+            keeps the full content width; only the colour stops early. */}
+        <div
+          data-insights-opening-outlook
+          className="mt-4 min-w-0 border-l-2 px-3.5 py-2.5 sm:px-4"
+          style={{
+            borderLeftColor: outlookAccent.outlookRail.borderLeftColor,
+            backgroundImage: outlookAccent.outlookWash,
+            boxShadow: outlookAccent.outlookRail.boxShadow,
+          }}
+        >
           <div className="flex items-center gap-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Opening Outlook</p>
             <InfoPopover text="This outlook evaluates the experience of opening packs. It does not evaluate sealed-product appreciation or provide buy, sell, or hold guidance." />
           </div>
-          <p className="mt-1 text-sm leading-relaxed text-[var(--text-primary)]">
+          <p className="mt-1 text-sm font-medium leading-relaxed text-[var(--text-primary)]">
             {openingOutlook || "No opening outlook is available for this set yet."}
           </p>
         </div>
-        <RipDesirabilityBreakdownStrip breakdown={ripDesirabilityBreakdown} />
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {pillars.map((pillar) => (
+            <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
+          ))}
+        </div>
       </article>
     </section>
   );
@@ -8083,6 +8036,11 @@ export default function RipStatisticsPageClient({
   const [cardSortDirection, setCardSortDirection] = useState(() =>
     getSetDetailSectionParam(searchParams) === "market-movers" ? "gainers" : "asc"
   );
+  // Market Movers ranking metric — the third independent Market Movers control
+  // alongside direction (cardSortDirection) and timeframe (selectedTimeframe).
+  // Changing it must never disturb either of the other two, so it is its own
+  // state rather than another mode folded into cardSortDirection.
+  const [cardMovementMetric, setCardMovementMetric] = useState(DEFAULT_MARKET_MOVER_METRIC);
   const [cardSearchQuery, setCardSearchQuery] = useState("");
   const [cardRarityFilter, setCardRarityFilter] = useState("");
   // Highest requested page for the current cards scope. Pages are appended
@@ -9091,10 +9049,10 @@ export default function RipStatisticsPageClient({
   const displayedProfitScore = toNumber(canonicalRipComponents.profit?.score);
   const displayedSafetyScore = toNumber(canonicalRipComponents.safety?.score);
   const displayedStabilityScore = toNumber(canonicalRipComponents.stability?.score);
-  const canonicalRipCore = useMemo(
-    () => explorePayload?.ripCore || selectedTarget?.ripCore || summary?.ripCore || {},
-    [explorePayload?.ripCore, selectedTarget?.ripCore, summary?.ripCore]
-  );
+  // The canonical `ripCore` object is still read for the RIP Core hero mode -
+  // `selectRipHeroScoreMode` above resolves it from payload -> target -> summary
+  // itself. The local mirror of that read was only ever consumed by the retired
+  // RIP construction strip, so it is gone with it.
   const canonicalUniversalSetDesirability = useMemo(
     () =>
       explorePayload?.universalSetDesirability ||
@@ -9105,22 +9063,6 @@ export default function RipStatisticsPageClient({
       explorePayload?.universalSetDesirability,
       selectedTarget?.universalSetDesirability,
       summary?.universalSetDesirability,
-    ]
-  );
-  const ripDesirabilityBreakdown = useMemo(
-    () =>
-      selectRipDesirabilityBreakdown(
-        canonicalRip,
-        canonicalRipCore,
-        canonicalUniversalSetDesirability,
-        explorePayload?.openingExperience || selectedTarget?.openingExperience || null
-      ),
-    [
-      canonicalRip,
-      canonicalRipCore,
-      canonicalUniversalSetDesirability,
-      explorePayload?.openingExperience,
-      selectedTarget?.openingExperience,
     ]
   );
   const desirabilitySummary = getDesirabilitySummary(summary);
@@ -9144,6 +9086,21 @@ export default function RipStatisticsPageClient({
       ? heroScoreSelection.interpretation.label
       : packScoreMeta?.label || null;
   const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: heroScoreSelection.tier });
+  // The persistent title card is a second presentation of the SAME active score
+  // mode the Insights RIP Score Breakdown toggles (`heroScoreMode` above owns
+  // it for both surfaces), so it reads the same shared tier presentation and
+  // repaints with the breakdown whenever the mode or the tier changes.
+  const setContextRipPresentation = getRipTierPresentation({
+    label: recommendationBadge,
+    rankTier: heroScoreSelection.tier,
+  });
+  // Canonical labels only: the public overall score keeps the established
+  // "Opening RIP" eyebrow, and RIP Core uses the selector's own canonical
+  // label so the card never names a metric it is not showing.
+  const setContextRipLabel = heroScoreSelection.mode === RIP_CORE_MODE ? heroScoreSelection.label : "Opening RIP";
+  const setContextRipTier = String(heroScoreSelection.tier || "").trim().replace(/\s+tier$/i, "");
+  const setContextRipRank = toNumber(heroScoreSelection.rank);
+  const setContextRipCohort = toNumber(heroScoreSelection.cohortSize);
   const simpleAverageLossValue = getSimpleAverageLossValue(summary);
   const averageHitValue = getFirstNumericValue(summary, [
     "average_hit_value",
@@ -10245,10 +10202,12 @@ export default function RipStatisticsPageClient({
     selectedTimeframe,
     activeSortMode: cardSortMode,
     activeSortDirection: cardSortDirection,
+    activeMovementMetric: cardMovementMetric,
   });
   const effectiveCardSortMode = cardsRequest.sort;
   const effectiveCardMovementFilter = cardsRequest.movementFilter;
   const effectiveCardMovementSort = cardsRequest.movementSort;
+  const effectiveCardMovementMetric = cardsRequest.movementMetric;
   const availableCardRarities = activeCardsPageState.filters?.availableRarities || [];
   const effectiveCardRarityFilter = getEffectiveRarityFilter(cardsSection, cardRarityFilter);
   useEffect(() => {
@@ -10257,6 +10216,7 @@ export default function RipStatisticsPageClient({
     effectiveCardSortMode,
     cardsRequest.sortDirection,
     effectiveCardMovementSort,
+    effectiveCardMovementMetric,
     effectiveCardMovementFilter,
     cardSearchQuery,
     effectiveCardRarityFilter,
@@ -10593,9 +10553,9 @@ export default function RipStatisticsPageClient({
     },
     // No fourth pillar. Financial RIP is 60/25/15 over these three. Opening
     // Desirability (CA7) enters OVERALL RIP as the 10% term (Overall = 90%
-    // Financial + 10% CA7), shown in the "How Overall RIP Is Built" strip and its
-    // own section - it is not a weighted pillar OF Financial RIP. A fourth
-    // financial tile here would state a blend the backend does not compute.
+    // Financial + 10% CA7) and keeps its own section - it is not a weighted
+    // pillar OF Financial RIP. A fourth financial tile here would state a blend
+    // the backend does not compute.
   ];
   const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
   const initialModuleSetValueHistories =
@@ -11050,6 +11010,10 @@ export default function RipStatisticsPageClient({
 
     const requestedPage = cardsPage;
     const movementSortValue = effectiveCardMovementSort;
+    // Percent vs dollar ranking is resolved server-side, so it is part of the
+    // request scope: switching metric must restart the list at page one rather
+    // than append a differently-ranked chunk onto the loaded pages.
+    const movementMetricValue = effectiveCardMovementMetric;
     // Market Movers is the SAME canonical Cards dataset with mover-membership
     // filtering applied server-side (section=market-movers); All Cards keeps
     // the complete checklist. Same snapshot, same normalization, same
@@ -11070,6 +11034,7 @@ export default function RipStatisticsPageClient({
       effectiveCardRarityFilter || "",
       effectiveCardMovementFilter,
       movementSortValue,
+      movementMetricValue || "",
     ].join("|");
     // Leaving Cards and coming back (or any other re-render that re-triggers
     // this effect, e.g. a sibling tab's payload updating explorePayload)
@@ -11137,6 +11102,7 @@ export default function RipStatisticsPageClient({
       rarity: effectiveCardRarityFilter,
       movementFilter: effectiveCardMovementFilter,
       movementSort: movementSortValue,
+      movementMetric: movementMetricValue,
       section: cardsSectionValue,
     })
       .then((payload) => {
@@ -11246,6 +11212,7 @@ export default function RipStatisticsPageClient({
     effectiveCardSortMode,
     cardsRequest.sortDirection,
     effectiveCardMovementSort,
+    effectiveCardMovementMetric,
     effectiveCardMovementFilter,
     cardSearchQuery,
     effectiveCardRarityFilter,
@@ -12090,10 +12057,21 @@ export default function RipStatisticsPageClient({
             aria-hidden="true"
             className="set-page-atmosphere pointer-events-none fixed inset-0 -z-10 hidden select-none overflow-hidden bg-no-repeat sm:block"
           >
+            {/* Two passes over one cached image URL — the browser fetches it
+                once. The bloom copy sits underneath and supplies the glow;
+                every opacity/filter/mask value comes from the --set-artwork-*
+                tokens in globals.css, never from this markup. */}
             <img
               src={ambientSetArtworkUrl}
               alt=""
-              className="set-page-atmosphere-artwork h-full w-full object-contain object-center [filter:grayscale(0.2)_brightness(1.14)_saturate(0.8)_blur(1px)] [mask-image:linear-gradient(to_bottom,black_0%,rgba(0,0,0,0.72)_24%,rgba(0,0,0,0.3)_62%,transparent_100%)]"
+              className="set-page-atmosphere-bloom absolute inset-0 h-full w-full object-contain object-center"
+              loading="eager"
+              decoding="async"
+            />
+            <img
+              src={ambientSetArtworkUrl}
+              alt=""
+              className="set-page-atmosphere-artwork absolute inset-0 h-full w-full object-contain object-center"
               loading="eager"
               decoding="async"
             />
@@ -12212,13 +12190,50 @@ export default function RipStatisticsPageClient({
                         </button>
                     </div>
                     <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
-                        <p className="set-context-eyebrow">Opening RIP</p>
-                        <p className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm font-semibold leading-tight tabular-nums text-[var(--text-primary)]">
-                          <span>{displayedTopScore}</span>
-                          {heroScoreSelection.tier ? <span className="text-[var(--accent)]">· {String(heroScoreSelection.tier).replace(/\s+tier$/i, "")} Tier</span> : null}
-                          {toNumber(heroScoreSelection.rank) !== null ? <span className="text-[var(--text-secondary)]">· Rank #{Math.round(toNumber(heroScoreSelection.rank))}</span> : null}
-                        </p>
-                        {recommendationBadge ? <p className="mt-1 truncate text-[11px] leading-tight text-[var(--text-secondary)]">{recommendationBadge}</p> : null}
+                        <p className="set-context-eyebrow">{setContextRipLabel}</p>
+                        {/* Score stays the focal point and stays neutral; the tier
+                            takes the strongest outlined pill, the rank a quieter
+                            companion, and the verdict a lighter relative of the
+                            breakdown's interpretation pill. All four colours come
+                            from one shared tier presentation. */}
+                        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-sm font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{displayedTopScore}</span>
+                          {setContextRipTier ? (
+                            <span
+                              data-set-context-rip-tier
+                              className="inline-flex flex-none items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-tight"
+                              style={setContextRipPresentation.tierPill}
+                            >
+                              {setContextRipTier} Tier
+                            </span>
+                          ) : null}
+                          {setContextRipRank !== null ? (
+                            <span
+                              data-set-context-rip-rank
+                              className="inline-flex flex-none items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight tabular-nums"
+                              style={setContextRipPresentation.rankPill}
+                              title={
+                                setContextRipCohort === null
+                                  ? `Rank #${Math.round(setContextRipRank)}`
+                                  : `Rank #${Math.round(setContextRipRank)} of ${Math.round(setContextRipCohort)}`
+                              }
+                            >
+                              Rank #{Math.round(setContextRipRank)}
+                            </span>
+                          ) : null}
+                        </div>
+                        {recommendationBadge ? (
+                          <p className="mt-1 flex min-w-0">
+                            <span
+                              data-set-context-rip-verdict
+                              className="inline-flex min-w-0 max-w-full items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight"
+                              style={setContextRipPresentation.verdictPill}
+                              title={recommendationBadge}
+                            >
+                              <span className="truncate">{recommendationBadge}</span>
+                            </span>
+                          </p>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
@@ -12396,39 +12411,167 @@ export default function RipStatisticsPageClient({
                 ) : null}
 
                 {setDetailTab === "cards" ? (
-                  <section id="set-detail-cards" className="set-glass-surface-dense scroll-mt-24 space-y-5 rounded-2xl border p-4 md:scroll-mt-28 md:p-6">
-                    <SectionViewTabs
-                      value={cardsSection}
-                      onChange={(nextSection) =>
-                        handleSetDetailNavSelect({
-                          tab: "cards",
-                          section: nextSection,
-                          cardsSubTab: "checklist",
-                          targetId: "set-detail-cards",
-                        })
-                      }
-                      variant="secondary"
-                      options={[
-                        { value: "all-cards", label: "All Cards" },
-                        { value: "market-movers", label: "Market Movers" },
-                      ]}
-                    />
+                  // Transparency stack (Cards): this section is a transparent
+                  // layout region — the same shape #set-detail-overview already
+                  // uses — because a panel here was the first ancestor blocking
+                  // the ambient set artwork. Only the controls carry a surface;
+                  // nothing paints a background behind the card grid.
+                  <section id="set-detail-cards" data-cards-section className="scroll-mt-24 space-y-4 md:scroll-mt-28">
+                    {/* One compact controls panel: sub-tabs, search, sort/rarity
+                        or direction, timeframe, movement metric, and the count. */}
+                    <div data-cards-toolbar className="set-glass-surface space-y-3 rounded-2xl border p-3 md:p-4">
+                      <SectionViewTabs
+                        value={cardsSection}
+                        onChange={(nextSection) =>
+                          handleSetDetailNavSelect({
+                            tab: "cards",
+                            section: nextSection,
+                            cardsSubTab: "checklist",
+                            targetId: "set-detail-cards",
+                          })
+                        }
+                        variant="secondary"
+                        options={[
+                          { value: "all-cards", label: "All Cards" },
+                          { value: "market-movers", label: "Market Movers" },
+                        ]}
+                      />
+
+                      {cardsSubTab === "checklist" ? (
+                        <label className="block min-w-0 max-w-sm text-xs font-semibold text-[var(--text-secondary)]">
+                          <span className="mb-1 block uppercase tracking-[0.08em]">Search</span>
+                          <input
+                            type="text"
+                            value={cardSearchQuery}
+                            onChange={(event) => setCardSearchQuery(event.target.value)}
+                            placeholder="Search cards by name"
+                            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          />
+                        </label>
+                      ) : null}
+
+                      {cardsSubTab === "checklist" && effectiveCardsPageCards.length > 0 && hasCardMovementData ? (
+                        <div className="flex flex-wrap items-end gap-3">
+                          {cardsSection === "all-cards" ? (
+                            <>
+                            <div className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
+                              <span className="mb-1 block uppercase tracking-[0.08em]">Sort</span>
+                              <div className="flex flex-wrap gap-2">
+                                <select
+                                  aria-label="Sort cards by"
+                                  value={cardSortMode}
+                                  onChange={(event) => setCardSortMode(event.target.value)}
+                                  className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                >
+                                  {ALL_CARDS_SORT_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => setCardSortDirection((direction) => direction === "asc" ? "desc" : "asc")}
+                                  aria-label={`Sort ${ALL_CARDS_SORT_OPTIONS.find((option) => option.value === cardSortMode)?.label || "cards"} ${cardSortDirection === "asc" ? "ascending" : "descending"}. Activate to reverse order.`}
+                                  aria-pressed={cardSortDirection === "desc"}
+                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                >
+                                  {getAllCardsDirectionLabel(cardSortMode, cardSortDirection)}
+                                </button>
+                              </div>
+                            </div>
+                            <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
+                              <span className="mb-1 block uppercase tracking-[0.08em]">Rarity</span>
+                              <select
+                                value={cardRarityFilter}
+                                onChange={(event) => setCardRarityFilter(event.target.value)}
+                                className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                              >
+                                <option value="">All Rarities</option>
+                                {availableCardRarities.map((rarityOption) => (
+                                  <option key={rarityOption} value={rarityOption}>{rarityOption}</option>
+                                ))}
+                              </select>
+                            </label>
+                            </>
+                          ) : (
+                            <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement direction">
+                              {["gainers", "losers"].map((direction) => (
+                                <button
+                                  key={direction}
+                                  type="button"
+                                  onClick={() => setCardSortDirection(direction)}
+                                  aria-pressed={cardSortDirection === direction}
+                                  aria-label={direction === "gainers" ? "Gainers" : "Losers"}
+                                  className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                                    cardSortDirection === direction ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
+                                  }`}
+                                >
+                                  {/* Button padding and label size are unchanged — only the
+                                      triangle shrinks, via the shared DeltaTrendIcon's own
+                                      "sm" size (em-relative, so it stays proportional) inside
+                                      a fixed, identical box for both directions. The buttons'
+                                      own aria-labels keep the icon's internal label out of the
+                                      accessible name. Per-card movement triangles are a
+                                      separate surface and stay as they are. */}
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <DeltaTrendIcon
+                                      direction={direction === "gainers" ? "up" : "down"}
+                                      size="sm"
+                                      className="h-3 w-3 justify-center"
+                                    />
+                                    <span>{direction === "gainers" ? "Gainers" : "Losers"}</span>
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement timeframe">
+                            {CARD_TIMEFRAMES.map((timeframe) => (
+                              <button
+                                key={timeframe}
+                                type="button"
+                                onClick={() => setSelectedTimeframe(timeframe)}
+                                aria-pressed={selectedTimeframe === timeframe}
+                                className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                                  selectedTimeframe === timeframe ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
+                                }`}
+                              >
+                                {timeframe}
+                              </button>
+                            ))}
+                          </div>
+                          {cardsSection === "market-movers" ? (
+                            // Third independent Market Movers control: which
+                            // magnitude the ranking compares. Direction and
+                            // timeframe are untouched by it. The visible labels are
+                            // symbol-led for compactness, so each button carries a
+                            // spelled-out accessible name.
+                            <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Rank movement by">
+                              {MARKET_MOVER_METRIC_OPTIONS.map((option) => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => setCardMovementMetric(option.value)}
+                                  aria-pressed={cardMovementMetric === option.value}
+                                  title={option.accessibleLabel}
+                                  className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                                    cardMovementMetric === option.value ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
+                                  }`}
+                                >
+                                  <span aria-hidden="true">{option.label}</span>
+                                  <span className="sr-only">{option.accessibleLabel}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                          <p className="ml-auto text-xs text-[var(--text-secondary)]">
+                            {displayedChecklistCards.length.toLocaleString("en-US")} of {(activeCardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
 
                     {cardsSubTab === "checklist" ? (
                       <div className="min-w-0">
-                        <div className="mb-4">
-                          <label className="block min-w-0 max-w-sm text-xs font-semibold text-[var(--text-secondary)]">
-                            <span className="mb-1 block uppercase tracking-[0.08em]">Search</span>
-                            <input
-                              type="text"
-                              value={cardSearchQuery}
-                              onChange={(event) => setCardSearchQuery(event.target.value)}
-                              placeholder="Search cards by name"
-                              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                            />
-                          </label>
-                        </div>
-
                         {(effectiveCardsPageStatus === "idle" || effectiveCardsPageStatus === "loading") &&
                         effectiveCardsPageCards.length === 0 ? (
                           // Branded tab loader only while the card page
@@ -12453,86 +12596,6 @@ export default function RipStatisticsPageClient({
 
                         {effectiveCardsPageCards.length > 0 ? (
                           <>
-                            {hasCardMovementData ? (
-                            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/20 p-3">
-                              {cardsSection === "all-cards" ? (
-                                <>
-                                <div className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
-                                  <span className="mb-1 block uppercase tracking-[0.08em]">Sort</span>
-                                  <div className="flex flex-wrap gap-2">
-                                    <select
-                                      aria-label="Sort cards by"
-                                      value={cardSortMode}
-                                      onChange={(event) => setCardSortMode(event.target.value)}
-                                      className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                                    >
-                                      {ALL_CARDS_SORT_OPTIONS.map((option) => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      type="button"
-                                      onClick={() => setCardSortDirection((direction) => direction === "asc" ? "desc" : "asc")}
-                                      aria-label={`Sort ${ALL_CARDS_SORT_OPTIONS.find((option) => option.value === cardSortMode)?.label || "cards"} ${cardSortDirection === "asc" ? "ascending" : "descending"}. Activate to reverse order.`}
-                                      aria-pressed={cardSortDirection === "desc"}
-                                      className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                                    >
-                                      {getAllCardsDirectionLabel(cardSortMode, cardSortDirection)}
-                                    </button>
-                                  </div>
-                                </div>
-                                <label className="min-w-0 text-xs font-semibold text-[var(--text-secondary)]">
-                                  <span className="mb-1 block uppercase tracking-[0.08em]">Rarity</span>
-                                  <select
-                                    value={cardRarityFilter}
-                                    onChange={(event) => setCardRarityFilter(event.target.value)}
-                                    className="min-w-[10rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                                  >
-                                    <option value="">All Rarities</option>
-                                    {availableCardRarities.map((rarityOption) => (
-                                      <option key={rarityOption} value={rarityOption}>{rarityOption}</option>
-                                    ))}
-                                  </select>
-                                </label>
-                                </>
-                              ) : (
-                                <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement direction">
-                                  {["gainers", "losers"].map((direction) => (
-                                    <button
-                                      key={direction}
-                                      type="button"
-                                      onClick={() => setCardSortDirection(direction)}
-                                      aria-pressed={cardSortDirection === direction}
-                                      className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                                        cardSortDirection === direction ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
-                                      }`}
-                                    >
-                                      {direction === "gainers" ? "▲ Gainers" : "▼ Losers"}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                              <div className="flex rounded-lg border border-[var(--border-subtle)] p-0.5" role="group" aria-label="Movement timeframe">
-                                {CARD_TIMEFRAMES.map((timeframe) => (
-                                  <button
-                                    key={timeframe}
-                                    type="button"
-                                    onClick={() => setSelectedTimeframe(timeframe)}
-                                    aria-pressed={selectedTimeframe === timeframe}
-                                    className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                                      selectedTimeframe === timeframe ? "bg-[var(--surface-hover)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
-                                    }`}
-                                  >
-                                    {timeframe}
-                                  </button>
-                                ))}
-                              </div>
-                              <p className="ml-auto text-xs text-[var(--text-secondary)]">
-                                {displayedChecklistCards.length.toLocaleString("en-US")} of {(activeCardsPageState.pagination?.totalCards ?? effectiveCardsPageCards.length).toLocaleString("en-US")} cards
-                              </p>
-                            </div>
-                            ) : null}
-
                             {displayedChecklistCards.length > 0 ? (
                               // Never dim or overlay the grid while more
                               // cards load — appended chunks render below and
@@ -12956,7 +13019,6 @@ export default function RipStatisticsPageClient({
                     explanation={recommendationSummary}
                     pillars={ripPillarTiles}
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                    ripDesirabilityBreakdown={ripDesirabilityBreakdown}
                     scoreMode={heroScoreSelection.mode}
                     onScoreModeChange={setHeroScoreMode}
                     coreAvailable={heroScoreSelection.coreAvailable}

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const CARDS_PAGE_CACHE_CONTROL = "no-store";
-const FORWARDED_PARAMS = ["page", "page_size", "sort", "sort_direction", "q", "rarity", "movement_filter", "movement_sort", "section", "snapshot_contract"];
+const FORWARDED_PARAMS = ["page", "page_size", "sort", "sort_direction", "q", "rarity", "movement_filter", "movement_sort", "movement_metric", "section", "snapshot_contract"];
 
 export async function GET(request, { params }) {
   const resolvedParams = (await params) || {};

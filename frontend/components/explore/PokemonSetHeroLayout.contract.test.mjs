@@ -49,9 +49,61 @@ test("context row uses the 46/27/27 identity, value, and Opening RIP structure",
   assert.ok(shell.includes("Set Value"));
   assert.ok(shell.includes("Opening RIP"));
   assert.ok(shell.includes("displayedTopScore"));
-  assert.ok(shell.includes("heroScoreSelection.tier"));
-  assert.ok(shell.includes("heroScoreSelection.rank"));
+  assert.ok(shell.includes("setContextRipTier"));
+  assert.ok(shell.includes("setContextRipRank"));
   assert.ok(shell.includes("recommendationBadge"));
+  // All three derive from the same `heroScoreSelection` the Insights breakdown
+  // renders, so the card cannot show a different mode's tier or rank.
+  for (const derivation of [
+    "const setContextRipTier = String(heroScoreSelection.tier",
+    "const setContextRipRank = toNumber(heroScoreSelection.rank)",
+    "const setContextRipCohort = toNumber(heroScoreSelection.cohortSize)",
+  ]) {
+    assert.ok(source.includes(derivation), `missing shared-selection derivation: ${derivation}`);
+  }
+});
+
+test("the title-card RIP summary shares the detailed breakdown's tier presentation", () => {
+  const shell = shellSource();
+
+  // Tier > verdict > rank, each an outlined pill in the same shape language as
+  // the breakdown's RankBadge / InterpretationBadge (rounded-full, 1px border).
+  for (const marker of ["data-set-context-rip-tier", "data-set-context-rip-rank", "data-set-context-rip-verdict"]) {
+    assert.equal((shell.match(new RegExp(marker, "g")) || []).length, 1, `${marker} must render once`);
+  }
+  assert.ok(shell.includes("style={setContextRipPresentation.tierPill}"));
+  assert.ok(shell.includes("style={setContextRipPresentation.rankPill}"));
+  assert.ok(shell.includes("style={setContextRipPresentation.verdictPill}"));
+  assert.equal((shell.match(/rounded-full border px-2 py-0\.5/g) || []).length, 3);
+
+  // One shared semantic source, keyed on the active tier — no hard-coded tier
+  // colour and no second mapping for the title card.
+  assert.ok(
+    source.includes("const setContextRipPresentation = getRipTierPresentation({"),
+    "the title card must read the shared tier presentation helper"
+  );
+  assert.ok(!/style=\{\{[^}]*color: *"#|rgba\(134, ?239, ?172/.test(shell), "no tier colour may be hard-coded in the shell");
+
+  // The score itself stays the neutral focal point.
+  assert.ok(shell.includes('<span className="text-sm font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{displayedTopScore}</span>'));
+
+  // Tier and rank are readable text, not colour-only signals.
+  assert.ok(shell.includes("{setContextRipTier} Tier"));
+  assert.ok(shell.includes("Rank #{Math.round(setContextRipRank)}"));
+
+  // Metadata wraps instead of relying on a fixed measure.
+  assert.ok(shell.includes("flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"));
+  assert.ok(!/data-set-context-rip-\w+[\s\S]{0,240}\bw-\[/.test(shell), "pills must not take a fixed width");
+});
+
+test("the title-card label names the metric it is actually showing", () => {
+  assert.ok(
+    source.includes(
+      'const setContextRipLabel = heroScoreSelection.mode === RIP_CORE_MODE ? heroScoreSelection.label : "Opening RIP";'
+    ),
+    "RIP Core must not render under the Opening RIP label"
+  );
+  assert.ok(shellSource().includes('<p className="set-context-eyebrow">{setContextRipLabel}</p>'));
 });
 
 test("persistent shell contains only concise context and deep-link actions", () => {
@@ -105,7 +157,22 @@ test("set-page content uses shared standard and dense glass surfaces without cha
   const shell = shellSource();
   assert.ok(source.includes("set-detail-glass-scope"));
   assert.ok(source.includes('"set-glass-surface w-full max-w-full min-w-0"'));
-  assert.ok(source.includes('id="set-detail-cards" className="set-glass-surface-dense'));
+  // Cards is deliberately NOT a glass panel: a surface there was the first
+  // ancestor blocking the ambient set artwork behind the grid. The section is
+  // a transparent layout region (like #set-detail-overview) and only its
+  // compact controls strip carries a surface.
+  assert.ok(
+    source.includes('<section id="set-detail-cards" data-cards-section className="scroll-mt-24 space-y-4 md:scroll-mt-28">'),
+    "the Cards section must stay a transparent layout region"
+  );
+  assert.ok(
+    !/id="set-detail-cards"[^>]*set-glass-surface/.test(source),
+    "no glass surface may be reintroduced on the Cards section itself"
+  );
+  assert.ok(
+    source.includes('<div data-cards-toolbar className="set-glass-surface space-y-3 rounded-2xl border p-3 md:p-4">'),
+    "the Cards controls must keep their own compact translucent panel"
+  );
   assert.ok(globals.includes("--set-glass-bg: rgba(8, 17, 31, 0.40);"));
   assert.ok(globals.includes("--set-glass-bg-dense: rgba(8, 17, 31, 0.52);"));
   assert.ok(globals.includes("--set-glass-border: rgba(145, 174, 212, 0.14);"));
@@ -126,6 +193,65 @@ test("set-page content uses shared standard and dense glass surfaces without cha
   assert.ok(!shell.includes("set-glass-surface"), "the persistent set-context title card must remain unchanged");
 });
 
+// The ambient set artwork must reach the eye through the whole Cards stack:
+// section -> grid wrapper -> card tile -> metadata. Any opaque or frosted
+// surface on an ancestor makes the transparent tiles reveal that panel instead
+// of the artwork, so each layer is pinned here.
+function cardsSectionSource() {
+  const start = source.indexOf('<section id="set-detail-cards"');
+  const end = source.indexOf('{setDetailTab === "pull-rates" ? (', start);
+  assert.ok(start >= 0 && end > start, "the Cards section markers must exist");
+  return source.slice(start, end);
+}
+
+test("the Cards transparency stack: only the controls carry a surface, never the grid", () => {
+  const cards = cardsSectionSource();
+
+  // 1. The section itself paints nothing.
+  const sectionTag = cards.slice(0, cards.indexOf(">") + 1);
+  assert.ok(!/set-glass|bg-|backdrop-blur/.test(sectionTag), `the Cards section tag must paint nothing: ${sectionTag}`);
+
+  // 2. Exactly one controls panel, and it holds the tabs, search, and the
+  //    sort/rarity/direction/timeframe/metric/count strip.
+  assert.equal((cards.match(/data-cards-toolbar/g) || []).length, 1, "there must be exactly one controls panel");
+  const toolbarStart = cards.indexOf("<div data-cards-toolbar");
+  const toolbar = cards.slice(toolbarStart, cards.indexOf('{cardsSubTab === "checklist" ? (\n                      <div className="min-w-0">'));
+  for (const control of [
+    "<SectionViewTabs",
+    'placeholder="Search cards by name"',
+    'aria-label="Sort cards by"',
+    "availableCardRarities.map",
+    'aria-label="Movement timeframe"',
+    'aria-label="Rank movement by"',
+    "cards\n",
+  ]) {
+    assert.ok(toolbar.includes(control), `the controls panel must contain ${control.trim()}`);
+  }
+
+  // 3. The controls strip is not a nested bordered panel inside that panel.
+  assert.ok(
+    toolbar.includes('<div className="flex flex-wrap items-end gap-3">'),
+    "the filter strip must sit flat inside the controls panel, not in its own bordered box"
+  );
+  assert.ok(
+    !toolbar.includes('bg-[var(--surface-page)]/20'),
+    "the old nested filter-strip surface must be gone"
+  );
+
+  // 4. The grid wrapper and the grid itself paint nothing.
+  const gridStart = cards.indexOf('<div className="grid grid-cols-2');
+  assert.ok(gridStart > 0, "the card grid must exist");
+  const gridTag = cards.slice(gridStart, cards.indexOf(">", gridStart) + 1);
+  assert.ok(!/set-glass|bg-|backdrop-blur/.test(gridTag), `the grid must paint nothing: ${gridTag}`);
+  assert.ok(cards.includes('<div className="min-w-0">'), "the grid wrapper stays a bare layout div");
+
+  // 5. No surface may be reintroduced anywhere between the section and the
+  //    tiles — the grid branch must stay free of panel utilities.
+  const gridBranch = cards.slice(cards.indexOf('{cardsSubTab === "checklist" ? (\n                      <div className="min-w-0">'));
+  assert.ok(!gridBranch.includes("set-glass-surface"), "no glass panel may wrap the card grid");
+  assert.ok(!gridBranch.includes("backdrop-blur"), "no backdrop blur may sit between the artwork and the tiles");
+});
+
 test("one fixed ambient artwork layer persists with a reduced-motion-safe low-cost glow", () => {
   assert.equal((source.match(/data-set-ambient-artwork/g) || []).length, 1);
   assert.ok(source.includes("selectedTarget?.hero_image_url || selectedTarget?.logo_image_url"));
@@ -133,11 +259,28 @@ test("one fixed ambient artwork layer persists with a reduced-motion-safe low-co
   assert.ok(source.includes("set-page-atmosphere pointer-events-none fixed"));
   assert.ok(source.includes("object-contain object-center"));
   assert.ok(source.includes("set-page-atmosphere-artwork"));
-  assert.ok(source.includes("grayscale(0.2)_brightness(1.14)_saturate(0.8)_blur(1px)"));
-  assert.ok(source.includes("mask-image:linear-gradient"));
+  assert.ok(source.includes("set-page-atmosphere-bloom"));
+  // Every knob is a --set-artwork-* token in globals.css so the treatment is
+  // retuned in one place. The markup must not hardcode an opacity or filter,
+  // and no tab may introduce its own override.
+  assert.ok(
+    !/set-page-atmosphere-(artwork|bloom)[^"]*(opacity-|brightness\(|saturate\(|grayscale\()/.test(source),
+    "the artwork layers must not hardcode opacity or filter values in markup"
+  );
   assert.ok(!source.includes("data-set-ambient-artwork animate-"));
-  assert.match(globals, /\.set-page-atmosphere-artwork[\s\S]+--set-artwork-y-offset: 20px;[\s\S]+opacity: 0\.085;[\s\S]+transform: translateY\(var\(--set-artwork-y-offset\)\);/);
-  assert.match(globals, /@media \(min-width: 1024px\)[\s\S]+\.set-page-atmosphere-artwork[\s\S]+--set-artwork-y-offset: 28px;[\s\S]+opacity: 0\.105;/);
+  assert.match(globals, /\.set-page-atmosphere-artwork \{[\s\S]+opacity: var\(--set-artwork-opacity\);[\s\S]+transform: translateY\(var\(--set-artwork-y-offset\)\);/);
+  assert.match(globals, /\.set-page-atmosphere-bloom \{[\s\S]+opacity: var\(--set-artwork-bloom-opacity\);/);
+  assert.match(globals, /@media \(min-width: 1024px\)[\s\S]+\.set-page-atmosphere \{[\s\S]+--set-artwork-y-offset: 28px;/);
+  // Ambient, not foreground. brightness() on the crisp layer stays at or below
+  // 1 so white-heavy artwork (151's numerals) cannot clip to pure white and
+  // read as bright blocks behind the charts, and the bloom — the layer that
+  // dominates perceived brightness — stays well under the crisp layer's reach.
+  const artworkBrightness = Number(globals.match(/--set-artwork-brightness: ([\d.]+);/)[1]);
+  assert.ok(artworkBrightness <= 1, `crisp artwork brightness must not exceed 1, got ${artworkBrightness}`);
+  const artworkOpacityLg = Number(globals.match(/--set-artwork-opacity-lg: ([\d.]+);/)[1]);
+  assert.ok(artworkOpacityLg > 0 && artworkOpacityLg <= 0.16, `artwork must stay ambient but visible, got ${artworkOpacityLg}`);
+  const bloomOpacityLg = Number(globals.match(/--set-artwork-bloom-opacity-lg: ([\d.]+);/)[1]);
+  assert.ok(bloomOpacityLg > 0 && bloomOpacityLg <= 0.18, `bloom must stay a glow, not a second image, got ${bloomOpacityLg}`);
   assert.match(globals, /\.set-page-atmosphere::after[\s\S]+animation: set-page-atmosphere-breathe 14s ease-in-out infinite;/);
   assert.match(globals, /@keyframes set-page-atmosphere-breathe[\s\S]+opacity: 0\.34;[\s\S]+opacity: 0\.52;/);
   assert.match(globals, /@media \(prefers-reduced-motion: reduce\)[\s\S]+\.set-page-atmosphere::after[\s\S]+animation: none;/);

@@ -843,13 +843,29 @@ test("market dashboard payload exposes distinct 1D/7D/30D market mover rows for 
   assert.notDeepEqual(marketMoversByWindow["7D"], marketMoversByWindow["30D"]);
 });
 
-test("Cards Market Movers exposes independent 7D/30D timeframe and direction controls", () => {
+test("Cards Market Movers exposes independent 7D/30D timeframe, direction, and metric controls", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(!source.includes("function MarketMoversModule("), "the standalone Cards movers module must be removed");
   assert.ok(source.includes("CARD_TIMEFRAMES.map((timeframe)"));
-  assert.ok(source.includes('direction === "gainers" ? "▲ Gainers" : "▼ Losers"'));
+  assert.ok(source.includes('{direction === "gainers" ? "Gainers" : "Losers"}'));
   assert.ok(source.includes('cardSort: "7d-movers"'));
+
+  // The gainers/losers triangles come from the shared DeltaTrendIcon at its
+  // smaller "sm" size rather than full-size ▲/▼ glyphs inlined in the label.
+  assert.ok(
+    !source.includes('"▲ Gainers"') && !source.includes('"▼ Losers"'),
+    "direction buttons must not inline full-size triangle glyphs in their labels"
+  );
+  assert.ok(source.includes('direction={direction === "gainers" ? "up" : "down"}'));
+
+  // Ranking metric is its own control and its own state — never folded into
+  // direction or timeframe.
+  assert.ok(source.includes("const [cardMovementMetric, setCardMovementMetric] = useState(DEFAULT_MARKET_MOVER_METRIC)"));
+  assert.ok(source.includes("MARKET_MOVER_METRIC_OPTIONS.map((option)"));
+  assert.ok(source.includes("setCardMovementMetric(option.value)"));
+  assert.ok(source.includes('aria-label="Rank movement by"'));
+  assert.ok(source.includes("movementMetric: movementMetricValue"), "the metric must reach the paginated server-side ranking");
   return;
 
   const componentStart = source.indexOf("function MarketMoversModule(");
@@ -1278,17 +1294,28 @@ test("30D top chase UI selection does not require a 30d dashboard snapshot", () 
   assert.ok(!source.includes("prefetchPokemonSetMarketDashboard(resolvedSetId, { window: DEFAULT_TOP_MARKET_CARDS_WINDOW })"));
 });
 
-test("RIP breakdown strip shows Financial RIP, Opening Desirability (CA7) and Overall RIP", () => {
+test("the Overall RIP construction strip is fully retired from the verdict section", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // Overall RIP = 0.90 Financial RIP + 0.10 CA7 Opening Desirability (a blend).
-  assert.ok(source.includes("function RipDesirabilityBreakdownStrip"));
-  assert.ok(source.includes('label: "Financial RIP"'));
-  assert.ok(source.includes('label: "Opening Desirability / CA7"'));
-  assert.ok(source.includes('label: "Overall RIP"'));
-  assert.ok(source.includes("90% Financial RIP + 10% Opening Desirability"));
-  assert.ok(source.includes("Effective final weights"));
-  assert.ok(source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
+  // Overall RIP is still 0.90 Financial RIP + 0.10 CA7 Opening Desirability -
+  // the blend is unchanged in the backend and in the selector. What is gone is
+  // the user-facing panel that spelled the construction out: contribution
+  // points, the formula line, and the effective per-pillar weights. That is
+  // formula-assembly detail, not a verdict, so the section no longer renders it
+  // in either score mode, expanded or collapsed.
+  assert.ok(!source.includes("function RipDesirabilityBreakdownStrip"));
+  assert.ok(!source.includes("<RipDesirabilityBreakdownStrip"));
+  assert.ok(!source.includes('label: "Financial RIP"'));
+  assert.ok(!source.includes('label: "Opening Desirability / CA7"'));
+  assert.ok(!source.includes('label: "Overall RIP"'));
+  assert.ok(!source.includes("90% Financial RIP + 10% Opening Desirability"));
+  assert.ok(!source.includes("Effective final weights"));
+  assert.ok(!source.includes("How Overall RIP Is Built"));
+  assert.ok(!source.includes("contributionLabel"));
+  assert.ok(!source.includes("effectiveWeights"));
+  // The view model it consumed has no remaining consumer on this page.
+  assert.ok(!source.includes("selectRipDesirabilityBreakdown("));
+  assert.ok(!source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
 
   // The retired capped-adjustment framing is gone: there is no "Desirability
   // Adjustment" row and no cap copy.
@@ -1349,12 +1376,21 @@ test("set page insights receive the canonical RIP contract through the snapshot 
   }
 
   // The page reads the canonical objects (payload first, then the rankings
-  // target) and feeds the breakdown strip from them.
+  // target) and feeds the verdict section from them.
   assert.ok(source.includes("explorePayload?.rip || selectedTarget?.rip"));
-  assert.ok(source.includes("explorePayload?.ripCore || selectedTarget?.ripCore"));
   assert.ok(source.includes("explorePayload?.universalSetDesirability"));
   assert.ok(source.includes("<RipScoreBreakdownModule"));
-  assert.ok(source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
+
+  // `ripCore` keeps the same payload -> target -> summary precedence; it is
+  // resolved inside selectRipHeroScoreMode (see ripHeroScoreMode.test.mjs)
+  // rather than mirrored into a local memo, which is why no local
+  // `explorePayload?.ripCore` read remains on the page.
+  const heroModeStart = source.indexOf("const heroScoreSelection = selectRipHeroScoreMode({");
+  assert.ok(heroModeStart >= 0, "the hero must resolve its score mode through the canonical selector");
+  const heroModeCall = source.slice(heroModeStart, source.indexOf("});", heroModeStart));
+  assert.ok(heroModeCall.includes("summary,"));
+  assert.ok(heroModeCall.includes("target: selectedTarget,"));
+  assert.ok(heroModeCall.includes("payload: explorePayload,"));
 });
 
 test("market dashboard normalizer attaches top chase histories to cards", async () => {
@@ -3325,17 +3361,19 @@ test("Phase 11: Overview reports section-level timing metrics via useSectionTimi
   }
 });
 
-// Progressive-rendering refactor: Pull Rates is the first tab split into
-// priority-ordered section boundaries (Hit Rate Summary -> Pull Rate Table ->
-// Source & Reference -> Advanced Odds), each independently gated via the
-// shared SectionBoundary/SectionErrorBoundary primitives instead of one
-// whole-tab SetTabLoadingPanel gate. The underlying fetch (pullRatesState,
-// request-key dedupe, 8s timeout escape) is deliberately untouched in
-// RipStatisticsPageClient.jsx — only PullRatesTab.jsx's render changed.
+// Pull Rate Assumptions condensation: the tab that was split into 4
+// priority-ordered sections (Hit Rate Summary cards -> pack-structure-only
+// table -> Source & Reference note -> collapsed Advanced Odds accordion) is
+// now ONE compact quick-reference table, so it carries one loading/error
+// boundary rather than four. The underlying fetch (pullRatesState, request-key
+// dedupe, 8s timeout escape) is deliberately untouched in
+// RipStatisticsPageClient.jsx — only the render changed.
 const pullRatesTabPath = path.resolve(__dirname, "../pokemon/set-page/PullRates/PullRatesTab.jsx");
 const pullRateAssumptionsCardPath = path.resolve(__dirname, "../pokemon/set-page/PullRates/PullRateAssumptionsCard.jsx");
+const pullRateAssumptionsTablePath = path.resolve(__dirname, "../pokemon/set-page/PullRates/PullRateAssumptionsTable.jsx");
+const pullRatesDirPath = path.resolve(__dirname, "../pokemon/set-page/PullRates");
 
-test("Phase 11: PullRatesTab composes 4 priority-ordered SectionBoundary sections and keeps the timeout/empty copy", () => {
+test("Pull Rates renders one compact table section and keeps the timeout/empty copy", () => {
   const source = fs.readFileSync(pullRatesTabPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
@@ -3344,38 +3382,24 @@ test("Phase 11: PullRatesTab composes 4 priority-ordered SectionBoundary section
   );
   assert.ok(
     source.includes('import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";'),
-    "PullRatesTab must wrap sections in the shared render-error boundary"
+    "PullRatesTab must wrap the section in the shared render-error boundary"
   );
 
+  // The loading/error boundaries must survive the condensation — one section
+  // now, so exactly one of each.
   const sectionBoundaryCount = (source.match(/<SectionBoundary/g) || []).length;
-  assert.equal(sectionBoundaryCount, 4, `PullRatesTab must render exactly 4 section boundaries (found ${sectionBoundaryCount})`);
+  assert.equal(sectionBoundaryCount, 1, `PullRatesTab must render exactly 1 section boundary (found ${sectionBoundaryCount})`);
+  const errorBoundaryCount = (source.match(/<SectionErrorBoundary/g) || []).length;
+  assert.equal(errorBoundaryCount, 1, `the single section must stay wrapped in a SectionErrorBoundary (found ${errorBoundaryCount})`);
+
   assert.ok(
     source.includes('className="set-glass-surface scroll-mt-24'),
     "Pull Rates must retain the shared standard translucent glass treatment"
   );
-  const assumptionsSource = fs.readFileSync(pullRateAssumptionsCardPath, "utf8").replace(/\r\n/g, "\n");
-  assert.ok(assumptionsSource.includes('className="set-glass-inner w-full'));
-  assert.ok(assumptionsSource.includes('className="set-glass-table-header"'));
-  assert.ok(assumptionsSource.includes('className="set-glass-table-group"'));
-
-  const errorBoundaryCount = (source.match(/<SectionErrorBoundary/g) || []).length;
-  assert.equal(errorBoundaryCount, 4, `each of the 4 sections must be wrapped in its own SectionErrorBoundary (found ${errorBoundaryCount})`);
-
-  assert.ok(source.includes("<HitRateSummarySection"), "Hit Rate Summary (priority 2) must render");
-  assert.ok(source.includes("<PullRateTableSection"), "Pull Rate Table (priority 3) must render");
-  assert.ok(source.includes("<SourceReferenceSection"), "Source & Reference (priority 4) must render");
-  assert.ok(source.includes("<AdvancedOddsSection"), "Advanced Odds (priority 5) must render");
-
-  // Priority order must match the summary -> table -> sources -> advanced
-  // sequence, so higher-priority content never renders after lower-priority
-  // content in source order.
-  const summaryIndex = source.indexOf("<HitRateSummarySection");
-  const tableIndex = source.indexOf("<PullRateTableSection");
-  const sourcesIndex = source.indexOf("<SourceReferenceSection");
-  const advancedIndex = source.indexOf("<AdvancedOddsSection");
+  assert.ok(source.includes("<PullRateAssumptionsTable"), "the tab must render the single condensed table");
   assert.ok(
-    summaryIndex < tableIndex && tableIndex < sourcesIndex && sourcesIndex < advancedIndex,
-    "sections must render in priority order: summary, table, sources, advanced"
+    source.includes('<p className="text-base font-semibold text-[var(--text-primary)]">Pull Rate Assumptions</p>'),
+    "the section title must remain"
   );
 
   assert.ok(!source.includes("InlinePanelSkeleton"), "the old skeleton rows must be gone from the pending path");
@@ -3387,6 +3411,79 @@ test("Phase 11: PullRatesTab composes 4 priority-ordered SectionBoundary section
     source.includes("Pull-rate data coming soon for this set."),
     "the settled-empty compact state must remain after the request resolves empty"
   );
+});
+
+test("Pull Rates drops the summary cards, accordion, source-reference panel, and explanatory copy", () => {
+  const source = fs.readFileSync(pullRatesTabPath, "utf8").replace(/\r\n/g, "\n");
+  const tableSource = fs.readFileSync(pullRateAssumptionsTablePath, "utf8").replace(/\r\n/g, "\n");
+  const sectionSources = `${source}\n${tableSource}`;
+
+  for (const removed of [
+    "HitRateSummarySection",
+    "PullRateTableSection",
+    "SourceReferenceSection",
+    "AdvancedOddsSection",
+    "selectPullRateHeadline",
+    "Tracked Rarities",
+    "Chase Slot",
+    "Advanced &amp; Special-Pack Odds",
+    "Modeled rarity frequency and specific-card odds used by this simulation.",
+    "These are modeled estimates",
+    "Source references for these modeled odds",
+  ]) {
+    assert.ok(!sectionSources.includes(removed), `"${removed}" must be gone from the Pull Rates section`);
+  }
+
+  // No accordion framing and no hidden collapsed duplicate of the advanced
+  // rows: no <details>/<summary>, no chevron, no open/close state.
+  for (const accordionMarker of ["<details", "<summary", "group-open:rotate", "useState"]) {
+    assert.ok(!sectionSources.includes(accordionMarker), `the accordion marker "${accordionMarker}" must be gone`);
+  }
+
+  // The deleted section components must not linger on disk.
+  const remainingFiles = fs.readdirSync(pullRatesDirPath);
+  for (const deleted of [
+    "HitRateSummarySection.jsx",
+    "PullRateTableSection.jsx",
+    "SourceReferenceSection.jsx",
+    "AdvancedOddsSection.jsx",
+    "pullRateSummarySelector.mjs",
+  ]) {
+    assert.ok(!remainingFiles.includes(deleted), `${deleted} must be deleted, not left orphaned`);
+  }
+});
+
+test("the condensed Pull Rates table declares exactly four columns and reuses the existing formatters", () => {
+  const source = fs.readFileSync(pullRateAssumptionsTablePath, "utf8").replace(/\r\n/g, "\n");
+
+  const tableShellCount = (source.match(/<table/g) || []).length;
+  assert.equal(tableShellCount, 1, "there must be exactly one table shell (no separate pack-structure/advanced tables)");
+
+  const headers = [...source.matchAll(/<th[^>]*>([^<]+)<\/th>/g)].map((match) => match[1].trim());
+  assert.deepEqual(headers, ["Rarity / Slot", "Card Pool", "Pull Frequency", "Specific Card Odds"]);
+
+  // Values must come from the shared canonical formatters — no second
+  // pull-rate formula and no client-side card counting.
+  assert.ok(
+    source.includes('from "./pullRateFormatting.mjs"'),
+    "the table must format through the existing shared helpers"
+  );
+  assert.ok(
+    source.includes("formatCardCount(row.cardCount ?? row.card_count ?? row.eligibleCardCount ?? row.eligible_card_count)"),
+    "card pool must read the existing canonical fields through the shared formatter"
+  );
+  assert.ok(source.includes("formatPullFrequency(row, groupKey)"), "pull frequency must use the existing formatter");
+  assert.ok(
+    source.includes("formatOddsDenominator(row.specificCardOddsDenominator ?? row.specific_card_odds_denominator)"),
+    "specific-card odds must read the existing canonical fields"
+  );
+  assert.ok(!/Math\.(pow|round|log)|\/\s*expected|1\s*\/\s*/.test(source), "the table must not recompute any odds");
+  // Card pool must be a payload passthrough — never counted from a card list.
+  assert.ok(
+    !/cards\.length|\.filter\(|\.reduce\(|new Set\(/.test(source),
+    "the table must not derive the card pool client-side"
+  );
+  assert.ok(source.includes("text-[var(--accent)]"), "specific-card odds must keep the yellow accent emphasis");
 });
 
 test("Phase 11: the page client no longer inlines Pull Rates JSX and delegates to PullRatesTab with the untouched fetch state", () => {
@@ -3409,11 +3506,18 @@ test("Phase 11: the page client no longer inlines Pull Rates JSX and delegates t
   assert.ok(source.includes("lastPullRatesRequestKeyRef"), "the request-key dedupe guard must remain in the page client");
 });
 
-test("Phase 11: PullRateAssumptionsCard exports PullRateTable/PullRateMobileRows/buildGroupsForRender for section-level reuse", () => {
+// PullRateAssumptionsCard is the LEGACY grouped presentation, still rendered by
+// the non-set-detail Explore expert view (effectiveValueView === "assumptions").
+// The set page's Pull Rates tab no longer uses it — it renders the condensed
+// PullRateAssumptionsTable instead — so this guards the legacy surface only.
+test("the legacy grouped PullRateAssumptionsCard keeps its exports and glass treatment", () => {
   const source = fs.readFileSync(pullRateAssumptionsCardPath, "utf8").replace(/\r\n/g, "\n");
-  assert.ok(source.includes("export function PullRateTable"), "PullRateTable must be exported for reuse by PullRateTableSection/AdvancedOddsSection");
-  assert.ok(source.includes("export function PullRateMobileRows"), "PullRateMobileRows must be exported for reuse");
-  assert.ok(source.includes("export { buildGroupsForRender }"), "buildGroupsForRender must be re-exported for reuse");
+  assert.ok(source.includes("export function PullRateTable"), "PullRateTable must stay exported for the legacy Explore expert view");
+  assert.ok(source.includes("export function PullRateMobileRows"), "PullRateMobileRows must stay exported");
+  assert.ok(source.includes("export { buildGroupsForRender }"), "buildGroupsForRender must stay re-exported");
+  assert.ok(source.includes('className="set-glass-inner w-full'));
+  assert.ok(source.includes('className="set-glass-table-header"'));
+  assert.ok(source.includes('className="set-glass-table-group"'));
 });
 
 test("Phase 11: Insights' critical tier holds its own branded panel (not a whole-tab gate); Opening Outcomes/Desirability Evidence gate independently on the secondary tier", () => {
@@ -4216,12 +4320,9 @@ test("RIP breakdown strip omits uncomputed fields instead of rendering placehold
   assert.ok(!source.includes("<ProofMetric"), "the rank-chip grid must be gone from the main display");
   assert.ok(!source.includes("function DesirabilityImpactNote"), "the legacy impact note was retired with its section");
 
-  // The strip renders nothing at all when the canonical contract is absent -
-  // no fallback sentence, no legacy comparison.
-  const stripStart = source.indexOf("function RipDesirabilityBreakdownStrip({ breakdown })");
-  assert.ok(stripStart >= 0);
-  const stripSource = source.slice(stripStart, stripStart + 900);
-  assert.ok(stripSource.includes("if (!breakdown) {"), "a missing breakdown model must render nothing");
+  // The strip that used to carry these fields has itself been retired, so
+  // there is no longer any breakdown-model rendering to guard here.
+  assert.ok(!source.includes("function RipDesirabilityBreakdownStrip"), "the construction strip must stay retired");
 });
 
 test("the legacy rank-alignment presentation is fully retired from the page", () => {

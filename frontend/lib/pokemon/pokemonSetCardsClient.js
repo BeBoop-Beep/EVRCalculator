@@ -496,6 +496,7 @@ export function normalizePokemonSetCardsPagePayload(payload) {
       sort: toOptionalString(filters?.sort),
       sortDirection: toOptionalString(filters?.sortDirection),
       movementSort: toOptionalString(filters?.movementSort),
+      movementMetric: toOptionalString(filters?.movementMetric),
       movementFilter: toOptionalString(filters?.movementFilter),
       section: toOptionalString(filters?.section),
       query: toOptionalString(filters?.query),
@@ -607,7 +608,7 @@ export async function getPokemonSetCardsValidation(setId, { maxCards = null, inc
 
 export async function getPokemonSetCardsPage(
   setId,
-  { page = 1, pageSize = 60, sort = "set-number", sortDirection = "asc", query = null, rarity = null, movementFilter = null, movementSort = null, section = null } = {}
+  { page = 1, pageSize = 60, sort = "set-number", sortDirection = "asc", query = null, rarity = null, movementFilter = null, movementSort = null, movementMetric = null, section = null } = {}
 ) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -639,6 +640,12 @@ export async function getPokemonSetCardsPage(
   }
   if (movementSort) {
     params.set("movement_sort", String(movementSort));
+  }
+  // Market Movers ranks by percentage or absolute dollar movement. Ranking is
+  // server-side (the list is paginated), so the metric travels with the query
+  // and takes part in the cache key rather than reordering loaded pages.
+  if (movementMetric) {
+    params.set("movement_metric", String(movementMetric));
   }
   // Market Movers is a query mode over the same canonical Cards dataset —
   // section=market-movers narrows membership server-side (valid nonzero
