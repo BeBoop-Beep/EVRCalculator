@@ -2302,7 +2302,9 @@ def test_shell_snapshot_includes_checklist_set_value_history(monkeypatch):
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
-    # Prefers the 30d window row's history over the 365d row when both exist.
+    # Picks the 30d row here because its history is the FRESHER one
+    # (2026-06-28 vs 2025-07-01), not because 30d outranks 365d — see
+    # test_shell_checklist_history_also_follows_freshness for the inverse.
     assert payload["setValueHistoriesByScope"]["standard"][-1]["setValue"] == 123.45
     assert len(payload["setValueHistoriesByScope"]["standard"]) == 2
     assert "set_value_histories_by_scope" not in payload
@@ -5190,3 +5192,356 @@ def test_insights_critical_payload_warns_when_snapshot_predates_the_contract(mon
     assert payload["ripCore"] == {}
     assert payload["openingExperience"] == {}
     assert any("rebuild set-page snapshots" in str(w) for w in payload["meta"]["warnings"])
+
+
+# ---------------------------------------------------------------------------
+# Checklist set value: freshest-candidate selection across snapshot windows.
+#
+# Regression context: pokemon_set_market_dashboard_snapshot_latest can hold one
+# 30d row and one 365d row per set, rebuilt independently. Selection used a
+# fixed window priority (30d first), so a leftover 30d row whose history ended
+# 2026-06-20 shadowed the current 365d row dated 2026-07-28 and the Explore Top
+# Rankings module published a stale set value. Selection now follows freshness,
+# with window preference surviving only as the final deterministic tie-breaker.
+# ---------------------------------------------------------------------------
+
+_SET_A = "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
+_SET_B = "7a3dd188-4375-41af-94de-c5247fe0b1a6"
+
+
+def _dashboard_row(
+    set_id,
+    window_key,
+    *,
+    history=None,
+    latest_market_date=None,
+    updated_at=None,
+):
+    return {
+        "set_id": set_id,
+        "window_key": window_key,
+        "set_value_histories_json": {"standard": history} if history is not None else {},
+        "latest_market_date": latest_market_date,
+        "updated_at": updated_at,
+    }
+
+
+def _checklist_client(rows):
+    return _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _query: list(rows)})
+
+
+def _load_checklist_values(monkeypatch, rows, set_ids):
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
+    return pokemon_public_snapshot_service._load_latest_checklist_set_values(set_ids)
+
+
+def test_checklist_value_prefers_current_365d_over_stale_30d(monkeypatch):
+    """A. The exact Ascended Heroes shape: stale 30d vs current 365d."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-05-22", "setValue": 7000.0}, {"date": "2026-06-20", "setValue": 7754.26}],
+            latest_market_date="2026-06-20",
+            updated_at="2026-06-30T22:24:37.709615+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-04-11", "setValue": 5000.0}, {"date": "2026-07-28", "setValue": 6725.75}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T20:00:54.805204+00:00",
+        ),
+    ]
+    selected = _load_checklist_values(monkeypatch, rows, [_SET_A])[_SET_A]
+
+    assert selected["value"] == 6725.75
+    assert selected["date"] == "2026-07-28"
+    # Proves the choice was freshness, not window rank: 30d is the preferred
+    # window and still lost.
+    assert selected["window_key"] == "365d"
+
+
+def test_checklist_value_prefers_current_30d_over_stale_365d(monkeypatch):
+    """B. The mirror case - the fix must not simply invert the old preference."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-07-28", "setValue": 410.0}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T20:00:00+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-06-20", "setValue": 380.0}],
+            latest_market_date="2026-06-20",
+            updated_at="2026-06-20T20:00:00+00:00",
+        ),
+    ]
+    selected = _load_checklist_values(monkeypatch, rows, [_SET_A])[_SET_A]
+
+    assert selected["value"] == 410.0
+    assert selected["date"] == "2026-07-28"
+    assert selected["window_key"] == "30d"
+
+
+def test_checklist_value_tie_on_history_date_falls_to_latest_market_date(monkeypatch):
+    """C1. Equal history dates -> newer latest_market_date wins."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-07-28", "setValue": 100.0}],
+            latest_market_date="2026-07-20",
+            updated_at="2026-07-28T23:00:00+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-07-28", "setValue": 200.0}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T01:00:00+00:00",
+        ),
+    ]
+    selected = _load_checklist_values(monkeypatch, rows, [_SET_A])[_SET_A]
+
+    assert selected["value"] == 200.0
+    assert selected["window_key"] == "365d"
+
+
+def test_checklist_value_tie_on_market_date_falls_to_updated_at(monkeypatch):
+    """C2. Equal history AND market dates -> newer updated_at wins."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-07-28", "setValue": 100.0}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T01:00:00+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-07-28", "setValue": 200.0}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T23:00:00+00:00",
+        ),
+    ]
+    selected = _load_checklist_values(monkeypatch, rows, [_SET_A])[_SET_A]
+
+    assert selected["value"] == 200.0
+    assert selected["window_key"] == "365d"
+
+
+def test_checklist_value_fully_tied_candidates_use_deterministic_window_priority(monkeypatch):
+    """C3. Identical freshness on every date -> window preference decides, and
+    the result is stable regardless of row order."""
+
+    def rows_in(order):
+        by_window = {
+            "30d": _dashboard_row(
+                _SET_A,
+                "30d",
+                history=[{"date": "2026-07-28", "setValue": 100.0}],
+                latest_market_date="2026-07-28",
+                updated_at="2026-07-28T12:00:00+00:00",
+            ),
+            "365d": _dashboard_row(
+                _SET_A,
+                "365d",
+                history=[{"date": "2026-07-28", "setValue": 200.0}],
+                latest_market_date="2026-07-28",
+                updated_at="2026-07-28T12:00:00+00:00",
+            ),
+        }
+        return [by_window[window] for window in order]
+
+    first = _load_checklist_values(monkeypatch, rows_in(["30d", "365d"]), [_SET_A])[_SET_A]
+    second = _load_checklist_values(monkeypatch, rows_in(["365d", "30d"]), [_SET_A])[_SET_A]
+
+    assert first["window_key"] == "30d"
+    assert first == second
+
+
+def test_checklist_value_skips_window_with_unusable_history(monkeypatch):
+    """D. An empty/invalid history makes that window ineligible entirely."""
+    rows = [
+        _dashboard_row(_SET_A, "30d", history=[], latest_market_date="2026-07-28", updated_at="2026-07-28T20:00:00+00:00"),
+        _dashboard_row(_SET_B, "30d", history=None, latest_market_date="2026-07-28", updated_at="2026-07-28T20:00:00+00:00"),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-06-20", "setValue": 55.5}],
+            latest_market_date="2026-06-20",
+            updated_at="2026-06-20T20:00:00+00:00",
+        ),
+        _dashboard_row(
+            _SET_B,
+            "365d",
+            history=[{"date": "2026-06-21", "setValue": 66.6}],
+            latest_market_date="2026-06-21",
+            updated_at="2026-06-21T20:00:00+00:00",
+        ),
+    ]
+    values = _load_checklist_values(monkeypatch, rows, [_SET_A, _SET_B])
+
+    assert values[_SET_A] == {
+        "value": 55.5,
+        "date": "2026-06-20",
+        "updated_at": "2026-06-20T20:00:00+00:00",
+        "window_key": "365d",
+    }
+    assert values[_SET_B]["value"] == 66.6
+    assert values[_SET_B]["window_key"] == "365d"
+
+
+@pytest.mark.parametrize("bad_value", [0, 0.0, -1, -12.34, None, "not-a-number"])
+def test_checklist_value_excludes_non_positive_and_non_numeric_values(monkeypatch, bad_value):
+    """E. Zero, negative, missing and non-numeric values are never published -
+    not substituted, not zero-filled. A newer bad point does not win."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-07-28", "setValue": bad_value}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T20:00:00+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-06-20", "setValue": 42.0}],
+            latest_market_date="2026-06-20",
+            updated_at="2026-06-20T20:00:00+00:00",
+        ),
+    ]
+    values = _load_checklist_values(monkeypatch, rows, [_SET_A])
+
+    assert values[_SET_A]["value"] == 42.0
+    assert values[_SET_A]["window_key"] == "365d"
+
+
+def test_checklist_value_drops_set_when_every_candidate_is_invalid(monkeypatch):
+    """E (cont). No valid candidate means no key at all, never a zero value."""
+    rows = [
+        _dashboard_row(_SET_A, "30d", history=[{"date": "2026-07-28", "setValue": 0}]),
+        _dashboard_row(_SET_A, "365d", history=[{"date": "2026-06-20", "setValue": -5}]),
+    ]
+    assert _load_checklist_values(monkeypatch, rows, [_SET_A]) == {}
+
+
+def test_checklist_value_selection_is_independent_per_set(monkeypatch):
+    """G. One set's stale window must not influence another set's choice."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-06-20", "setValue": 7754.26}],
+            latest_market_date="2026-06-20",
+            updated_at="2026-06-30T22:24:37+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-07-28", "setValue": 6725.75}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T20:00:54+00:00",
+        ),
+        _dashboard_row(
+            _SET_B,
+            "30d",
+            history=[{"date": "2026-07-28", "setValue": 5195.11}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T20:02:39+00:00",
+        ),
+    ]
+    values = _load_checklist_values(monkeypatch, rows, [_SET_A, _SET_B])
+
+    assert values[_SET_A]["value"] == 6725.75
+    assert values[_SET_A]["window_key"] == "365d"
+    assert values[_SET_B]["value"] == 5195.11
+    assert values[_SET_B]["window_key"] == "30d"
+
+
+def test_checklist_enrichment_publishes_every_alias_from_the_selected_candidate(monkeypatch):
+    """F. The freshest candidate populates all camelCase and snake_case aliases
+    plus the nested market block, and the source meta is preserved."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-06-20", "setValue": 7754.26}],
+            latest_market_date="2026-06-20",
+            updated_at="2026-06-30T22:24:37+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-07-28", "setValue": 6725.75}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T20:00:54+00:00",
+        ),
+    ]
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
+
+    payload = pokemon_public_snapshot_service._enrich_rankings_payload_with_checklist_set_values(
+        {"targets": [{"set_id": _SET_A, "name": "Ascended Heroes", "market": {"existing": "kept"}}], "meta": {}}
+    )
+    target = payload["targets"][0]
+
+    for field in ("checklistSetValue", "checklist_set_value", "currentChecklistSetValue", "current_checklist_set_value"):
+        assert target[field] == 6725.75, field
+    for field in ("checklistSetValueAsOf", "checklist_set_value_as_of"):
+        assert target[field] == "2026-07-28", field
+
+    assert target["market"]["checklistSetValue"] == 6725.75
+    assert target["market"]["checklist_set_value"] == 6725.75
+    assert target["market"]["asOf"] == "2026-07-28"
+    assert target["market"]["as_of"] == "2026-07-28"
+    assert target["market"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
+    assert target["market"]["existing"] == "kept"
+
+    assert payload["meta"]["sources"]["checklist_set_value_enrichment"] == "pokemon_set_market_dashboard_snapshot_latest"
+    # Internal selection inputs must not leak into the public payload.
+    assert "window_key" not in target
+    assert "latest_market_date" not in target
+
+
+def test_shell_checklist_history_also_follows_freshness(monkeypatch):
+    """The set page reads the same table through its own helper. If it kept the
+    fixed window priority, the set page and Explore would publish different set
+    values for the same set from the same snapshot."""
+    rows = [
+        _dashboard_row(
+            _SET_A,
+            "30d",
+            history=[{"date": "2026-06-20", "setValue": 7754.26}],
+            latest_market_date="2026-06-20",
+            updated_at="2026-06-30T22:24:37+00:00",
+        ),
+        _dashboard_row(
+            _SET_A,
+            "365d",
+            history=[{"date": "2026-07-27", "setValue": 6700.0}, {"date": "2026-07-28", "setValue": 6725.75}],
+            latest_market_date="2026-07-28",
+            updated_at="2026-07-28T20:00:54+00:00",
+        ),
+    ]
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
+
+    history = pokemon_public_snapshot_service._load_shell_checklist_set_value_history(_SET_A)
+
+    assert history["standard"][-1]["date"] == "2026-07-28"
+    assert history["standard"][-1]["setValue"] == 6725.75
+
+
+def test_latest_standard_point_never_lets_an_undated_point_win():
+    """An undated trailing point cannot be proven latest; letting it win would
+    blank the as-of date and break the cross-window freshness comparison."""
+    latest = pokemon_public_snapshot_service._latest_standard_set_value_from_histories(
+        {"standard": [{"date": "2026-07-28", "setValue": 100.0}, {"date": None, "setValue": 999.0}]}
+    )
+
+    assert latest == {"value": 100.0, "date": "2026-07-28"}

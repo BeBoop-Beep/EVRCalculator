@@ -98,6 +98,35 @@ test("rows carry the documented hierarchy: position, logo, name, value", () => {
   assert.ok(source.includes("setValueFormatter.format(value)"), "each row shows the set value as currency");
 });
 
+// A set-value ranking row belongs on Overview, where the set value and its
+// trend live. It previously deep-linked to the Insights RIP-score section,
+// which is a different metric from the one the row is ranked by.
+test("a ranking row opens the set's Overview tab", () => {
+  const source = readComponent();
+  assert.ok(
+    source.includes('buildTcgSetHrefFromTarget(target, { tab: "overview" })'),
+    "rows must link to the Overview tab"
+  );
+  assert.ok(!source.includes('tab: "insights"'), "rows must not link to Insights");
+  assert.ok(!source.includes('section: "rip-score"'), "rows must not deep-link to the RIP score section");
+});
+
+test("row navigation still goes through the shared routing helper and set slug", () => {
+  const source = readComponent();
+  assert.ok(
+    source.includes('import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting"'),
+    "routing must stay in the shared helper, not be hand-built in this component"
+  );
+  assert.ok(!source.includes("/TCGs/Pokemon/Sets/"), "the base route must not be hardcoded here");
+
+  // Prove the produced href shape end to end against the real helper.
+  const routingSource = fs.readFileSync(
+    path.resolve(__dirname, "..", "..", "lib", "explore", "ripStatisticsRouting.js"),
+    "utf8"
+  );
+  assert.ok(routingSource.includes("export function buildTcgSetHrefFromTarget"), "the helper must still exist");
+});
+
 test("rows stay navigable and quiet: one link per row, no per-row card border", () => {
   const source = readComponent();
   assert.ok(source.includes("buildTcgSetHrefFromTarget(target"), "rows must navigate to the set page");
@@ -121,4 +150,24 @@ test("the module adds no data request of its own", () => {
   const source = readComponent();
   assert.ok(!source.includes("fetch("), "Top Rankings must reuse the page's targets, never fetch");
   assert.ok(!source.includes("useEffect"), "no client-side data loading may be introduced");
+});
+
+// Staleness is a backend selection problem. The component must keep rendering
+// whatever the canonical enrichment publishes — it must never reach for a
+// second source, compare snapshot windows itself, or paper over a stale date.
+test("staleness is never resolved in the component", () => {
+  const source = readComponent();
+  for (const windowToken of ["30d", "365d", "window_key", "windowKey", "latest_market_date"]) {
+    assert.ok(!source.includes(windowToken), `the component must not reason about ${windowToken}`);
+  }
+  assert.ok(
+    source.includes("readSetValue(target)") && source.includes("readSetValueAsOf(target)"),
+    "the value and its as-of date must both come from the enriched target"
+  );
+  // The stale-date indicator must survive: it truthfully reports a row that
+  // received an older snapshot and is not a workaround to be deleted.
+  assert.ok(
+    source.includes("Boolean(asOf && latestAsOf && asOf < latestAsOf)"),
+    "the stale-date indicator must remain"
+  );
 });

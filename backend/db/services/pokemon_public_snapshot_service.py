@@ -968,6 +968,13 @@ def enrich_cards_payload_with_desirability(
 
 
 def _latest_standard_set_value_from_histories(histories_by_scope: Any) -> Dict[str, Any]:
+    """Latest usable standard/checklist point in one snapshot row's history.
+
+    A point only qualifies with a positive numeric value. Dated points always
+    beat undated ones: an undated point cannot be proven to be the latest, and
+    letting one win would blank the as-of date and defeat the cross-window
+    freshness comparison in _select_freshest_checklist_snapshot_row.
+    """
     if not isinstance(histories_by_scope, dict):
         return {}
     history = histories_by_scope.get("standard") or histories_by_scope.get("checklist") or []
@@ -983,8 +990,10 @@ def _latest_standard_set_value_from_histories(histories_by_scope: Any) -> Dict[s
         if value is None or value <= 0:
             continue
         date_key = _parse_date_key(point.get("date") or point.get("snapshot_date") or point.get("sourceDate") or point.get("source_date"))
-        if latest_date is not None and date_key is not None and date_key < latest_date:
-            continue
+        if latest_date is not None:
+            # Never let an undated or older point displace a dated one.
+            if date_key is None or date_key < latest_date:
+                continue
         latest = {"value": round(value, 2), "date": date_key}
         if date_key:
             latest_date = date_key
@@ -992,15 +1001,84 @@ def _latest_standard_set_value_from_histories(histories_by_scope: Any) -> Dict[s
     return latest
 
 
+# Deterministic tie-break only. This is NOT a freshness signal: it decides
+# which window wins when two candidates are equally fresh by every date we
+# have, and nothing more. See _checklist_snapshot_freshness_key.
+_CHECKLIST_WINDOW_TIE_BREAK_PRIORITY = {
+    DEFAULT_TOP_CHASE_DASHBOARD_WINDOW: 0,
+    DEFAULT_DASHBOARD_WINDOW: 1,
+}
+_CHECKLIST_WINDOW_TIE_BREAK_FALLBACK = 99
+
+
+def _checklist_snapshot_freshness_key(
+    *,
+    history_date: Any,
+    latest_market_date: Any,
+    updated_at: Any,
+    window_key: Any,
+) -> Tuple[date, date, datetime, int]:
+    """Comparable freshness key for one checklist snapshot candidate.
+
+    Ordering (largest wins), per the correctness contract:
+      1. newest valid checklist history-point date
+      2. newest latest_market_date when the history date is missing or tied
+      3. newest updated_at when the market dates are tied
+      4. window preference ONLY as the final deterministic tie-breaker
+
+    Every component is a parsed date/datetime rather than a display string, and
+    a missing component sorts to the floor so a candidate that actually carries
+    a date always beats one that does not.
+    """
+
+    def _as_date(value: Any) -> date:
+        date_key = _parse_date_key(value)
+        if not date_key:
+            return date.min
+        try:
+            return date.fromisoformat(date_key)
+        except ValueError:
+            return date.min
+
+    return (
+        _as_date(history_date),
+        _as_date(latest_market_date),
+        _to_optional_datetime(updated_at) or datetime.min.replace(tzinfo=timezone.utc),
+        # Negated so a *lower* priority number sorts higher under max().
+        -_CHECKLIST_WINDOW_TIE_BREAK_PRIORITY.get(
+            _to_optional_str(window_key), _CHECKLIST_WINDOW_TIE_BREAK_FALLBACK
+        ),
+    )
+
+
+def _select_freshest_checklist_snapshot_row(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Pick the freshest snapshot row for ONE set across the available windows.
+
+    The dashboard snapshot table can hold a 30d row and a 365d row per set, and
+    they are rebuilt independently — a 30d row left over from an earlier build
+    can be weeks staler than the current 365d row. Selecting by fixed window
+    priority therefore published stale set values; selection must follow the
+    data's own freshness. Callers still apply their own validity rules first.
+    """
+    usable = [row for row in rows if isinstance(row, dict)]
+    if not usable:
+        return None
+    return max(
+        usable,
+        key=lambda row: _checklist_snapshot_freshness_key(
+            history_date=_latest_standard_set_value_from_histories(row.get("set_value_histories_json")).get("date"),
+            latest_market_date=row.get("latest_market_date"),
+            updated_at=row.get("updated_at"),
+            window_key=row.get("window_key"),
+        ),
+    )
+
+
 def _load_latest_checklist_set_values(set_ids: List[str]) -> Dict[str, Dict[str, Any]]:
     clean_ids = sorted({_to_optional_str(set_id) for set_id in set_ids if _to_optional_str(set_id)})
     if not clean_ids:
         return {}
 
-    window_priority = {
-        DEFAULT_TOP_CHASE_DASHBOARD_WINDOW: 0,
-        DEFAULT_DASHBOARD_WINDOW: 1,
-    }
     try:
         result = (
             public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
@@ -1016,24 +1094,54 @@ def _load_latest_checklist_set_values(set_ids: List[str]) -> Dict[str, Dict[str,
             logger.warning("[pokemon-snapshot] checklist set value enrichment failed", exc_info=True)
         return {}
 
-    values: Dict[str, Dict[str, Any]] = {}
+    # Collect every VALID candidate per set first, then let freshness decide.
+    # A candidate is only valid with a positive numeric value drawn from a
+    # usable standard/checklist history — missing, non-numeric, zero, and
+    # negative values are dropped, never substituted.
+    candidates_by_set: Dict[str, List[Dict[str, Any]]] = {}
     for row in result.data or []:
         set_id = _to_optional_str(row.get("set_id"))
         if not set_id:
             continue
         latest = _latest_standard_set_value_from_histories(row.get("set_value_histories_json"))
         value = _to_optional_float(latest.get("value"))
-        if value is None:
+        if value is None or value <= 0:
             continue
-        candidate = {
-            "value": round(value, 2),
-            "date": latest.get("date") or _parse_date_key(row.get("latest_market_date")),
-            "updated_at": _to_optional_str(row.get("updated_at")),
-            "window_key": _to_optional_str(row.get("window_key")),
-        }
-        existing = values.get(set_id)
-        if existing is None or window_priority.get(candidate["window_key"], 99) < window_priority.get(existing.get("window_key"), 99):
-            values[set_id] = candidate
+        candidates_by_set.setdefault(set_id, []).append(
+            {
+                "value": round(value, 2),
+                # Preserve the normalized history date the frontend renders,
+                # falling back to the row's market date only when the history
+                # point carried none.
+                "date": latest.get("date") or _parse_date_key(row.get("latest_market_date")),
+                "updated_at": _to_optional_str(row.get("updated_at")),
+                "window_key": _to_optional_str(row.get("window_key")),
+                "latest_market_date": _parse_date_key(row.get("latest_market_date")),
+            }
+        )
+
+    values: Dict[str, Dict[str, Any]] = {}
+    for set_id, candidates in candidates_by_set.items():
+        chosen = max(
+            candidates,
+            key=lambda candidate: _checklist_snapshot_freshness_key(
+                history_date=candidate.get("date"),
+                latest_market_date=candidate.get("latest_market_date"),
+                updated_at=candidate.get("updated_at"),
+                window_key=candidate.get("window_key"),
+            ),
+        )
+        if len(candidates) > 1:
+            logger.info(
+                "[pokemon-snapshot] checklist set value window selected by freshness set_id=%s chosen_window=%s chosen_date=%s candidates=%s",
+                set_id,
+                chosen.get("window_key"),
+                chosen.get("date"),
+                [(candidate.get("window_key"), candidate.get("date")) for candidate in candidates],
+            )
+        # latest_market_date is an internal selection input only; it is not part
+        # of the published enrichment contract.
+        values[set_id] = {key: chosen[key] for key in ("value", "date", "updated_at", "window_key")}
 
     return values
 
@@ -1081,7 +1189,9 @@ def _load_shell_checklist_set_value_history(set_id: str) -> Dict[str, Any]:
     try:
         result = (
             public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
-            .select("window_key,set_value_histories_json")
+            # latest_market_date/updated_at are selection inputs for the
+            # freshness tie-breaks below; neither reaches the shell payload.
+            .select("window_key,set_value_histories_json,latest_market_date,updated_at")
             .eq("set_id", resolved)
             .in_("window_key", [DEFAULT_TOP_CHASE_DASHBOARD_WINDOW, DEFAULT_DASHBOARD_WINDOW])
             .execute()
@@ -1101,8 +1211,12 @@ def _load_shell_checklist_set_value_history(set_id: str) -> Dict[str, Any]:
     if not rows:
         return {}
 
-    window_priority = {DEFAULT_TOP_CHASE_DASHBOARD_WINDOW: 0, DEFAULT_DASHBOARD_WINDOW: 1}
-    best_row = min(rows, key=lambda row: window_priority.get(_to_optional_str(row.get("window_key")), 99))
+    # Same freshness contract as the Explore enrichment: a leftover 30d row can
+    # be weeks staler than the current 365d row, so the shell's title-card set
+    # value must follow the data's freshness rather than a fixed window rank.
+    # Without this the set page and Explore would publish different set values
+    # for the same set from the same table.
+    best_row = _select_freshest_checklist_snapshot_row(rows) or {}
     histories = best_row.get("set_value_histories_json")
     standard_history = histories.get("standard") if isinstance(histories, dict) else None
     if not isinstance(standard_history, list) or not standard_history:

@@ -170,7 +170,9 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
               return (
                 <li key={`${target.target_type}:${target.target_id}`}>
                   <Link
-                    href={buildTcgSetHrefFromTarget(target, { tab: "insights", section: "rip-score" })}
+                    // A set-value row belongs on Overview, where the set value
+                    // and its trend live — not on the Insights RIP breakdown.
+                    href={buildTcgSetHrefFromTarget(target, { tab: "overview" })}
                     className={styles.ladderRow}
                     title={detail}
                     style={{ "--ex-rank-strength": isLead ? 0.7 : 0.22 }}
