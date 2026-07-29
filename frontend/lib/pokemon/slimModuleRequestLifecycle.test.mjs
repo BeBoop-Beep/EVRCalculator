@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
+import { createRequire } from "node:module";
 
-import {
+// See slimModuleNormalizationReliability.test.mjs — createRequire is the import
+// form that resolves this CJS-transpiled ESM module under the suite's tsx runner.
+const require = createRequire(import.meta.url);
+const {
   __hasSlimModuleInflightForTests,
   __getSlimModuleInflightSizeForTests,
   getPokemonSetMarketMovers,
   getPokemonSetOverview,
   getPokemonSetTopChase,
-} from "./pokemonSetMarketClient.js";
+} = require("./pokemonSetMarketClient.js");
 
 // ---------------------------------------------------------------------------
 // Bounded completion policy for the slim Overview module fetches.
@@ -228,6 +232,12 @@ test("a slow-but-successful request is never pre-empted into an error", async ()
       });
 
     const pending = getPokemonSetOverview("slow-set", { window: "365d" });
+    // joinSlimModuleRequest invokes the factory in a microtask, so the stub's
+    // own timer is not registered yet. Flush microtasks before advancing time,
+    // otherwise the tick fires against an empty timer queue and the request
+    // never resolves.
+    await Promise.resolve();
+    await Promise.resolve();
     mock.timers.tick(15_000);
     const payload = await pending;
     assert.equal(payload.set.id, "slow-set", "a 15s success must still be a success");

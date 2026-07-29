@@ -2459,7 +2459,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
 
   if (numericPoints.length < 2) {
     return (
-      <div className={["flex h-16 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-xs text-[var(--text-secondary)]", className].filter(Boolean).join(" ")}>
+      <div className={["flex h-16 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-xs text-[var(--text-secondary)] max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent", className].filter(Boolean).join(" ")}>
         {emptyLabel}
       </div>
     );
@@ -2531,11 +2531,15 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
       }}
       tabIndex={0}
     >
+      {/* Below 1200px the sparkline is integrated into the row instead of
+          sitting in its own mini-card: the border and fill are dropped so the
+          plot reads as part of the row and uses the full row width. Desktop
+          keeps the framed treatment. */}
       <svg
         aria-hidden="true"
         viewBox="0 0 100 42"
         preserveAspectRatio="none"
-        className="h-full w-full overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42"
+        className="h-full w-full overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -2746,7 +2750,18 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
   const yMin = Math.max(0, Math.min(...yAxisTicks, minValue - range * 0.14));
   const yMax = Math.max(...yAxisTicks, maxValue + range * 0.14);
   const showEveryDayTick = numericPoints.length <= 8;
-  const xAxisTicks = showEveryDayTick ? numericPoints.map((point) => point.date) : undefined;
+  // Below 1200px the x-axis carries only the first and last date. Desktop keeps
+  // the existing every-day / preserveStartEnd behaviour untouched.
+  const mobileEdgeDateTicks =
+    isDesktopComposition || numericPoints.length === 0
+      ? undefined
+      : (() => {
+          const first = numericPoints[0]?.date;
+          const last = numericPoints[numericPoints.length - 1]?.date;
+          if (!first) return undefined;
+          return last && last !== first ? [first, last] : [first];
+        })();
+  const xAxisTicks = mobileEdgeDateTicks ?? (showEveryDayTick ? numericPoints.map((point) => point.date) : undefined);
   const trendColor =
     trendDirection === "negative"
       ? NEGATIVE_VALUE_COLOR
@@ -2790,19 +2805,28 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
               tickLine={false}
               axisLine={false}
               tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-              tickFormatter={(value) => (showEveryDayTick ? formatCompactDay(value) : formatShortDate(value) || "")}
-              minTickGap={showEveryDayTick ? 0 : 22}
-              interval={showEveryDayTick ? 0 : "preserveStartEnd"}
+              tickFormatter={(value) =>
+                mobileEdgeDateTicks
+                  ? formatShortDate(value) || ""
+                  : showEveryDayTick
+                  ? formatCompactDay(value)
+                  : formatShortDate(value) || ""
+              }
+              minTickGap={mobileEdgeDateTicks ? 0 : showEveryDayTick ? 0 : 22}
+              interval={mobileEdgeDateTicks || showEveryDayTick ? 0 : "preserveStartEnd"}
             />
+            {/* Scale unchanged; below desktop the tick labels and their 44px
+                gutter are dropped so the series uses the full page width.
+                Exact values remain available by tap/scrub. */}
             <YAxis
               domain={[yMin, yMax]}
               ticks={isDesktopComposition ? yAxisTicks : undefined}
               tickCount={isDesktopComposition ? undefined : 4}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+              tick={isDesktopComposition ? { fill: "var(--text-secondary)", fontSize: 11 } : false}
               tickFormatter={formatAxisCurrency}
-              width={isDesktopComposition ? 58 : 44}
+              width={isDesktopComposition ? 58 : 0}
             />
             {/* Touch gets an explicit tap trigger: it persists after the finger
                 lifts, and it binds click rather than touchmove, so scrolling
@@ -5993,6 +6017,125 @@ function OpeningProfileSignalsCard({ summary, setIntelligenceMeta = [] }) {
   );
 }
 
+// Mobile/tablet Decision Signals (below 1200px).
+//
+// Design basis — this is the standard "dense analytical list" treatment used by
+// mobile finance/data apps (holdings lists, league tables): a fixed set of
+// right-aligned numeric columns under one column header, thin dividers instead
+// of per-item cards, and progressive disclosure for the prose. The scan fields
+// are Signal / Score / Tier / Rank; the interpretation is secondary and is
+// revealed one at a time in a single shared detail region rather than printed
+// under all seven rows at once (which is what made the old presentation read as
+// seven stacked mini-cards and run several screens tall).
+//
+// Nothing here recomputes anything: every score, tier, rank and interpretation
+// string comes straight off the same view model the desktop rows render.
+function DecisionSignalsCompactList({ pillarRows, openingRows }) {
+  const [selectedLabel, setSelectedLabel] = useState(null);
+  const detailRegionId = useId();
+  const allRows = [...pillarRows, ...openingRows];
+  const selectedSignal = allRows.find((signal) => signal.label === selectedLabel) || null;
+
+  const renderRow = (signal) => {
+    const parsedRank = toNumber(signal.rankValue);
+    const rankLabel = parsedRank === null ? null : Math.round(parsedRank);
+    const isSelected = selectedSignal?.label === signal.label;
+
+    return (
+      <button
+        key={`decision-signal-compact:${signal.label}`}
+        type="button"
+        // Enter and Space come free with a real button; activating the selected
+        // row again collapses the shared detail region.
+        onClick={() => setSelectedLabel((previous) => (previous === signal.label ? null : signal.label))}
+        aria-expanded={isSelected}
+        aria-controls={detailRegionId}
+        data-decision-signal-row
+        data-selected={isSelected ? "true" : undefined}
+        className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_3.5rem_2.75rem_2.75rem] items-center gap-x-2 border-b border-[var(--border-subtle)] py-1.5 pl-2 pr-1 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+          isSelected
+            ? "-ml-2 border-l-2 border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
+            : "border-l-2 border-l-transparent -ml-2 hover:bg-[var(--surface-hover)]"
+        }`}
+      >
+        <span className="truncate text-xs font-medium text-[var(--text-primary)]">{signal.label}</span>
+        <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+          {signal.scoreText || "—"}
+        </span>
+        <span className="flex justify-center">
+          <RankBadge rank={signal.rankTier} format="tier" size="supporting" subtle />
+        </span>
+        <span className="text-right text-[11px] leading-none tabular-nums text-[var(--text-secondary)]">
+          {rankLabel === null ? (
+            <span aria-label="Rank unavailable">—</span>
+          ) : (
+            <>
+              <span aria-hidden="true">{`#${rankLabel}`}</span>
+              <span className="sr-only">{`Rank ${rankLabel}`}</span>
+            </>
+          )}
+        </span>
+      </button>
+    );
+  };
+
+  const groupLabel = (text) => (
+    <p className="px-0 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] first:pt-0">
+      {text}
+    </p>
+  );
+
+  return (
+    <div data-decision-signals-compact>
+      {/* One column header for the whole list instead of repeating the field
+          names on every row. */}
+      <div
+        aria-hidden="true"
+        className="grid grid-cols-[minmax(0,1fr)_3.5rem_2.75rem_2.75rem] items-center gap-x-2 border-b border-[var(--border-subtle)] pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
+      >
+        <span />
+        <span className="text-right">Score</span>
+        <span className="text-center">Tier</span>
+        <span className="text-right">Rank</span>
+      </div>
+
+      {pillarRows.length > 0 ? (
+        <>
+          {groupLabel("Core")}
+          <div>{pillarRows.map(renderRow)}</div>
+        </>
+      ) : null}
+
+      {openingRows.length > 0 ? (
+        <>
+          {groupLabel("Also tracked")}
+          <div>{openingRows.map(renderRow)}</div>
+        </>
+      ) : null}
+
+      {/* One shared detail region: only the selected signal's interpretation is
+          ever on screen, and it is announced politely when it changes. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-decision-signal-detail
+        className="mt-3 min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2"
+      >
+        {selectedSignal ? (
+          <p className="text-xs leading-snug text-[var(--text-primary)]">
+            <span className="font-semibold">{selectedSignal.label}: </span>
+            {selectedSignal.detailSummary || selectedSignal.summary}
+          </p>
+        ) : (
+          <p className="text-xs leading-snug text-[var(--text-secondary)]">
+            Select a signal to see what it means for this set.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DecisionSignalRow({ signal }) {
   const parsedRank = toNumber(signal.rankValue);
   const summaryText = signal.summary || signal.detailSummary;
@@ -6114,25 +6257,36 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
       title="Decision Signals"
       titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
     >
-      <div className="grid gap-2 max-desk:gap-0">
-        {pillarRows.map((signal) => (
-          <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-        ))}
+      {/* Below 1200px: one condensed structured list with a single shared
+          interpretation region (see DecisionSignalsCompactList). */}
+      <div className="desk:hidden">
+        <DecisionSignalsCompactList pillarRows={pillarRows} openingRows={openingRows} />
       </div>
-      {openingRows.length > 0 ? (
-        <>
-          <div className="mt-4 mb-2 flex items-center gap-2">
-            <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Also tracked</span>
-            <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-          </div>
-          <div className="grid gap-2 max-desk:gap-0">
-            {openingRows.map((signal) => (
-              <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-            ))}
-          </div>
-        </>
-      ) : null}
+
+      {/* 1200px+: the desktop presentation is unchanged. It is display:none
+          below desktop, so the compact list above is the only tree assistive
+          technology reaches there. */}
+      <div className="hidden desk:block">
+        <div className="grid gap-2 max-desk:gap-0">
+          {pillarRows.map((signal) => (
+            <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
+          ))}
+        </div>
+        {openingRows.length > 0 ? (
+          <>
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Also tracked</span>
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+            </div>
+            <div className="grid gap-2 max-desk:gap-0">
+              {openingRows.map((signal) => (
+                <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
     </SectionCard>
   );
 }
@@ -12980,6 +13134,33 @@ export default function RipStatisticsPageClient({
                   className="set-detail-sticky-tabs !mt-0 min-h-10 desk:order-2 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
                   aria-busy={isTabNavPending}
                 >
+                  {/* Below 1200px the set picker is the top row of this same
+                      sticky block, so the current set can be switched at any
+                      scroll position without returning to the top. It renders
+                      flat here (no border/radius of its own) so the picker and
+                      the tabs read as one control, not two stacked cards.
+                      Desktop is unaffected: this subtree is desk:hidden and the
+                      desktop context header's own picker still owns selection
+                      there. */}
+                  <div data-set-sticky-picker className="desk:hidden">
+                    <PokemonSetMobileHero
+                      model={mobileHeroModel}
+                      pickerOpen={heroSetPickerOpen}
+                      onTogglePicker={() => setHeroSetPickerOpen((open) => !open)}
+                      onSelectTarget={handleHeroSetSelect}
+                      onPickerKeyDown={handleSetPickerKeyDown}
+                      targets={switcherTargets}
+                      selectedTargetId={requestedTargetId}
+                      pickerDisabled={isPending || switcherTargets.length === 0}
+                      listboxId="set-mobile-picker-list"
+                      isPickerOwner={!isDesktopHeroComposition}
+                      surfaceClassName="rounded-none border-0 bg-transparent px-1 py-1 tab:px-1.5 tab:py-1.5"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="mb-1 mt-0.5 block h-px bg-[var(--border-subtle)]"
+                    />
+                  </div>
                   <SectionViewTabs
                     className={`transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
                     value={setDetailTab}
@@ -12991,20 +13172,6 @@ export default function RipStatisticsPageClient({
                       { value: "pull-rates", label: "Pull Rates" },
                       { value: "insights", label: "Insights" },
                     ]}
-                  />
-                </div>
-                <div className="desk:hidden max-desk:mt-2">
-                  <PokemonSetMobileHero
-                    model={mobileHeroModel}
-                    pickerOpen={heroSetPickerOpen}
-                    onTogglePicker={() => setHeroSetPickerOpen((open) => !open)}
-                    onSelectTarget={handleHeroSetSelect}
-                    onPickerKeyDown={handleSetPickerKeyDown}
-                    targets={switcherTargets}
-                    selectedTargetId={requestedTargetId}
-                    pickerDisabled={isPending || switcherTargets.length === 0}
-                    listboxId="set-mobile-picker-list"
-                    isPickerOwner={!isDesktopHeroComposition}
                   />
                 </div>
                 <section

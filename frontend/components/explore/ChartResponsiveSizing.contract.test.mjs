@@ -29,10 +29,51 @@ test("Opening Profit vs Cost matches that sizing grammar", () => {
   assert.ok(packValue.includes("min-h-[19rem] flex-col tab:min-h-[23rem] desk:min-h-[26rem]"));
 });
 
-test("mobile reduces axis label density without hiding scale", () => {
-  assert.ok(setValueChart.includes("const isDesktopComposition = useMediaQuery"));
+test("mobile drops the y-axis labels and gives the plot the full page width", () => {
+  // Superseding the earlier "reduce density but keep a 44px gutter" rule: below
+  // 1200px the vertical tick labels are removed entirely and the axis reserves
+  // no width, so the series spans the page. The scale itself is untouched
+  // (domain/ticks are unchanged) and exact values stay reachable by tap/scrub.
+  for (const [name, source, desktopWidth] of [
+    ["set value", setValueChart, "58"],
+    ["opening profit vs cost", packValue, "60"],
+  ]) {
+    assert.ok(source.includes("const isDesktopComposition = useMediaQuery"), `${name} must read the desktop composition`);
+    assert.ok(
+      source.includes('tick={isDesktopComposition ? { fill: "var(--text-secondary)", fontSize: 11 } : false}'),
+      `${name} must hide y-axis tick labels below desktop`
+    );
+    assert.ok(
+      source.includes(`width={isDesktopComposition ? ${desktopWidth} : 0}`),
+      `${name} must reserve no y-axis gutter below desktop, and keep ${desktopWidth}px on desktop`
+    );
+  }
+  // Desktop scale behaviour is unchanged.
   assert.ok(setValueChart.includes("tickCount={isDesktopComposition ? undefined : 4}"));
-  assert.ok(setValueChart.includes("width={isDesktopComposition ? 58 : 44}"));
+  assert.ok(setValueChart.includes("ticks={isDesktopComposition ? yAxisTicks : undefined}"));
+});
+
+test("mobile x-axis shows only the first and last date", () => {
+  for (const [name, source] of [
+    ["set value", setValueChart],
+    ["opening profit vs cost", packValue],
+  ]) {
+    assert.ok(
+      source.includes("mobileEdgeDateTicks"),
+      `${name} must compute a first/last-only tick set below desktop`
+    );
+    assert.ok(
+      /isDesktopComposition \|\| (chartData|numericPoints)\.length === 0/.test(source),
+      `${name} must leave desktop ticks untouched`
+    );
+    assert.ok(
+      source.includes('last && last !== first ? [first, last] : [first]'),
+      `${name} must emit exactly the first and last date (or one, when they coincide)`
+    );
+  }
+  // Desktop keeps preserveStartEnd spacing.
+  assert.ok(packValue.includes('interval: "preserveStartEnd"'));
+  assert.ok(setValueChart.includes('"preserveStartEnd"'));
 });
 
 test("the desktop composition defaults to true so desktop never flashes mobile", () => {

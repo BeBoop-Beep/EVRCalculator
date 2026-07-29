@@ -448,6 +448,19 @@ export default function PackValueHistoryChart({
   );
 
   const yAxisUpperBound = useMemo(() => getHistoricalRatioYAxisMax(chartData), [chartData]);
+  // Below 1200px the x-axis shows only the first and last date in the series.
+  // undefined on desktop so Recharts keeps its own preserveStartEnd spacing.
+  const mobileEdgeDateTicks = useMemo(() => {
+    if (isDesktopComposition || chartData.length === 0) {
+      return undefined;
+    }
+    const first = chartData[0]?.snapshotDate;
+    const last = chartData[chartData.length - 1]?.snapshotDate;
+    if (!first) {
+      return undefined;
+    }
+    return last && last !== first ? [first, last] : [first];
+  }, [chartData, isDesktopComposition]);
   const yAxisTicks      = useMemo(() => buildRatioTicks(yAxisUpperBound), [yAxisUpperBound]);
 
   const latestDataIndex = chartData.length - 1;
@@ -569,6 +582,10 @@ export default function PackValueHistoryChart({
             </defs>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
 
+            {/* Below 1200px the x-axis carries only the first and last date —
+                enough to place the series in time — instead of a row of
+                intermediate ticks. Exact values stay available by tap/scrub
+                through the tooltip. Desktop keeps preserveStartEnd. */}
             <XAxis
               dataKey="snapshotDate"
               tickLine={false}
@@ -576,19 +593,25 @@ export default function PackValueHistoryChart({
               tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
               tickFormatter={formatShortDate}
               tickMargin={12}
-              minTickGap={22}
-              interval="preserveStartEnd"
+              minTickGap={isDesktopComposition ? 22 : 0}
+              {...(mobileEdgeDateTicks
+                ? { ticks: mobileEdgeDateTicks, interval: 0 }
+                : { interval: "preserveStartEnd" })}
             />
 
+            {/* The y-axis scale is unchanged; only its tick labels and the
+                60px gutter they needed are dropped below desktop, so the plot
+                uses the full page width. The break-even reference line still
+                carries the one value that has to be readable at a glance. */}
             <YAxis
               domain={[0, yAxisUpperBound]}
               ticks={yAxisTicks}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+              tick={isDesktopComposition ? { fill: "var(--text-secondary)", fontSize: 11 } : false}
               tickFormatter={formatRatio}
               tickMargin={10}
-              width={60}
+              width={isDesktopComposition ? 60 : 0}
             />
 
             {/* See SetValueLineChart: tap on touch, hover on mouse, both at

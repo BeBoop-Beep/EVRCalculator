@@ -90,8 +90,8 @@ test("Top Chase renders a retryable error state", () => {
 });
 
 test("Top Chase keeps a five-row default with all ten rows reachable", () => {
-  const module = section("function TopChaseCardsModule(", "function normalizePullRateAssumptions");
-  assert.ok(module.includes("showAllChaseCards ? 10 : 5"), "five rows by default, ten on expand");
+  const chaseModule = section("function TopChaseCardsModule(", "function normalizePullRateAssumptions");
+  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : 5"), "five rows by default, ten on expand");
 });
 
 test("retrying a section never shows the global page loader", () => {

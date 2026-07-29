@@ -1156,7 +1156,15 @@ test("7D Movers ticker motion: CSS transform marquee, hover/focus pause, reduced
   const tickerEnd = source.indexOf("function normalizePullRateAssumptions", tickerStart);
   const tickerSource = source.slice(tickerStart, tickerEnd);
   assert.equal((tickerSource.match(/href=\{viewAllHref\}/g) || []).length, 2, "card chips and View all movers must share one real href");
-  assert.ok(!tickerSource.includes("onClick="), "ticker links must not intercept native clicks");
+  // Ticker *links* must not intercept native clicks. Scoped to anchors rather
+  // than banning onClick across the whole region, because the error state's
+  // section-local Retry control is a <button> and legitimately needs a click
+  // handler (see the movers retry path in OverviewSectionRetry.contract.test.js).
+  const tickerAnchorTags = tickerSource.match(/<a\b[^>]*>/gs) || [];
+  assert.ok(tickerAnchorTags.length > 0, "the ticker must still render real anchors");
+  tickerAnchorTags.forEach((tag) => {
+    assert.ok(!tag.includes("onClick"), "ticker links must not intercept native clicks");
+  });
 });
 
 test("Phase 5A: Overview does not require activeMarketDashboardDerivedState to render the Top Chase or Market Movers containers", () => {

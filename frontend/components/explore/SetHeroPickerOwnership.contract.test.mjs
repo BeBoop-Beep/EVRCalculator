@@ -60,7 +60,13 @@ test("open state is shared and is closed when the boundary is crossed", () => {
 });
 
 test("the two compositions are mutually exclusive by class", () => {
-  assert.ok(source.includes('<div className="desk:hidden max-desk:mt-2">'), "the mobile hero is hidden at desktop");
+  // The mobile hero now renders as the top row of the unified sticky control
+  // area, so it no longer carries the standalone top margin it needed when it
+  // sat below the tab bar. What must hold is that it is still desk:hidden.
+  assert.ok(
+    source.includes('<div data-set-sticky-picker className="desk:hidden">'),
+    "the mobile hero is hidden at desktop"
+  );
   assert.ok(
     source.includes("relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1 md:rounded-t-2xl"),
     "the desktop hero is hidden below desktop and keeps its desktop reading order"

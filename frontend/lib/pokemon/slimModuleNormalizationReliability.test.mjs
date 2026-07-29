@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from "node:module";
 
-import {
+// pokemonSetMarketClient.js is ESM source in a CommonJS package, so the suite's
+// runner (tsx) transpiles it to CJS. A static `import { x } from "./file.js"`
+// then fails to resolve named exports under tsx. createRequire is the form that
+// works under the runner npm run test:frontend actually uses.
+const require = createRequire(import.meta.url);
+const {
   normalizeMarketMoversPayload,
   normalizeOverviewPayload,
   normalizeTopChasePayload,
-} from "./pokemonSetMarketClient.js";
+} = require("./pokemonSetMarketClient.js");
 
 // ---------------------------------------------------------------------------
 // Even when a slim module returns HTTP 200, normalization must not throw the

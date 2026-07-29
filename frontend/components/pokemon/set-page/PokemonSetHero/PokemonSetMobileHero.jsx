@@ -26,6 +26,10 @@ export default function PokemonSetMobileHero({
   pickerDisabled,
   listboxId,
   isPickerOwner = true,
+  // Lets the caller flatten this surface when the hero is nested inside another
+  // box — the unified sticky control area renders it as that box's top row, so
+  // it must not draw a second border inside the first.
+  surfaceClassName = "",
 }) {
   const { identity } = model;
   const availableTargets = Array.isArray(targets) ? targets : [];
@@ -34,7 +38,7 @@ export default function PokemonSetMobileHero({
   return (
     <section
       data-set-mobile-hero
-      className="set-context-premium relative rounded-xl border px-3 py-2.5 tab:px-4 tab:py-3"
+      className={`set-context-premium relative rounded-xl border px-3 py-2.5 tab:px-4 tab:py-3 ${surfaceClassName}`.trim()}
     >
       <div data-hero-region="identity" className="relative flex min-w-0 items-center gap-2.5">
         {identity.hasLogo ? (

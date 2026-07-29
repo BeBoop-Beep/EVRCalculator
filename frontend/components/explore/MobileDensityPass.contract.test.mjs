@@ -156,12 +156,14 @@ test("chart interaction still cannot navigate", () => {
 
 // --- 8. Decision Signals ---------------------------------------------------
 
-test("each decision signal is a compact row, not a stacked card", () => {
-  assert.ok(signalRow.includes("max-desk:grid-cols-[minmax(0,1fr)_auto]"), "label/score and interpretation/tier pair up");
-  assert.ok(signalRow.includes("max-desk:items-baseline"));
-  assert.ok(signalRow.includes("max-desk:border-0"), "no independent rounded card below desktop");
-  // The desktop four-column grid moved to `desk:` so the tablet band actually
-  // gets the compact layout (max-* variants are emitted before sm:).
+// DecisionSignalRow is now the DESKTOP tree only: below 1200px Decision
+// Signals renders DecisionSignalsCompactList instead (a condensed
+// signal/score/tier/rank list with one shared interpretation region). The
+// mobile guarantees are asserted against that list in
+// MobileOverviewRefinementPass.contract.test.mjs; what stays pinned here is
+// that the desktop row keeps its four-column grid and all of its fields.
+
+test("the desktop decision signal row keeps its four-column grid", () => {
   assert.ok(signalRow.includes("desk:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem]"));
   assert.ok(!signalRow.includes("sm:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem]"), "the sm-scoped grid is gone");
 });
@@ -173,11 +175,13 @@ test("every score, tier, rank and interpretation still renders", () => {
   assert.ok(signalRow.includes("TrendIndicator"), "the score trend indicator survives");
 });
 
-test("the compact row orders label, score, interpretation, then tier and rank", () => {
-  assert.ok(signalRow.includes("max-desk:order-1"), "label first");
-  assert.ok(signalRow.includes("max-desk:order-2"), "score on the same line, right-aligned");
-  assert.ok(signalRow.includes("max-desk:order-3"), "interpretation on the second line");
-  assert.ok(signalRow.includes("max-desk:order-4"), "tier and rank close the second line");
+test("below desktop Decision Signals is the compact structured list", () => {
+  const card = client.slice(
+    client.indexOf("function DecisionSignalsCard("),
+    client.indexOf("// A Profit / Safety / Stability card.")
+  );
+  assert.ok(card.includes('<div className="desk:hidden">\n        <DecisionSignalsCompactList'));
+  assert.ok(card.includes('<div className="hidden desk:block">'), "the row stack is desktop-only");
 });
 
 // --- 9 / 10. Containers and parity ----------------------------------------
