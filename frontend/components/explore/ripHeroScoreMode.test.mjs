@@ -46,6 +46,28 @@ const target = {
   rip_rank_with_desirability: 77,
 };
 
+test("RIP Score is the default mode when none is requested", () => {
+  const selected = selectRipHeroScoreMode({ target });
+
+  assert.equal(selected.mode, RIP_SCORE_MODE);
+  assert.equal(selected.label, "RIP Score");
+  assert.equal(selected.score, 96.7);
+});
+
+test("switching modes changes the score, rank, tier and helper together", () => {
+  const asScore = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target });
+  const asCore = selectRipHeroScoreMode({ mode: RIP_CORE_MODE, target });
+
+  // Every field the hero and the breakdown render moves as one, so the two
+  // surfaces can never show one mode's score beside another mode's placement.
+  assert.notEqual(asScore.score, asCore.score);
+  assert.notEqual(asScore.rank, asCore.rank);
+  assert.notEqual(asScore.absoluteScore, asCore.absoluteScore);
+  assert.notEqual(asScore.label, asCore.label);
+  assert.notEqual(asScore.helper, asCore.helper);
+  assert.notEqual(asScore.interpretation.label, asCore.interpretation.label);
+});
+
 test("RIP Score hero surfaces the RELATIVE public score, absolute stays secondary", () => {
   const selected = selectRipHeroScoreMode({ mode: RIP_SCORE_MODE, target });
 

@@ -34,7 +34,7 @@ export default function StickyNav() {
   return (
     <div
       ref={navShellRef}
-      className="sticky top-0 z-50 w-full bg-[var(--surface-header)] border-b border-[var(--border-subtle)]"
+      className="index-nav-shell sticky top-0 z-50 w-full bg-[var(--surface-header)] border-b border-[var(--border-subtle)]"
     >
       <Header />
     </div>

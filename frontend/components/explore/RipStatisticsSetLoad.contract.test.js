@@ -1311,16 +1311,24 @@ test("the Overall RIP construction strip is fully retired from the verdict secti
   assert.ok(!source.includes("90% Financial RIP + 10% Opening Desirability"));
   assert.ok(!source.includes("Effective final weights"));
   assert.ok(!source.includes("How Overall RIP Is Built"));
-  assert.ok(!source.includes("contributionLabel"));
-  assert.ok(!source.includes("effectiveWeights"));
-  // The view model it consumed has no remaining consumer on this page.
-  assert.ok(!source.includes("selectRipDesirabilityBreakdown("));
   assert.ok(!source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
+
+  // The view model IS read again — but for the score's two-level COMPOSITION
+  // (a 90% RIP Core group over the pillars plus a 10% Collector Appeal term),
+  // not for the retired flat formula table. What matters is that the numbers
+  // still come from the backend contract: the page reads the selector's
+  // weight/contribution fields and performs no blend arithmetic of its own.
+  assert.ok(source.includes("selectRipDesirabilityBreakdown("));
+  assert.ok(source.includes("ripComposition.openingDesirability.contributionLabel"));
+  assert.ok(source.includes("ripComposition?.financialRip?.weightLabel"));
+  assert.ok(
+    !/rip(Core|Composition)[^\n]*\*\s*0\.9|\*\s*0\.1\b/.test(source),
+    "the page must never apply the 90/10 weights itself"
+  );
 
   // The retired capped-adjustment framing is gone: there is no "Desirability
   // Adjustment" row and no cap copy.
   assert.ok(!source.includes('label: "Desirability Adjustment"'));
-  assert.ok(!source.includes('label: "Set Desirability"'));
 
   // The retired CA7-as-a-weighted-financial-pillar framing is also gone.
   assert.ok(!source.includes("function CollectorAppealImpactStrip"));
@@ -1598,38 +1606,85 @@ test("cards proxy route returns controlled timeout errors", () => {
 
 
 
-test("Set Desirability and Simulation Opening Experience are separate sections", () => {
+test("Set Desirability and Collector Appeal share one section but keep separate availability", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  // Set Desirability renders from `universalSetDesirability` alone, so it does
+  // They are one section now — the Collector Profile — because the reader
+  // needs to see that they CHAIN (roster demand -> modeled opening paths ->
+  // the 10% term) rather than compete. What must not change is that they are
+  // still two scores with two cohorts and two independent availabilities.
+  assert.ok(source.includes("function CollectorProfileSection"));
+  assert.ok(source.includes('eyebrow="02 · Collector Profile"'));
+
+  // Roster Appeal renders from `universalSetDesirability` alone, so it does
   // not disappear when the pull model is missing.
-  assert.ok(source.includes("function SetDesirabilityCard"));
+  assert.ok(source.includes("function CollectorRosterAppealPanel"));
   assert.ok(source.includes("selectSetDesirabilityPresentation"));
-  assert.ok(source.includes('eyebrow="02 · Set Desirability"'));
   assert.ok(source.includes("universalSetDesirability={canonicalUniversalSetDesirability}"));
   assert.ok(source.includes('label="Effective Subjects"'));
   assert.ok(source.includes('label="Top Subject Share"'));
   assert.ok(source.includes('label="Top 3 Share"'));
   assert.ok(source.includes("Top Desirability Drivers"));
 
-  // The CA7 section is separate, later, and scoped to the simulation.
-  assert.ok(source.includes("function OpeningExperienceCard"));
+  // Opening Paths is the CA7 view, scoped to the simulation.
+  assert.ok(source.includes("function CollectorOpeningPathsPanel"));
   assert.ok(source.includes("selectOpeningExperiencePresentation"));
-  assert.ok(source.includes('eyebrow="03 · Simulation Opening Experience"'));
-  assert.ok(source.includes('title="Collector Appeal"'));
   assert.ok(source.includes('label="Dual-Path Depth"'));
   assert.ok(source.includes('label="Chase Appeal"'));
   assert.ok(source.includes('kind="Accessible Path"'));
   assert.ok(source.includes('kind="Elite Chase"'));
 
+  // The two views are labelled and selectable; neither is presented as an
+  // alternative measurement of the other.
+  assert.ok(source.includes('label: "Roster Appeal"'));
+  assert.ok(source.includes('label: "Opening Paths"'));
+
+  // Each panel is driven by its OWN presentation object, so one being
+  // unavailable cannot blank the other.
+  assert.ok(source.includes("<CollectorRosterAppealPanel presentation={desirability}"));
+  assert.ok(source.includes("<CollectorOpeningPathsPanel presentation={opening}"));
+  assert.ok(
+    source.includes("const available = score !== null && coverage.status === \"full\";") ||
+      fs
+        .readFileSync(
+          path.resolve(__dirname, "../pokemon/set-page/Insights/openingExperienceSelector.mjs"),
+          "utf8"
+        )
+        .includes("const available = score !== null && coverage.status === \"full\";"),
+    "Set Desirability availability must not consult CA7"
+  );
+
   // Its unavailable copy must be about the SIMULATION, and must say so without
   // implying desirability is affected.
   assert.ok(source.includes("Collector Appeal needs this set&apos;s modeled pull structure"));
-  assert.ok(source.includes("Set Desirability above is unaffected"));
+  assert.ok(source.includes("Set Desirability is unaffected"));
   assert.ok(
     !source.includes("It appears once the set has full"),
     "the old copy gated desirability on a pull model"
   );
+
+  // Set Desirability is supporting context, not a weight of its own — stated
+  // in one short note on the stage, and in full in its information tooltip.
+  assert.ok(
+    source.includes("Supporting input — no RIP Score weight of its own."),
+    "Set Desirability must be labelled as supporting context"
+  );
+  assert.ok(source.includes("Supports Collector Appeal but does not receive its own RIP Score weight."));
+
+  // Every anchor either section used before still resolves after the merge.
+  for (const anchor of [
+    'id="set-detail-collector-profile"',
+    'id="set-detail-set-desirability"',
+    'id="set-detail-opening-experience"',
+    'id="set-detail-desirability-proof"',
+    'id="set-detail-desirability-validation"',
+    'id="set-detail-card-desirability-price"',
+  ]) {
+    assert.ok(source.includes(anchor), `${anchor} must still exist for deep links`);
+  }
+  // A deep link to the old CA7 section opens the Opening Paths view.
+  assert.ok(source.includes("COLLECTOR_PROFILE_PATHS_SECTIONS.has(activeSection)"));
+  assert.ok(source.includes("requestedView={requestedCollectorProfileView}"));
 
   // Roster Desirability no longer lives inside the CA7 section.
   assert.ok(!source.includes('label="Roster Desirability"'));
@@ -3573,16 +3628,25 @@ test("Phase 11: Insights' critical tier holds its own branded panel (not a whole
 
   // The hero (RipScoreBreakdownModule) and the secondary-tier sections each get
   // their own SectionErrorBoundary for render-exception isolation. Four now:
-  // Set Desirability and Simulation Opening Experience are separate sections,
-  // so a CA7 render failure cannot take the desirability score down with it.
+  // Set Desirability and Collector Appeal now share the Collector Profile
+  // section, so the Insights tab has three isolated regions rather than four.
+  // Isolation between the two roster scores no longer comes from separate
+  // error boundaries but from separate presentation objects and separate
+  // availability — see "Set Desirability and Collector Appeal share one
+  // section but keep separate availability".
   const insightsRegionEnd = source.indexOf("{effectiveViewMode === \"expert\" && !setDetailMode ? (", insightsSectionStart);
   const insightsRegionSource = source.slice(insightsSectionStart, insightsRegionEnd);
   const insightsErrorBoundaryCount = (insightsRegionSource.match(/<SectionErrorBoundary/g) || []).length;
-  assert.equal(insightsErrorBoundaryCount, 4, `Insights must wrap RIP Score, Set Desirability, Simulation Opening Experience, and Simulation Results each in their own SectionErrorBoundary (found ${insightsErrorBoundaryCount})`);
+  assert.equal(insightsErrorBoundaryCount, 3, `Insights must wrap RIP Score, Collector Profile, and Simulation Results each in their own SectionErrorBoundary (found ${insightsErrorBoundaryCount})`);
   assert.ok(
-    insightsRegionSource.indexOf('sectionName="insights-set-desirability"') <
-      insightsRegionSource.indexOf('sectionName="insights-opening-experience"'),
-    "Set Desirability must render above the CA7 section"
+    insightsRegionSource.indexOf('sectionName="insights-rip-score"') <
+      insightsRegionSource.indexOf('sectionName="insights-collector-profile"'),
+    "the verdict must render above the Collector Profile"
+  );
+  assert.ok(
+    insightsRegionSource.indexOf('sectionName="insights-collector-profile"') <
+      insightsRegionSource.indexOf('sectionName="insights-opening-outcomes"'),
+    "the Collector Profile must render above the raw simulation evidence"
   );
 });
 

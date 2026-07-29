@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
+import { getInterpretationTone } from "@/lib/explore/interpretationTone";
 
 function toOptionalImageUrl(value) {
   if (value === null || value === undefined) {
@@ -35,6 +36,13 @@ export default function SetIdentity({
   tier = null,
   recommendationSeverity = null,
   interpretationBadgeClassName = "",
+  /**
+   * "default" keeps the original roomy identity block. "compact" is the
+   * Explore dense-table variant: a small logo, one title line, and the era +
+   * interpretation collapsed onto a single supporting line as plain text
+   * rather than another pill inside the row.
+   */
+  variant = "default",
 }) {
   const name = String(target?.name || target?.target_id || "Unknown Set");
 
@@ -69,6 +77,45 @@ export default function SetIdentity({
     }
     setShowImage(false);
   };
+
+  if (variant === "compact") {
+    const tone = interpretationLabel
+      ? getInterpretationTone({ label: interpretationLabel, rankTier: tier, severity: recommendationSeverity })
+      : null;
+
+    return (
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-md bg-[rgba(255,255,255,0.045)]">
+          {activeSrc ? (
+            <img
+              src={activeSrc}
+              alt=""
+              className="h-[86%] w-[86%] object-contain"
+              loading="lazy"
+              decoding="async"
+              onError={handleImageError}
+            />
+          ) : (
+            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+              {getInitials(name)}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-semibold leading-tight text-[var(--text-primary)]">{name}</p>
+          <p className="mt-0.5 truncate text-[11px] leading-tight text-[var(--text-secondary)]">
+            {target?.era ? <span>{target.era}</span> : null}
+            {target?.era && interpretationLabel ? <span aria-hidden="true"> · </span> : null}
+            {interpretationLabel ? (
+              <span className="font-medium" style={tone ? { color: tone.textColor } : undefined}>
+                {interpretationLabel}
+              </span>
+            ) : null}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const textBlock = (
     <div className="min-w-0 flex-1">
