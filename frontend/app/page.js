@@ -1,25 +1,14 @@
-"use client";
-
-import { useEffect } from "react";
-import Featured from "@/components/Featured";
-import NewProducts from "@/components/Products/NewProducts/NewProducts";
+import LandingHero from "@/components/landing/LandingHero";
 import Footer from "@/components/Footer";
+import { getLandingHeroData } from "@/lib/landing/landingHeroServer";
 
-export default function HomePage() {
-  const products = null;
-
-  useEffect(() => {
-    // Ensure the fade-in effect happens on refresh too
-    setTimeout(() => {
-      document.body.classList.add("loaded");
-    }, 50);
-  }, []);
+export default async function HomePage() {
+  const { spotlight, ranked } = await getLandingHeroData();
 
   return (
     <div>
-      <Featured products={products} />
-      <NewProducts products={products} />
+      <LandingHero spotlight={spotlight} ranked={ranked} />
       <Footer />
     </div>
   );
-}  
+}

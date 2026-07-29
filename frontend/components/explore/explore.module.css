@@ -1,0 +1,334 @@
+/*
+ * Explore-scoped surface + table treatment.
+ *
+ * Deliberately local: every selector here is hashed by CSS Modules, so nothing
+ * in this file can reach the navbar, the set pages, Overview, Insights, or the
+ * Collector Profile. It reads the existing global design tokens
+ * (--surface-page, --border-subtle, --text-primary/secondary, --accent) but
+ * never redefines them.
+ *
+ * Tailwind runs with `important: true`, so utilities beat these rules. Every
+ * property below is one Tailwind does NOT set on the same element — layout
+ * (grid/flex/gap/padding) stays in utilities, surface/depth/ombre stays here.
+ */
+
+.dashboard {
+  /* One shared vertical rhythm + one shared scroll ceiling so the two
+     first-row modules end on the same line instead of one trailing blank. */
+  --ex-module-scroll: clamp(20rem, calc(100vh - 14rem), 40rem);
+  --ex-line: rgba(255, 255, 255, 0.055);
+  --ex-line-strong: rgba(255, 255, 255, 0.085);
+  --ex-teal: 45, 212, 191;
+  --ex-amber: 250, 204, 21;
+}
+
+/* ------------------------------------------------------------------ *
+ * Module surface
+ * One intentional surface per module. Dark navy base, a barely-there
+ * cool wash where the strongest rows sit and a barely-there warm wash
+ * toward the cost side of the table. No border glow, no saturation.
+ * ------------------------------------------------------------------ */
+
+.surface {
+  position: relative;
+  border: 1px solid var(--ex-line-strong);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(var(--ex-teal), 0.055) 0%, transparent 46%),
+    radial-gradient(120% 110% at 100% 100%, rgba(var(--ex-amber), 0.032) 0%, transparent 52%),
+    linear-gradient(180deg, rgba(19, 31, 50, 0.9) 0%, rgba(10, 16, 27, 0.94) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 34px rgba(1, 5, 14, 0.3);
+  /* Deliberately NOT overflow:hidden — the ranking-mode menu opens out of this
+     surface and must not be clipped when the module is short (empty/error).
+     The scroll regions below round their own bottom corners instead. */
+}
+
+/* Quieter companion surface: same family, less illumination, so the
+   leaderboard supports the main table instead of competing with it. */
+.surfaceQuiet {
+  position: relative;
+  border: 1px solid var(--ex-line);
+  border-radius: 14px;
+  background:
+    radial-gradient(130% 80% at 100% 0%, rgba(var(--ex-teal), 0.038) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(16, 27, 45, 0.86) 0%, rgba(9, 15, 26, 0.94) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+/* The one divider style used everywhere in Explore instead of nested cards. */
+.divider {
+  border-bottom: 1px solid var(--ex-line);
+}
+
+.scrollBox {
+  max-height: var(--ex-module-scroll, 33rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 0 0 13px 13px;
+}
+
+/* Wraps a scroll region that is known to overflow, so the row the ceiling
+   cuts through reads as "there is more below" instead of as clipping. */
+.scrollShell {
+  position: relative;
+  border-radius: 0 0 13px 13px;
+  overflow: hidden;
+}
+
+.scrollShell::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(9, 15, 26, 0) 0%, rgba(9, 15, 26, 0.92) 100%);
+}
+
+/* ------------------------------------------------------------------ *
+ * Table
+ * ------------------------------------------------------------------ */
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.head th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* Restrained tonal lift, not a pill per label. Opaque enough to keep body
+     rows from bleeding through while the list scrolls under it. */
+  background:
+    linear-gradient(180deg, rgba(24, 38, 60, 0.98) 0%, rgba(15, 24, 39, 0.98) 100%);
+  border-bottom: 1px solid var(--ex-line-strong);
+  color: rgba(232, 238, 247, 0.5);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-align: left;
+  vertical-align: bottom;
+  padding: 9px 10px;
+  white-space: normal;
+}
+
+/* The column the current ranking mode is sorted by. Marked with a tonal
+   lift AND aria-sort + a caret, so the state never depends on color alone. */
+.head th[aria-sort] {
+  color: rgba(232, 238, 247, 0.82);
+  background:
+    linear-gradient(180deg, rgba(var(--ex-teal), 0.09) 0%, rgba(15, 24, 39, 0.98) 78%);
+}
+
+/* The sort caret is a pseudo-element joined to the label by a non-breaking
+   space, so a wrapping two-word header can never strand the caret on its own
+   line. aria-sort carries the same state for assistive tech. */
+.head th[aria-sort="descending"]::after {
+  content: "\00a0\25BC";
+  font-size: 8px;
+  opacity: 0.8;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.head th.numeric {
+  text-align: right;
+}
+
+.row {
+  position: relative;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.row td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+  padding: 7px 10px;
+  vertical-align: middle;
+  background-color: rgba(255, 255, 255, 0.008);
+}
+
+.row:last-child td {
+  border-bottom: 0;
+}
+
+/* Row hover / keyboard focus.
+   Background lift + a faint left-to-right wash + a 2px inset accent edge.
+   Inset shadow (not a border) so nothing reflows on hover. */
+.row:hover td,
+.row:focus-within td {
+  background-color: rgba(255, 255, 255, 0.03);
+  background-image: linear-gradient(90deg, rgba(var(--ex-teal), 0.075) 0%, transparent 42%);
+  color: var(--text-primary);
+}
+
+/* Lead rows keep their tier tint while hovered; everything else picks up the
+   brand teal edge. One accent per row, never two competing colors. */
+.row:hover td:first-child,
+.row:focus-within td:first-child {
+  box-shadow: inset 2px 0 0 var(--ex-rank-accent, rgba(var(--ex-teal), 0.7));
+}
+
+/* Top of the ladder: a narrow tier-tinted edge instead of a medal. The tier
+   letter and the rank numeral carry the same meaning in text. */
+.rowLead td:first-child {
+  box-shadow: inset 2px 0 0 var(--ex-rank-accent, rgba(var(--ex-teal), 0.55));
+}
+
+/* Full-row click target driven by the single real link in the row. Keeps one
+   accessible link per row, no nested interactive elements. */
+.rowLink {
+  position: static;
+}
+
+.rowLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* One focus ring per row: the stretched pseudo-element draws it, the anchor
+   itself stays unstyled so the two do not double up. */
+.rowLink:focus-visible {
+  outline: none;
+}
+
+.rowLink:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Leaderboard (Top Rankings)
+ * ------------------------------------------------------------------ */
+
+/* Sized off the shared module scroll ceiling, minus this module's footer, so
+   the leaderboard and the main table finish on roughly the same line. */
+.ladderScroll {
+  max-height: calc(var(--ex-module-scroll, 33rem) - 2.6rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ladderRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.55rem 1.65rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 7px 12px 7px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.ladderRow:last-child {
+  border-bottom: 0;
+}
+
+.ladderRow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--ex-rank-accent, rgba(var(--ex-teal), 0.9));
+  opacity: var(--ex-rank-strength, 0);
+}
+
+.ladderRow:hover,
+.ladderRow:focus-visible {
+  background-color: rgba(255, 255, 255, 0.032);
+  background-image: linear-gradient(90deg, rgba(var(--ex-teal), 0.07) 0%, transparent 50%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  outline: none;
+}
+
+.ladderRow:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* ------------------------------------------------------------------ *
+ * Mobile rows — a deliberate compact layout, not a shrunken table.
+ * ------------------------------------------------------------------ */
+
+.mobileRow {
+  position: relative;
+  display: block;
+  padding: 9px 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background-color 140ms ease;
+}
+
+.mobileRow:last-child {
+  border-bottom: 0;
+}
+
+.mobileRow:active,
+.mobileRow:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.mobileRow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .ladderRow,
+  .mobileRow {
+    transition: none;
+  }
+}
+
+/* Light theme: the same composition with the washes pulled back so text
+   contrast is never carried by the gradient. */
+:global([data-theme="light"]) .surface {
+  border-color: rgba(15, 23, 42, 0.1);
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(var(--ex-teal), 0.07) 0%, transparent 46%),
+    radial-gradient(120% 110% at 100% 100%, rgba(var(--ex-amber), 0.05) 0%, transparent 52%),
+    linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+}
+
+:global([data-theme="light"]) .surfaceQuiet {
+  border-color: rgba(15, 23, 42, 0.09);
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%);
+  box-shadow: none;
+}
+
+:global([data-theme="light"]) .head th {
+  background: linear-gradient(180deg, #eef2f8 0%, #e7edf6 100%);
+  border-bottom-color: rgba(15, 23, 42, 0.12);
+  color: rgba(15, 23, 42, 0.58);
+}
+
+:global([data-theme="light"]) .head th[aria-sort] {
+  color: rgba(15, 23, 42, 0.85);
+}
+
+:global([data-theme="light"]) .row td {
+  border-bottom-color: rgba(15, 23, 42, 0.07);
+  background-color: transparent;
+}
+
+:global([data-theme="light"]) .row:hover td,
+:global([data-theme="light"]) .row:focus-within td {
+  background-color: rgba(15, 23, 42, 0.035);
+}

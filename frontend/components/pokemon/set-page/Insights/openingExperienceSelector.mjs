@@ -309,6 +309,11 @@ export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirab
     openingDesirability: {
       score: ca7Score,
       scoreLabel: formatScore(ca7Score),
+      // `rank` is the bare backend rank; `rankLabel` keeps the denominated
+      // "#5 of 21" form for surfaces that have room for it. Compact score rows
+      // render the bare rank and keep the cohort in a tooltip.
+      rank: toNumber(collectorAppeal.rank),
+      cohortSize: toNumber(collectorAppeal.cohortSize),
       rankLabel: formatRank(collectorAppeal.rank, collectorAppeal.cohortSize),
       tier: collectorAppeal.tier ?? null,
       weight: openingWeight,
@@ -318,9 +323,13 @@ export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirab
         openingContribution === null
           ? null
           : `Opening Desirability × ${Math.round(openingWeight * 100)}% = ${openingContribution.toFixed(1)} pts`,
+      // User-facing copy uses the user-facing names. "Overall RIP" and
+      // "Financial RIP" are the internal names for the same two scores the UI
+      // calls RIP Score and RIP Core; printing the internal pair here made the
+      // unavailable state read as being about some third, unseen metric.
       unavailableReason:
         ca7Score === null
-          ? "Opening Desirability (CA7) is unavailable for this set, so Overall RIP cannot be computed. Financial RIP and Set Desirability remain available."
+          ? "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."
           : null,
     },
     setDesirability: {

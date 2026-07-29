@@ -391,6 +391,39 @@ body::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* Ambient light spilling from the underside of the global navbar. It is a
+   single static decorative layer under the sticky shell — brightest at the
+   bottom edge, dimming toward the page and toward both ends so it reads as
+   light rather than as a rule or a second navbar. Negative z-index keeps it
+   behind the header itself and behind every dropdown the header opens. */
+.index-nav-shell::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 20px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    118% 100% at 50% 0%,
+    rgba(214, 228, 250, 0.05) 0%,
+    rgba(214, 228, 250, 0.022) 32%,
+    rgba(214, 228, 250, 0.007) 62%,
+    rgba(214, 228, 250, 0) 100%
+  );
+}
+
+[data-theme="light"] .index-nav-shell::after {
+  background: radial-gradient(
+    118% 100% at 50% 0%,
+    rgba(15, 23, 42, 0.03) 0%,
+    rgba(15, 23, 42, 0.013) 32%,
+    rgba(15, 23, 42, 0.004) 62%,
+    rgba(15, 23, 42, 0) 100%
+  );
+}
+
 .dropdown-enter {
   transform-origin: top center;
   animation: dropdown-enter 120ms ease-out;
@@ -780,6 +813,27 @@ body::-webkit-scrollbar-thumb:hover {
 
 .set-detail-glass-scope .set-glass-table-group {
   background: rgba(8, 17, 31, 0.10);
+}
+
+/* Opening Outlook edge highlight.
+   The callout's illumination is the horizontal wash on its own background plus
+   the tier rail on its left border. This adds the one missing premium cue: a
+   short lit run along the TOP edge starting at the upper-left corner, faded out
+   by a gradient mask before it reaches a quarter of the width — so the panel
+   reads as lit from one corner instead of outlined on all four sides.
+   Only `border-top` is painted, so nothing can appear on the right side or the
+   bottom-right corner, and the pseudo-element deliberately carries no
+   background or box-shadow of its own so it cannot duplicate the wash or draw a
+   second card behind the callout. The colour arrives as --rip-outlook-edge from
+   the shared tier presentation; with no tier it stays transparent. */
+.rip-outlook-callout::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  border-top: 1px solid var(--rip-outlook-edge, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.55) 9%, rgba(0, 0, 0, 0) 23%);
+  mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.55) 9%, rgba(0, 0, 0, 0) 23%);
 }
 
 /* Paint order inside the fixed layer, bottom to top:

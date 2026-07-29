@@ -47,7 +47,7 @@ test("context row uses the 46/27/27 identity, value, and Opening RIP structure",
   assert.ok(shell.includes("selectedName"));
   assert.ok(shell.includes("selectedTarget?.era"));
   assert.ok(shell.includes("Set Value"));
-  assert.ok(shell.includes("Opening RIP"));
+  assert.ok(shell.includes("{setContextRipLabel}"), "the RIP column is labelled from the canonical selection");
   assert.ok(shell.includes("displayedTopScore"));
   assert.ok(shell.includes("setContextRipTier"));
   assert.ok(shell.includes("setContextRipRank"));
@@ -66,15 +66,24 @@ test("context row uses the 46/27/27 identity, value, and Opening RIP structure",
 test("the title-card RIP summary shares the detailed breakdown's tier presentation", () => {
   const shell = shellSource();
 
-  // Tier > verdict > rank, each an outlined pill in the same shape language as
-  // the breakdown's RankBadge / InterpretationBadge (rounded-full, 1px border).
+  // Tier and verdict are outlined pills in the same shape language as the
+  // breakdown's RankBadge / InterpretationBadge (rounded-full, 1px border).
+  // The RANK is not: it is a position rather than a judgement, and a third
+  // outlined chip made the compact card read as three competing badges.
   for (const marker of ["data-set-context-rip-tier", "data-set-context-rip-rank", "data-set-context-rip-verdict"]) {
     assert.equal((shell.match(new RegExp(marker, "g")) || []).length, 1, `${marker} must render once`);
   }
   assert.ok(shell.includes("style={setContextRipPresentation.tierPill}"));
-  assert.ok(shell.includes("style={setContextRipPresentation.rankPill}"));
   assert.ok(shell.includes("style={setContextRipPresentation.verdictPill}"));
-  assert.equal((shell.match(/rounded-full border px-2 py-0\.5/g) || []).length, 3);
+  assert.ok(!shell.includes("style={setContextRipPresentation.rankPill}"), "the rank must not carry a pill style");
+  assert.equal((shell.match(/rounded-full border px-2 py-0\.5/g) || []).length, 2, "only the tier and verdict are pills");
+
+  // The rank element itself carries no bubble: no border, no rounding, no fill.
+  const rankStart = shell.indexOf("data-set-context-rip-rank");
+  const rankTag = shell.slice(rankStart, shell.indexOf(">", shell.indexOf("title=", rankStart)));
+  assert.ok(!/rounded/.test(rankTag), "the rank must not be a rounded chip");
+  assert.ok(!/\bborder/.test(rankTag), "the rank must not draw a border");
+  assert.ok(!/\bbg-/.test(rankTag), "the rank must not carry a background fill");
 
   // One shared semantic source, keyed on the active tier — no hard-coded tier
   // colour and no second mapping for the title card.
@@ -87,9 +96,14 @@ test("the title-card RIP summary shares the detailed breakdown's tier presentati
   // The score itself stays the neutral focal point.
   assert.ok(shell.includes('<span className="text-sm font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{displayedTopScore}</span>'));
 
-  // Tier and rank are readable text, not colour-only signals.
+  // Tier and rank are readable text, not colour-only signals. The rank reads
+  // "Rank #20" — the cohort denominator lives in its tooltip, not on the row.
   assert.ok(shell.includes("{setContextRipTier} Tier"));
   assert.ok(shell.includes("Rank #{Math.round(setContextRipRank)}"));
+  assert.ok(
+    !/>\s*Rank #\{Math\.round\(setContextRipRank\)\} of /.test(shell),
+    'the compact summary must not render "of N"'
+  );
 
   // Metadata wraps instead of relying on a fixed measure.
   assert.ok(shell.includes("flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"));
@@ -97,12 +111,15 @@ test("the title-card RIP summary shares the detailed breakdown's tier presentati
 });
 
 test("the title-card label names the metric it is actually showing", () => {
+  // Both modes take the label from the canonical selection. The previous
+  // version special-cased RIP Score into a hard-coded "Opening RIP" eyebrow,
+  // which gave the same canonical score two different user-facing names
+  // depending on which surface you were looking at.
   assert.ok(
-    source.includes(
-      'const setContextRipLabel = heroScoreSelection.mode === RIP_CORE_MODE ? heroScoreSelection.label : "Opening RIP";'
-    ),
-    "RIP Core must not render under the Opening RIP label"
+    source.includes("const setContextRipLabel = heroScoreSelection.label;"),
+    "the title card must take its label from the canonical selection in BOTH modes"
   );
+  assert.ok(!/["'>]Opening RIP["'<]/.test(source), "the legacy label must not survive anywhere");
   assert.ok(shellSource().includes('<p className="set-context-eyebrow">{setContextRipLabel}</p>'));
 });
 

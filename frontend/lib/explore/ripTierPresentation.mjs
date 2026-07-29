@@ -21,8 +21,10 @@
 export const RIP_TIER_NEUTRAL_RGB = "148,163,184";
 
 /**
- * "rgba(134,239,172,0.85)" -> "134,239,172". Returns null for anything that is
- * not an rgb()/rgba() string so callers fall back to the neutral triplet.
+ * "rgba(12,34,56,0.85)" -> "12,34,56". Returns null for anything that is not an
+ * rgb()/rgba() string so callers fall back to the neutral triplet. The example
+ * above is deliberately not a real tier colour: RANK_CONFIG owns those, and a
+ * transcribed one here would be a second mapping (see ripTierPresentation.test.mjs).
  */
 export function toRgbTriplet(color) {
   if (typeof color !== "string") {
@@ -66,10 +68,21 @@ export function buildRipTierPresentation({ tier = null, accentColor = null } = {
     // glow is offset to the left and given a negative spread so it is clipped
     // to a narrow halo hugging that rail. An outer box-shadow never paints
     // inside its own border box, so this cannot produce a right-hand edge.
+    //
+    // `blur + spread <= 0` is the invariant that keeps it a rail halo rather
+    // than a perimeter outline: with a blur wider than the inset the shadow
+    // reaches back out past the top and bottom edges across the FULL width,
+    // which is what made the callout read as a neon outlined box. The x-offset
+    // is what pushes the remaining halo out to the left of the rail.
     outlookRail: {
       borderLeftColor: tint(0.9),
-      boxShadow: `-4px 0 16px -8px ${tint(0.55)}`,
+      boxShadow: `-10px 0 14px -14px ${tint(0.5)}`,
     },
+    // The localized upper-left edge highlight (see `.rip-outlook-callout` in
+    // globals.css). It paints a single top border that a gradient mask fades
+    // out roughly a quarter of the way across, so the lit corner never runs
+    // around the right side or the bottom.
+    outlookEdge: tint(0.5),
     outlookWash: `linear-gradient(90deg, ${RIP_OUTLOOK_WASH_STOPS.map(
       (stop) => `${tint(stop.alpha)} ${stop.offset}`
     ).join(", ")})`,

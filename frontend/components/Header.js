@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'; // Use next/navigation
 import SearchBar from "@/components/Search/SearchBar";
 import Image from "next/image";
 import { useAuth } from "@/components/AuthContext";
+import { TCGS_NAV_HREF, isTopNavRouteActive } from "@/lib/navigation/tcgsNav.mjs";
 
 function getCleanText(value) {
   if (typeof value !== "string") return null;
@@ -33,9 +34,7 @@ export default function Header() {
   const [isClient, setIsClient] = useState(false); // Track if the component is rendered on the client
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [isTCGsDropdownOpen, setIsTCGsDropdownOpen] = useState(false);
   const [isCollectionDropdownOpen, setIsCollectionDropdownOpen] = useState(false);
-  const tcgsDropdownRef = useRef(null);
   const collectionDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
   const pathname = usePathname(); // Get the current route path
@@ -43,7 +42,7 @@ export default function Header() {
 
   const avatarLetter = (accountLabel || "A").charAt(0).toUpperCase();
 
-  const navTabBase = "px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out";
+  const navTabBase = "px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
   const navTabActive = "text-[var(--accent)] relative after:content-[''] after:absolute after:left-4 after:right-4 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
   const navTabInactive = "text-[var(--text-secondary)] opacity-85 hover:text-[var(--text-primary)] hover:opacity-100";
   const navDropdownSurface = "bg-[var(--surface-panel)]";
@@ -56,7 +55,7 @@ export default function Header() {
   const navDropTriggerClosed = "text-[var(--text-secondary)] bg-[var(--surface-header)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]";
   const navDropTriggerActive = "relative text-[var(--accent)] after:content-[''] after:absolute after:left-2 after:right-2 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
 
-  const isTopNavActive = (path) => pathname === path || pathname.startsWith(`${path}/`);
+  const isTopNavActive = (path) => isTopNavRouteActive(pathname, path);
   const isTcgsRouteActive = isTopNavActive('/TCGs');
   const isToolsRouteActive =
     isTopNavActive('/tools') ||
@@ -82,20 +81,12 @@ export default function Header() {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
-    setIsTCGsDropdownOpen(false);
     setIsCollectionDropdownOpen(false);
     setIsUserDropdownOpen(false);
   }, [pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        tcgsDropdownRef.current &&
-        !tcgsDropdownRef.current.contains(event.target)
-      ) {
-        setIsTCGsDropdownOpen(false);
-      }
-
       if (
         collectionDropdownRef.current &&
         !collectionDropdownRef.current.contains(event.target)
@@ -184,34 +175,18 @@ export default function Header() {
               >
                 Tools
               </Link>
-              <div ref={tcgsDropdownRef} className="relative">
-                <button
-                  onClick={() => {
-                    setIsTCGsDropdownOpen(!isTCGsDropdownOpen);
-                    setIsCollectionDropdownOpen(false);
-                  }}
-                  className={`${navDropTrigger} ${(isTcgsRouteActive || isTCGsDropdownOpen) ? navDropTriggerActive : navDropTriggerClosed}`}
-                  aria-expanded={isTCGsDropdownOpen}
-                  aria-haspopup="menu"
-                >
-                  TCGs
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    aria-hidden="true"
-                    className={`h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${isTCGsDropdownOpen ? 'rotate-180' : ''}`}
-                  >
-                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                {isTCGsDropdownOpen && (
-                  <div className={`${navDropPanel} ${navDropPanelCompact} left-1/2 -translate-x-1/2`}>
-                    <Link href="/TCGs/Pokemon" className={navDropItem} onClick={() => setIsTCGsDropdownOpen(false)}>
-                      Pokémon
-                    </Link>
-                  </div>
-                )}
-              </div>
+              {/* Pokémon is the only live TCG, so TCGs is a direct link to its
+                  Sets catalog rather than a one-item menu. It stays active for
+                  every /TCGs route. */}
+              <Link
+                href={TCGS_NAV_HREF}
+                aria-current={isTcgsRouteActive ? "page" : undefined}
+                className={`${navTabBase} inline-flex items-center justify-center ${
+                  isTcgsRouteActive ? navTabActive : navTabInactive
+                }`}
+              >
+                TCGs
+              </Link>
             </nav>
           </div>
 
@@ -219,10 +194,7 @@ export default function Header() {
             <div className="hidden xl:flex justify-end">
               <div ref={collectionDropdownRef} className="relative">
                 <button
-                  onClick={() => {
-                    setIsCollectionDropdownOpen(!isCollectionDropdownOpen);
-                    setIsTCGsDropdownOpen(false);
-                  }}
+                  onClick={() => setIsCollectionDropdownOpen((prev) => !prev)}
                   className={`${navDropTrigger} ${(isMyCollectionRouteActive || isCollectionDropdownOpen) ? navDropTriggerActive : navDropTriggerClosed}`}
                   aria-expanded={isCollectionDropdownOpen}
                   aria-haspopup="menu"
