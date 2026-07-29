@@ -6,40 +6,29 @@ const path = require("node:path");
 const routePath = path.resolve(__dirname, "route.js");
 const source = fs.readFileSync(routePath, "utf8");
 
-test("overview route defines FAILED_ANALYTICS_CACHE_CONTROL as no-store", () => {
+// Query forwarding, the bounded timeout and the cache-control policy are all
+// implemented once in lib/pokemon/slimSetModuleProxy*, and are covered
+// behaviourally by lib/pokemon/slimSetModuleProxyContract.test.mjs plus
+// lib/pokemon/slimSetModuleProxyRoute.contract.test.js. This file only pins
+// that the route delegates there with the right module key, so it cannot grow
+// a divergent copy of the proxy again.
+
+test("overview route delegates to the shared slim set module proxy", () => {
   assert.ok(
-    source.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'),
-    "must define FAILED_ANALYTICS_CACHE_CONTROL = \"no-store\""
+    source.includes('from "@/lib/pokemon/slimSetModuleProxyRoute"'),
+    "must import the shared slim set module proxy"
+  );
+  assert.ok(
+    source.includes('proxySlimSetModuleRequest("overview", request, context)'),
+    'must delegate with the "overview" module key'
   );
 });
 
-test("overview route selects FAILED_ANALYTICS_CACHE_CONTROL when the backend response is not ok", () => {
+test("overview route does not re-implement the proxy locally", () => {
+  assert.ok(!source.includes("await fetch("), "must not hand-roll its own backend fetch");
+  assert.ok(!source.includes("PUBLIC_ANALYTICS_CACHE_CONTROL"), "must not hand-roll its own cache-control policy");
   assert.ok(
-    source.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
-    "cache-control selection must be conditional on proxyResponse.ok"
+    !source.includes('searchParams?.get("window")'),
+    "must not hand-roll param forwarding outside the shared contract table"
   );
-});
-
-test("overview route does not hardcode public cache-control unconditionally", () => {
-  const headersBlockStart = source.indexOf("return new NextResponse(payload,");
-  const headersBlock = source.slice(headersBlockStart);
-  assert.ok(
-    !headersBlock.includes('"Cache-Control": PUBLIC_ANALYTICS_CACHE_CONTROL,'),
-    "the response headers must use the conditional cacheControl variable, not a hardcoded public value"
-  );
-  assert.ok(headersBlock.includes('"Cache-Control": cacheControl,'), "response headers must use the cacheControl variable");
-});
-
-test("overview route fetch does not use Next's fetch-level cache (would cache a failed backend response for 300s)", () => {
-  const fetchStart = source.indexOf("const proxyResponse = await fetch(");
-  const fetchEnd = source.indexOf(");", fetchStart) + 2;
-  const fetchSource = source.slice(fetchStart, fetchEnd);
-
-  assert.ok(!fetchSource.includes("next: { revalidate"), "must not pass next: { revalidate } to fetch");
-  assert.ok(fetchSource.includes('cache: "no-store"'), "must pass cache: \"no-store\" to fetch so every request re-checks the backend");
-});
-
-test("overview route forwards the window query param to the backend", () => {
-  assert.ok(source.includes('/tcgs/pokemon/sets/${encodeURIComponent(setId)}/overview'));
-  assert.ok(source.includes('backendUrl.searchParams.set("window", window)'));
 });

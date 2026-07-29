@@ -3205,6 +3205,7 @@ function TopMarketCardsContent({
   onWindowChange = null,
   marketAsOfDate = null,
   rowHref = null,
+  onRetry = null,
 }) {
   const [localSelectedWindowKey, setLocalSelectedWindowKey] = useState(null);
   const selectedWindowKey = controlledSelectedWindowKey ?? localSelectedWindowKey;
@@ -3243,7 +3244,22 @@ function TopMarketCardsContent({
   }
 
   if (status === "error") {
-    return <p className="text-sm text-red-300">{error || "Unable to load market cards for this set."}</p>;
+    // Section-local failure + Retry: retries only the top-chase request and
+    // never replaces the rest of Overview with a page-level loader.
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-sm text-red-300">{error || "Unable to load market cards for this set."}</p>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-md border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[rgba(255,255,255,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] max-desk:min-h-11"
+          >
+            Retry
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   if (!hasCards) {
@@ -3338,7 +3354,7 @@ function getTopCardPriceHistory(card, selectedWindowKey, marketAsOfDate = null) 
   });
 }
 
-function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange, marketAsOfDate = null, rowHref = null }) {
+function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange, marketAsOfDate = null, rowHref = null, onRetry = null }) {
   // Default to a 5-row preview so the compact mobile feed stays scannable;
   // "View all chase cards" expands in place to the full fetched list (10 —
   // see the /market/top-chase fetch's limit), reusing the View-all-movers
@@ -3359,6 +3375,7 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         onWindowChange={onWindowChange}
         marketAsOfDate={marketAsOfDate}
         rowHref={rowHref}
+        onRetry={onRetry}
       />
       {totalRows > 5 ? (
         <div className="mt-4 flex justify-end">
@@ -3440,7 +3457,7 @@ function MoversTickerItemChip({ card, movement, href, tabIndex }) {
   );
 }
 
-function MarketMoversTicker({ items, status, error, viewAllHref }) {
+function MarketMoversTicker({ items, status, error, viewAllHref, onRetry = null }) {
   const hasItems = Array.isArray(items) && items.length > 0;
   // Overflow/reduced-motion choose the marquee structure. Focus and hover
   // only pause that existing structure, so neither can remount a clicked link.
@@ -3481,7 +3498,21 @@ function MarketMoversTicker({ items, status, error, viewAllHref }) {
         fallback={status === "loading" ? (
           <div className="h-6 w-full max-w-[28rem] animate-pulse rounded-md bg-[rgba(148,163,184,0.10)]" aria-hidden="true" />
         ) : status === "error" ? (
-          <p className="truncate text-xs text-red-300">{error || "Unable to load 7D movers for this set."}</p>
+          // Compact, section-local failure state inside the same fixed-height
+          // strip: a stalled or failed movers fetch is now a retryable message
+          // rather than an endless pulse, and Retry re-requests only movers.
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-xs text-red-300">{error || "Unable to load 7D movers for this set."}</span>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="flex-none rounded-md border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.04)] px-2 py-1 text-[11px] font-semibold text-[var(--text-primary)] transition-colors hover:bg-[rgba(255,255,255,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                Retry
+              </button>
+            ) : null}
+          </span>
         ) : (
           <p className="truncate text-xs text-[var(--text-secondary)]">No reliable 7D movers yet.</p>
         )}
@@ -8875,6 +8906,30 @@ export default function RipStatisticsPageClient({
   const lastOverviewRequestKeyRef = useRef(null);
   const lastTopChaseRequestKeyRef = useRef(null);
   const lastMarketMoversRequestKeyRef = useRef(null);
+  // Section-local retry for the three slim Overview modules. Each retry bumps
+  // only its own nonce, so it re-runs only its own effect — a failed Movers
+  // fetch never restarts Overview or Top Chase, and no retry shows the global
+  // page loader. Clearing the request-key ref is what lets the re-run get past
+  // that effect's duplicate guard; the shared in-flight key in
+  // pokemonSetMarketClient.js is already released once the previous attempt
+  // settled (including on timeout), so the retry issues a genuinely new
+  // request instead of joining the one that failed. Nothing here loops
+  // automatically — a retry only happens when the user asks for one.
+  const [overviewRetryNonce, setOverviewRetryNonce] = useState(0);
+  const [topChaseRetryNonce, setTopChaseRetryNonce] = useState(0);
+  const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
+  const retryOverviewModule = useCallback(() => {
+    lastOverviewRequestKeyRef.current = null;
+    setOverviewRetryNonce((nonce) => nonce + 1);
+  }, []);
+  const retryTopChaseModule = useCallback(() => {
+    lastTopChaseRequestKeyRef.current = null;
+    setTopChaseRetryNonce((nonce) => nonce + 1);
+  }, []);
+  const retryMarketMoversModule = useCallback(() => {
+    lastMarketMoversRequestKeyRef.current = null;
+    setMarketMoversRetryNonce((nonce) => nonce + 1);
+  }, []);
   // Every GRAPH_SECTION_KEYS value is now a valid Simulation Results sub-view
   // (Outcome Distribution, Opening P vs C = historical-trend, Simulation
   // Drivers, Value Structure, Pack Paths, Metrics), so the insights card
@@ -12509,6 +12564,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
+    // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
+    topChaseRetryNonce,
   ]);
 
   // Slim /market/movers fetch for the selected 1D/7D/30D window — Market
@@ -12597,6 +12654,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
+    // Section-local Retry: re-runs this effect only (see retryMarketMoversModule).
+    marketMoversRetryNonce,
   ]);
 
   // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
@@ -12693,6 +12752,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
+    // Section-local Retry: re-runs this effect only (see retryOverviewModule).
+    overviewRetryNonce,
   ]);
 
   const desktopSidebarContent = (
@@ -13130,6 +13191,7 @@ export default function RipStatisticsPageClient({
                           status={moversTickerStatus}
                           error={activeMarketMoversState.error}
                           viewAllHref={moversTickerHref}
+                          onRetry={retryMarketMoversModule}
                         />
                       </SectionErrorBoundary>
                     </div>
@@ -13169,6 +13231,7 @@ export default function RipStatisticsPageClient({
                             <SectionBoundary
                               status={overviewPerformanceVsCostStatus}
                               error={activeOverviewState.error ? new Error(activeOverviewState.error) : null}
+                              onRetry={retryOverviewModule}
                               title="Loading opening profit vs cost…"
                               minHeightClassName="min-h-[14rem]"
                               className="h-full"
@@ -13241,6 +13304,7 @@ export default function RipStatisticsPageClient({
                               onWindowChange={setTopMarketCardsWindowKey}
                               marketAsOfDate={marketAsOfDate}
                               rowHref={topChaseRowHref}
+                              onRetry={retryTopChaseModule}
                             />
                           </SectionErrorBoundary>
                         </div>

@@ -27,6 +27,8 @@ const dashboardRoutePath = path.resolve(
 const cardsRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/cards/route.js");
 const overviewRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/overview/route.js");
 const setPageRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/page/route.js");
+const slimProxyContractPath = path.resolve(__dirname, "../../lib/pokemon/slimSetModuleProxyContract.mjs");
+const slimProxyRoutePath = path.resolve(__dirname, "../../lib/pokemon/slimSetModuleProxyRoute.js");
 const explorePageServicePath = path.resolve(__dirname, "../../../backend/db/services/explore_page_service.py");
 const snapshotServicePath = path.resolve(
   __dirname,
@@ -1561,16 +1563,26 @@ test("proxy routes do not cache failed snapshot responses", () => {
 });
 
 test("overview proxy route serves no-store on failure and public cache on success", () => {
-  const source = fs.readFileSync(overviewRoutePath, "utf8");
-
-  assert.ok(source.includes('const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600"'));
-  assert.ok(source.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'));
+  // The overview route now delegates to the shared slim-module proxy, so the
+  // cache-control policy is asserted where it lives (one implementation for
+  // overview/top-chase/movers/value-history instead of four copies).
+  const route = fs.readFileSync(overviewRoutePath, "utf8");
   assert.ok(
-    source.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
+    route.includes('proxySlimSetModuleRequest("overview"'),
+    "overview route must delegate to the shared slim set module proxy"
+  );
+
+  const contract = fs.readFileSync(slimProxyContractPath, "utf8");
+  const proxy = fs.readFileSync(slimProxyRoutePath, "utf8");
+
+  assert.ok(contract.includes('const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600"'));
+  assert.ok(contract.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'));
+  assert.ok(
+    proxy.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
     "cache-control selection must be conditional on proxyResponse.ok"
   );
-  assert.ok(source.includes('cache: "no-store"'), "the backend fetch itself must not use Next's fetch-level cache");
-  assert.ok(!source.includes("next: { revalidate"), "must not pass next: { revalidate } to fetch");
+  assert.ok(proxy.includes('cache: "no-store"'), "the backend fetch itself must not use Next's fetch-level cache");
+  assert.ok(!proxy.includes("next: { revalidate"), "must not pass next: { revalidate } to fetch");
 });
 
 test("backend set resolver accepts URL slugs like journey-together, shared across page/shell/cards/market/value-history", () => {

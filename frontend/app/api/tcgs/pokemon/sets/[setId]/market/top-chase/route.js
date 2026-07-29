@@ -1,53 +1,7 @@
-import { NextResponse } from "next/server";
-import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { proxySlimSetModuleRequest } from "@/lib/pokemon/slimSetModuleProxyRoute";
 
-const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
-const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
-
-export async function GET(request, { params }) {
-  const resolvedParams = (await params) || {};
-  const setId = String(resolvedParams?.setId || "").trim();
-
-  if (!setId) {
-    return NextResponse.json(
-      { message: "setId is required", code: "SET_ID_REQUIRED" },
-      { status: 400 }
-    );
-  }
-
-  const backendUrl = new URL(
-    `${getBackendApiBaseUrl()}/tcgs/pokemon/sets/${encodeURIComponent(setId)}/market/top-chase`
-  );
-  const window = request?.nextUrl?.searchParams?.get("window");
-  if (window) {
-    backendUrl.searchParams.set("window", window);
-  }
-  const limit = request?.nextUrl?.searchParams?.get("limit");
-  if (limit) {
-    backendUrl.searchParams.set("limit", limit);
-  }
-  const snapshotContract = request?.nextUrl?.searchParams?.get("snapshot_contract");
-  if (snapshotContract) {
-    backendUrl.searchParams.set("snapshot_contract", snapshotContract);
-  }
-
-  const proxyResponse = await fetch(backendUrl.toString(), {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
-
-  const payload = await proxyResponse.text();
-  const contentType = proxyResponse.headers.get("content-type") || "application/json";
-  const cacheControl = proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL;
-
-  return new NextResponse(payload, {
-    status: proxyResponse.status,
-    headers: {
-      "content-type": contentType,
-      "Cache-Control": cacheControl,
-    },
-  });
+// Forwarded params (window, limit, snapshot_contract) and the bounded-timeout /
+// cache-control policy live in lib/pokemon/slimSetModuleProxyContract.mjs.
+export async function GET(request, context) {
+  return proxySlimSetModuleRequest("top-chase", request, context);
 }
