@@ -8,6 +8,17 @@ module.exports = {
   important: true,
   theme: {
     extend: {
+      // The mobile/tablet Set Overview redesign works to two boundaries the
+      // default scale does not have. These are additive: sm/md/lg/xl/2xl keep
+      // their default values, so no existing utility changes meaning.
+      //   below `tab`        -> phone             (0-599px)
+      //   `tab` to `desk`    -> tablet app layout (600-1199px)
+      //   `desk` and above   -> untouched desktop (1200px+)
+      // Use `max-desk:` for "mobile and tablet" overrides.
+      screens: {
+        tab: "600px",
+        desk: "1200px",
+      },
       colors: {
         primary: "rgb(2 6 23)", // Dark slate base
         brand: "#059669", // Emerald green - default

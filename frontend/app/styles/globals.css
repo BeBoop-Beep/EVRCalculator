@@ -86,6 +86,10 @@
     transparent 84%
   );
   --app-header-offset: 64px;
+  /* Set-page anchors must clear the global header AND the sticky set tabs.
+     The tab bar is min-h-10 (2.5rem) below md and min-h-11 (2.75rem) at md+,
+     plus its 0.25rem padding; 3.25rem covers both with a little air. */
+  --set-tabs-offset: calc(var(--app-header-offset, 64px) + 3.25rem);
   --transition-default: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-fast: all 100ms ease-in-out;
 }
@@ -112,7 +116,6 @@
   padding: 0;
   box-sizing: border-box;
 }
-
 
 /* Ensure body starts fully visible by default */
 body {
@@ -231,7 +234,6 @@ select {
   background-color: var(--accent);
 }
 
-
 /* Use a different font for the header */
 header {
   font-family: var(--font-sans), 'Segoe UI', sans-serif;
@@ -246,7 +248,6 @@ header {
 .logo-container:hover .logo img {
   transform: scale(1.1); /* Zoom-in effect */
 }
-
 
 link[rel="icon"] {
   width: 48px;
@@ -917,3 +918,87 @@ body::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* Below 1200px the hero is ordinary content that scrolls away and the tab bar
+   alone pins beneath the unchanged global header. The shell must drop both its
+   sticky position and its `isolation: isolate` — the isolation created a
+   stacking context that trapped the tabs' z-index inside a now-static parent.
+   Desktop (1200px+) keeps the hero and tabs travelling together and is
+   untouched by this block. */
+@media (max-width: 1199.98px) {
+  /* `display: contents` dissolves the shell's box, so the tab bar and the set
+     identity become direct children of the full-height page container. That is
+     what actually makes the tabs stick: a sticky element only travels within
+     its containing block, and while the tabs lived inside this short
+     hero+tabs wrapper their sticky range was barely taller than themselves.
+     It also drops the wrapper's own chrome and its ::before wash, neither of
+     which is generated for a display:contents element. */
+  .set-detail-context-shell {
+    display: contents;
+    /* Redundant while `contents` applies (no box is generated, so none of these
+       take effect) but kept so the declared style is coherent and degrades
+       sanely: without them, an engine that ignored `display: contents` would
+       keep a sticky wrapper AND a sticky tab bar inside it. */
+    position: static;
+    top: auto;
+    z-index: auto;
+    isolation: auto;
+  }
+
+  .set-detail-sticky-tabs {
+    position: sticky;
+    top: var(--app-header-offset, 64px);
+    z-index: 40;
+    /* First element on mobile now, so it carries a full border and radius
+       instead of the bottom-only pairing it has under the desktop hero. */
+    border-top-width: 1px;
+    border-radius: 0.75rem;
+  }
+
+  /* backdrop-filter creates a stacking context. A chart tooltip inside a glass
+     card was therefore trapped in that card's context, where its z-[9999] means
+     nothing against the pinned tab bar's z-40 in the parent context — a large
+     z-index does not escape a stacking context. Dropping the blur below desktop
+     removes the context so tooltips layer correctly, and the blur is the single
+     most expensive effect on a phone anyway. Desktop keeps it untouched. */
+  .set-detail-glass-scope .set-glass-surface,
+  .set-detail-glass-scope .set-glass-surface-dense {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* Programmatic section navigation and #hash links must land below both bars. */
+  .set-detail-glass-scope [id^="set-detail-"] {
+    scroll-margin-top: var(--set-tabs-offset);
+  }
+
+  /* Continuous analytical feed. Below 1200px the Overview's repeated outer
+     cards cost gutter + border + outer padding + inner padding before any data
+     is drawn. Strip the outer surface and let headings plus dividers carry the
+     structure. Bordered containers survive only where the boundary means
+     something — selected controls, interactive rows, alerts, callouts — which
+     are all inner elements this reset does not reach.
+     Scoped to [data-mobile-feed] so the Cards toolbar and every non-Overview
+     surface keep their chrome. */
+  [data-mobile-feed] .set-glass-surface {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    padding-inline: 0;
+    padding-block: 0;
+  }
+
+  [data-mobile-feed] > * + * {
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 1.25rem;
+  }
+
+  /* A phone must never inherit a stray centring margin from the tablet cap. */
+  [data-mobile-feed] {
+    margin-inline: auto;
+    width: 100%;
+  }
+}

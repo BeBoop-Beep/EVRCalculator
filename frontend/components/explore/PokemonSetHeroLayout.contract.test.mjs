@@ -166,8 +166,23 @@ test("context row and tabs stick together below global navigation", () => {
   assert.match(globals, /\.set-context-premium \{[\s\S]+background: var\(--set-context-bg\);[\s\S]+box-shadow:/);
   assert.match(globals, /\.set-detail-context-shell::before \{[\s\S]+background: var\(--set-context-wash\);/);
   assert.ok(shellSource().includes("z-50 max-h-56"));
-  assert.ok(source.includes('document.querySelector("[data-set-context-shell]")'));
-  assert.ok(source.includes("headerOffset + subNavHeight + setContextShellHeight + 8"));
+  assert.ok(source.includes('"[data-set-context-shell]"'));
+  assert.ok(source.includes("headerOffset + subNavHeight + pinnedHeight + 8"));
+
+  // Below 1200px the hero is ordinary content and only the tab bar pins, so the
+  // offset helper measures the tab bar rather than the whole shell — measuring
+  // the shell there would over-scroll every anchor by the full hero height.
+  // Desktop keeps measuring the shell, which is what the assertions above lock.
+  assert.ok(source.includes('window.matchMedia("(min-width: 1200px)")'));
+  assert.ok(
+    source.includes('isDesktopComposition ? "[data-set-context-shell]" : "[data-set-detail-sticky-tabs]"'),
+    "the helper measures whichever element is actually pinned at the current width"
+  );
+  assert.match(
+    globals,
+    /@media \(max-width: 1199\.98px\)[\s\S]+\.set-detail-context-shell \{[\s\S]+display: contents;/,
+    "the shell stops generating a box below the desktop boundary, so the tabs stick page-wide"
+  );
 });
 
 test("set-page content uses shared standard and dense glass surfaces without changing the sticky context card", () => {
@@ -317,11 +332,19 @@ test("opening economics live in Overview Opening Profit vs Cost", () => {
     overview.indexOf("<PackValueHistoryChart") < overview.indexOf("data-overview-opening-economics"),
     "the opening profit chart must render before its supporting metrics"
   );
-  assert.ok(overview.includes("sm:grid-rows-[auto_auto_auto]"));
-  assert.ok(overview.includes("sm:row-span-3 sm:grid-rows-subgrid"));
+  // The desktop three-column subgrid moved from `sm:` to `desk:`. `max-*`
+  // variants are emitted before `sm:` in the stylesheet, so an sm-scoped
+  // desktop grid would have won back the 640-1199px band and undone the mobile
+  // compaction. Desktop at 1200px+ renders the identical subgrid.
+  assert.ok(overview.includes("desk:grid-rows-[auto_auto_auto]"));
+  assert.ok(overview.includes("desk:row-span-3 desk:grid-rows-subgrid"));
   assert.ok(overview.includes("md:whitespace-nowrap"));
-  assert.ok(overview.includes('className="text-sm font-semibold tabular-nums'));
-  assert.ok(overview.includes('<span aria-hidden="true">&nbsp;</span>'));
+  assert.ok(overview.includes("text-sm font-semibold tabular-nums"));
+  assert.ok(overview.includes('<span aria-hidden="true" className="hidden desk:inline">&nbsp;</span>'));
+
+  // Below desktop the same metrics render as compact label/value rows.
+  assert.ok(overview.includes("data-opening-metric-row"), "each metric is an identifiable compact row");
+  assert.ok(overview.includes("grid-cols-[minmax(0,1fr)_auto]"), "label and value share one line below desktop");
 });
 
 test("Insights verdict owns the score mode and complete static Opening Outlook", () => {

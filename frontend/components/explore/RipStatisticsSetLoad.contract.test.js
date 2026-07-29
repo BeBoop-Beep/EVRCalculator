@@ -1464,9 +1464,31 @@ test("compact sparkline tooltip is local to the sparkline wrapper", () => {
   assert.ok(compactSource.includes("event.clientX - bounds.left"));
   assert.ok(compactSource.includes("style={{ left: tooltipX }}"));
   assert.ok(compactSource.includes("absolute bottom-[calc(100%+0.55rem)]"));
+
+  // The guarantee this test exists for: the tooltip is positioned *inside* the
+  // sparkline wrapper, never torn out into a viewport-fixed layer.
   assert.ok(!compactSource.includes("pointer-events-none fixed"));
-  assert.ok(!compactSource.includes("window.innerWidth"));
-  assert.ok(!compactSource.includes("event.clientY"));
+  assert.ok(!compactSource.includes("position: fixed"));
+
+  // `window.innerWidth` and `event.clientY` used to be banned here as proxies
+  // for "not a fixed, viewport-driven tooltip". Touch support needs both and
+  // neither breaks the locality guarantee above:
+  //   - innerWidth is read only to clamp the tooltip's *local* left offset so a
+  //     sparkline at a screen edge is still readable (clampTooltipX);
+  //   - clientY is read only to tell a vertical page scroll from a horizontal
+  //     scrub, so a finger travelling down the page never selects a point.
+  assert.ok(
+    compactSource.includes("clampTooltipX({"),
+    "innerWidth may only reach the tooltip through the shared viewport clamp"
+  );
+  assert.ok(
+    compactSource.includes("classifyPointerGesture({"),
+    "clientY may only be read to classify the gesture, not to position anything"
+  );
+  assert.ok(
+    !/top:\s*`?\$\{[^}]*clientY/.test(compactSource),
+    "clientY must never drive the tooltip's position"
+  );
 });
 
 test("persistent header omits the compact sparkline and delegates trend evidence to Overview", () => {
@@ -2438,11 +2460,25 @@ test("persistent shell has no title-card sparkline", () => {
 test("Overview Set Value Trend keeps its compact tooltip behavior", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // The Overview Set Value Trend chart must reuse the same compact tooltip shape.
-  const overviewTooltipStart = source.indexOf("<RechartsTooltip content={<SetValueTooltip");
-  const overviewTooltipLineEnd = source.indexOf("\n", overviewTooltipStart);
-  const overviewTooltipSource = source.slice(overviewTooltipStart, overviewTooltipLineEnd);
+  // The Overview Set Value Trend chart must reuse the same compact tooltip
+  // shape. The element is now multi-line (it carries a pointer-aware `trigger`),
+  // so scope to SetValueLineChart and slice the element by its closing tag —
+  // the first `/>` after the opening tag belongs to `<SetValueTooltip />`, not
+  // to the tooltip element itself.
+  const setValueChart = source.slice(
+    source.indexOf("function SetValueLineChart("),
+    source.indexOf("function SetValueTrendCard(")
+  );
+  const overviewTooltipStart = setValueChart.indexOf("<RechartsTooltip");
+  const overviewTooltipSource = setValueChart.slice(
+    overviewTooltipStart,
+    setValueChart.indexOf("\n            />", overviewTooltipStart)
+  );
   assert.ok(overviewTooltipStart >= 0, "Overview chart RechartsTooltip must exist");
+  assert.ok(
+    overviewTooltipSource.includes('trigger={isCoarsePointer ? "click" : "hover"}'),
+    "the tooltip trigger follows the active pointer so touch can tap and mouse keeps hover"
+  );
   assert.ok(
     overviewTooltipSource.includes('content={<SetValueTooltip />}'),
     "Overview chart tooltip content must use the compact set value tooltip"
@@ -3254,10 +3290,21 @@ test("Phase 8B: set-switcher option lists filter hidden/unvalidated-era sets via
 test("Phase 8B: every set-switcher surface renders switcherTargets while non-switcher consumers keep the raw targets list", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
+  // The retired set-detail rail must not come back as a second switcher. The
+  // mobile hero *does* take `targets`, but it is the sole picker owner below
+  // 1200px and hands ownership back above it — see
+  // SetHeroPickerOwnership.contract.test.mjs, which proves only one operable
+  // picker and one listbox exist at any width.
+  const targetsConsumers = [...source.matchAll(/targets=\{switcherTargets\}/g)].map((match) => {
+    const lineStart = source.lastIndexOf("<", match.index);
+    return source.slice(lineStart, match.index);
+  });
+  assert.equal(targetsConsumers.length, 1, "exactly one component may receive the switcher targets list");
   assert.ok(
-    !source.includes("targets={switcherTargets}"),
-    "the retired set-detail rail must not receive or render a duplicate switcher"
+    source.includes("<PokemonSetMobileHero"),
+    "that one consumer is the mobile hero, not a reinstated rail"
   );
+  assert.ok(!/SetDetailRail|setDetailRail/.test(source), "the retired rail must stay retired");
 
   // Explore-mode sidebar select, mobile tools select, persistent set-detail
   // picker, and Explore-mode hero picker.
@@ -3355,7 +3402,10 @@ test("Phase 9D.2: the page client uses the shared branded panel only for its rem
 test("Phase 11: Overview renders 5 priority-ordered sections, each independently error-isolated, with no whole-tab loading gate", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  const renderStart = source.indexOf('id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28"');
+  // The section now also carries data-mobile-feed and max-desk:space-y-0 (the
+  // continuous mobile feed); anchor on the id so formatting changes to the
+  // class list do not break this test again.
+  const renderStart = source.indexOf('id="set-detail-overview" data-mobile-feed');
   assert.ok(renderStart >= 0, "the Overview section render must exist");
   const renderEnd = source.indexOf("</section>", renderStart);
   const renderSource = source.slice(renderStart, renderEnd);

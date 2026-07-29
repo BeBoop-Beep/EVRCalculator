@@ -14,6 +14,8 @@ import {
 } from "recharts";
 
 import ChartFrame from "@/components/explore/ChartFrame";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import { POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import {
   filterHistoryPointsForDeltaWindow,
@@ -32,6 +34,7 @@ import {
   getPerformanceSeriesLabels,
 } from "./performanceVsCostFormatting.mjs";
 import { formatHistoryDate } from "./historyDateFormatting.mjs";
+import { getCompactWindowLabel, needsAccessibleWindowLabel } from "@/lib/explore/compactWindowLabel.mjs";
 
 // ─── Color tokens for this chart only ────────────────────────────────────────
 const HISTORICAL_TREND_COLORS = {
@@ -315,14 +318,27 @@ function MarketWindowSelector({ windows, value, onChange }) {
             type="button"
             onClick={() => onChange(entry.key)}
             aria-pressed={isActive}
+            aria-label={needsAccessibleWindowLabel(entry.key, entry.label) ? entry.label : undefined}
             className={[
               "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+              "max-desk:inline-flex max-desk:min-h-9 max-desk:items-center max-desk:justify-center max-desk:px-2.5",
               isActive
                 ? "border-[rgba(45,212,191,0.34)] bg-[rgba(45,212,191,0.10)] text-[rgb(45,212,191)]"
                 : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
             ].join(" ")}
           >
-            {entry.label}
+            {/* Compact glyph below 1200px (Lifetime -> LT); desktop wording and
+                the accessible name are unchanged. */}
+            {needsAccessibleWindowLabel(entry.key, entry.label) ? (
+              <>
+                <span aria-hidden="true" className="max-desk:hidden">{entry.label}</span>
+                <span aria-hidden="true" className="hidden max-desk:inline">
+                  {getCompactWindowLabel(entry.key, entry.label)}
+                </span>
+              </>
+            ) : (
+              entry.label
+            )}
           </button>
         );
       })}
@@ -346,6 +362,9 @@ export default function PackValueHistoryChart({
 
   // "simulation" keeps the labels technical (…vs Cost / 50th / 95th percentile)
   // for the Simulation Results view; "market" is Overview's simplified reader copy.
+  const isCoarsePointer = usePointerMode() === POINTER_MODE_COARSE;
+  // `true` on the server and first paint so desktop never flashes a mobile chart.
+  const isDesktopComposition = useMediaQuery("(min-width: 1200px)", true);
   const seriesLabels = getPerformanceSeriesLabels(variant);
 
   const fullChartData = useMemo(
@@ -447,7 +466,7 @@ export default function PackValueHistoryChart({
   }
 
   return (
-    <div className={flush ? "flex h-full min-h-[26rem] flex-col" : "rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5"}>
+    <div className={flush ? "flex h-full min-h-[19rem] flex-col tab:min-h-[23rem] desk:min-h-[26rem]" : "rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5"}>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <MarketWindowSelector
@@ -457,7 +476,11 @@ export default function PackValueHistoryChart({
           />
         </div>
 
-        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 text-[11px]">
+        {/* Desktop keeps the full-wording legend. Below 1200px the same three
+            toggles live in the compact latest-values row instead, so the labels
+            are not rendered twice. Nothing is removed — this is the same
+            control in a denser place. */}
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 text-[11px] max-desk:hidden">
           {/* TODO(perf-vs-cost): Optional future mode toggle (Standard | Include God Pull) if we need a P99 line without changing default readability. */}
           <LegendToggle
             active={showMeanLine}
@@ -485,9 +508,60 @@ export default function PackValueHistoryChart({
         </div>
       </div>
 
-      <ChartFrame className={flush ? "mt-3 min-h-[24rem] w-full flex-1" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
+      {/* Below 1200px the inline end-of-series labels and the verbose legend
+          collapse into this single row, which is BOTH the series key and the
+          visibility control. The legend labels were never just labels — each
+          one is a real toggle (LegendToggle renders a <button> with
+          aria-pressed that gates whether the <Line> renders), so they could not
+          simply be deleted. Merging them here removes the duplicated reading
+          without removing the control: short label, latest value, one tap to
+          show or hide the series. A hidden series stays listed and dimmed so it
+          can always be turned back on. */}
+      {!isDesktopComposition ? (
+        <div
+          data-latest-values
+          role="group"
+          aria-label="Series visibility and latest values"
+          className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-[11px]"
+        >
+          {[
+            { key: "mean", short: "EV", show: showMeanLine, onToggle: () => setShowMeanLine((c) => !c), available: true, label: seriesLabels.mean, color: HISTORICAL_TREND_COLORS.meanToCost, ratio: chartData[latestDataIndex]?.meanCostRatio, dollars: chartData[latestDataIndex]?.meanValue },
+            { key: "median", short: "Typical", show: showMedianLine, onToggle: () => setShowMedianLine((c) => !c), available: true, label: seriesLabels.median, color: HISTORICAL_TREND_COLORS.medianToCost, ratio: chartData[latestDataIndex]?.medianCostRatio, dollars: chartData[latestDataIndex]?.medianValue },
+            { key: "p95", short: "Upside", show: showP95Line, onToggle: () => setShowP95Line((c) => !c), available: hasP95Data, label: seriesLabels.p95, color: HISTORICAL_TREND_COLORS.p95ToCost, ratio: chartData[latestDataIndex]?.p95CostRatio, dollars: chartData[latestDataIndex]?.p95Value },
+          ]
+            .filter((entry) => entry.available)
+            .map((entry) => (
+              <button
+                key={`latest-value:${entry.key}`}
+                type="button"
+                data-series-toggle={entry.key}
+                onClick={entry.onToggle}
+                aria-pressed={entry.show}
+                aria-label={`${entry.label}${entry.ratio === null || entry.ratio === undefined ? "" : `, ${formatRatio(entry.ratio)}`}`}
+                title={entry.label}
+                className={`inline-flex min-h-9 min-w-0 items-center gap-1.5 rounded-md px-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                  entry.show ? "" : "opacity-45"
+                }`}
+              >
+                <span className="inline-block h-0.5 w-3 flex-none rounded" style={{ backgroundColor: entry.color }} aria-hidden="true" />
+                <span aria-hidden="true" className="text-[var(--text-secondary)]">{entry.short}</span>
+                {entry.ratio === null || entry.ratio === undefined ? null : (
+                  <span aria-hidden="true" className="font-semibold tabular-nums text-[var(--text-primary)]">
+                    {formatRatio(entry.ratio)}
+                  </span>
+                )}
+              </button>
+            ))}
+        </div>
+      ) : null}
+
+      <ChartFrame className={flush ? "mt-3 min-h-[17rem] w-full flex-1 tab:min-h-[21rem] desk:min-h-[24rem]" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 10, right: 112, left: 6, bottom: 14 }}>
+          {/* The 112px right margin exists only to park the inline end-of-series
+              labels. Below desktop those move to the data-latest-values row, so
+              the plot gets that width back instead of spending a third of a
+              phone screen on empty gutter. */}
+          <LineChart data={chartData} margin={{ top: 10, right: isDesktopComposition ? 112 : 12, left: 6, bottom: isDesktopComposition ? 14 : 6 }}>
             <defs>
               <filter id={lineGlowFilterId} x="-10%" y="-16%" width="120%" height="132%">
                 <feGaussianBlur stdDeviation="1.6" />
@@ -517,7 +591,13 @@ export default function PackValueHistoryChart({
               width={60}
             />
 
-            <Tooltip content={<TrendTooltip packCost={packCost} variant={variant} />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
+            {/* See SetValueLineChart: tap on touch, hover on mouse, both at
+                every width. */}
+            <Tooltip
+              trigger={isCoarsePointer ? "click" : "hover"}
+              content={<TrendTooltip packCost={packCost} variant={variant} />}
+              cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }}
+            />
 
             <ReferenceLine
               y={1}
@@ -591,7 +671,7 @@ export default function PackValueHistoryChart({
                 strokeWidth={2.5}
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.p95ToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
-                  index === latestDataIndex
+                  index === latestDataIndex && isDesktopComposition
                     ? <RatioPointLabel x={x} y={y} value={value} dollarValue={chartData[index]?.p95Value} />
                     : null
                 }
@@ -610,7 +690,7 @@ export default function PackValueHistoryChart({
                 strokeWidth={2.5}
                 dot={{ r: 2.5, fill: HISTORICAL_TREND_COLORS.meanToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
-                  index === latestDataIndex
+                  index === latestDataIndex && isDesktopComposition
                     ? <RatioPointLabel x={x} y={y} value={value} dollarValue={chartData[index]?.meanValue} />
                     : null
                 }
@@ -629,7 +709,7 @@ export default function PackValueHistoryChart({
                 strokeWidth={2}
                 dot={{ r: 2, fill: HISTORICAL_TREND_COLORS.medianToCost, strokeWidth: 0 }}
                 label={({ x, y, value, index }) =>
-                  index === latestDataIndex
+                  index === latestDataIndex && isDesktopComposition
                     ? <RatioPointLabel x={x} y={y} value={value} dollarValue={chartData[index]?.medianValue} />
                     : null
                 }

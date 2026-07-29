@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/components/AuthContext";
+import { TCGS_NAV_HREF } from "@/lib/navigation/tcgsNav.mjs";
 
 function getCleanText(value) {
   if (typeof value !== "string") return null;
@@ -68,18 +69,14 @@ function navItemIcon(id, isActive) {
     );
   }
 
-  if (id === "tools") {
+  if (id === "tcgs") {
+    // Two offset card outlines. Same 24x24 grid, same h-5 w-5 box, same 1.85
+    // stroke weight and round caps/joins as every other icon here - the recipe
+    // is frozen, only the destination changed.
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-5 w-5 ${activeClass}`} fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 3.75v3" />
-        <path d="M12 17.25v3" />
-        <path d="M4.93 6.43 7.05 8.55" />
-        <path d="M16.95 18.45 19.07 20.57" />
-        <path d="M3.75 12h3" />
-        <path d="M17.25 12h3" />
-        <path d="M4.93 20.57 7.05 18.45" />
-        <path d="M16.95 8.55 19.07 6.43" />
-        <circle cx="12" cy="12" r="3.25" />
+        <rect x="3.25" y="6.5" width="11" height="14.5" rx="2" />
+        <path d="M8.4 4.1 17.9 3l1.6 13.4" />
       </svg>
     );
   }
@@ -119,16 +116,16 @@ export default function GlobalMobileBottomNav() {
         isActive: isPathMatch(normalizedPathname, ["/Explore", "/explore"], { caseInsensitive: true }),
       },
       {
+        id: "tcgs",
+        label: "TCGs",
+        href: TCGS_NAV_HREF,
+        isActive: isPathMatch(normalizedPathname, ["/TCGs"], { caseInsensitive: true }),
+      },
+      {
         id: "portfolio",
         label: "Portfolio",
         href: "/my-collection/collection",
         isActive: isPathMatch(normalizedPathname, ["/my-collection", "/my-portfolio", "/portfolio"], { caseInsensitive: true }),
-      },
-      {
-        id: "tools",
-        label: "Tools",
-        href: "/tools",
-        isActive: isPathMatch(normalizedPathname, ["/tools"], { caseInsensitive: true }),
       },
       {
         id: "profile",

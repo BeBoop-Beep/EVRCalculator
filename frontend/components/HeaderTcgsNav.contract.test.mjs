@@ -80,9 +80,10 @@ test("TCGs is active anywhere in the /TCGs route family and nowhere else", () =>
 });
 
 test("TCGs shares the primary nav typography, spacing and visible focus ring", () => {
-  // Explore, Tools and TCGs are one set of siblings built from one class recipe.
+  // Explore and TCGs are one set of siblings built from one class recipe.
+  // Tools was removed as a destination; the recipe itself is unchanged.
   const tabs = primaryNav.match(/\$\{navTabBase\} inline-flex items-center justify-center/g) || [];
-  assert.equal(tabs.length, 3, "Explore, Tools and TCGs must share the primary tab recipe");
+  assert.equal(tabs.length, 2, "Explore and TCGs must share the primary tab recipe");
   assert.ok(headerSource.includes("px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium"), "primary nav typography and spacing are unchanged");
   assert.ok(
     headerSource.includes("focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"),
@@ -90,9 +91,14 @@ test("TCGs shares the primary nav typography, spacing and visible focus ring", (
   );
 });
 
+test("Tools is gone from every header surface", () => {
+  assert.ok(!headerSource.includes('href="/tools"'), "no header link may point at /tools");
+  assert.ok(!headerSource.includes("isToolsRouteActive"), "the Tools active-route helper must be removed");
+  assert.ok(!/>\s*Tools\s*</.test(headerSource), "no header element may render the Tools label");
+});
+
 test("the other primary nav destinations are unchanged", () => {
   assert.ok(primaryNav.includes('href="/Explore"'));
-  assert.ok(primaryNav.includes('href="/tools"'));
   assert.ok(headerSource.includes('href="/my-portfolio"'));
   assert.ok(headerSource.includes('href="/my-portfolio/collection"'));
   assert.ok(headerSource.includes('href="/my-portfolio/wishlist"'));

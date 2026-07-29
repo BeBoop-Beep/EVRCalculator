@@ -39,6 +39,56 @@ const COLLECTION_TCG_OPTIONS = [
   { id: "Pokemon", label: "Pokemon" },
 ];
 
+// Correction 1: the Set Overview contract puts desktop at 1200px, but Tailwind's
+// `xl` is 1280px. Moving the whole scaffold would retune My Collection and the
+// public profile layouts, and leaving it alone would produce a mixed band from
+// 1200-1279px where the set page's inner content is desktop while this shell is
+// still mobile. So both recipes are written out in full and selected by prop.
+//   `xl`   - 1280px, the historical behaviour. Default for every consumer.
+//   `desk` - 1200px, opted into by RipStatisticsPageClient in setDetailMode.
+// Nothing here concatenates a variant prefix; Tailwind only emits classes it can
+// find as literal strings, so every string below is statically discoverable.
+const SCAFFOLD_BREAKPOINTS = {
+  xl: {
+    rootGrid: "xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start",
+    rootFlat: "relative xl:block",
+    asideBase: "hidden xl:block",
+    asideAbsolute: "xl:absolute xl:inset-y-0 xl:left-0 xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4",
+    asideStatic: "xl:self-stretch xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4",
+    desktopHeader: "mb-6 hidden xl:block",
+    toolsTrigger: "hidden lg:flex xl:hidden items-center mb-3",
+    bottomNavHidden: "xl:hidden",
+    toolsPanelHidden: "xl:hidden",
+    // Padding is longhand (px/py, not p-*) so it reliably beats the base
+    // sm:px-6. overflow-x-clip, not -hidden: `hidden` computes overflow-y:auto,
+    // which makes this a scroll container and breaks position:sticky for the
+    // set-level tabs inside it.
+    contentFramed:
+      "min-w-0 overflow-x-clip px-4 pt-3 tab:px-6 xl:overflow-x-visible xl:rounded-3xl xl:border xl:border-[var(--border-subtle)] xl:bg-[var(--surface-page)]/70 xl:px-4 xl:py-4 2xl:px-5 2xl:py-5",
+    contentFlat: "min-w-0 overflow-x-clip px-4 pt-3 tab:px-6 xl:overflow-x-visible xl:px-0 xl:pt-0",
+    // `max-*` variants are emitted before `sm:`/`lg:` in the stylesheet, so a
+    // `max-desk:space-y-0` here would lose to `sm:space-y-6` from 640px up.
+    // Each recipe therefore states its own spacing at its own boundary.
+    rootSpacing: "space-y-5 sm:space-y-6",
+  },
+  desk: {
+    rootGrid: "desk:grid desk:grid-cols-[260px_minmax(0,1fr)] desk:items-start",
+    rootFlat: "relative desk:block",
+    asideBase: "hidden desk:block",
+    asideAbsolute: "desk:absolute desk:inset-y-0 desk:left-0 desk:w-[260px] desk:min-w-[260px] desk:pl-6 desk:pr-4",
+    asideStatic: "desk:self-stretch desk:w-[260px] desk:min-w-[260px] desk:pl-6 desk:pr-4",
+    desktopHeader: "mb-6 hidden desk:block",
+    toolsTrigger: "hidden lg:flex desk:hidden items-center mb-3",
+    bottomNavHidden: "desk:hidden",
+    toolsPanelHidden: "desk:hidden",
+    contentFramed:
+      "min-w-0 overflow-x-clip px-4 pt-3 tab:px-6 desk:overflow-x-visible desk:rounded-3xl desk:border desk:border-[var(--border-subtle)] desk:bg-[var(--surface-page)]/70 desk:px-4 desk:py-4 2xl:px-5 2xl:py-5",
+    contentFlat: "min-w-0 overflow-x-clip px-4 pt-3 tab:px-6 desk:overflow-x-visible desk:px-0 desk:pt-0",
+    // No stacked gap below desktop — the set page owns its own section rhythm.
+    rootSpacing: "space-y-0 desk:space-y-6",
+  },
+};
+
 export default function PublicProfileLocalScaffold({
   profileBaseHref,
   desktopHeader = null,
@@ -65,7 +115,9 @@ export default function PublicProfileLocalScaffold({
   mobileBottomNavContent = null,
   mobileBottomNavVariant = "card",
   hideDesktopSidebar = false,
+  desktopBreakpoint = "xl",
 }) {
+  const breakpoint = SCAFFOLD_BREAKPOINTS[desktopBreakpoint] || SCAFFOLD_BREAKPOINTS.xl;
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -171,6 +223,19 @@ export default function PublicProfileLocalScaffold({
       ? pathname === item.href
       : pathname === item.href || pathname?.startsWith(`${item.href}/`);
 
+  // Resolve first, then decide. A render function that returns null (the set
+  // page does exactly this) used to still get an empty page-sticky-bar wrapper
+  // with mb-2 px-3 py-2, which is the blank band under the global header.
+  const resolvedBottomNavContent = mobileBottomNavContent
+    ? (typeof mobileBottomNavContent === "function" ? mobileBottomNavContent() : mobileBottomNavContent)
+    : null;
+  const hasResolvedBottomNavContent =
+    resolvedBottomNavContent !== null &&
+    resolvedBottomNavContent !== undefined &&
+    resolvedBottomNavContent !== false;
+  const shouldRenderBottomNav =
+    !hideBottomNav && (hasResolvedBottomNavContent || (!mobileBottomNavContent && mobileNavItems.length > 0));
+
   const isCollectionSection = pathname === collectionHref || pathname?.startsWith(`${collectionHref}/`);
   const hasCustomSidebar = desktopSidebarContent !== null;
   const hasCustomToolsPanel = mobileToolsPanelContent !== null;
@@ -178,14 +243,20 @@ export default function PublicProfileLocalScaffold({
   const desktopSidebarVisibilityClass = forceCompactToolsBelow2xl
     ? "xl:!hidden 2xl:!block"
     : desktopSidebarClassName;
-  const mobileToolsPanelVisibilityClass = forceCompactToolsBelow2xl ? "2xl:hidden" : "xl:hidden";
+  const mobileToolsPanelVisibilityClass = forceCompactToolsBelow2xl ? "2xl:hidden" : breakpoint.toolsPanelHidden;
   const floatingToolsContainerClass = floatingToolsContainerClassName
     || (forceCompactToolsBelow2xl
       ? "2xl:hidden"
-      : (useFloatingToolsOnTablet ? "xl:hidden" : "lg:hidden"));
+      : (useFloatingToolsOnTablet ? breakpoint.bottomNavHidden : "lg:hidden"));
   const mobileBottomNavClassName = mobileBottomNavVariant === "flat"
-    ? "xl:hidden page-sticky-bar z-30 mb-2 w-full max-w-full overflow-x-auto bg-[var(--surface-page)]/92 px-3 py-2 backdrop-blur sm:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    : "xl:hidden page-sticky-bar z-30 mx-3 mb-2 overflow-x-auto max-w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/92 px-2 py-2 backdrop-blur sm:mx-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+    ? `${breakpoint.bottomNavHidden} page-sticky-bar z-30 mb-2 w-full max-w-full overflow-x-auto bg-[var(--surface-page)]/92 px-3 py-2 backdrop-blur sm:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`
+    : `${breakpoint.bottomNavHidden} page-sticky-bar z-30 mx-3 mb-2 overflow-x-auto max-w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)]/92 px-2 py-2 backdrop-blur sm:mx-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`;
+
+  // One mount, two presentations. Responsive presentation now comes from this
+  // one wrapper's classes instead of from two hidden copies of the tree.
+  const contentWrapperClassName = wrapDesktopContentInFrame
+    ? breakpoint.contentFramed
+    : breakpoint.contentFlat;
 
   const localToolState = useMemo(() => ({
     q: searchParams.get("q") || "",
@@ -245,17 +316,11 @@ export default function PublicProfileLocalScaffold({
   };
 
   const handleOpenCollectionTools = () => {
-    if (hasCustomToolsPanel) {
-      setIsToolsOpen((open) => !open);
-      return;
-    }
-
-    if (isCollectionSection) {
-      setIsToolsOpen((open) => !open);
-      return;
-    }
-
-    router.push(`${collectionHref}?tools=1`, { scroll: false });
+    // The button only renders when a panel exists (isToolsFeatureEnabled), so
+    // there is nothing left to fall through to. The old else-branch pushed the
+    // user to `${collectionHref}?tools=1`, which on the set page navigated them
+    // off the page they were reading.
+    setIsToolsOpen((open) => !open);
   };
 
   const renderCollectionTools = (variant = "desktop") => {
@@ -399,12 +464,12 @@ export default function PublicProfileLocalScaffold({
   };
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className={hideDesktopSidebar || centerContentIgnoringSidebar ? "relative xl:block" : "xl:grid xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start"}>
+    <div className={breakpoint.rootSpacing}>
+      <div className={hideDesktopSidebar || centerContentIgnoringSidebar ? breakpoint.rootFlat : breakpoint.rootGrid}>
         {!hideDesktopSidebar ? <aside
           className={centerContentIgnoringSidebar
-            ? `hidden xl:block xl:absolute xl:inset-y-0 xl:left-0 xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4 ${desktopSidebarVisibilityClass}`
-            : `hidden xl:block xl:self-stretch xl:w-[260px] xl:min-w-[260px] xl:pl-6 xl:pr-4 ${desktopSidebarVisibilityClass}`}
+            ? `${breakpoint.asideBase} ${breakpoint.asideAbsolute} ${desktopSidebarVisibilityClass}`
+            : `${breakpoint.asideBase} ${breakpoint.asideStatic} ${desktopSidebarVisibilityClass}`}
         >
           {hasCustomSidebar ? (
             <div className="sticky top-[calc(var(--app-header-offset,4rem)+2rem)]">{desktopSidebarContent}</div>
@@ -448,16 +513,8 @@ export default function PublicProfileLocalScaffold({
 
         <div className={`min-w-0 pb-4 lg:pb-0 ${desktopContentOffsetClassName}`}>
           <div className={contentShellClassName}>
-            {wrapDesktopContentInFrame ? (
-              <div className="hidden xl:block xl:rounded-3xl xl:border xl:border-[var(--border-subtle)] xl:bg-[var(--surface-page)]/70 xl:p-4 2xl:p-5">
-                {desktopHeader ? <div className="mb-6">{desktopHeader}</div> : null}
-                {children}
-              </div>
-            ) : (
-              <div className="hidden xl:block">{children}</div>
-            )}
             {isToolsFeatureEnabled && !useFloatingToolsOnTablet ? (
-              <div className="hidden lg:flex xl:hidden items-center mb-3">
+              <div className={breakpoint.toolsTrigger}>
                 <button
                   type="button"
                   onClick={() => setIsToolsOpen((open) => !open)}
@@ -474,15 +531,13 @@ export default function PublicProfileLocalScaffold({
                 </button>
               </div>
             ) : null}
-            {!hideBottomNav ? (
+            {shouldRenderBottomNav ? (
               <nav
                 aria-label={mode === "owner" ? "Owner collection section navigation" : "Profile section navigation"}
                 className={mobileBottomNavClassName}
               >
-                {mobileBottomNavContent ? (
-                  typeof mobileBottomNavContent === "function"
-                    ? mobileBottomNavContent()
-                    : mobileBottomNavContent
+                {hasResolvedBottomNavContent ? (
+                  resolvedBottomNavContent
                 ) : (
                   <div className="flex min-w-max gap-2 pr-1">
                     {mobileNavItems.map((item) => {
@@ -510,7 +565,14 @@ export default function PublicProfileLocalScaffold({
                 )}
               </nav>
             ) : null}
-            <div className="px-3 pt-3 xl:hidden overflow-x-hidden min-w-0 sm:px-6">{children}</div>
+            {/* The header sits inside the wrapper so the framed consumers
+                (/u/[username]) keep it within the bordered desktop frame, where
+                it has always been. It carries its own desktop-only visibility
+                now that the wrapper itself is no longer desktop-only. */}
+            <div className={contentWrapperClassName}>
+              {desktopHeader ? <div className={breakpoint.desktopHeader}>{desktopHeader}</div> : null}
+              {children}
+            </div>
           </div>
         </div>
       </div>
@@ -557,6 +619,10 @@ export default function PublicProfileLocalScaffold({
         </div>
       ) : null}
 
+      {/* The floating trigger only makes sense where a tools panel exists. On the
+          set page there is none, so it used to render an inert green circle that
+          navigated the user away and sat in the focus order for nothing. */}
+      {isToolsFeatureEnabled ? (
       <div className={floatingToolsContainerClass}>
         <button
           type="button"
@@ -576,6 +642,7 @@ export default function PublicProfileLocalScaffold({
         </button>
 
       </div>
+      ) : null}
     </div>
   );
 }
